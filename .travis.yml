@@ -1,0 +1,79 @@
+language: c
+dist: trusty
+sudo: false
+
+matrix:
+  include:
+   # Linux GCC Builds
+    - os: linux
+      compiler: gcc
+      addons: &gcc7
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-7', 'gcc-7','libxmu-dev']
+      env: GCCVER='7' CXX_COMPILER='g++-7' C_COMPILER='gcc-7'
+
+    # 4/ OSX GCC Builds
+    - os: osx
+      osx_image: xcode8.3
+      compiler: gcc
+      env: GCCVER='7' CXX_COMPILER='g++-7' C_COMPILER='gcc-7'
+
+before_script:
+## OSX
+  - cd ${TRAVIS_BUILD_DIR} 
+  - export CXX=${CXX_COMPILER}
+  - export CC=${C_COMPILER}
+  - export ACEDB_MACHINE=LINUX_4_OPT
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then rm /usr/local/include/c++         ; fi
+#  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update    ; fi  
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gcc    ; fi  
+  - wget --progress=dot:mega https://gmplib.org/download/gmp/gmp-6.1.2.tar.bz2 ; tar xjf gmp-6.1.2.tar.bz2 ; cd gmp-6.1.2 ; ./configure --enable-cxx --prefix=$(pwd)/../usr/local ; make -j ; make install ; cd .. ;    
+  - wget --progress=dot:mega https://github.com/libexpat/libexpat/archive/R_2_2_4.tar.gz ; tar xzf R_2_2_4.tar.gz ; cd libexpat-R_2_2_4/expat/ ; ./buildconf.sh ; ./configure --prefix=$(pwd)/../../usr/local --without-xmlwf ; make -j ; make install ; cd ../.. ;     
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export TARGETBRANCH=osx ; fi
+  # linux only
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export AR=gcc-ar-${GCCVER} ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export RANLIB=gcc-ranlib-${GCCVER} ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export NM=gcc-nm-${GCCVER} ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then export TARGETBRANCH=gh-pages ; fi
+
+
+script :
+  - make -k all
+  - make tace
+  - mkdir website
+  - touch website/hello.html
+  - cp bin/* website/
+#  - mkdir usr && mkdir usr/local
+#  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget --progress=dot:mega https://lip6.github.io/libDDD/linux.tgz ; tar xzf linux.tgz ; fi
+#  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget --progress=dot:mega https://github.com/lip6/libDDD/raw/osx/osx.tgz ; tar xzf osx.tgz ; fi
+#  my configurte using the libs and deps installed above in $pwd/usr/local
+#  - ./configure --enable-nolto --prefix=$PWD/usr/local/  --with-libexpat=$PWD/usr/local/  --with-gmp=$PWD/usr/local/ --with-antlrc=$PWD/usr/local/   --with-antlrjar=$PWD/usr/local/lib/antlr-3.4-complete.jar CPPFLAGS="-I$(pwd)/usr/local/include" LDFLAGS="-L$(pwd)/usr/local/lib" || cat config.log ; 
+#  - ( rc=0 ; for TEST in *.data ; do travis_wait ./run_test.pl $TEST || rc=$? ; done; exit $rc) 
+
+# - cd ..
+#  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then strip bin/its-reach ; fi
+  # linux only
+#  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then strip -s bin/its-reach ; fi
+#  - cp bin/its-reach website/its-reach
+# linux only
+#  - make install
+#  - tar cvzf $TRAVIS_OS_NAME.tgz usr/
+# - mv $TRAVIS_OS_NAME.tgz website/
+#  - make dist
+#  - mv its*.tar.gz website/
+
+
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN # Set in travis-ci.org dashboard
+  local_dir: website/
+  target_branch: $TARGETBRANCH
+  on:
+    branch: master
+
+#after_deploy:
+#  - curl -s -X POST -H "Content-Type:application/json" -H "Accept:application/json"   -H "Travis-API-Version:3" -H "Authorization:token $APITOKEN" -d '{"request":{"message":"Triggered by LibITS build.","branch":"master"}}' https://api.travis-ci.org/repo/lip6%2FITS-CTL/requests
+
+    
