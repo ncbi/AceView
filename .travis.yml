@@ -24,8 +24,8 @@ before_script:
   - cd ${TRAVIS_BUILD_DIR} 
   - export CC=${C_COMPILER}
   - export ACEDB_MACHINE=LINUX_4_OPT
-#  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update    ; fi  
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gcc    ; fi  
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then export ACEDB_MACHINE=MAC_X_64_OPT   ; fi  
+#  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install gcc    ; fi  
 # an example library (here libgmp) that is downloaded, configure + make + installed.
 #  - wget --progress=dot:mega https://gmplib.org/download/gmp/gmp-6.1.2.tar.bz2 ; tar xjf gmp-6.1.2.tar.bz2 ; cd gmp-6.1.2 ; ./configure --enable-cxx --prefix=$(pwd)/../usr/local ; make -j ; make install ; cd .. ;      
   # linux only
