@@ -1,0 +1,20 @@
+// constraints.wrm
+//  $Id: constraints.wrm,v 1.1.1.1 2002/07/19 20:23:36 sienkiew Exp $
+
+// A constraint given on a class will be checked
+// before saving an object while parsing an ace file
+// if an object does not satisfy the constraint,
+// you will get a parse error
+
+// Example
+
+// Class Paper
+// Constraints "Year:1"
+
+// this will imply that you cannot edit a paper
+// that does not have a Year value, 
+//  i.e. field 1 right of Year must be non void
+
+// any acedb query LOCAL to a single object is valid
+//    don t use: FIND or FOLLOW constructions
+

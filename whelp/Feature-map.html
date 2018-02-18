@@ -1,0 +1,146 @@
+<!--  @(#)Feature-map.html	1.2  2/17/95  >
+<head>
+<title>Feature-map</title>
+</head>
+
+<h2>Feature-map</h2>
+
+[see also Help for <A HREF="DNA_analysis.html">DNA Analysis
+window</a>]<p>
+
+<strong><b>The cDNA  Acembly package has been substantially optimized for assembling cDNA on the genomic sequence with intron/exon behavior. see<a href="cDNA_Gene_map.html">Bly for cDNA</a></b></strong>
+<p>
+
+This display represents the the sequence.  You can pick most
+things.<p>
+
+
+
+<h3>Display Control Button</h3>
+
+This gives access to a menu of display options.  All the options can
+be toggled by picking on them.  e.g. select "DNA Sequence" to see the
+DNA. Note that, to see the DNA, you should zoom in quite a lot.
+Otherwise the bits of sequence ends with ... on each line.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print Screen</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+<li><strong>Print Screen</strong>:
+
+<li><strong>Preserve</strong>: insure that the next gmap will be
+displayed in a different window, otherwise the present one will be
+reused.
+
+    
+<li><strong>Recalculate</strong>:
+    
+<li><strong>Hide Header</strong>: Hides the buttons etc, useful before
+printing. The pop up menu remains available to toggle back.
+
+
+<li><strong>Export Sequence</strong>: Export the active DNA zone in
+fasta format.
+
+
+<li><strong>Export features</strong>: Export the translation of the
+active gene as an Ascii file in Fasta format
+
+<li><strong>Export translations</strong>: Export the translation of
+all the genes of the active map in a single file in Fasta format
+
+
+
+
+
+<li><strong>Analysis window</strong>: opens a new window called <A
+HREF="DNA_analysis.html">DNA Analysis</a> with its own help entry.
+
+</ul>
+
+<h3>Top Line</h3>
+
+The last sequence you touched is the Selected fMap, this shows in red
+in the top left corner. This is the sequence used by dna analysis and
+gels. You can have several sequence on the screen if you use the
+Preserve option in the menu.<p>
+
+<h3>Zooming</h3>
+
+The Zooming works as in the genetic map. It is controlled by the 3
+buttons, whole (for when you are lost!), zoom in, zoom out, and the
+middle mouse button: to recentre slowly if the mouse is right of the
+scale bar, or recenter fast and zoom continuously by dragging the mid
+button starting left of the scale bar.<p>
+
+
+<h3>Active-Zone and Origin</h3>
+
+You can reset the origin by picking the origin value box, typing a
+number and RETURN. Alternatively, pick the Origin button then a
+gene.<p>
+
+The active zone, indicated in the same coordinate system limits the
+scope of the Anaylsis window, Genefinder, Fasta Dumps etc.  It then
+shows as blue Shutter on the left side of the yellow bar.<p>
+
+<h3>Clear</h3>
+
+Clears the colourings, genefinder selections etc.<p>
+
+<h3>Reverse-Complement</h3>
+
+Pick it with the left button to reverse complement the sequence.  But
+if you press the right mouse button, you get a sub-menu that lets you
+independently complement or reverse the sequence. This may be useful
+to compare the features of both strands. On the top right corner of
+the window, the staus REVERSED or COMPLEMENT is recalled.<p>
+
+
+Introns-exons are shown as rectangular boxes (the exons) connected by
+springs, the introns. The one on the right go downwards, the one on
+the left of the scale go upwards, i.e. they belong to the other
+strand. They correspond to the negative reading frames of the analysis
+menu.<p>
+
+Picking the subsequences move you to their text value.<p>
+
+Picking the clone box which may occur at the top will move you to
+the physical map.<p>
+
+In the case of cDna you will get a text hybridize to Yacs...,
+picking one of these yacs will put you on the physical map.<p>
+<h3>Genefinder</h3>
+
+Much of the functionality of Phil Green's genefinder package is built
+into ACEDB.  A reference is given when you first use the package.  To
+access genefinder functions, use the right mouse button on the
+indicated box to get at the submenu.  You must get "Genefinder
+features" first.  Then "Autofind Gene" will act in the current active
+zone.  It will attempt to find the best predicted gene including all
+features currently selected (indicated in LIGHTGREEN).  If you have
+write access it will create a working gene model, called "Temp_gene".
+Selected features can be hand-edited by using the submenu attached to
+each feature.  "Fix temp_gene" allows you to make temp_gene into a
+permanently stored gene prediction.  "Gene -&gt; selected" allows you
+to set the selected features from a previously determined gene.
+"Selected -&gt; temp_gene" lets you convert the currently selected
+features into a gene structure.  One common cause of problems is that
+some features are selected somewhere else in the sequence (perhaps the
+other strand!) -- use the "Clear" button to reset everything.<p>
+
+Genefinder uses tables of codons frequencies etc which are part of the
+acedb distribution in the wgf subdirectory. The environment variable
+GF_TABLES will overide the $ACEDB/wgf default and let you use your own
+tables.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

@@ -1,0 +1,10 @@
+#!/bin/csh
+
+/* @(#)efetch.gcg	1.1    6/15/95 */
+
+#echo "Using GCG's" $GCGUTILDIR/fetch
+
+#set noglob
+#$GCGUTILDIR/fetch -ref -out=fetch.tmp $1
+rsh vega gcg; $GCGUTILDIR/fetch -ref -out=fetch.tmp $1 ; cat fetch.tmp ; \
+	\rm fetch.tmp

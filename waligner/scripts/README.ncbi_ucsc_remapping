@@ -1,0 +1,44 @@
+
+
+## export the first 50 bp of each sequence
+
+gunzip -c hg19.*.gz | dna2dna -I fasta -O raw -rightClipAt 50 -keepName | gawk '{print $2 "\t" $1}' | sort > UCSC/hg19.raw
+gunzip -c ../TARGET/Targets/hs.genome.fasta.gz | dna2dna -I fasta -O raw -rightClipAt 50 -keepName | gawk '{print $2 "\t" $1}' | sort > NCBI/37.raw
+
+## compare
+
+ cat NCBI/37.raw UCSC/hg19.raw | sort -k 2 | grep -v hap | grep -v nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn | gawk '{if ($2 != old)printf("\n") ; old=$2; printf(" %s ", $1);}' | sort | gawk '{if ($1 !=17) {n++;printf ("%d\t%s\t%s\n",n,$1,$2);}}' > map1.txt
+
+cat map1.txt | gawk '/chrUn/{if($2)printf ("gunzip -c hg19.genome.chrUn.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o UCSC/CC/cc.%d &\n",$3,$1) ;} ' > map2a
+cat map1.txt | gawk '/random/{if($2)printf ("gunzip -c hg19.genome.random.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o UCSC/CC/cc.%d &\n",$3,$1) ;} ' >> map2a
+
+cat map1.txt | gawk '{if($3)printf ("gunzip -c  ../TARGET/Targets/hs.genome.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o NCBI/CC/cc.%d &\n",$2,$1) ;} ' > map2b
+
+
+foreach ff (`ls UCSC/CC`)
+  echo $ff >> tutu.txt
+  diff UCSC/CC/$ff NCBI/CC/$ff >> tutu.txt
+end
+
+
+
+## verif the main chromosomes
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  dna2dna -i hg19.genome.main_chromosomes.fasta.gz -I fasta -get chr$chrom -O fasta -maxLineLn 60 -o UCSC/CHROMS/$chrom &
+end
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  dna2dna -i  ../TARGET/Targets/hs.genome.fasta.gz -I fasta -get $chrom -O fasta -maxLineLn 60 -o NCBI/CHROMS/$chrom &
+end
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  wc UCSC/CHROMS/$chrom.fasta  NCBI/CHROMS/$chrom.fasta | tee -a wc.txt1
+end
+
+
+echo "NCBI\tUCSC\tGenome name equivalences" >  genome.NCBI_UCSC_alias.txt
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  echo "$chrom\tchr$chrom" >> genome.NCBI_UCSC_alias.txt
+end
+cat map1.txt | gawk '{printf("%s\t%s\n",$2,$3);}' >> genome.NCBI_UCSC_alias.txt

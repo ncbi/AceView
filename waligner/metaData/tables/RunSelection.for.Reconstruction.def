@@ -1,0 +1,176 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2014-07-29_21:06:57
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title Analysis of RunMasterDB for run selection: 1- stranded with >= 100 bp aligned
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Ali 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Ali 
+Condition IS Rrn*
+ 
+Colonne 2 
+Subtitle Column #2 
+Width 12 
+Optional 
+Hidden 
+Show_Tag 
+From 1 
+Tag stranding
+ 
+Colonne 3 
+Subtitle Column #3 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+Right_of 2 
+Tag stranding
+Condition IS KT_RefSeq*
+ 
+Colonne 4 
+Subtitle stranding 
+Legend add condition for stranded: %4 < 10 OR %4 > 90 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag  HERE 
+ 
+Colonne 5 
+Subtitle letter profile: paired ends or not 
+Width 12 
+Mandatory 
+Visible 
+Text 
+From 1 
+Tag Letter_profile
+ 
+Colonne 6 
+Subtitle Run 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+From 1 
+Tag Run
+ 
+Colonne 7 
+Subtitle Run title 
+Width 40 
+Optional 
+Visible 
+Class 
+Class Text 
+From 6 
+Tag Title
+ 
+Colonne 8 
+Subtitle Column #8 
+Legend make mandatory to select runs 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 1 
+Tag h_Ali
+Condition IS any
+ 
+Colonne 9 
+Subtitle sequences aligned 
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 8 
+Tag  HERE 
+ 
+Colonne 10 
+Subtitle Column #10 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 9 
+Tag  HERE 
+ 
+Colonne 11 
+Subtitle reads aligned 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+Colonne 12 
+Width 12 
+Optional 
+Visible 
+Text 
+Right_of 11 
+Tag  HERE 
+ 
+Colonne 13 
+Subtitle kb aligned 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 12 
+Tag  HERE 
+ 
+Colonne 14 
+Subtitle Column #14 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 13 
+Tag  HERE 
+ 
+Colonne 15 
+Subtitle average length aligned per read (bp) 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 14 
+Tag  HERE 
+ 
+Colonne 16 
+Subtitle Column #16 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 15 
+Tag  HERE 
+ 
+Colonne 17 
+Subtitle first line of file 
+Width 12 
+Optional 
+Visible 
+Text 
+From 6 
+Tag First_line
+ 
+ 
+
+// End of these definitions

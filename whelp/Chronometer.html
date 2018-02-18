@@ -1,0 +1,36 @@
+<!--  @(#)Chronometer.html	1.2  2/17/95  >
+<head>
+<title>Chronometer</title>
+</head>
+
+<h2>Chronometer</h2>
+
+  
+
+An integrated profiler. The profiler runs only if the code is compiled
+with the option -DCHRONO (see wmake/truemake) and only profiles those
+functions which include a balanced pair of calls<p>
+
+<pre>
+chronoStart("Function name") ; chronoReturn() ;
+</pre>
+
+To use, open Chronometer from the main menu and pick
+<strong>Start</strong> from the chrono menu.<p>
+
+Then do whatever you want, i.e. parse a file, maybe intersperse your
+work with other commands.  Select <strong>Stop</strong> from the
+chrono menu when you are done, then pick <strong>Show</strong>.<p>
+
+<strong>Print</strong> will copy the content of the chrono window to
+./PS/chronometer#.PS or simply ./chronometer#.PS if you do not have a
+PS subdirectory in your current directory.<p>
+
+The output is in PostScript.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+
+last edited: July 1994<p>
+
+

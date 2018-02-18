@@ -1,0 +1,282 @@
+***********************************************************
+***********************************************************
+
+INSTALLATION of the Acedb-server
+
+July 18, 1995 (revised dec 98)
+SCCS: $Id: SERVER.INSTALLATION,v 1.1.1.1 2002/07/19 20:23:32 sienkiew Exp $
+
+This documentation was written by
+dbigwood@locus.nalusda.gov
+mieg@kaa.crbm.cnrs-mop.fr
+jbarnett@nalusda.gov
+
+For more information you can try:
+http://probe.nalusda.gov:8000/acedocs
+hhtp://alpha.crbm.cnrs-mop.fr
+
+***********************************************************
+
+Usage, in foreground mode:
+
+    aceserver database_path -port decimal_port_number \
+	-time_out client_time_out_in_seconds \
+	-server_time_out server_time_out_in_seconds
+
+ATTENTION, to run as a daemon, the code must be aliased as
+  rpc.xxx 
+
+***********************************************************
+
+A: Create a database:
+
+1) First of all create a directory <database> which must at least 
+contain a subdirectory database and a subdirectory wspec, and
+fill up the wspec directory, for example with a copy of the
+c.elegans wspec.
+
+2) Then run tace in this directory to initialise and fill the
+database with some data.
+
+3) Create a world readable 777 directory (for example /home/acelock)
+and edit accordingly the self-documented file wspec/server.wrm
+This file is necessary during client authentification.
+
+You can now start the server.
+
+***********************************************************
+***********************************************************
+
+B: Start the server or alternativelly register it
+
+B1: Running in foreground:
+
+The port number is not necessary in foreground mode and the various
+time-outs default to 10 minutes which is probably reasonable. Hence
+you may start the server on the machine <host> with the simplified
+command:
+ 
+ aceserver <database>
+
+or equivalently:
+
+ setenv ACEDB <database> ; aceserver
+
+Where <database can be . (here), a relative or an absolute path.
+You then start the client anywhere on the network with the command:
+
+ aceclient -access_info <host>
+
+the -access_info option will report eventual problems with the
+connection or the configuration of the file wspec/server.wrm
+
+***********************************************************
+
+B2: Registering the server as a service:
+
+You need root access.
+
+1) Create a user account for the user that will run the program
+   (in the following examples, 'aceserv')
+
+2) Link the aceserver executable in /usr/local/bin as rpc.acedbd
+The user created in step 1. must have execute permission on rpc.acedbd.
+
+cd /usr/local/bin ; ln -s <full_path_to/aceserver> rpc.acedbd
+
+3) Register your database, port, and program in /etc/rpc
+
+     Examples:
+        acedb    20000114	rpc.acedbd
+        aboutdb  20000115	rpc.acedbd
+        aatdb    20000116	rpc.acedbd
+
+ You need one RPC port number (RPCPN) for each database you want to run.
+
+3) At least on Solaris, register your database in /etc/services
+
+     Examples:
+        acedb    20000114/tcp	rpc.acedbd
+        aboutdb  20000115/tcp	rpc.acedbd
+        aatdb    20000116/tcp	rpc.acedbd
+
+ You need one RPC port number (RPCPN) for each database you want to run.
+
+5) In /etc/inetd.conf add a line for each server. The format is:
+
+    <databasename>/<version> stream rpc/tcp wait <user> <path> 
+              rpc.acedbd <DB_path> <port> <cto>:<sto>:<chunk>
+
+     Where:
+
+         <databasename> is the datbase name (port number on solaris) as entered in /etc/rpc
+         <version> currently 1
+         <user> the username created in step 1
+         <path> the full path to the executable (or to the link)
+         <DB_path> the full path to the database
+         <port> the same port as was entered in /etc/rpc
+         <cto> Client timeout. Time that a connection with an inactive  client is kept open
+         <sto> Server timeout. Time that the server stays alive, when no client connections are active
+         <chunk> Maximum chunk size sent by server to client in kilobytes (0 means no limit)
+
+     Examples:
+         acedb/1 stream  rpc/tcp wait aceserv /usr/local/bin/rpc.acedbd rpc.acedbd /acedb/worm 20000114 600:600:0
+         aboutdb/1 stream  rpc/tcp wait aceserv /usr/local/bin/rpc.acedbd rpc.acedbd /acedb/aboutdb 20000115 600:600:0
+         aatdb/1 stream  rpc/tcp wait aceserv /usr/local/bin/rpc.acedbd rpc.acedbd /acedb/aatdb 20000116 600:600:0
+
+     On solaris use the port number:
+         20000114/1 stream  rpc/tcp wait aceserv /usr/local/bin/rpc.acedbd rpc.acedbd /acedb/worm 20000114 600:600:0
+
+6) Restart portmap then inetd by sending HANGUP signal to both of
+them , e.g. 'kill -HUP ' where PID is the 
+process id of portmap then inetd. (or reboot your machine).
+
+     If an aceclient is started to connect to your server machine with a
+     port from the one's you created, the corresponding server will be
+     started, and stay alive as long as there are active clients. If all
+     clients are disconnected and the server timeout has elapsed, the server
+     will shut itself down. A timeout = 0 (as set on the command line) will
+     prevent shutdown (but this is not advisable). The default timeout is
+     600 seconds.
+
+***********************************************************
+***********************************************************
+
+C: Running the client
+
+C1: C-aceclient
+
+Usage: aceclient <host> [-port <RPCN>] [-time_out <nn>] [-ace_out] [-ace_in] [-f file_name parms]
+
+host: is a machine where the server runs or is a registered service.
+RPCN: is the /etc/rpc program number of the service described in section B2.
+nn: is a number of seconds to receive a server answer, it defaults to 300.
+-ace_out: implies a clean output: .ace files or clean tables
+-ace_in: if the input to the client is an ace file to be parsed by the server.
+-f filename: say for mailing, a command file which is echoed on stdout except
+ that %1 %2 ... %9 will be macro substituted by the parms parameters and
+ that the construction %(xxx) where xxx is a client command will be evaluated
+
+C2: Perl-client
+
+You are encourage to down load and use the AcePerl module and AceBrowser
+available, with their documentation at http://stein.cshl.org
+
+The installation is detailled in the README of AcePerl but boils down to
+   
+can write a perl client by including the perl access routines that we provide
+in your code. The ace command show -perl will then export the ace object as
+tree-like Perl5 constructs. 
+  perl Makefile.PL     # to create a makefiel adapted to your machine
+  make                 # to compile AcePerl
+  make test            #runs a test suite agains the ce.elegans server 
+  make install         # you need to be root, transfers AcePerl to /usr/local..
+
+
+The core functionality of the AcePerl is encapsulated in the following subroutine. 
+This is all that is required to retrieve an Ace object
+and turn it into a browsable HTML page: 
+
+ sub display_object {
+   my ($name,$class) = @_;
+   my $obj = $DB->fetch($class,$name) || die "Couldn't find $name";
+   print
+     start_html(-title=>"$class: $obj"),
+     h1("$class: $obj"),
+     $obj->asHTML,
+     hr,
+     address(a{href=>'mailto:lstein@cshl.org'},'Lincoln D. Stein'),
+     end_html;           
+ }
+
+To see the  full documentation, after installation, type the command
+
+perldoc Ace   | lpr 
+
+C3: Webace, Webace, the former PerlInterface to acedb is now considered obsolete
+
+***********************************************************
+***********************************************************
+** TROUBLE SHOOTING GUIDE
+
+There are several problems with rpc on several machines
+when the code is registered under inetd
+
+
+The system is known to run very well on
+  dec alpha 
+  linux
+  sun (not tested for several years)
+  solaris (using the patch at compile time given below)
+
+On sgi: it may depend on the exact os versio, try to recompile
+
+It is not guaranteed on other unix platforms
+if you have the occasion of testing another machine, let me know.
+Acedb should compile and run on any unix platform and, except for inetd
+registration, has been tested at least on 
+ ibm, hp, fujitsu, nec, and convex
+  
+------------------------------------------------------------
+
+An rpc registration problem is characterized as follows
+ tace works (stand alone acedb)
+   otherwise, you probably need to edit the wspec directory
+ aceserver started in foreground accepts conection from aceclient
+   otherwise, you probably need to edit wspec/server.wrm and check
+   user ids and file ownerships 
+ however, you do not connect to the server declared in inetd.conf
+
+1) Double check /etc/inetd.conf, /etc/rpc /etc/services
+
+2) try the server in foreground by doinga copy paste of the inet.conf line
+in this way you may detect a typo
+
+3) HUP again portmap and inetd
+
+4) reboot, because  HUPing the inet daemon may have caused a problem
+
+5) try to recompile (make aceserver gifaceserver)
+
+6) contact mieg@srbm.cnrs-mop.fr for help
+
+**************
+
+Known SOLARIS bug:
+
+ON solaris 5.5, the server does not connect when registered with inetd
+this is due apparently to a bug in rpcgen
+
+Symptom:
+if you start the server in foreground:
+rpc.acedbd $ACEDB 600:600:0
+
+all works ok and the client works
+
+but started by inetd, the server can be seena s running:
+ps -elf | grep ace
+but you cannot connect with the client
+
+To fix this:
+
+setenv ACEDB_MACHINE SOLARIS_4_OPT
+make aceserver gifaceserver
+cd bin.SOLARIS_4_OPT
+\rm -f  rpcace_svc.c
+\cp ../wrpc/rpcace_svc.crick rpcace_svc.c
+touch rpcace_svc.c
+\rm aceserver gifaceserver rpcace_sp.o
+cd ..
+make aceserver gifaceserver
+
+------------------------------------
+
+The solaris problem is the following
+rpcace_svc.c is a c code automatically generated by rpcgen
+this code is bugged
+rpcace_svc.crick is a version that was generated under solaris.5.5.1
+
+rpcace_svc.c is actually included in rpcace_sp.c at compile time
+this is why you must \rm rpcace_sp.o, then force recompilation
+
+***************************

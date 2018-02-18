@@ -1,0 +1,13 @@
+#!/bin/csh -f
+set r=_r
+if ($1 != "") set r=$1
+if (-e $r) \rm $r
+touch $r
+foreach ff (`ls *.ace`)
+echo "pparse $ff" >> $r
+end
+foreach ff (`ls *.ace.gz`)
+echo "pparse $ff" >> $r
+end
+echo save >> $r
+echo quit >> $r

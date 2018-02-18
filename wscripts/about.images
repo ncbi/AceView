@@ -1,0 +1,55 @@
+From mccarthy@ux5.lbl.gov Tue Sep 21 00:12:42 1993
+Return-Path: <mccarthy@ux5.lbl.gov>
+Received: from lirmm.lirmm.fr by kaa.cnrs-mop.fr (4.1/SMI-4.1)
+	id AA17257; Tue, 21 Sep 93 00:12:40 +0100
+Received: from genome.lbl.gov by lirmm.lirmm.fr, Tue, 21 Sep 1993 00:27:18 +0200
+Received: from ux5.lbl.gov by genome.lbl.gov (4.1/1.39)
+	id AA22096; Mon, 20 Sep 93 15:17:34 PDT
+Received: from Mac-mailer (slavsing.lbl.gov) by ux5.lbl.gov (4.1/1.39)
+	id AA01511; Mon, 20 Sep 93 15:18:57 PDT
+Message-Id: <9309202218.AA01511@ux5.lbl.gov>
+Date: Mon, 20 Sep 93 15:30:30
+From: mccarthy@ux5.lbl.gov (John L. McCarthy)
+To: eeckman@redhook.llnl.gov, mieg@genome.lbl.gov, rd@cele.mrc-lmb.cam.ac.uk
+Subject: treegenes & images
+Reply-To: JLMcCarthy@lbl.gov
+Status: RO
+
+Here's another interesting variant on image-handling.
+
+-John
+------- Forwarded Message
+
+Received: from lbl.gov by ux5.lbl.gov (4.1/1.39)
+        id AA28853; Mon, 20 Sep 93 14:03:52 PDT
+Received: from cliff.nalusda.gov by lbl.gov (4.1/1.39)
+        id AA13854; Mon, 20 Sep 93 14:10:29 PDT
+Received: from locus.nalusda.gov by cliff.nalusda.gov (4.1/SMI-4.1)
+        id AA09881; Mon, 20 Sep 93 17:03:52 EDT
+Received: from s27w007.pswfs.gov by locus.nalusda.gov (4.1/SMI-4.1)
+        id AA18612; Mon, 20 Sep 93 17:02:36 EDT
+Received: by s27w007.pswfs.gov (4.1/1.39)
+        id AA23944; Mon, 20 Sep 93 14:02:58 PDT
+Date: Mon, 20 Sep 93 14:02:58 PDT
+From: bks@s27w007.pswfs.gov (Bradley K. Sherman)
+Message-Id: <9309202102.AA23944@s27w007.pswfs.gov>
+To: sysadmin@locus.nalusda.gov
+Subject: treegenes & images
+
+
+I have TreeGenes set up so that instead of calling xv directly
+it calls a script "tgxv" which interprets its argument and
+then finds the image file.  This  allows me to directly
+fetch images from the gopher directories on my machine.
+
+Tgxv should eventually be capable of fetching the image from
+any registered repository on the internet.  This will take
+another program which I have not yet had the time to write.
+Exactly what is entailed in "registration" is an open question.
+
+    --bks
+
+
+------- End of Forwarded Message
+
+

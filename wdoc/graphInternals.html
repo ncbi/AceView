@@ -1,0 +1,222 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation:  graph package internals </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1> Programmers' guide to graph package internals </H1>
+
+
+<H2>Overview</H2>
+This document describes various aspects to graph package internals.
+It is intended to be updated each time some new bit of design is done, some
+new facility is added, or some old part is better documented. It is meant
+to be a place where the graph package developer can go and look up how/why
+bits of the graph package are the way they are. Each design section should have
+a separate header and be cross referenced to other sections where appropriate.
+
+
+<H2>The busy cursor</H2>
+When windows are displayed on the screen we want to be able to tell the user that
+the application is busy and they should not try to interact with it. The easiest
+way to do this is to change the mouse pointer (aka 'cursor') to a watch shape, this
+has become a de-facto standard for saying the application is busy. The original graph
+package interface was through a single call, <CODE>graphBusyCursorAll</CODE>, which
+was intended to display a busy cursor on all acedb windows. The intention was that
+the application code or the graph package could show this cursor when required.
+
+<P>
+To avoid the application having to know when to turn cursors on/off the busy cursors
+were shown every time an Xevent was dispatched, the intention being that an event dispatch
+would often mean some significant work was being done by the application.
+This method had two major flaws:
+<OL>
+  <LI>It meant a large number of extra requests to the server every time
+       an event was dispatched, whether that event resulted in significant work or not.
+  <LI>It did not work properly in that any new window which took a long time to construct
+       would not have a busy cursor because no event processing (and hence no cursor setting)
+       could be done while the window was being constructed.
+</OL>
+The excess number of extra requests often resulted in annoying cursor flashing when links
+between X server & client were slow.
+
+<P>
+To get round this problem the way cursors are set on/off was changed.
+
+
+<H4>The busy cursor implementation</H4>
+We would like busy cursors to be shown whenever the application has sufficient work to do that
+it cannot respond to the users interactions. In acedb graphical applications this includes:
+<UL>
+  <LI>graph creation
+  <LI>potentially all application code callback routines
+  <LI>graph redraw/resize
+</UL>
+The obvious places to put busy cursor calls are in the graph creation, redraw, resize routines
+and in the set of graph routines that deal with events as these routines are the ones that
+call the applications callback routines. There are several problems with doing this:
+<OL>
+  <LI>unfortunately there is no one 'layer' of the graph package that contains these calls
+  <LI>more seriously, some of the routines that respond to events then set up another layer
+       of callbacks which will then go on the do the serious work, e.g. the menu routines
+       set up callbacks that will then call the applications callback routines once the user
+       has selected an item from the menu.
+  <LI>sometimes routines start an action that will only be completed some time later by a
+       registered callback (this happens with graph creation).
+  <LI>some application callbacks or graph callbacks are called often and for a very short
+       time so setting a busy cursor would not be appropriate, e.g. in text entry boxes.
+</OL>
+Fortunately these problems can be solved in a reasonably satisfactory way, the following sections
+detail what was done.
+
+<H4>Graph layers and where to put the calls</H4>
+Places where busy cursors must be set on/off are restricted to just a few places:
+<UL>
+  <LI>The routine where a window is created
+  <LI>The points where application callbacks are called, these points are identified
+       by code of the form: <CODE>(*gActive->func[*****])() ;</CODE>, where <CODE>*****</CODE>
+       is the type of callback.
+  <LI>The routines dealing with window redraw/resize
+</UL>
+busy cursor calls were added to:
+<PRE><CODE>
+w2/graphcon.c:  graphCreate
+w2/graphsub.c:  gLeftDown, gMiddleDown, 
+w2/graphxlib.c: graphClipDraw
+w2/graphxt.c:   resizeCall, mouseCall, keyboardCall
+w2/xtsubs.c:    freeMenuSelect, oldMenuSelect
+</CODE></PRE>
+Although calls have had to be added at conceptually 3 layers, at least the number
+of calls is small (11 on/off pairs of busy cursor setting). This exercise reveals that
+the layering in the graph package has broken down, there is no fixed layer that just
+contains graph interface calls, the graph interface calls are embedded throughout the
+graph code.
+
+
+<H4>Graph creation</H4>
+Whenever a new graph is built this happens in several phases:
+<OL>
+  <LI>create graph structures and display a blank window
+  <LI>call an application callback to stack up drawing requests to the window
+  <LI>call the graph redisplay function to actually draw into the window
+</OL>     
+We want the user to see the cursor go on at the beginning of the phases and go off at the end.
+In this case we are lucky because all new windows are created by one routine and are drawn
+by one routine, we can thus turn on the busy cursor in <CODE>graphCreate</CODE> and then
+turn it off again in <CODE>graphClipDraw</CODE>. In fact in <CODE>graphClipDraw</CODE> the
+busy cursor is turned and then turned off but no harm is done by turning on the busy cursor
+twice.
+
+<H4>Graph resize/redisplay</H4>
+Both resize and redisplay happen in two phases:
+<OL>
+  <LI>call an application callback to either recalculate and stack up drawing requests to the window
+       (for a resize), or to do any updating for redisplay
+  <LI>call the graph redisplay/resize function to actually size/draw into the window
+</OL>
+These activties happen in just two routines: <CODE>resizeCall, graphClipDraw</CODE>. In fact
+<CODE>resizeCall</CODE> does not do any drawing, it leaves that to <CODE>graphClipDraw</CODE>,
+resizing is just a special case of redrawing.
+
+
+<H4>Setting busy cursors for application callbacks</H4>
+At first site the obvious place is to put calls in the all of the graph routines that
+are callback routines for windows (generally called <CODE><B>nnnnn</B>Call</CODE> and
+mostly defined in <CODE>graphxt.c</CODE>, see the translation tables).
+But this is not always correct because these routines sometimes just register routines
+to be called later so showing a busy cursor would be inappropriate:
+<UL>
+  <LI>in <CODE>pickCall</CODE> and <CODE>middleCall</CODE> the busy cursor needs to be set
+       in routines they call directly
+  <LI><CODE>menuCall</CODE> just posts a menu, it's in the general callback that gets called when
+       when a menu item is selected that we need the busy cursor
+  <LI>in <CODE>mouseCall</CODE> and <CODE>resizeCall</CODE> the busy cursor is set directly the routine
+</UL>
+The solution to finding where to put the busy cursor calls was to look for where
+the application callbacks where actually called from rather than in the graph callbacks
+themselves. This was easy to do because the application callbacks are all kept in an
+array called <CODE>func</CODE> which is part of the graph structure. Searching through the
+code produced a very places where the application callbacks were invoked which all
+looked like this:
+
+<PRE><CODE>
+        (*gActive->func[*****])() ;
+</CODE></PRE>
+
+All calls like this were bracketed with the calls to turn on/off the busy cursor, e.g.
+
+<PRE><CODE>
+  if (isResize && gActive->func[RESIZE])
+    {
+    graphBusyCursorAll (TRUE);
+
+    (*gActive->func[RESIZE])() ;
+
+    graphBusyCursorAll (FALSE) ;
+    }
+</CODE></PRE>
+
+
+<H4>Dealing with application callbacks that don't need a busy cursor</H4>
+Some application and graph callbacks should not have a busy cursor associated with them,
+a good example of this is <CODE>keyboardCall</CODE> in  <CODE>graphxt.c</CODE>.
+We don't really want a busy cursor to shown for every key press, e.g.
+just typing letters, so no busy cursor should be set in this routine for these key presses.
+Unfortunately it is not enough to just not  
+do the busy cursor call here because every key press also causes an expose handler to be  
+called, the expose handler calls the redraw code which correctly shows the busy cursor !!
+To avoid polluting the redraw routine, I've added a call to the busy cursor routines that will     
+make the normal busy cursor call do nothing. This should be used with
+care and in paired calls to start/stop disabling (as below) otherwise
+the busy cursor stuff will get completely screwed up. This allows us to selectively stop
+the normal busy cursor calls from doing anything when needs be:
+<PRE><CODE>
+  if (kval && gActive->func[KEYBOARD])
+    {
+    if (((keysym >= XK_KP_Space) && (keysym <= XK_KP_9))    /* Keypad keys */
+	|| ((keysym >= XK_space) && (keysym <= XK_asciitilde)) /* normal keyboard keys */
+	|| keysym == XK_BackSpace || keysym == XK_Delete    /* delete keys */
+	|| keysym == XK_Left || keysym == XK_Right)	    /* left/right arrow keys */
+      graphSetBusyCursorInactive(TRUE) ;
+
+    graphBusyCursorAll (TRUE);
+
+    (*gActive->func[KEYBOARD])(kval) ;
+
+    graphBusyCursorAll (FALSE) ;
+
+    graphSetBusyCursorInactive(FALSE) ;
+    }
+</CODE></PRE>
+A caveat to the above code is that the above works because the expose handler is called in between
+the cursor setting calls, this may not happen for other sections of code and may not even be
+guaranteed to happen here, careful experimentation is required.
+
+<P>
+A more serious caveat to the current implementation of selective busy cursor setting in
+the keyboard callback is that I have done this generally for <B>ALL</B> keyboard input,
+assuming that no other part of the code has done something like set a translation for a
+common letter such as "q" that launches some long running bit of code. If this happened
+the application would be locked up with a busy cursor. It would be possible to add the busy
+cursor calls to the text entry routines but this is not nearly so clean.
+
+
+<H4>Summary</H4>
+The busy cursor is now only set on and off when the application is doing significant work, it is
+not set on/off repeatedly as it used to be. Text entry/deletion is now possible without the
+flickering cursor. The busy cursor calls have only had to be added to the graph package in
+about 10 places and this is entirely internal to the graph package thus maintaining the system
+that the application code need not be responsible for this.
+
+
+</BODY>
+</HTML>
+ 
+

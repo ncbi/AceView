@@ -1,0 +1,81 @@
+<!--  @(#)BioMotif.html	1.3  9/30/97  >
+<head>
+<TITLE> BioMotif in ACeDB </TITLE>
+</head>
+<H2>BioMotif in ACeDB</H2>
+<EM>Help pager written by Martin Aslett, August '97</EM>
+
+<P>BioMotif is an external program, written by <A
+href="http://www.lpm.univ-montp2.fr/~menes/menes.html">Gerard Mennessier</A>, which
+can be called from within xace. Its aim is to help the user find
+Motifs within sets of sequences.
+
+<P> BioMotif is fully documented at <A
+href="http://www.lpm.univ-montp2.fr/~menes/bioMotif_html_doc/bioMotif_index.html">http://www.lpm.univ-montp2.fr/~menes/bioMotif_html_doc/bioMotif_index.html</A>.<P>
+
+In order to run bioMotif within ACeDB, the software must be fully
+installed on your machine (it does not come packaged with the standard
+ACeDB release). The software may be downloaded from :-<P>
+
+<A href="ftp://ftp.lpm.univ-montp2.fr/pub/BioMotif/">ftp://ftp.lpm.univ-montp2.fr/pub/BioMotif/</A>
+<P>
+
+This directory contains a README file giving full instructions on how
+to install the BioMotif software on your machine.
+
+Before running BioMotif from within xace, the environment variable
+BIOMOTIF_DIR should be set to the directory above bioMotif_bin (which
+contains the BioMotif executable) i.e. the executable file will be
+found at:- <P>
+
+<B>BIOMOTIF_DIR/bioMotif_bin/bioMotif</B>
+<P>
+
+BioMotif may be run in xace from the FMAP display, under the
+'Analysis' button, either by activating it via the pulldown menu
+accessible from the button or by clicking the 'Analysis' button and
+choosing BioMotif from the list of External Analysis Programs. The DNA
+Analysis window may also be opened directly from the pull down menu of
+main class window of ACeDB<P>
+
+
+Once BioMotif is run, the following parameters window is called up :-<P>
+
+<image src="biomotif1.gif"><P>
+
+
+A query should be typed into the yellow box. Consult the <A
+href="http://www.lpm.univ-montp2.fr/~menes/bioMotif_html_doc/bioMotif_index.html">documentation</A>
+for details of the query syntax.<P>
+
+One of the three target buttons should be clicked before BioMotif can be run :-
+<P>
+
+<B>Active Zone</B> - uses the active zone on the current sequence display as the target for your BioMotif query.</BR>
+<B>Active Keyset</B> - uses any sequences in the current keyset as the target.
+<B>Whole database</B> - uses all of the sequences in the database as the target.
+<P>
+
+Clicking one of these will cause a 'Search' button to appear in the
+bottom left hand corner of the window. Clicking this button runs
+BioMotif. If BIOMOTIF_DIR is set wrongly or the BioMotif software is
+not installed, an error window will appear informing you that ACeDB
+couldn't find the software.  <P>
+
+If the software runs successfully, BioMotif will report it's results
+in the parameters window, giving details of the sequences conforming
+to your search parameters together with details of the base pairs in
+the sequence which match the search. It will also open a new window
+titled 'Motifs' containing the same details and a keyset window
+containing all of the sequences on which the search was successful.
+<P>
+
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: Septembre 1997<p>
+
+
+
+
+

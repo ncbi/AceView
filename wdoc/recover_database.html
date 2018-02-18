@@ -1,0 +1,138 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: database recovery </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Database Recovery</H1>
+
+<PRE>
+
+
+In some rare occasions, the following crash has occured.
+Acedb works ok up to say session 100, but then when you attempt to
+save session 101, you get a crash:
+  duplicate block in fusebat
+or some other low lying cryptic message. 
+This amounts to a fatal unrecoverable error in session 100, which
+probably happenned while acedb was writing to disk during session 100.
+In some cases, we traced the bug back to wrong file authorizations,
+please verify that all files in the database directory belong to
+the database owner.
+If secveral user have write access, all these files should eb unix writable
+by those users. Forexample, you may
+ chmod 775 database
+ chmod 664 database/*
+ chown -R acedb_group database
+and verify that all users are in the 'acedb_group' unix group
+or that the code is set group id:
+chmod 2755 xace tace
+
+Anyway, you may be able to recover from the crash in 3 different
+ways:
+
+################################################################
+## First method, a bit heavy, but no data is lost
+
+1) Open xace, it opens again as session 101.
+Dump the database from the menu of the main window
+create a new acedb in a fresh directory:
+cd somewhere
+mkdir wspec database
+cp oldwspec/* wspec
+setenv ACEDB `pwd`
+tace  // or xace
+
+and read back the dump files.
+
+If you crash while dumping because the address of some object
+is wrong, you can jump that object from beeing dumped by inserting
+it in a special keyset called DoNotDump
+
+create a new keyset from the menu in the keyset window
+use add/remove option
+add inthat keyset the object you want to avoid for
+example by using the main window to select them or
+by using the query language
+ Find myclass myobject
+
+save this keyset under the name DoNotDump
+
+then dump the database
+during all this process, do not save the database and do
+not attempt to open the falty objects
+
+################################################################
+##Second method, very simple, but data from last session is lost
+
+
+2) You may backtrack to session 99
+To do so, from the menu of the main window, use session manager
+and then use the destroy_last_session button
+
+Then restart acedb, it will open on session 100, now a new
+daughter of session 99, and hopefully the problem is fixed.
+
+################################################################
+## Third method, totally crazy, avoid if possible
+
+3) If none of this works and you are a real hacker and
+you are totally desperate and the database will not open at all
+and you are completelly sure of the way you manipulate unix
+and you do not have any other way to recover your data from
+ace files, and you do not mind losing a whole day in vain, you
+may try the following which worked once for us:
+
+If the new superblock gets saved in a database, but not the 
+control blocks it points to, the database becomes unreadable. By default,
+1 previous copies of the control blocks are kept, so it's possible
+to roll back the state of the database to a previous session. Here's
+how to do it.
+
+1) Look in the log.wrm file and determine the session number of the last
+  saved session, attempt to roll back to a few less than this.
+
+2) Look in sysclass.wrm for the class no of _VGlobal.
+   ( I don't know how to determine this in a new databse without sysclss.wrm
+     assume that it's one. )
+
+3) Execute diskdump on the database blocks.wrm file. Each line represents
+   one black and the fields are: 
+   class,  actual address, stored address, next address, key, session 
+
+4) Look for all the blocks with class Global, class number is given by c=xx
+   where xx is the hex class number.
+
+5) search in these blocks for ones whose session is equal to that 
+   you want to roll back to. Session is the last number on the line.
+   eg, diskdump | grep 'c= 1' |  grep '612$'
+
+6) The keys have top eight bits class, and bottom 24 bits index.
+   look for a key which is in one block only, probably 2.
+   Hence a key of 1000002. Note the address of this block
+
+7) Run diskfix <session> <block address>
+
+8) See if it worked.
+
+9) If it didn't, try an earlier session and repeat, that is, if any
+earlier session is available, which would be wrong by default.
+
+################################################################
+################################################################
+
+
+<PRE>
+
+
+
+</BODY>
+</HTML>
+

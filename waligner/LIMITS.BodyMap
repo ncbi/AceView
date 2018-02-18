@@ -1,0 +1,79 @@
+#!/bin/tcsh
+
+# qusage 10 ; README.ali a1 ;  qusage 10 ; README.ali a2 ; qusage 10 ; README.ali a4 ;
+setenv species hs
+setenv seedLength 18
+setenv minAli 24
+setenv minEntropy 20
+setenv minFastqQuality 0
+setenv overhangLength 8
+setenv bonusStrand 10
+setenv intronMaxLength 50000
+
+setenv project unified
+setenv project mpi
+setenv project low
+setenv TMPDIR /export/home/TMP
+
+setenv chromSetAll "Y X Un 22 21 20 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1"
+# setenv chromSetAll "Y X Un 22 21 20"
+setenv genomeDb "/panfs/pan1.be-md.ncbi.nlm.nih.gov/aceview/zoo/human/NCBI_37"
+
+# LIF: CGCCTTGGCCGTACAGCAGCCTCTTACAC se traduit par ttagacatatctccgtcgtagggatccc
+setenv exitVector ATmTCGTATGCCGTCTTCTGCTTGAAAAAA,CGCCTTGGCCGTACAGCAGCCTCTTACAC
+setenv exitVectorRaw ATmTCGTATGCCGTCTTCTGCTTGAAAAAA,ttagacatatctccgtcgtagggatccc
+
+# ATTENTION the pivot offset is the most likely to give a full alignment 
+setenv pivot 11
+setenv offSets "1 19 27 34 50 80 120 200 300 400 500 600 700 800 900 1000"
+
+#setenv targets " EBI HINV introns genome"
+
+setenv targets "SpikeIn mito rrna rnaGene  RefSeq pg av genome gtweek"
+#setenv targets "genome"
+
+setenv Etargets "av RefSeq"
+
+setenv truetissues "Pool16 adps  adrn  brain  breast  colon  heart  kidney  liver  lung  lymph  ovary  prostate  skelet  testes  thyrd  wbc"
+setenv ntruetissues 16
+#setenv tissues "FCA_20FLK  FCA_20G63  FCB_20FKM  FCB_20G65 FCA_20G6I  FCB_20G6N"
+setenv tissues "any dbSNP adrn"
+#setenv tissues "adrn"
+setenv tissues "any dbSNP av"
+setenv tissues "any"
+
+setenv manips_454  ""
+setenv manips_fastc_stranded     "Mixed_Tissues Clones"
+setenv manips_fastc_non_stranded "16_Tissues Feb50 Feb75 Q20 Q30 n75Q20 n75Q30 dbSNP"
+setenv manips_fastc_non_stranded "16_Tissues Feb50 Feb75 dbSNP"
+setenv manips_fastc_paired "16_Tissues Feb50 Q20 Q30"
+setenv manips_ccfa ""
+# fastq with quality, for evaluation of the SNPs
+setenv manips_fastq_stranded  ""
+setenv manips_fastq_non_stranded "FebF FebR FQ n75"
+
+
+setenv manips "FQ $manips_fastc_non_stranded  $manips_fastc_stranded $manips_ccfa"
+
+setenv manips "dbSNP 16_Tissues Feb50 Feb75 Mixed_Tissues Clones"
+#setenv manips "16_Tissues Feb50 Feb75 Mixed_Tissues"
+setenv manips "dbSNP 16_Tissues Feb50 Feb75 Mixed_Tissues Clones"
+setenv manips "Feb50 Feb75 16_Tissues Mixed_Tissues"
+
+
+setenv manipsPolyA "$manips_fastc_non_stranded  $manips_fastc_stranded $manips_ccfa"
+setenv manips_truly_stranded "Mixed_Tissues"
+setenv manips_not_amplified  "16_Tissues Feb50 Feb75 Mixed_Tissues"
+#setenv manips "16_Tissues Mixed_Tissues"
+#setenv manips "16_Tissues Feb50 Feb75"
+setenv manips_danielle "Mixed_Tissues 16_Tissues Feb50 Feb75"
+#setenv manips_danielle "FQ Q20 Q30 n75 n75Q20 n75Q30 dbSNP"
+# echo toto | gawk '{for (i=1;i<=200;i++)printf("f.%d\n",i);}' > Fastc/lanes
+
+
+echo "manips  = $manips"
+echo "tissues = $tissues"
+echo "targets = $targets"
+echo "chroms  = $chromSetAll"
+echo "project = $project"
+

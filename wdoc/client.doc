@@ -1,0 +1,236 @@
+$Id: client.doc,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+###################
+
+aceclient command line parser
+recognises in this order
+
+host [-time_out time] [ -ace_out ] [ ace_in ] [-f filename args ]
+
+ace_out and -f filenmae implies no banner etc
+
+######################################
+This is the aceserver menu:
+
+static FREEOPT qmenu[] = 
+{ 
+  20,  "acedb",
+  'x', "Quit :   Exits the program.       Any command can be abbreviated, $starts a subshell",
+  'h', "Help : for further help",
+  '?', "? : List of commands",
+  'c', "Classes : Give a list of all the visible class names and how many  objects they contain.",
+  'n', "Find class [name]: Creates a new current list with all objects from class, optionally matching name",
+  'z', "Model class: Shows the model of the given class, useful before Follow or Where commands",
+  'g', "Grep template: searches for *template* everywhere in the database",
+  'u', "Undo : returns the current list to its previous state",
+  'l', "List [template]: lists names of items in current list [matching template]",
+  's', "Show [tag] : shows the [branch tag of] objects of current list",
+  'i', "Is template : keeps in the active list only those objects whose name match the template",
+  'r', "Remove template : removes from the active list only those objects whose name match the template",
+  't', "Follow Tag : i.e. Tag Author gives the list of authors of the papers of the current list", 
+  'q', "Where query_string : performs a complex query - 'help query_syntax' for further info",
+  'w', "Write filename : acedump current list to file",
+  'b', "Biblio : shows the associated bibliography",
+  'd', "Dna : Fasta dump of related sequences",
+  'a', "Array class:name format : formatted acedummp of A class object",
+  'p', "Parse file : parses an aceFile, or stdio,  until \000 or EOF",
+  'T', "Table-Maker file outputfile : Executes the file as a table-maker.def command file, outputs ",
+} ;
+
+static FREEOPT helpmenu[] =	/* no \n inside FREEOPT text (else rethink) */
+{ 5, "helpmenu",
+  1, "Tacedb : copyright etc", 
+  2, "Query_syntax for the find command",
+  3, "Useful_sequences : SL1 etc",
+  4, "Clone_types used in the physical map (vector etc)",
+  5, "DNA_and_amino_acids_nomenclature : codes for bases/amino acids and translation table",
+} ;
+
+
+######################################
+This is a valid file for import:
+
+// Hoping that my computer is running try the following
+// that i develloped with Danielle
+// ftp from ncbi my executable
+// sparc.aceclient.Z
+
+// uncompres it and type on your commnad line
+// usage:
+// "usage : aceclient host  [-time_out nn_in_seconds] [-ace_out] [-f reportfile parameters]\n",
+// if filename is omitted, you run interactivelly
+//
+// for example try:
+// aceclient 193.49.111.71 -f thisfilename genename
+
+// 193.49.111.71 is my dec alpha in montpellier
+
+// you will get a developped form of the gene
+// embedded in the non // lines
+
+// are pure comments
+// %nn announces a parameter
+// 
+// %(command text) invokes the ace_server
+// 
+%(Find Gene %1) 
+
+This is what we know on gene %1 // %1 represente le nom du gene
+
+
+These are the known papers:%(Show Reference)
+
+Or in a more standard blibliographic format:
+%(Biblio)
+
+These are the alleles %(Show Allele)
+that's all, folks
+
+
+All I know on tata box:
+%(Grep tata) %(List)
+# Bonsoir
+
+// fin
+
+######################################
+
+this transmitted to the server the following orders:
+
+(running in France:)
+
+% bin.ALPHA_GCC/aceserver /home1/cele3
+**** acedb network server: Version 3.4 en developement ****
+Authors: Richard Durbin (MRC, UK) rd@mrc-lmb.cam.ac.uk
+         Jean Thierry-Mieg (CNRS, France) mieg@kaa.cnrs-mop.fr
+You may redistribute this program and database subject to the
+conditions in the accompanying copyright file.  Anyone interested in
+maintaining an up to date version should contact one of the authors
+at the above email addresses.
+
+ Database directory: /home1/cele3
+
+
+ Find Gene unc-116
+ Show Reference
+ Biblio
+ Show Allele
+ Grep tata
+ List
+
+ Find Gene unc-116
+ Show Reference
+ Biblio
+ Show Allele
+ Grep tata
+ List
+
+######################################
+Giving out here the following anser:
+
+
+This is what we know on gene unc-116 
+
+
+These are the known papers:
+
+
+Locus : "unc-116"
+
+
+
+
+
+
+Or in a more standard blibliographic format:
+
+
+[wbg10.1p99]
+a little uncoordinated genetics.
+
+Thierry-Mieg D.
+Worm Breeder's Gazette
+[wm91p66]
+
+MUTATIONS AFFECIING DEVELOPMENT OF THE EXCRETORY CANALS.
+
+Buechner M, Plenefisch JD.
+
+
+
+[wm91p130]
+
+UNC-104: A NOVEL KINESIN FAMILY MEMBER?
+Otsuka AJ, Tang LZ, Boontrakulpoontatwee P, Zhang YY, Whiteaker K, Allikian MJ.
+
+
+[wbg11.4p68]
+Unc-116 shares sequence homology with the C-terminal domain of the Drosophila Kinesin heavy chain
+
+Patel N, Mancillas JR.
+Worm Breeder's Gazette
+
+
+These are the alleles 
+
+
+Locus : "unc-116"
+
+
+
+
+
+that's all, folks
+
+
+All I know on tata box:
+
+tata* 
+
+Sequence : "CAL1"
+Sequence : "COL"
+Sequence : "GAPDH"
+Sequence : "GSCYSP"
+Sequence : "HIS10"
+Sequence : "HIS12"
+Sequence : "HSP3"
+Sequence : "HSP16C"
+Sequence : "METAL1A"
+Sequence : "METAL2B"
+Sequence : "MSP3L4"
+Sequence : "MYOD"
+Sequence : "MYUNC"
+Sequence : "PGPAG"
+Sequence : "PGPCG"
+Sequence : "PIR:A47212"
+Sequence : "SP:TF2D_DROME"
+Sequence : "SP:TF2D_HUMAN"
+Sequence : "SP:TF2D_MOUSE"
+Sequence : "SP:TF2D_SCHPO"
+Sequence : "SP:TF2D_XENLA"
+Sequence : "SP:TF2D_YEAST"
+Sequence : "TBP"
+Sequence : "TC1"
+Sequence : "UNC33G"
+Sequence : "VIT1"
+Sequence : "VIT1P"
+Sequence : "VIT2"
+Sequence : "VIT4"
+Sequence : "VIT5"
+Sequence : "VIT6"
+Sequence : "VIT51"
+Sequence : "VIT201"
+Sequence : "VIT401"
+Sequence : "VIT601"
+Sequence : "VITELB"
+Paper : "[cgc1535]"
+Paper : "[cgc1621]"
+Paper : "[cgc1823]"
+Paper : "[medline120]"
+System : "TATA_signal"
+
+
+
+# Bonsoir
+
+
+

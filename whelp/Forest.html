@@ -1,0 +1,121 @@
+<!--  @(#)Forest.html	1.2  9/30/97  >
+<head>
+<title>Forest</title>
+</head>
+<body>
+
+<h1>Forest display</h1>
+
+<p>
+The Forest display is invoked from a keyset via the "More Info"
+button. The display shows the contents of the keyset (excluding empty
+objects) as a list of objects in their "tree" form (similar to text
+windows). The Forest controls can be used to choose which parts of the
+object are actually visible, i.e. which branches of the model to show
+or hide. This display does not behave well with keysets containing items
+from different classes.
+</p>
+
+<h2>Buttons:</h2>
+<dl>
+<dt>Quit: <dd>quits the display
+
+<dt>Help: <dd>invokes on-line help (not yet written)
+
+<dt>Print: <dd>invokes the Print/Mail selection tool which allows printing,
+mailing or saving the forest document as a file.
+
+<dt>Discard/Undiscard: <dd>The discard button to the right of each object when
+clicked will remove that object from the display. Undiscard will
+sequentially restore the objects, with the most recently removed being
+restored first. A running commentary below the buttons details total
+number of displayable objects, the number currently displayed, and the
+number discarded.
+
+<dt>Export: <dd>Creates keyset containing objects currently
+displayed. Discarded objects are not exported. The user is asked to
+name the new keyset via a "please reply" box.
+
+<dt>Save as: <dd>Saves currently displayed objects as named keyset.
+
+<dt>Biblio: <dd>Invokes the biblio display if the objects in the Forest
+display qucontain references to Paper objects. If there are no
+references to paper objects, the operation aborts with a dialog box.
+
+<dt>Model show/hide: <dd>Inserts/removes model at top of window. All tags will
+be green initially (see below). 
+
+<dt>Tags hide: <dd>Hides all tags in the individual objects. Colours the tags
+in the model red. (see below).
+
+<dt>Tags show: <dd>Returns the information associated with the tags to the
+display. Recolours the tags in the model green (see below).
+
+<p>
+When the model is shown, it only contains the tags being used by the
+currently displayed objects which are actually visible in the window.
+To see the complete model, double-click the boldface "Model". The
+individual tags can be selected by the user and have three
+states. Green indicates that the tag and any information following it
+is visible. Yellow indicates that the tag has been collapsed. Red
+indicates that the tag is hidden. Repeated clicks will cycle through
+the three states. The "Tags hide" button will hide all tags regardless
+of their state. "Tags show" will show all tags and reset them to
+green.
+</p>
+<p>
+The behaviour of the Forest display depends on exactly which objects
+are visible within the borders of the window. For example, when using
+the "Tags hide" button, objects in effect take up less screen space.
+Consequently, objects which had been outside the boundary of the
+display may now move into the visible area. These new objects may have
+additional (new) tags associated with them.  These tags will be
+visible in the objects and will be added to the model and coloured
+green. Clicking "tags hide" again will hide these new tags.  Other
+events may also have this effect, for example as objects are discarded
+or undiscarded, as the list is scrolled (see Scroll Bar), or as the
+window is resized.
+</p>
+
+<dt>Select: <dd>en francais, does not seem to do anything.
+
+<dt>Arrow controls: <dd>single arrow scrolls one object at a time (up or
+down) two arrows scrolls a window-full [we think].
+
+</dl>
+
+<h2>Scroll Bar:</h2>
+
+<p>
+The green bar indicates which objects out of the entire keyset are in
+view. Scroll with the middle button on the mouse by grabbing and
+moving the green bar up or down.
+</p>
+
+<h2>Go to:</h2>
+<p>
+Scrolls to the first object that matches the string.
+Ma would scroll to the first object starting with the letter Ma.
+</p>
+
+<hr>
+
+<pre>
+bug--print
+bug--in model turning a tag red should turn all tags
+to the right red too.
+bug--This display does not behave well with keysets containing items
+from different classes.
+bug--Select: en francais, does not seem to do anything.
+extension: attach?
+question: is this an object editing environment?
+</pre>
+
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: Septembre 1997<p>
+
+
+</body>
+

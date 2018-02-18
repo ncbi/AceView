@@ -1,0 +1,49 @@
+dd=$$
+
+for which in $*
+do
+
+	[ -d $which ] || mkdir $which
+
+	if [ -f $which/latest_week ]
+	then
+		read latest_week < $which/latest_week
+	else
+		latest_week=week.00000
+	fi
+
+	(
+	mkdir tmpdir.$$
+	cd tmpdir.$$
+
+	gawk -f ../split-weeks.gawk < ../$which.datafile 
+
+	lw=""
+
+	for file in *
+	do
+		if [ -f ../$which/$file ]
+		then
+			if [ "$file" = $latest_week ]
+			then
+				mv $file ../$which
+				lw=$file
+			fi
+		else
+			mv $file ../$which
+			lw=$file
+		fi
+	done
+
+	if [ "$lw" != "" ]
+	then
+		echo $lw > ../$which/latest_week
+	fi
+
+	)
+
+
+done
+
+rm -rf tmpdir.$dd
+

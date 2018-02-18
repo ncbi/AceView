@@ -1,0 +1,64 @@
+#!/usr/local/bin/perl
+#
+# $Id: homol2match,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $ 
+#
+
+$prog = "homol2match" ;
+$usage = "Usage: $prog <acefile>\n" ;
+
+%homolType = ( "DNA" => "Sequence",
+	      "Pep" => "Protein",
+	      "Motif" => "Motif", 
+	      "Align" => "Alignment"
+	       ) ;
+
+($in = shift) || die $usage ;
+
+open (IN, "<$in") || die "$prog: failed to open file $in: $!\n" ;
+
+if ($in =~ s/\.ace$//) {
+    $out1 = $in . ".bs.ace" ;
+    $out2 = $in . ".match.ace" ;
+}
+else {
+    $out1 = $in . ".1" ;
+    $out2 = $in . ".2" ;
+}
+
+open (OUT1, ">$out1") && open (OUT2, ">$out2") || 
+	die "$prog: failed to open output files $out1, $out2: $!\n" ;
+
+while (<IN>) {
+    if ( /^(\S+)\s+(:\s+)?(\S+)/ ) {
+	$class = $1 ;
+	$name = $3 ;
+	print OUT1 "\n" . $_ ;
+	$matches = 0 ;
+	while (<IN>) {
+	    last if /^\s*$/ ;
+	    if ( /^(\S+)_homol/ ) {
+		if ($matches == 0) {
+		    $name =~ s/"//g ;
+		    print OUT2 "\nMatchTable $class-$name\n" ;
+		    $matches = 1 ;
+		}
+		$x = $homolType{$1} ;
+		if (!defined ($x)) { die "unknown homol type $1\n" ; }
+		@f = split ;
+		if ($#f == 7) {
+		    s/$1_homol/$x/ ;
+		    s/\"//g ;
+		    print OUT2 $_ ;
+		}
+	    }
+	    else {
+	        print OUT1 $_ ;
+	    }
+        }
+    }
+}
+
+1 ;
+
+########### end of file ##################
+ 

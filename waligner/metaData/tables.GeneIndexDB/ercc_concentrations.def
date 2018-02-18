@@ -1,0 +1,86 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-08-28_20:25:22
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle SpikeIn  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition SpikeIn
+ 
+Colonne 2 
+Subtitle Length in bp  
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 1 
+Tag Length
+ 
+Colonne 3 
+Subtitle Per cent GC  
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 1 
+Tag GC_percent
+ 
+Colonne 4 
+Subtitle Mix1 concentration 
+Width 12 
+Mandatory 
+Hidden 
+Float 
+From 1 
+Tag Mix1
+ 
+Colonne 5 
+Subtitle Mix1 Log2(concentration)  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag  HERE 
+ 
+Colonne 6 
+Subtitle Mix2 concentration 
+Width 12 
+Mandatory 
+Hidden 
+Float 
+From 1 
+Tag Mix2
+ 
+Colonne 7 
+Subtitle Mix2 Log2(concentration)  
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 6 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle Mix2/Mix1 Log2(concentration)  
+Width 12 
+Mandatory 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag \%7 - \%5
+ 
+ 
+
+// End of these definitions

@@ -1,0 +1,91 @@
+#!/bin/csh -f
+
+# $Id: MAKE_SOURCE_DISTRIBUTION,v 1.21 2014/01/17 02:33:35 mieg Exp $
+
+if ($#argv != 1) then
+   echo "usage - MAKE_SOURCE_DISTRIBUTION <version>"
+   echo "  ex: MAKE_SOURCE_DISTRIBUTION 2006_10_11"
+   exit 1
+endif
+
+setenv ici `pwd`
+
+if (-d tmp_acedb_src) then
+  echo 'please remove first directory tmp_acedb_src'
+  exit 1
+endif
+
+mkdir tmp_acedb_src
+cd tmp_acedb_src
+mkdir aceview.$1
+cd  aceview.$1
+cvs checkout ace
+mv ace/* .
+rmdir ace
+\rm -rf CVS
+\rm -rf w*/CVS
+\rm -rf test*/CVS
+\rm -rf demo/CVS
+\rm -rf wac/testdb/CVS
+\rm -rf w6/michel w7/jean w*/fiche idoc misc
+#\rm wabi/cdnaalign.c wabi/cdnatr.c  wabi/makemrna.c wabi/cdnapath.c wabi/diamino.c
+\rm README.PROJECT
+\rm -rf GAMES
+\rm -rf wscripts/ficheold
+chmod 755 demo/test*
+\rm makefile
+ln -s wmake/makefile .
+
+# no idea why, but the CVS seems to have a knot
+pushd wh
+\rm ac.h
+ln -s ../wac/ac.h
+gunzip -c x11.include.tar.gz | tar xf -
+popd
+
+mv waligner/scripts/submit waligner/scripts/submit2
+cat  waligner/scripts/submit2 | sed -e 's/^set farm=SGE/# set farm=SGE/'  -e 's/^set farm=UGE/# set farm=UGE/' > waligner/scripts/submit
+\rm   waligner/scripts/submit2 
+chmod 755  waligner/scripts/submit
+
+# clean out the passwd and ip adresses
+mv waligner/metaData/wspec/passwd.wrm waligner/metaData/wspec/passwd.wrm2
+cat waligner/metaData/wspec/passwd.wrm2 | gawk '/^mieg/{next}/^whoami/{next}{print}' > waligner/metaData/wspec/passwd.wrm
+\rm waligner/metaData/wspec/passwd.wrm2
+
+# clean out the ip adresses
+mv waligner/metaData/wspec.aceview_web_site/acetcp_access.wrm waligner/metaData/wspec.aceview_web_site/acetcp_access.wrm2
+cat waligner/metaData/wspec.aceview_web_site/acetcp_access.wrm2 | gawk '/^#/{print}' > waligner/metaData/wspec.aceview_web_site/acetcp_access.wrm
+\rm waligner/metaData/wspec.aceview_web_site/acetcp_access.wrm2
+
+mv waligner/metaData/wspec/acetcp_access.wrm waligner/metaData/wspec/acetcp_access.wrm2
+cat waligner/metaData/wspec/acetcp_access.wrm2 | gawk '/^#/{print}' > waligner/metaData/wspec/acetcp_access.wrm
+\rm waligner/metaData/wspec/acetcp_access.wrm2
+
+mv wspec/acetcp_access.wrm wspec/acetcp_access.wrm2
+cat  wspec/acetcp_access.wrm2 | gawk '/^#/{print}' > wspec/acetcp_access.wrm
+\rm wspec/acetcp_access.wrm2
+
+
+cd ..
+
+mv aceview.$1 magic.$1
+tar cf magic.$1.source.tar magic.$1
+
+gzip magic.$1.source.tar
+
+mv magic.$1.source.tar.gz $ici
+
+cd $ici
+echo 'done, the tar file is ready'
+cd $ici
+ls -ls  magic.$1.source.tar.gz
+echo 'if ok, please: \rm -rf tmp_acedb_src'
+
+echo "please mv magic.$1.source.tar.gz ~/ftp/Software/AceView/dated/"
+
+
+
+
+
+

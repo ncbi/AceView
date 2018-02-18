@@ -1,0 +1,38 @@
+#!/bin/tcsh -f
+
+################################################################
+## Main loop
+ 
+foreach serv (ara gold 34 35e 35f 35g worm)
+  echo
+  echo '############# SERVERS ' $serv
+  echo -n "../$serv/server.log before: "
+  grep -c REMOTE_ADDR  ../$serv/server.log
+
+  foreach ordinateur (vesta ACE deuce)
+  #echo '############# ORDI ' $ordinateur
+    foreach copie (1 2 3)
+    #echo '############# COPIE ' $copie
+      set acelogfile = /home/mieg/$ordinateur/SERVER/"$serv"_$copie/server.log
+      #echo '############# ACELOGFILE ' $acelogfile
+      if (-e $acelogfile) then 
+        echo -n "$acelogfile "
+        grep -c REMOTE_ADDR $acelogfile 
+        cat $acelogfile >> ../$serv/server.log   
+        echo ' ' >! $acelogfile
+      endif
+    end
+  end
+
+  echo -n "../$serv/server.log after: "
+  grep -c REMOTE_ADDR  ../$serv/server.log
+end
+
+################################################################
+echo
+echo -n '############# done '
+date
+################################################################
+################################################################
+
+

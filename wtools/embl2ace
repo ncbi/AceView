@@ -1,0 +1,195 @@
+#!/usr/local/bin/perl -w
+# $Id: embl2ace,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+# script to process EMBL entry to ACEDB4 .ace file
+#
+#
+
+$/ = "//\n" ;
+
+for (split (" ", "CDS mRNA " .
+	    "tRNA snRNA scRNA rRNA misc_RNA")) {
+    $transcripts{$_} = 1 ; 
+}
+
+while (<>) {
+
+    /^ID/ || die "Entry does not start with ID line: $_" ;
+    ($id) = /^ID   (\S+)/ ;
+    $nam = "EM:" . $id ;
+    print "\nSequence $nam\n" ;
+    print "From_database EMBL\n" ;
+
+    print "DB_annotation EMBL $nam\n" ;	# text handle
+
+    $text = "" ;
+
+    for (split (/XX\n/)) {
+	if (/^SQ/) {
+	    s/ //g ;
+	    s/\d//g ;
+	    s/\/\/\n// ;
+	    s/U/T/g ;		# no RNA sequence!
+	    s/^.*\n// ;
+	    $seq = $_ ;
+	}
+	else {
+	    $text .= $_ . "XX\n" ;
+	}
+	if (/^OS   (\S+ \S+)/) {
+	    print "Species \"$1\"\n" ;
+	}
+	if (/^AC/) {
+	    s/AC   //g ; 
+	    s/;//g ;
+	    for (split) { print "Database EMBL $id $_\n" ; }
+	}
+	if (/^DE/) {
+	    s/DE   //g ;
+	    chop ;
+	    s/\n/ /g ;
+	    s/"/\\"/g ;
+	    print "Title \"$_\"\n" ;
+	}
+	if (/^RN/) {
+#	    /RX   (\S+); (\d+)/ && print "-RX $1 $2\n" ;
+#	    /(\d+:\d+-\d+)\(19/ && print "-RF $1\n" ;
+	}
+	if (/^FH/) {
+	    s/FT   (\S)/ZZZZ$1/g ;
+	    undef $haveExons ;
+	    undef (@subseqs) ;
+	    $nsubs = 0 ;
+	    for (split (/ZZZZ/)) {
+		/^FH/ && next ;
+				# process into $key, $loc, @quals
+		chop ;
+		s/\nFT                   \//ZZZZ/g ;
+		s/\nFT                   //g ;
+		(s/(\S+)\s+// && ($key = $1)) || die "No FT key in $id\n" ;
+		@quals = split (/ZZZZ/) ;
+		($loc = shift (@quals)) || die "No loc in $id - $key\n" ;
+
+		if ($key eq "source") {
+#		    /organism="([^"]*)"/ && print "Species \"$1\"\n" ;
+		    next ;
+		}
+		($key eq "intron") && next ;
+		($key eq "3'UTR") && next ;
+		($key eq "5'UTR") && next ;
+		($key eq "-") && next ;
+		if ($key eq "exon") {
+		    $haveExons = 1 ;
+		    next ;
+		}
+
+				# parse the location, somewhat roughly I am afraid
+		$_ = $loc ;
+
+				#  arbitrarily take first of complex options
+		s/(one-of\(([^,]+),[^\)]+\))/$2/ && warn "Fixed $1 into $2\n" ;
+		s/\((\d+).\d+\)/$1/ ;
+
+				# shift replace() argument into qualifiers
+		s/^replace\(([^,]+),(.*)\)$/$1/ && push (@quals, "replace_by=$2") ;
+
+				# expand single position to pair of the same
+		s/^([<>]?\d+)$/$1..$1/ ;
+
+				# replace ^ symbol by ..
+		s/\^/\.\./ ;
+
+		undef @exons ;
+                if (/join\(complement\((.*complement.*)\)$/) {
+                    $_ = $1;
+                    s/complement\(|\)//g;
+                    s/<//g && push (@quals, "End_not_found") ;
+                    s/>//g && push (@quals, "Start_not_found") ;
+                    $start = 0 ;
+                    for (split (/,/, $_)) {
+                        s/^(\d+)$/$1..$1/ ;
+                        /(\d+)\.\.(\d+)/ || warn "In $id CJ parse $loc | $_\n" ;
+                        ($start == 0) && ($start = $2) ;
+                        push (@exons, ($start+1-$2) . " " . ($start+1-$1)) ;
+                        $stop = $1 ;
+
+                    }
+
+		} elsif (/^complement\((.*)\)$/) {
+		    $_ = $1 ;
+		    s/<//g && push (@quals, "End_not_found") ;
+		    s/>//g && push (@quals, "Start_not_found") ;
+		    if (/^join\((.*)\)$/) {
+			$start = 0 ;
+			for (reverse split (/,/, $1)) {
+			    s/^(\d+)$/$1..$1/ ;
+			    /(\d+)\.\.(\d+)/ || warn "In $id CJ parse $loc | $_\n" ;
+			    ($start == 0) && ($start = $2) ;
+			    push (@exons, ($start+1-$2) . " " . ($start+1-$1)) ;
+			    $stop = $1 ;
+			}
+		    }
+		    else {
+			/(\d+)\.\.(\d+)/ || warn "In $id C parse $loc | $_\n" ;
+			$start = $2 ; $stop = $1 ;
+		    }
+		}
+		else {
+		    s/<//g && push (@quals, "Start_not_found") ;
+		    s/>//g && push (@quals, "End_not_found") ;
+		    if (/^join\((.*)\)$/) {
+			$start = 0 ;
+			for (split (/,/, $1)) {
+			    s/^(\d+)$/$1..$1/ ;
+			    /(\d+)\.\.(\d+)/ || warn "In $id J parse $loc | $_\n" ;
+			    ($start == 0) && ($start = $1) ;
+			    push (@exons, ($1+1-$start) . " " . ($2+1-$start)) ;
+			    $stop = $2 ;
+			}
+		    }
+		    else {
+			/(\d+)\.\.(\d+)/ || warn "In $id parse $loc | $_\n" ;
+			$start = $1 ; $stop = $2 ;
+		    }
+		}
+
+				# add to subseq stack, or write out
+		if ($transcripts{$key}) {
+		    ++$nsubs ;
+		    print "Subsequence $nam.$nsubs $start $stop\n" ;
+		    push (@subseqs, join ("ZZZ", $key, join ("YYY", @quals), 
+					  join ("XXX", @exons))) ;
+		}
+		else {
+		    print "$key $start $stop\n" ;
+		}
+	    }
+	}
+    }
+
+    ($haveExons && !@subseqs) && warn "Exons but no subseqs in $id\n" ;
+
+    $nsubs = 0 ;
+    for (@subseqs) {
+	++$nsubs ;
+	($key, $q, $e) = split (/ZZZ/) ;
+	@quals = split (/YYY/, $q) ;
+	@exons = split (/XXX/, $e) ;
+	print "\nSequence $nam.$nsubs\n" ;
+	print "$key\n" ;
+	for (@exons) {
+	    print "Source_exons $_\n" ;
+	}
+	for (@quals) {
+	    (/Start_not_found/ || /End_not_found/) && print "$_\n" ;
+	    /gene="(.*)"/ && print "Locus $1\n" ;
+	    /codon_start=(.*)/ && ($1 != 1) && print "CDS $1\n" ;
+	}
+    }
+
+    print "\nDNA $nam\n" ;
+    print $seq ;
+
+    print "\nLongText $nam\n" ;
+    print $text ;
+    print "***LongTextEnd***\n" ;
+}

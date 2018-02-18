@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+# $Id: homonym,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+#
+# Replacement of old homonym C program
+#
+# Format of homfile:
+#	// any line starting with '//' is ignored
+#	Full name 1 =
+#	Variant A of 1
+#	Variant B_of_1
+#	Full_name 2 =
+#	Variant of 2
+#	etc.
+# i.e. the correct names come first, followed by an '=' sign
+# all names on subsequent lines up until the next '=' sign are treated 
+# as homonyms.  NOTE THAT THIS IS DIFFERENT FROM THE OLD FORMAT.
+#
+# By default Author lines are substituted, but you can apply to any other 
+# tag using option "-T tag"
+#
+# Option -c will just output information on changes that will be made
+#
+# Option -2 is like -T, but looks for items 2 in from the tag
+#
+# Lines ending with '// fix' will not be changed
+
+$usage = "Usage: homonym [-T tag] [-c] [-2 tag] homfile [files]\n" ;
+
+$tag = "Author" ;		# default tag
+
+while ($ARGV[0] =~ /^-/) {	# process switches
+    $_ = shift ;
+    if (/^-T(.*)/) { $tag = $1 ? $1 : shift ; }
+    if (/^-2(.*)/) { $tag2 = $1 ? $1 : shift ; }
+    elsif (/^-c$/) { $check = 1 ; }
+    else { die "Unrecognized switch: $_\n" ; }
+}
+
+	# process homfile into %map ;
+
+die $usage unless @ARGV ;
+open (HOM, shift) || die "Can't open homfile $_\n" ;
+
+while (<HOM>) {
+    /^\s+\/\// && next ;		# ignore comment lines
+    if ( /\s*(\S.*\S)\s+=\s*$/ ) {
+	$target = $1 ;
+    }
+    elsif ( /(\S.*\S)/ ) {
+	$map{$1} = $target ;
+    }
+}
+
+die $usage unless @ARGV || !-t ;
+
+while (<>) {
+    s/(\S+)\s+:/$1/ ;		# strip out horrible colons
+    if (  (/^$tag\s+"(.+)"/o ||
+	   /^$tag\s+"(.+)"?$/o ||
+	   /^$tag\s+(\S+)/o ) &&
+	$_ !~ /\/\/ fix$/ &&
+	defined $map{$1}) {
+	if ($check) {
+	    print "$.\t$1  ->  $map{$1}\n" ;
+	}
+	else {
+	    s/$1/$map{$1}/ ;
+	}
+    if (  (/^$tag2\s+".+"\s+"(.+)"/o ||
+	   /^$tag2\s+".+"\s+"(.+)"?$/o ||
+	   /^$tag2\s+".+"\s(\S+)/o ||
+	   /^$tag2\s+\S+\s+"(.+)"/o ||
+	   /^$tag2\s+\S+\s+"(.+)"?$/o ||
+	   /^$tag2\s+\S+\s(\S+)/o) &&
+	$_ !~ /\/\/ fix$/ &&
+	defined $map{$1}) {
+	if ($check) {
+	    print "$.\t$1  ->  $map{$1}\n" ;
+	}
+	else {
+	    s/$1/$map{$1}/ ;
+	}
+    }
+    print unless $check ;
+}
+    
+############# end of file ############

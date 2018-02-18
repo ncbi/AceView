@@ -1,0 +1,114 @@
+PATH=.:$PATH:../$ACEDB_MACHINE
+export PATH
+which blastd_convert_table
+
+here=`pwd`
+
+
+case "$1"
+in
+
+##### in the worm case use gene->product->mrna to get mrna predicted
+worm)
+tbly $2 << EOF
+	table -o worm.dna -f $here/blast_gene2dna.worm.def
+EOF
+
+./blastd_convert_table w d < worm.dna > worm.dna.fasta
+
+
+formatdb -n n.worm -t 'Caenorhabditis elegans transcriptome' -p F -i worm.dna.fasta
+
+;;
+
+#####
+mouse)
+tbly $2 << EOF
+	table -o mouse.dna -f $here/blast_gene2dna.mouse.def
+EOF
+
+./blastd_convert_table m d < mouse.dna > mouse.dna.fasta
+
+
+formatdb -n n.mouse -t 'Mus musculus transcriptome' -p F -i mouse.dna.fasta
+
+;;
+
+#####
+rat)
+tbly $2 << EOF
+	table -o rat.dna -f $here/blast_gene2dna.human.def
+EOF
+
+blastd_convert_table r d < rat.dna > rat.dna.fasta
+
+
+formatdb -n n.rat -t 'Rattus norvegicus transcriptome' -p F -i rat.dna.fasta
+
+;;
+
+#####
+briggsae)
+tbly $2 << EOF
+	table -o briggsae.dna -f $here/blast_gene2dna.human.def
+EOF
+
+blastd_convert_table b d < briggsae.dna > briggsae.dna.fasta
+
+
+formatdb -n n.briggsae -t 'Caenorhabditis briggsae transcriptome' -p F -i briggsae.dna.fasta
+
+;;
+
+#####
+human)
+
+tbly $2 << EOF
+	table -o human.dna -f $here/blast_gene2dna.human.def
+EOF
+
+blastd_convert_table h d < human.dna > human.dna.fasta
+
+formatdb -n n.human -t 'Human transcriptome' -p F -i human.dna.fasta
+
+;;
+
+#####
+omim)
+
+tbly $2 << EOF
+        query find gene locus_phenotype 
+	table -active -o omim.dna -f $here/blast_gene2dna.human.def
+EOF
+
+blastd_convert_table h d < omim.dna > omim.dna.fasta
+
+formatdb -n n.omim -t 'Human OMIM transcriptome' -p F -i omim.dna.fasta
+
+;;
+
+#####
+ara)
+tbly $2 << EOF
+	table -o ara.dna -f $here/blast_gene2dna.human.def
+EOF
+
+blastd_convert_table a d < ara.dna > ara.dna.fasta
+
+
+formatdb -n n.ara -t 'Arabidopsis thaliana transcriptome' -p F -i ara.dna.fasta
+
+;;
+
+#####
+clean)
+	rm -f worm.dna worm.dna.fasta 
+	rm -f human.dna human.dna.fasta 
+	rm -f mouse.dna mouse.dna.fasta 
+	rm -f rat.dna rat.dna.fasta 
+	rm -f ara.dna ara.dna.fasta 
+
+;;
+
+esac
+

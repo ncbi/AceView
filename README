@@ -1,0 +1,256 @@
+README for acedb and related stuff
+--
+The code is GPL
+If you use the acedb_ncbi code
+please quote
+
+AceView: a comprehensive cDNA-supported gene and transcripts annotation, 
+Danielle Thierry-Mieg and Jean Thierry-Mieg
+Genome Biology 2006, 7(Suppl 1):S12
+http://genomebiology.com/2006/7/S1/S12
+
+LINUX:
+To compile acedb, you must first install the development packages (with header files) 
+for libXaw, libXt, libXmu, libXext and libX11. For example on Fedora, RHEL, CentOS and 
+friends these are named libXaw-devel etc... 
+On Debian based systems (including Ubuntu) they are named eg libxaw-headers.
+
+There is a tar file wh/x11.include.tar.gz that you could use if you cannot obtain the
+headers, but these canned headers may not be exactly in suynch with your X11 libraries
+
+--
+Where is documentation
+--
+
+wdoc 
+	contains many documentation files
+
+whelp 
+	contains help files used by the compiled programs.
+
+idoc
+	internal documentation written by Mark S - I am collecting
+	notes about how the system works, as I figure it out.  Don't
+	necessarily place too much confidence in this.
+
+http://www.acedb.org :
+	 the sanger server for acedb constains interesting acedb doc
+
+Quick guide to building the system
+--
+
+	% ln -s wmake/makefile .
+	% make
+		it will show you the possible machine configurations
+
+    in sh or bash (linux default shell):
+        % export ACEDB_MACHINE=LINUX_X86_64_4_OPT
+    alternatively in csh or tcsh:
+	% setenv ACEDB_MACHINE SOLARIS_4
+
+        Use the right configuration for your machine.  
+        frequent choices are:
+		SOLARIS_4	any version of solaris
+		SOLARIS_4_OPT	any version of solaris
+		LINUX_4		any version of linux
+                LINUX_4_OPT     optimized code for linux 32 bits 
+                LINUX_X86_64_4_OPT optimized code linux 64 bit
+	The 4 refers to Acebd version 4, there are many other machines
+        predefined in directory wmake (ALPHA,IBM,SGI etc).
+
+        If your machine is not listed
+        please prepare a new file wmake/MACHINE_DEF and mail it to
+          mieg@ncbi.nlm.nih.gov
+        I will include it in the distrib,  but (in priciple) never edit 
+        the machine independant makefile:  wmake/truemake
+ 
+        On some machines, the optimized version mishandles the color table
+        and the graphic program 'xace' 'xacembly' pops up in grey tones. If this
+	happens, try the non-optimized graphic code. There is no known 
+        optimization bug affecting the non graphic programs.
+
+	% make -k all
+                Notice that all object modules and all executable are created
+                in the directory bin.$ACEDB_MACHINE, so you can compile for several
+                platform in parallel.
+
+		please use 'make -k all'
+		the purpose of -k option is to continue compiling
+		if one of the target fails. For example under my
+		instalation of CYGWIN, i fail to compile the 
+		rpc 'aceserver' program, because i cannot locate
+		xdr_free in /usr/lib. But this is immaterial since
+		the tcp 'taceserver' program, which has equivalent 
+		functionalities compiles and runs.
+
+
+	% cd demo 
+	% sh test_note toto
+		This will create a tiny database in directory toto
+	% ../bin*/xace toto
+		This should open the X11 graphic xacembly code
+		click on the sequence class, then on one of the
+		sequences in the main-keyset window, then on the
+		DNA button in the sequence window
+		The database is quasi empty, but this is a test
+		that the whole code runs ok
+		Click Exit in the main window
+	% cd ../wac
+		Look at the README in this directory, it contains the
+		test suite for the client server system
+		Notice that acedb supports 3 protocols, 
+		rpc/sanger-tcp/ncbi-tcp
+		AceView uses ncbi-tcp which is way faster, AcePerl
+		supports rpc and sanger-tcp
+		some machines, in particular windows do not support
+		rpc
+		To use AcePerl on LINUX ise the rpc method
+
+What is here
+--
+
+demo
+	a script to create a small demo database - useful to developers
+	working on the database system, not necessarily useful for
+	anyone else
+
+idoc
+	Mark Sienkiewicz wrote this documentation while learning the system.
+
+w1	
+	tools - basic libraries
+	[ ace 9 has different message passing (eg. messout, fn names) ]
+
+w2	
+	graphics libraries - ps, gif, x11, mac
+	[ different in ace 9 - gtk ] 
+
+w4,5	database kernel
+
+w6	object layer 
+	universal graphics - keyset display, tree display, few others
+	dna, peptide
+
+w7	biology graphics code
+	[ quite out of sync with ace 9 - merge is difficult: both have
+	new features ]
+
+w8, wabi 
+	acembly layer
+	[ not synchronized with ace 9 - we have features they do not have ]
+
+w9	high layer tools from sanger: dotter, other
+
+wabi	Acembly code to analyse and display sequencing projects and Solexa data
+
+wac	AceC : C language programmers interface to acedb
+        The directory contains a test suite
+	AceC code can run standalone or connect to a distant server
+	which can be the taceserver or tgifacemblyserver which
+	are part of this package, or the saceserver which is
+	part of the sanger acedb code and runs at CSHL
+
+wacext	Contains many application code written in AceC
+	some are used frequently, some are one time shots
+	and a few are broken, but are not used elesewhere.
+	cd wacext ; make -k all	
+
+wace	obsolete tools for importing data
+
+wacec	obsolete vahan's ace c library
+        kept for compatibility
+
+waction	obsolete - export data, run ext program, reload data
+	never worked on all platforms
+
+waql
+waqlexamples
+	AQL (Ace Query Language) code - totally obsolete and broken, but need 
+	to keep it to compile.  
+	[ only valid in ace 9; even the ace 9 AQL is not well optimized. ]
+
+wc	examples using ace c
+
+wdce	windows RPC - DCE
+	from Richard II
+
+wdnasearch
+	will be dna search someday
+
+wdoc
+	documentation
+
+wext
+	code that uses acelib
+	acelib is client library for applications to use - works only
+	from disk. some of this code used in production
+
+wfiche
+	vahan's biology code - linked to our schema
+
+wgd	
+	library that creates gif images
+
+wgf	
+	gene finder data tables
+	gene finder does "a priori gene finding"
+
+wgnbk	
+	old program to index and re-export pieces of a large file
+
+wh	
+	most include files
+
+whelp	
+	online help (html)
+
+whooks	
+	schemas and classes that are known intrisicially by the c code
+
+win32
+win32h
+win32make
+	windows stuff
+
+wjo	contributed biology graphic code
+
+wmake	all makefiles live here
+
+wmd5	MD5 hash
+
+wnq	"new query" recent tools (library) should be in w1
+
+wquery	place to store standard queries - distributed with system
+	often out of sync with schema
+	obsolete?
+
+wrpc	rpc client and server code
+
+wscripts
+	external code that we use - see wtools
+
+wsocket
+wsocket7
+	new socket server client (2 versions)
+	[ was copied from ace 9, but doesn't work for us. ]
+
+wspec
+	standard wspec for creating new database
+	contains standard worm schema
+	- should have a minimum schema, or schema with everything the
+	code knows.
+
+wstaden
+	code borrowed from roger staden - library to read "abi traces"
+	localized for acedb
+
+wtools
+	external code that we use - see wscripts
+	schema checker in python
+	genbank to ace translator
+
+wvsim	vahan's general library - like w1
+	do not use
+	we keep it for back compatibility so some applications
+
+

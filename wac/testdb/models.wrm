@@ -1,0 +1,41 @@
+?arf	arbitrary_tag
+	ivalue	Int
+	fvalue	Float
+	tvalue	Text
+	dvalue	DateType
+	ovalue	?arf
+	nest1	#foo
+	nest2	#foo
+	name	Text
+
+#foo	name	Text
+	value	Text
+	aql	?aql1
+
+?wide	this	is	a	wide	list	of	tags	Int	Int	Int 	?arf
+	it	has	many	things
+	arfs	?arf	?arf	?arf	?arf	?arf
+
+
+?aql1	tag
+	ivalue	Int
+	fvalue	Float
+	tvalue	Text
+	dvalue	DateType
+	ovalue	?arf
+	nest1	#foo
+	nest2	#foo
+
+?lots	t	Text
+	t1	?Text
+	t2	int
+
+
+?sequence	DNA ?dna Int Text
+		Title ?Text
+
+?Protein   Peptide ?Peptide Int Text
+
+?load	tag2
+	tag3 int
+	tag4 text float

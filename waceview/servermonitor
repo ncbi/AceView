@@ -1,0 +1,572 @@
+#!/bin/sh
+
+#
+# acedb server starter and monitor
+#
+# This script starts the database server and then periodically checks
+# to see that it is still working.  If the server dies or gets stuck in 
+# a loop, kills and restarts the server.
+#
+# usage:
+# servermonitor dir command
+#	dir is an identifier for which database 
+#
+#	command is what action
+#		start - starts running and monitoring the server
+#		stop - stops the server
+#		rotate - rotates the log file
+#
+# in case of problem with the listening ports allready in use
+# try the unix conmmands
+#    lsof -i -n` 
+#    ps -elf | grep servermonitor
+# kill the offending processes and \rm -rf xxx/monitor
+# then relaunch
+
+# CONFIGURABLE PARAMETERS
+
+#
+# client timeout imposed by the server
+
+ctimeout=300
+
+#
+# server timeout
+
+stimeout=72000
+
+#
+# max kbytes per client (0 = unlimited)
+
+kbytes=0
+
+#
+# server executable
+
+aceclient=bin/taceclient
+server=bin/tgifacemblyserver
+
+#
+# how long does our client give the server to answer
+
+timeout=600
+
+#
+# how long we give the server to startup
+
+startuptime=1200
+#startuptime=40
+
+#
+# how often do we check on the server
+
+poll=600
+
+# do we want the server to always reside in RAM, costly but efficient !
+noswap=' '
+#
+# deduce the rpc number from the directory name
+# select the object file for the server executable
+# select the maximum process size 
+#	The process size is in whatever units are used in
+#	column 10 ( SZ ) of the output from ps -l
+#	On Solaris/sparc this number is in 8k pages, so 
+#	maxsize=262144 means 262144 * 8192 = 2147483648 = 2 Gb
+#	maxsize=196608 = 1.5 Gb
+#	maxsize=131072 = 1 Gb
+#       On intel, i think i work in kb and i have a larger memory
+#	maxsize=1048576 = ?? Gb
+#
+
+case "$1"
+in
+blast)
+	# special case for blast server, expected to run on port 3001, on server listed in AceView/blast_host
+	pidfile=blastd.pid
+	cd BLAST
+	case "$2"
+	in
+	start|restart)
+		if [ -f $pidfile ]
+		then
+		    read pid < $pidfile
+		    kill $pid
+		fi
+		./blastd 3001 >> log_file &
+		echo $! > $pidfile
+		;;
+	stop)
+		read pid < $pidfile
+		kill $pid
+		rm $pidfile
+		;;
+	esac
+	exit 0
+	;;
+35e_1)
+	echo 'recognized 35e_1'
+	port=2310135
+	maxsize=1048576
+	server=bin/tgifacemblyserver.35e_1
+	;;
+35f_1)
+	echo 'recognized 235'
+	port=2310235
+	maxsize=1048576
+	server=bin/tgifacemblyserver.35f_1
+	;;
+35f_2)
+	echo 'recognized 335'
+	port=2310335
+	maxsize=1048576
+	server=bin/tgifacemblyserver.35f_2
+	;;
+35g_1)
+	echo 'recognized 435'
+	port=2310435
+	maxsize=1048576
+	server=bin/tgifacemblyserver.35g_1
+	;;
+35g_2)
+	echo 'recognized 535'
+	port=2310535
+	maxsize=1048576
+	server=bin/tgifacemblyserver.35g_2
+	;;
+36a_1)
+	echo 'recognized 136'
+	port=2310336
+	maxsize=1048576
+	server=bin/tgifacemblyserver.36a_1
+        #noswap='-noswap'
+	;;
+36a_2)
+	echo 'recognized 236'
+	port=2310236
+	maxsize=1048576
+	server=bin/tgifacemblyserver.36a_2
+	;;
+37a_1)
+	echo 'recognized 37a_1'
+	port=2310337
+	maxsize=1048576
+	server=bin/tgifacemblyserver.37a_1
+        #noswap='-noswap'
+        stimeout=60000
+	;;
+mm_37_1)
+	echo 'recognized mm_37_1'
+	port=2320337
+	maxsize=1048576
+	server=bin/tgifacemblyserver.mm_37_1
+        #noswap='-noswap'
+        stimeout=50000
+	;;
+mm_37_2)
+	echo 'recognized mm_37_2'
+	port=2320237
+	maxsize=1048576
+	server=bin/tgifacemblyserver.mm_37_2
+	;;
+rat_1)
+	echo 'recognized rr_18_1'
+	port=2330318
+	maxsize=1048576
+	server=bin/tgifacemblyserver.rat_1
+	;;
+coli_1)
+	echo 'recognized coli_1'
+	port=2340001
+	maxsize=1048576
+	server=bin/tgifacemblyserver.coli_1
+	;;
+gold_1)
+	echo 'recognized gold_1'
+	port=2310500
+	maxsize=1048576
+	server=bin/tgifacemblyserver.gold_1
+	;;
+worm_1)
+	port=2000100
+	maxsize=262144
+        maxsize=1048576
+	server=bin/tgifacemblyserver.worm_1
+        #noswap='-noswap'
+        stimeout=65000
+	;;
+ara_1)
+	port=2000300
+	maxsize=262144
+	maxsize=1048576
+	server=bin/tgifacemblyserver.ara_1
+        #noswap='-noswap'
+	;;
+test)
+	port=54321
+	maxsize=262144
+        server=bin/tgifacemblyserver.test
+	;;
+/*)
+	echo 'database directory is a full path - assuming you are testing'
+	echo '- using aceclient and gifacemblyserver from path'
+	echo '- using rpc program number (port) 12345'
+	aceclient=aceclient
+	server=gifacemblyserver
+	port=12345
+	maxsize=5000
+	;;
+*)
+        echo 'unknown server - I only know blast, 35e_1, 35f_1, 35f_2, 35g_1, 35g_2, 31, gold_1, worm_1, ara_1.'
+	usage
+        exit 1
+	;;
+esac
+
+# END PARAMETERS
+usage() {
+
+cat << FOO
+
+usage: servermonitor directory command
+
+directory identifies the database to run the server for:
+
+	35e_1	version 35e of human database
+		rpc program number is 2310135
+
+	35f_1	version 35f of human database
+		rpc program number is 2310235
+
+	35f_2	version 35f of human database
+		rpc program number is 2310335
+
+	35g_1	version 35g of human database
+		rpc program number is 2310435
+
+	35g_2	version 35g of human database
+		rpc program number is 2310535
+
+	gold_1	gold project
+		rpc program number is 2310500
+
+	worm_1	worm database
+		rpc program number is 2000101
+
+	ara_1	version 1 of ara database
+		rpc program number is 2000300
+
+
+	/*	any full path is assumed to be a database directory
+		for testing.  rpc program number is 12345
+
+command is one of:
+
+	start	start the server
+
+	stop	stop the server
+
+	rotate	rotate the log files (stops/starts server)
+
+	test	test if the server is responding
+
+FOO
+
+}
+
+
+stop_server() {
+	if [ -f $dir/monitor/pidfile_monitor ]
+	then
+		echo 'Stopping servermonitor'
+		read p1 p2 < $dir/monitor/pidfile_monitor
+		kill -9 $p1 
+		kill -9 $p2
+	else
+		echo Cannot find pid file to stop servermonitor
+	fi
+
+	echo 'Asking database server to shut down'
+	echo 'save' | $aceclient a:127.0.0.1:$port -time_out $timeout
+	echo 'shutdown now' | $aceclient a:127.0.0.1:$port -time_out $timeout
+	if [ $? != 0 ]
+	then
+		echo 'Database server is not responding - using kill'
+		if [ -f $dir/monitor/pidfile_server ]
+		then
+			read p3 < $dir/monitor/pidfile_server
+			kill $p3
+		else
+			echo Cannot find pid file to kill server
+		fi
+	fi
+	rm -f $dir/monitor/pidfile_monitor $dir/monitor/pidfile_server
+}
+
+start_server() {
+	#
+	# check that we can find the server and aceclient executables.
+	# if we can't, the rest of this can't work properly
+
+	if [ ! -x $server ]
+	then
+		cp bin/tgifacemblyserver $server
+	fi
+
+	t=`which $server`
+	if [ ! -x $t ]
+	then
+		echo cannot find executable $server
+		exit 1
+	else
+		server=$t
+	fi
+
+	t=`which $aceclient`
+	if [ ! -x $t ]
+	then
+		echo cannot find executable $aceclient
+		exit 1
+	else
+		aceclient=$t
+	fi
+
+	if [ -f $dir/monitor/pidfile_monitor ]
+	then
+		echo there appears to be another server monitor running
+		cat $dir/monitor/pidfile_monitor
+		exit 1
+	else
+		touch $dir/monitor/pidfile_monitor
+	fi
+
+
+	rm -f $dir/monitor/pidfile_server $dir/monitor/pidfile_monitor
+
+        echo 'server=' $server ' ' $noswap
+
+	( 
+	 #
+	 # waiter - Start the server and note its pid in a file.  If it ever
+	 # dies, restart it.
+	 #
+
+		while true
+		do
+			if [ ! -x $server ]
+			then
+				echo 'servermonitor $1 - The server executable disappeared!'
+				exit 1
+			fi
+			( 
+				#
+				# raise the limits here so it only affects the server.
+				# There is no point in setting anything other than the 
+				# maximum, because we would just need to raise it when
+				# we exceeded it
+
+				#ulimit -d unlimited	# data segment
+				ulimit -f unlimited	# file size
+				ulimit -s 20000 #unlimited	# stack segment
+				ulimit -t unlimited	# cpu time
+				#ulimit -v unlimited	# virtual memory
+
+				# can't set file descriptors to ulimited - the system
+				# the system actually allocates the file descriptors
+				# when you set the limit
+
+				ulimit -n 1000		# file descriptor
+				LD_LIBRARY_PATH=/home/mieg/bin  # needed by the swfc flash compiler
+				export LD_LIBRARY_PATH
+				touch $dir/run.log
+				exec $server $dir $noswap $port ${ctimeout}":"${stimeout}":"${kbytes} >> $dir/run.log
+			) &
+			echo $! > $dir/monitor/pidfile_server
+			wait
+
+			# if the server exits, look to see if it is
+			# another day from when we last rotated the
+			# log file.  If so, rotate the logs before
+			# we restart the server
+
+			touch $dir/monitor/last_rotate
+			read last_rotate < $dir/monitor/last_rotate
+			now=`date +%Y/%m/%d`
+			if [ "$now" != "$last_rotate" ]
+			then
+				log_rotate
+			fi
+		done
+	) &
+
+	n1=$!
+	touch $dir/pinger.log
+	(
+	 #
+	 # pinger - ping the server periodically; if it times out then the server is 
+	 # either dead or looping.  either way, kill it (making sure it is dead) and 
+	 # expect the waiter to restart it
+	 #
+                echo sleep $startuptime
+		sleep $startuptime
+		while sleep $poll
+		do
+			if [ ! -x $aceclient ]
+			then
+				echo 'servermonitor $1 - The aceclient executable disappeared!'
+				exit 1
+			fi
+                        date
+			echo challenging find tg on $aceclient a:127.0.0.1:$port -time_out $timeout
+			echo 'find tg toto' | $aceclient a:127.0.0.1:$port -time_out $timeout
+			if [ $? != 0 ]
+			then
+				if [ -f $dir/monitor/pidfile_server ] 
+				then
+					read pid < $dir/monitor/pidfile_server	
+					echo servermonitor: server not responding kill needed
+					kill $pid
+					rm -f $dir/monitor/pidfile_server
+				fi
+			else
+				if [ -f $dir/monitor/pidfile_server ] 
+				then
+					read pid < $dir/monitor/pidfile_server
+					size=`ps -l -p $pid | tail -n +2 | awk '{ printf("%d\n",$10); }'`
+					if [ $size -gt $maxsize ]
+					then
+						echo servermonitor: server size too big
+						( echo 'save' ; echo 'shutdown' ) \
+							| $aceclient a:127.0.0.1:$port -time_out $timeout
+						if [ "$?" != 0 ]
+						then
+							echo kill needed
+							kill $pid
+						fi
+					fi
+				fi
+			fi
+		done
+	) >> $dir/pinger.log &
+
+	n2=$!
+
+	sleep 2
+	echo $n1 $n2 > $dir/monitor/pidfile_monitor
+	echo 'Started the server as pid' `cat $dir/monitor/pidfile_server`
+	echo "Started the tcp-pinger as pid $n2"
+	echo done
+}
+
+log_rotate2() {
+	for x2 in 2 1 0
+	do
+	echo x2=$x2
+		for x1 in  2 1 0
+		do
+		echo x1=$x1    
+			x=`expr 10 \* $x2 + $x1 `
+			echo x=$x
+		done
+	done
+}
+log_rotate() {
+	date +%Y/%m/%d > $dir/monitor/last_rotate
+	for x2 in 19 18 17 16 15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0
+	do
+		for x1 in  9 8 7 6 5 4 3 2 1 0
+		do
+			x=`expr 10 \* $x2 + $x1 `
+			if [ -f $dir/server.log.$x ]
+			then
+				y=`expr $x + 1 `
+				mv $dir/server.log.$x $dir/server.log.$y
+			fi
+		done
+	done
+	mv $dir/server.log $dir/server.log.0
+	touch $dir/server.log
+}
+
+
+#
+# ARG PARSING
+#
+
+#
+# first arg is the directory the database is in
+
+if [ "$1" != "" ]
+then
+	dir=$1
+else
+	echo must specify server directory
+	usage
+	exit 1
+fi
+
+#
+
+#
+# make sure the directory where we stash our files is there
+#
+if [ ! -d $dir/monitor ]
+then
+	mkdir $dir/monitor
+fi
+
+echo $port > $dir/monitor/port
+uname -n > $dir/monitor/host
+
+#
+# IMPLEMENT COMMAND
+#
+
+
+#
+# if command is "stop", we are shutting down the database - that is easy
+# to do.
+#
+
+case "$2"
+in
+"stop")
+	stop_server
+	echo 'Done'
+	exit 0
+	;;
+"start")
+	start_server
+	echo 'Done'
+	exit 0
+	;;
+rotate)
+	#
+	# rename the log file, then stop/start the server
+	# The newly starting server may bump into the stopping
+	# servers lock file, but that just means it should fail
+	# and start again
+	#
+	log_rotate
+	stop_server
+	start_server
+	echo 'Done'
+	;;
+update)
+	#
+	# stop the server, refresh the server code and restart
+	#
+	stop_server
+        rm $server
+	start_server
+	echo 'Done'
+	;;
+test)
+	echo 'find tg' | $aceclient a:127.0.0.1:$port -time_out $timeout
+	exit $?
+	;;
+*)
+	usage
+	exit 1
+	;;
+esac
+

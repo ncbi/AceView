@@ -1,0 +1,1183 @@
+#!/bin/tcsh -f
+
+# 2013_08_22
+# The objective of this script is to concentrate the introns from Wei, Chris Mason and Magic
+# and concentrate with counts from everywhere
+
+
+if ($1 == p1) goto phasep1
+if ($1 == tbt) goto tobetested
+
+goto phaseLoop
+
+mkdir INTRON_VERIF
+cd INTRON_VERIF
+# grab the list of introns we verified by realignment
+gunzip -c TARGET/Targets/hs.introns.fasta.gz | gawk '/^>/{printf("Intron %s\nRealigned\n\n", substr($1,5));}' > introns_realigned.ace
+
+
+# grab the gene ace file from SEQC_2012/Gene
+tbly ~/SEQC_2012/GeneIndexDB << EOF
+  find gene
+  show -a -f genes.ace
+  find mrna
+  show -a -f mrna.ace
+  find transcribed_gene
+  show -a -f tg.ace
+  quit
+EOF
+
+# clean up the Run_U Run_nU
+cat genes.ace | gawk '/^Run_/{next;}{print}' > genes.no_Run_.ace
+tbly .
+  parse  genes.no_Run_.ace
+  parse introns_realigned.ace
+  save
+  quit
+
+# recognize the BOKU non stranded introns
+cat AVJunctions_tab.txt | gawk '/^Jun/{next;}{split($1,aa,".");printf("Intron %s__%s_%s\n",substr(aa[1],4),aa[2],aa[3]);}' > AVJ.F.list
+cat AVJunctions_tab.txt | gawk '/^Jun/{next;}{split($1,aa,".");printf("Intron %s__%s_%s\n",substr(aa[1],4),aa[3],aa[2]);}' > AVJ.R.list
+# import these keysets and reexport, then clean the reexport
+tbly .. << EOF
+  key AVJ.F.list
+  spush
+  key AVJ.R.list
+  sor
+  spop
+  // edit  Av_according_to_boku
+  query gt_ag || gc_ag
+  list -a -f AVJ.recognized.list
+  save
+  quit
+EOF
+
+cat AVJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);print;}' > AVJ.recognized.list.clean
+cat AVJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"_");printf("Intron %s__%s_%s\n", aa[1],aa[4],aa[3]);}' > AVJ.recognized.antilist.clean
+
+cat AVJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);print;}' > AVJ.recognized.list.clean
+#  find outliers
+cat  AVJ.F.list ZZZZZ AVJ.R.list ZZZZZ AVJ.recognized.list.clean  AVJ.recognized.antilist.clean | gawk 'BEGIN{zz=1;}/ZZZZZ/{zz*=2;;next;}/^Intron/{n[$2]+=zz;}END{for(g in n) if (n[g] < 4) print g, n[g], z[g];}' > AVJ.notrecognized.list
+
+
+====
+
+
+cat NewJunctions_tab.txt | gawk '/^Jun/{next;}{split($1,aa,".");printf("Intron %s__%s_%s\n",substr(aa[1],4),aa[2],aa[3]);}' > NewJ.F.list
+cat NewJunctions_tab.txt | gawk '/^Jun/{next;}{split($1,aa,".");printf("Intron %s__%s_%s\n",substr(aa[1],4),aa[3],aa[2]);}' > NewJ.R.list
+# import these keysets and reexport, then clean the reexport
+tbly .. << EOF
+  key NewJ.F.list
+  spush
+  key NewJ.R.list
+  sor
+  spop
+  // edit  New_according_to_boku
+  query gt_ag || gc_ag
+  list -a -f NewJ.recognized.list
+  save
+EOF
+
+
+cat NewJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);print;}' > NewJ.recognized.list.clean
+cat NewJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"_");printf("Intron %s__%s_%s\n", aa[1],aa[4],aa[3]);}' > NewJ.recognized.antilist.clean
+
+cat NewJ.recognized.list | gawk '/^Intron/{gsub(/\"/,"",$2);print;}' > NewJ.recognized.list.clean
+#  find outliers
+cat  NewJ.F.list ZZZZZ NewJ.R.list ZZZZZ NewJ.recognized.list.clean  NewJ.recognized.antilist.clean | gawk 'BEGIN{zz=1;}/ZZZZZ/{zz*=2;;next;}/^Intron/{n[$2]+=zz;}END{for(g in n) if (n[g] < 4) print g, n[g], z[g];}' > NewJ.notrecognized
+
+# get rid of the wrong strand
+
+foreach type (NewJ AVJ)
+  cat $type'unctions_tab'.txt | gawk -F '\t' '/^Jun/{next;}{split($1,aa,".");printf("%s__%s_%s",substr(aa[1],4),aa[2],aa[3]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' >  $type.tab.modified
+  cat $type'unctions_tab'.txt | gawk -F '\t' '/^Jun/{next;}{split($1,aa,".");printf("%s__%s_%s",substr(aa[1],4),aa[3],aa[2]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' >>  $type.tab.modified
+
+  cat $type.recognized.antilist.clean ZZZZZ  $type.tab.modified | gawk '/ZZZZZ/{zz++;next;}{if(zz<1){anti[$2]=1;next;}}{if(anti[$1]==1)next;}{print}' > $type.tab.modified.clean
+
+  cat $type.tab.modified.clean | gawk -F '\t' '{wehi_lif=$2;wehi_roche=$3;wehi_ILM=$4;wehi_ILM_A=$5;wehi_ILM_B=$6;wehi_ILM_C=$7;wehi_ILM_D=$8;wehi_ILM_titrating=$9;wehi_ILM_ratio=$10;cstar_ILM=$11;cstar_ILM_A=$12;cstar_ILM_B=$13;cstar_ILM_C=$14;cstar_ILM_D=$15;cstar_ILM_titrating=$16;cstar_ILM_ratio=$17;printf("Intron %s\n",$1);if(wehi_lif>0)printf("wehi_LIF_any %d\n",wehi_lif);if(wehi_roche>0)printf("wehi_roche_any %d\n",wehi_roche);if(wehi_ILM>0){printf("wehi_ILM_any %d\n",wehi_ILM);if(wehi_ILM_A>0)printf("wehi_ILM_A %d\n",wehi_ILM_A);if(wehi_ILM_B>0)printf("wehi_ILM_B %d\n",wehi_ILM_B);if(wehi_ILM_C>0)printf("wehi_ILM_C %d\n",wehi_ILM_C);if(wehi_ILM_D>0)printf("wehi_ILM_D %d\n",wehi_ILM_D);if(wehi_ILM_titrating)printf("wehi_ILM_titrating\n");if(wehi_ILM_ratio)printf("wehi_ILM_ratio\n");}if(cstar_ILM>0){printf("cstar_ILM_any %d\n",cstar_ILM);if(cstar_ILM_A>0)printf("cstar_ILM_A %d\n",cstar_ILM_A);if(cstar_ILM_B>0)printf("cstar_ILM_B %d\n",cstar_ILM_B);if(cstar_ILM_C>0)printf("cstar_ILM_C %d\n",cstar_ILM_C);if(cstar_ILM_D>0)printf("cstar_ILM_D %d\n",cstar_ILM_D);if(cstar_ILM_titrating)printf("cstar_ILM_titrating\n");if(cstar_ILM_ratio)printf("cstar_ILM_ratio\n");}printf("\n");}' > $type.recognized.counts.ace2
+end
+foreach type (NewJ AVJ)
+ cat $type.tab.modified.clean |  gawk -F '\t' '{if($2>0 || $3>0){wehi_lif=$2;wehi_roche=$3;printf("Intron %s\n",$1);if(wehi_lif>0)printf("wehi_LIF_any %d\n",wehi_lif);if(wehi_roche>0)printf("wehi_roche_any %d\n",wehi_roche);printf("\n");}}' >> wehi.ace
+end
+wehi: ce roche 12__53460097_53459751 est a l'envers chez boku AVJ.recognized.counts.ace
+### recover EBI etc introns
+foreach target (RefSeq av EBI)
+  source scripts/target2target_class.txt
+  zcat tmp/METADATA/mrnaRemap.gz | grep $target_class | gawk -F '\t' '{mrna=$2;x1=$3;x2=$4;chrom=$5;a1=$6;a2=$7;gene=$8;s=1;if(a1>a2)s=-1;if(m==old){printf("Intron %s__%s_%s\nGene %s\nFrom_gene %s %d %d\n%s_2013\n\n", chrom,a1+s,b2-s,gene,mrna,x1,x2,target);}old=m;b2=a2;}' target=$target > mrnaRemap.$target.ace
+  cat mrnaRemap.$target.ace | grep Intron > mrnaRemap.$target.list
+
+end
+
+
+#### grab the strand and counts from the de_duo_2013
+gunzip -c tmp/OR/*/d1.*.de_uno.txt.gz | gawk '{z=$2 "__" $3 "_" $4; f[z]=$5;n[z]+=$7;}END{for(z in n)print z,f[z],n[z];}' > toto87
+cat toto87 | gawk '{printf ("Intron %s\nde_duo_2013 any %d\n%s\n\n",$1,$3,$2);}' > de_duo_2013.ace
+
+
+#### recover magic counts differentiating sites (MAY CNL ...) 
+
+cd MAGIC_introns_per_site_and_lib
+foreach s (A B C D)
+  gunzip -c ../../RESULTS/Expression/unique/introns/SEQC_$s.introns.INTRON.u.ace.gz |  gawk '/^Run/{next;}/^Group/{if(substr($2,1,2)!="D_")next;}{print}' |   gawk '/^Intron/{intron=$2;next;}/^Group_U/{x=int($6);if(x<1)next;printf("%s\t%s\t%d\n",intron,$2,x);}' >  SEQC_$s.introns.preace &
+end
+foreach s (A B C D)
+  cat  SEQC_$s.introns.preace | cut -f 2 | sort -u > lib_list.$s &
+end
+foreach s (A B C D)
+  cat  SEQC_$s.introns.preace | gawk '{split($1,aa,"__");print aa[1];}' | sort -u > chrom_list.$s &
+end
+
+foreach s (A B C D)
+  cat lib_list.$s ZZZZZ SEQC_$s.introns.preace |  gawk 'BEGIN{printf("# Intron\tTotal");}/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);if(zz<1){printf("\t%s",$1);nn++;i2nam[nn]=$1;nam2i[$1]=nn;next;}}{g=$1;i=nam2i[$2];gg[g]+=$3;gi[g,i]=$3;}END{for(g in gg){split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];x="A";if(aa[1]+0==0)x="Z";printf("\n%s%02d\t%d\t%d\t%d",x,c,a1,a2,gg[g]);for(i=1;i<=nn;i++)printf("\t%d",gi[g,i]);}}' | sort -k 1,1 -k 2,2n -k 3,3n | gawk -F '\t' '/^#/{print;next;}{c=substr($1,2);gsub(/^0/,"",c);if(length(c)<3)c="chr" c;printf("%s:%d-%d",c,$2,$3);for(i=4;i<=NF;i++)printf("\t%s",$i);printf("\n");}' > Magic_support_per_site.sample_$s.txt &
+end
+
+#######---------------------------------------------------------
+#######---------------------------------------------------------
+
+tobetested1:
+echo tobotested
+
+cd ../TO_BE_TESTED
+echo -n "# " > toto45
+date >> toto45
+echo "# Group\tIntron\tStrand\tLength (bp)\tTotal support in pipeline calling this jucntion most often\tMost expressed in\tSupport\tA\tC\tD\tB\tTitration in at least one pipeline X platform" >>toto45
+cat ZZZZZ group1_117.list ZZZZZ  group2_733.list ZZZZZ  group3_20.list ZZZZZ   group4_108.list ZZZZZ  group5_22.list ZZZZZ 1000_introns_to_validate.txt  | gawk  '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<6){gr[$2]=zz;next;}gsub(/NULL/,"",$0);z="A";m=$4;if($5>m){z="C";m=$5;}if($6>m){z="D";m=$6;}if($7>m){z="B";m=$7;}split($1,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;x="A";if(length(c)>2)x="Z";if(0+c>0 && 0+c<10)x="A0";if(m+0>0)printf("%d\t%s%s\t%d\t%d\t%d\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%s%s\n",gr[$1],x,aa[1],a1,a2,s,s*(a2-a1)+1,z,m,$3,$4,$5,$6,$7,$8,$9);}' | sort -k 1,1n -k 2,2 -k 3,3n -k 4,4n | gawk -F '\t' '{printf("%d\tchr%s:%d-%d",$1,substr($2,2),$3,$4);for(i=5;i<=NF;i++)printf("\t%s",$i);printf("\n");}' | sed -e 's/chrRCC/ERCC/' -e 's/chr0/chr/' >> toto45
+
+\cp toto45  ../../RESULTS/INTRONS/1000_introns_to_validate.export.txt
+
+#### locate the donor and acceptor sequence in the RefSeq transcripts
+#### donor on plus strand
+
+cat  anti.list | gawk '/^#/{next;}/^Intron/{gsub(/\"/,"",$0);split($2,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2){s=-1;}printf("DONOR\t%s\t%s\t%d\t%d\t%s\n",$2,c,a1,a1,s);printf("ACCEPTOR\t%s\t%s\t%d\t%d\t%s\n",$2,c,a2,a2,s);}' > toto0
+
+cat ../../tmp/METADATA/av.ns.gene.sponge | gawk '{g=$1;c=$3;a1=$4;a2=$5;s=1;if(a1>a2){a0=a1;a1=a2;a2=a0;s=-1;}printf("GENE\t%s\t%s\t%d\t%d\t%d\n",g,c,a1,a2,s);}' >> toto0
+
+cat toto0 | sort -k 3,3 -k 4,4nr > totos
+
+cat totos  |  gawk '/^ZZZZZ/{zz++;next;}{n++;t[n]=$1;g[n]=$2;c[n]=$3;a1[n]=$4;a2[n]=$5;s[n]=$6;}END{for(i=1;i<=n;i++)if(t[i]!="GENE"){x=a1[i];y=x-1000000;cc=c[i];for(j=i+1;j<=n && c[j]==cc && a1[j]>y;j++){if(a2[j]>x){tt="In_gene";if(s[i]+s[j]==0)tt="Antisense_to";printf("%s\t%s\t%s\t%s\t%s\t%d\t%d\n",g[i],t[i],tt,g[j],c[j],a1[j],a2[j]);}}}}' | sort -k 1,1 -k 2,2r -k 3,3r -k 4 > toto.out
+
+cat toto.out | gawk '{tt=0;if($2=="DONOR" && $3=="Antisense_to")tt="AntisenseD";if($2=="ACCEPTOR" && $3=="Antisense_to")tt="AntisenseA";if($2=="DONOR" && $3=="In_gene")tt="SenseD";if($2=="ACCEPTOR" && $3=="In_gene")tt="SenseA";if(tt!=0)printf("Intron %s\n%s %s\n\n",$1,tt,$4);}' > toto.antisense.ace
+
+
+#### locate the donor and acceptor sequence in the RefSeq transcripts
+#### donor on plus strand
+tobetested:
+echo tobetested
+
+cat  302_introns_to_validate.txt | gawk '{gsub(/\"/,"",$0);split($1,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;if(s==1)printf("Intron\t%s\t1\t1\t%s\t%d\t%d\n",$1,c,a1-s,a1-s);}' > toto0
+
+cat toto0 > toto1
+zcat tmp/METADATA/mrnaRemap.gz | grep RefSeq | gawk -F '\t' '{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact donors
+cat toto1s | gawk -F '\t' '/^KT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}'> ok.donor.plus.RefSeq
+
+
+cat ok.donor.plus.* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+zcat tmp/METADATA/mrnaRemap.gz | grep ET_av | gawk -F '\t' '{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^ET/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.plus.av
+
+cat ok.donor.plus.* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+ zcat tmp/METADATA/mrnaRemap.gz | grep MT_EBI | gawk -F '\t' '{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^MT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.plus.EBI
+
+
+cat ok.donor.plus.* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+ gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/LT_magic/{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^NT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.plus.seqc
+
+
+cat ok.donor.plus.* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat ../../tmp/XH*/f5.mrnaRemap.magic.txt | gawk -F '\t' '{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^DT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.plus.magic
+
+
+
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat toto1 | gawk -F '\t' '{printf("%s:donor\t1\t150\t%s\t%d\t%d\n",$2,$5,$7-149,$7);}' > donor.plus.genome.shadow
+
+#### donor on minus strand
+
+cat  302_introns_to_validate.txt | gawk '{gsub(/\"/,"",$0);split($1,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;if(s==-1)printf("Intron\t%s\t1\t1\t%s\t%d\t%d\n",$1,c,a1-s,a1-s);}' > toto0
+
+cat toto0 > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^KT_RefSeq/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6  > toto1s
+# search exact donors
+cat toto1s | gawk -F '\t' '/^KT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.RefSeq
+
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz  | gawk -F '\t' '/^ET_av/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^ET/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.av
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^MT_EBI/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^MT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.EBI
+
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz  | gawk -F '\t' '/^LT_magic/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^MT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.seqc
+
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/LT_magic/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^NT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.seqc
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat ../../tmp/XH*/f5.mrnaRemap.magic.txt | gawk -F '\t' '{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron donor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact donors not already in refseq
+cat toto1s | gawk -F '\t' '/^DT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.donor.minus.magic
+
+
+
+
+cat ok.donor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat toto1 | gawk -F '\t' '{printf("%s:donor\t1\t150\t%s\t%d\t%d\n",$2,$5,$7+149,$7);}' > donor.minus.genome.shadow
+
+#### acceptor on plus strand
+
+cat  302_introns_to_validate.txt | gawk '{gsub(/\"/,"",$0);split($1,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;if(s==1)printf("Intron\t%s\t1\t1\t%s\t%d\t%d\n",$1,c,a2+s,a2+s);}' > toto0
+
+cat toto0 > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^KT_RefSeq/{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 6,6nr -k 7,7n  > toto1s
+# search exact acceptors
+cat toto1s | gawk -F '\t' '/^KT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$6;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.plus.RefSeq
+
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^ET_av/{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^ET/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.plus.av
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^MT_EBI/{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^MT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.plus.EBI
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^LT_magic/{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^NT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.plus.seqc
+
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat ../../tmp/XH*/f5.mrnaRemap.magic.txt | gawk -F '\t' '{if($6<$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7n -k 6,6nr  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^DT/{if(x<$6||x>$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.plus.magic
+
+
+
+
+
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat toto1 | gawk -F '\t' '{printf("%s:acceptor\t1\t150\t%s\t%d\t%d\n",$2,$5,$7,$7+149);}' > acceptor.plus.genome.shadow
+
+
+#### acceptor on minus strand
+
+cat  302_introns_to_validate.txt | gawk '{gsub(/\"/,"",$0);split($1,aa,"__");split(aa[2],bb,"_");c=aa[1];a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;if(s==-1)printf("Intron\t%s\t1\t1\t%s\t%d\t%d\n",$1,c,a2+s,a2+s);}' > toto0
+
+cat toto0 > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^KT_RefSeq/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 6,6n -k 7,7nr  > toto1s
+# search exact acceptors
+cat toto1s | gawk -F '\t' '/^KT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.minus.RefSeq
+
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^ET_av/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^ET/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.minus.av
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^MT_EBI/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^MT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.minus.EBI
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+gunzip -c  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^LT_magic/{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^NT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.minus.seqc
+
+
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat ../../tmp/XH*/f5.mrnaRemap.magic.txt | gawk -F '\t' '{if($6>$7)print;}' >> toto1
+# sort the mix so that the intron acceptor comes first
+sort toto1 -k 5,5 -k 7,7nr -k 6,6n  > toto1s
+# search exact acceptors not already in refseq
+cat toto1s | gawk -F '\t' '/^DT/{if(x>$6||x<$7){ii="";next;}if(ii=="")next;n=split(ii,aa,":");for(i=2;i<=n;i++){printf("%s\t",aa[i]);print;}}/^Intron/{if(x!=$7)ii="";ii=ii ":" $2;x=$7;next;}' | sort | gawk '{if(old==$1)next;old=$1;print}' > ok.acceptor.minus.magic
+
+
+
+
+# remainder goes on genome
+cat ok.acceptor* ZZZZZ toto0 | gawk '/^ZZZZZ/{zz++;next;}{gsub(/\"/,"",$0);}{if(zz<1){ok[$1]=1;next}if(ok[$2]==1)next;print;}' > toto1
+cat toto1 | gawk -F '\t' '{printf("%s:acceptor\t1\t150\t%s\t%d\t%d\n",$2,$5,$7,$7-149);}' > acceptor.minus.genome.shadow
+
+
+wc ok.*
+goto phaseLoop
+
+  cat ok.donor.plus.* | gawk -F '\t' '{g=$1;split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];u1=$7;u2=$8;dx=a1-u2-1;x1=$4;x2=$5;if(a1<u1 || a1>u2+1)print ;}'
+
+foreach target (RefSeq av EBI seqc)
+  gunzip -c  ../../TARGET/Targets/hs.$target.fasta.gz | sed -e 's/|/ /' > hs.$target.fasta
+end
+cat ../../tmp/XH*/f5.mrna.fasta  | sed -e 's/|/ /' > hs.magic.fasta
+
+foreach target (RefSeq av EBI seqc magic)
+  echo $target
+  cat ok.donor.plus.$target | gawk '{if(target=="zzmagic"){i=index($3,"_");z="S" substr($3,i);$3=z;}print;}' target=$target| gawk  '{g=$1;split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];u1=$7;u2=$8;dx=u2-a1+1;x1=1;x2=$5-dx;dx=x2 -x1+1;if(dx>150)x1=x1+dx-150;dx=x2 -x1+1;printf("%s:donor\t1\t%d\t%s\t%s\t%s\n",$1,dx,$3,x1,x2);}' > donor.plus.$target.shadow
+  dna2dna -i hs.$target.fasta -shadow  donor.plus.$target.shadow >  donor.plus.$target.fasta
+end
+foreach target (RefSeq av EBI seqc magic)
+  echo $target
+  cat ok.donor.minus.$target | gawk '{if(target=="zzmagic"){i=index($3,"_");z="S" substr($3,i);$3=z;}print;}' target=$target| gawk  '{g=$1;split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];u1=$7;u2=$8;dx=a1-u2+1;x1=1;x2=$5-dx;dx=x2 -x1+1;if(dx>150)x1=x1+dx-150;dx=x2 -x1+1;printf("%s:donor\t1\t%d\t%s\t%s\t%s\n",$1,dx,$3,x1,x2);}' > donor.minus.$target.shadow
+  dna2dna -i hs.$target.fasta -shadow  donor.minus.$target.shadow >  donor.minus.$target.fasta
+end
+foreach target (RefSeq av EBI seqc magic)
+  echo $target
+  cat ok.acceptor.plus.$target | gawk '{if(target=="zzmagic"){i=index($3,"_");z="S" substr($3,i);$3=z;}print;}' target=$target| gawk  '{g=$1;split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];u1=$7;u2=$8;dx=a2-u1+1;x1=$4+dx;x2=$5;dx=x2 -x1+1;if(dx<150)x2=x2+150-dx;dx=x2 -x1+1;if(dx<150)x2=x2+150-dx;dx=x2 -x1+1;printf("%s:acceptor\t1\t%d\t%s\t%s\t%s\n",$1,dx,$3,x1,x2);}' > acceptor.plus.$target.shadow
+  dna2dna -i hs.$target.fasta -shadow  acceptor.plus.$target.shadow >  acceptor.plus.$target.fasta
+end
+foreach target (RefSeq av EBI seqc magic)
+  echo $target
+  cat ok.acceptor.minus.$target | gawk '{if(target=="zzmagic"){i=index($3,"_");z="S" substr($3,i);$3=z;}print;}' target=$target| gawk  '{g=$1;split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];u1=$7;u2=$8;dx=u1-a2+1;x1=$4;x2=$5-dx;dx=x2 -x1+1;if(dx>150)x2=x2-dx+150;dx=x2 -x1+1;if(dx<150)x2=x2+150-dx;dx=x2 -x1+1;printf("%s:acceptor\t1\t%d\t%s\t%s\t%s\n",$1,dx,$3,x1,x2);}' > acceptor.minus.$target.shadow
+  dna2dna -i hs.$target.fasta -shadow  acceptor.minus.$target.shadow >  acceptor.minus.$target.fasta
+end
+
+foreach chrom ($chromSetAll)
+    echo $chrom
+    dna2dna -i ../../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow donor.plus.genome.shadow > donor.plus.genome.$chrom.fasta
+    dna2dna -i ../../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow acceptor.plus.genome.shadow > acceptor.plus.genome.$chrom.fasta
+    dna2dna -i ../../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow donor.minus.genome.shadow > donor.minus.genome.$chrom.fasta
+    dna2dna -i ../../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow acceptor.minus.genome.shadow > acceptor.minus.genome.$chrom.fasta
+end
+
+dna2dna -i ../../TARGET/Targets/hs.SpikeIn.fasta.gz  -shadow donor.plus.genome.shadow > donor.plus.ERCC.fasta
+dna2dna -i ../../TARGET/Targets/hs.SpikeIn.fasta.gz  -shadow acceptor.plus.genome.shadow > acceptor.plus.ERCC.fasta
+
+# we miss a few refseq
+cat donor.plus.RefSeq.fasta ZZZZZ donor.plus.RefSeq.shadow | gawk '/ZZZZZ/{zz++;next;}/^>/{ok[substr($1,2)]=1;next;}{if(zz>0 && ok[$1]<1)print;}' | wc
+cat acceptor.plus.RefSeq.fasta ZZZZZ acceptor.plus.RefSeq.shadow | gawk '/ZZZZZ/{zz++;next;}/^>/{ok[substr($1,2)]=1;next;}{if(zz>0 && ok[$1]<1)print;}' | wc
+
+cat acceptor.plus.RefSeq.fasta ZZZZZ acceptor.plus.RefSeq.shadow | gawk '/ZZZZZ/{zz++;next;}/^>/{ok[substr($1,2)]=1;next;}{if(zz
+>0 && ok[$1]<1)print;}' | cut -f 4 > RefSeq.baddy
+cat donor.plus.RefSeq.fasta ZZZZZ donor.plus.RefSeq.shadow | gawk '/ZZZZZ/{zz++;next;}/^>/{ok[substr($1,2)]=1;next;}{if(zz>0 &&
+ok[$1]<1)print;}' >> RefSeq.baddy
+
+
+cat *or*.ERCC.fasta | dna2dna -I fasta -O raw -keepName | sort -k 2 | gawk '{split($2,aa,":");if(aa[2]=="donor" && aa[1]==old){printf("%s\t%s\t%s\n",old,acc,$1);}acc="ERROR missing acceptor";old=aa[1];if(aa[2]=="acceptor")acc=$1;}' >  302_introns_to_validate.dna
+
+set tutu=302_introns_to_validate.sequence.txt
+echo -n '# ' > $tutu
+date >> $tutu
+echo "Group\tIntron\tChromosome\tdonor\tacceptor\tstrand\tdonor_exon\tacceptor_exon" >> $tutu
+cat  302_introns_to_validate.dna  ZZZZZ B_105.list  ZZZZZ  B_169.list  ZZZZZ B_25.list | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){d[$1]=$2;a[$1]=$3;next;}if($1 != "Intron")next;g=$2;gsub(/\"/,"",g);split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];gsub(/\"/,"",g);if(length(g)>3)printf("Group_%d\t%s\t%s\t%d\t%d\t%s\t%s\t%s\n",zz,g,c,a1,a2,s,d[g],a[g]);}' >> $tutu
+\cp  $tutu ../../RESULTS/INTRONS
+
+
+#######---------------------------------------------------------
+#######---------------------------------------------------------
+
+### global counts not differentiating sites (MAY CNL ...)
+foreach s (A B C D)
+  cat ../tmp/INTRON_INDEX/SEQC_$s.introns.u.ace |  gawk '/^Run/{next;}/^Group/{if(substr($2,2,2)!="B_")next;}{print}' |  gawk '/^Intron/{intron=$2;next;}/^Group_U/{x=int($6);if(x<1)next;printf("%s\t%s\t%d\n",intron,$2,x);}' >  SEQC_$s.introns.preace
+
+  cat ../tmp/INTRON_INDEX/SEQC_$s.introns.u.ace |  gawk '/^Run/{next;}/^Group/{if(substr($2,2,2)!="B_")next;}{print}' | gawk '/^Intron/{intron=$2;next;}/^Group_U/{split($2,aa,"_");m=0;x=int($6);if(x<1)next;if(aa[2]=="I")m="ILM";if(aa[2]=="L")m="LIF";if(aa[2]=="R")m="Roche";if(m==0)next;if (index("ABCD",aa[1])>0)printf("%s\tMagic_%s_%s %d\n",intron,m,aa[4],x);}' >  SEQC_$s.introns.preace2
+end
+
+date
+ls -ls SEQC_?.introns.preace2
+cat SEQC_?.introns.preace2 | sort >  SEQC.introns.preace3
+cat SEQC.introns.preace3 | gawk '/_ILM_/{g=$1;n[g]+=$3;}END{for (g in n)printf("%s\tMAGIC_ILM_any %d\n",g,n[g]);}' >  SEQC.introns.preace4
+cat SEQC.introns.preace3 | gawk '/_LIF_/{g=$1;n[g]+=$3;}END{for (g in n)printf("%s\tMAGIC_LIF_any %d\n",g,n[g]);}' >>  SEQC.introns.preace4
+cat SEQC.introns.preace3 | gawk '/_Roche_/{g=$1;n[g]+=$3;}END{for (g in n)printf("%s\tMAGIC_Roche_any %d\n",g,n[g]);}' >>  SEQC.introns.preace4
+
+cat intron2est.preace | gawk '/^Intron/{ii=$2;next;}{if($2>0)printf("%s\t%s %d\n",ii,$1,$2);}' >  intron2est.preace2
+date
+cat SEQC.introns.preace[34] intron2est.preace2  | sed -e 's/\"//g' | sort  | gawk '/c_>gi/{next};{gsub(/\"/,"",$1);g=$1;if(g!=old)printf("\nIntron \"%s\"\n",g);old=g;print $2 " " $3;}' > SEQC.introns_counts.ace
+date
+tbly . << EOF
+  pparse  SEQC.introns_counts.ace
+  save
+  quit
+EOF
+date
+
+#### look at the titration flag from boku
+#### how many intros with 0 1 2 3 4 5 6 7 8 9 10 >10 exits/titrate in wehi and cstar
+#### the answer is programmed in  wacext/su21.c
+echo -n "# " > boku_titrating_stats.txt
+date >>  boku_titrating_stats.txt
+echo  "Support\tExpected ratio\tWehi\tWehi titrating\tWehi expected\tWehi Unexpected\t% titrating\t% unexpected\tCStar\tCrtar titrating\tCStar expected\tCStar Unexpected\t% CStar titrating\t% unexpected" >>  boku_titrating_stats.txt
+cat AVJunctions_tab.txt NewJunctions_tab.txt |  gawk -F '\t' '{wehi_ILM=$4;wehi_ILM_titrating=$9;cstar_ILM=$11;cstar_ILM_titrating=$16;cstar_ILM_ratio=$17;if(wehi_ILM>21) wehi_ILM=21;if (cstar_ILM>21)cstar_ILM=21;nc[cstar_ILM,cstar_ILM_titrating]++;nc[22,cstar_ILM_titrating]++;nw[wehi_ILM,wehi_ILM_titrating]++;nw[22,wehi_ILM_titrating]++;}END{ex[0]=0;ex[1]=50;ex[2]=40;ex[3]=30;ex[4]=900/35;ex[5]=1200/56;ex[6]=1800/86;ex[7]=2200/120;ex[8]=2900/165;ex[9]=3600/(184+36);ex[10]=4600/286;ex[11]=14.835;ex[12]=14.725;ex[13]= 13.929;ex[14]=13.824;ex[15]=13.23;ex[16]=13.106;ex[17]=12.632;ex[18]=12.632;ex[19]=12.208;ex[20]=12.140;ex[21]=8.33;for(n=0;n<=22;n++){if(n<21)printf("%d\t%.2f",n,ex[n]);if(n==21)printf(">20\t8.33");if(n==22)printf("Total\tNA");printf("\t%d\t%d\t%d\t%d\t%.2f\t%.2f\t%d\t%d\t%d\t%d\t%.2f\t%.2f",nw[n,0]+nw[n,1],nw[n,1],(nw[n,0]+nw[n,1])*0.01*ex[n],nw[n,1] - (nw[n,0]+nw[n,1])*0.01*ex[n],100*nw[n,1]/(nw[n,0]+nw[n,1]+1),100*nw[n,1]/(nw[n,0]+nw[n,1]+1) - ex[n],nc[n,0]+nc[n,1],nc[n,1],(nc[n,0]+nc[n,1])*0.01*ex[n],nc[n,1] - (nc[n,0]+nc[n,1])*0.01*ex[n],100*nc[n,1]/(nc[n,0]+nc[n,1]+1),100*nc[n,1]/(nc[n,0]+nc[n,1]+1)-ex[n]);printf("\n");}}' >> boku_titrating_stats.txt
+
+if (0) then
+
+N=11 any        54;310  FDR     0.14835
+N=12 any        67;388  FDR     0.14725
+N=13 any        78;482  FDR     0.13929
+N=14 any        94;586  FDR     0.13824
+N=15 any        108;708 FDR     0.13235
+N=16 any        127;842 FDR     0.13106
+N=17 any        144;996 FDR     0.12632
+N=18 any        168;1162        FDR     0.12632
+N=19 any        188;1352        FDR     0.12208
+N=20 any        215;1556        FDR     0.12140
+
+endif
+
+
+####
+#### donor acceptor
+mkdir FEET
+cd FEET
+
+
+ cat ercc.list | gawk '{gsub(/\"/,"",$2);print $2;}' | gawk '{split($1,aa,"_");printf("%s\t%d\t%d\n",aa[1],aa[3],aa[4]);}' | grep ERCC > ERCC.intmap
+ cat ERCC.intmap  | gawk '{c=$1;a1=$2;a2=$3;s=1;if(a1>a2)s=-1;if(a1 < 12 || a2 < 12) next;printf("%s__%d_%d:donor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a1-12*s,a1+11*s);printf("%s__%d_%d:acceptor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a2-11*s,a2+12*s);printf("%s__%d_%d:feet\t1\t2\t%s\t%d\t%d\n",c,a1,a2,c,a1,a1+s);printf("%s__%d_%d:feet\t3\t4\t%s\t%d\t%d\n",c,a1,a2,c,a2-s,a2);}' > ERCC.feet.shadow
+ dna2dna -i ../TARGET/Targets/hs.SpikeIn.fasta.gz -shadow ERCC.feet.shadow > ERCC.feet.fasta
+ cat ERCC.feet.fasta | gawk '/^>/{split($1,aa,":");ii=substr(aa[1],2);t=aa[2];printf("%s\t%s",ii,t);next;}{printf("\t%s\n", $1);}' > ERCC.feet.preace
+ head ERCC.feet.preace
+ cat ERCC.feet.preace | gawk '{ii=$1;if(ii!=old)printf("\nIntron %s\n",$1);old=$1;z=$3;if($2=="feet")z=substr($3,1,2) "_" substr($3,3,2);if($2=="acceptor" || $2 == "donor" || $3 == "gtag"  || $3 == "gcag" || $3 == "atac" || $3 == "ctac" || $3 == "ctgc");else printf("Other "); if ($2=="feet")$2=" ";printf("%s %s\n",$2,z);}END{printf("\n");}' > ERCC.feet.ace
+
+
+
+ cat NT.list | gawk '{gsub(/\"/,"",$2);print $2;}' | gawk '{split($1,aa,"_");printf("%s_%s\t%d\t%d\n",aa[1],aa[2],aa[4],aa[5]);}' | grep NT > NT.intmap
+ cat NT.intmap  | gawk '{c=$1;a1=$2;a2=$3;s=1;if(a1>a2)s=-1;if(a1 < 12 || a2 < 12) next;printf("%s__%d_%d:donor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a1-12*s,a1+11*s);printf("%s__%d_%d:acceptor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a2-11*s,a2+12*s);printf("%s__%d_%d:feet\t1\t2\t%s\t%d\t%d\n",c,a1,a2,c,a1,a1+s);printf("%s__%d_%d:feet\t3\t4\t%s\t%d\t%d\n",c,a1,a2,c,a2-s,a2);}' > NT.feet.shadow
+ dna2dna -i hs.NT.fasta -shadow NT.feet.shadow > NT.feet.fasta
+ cat NT.feet.fasta | gawk '/^>/{split($1,aa,":");ii=substr(aa[1],2);t=aa[2];printf("%s\t%s",ii,t);next;}{printf("\t%s\n", $1);}' > NT.feet.preace
+ head NT.feet.preace
+ cat NT.feet.preace | gawk '{ii=$1;if(ii!=old)printf("\nIntron %s\n",$1);old=$1;z=$3;if($2=="feet")z=substr($3,1,2) "_" substr($3,3,2);if($2=="acceptor" || $2 == "donor" || $3 == "gtag"  || $3 == "gcag" || $3 == "atac" || $3 == "ctac" || $3 == "ctgc");else printf("Other "); if ($2=="feet")$2=" ";printf("%s %s\n",$2,z);}END{printf("\n");}' > NT.feet.ace
+
+cat introns.list | gawk '/^Intron/{gsub(/\"/,"",$0);split($2,aa,"_");c=aa[1];a1=aa[3];a2=aa[4];printf("%s\t%s\t%s\n",c,a1,a2);}' > introns.intmap
+foreach chrom ($chromSetAll)
+  cat  introns.intmap | gawk '{if($1==chrom)print;}' chrom=$chrom > introns.intmap.$chrom &
+end
+
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat  introns.intmap.$chrom | gawk '{c=$1;a1=$2;a2=$3;s=1;if(a1>a2)s=-1;if(a1 < 12 || a2 < 12) next;printf("%s__%d_%d:donor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a1-12*s,a1+11*s);printf("%s__%d_%d:acceptor\t1\t24\t%s\t%d\t%d\n",c,a1,a2,c,a2-11*s,a2+12*s);printf("%s__%d_%d:feet\t1\t2\t%s\t%d\t%d\n",c,a1,a2,c,a1,a1+s);printf("%s__%d_%d:feet\t3\t4\t%s\t%d\t%d\n",c,a1,a2,c,a2-s,a2);}' >   feet.shadow.$chrom 
+end
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  dna2dna -i ../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow feet.shadow.$chrom > intron_feet.$chrom.fasta 
+end
+
+ls -ls  intron_feet.*.fasta 
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat  intron_feet.$chrom.fasta | gawk '/^>/{split($1,aa,":");ii=substr(aa[1],2);t=aa[2];printf("%s\t%s",ii,t);next;}{printf("\t%s\n", $1);}' >  intron_feet.feet.$chrom.preace 
+end
+foreach chrom ($chromSetAll)
+  cat intron_feet.feet.$chrom.preace | gawk '{ii=$1;if(ii!=old)printf("\nIntron %s\n",$1);old=$1;z=$3;if($2=="feet")z=substr($3,1,2) "_" substr($3,3,2);if($2=="acceptor" || $2 == "donor" || $3 == "gtag"  || $3 == "gcag" || $3 == "atac" || $3 == "ctac" || $3 == "ctgc");else printf("Other "); if ($2=="feet")$2=" ";printf("%s %s\n",$2,z);}END{printf("\n");}' >  intron_feet.$chrom.ace 
+end
+
+cat  intron_feet.*.ace >  all_intron_feet.ace 
+tbly .. << EOF
+  read-models
+  pparse  all_intron_feet.ace 
+  save
+  quit
+EOF
+
+
+### retournement des introns ct-ac, on exporte un fichier ace limite au tag BOKU
+
+cat bad.ace | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"_");printf("Intron %s__%s_%s\n", aa[1],aa[4],aa[3]);next;}{print}' > bad.fix.ace
+cat bad.NT.ace | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"_");printf("Intron %s_%s__%s_%s\n", aa[1],aa[2],aa[5],aa[4]);next;}{print}' > bad.NT.fix.ace
+
+### analyse des consensus
+cat intron_feet.feet.*.preace | gawk '{ii=$1;if(ii==old && $2 == "feet" && $3 == "gtag")print donor;if($2=="donor")donor=$3;old=$1;}' > donor.gtag
+
+
+## bug de ramassage en confirmation, where is  : 20__45061532_45043604
+
+
+## ramassage des introns chez Chris
+
+foreach pp (A C D B)
+ cat StarIntrons/Project_$pp'_'Nov[23]0/*/*.junctions.bed | gawk -F '\t' '{z=$1 "__" $2 "_" $3;st[z,$4]=$4;typ[z]=$5;u[z]+=$7;nu[z]+=$8;unu[z]=1;}END{for(z in unu)printf("%s\t%d\t%d\t%d\t%d\n",z,st[z,1]+st[z,2],typ[z],u[z],nu[z]);}' | sort > StarIntrons2/star_inrons.$pp &
+end
+
+cd  StarIntrons2
+cat star_inrons.A  ZZZZZ   star_inrons.B   ZZZZZ    star_inrons.C    ZZZZZ   star_inrons.D | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{z=$1;if($2>0)st[z]=$2;nn[z]+=$4;typ[z]=$3;nz[z,0+zz]+=$4;}END{for(z in nn)printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",z,st[z]+0,typ[z]+0,nn[z],nz[z,0],nz[z,1],nz[z,2],nz[z,3]);}' | sort > star_inrons.abcd 
+# reorder the ACDB columns in titrating order
+cat  star_inrons.abcd  |  gawk -F '\t' '{z=$1;if(substr($1,1,3)=="chr")z=substr($1,4);split(z,aa,"_");c=aa[1];a1=aa[3];a2=aa[4];if($2==2) z= c "__" a2 "_" a1 ; printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",z,$2,$3,$4,$5,$7,$8,$6);}' > star_introns.ACDB.preace
+gzip  star_introns.ACDB.preace
+mv star_introns.ACDB.preace.gz ~
+
+cat star_introns.ACDB.collated_on_zenodotusNov2013.2013_08_25.preace |  gawk -F '\t' '{z=$1;if(substr($1,1,3)=="chr")z=substr($1,4);split(z,aa,"_");c=aa[1];a1=aa[3];a2=aa[4];if($2==2) z= c "__" a2 "_" a1 ; printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",z,$2,$3,$4,$5,$6,$7,$8);}' > star_introns.ACDB.collated_on_zenodotusNov2013.2013_08_25.preace2
+
+cat star_introns.ACDB.collated_on_zenodotusNov2013.2013_08_25.preace2  | gawk -F '\t' '{nn=$4;nA=$5;nC=$6;nD=$7;nB=$8;if(nn==0)next;printf("\nIntron \"%s\"\nZeno_ILM_any %d\n",$1,nn);if(nA>0)printf("Zeno_ILM_A %d\n",nA);if(nC>0)printf("Zeno_ILM_C %d\n",nC);if(nD>0)printf("Zeno_ILM_D %d\n",nD);if(nB>0)printf("Zeno_ILM_B %d\n",nB);printf("\n");}' > zeno.counts.ace
+
+
+##=============================
+##=============================
+##=============================
+## wehi data downloaded from wehi august 28
+
+foreach AA (A B C D)
+  gunzip -c Illumina_Merged_Junctions_$AA.bed.gz | gawk -F '\t' '/^#/{next;}{printf("%s\t%d\t%d\t%s",$1,$2,$3,AA);n=0;for(i=4;i<=399;i++)n+=$i;printf("\t%d\n",n);}' AA=$AA > wehi.$AA.counts &
+end
+cat ZZZZZ wehi.A.counts ZZZZZ wehi.C.counts ZZZZZ wehi.D.counts ZZZZZ wehi.B.counts | gawk -F '\t' '/ZZZZZ/{zz++;next;}{z=$1 "\t" $2 "\t" $3;nn[z]+=$5;nz[z,zz]+=$5;}END{for(z in nn) printf("%s\t%d\t%d\t%d\t%d\t%d\n",z,nn[z],nz[z,1],nz[z,2],nz[z,3],nz[z,4]);}' | sort > wehi.ACDB.counts
+
+# get the strand ATTENTION one must add 1 to the first coord of Wehi, for both strands,  then flip for the minus strand
+# verify that we recognize all introns
+cat gt_ag.list ZZZZZ  wehi.ACDB.counts   | gawk '/^ZZZZZ/{zz++;next}{if(zz<1){g=$2;gsub(/\"/,"",g);split(g,aa,"_");g=aa[1] "\t" aa[3] -1 "\t" aa[4] ;st[g]=1;g=aa[1] "\t" aa[4] -1 "\t" aa[3] ;st[g]=-1;next;}}{c=$1; gsub(/^chr/,"",c);nn[0+st[c "\t" $2 "\t" $3]]++;}END{for (k in nn)printf("%s\t%d\n",k,nn[k]);}'
+# export
+cat gt_ag.list ZZZZZ  wehi.ACDB.counts   | gawk '/^ZZZZZ/{zz++;next}{if(zz<1){g=$2;gsub(/\"/,"",g);split(g,aa,"_");g=aa[1] "\t" aa[3] -1 "\t" aa[4] ;st[g]=1;g=aa[1] "\t" aa[4] -1 "\t" aa[3] ;st[g]=-1;next;}}{c=$1; gsub(/^chr/,"",c);n=st[c "\t" $2 "\t" $3]; if(index($1,"ERCC-")>0)n=1;if(n==1)printf("%s__%d_%d",c,$2+1,$3);if(n==0)printf("%s__%d_%d_AMB",c,$2+1,$3);if(n==-1)printf("%s__%d_%d",c,$3,$2+1);for(i=4;i<=8;i++)printf("\t%d",$i);printf("\n");}' >   wehi.ACDB.counts.preace
+
+cat   wehi.ACDB.counts.preace | gawk -F '\t' '{if ($2>0){printf ("Intron %s\nWei_ILM_any %s\n",$1,$2);if($3>0)printf ("Wei_ILM_A %d\n",$3);if($4>0)printf ("Wei_ILM_C %d\n",$4);if($5>0)printf ("Wei_ILM_D %d\n",$5);if($6>0)printf ("Wei_ILM_B %d\n",$6);printf("\n");}}' >  wehi.ACDB.counts.ace 
+
+### SOLID
+
+
+foreach AA (A B C D)
+  gunzip -c SOLiD-Junctions-Sample_$AA.txt.gz  | gawk -F '\t' '/^#/{next;}{printf("%s\t%d\t%d\t%s",$1,$2,$3,AA);n=0;for(i=4;i<=NF;i++)n+=$i;printf("\t%d\n",n);}' AA=$AA > wehi.LIF.$AA.counts &
+end
+cat ZZZZZ wehi.LIF.A.counts ZZZZZ wehi.LIF.C.counts ZZZZZ wehi.LIF.D.counts ZZZZZ wehi.LIF.B.counts | gawk -F '\t' '/ZZZZZ/{zz++;next;}{z=$1 "\t" $2 "\t" $3;nn[z]+=$5;nz[z,zz]+=$5;}END{for(z in nn) printf("%s\t%d\t%d\t%d\t%d\t%d\n",z,nn[z],nz[z,1],nz[z,2],nz[z,3],nz[z,4]);}' | sort > wehi.LIF.ACDB.counts
+
+# get the strand ATTENTION one must add 1 to the first coord of Wehi, for both strands,  then flip for the minus strand
+# verify that we recognize all introns
+cat gt_ag.list ZZZZZ  wehi.LIF.ACDB.counts   | gawk '/^ZZZZZ/{zz++;next}{if(zz<1){g=$2;gsub(/\"/,"",g);split(g,aa,"_");g=aa[1] "\t" aa[3] -1 "\t" aa[4] ;st[g]=1;g=aa[1] "\t" aa[4] -1 "\t" aa[3] ;st[g]=-1;next;}}{c=$1; gsub(/^chr/,"",c);nn[0+st[c "\t" $2 "\t" $3]]++;}END{for (k in nn)printf("%s\t%d\n",k,nn[k]);}'
+# export
+cat gt_ag.list ZZZZZ  wehi.LIF.ACDB.counts   | gawk '/^ZZZZZ/{zz++;next}{if(zz<1){g=$2;gsub(/\"/,"",g);split(g,aa,"_");g=aa[1] "\t" aa[3] -1 "\t" aa[4] ;st[g]=1;g=aa[1] "\t" aa[4] -1 "\t" aa[3] ;st[g]=-1;next;}}{c=$1; gsub(/^chr/,"",c);n=st[c "\t" $2 "\t" $3]; if(index($1,"ERCC-")>0)n=1;if(n==1)printf("%s__%d_%d",c,$2+1,$3);if(n==0)printf("%s__%d_%d_AMB",c,$2+1,$3);if(n==-1)printf("%s__%d_%d",c,$3,$2+1);for(i=4;i<=8;i++)printf("\t%d",$i);printf("\n");}' >   wehi.LIF.ACDB.counts.preace
+
+cat wehi.LIF.ACDB.counts.preace | gawk '/AMB/{printf("Intron %s\n",$1);}' > amb.list
+# now we execute the feet search then
+
+cat intron_feet.feet.*.preace | grep feet | grep gtag | gawk '{printf("Intron \"%s\"\n",$1);}' >> gt_ag.list 
+cat intron_feet.feet.*.preace | grep feet | grep ctac | gawk '{split($1,aa,"_");printf("Intron \"%s__%s_%s\"\n",aa[1],aa[4],aa[3]);}' >> gt_ag.list 
+
+cat   wehi.LIF.ACDB.counts.preace | gawk -F '\t' '{if ($2>0){printf ("Intron %s\nWei_LIF_any %s\n",$1,$2);if($3>0)printf ("Wei_LIF_A %d\n",$3);if($4>0)printf ("Wei_LIF_C %d\n",$4);if($5>0)printf ("Wei_LIF_D %d\n",$5);if($6>0)printf ("Wei_LIF_B %d\n",$6);printf("\n");}}' >  wehi.LIF.ACDB.counts.ace 
+
+
+### ROCHE This format is more complex use col 2 3 then split col 11
+
+cat  ZZZZZ SEQC_454data_WeiShi/*/*_A_*.junc4.bed ZZZZZ  SEQC_454data_WeiShi/*/*_B_*.junc4.bed | gawk -F '\t' '/ZZZZZ/{zz++;next;}{c=$1; gsub(/^chr/,"",c);split($11,aa,",");if($6=="+"){a1=$2+1+aa[1];a2=$3-aa[2];}else{a2=$2+1+aa[1];a1=$3-aa[2];}g=c "__" a1 "_" a2 ;nn[g] += $5;nz[g,zz]+=$5;}END{for (k in nn)printf("%s\t%d\t%d\t%d\n",k,nn[k],nz[k,1],nz[k,2]);}' | sort > wehi.Roche.AB.counts
+
+cat wehi.Roche.AB.counts  | gawk -F '\t' '{if ($2>0){printf ("Intron %s\nWei_Roche_any %s\n",$1,$2);if($3>0)printf ("Wei_Roche_A %d\n",$3);if($4>0)printf ("Wei_Roche_B %d\n",$4);printf("\n");}}' >  wei.AB.Roche.ace
+
+##=============================
+##=============================
+## rename the NT
+
+cd BOKU/NTS
+
+cat nam2nam ZZZZZ bad.ace | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){n2n[$1]=substr($2,2);next;}}/^Intron/{g=$2;g1=g;gsub(/\"/,"",g1);gsub(/_AMB/,"",g1);split(g1,aa,"__");g2=n2n[aa[1]];if(g2)g=g2 "__" aa[2]; printf("Intron \"%s\"\n",g);next;}{print}' > bad.fix.ace
+
+
+##=============================
+##=============================
+##=============================
+## get introns from the public gtf file
+
+gunzip -c ~/ftp/human/AceView.ncbi_37.genes_gff.gff.gz | grep intron | cut -f 1,4,5,7 | sort -u | gawk '{a1=$2;a2=$3;if($4=="-")printf("Intron %s__%s_%s\n", $1,a2,a1);}' > intron_from_AceView.ncbi_37.genes_gff.not_fuzzy.list
+[mieg@lmem03 MRNAS]$ gunzip -c ~/ftp/human/AceView.ncbi_37.genes_gff.gff.gz | grep intron | cut -f 1,4,5,7 | sort -u | gawk '{a1=$2;a2=$3;if($4=="+")printf("Intron %s__%s_%s\n", $1,a1,a2);}' >> intron_from_AceView.ncbi_37.genes_gff.not_fuzzy.list
+
+##=============================
+## from mrnastructure
+
+cat  mrnaStructure.txt | gawk -F '\t' '/Intron/{gsub(/\"/,"",$0);mrna=$1;chrom=$2;m1=$3;m2=$4;a1=$5;a2=$6;gene=$12;if(m1<m2){b1=m1+a1-1;b2=m1+a2-1;}else{b1=m1-a1+1;b2=m1-a2+1;}printf("Intron %s__%s_%s\nin_mrna
+
+
+##=============================
+## GENE index
+
+gunzip -c RESULTS/Expression/quasi_unique/AceView/SEQC_?.av.GENE.nu.ace.gz | gawk '/^Gene/{printf("\n");print;next;}/Group_nU/{if(substr($2,1,3)=="A1_")print;next;}END{printf("\n");}' > magic.av.A1_index.ace
+gunzip -c RESULTS/Expression/quasi_unique/RefSeq/SEQC_?.RefSeq.GENE.nu.ace.gz | gawk '/^Gene/{printf("\n");print;next;}/Group_nU/{if(substr($2,1,3)=="A1_")print;next;}END{printf("\n");}' > magic.RefSeq.A1_index.ace
+
+
+##=============================
+##=============================
+## ERCC introns
+ gunzip -c tmp/OR/*/d1.*.de_uno.txt.gz | gawk -F '\t' '{z=$2 "\t" $3 "\t" $4 "\t" $5;n[z]+=$7;}END{for(z in n)printf("%s\t%d\n",z,n[z]);}' | gawk '{printf ("Intron %s__%d_%d\nMagic_any_any %d\n\n", $1,$2,$3,$5);}' | head
+
+
+
+
+## same donor same acceptor with introns 'gene'
+
+cat iiG.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("%s__%s\tG\t",aa[1],bb[1]);print;}' > ii.d
+cat ii.list  | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("%s__%s\tX\t",aa[1],bb[1]);print;}' >> ii.d
+
+cat ii.d | sort > ii.ds
+cat ii.ds | gawk '{if($1 == old) {for (i = 1 ; i <= ng ; i++)if($4 != gg[i])printf("%s\t%s\t%s\tD\n",gg[i],$4,$2);if($2=="G"){ng++;gg[ng]=$4;}next;}ng=0;old=$1;if($2=="G"){ng++;gg[ng]=$4;}}' | sort -u > ii.ds2
+
+
+cat iiG.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("%s__%s\tG\t",aa[1],bb[2]);print;}' > ii.a
+cat ii.list  | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("%s__%s\tX\t",aa[1],bb[2]);print;}' >> ii.a
+
+cat ii.a | sort > ii.as
+cat ii.as | gawk '{if($1 == old) {for (i = 1 ; i <= ng ; i++)if($4 != gg[i])printf("%s\t%s\t%s\tA\n",gg[i],$4,$2);if($2=="G"){ng++;gg[ng]=$4;}next;}ng=0;old=$1;if($2=="G"){ng++;gg[ng]=$4;}}' | sort -u > ii.as2
+
+wc ii.ds2 ii.as2
+
+cat ii.ds2 ii.as2 | sort | gawk -F '\t' '{if ($1!=old)printf("\nIntron %s\n",$1);old=$1;if($4=="D")printf("Same_donor %s\n",$2);if($4=="A")printf("Same_acceptor %s\n",$2);}' > ii.ad.ace
+
+cat ii.ad.ace | grep Intron | sort -u | wc
+
+cat *_bridges.txt | gawk -F '\t' '/\"/{printf("Intron %s\nBridges %s\nBridges %s\n\nGene %s\nBridged_by %s %s\nBridged_to %s\n\nGene %s\nBridged_by %s %s\n\n",$1,$4,$5,$4,$1,$5,$5,$5,$1,$4);}' > bridges.ace
+
+cat cassetting.txt | cut -f 1,4 | sort -u | gawk -F '\t' '/\"/{printf("Intron %s\nCassetting %s\n\n",$1,$2);}' > cassetting.ace
+
+cat ii.list  | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");a1=bb[1]+0;a2=bb[2]+0;if(a1<a2)x=a2-a1+1;else x=a1-a2+1;print;printf("Length %d\n\n",x);}' > intron_length.ace
+
+
+##=============================
+## 3/6/9
+
+cat iiSA.list  | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("%s__%s\t%d\t",aa[1],bb[2],bb[1]);print;}' > ii.a369
+
+cat ii.a369 | sort -k 1,1 -k 2,2n > ii.a369s
+
+cat ii.a369s | gawk '{if($1 == old) {for(dd=1;dd<=9;dd++){for (i = 1 ; i <= ng ; i++)if($2 == x[i]+dd)printf("Delta_%d\t%s\t%s\tA\n",dd,gg[i],$4);}if(1){ng++;gg[ng]=$4;x[ng]=$2;}next;}ng=0;old=$1;ng++;gg[ng]=$4;x[ng]=$2;}' | sort -u | sort -k 3,3 > ii.a369as2
+
+cat  ii.a369as2 | gawk '{printf ("Intron %s\nDonor_shift_%s %s\n\n",$3,substr($1,7),$2);}' > donor_shift.ace
+
+##=============================
+##=============================
+##-- ERCC rearrangments
+gunzip -c tmp_ERCC/PHITS_SpikeIn/Rhs*/f*.introns.gz | grep -v target | gawk -F '\t' '{g=$1 "\t" $2 "\t" $3 "\tXX\t" $5 "\t" $6  "\t" $7 "\tXX\t" $9 "\t" $10 ;nn[g]+=$11;}END{for(g in nn)if(nn[g]>=300)printf("%s\t%d\n",g,nn[g]);}' | sort -k 11nr > tmp_ERCC/rear.txt
+
+
+
+##=============================
+##=============================
+##-- Titration
+
+cat introns_magic_counts.ace | gawk '/^Intron/{gsub(/\"/,"",$2);g=$2;next;}/^Magic_ILM_any/{next;}/^Magic_ILM/{t=substr($1,11,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tMagicILM\tIntron\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > magic.introns.ILM.ACDB.counts
+cat introns_magic_counts.ace | gawk '/^Intron/{gsub(/\"/,"",$2);g=$2;next;}/^Magic_LIF_any/{next;}/^Magic_LIF/{t=substr($1,11,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tMagicILM\tIntron\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > magic.introns.LIF.ACDB.counts
+
+cat introns_wei_counts.ace | gawk '/^Intron/{gsub(/\"/,"",$2);g=$2;next;}/^Wei_ILM_any/{next;}/^Wei_ILM/{t=substr($1,9,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tWeiILM\tIntron\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > wei.introns.ILM.ACDB.counts
+cat introns_wei_counts.ace | gawk '/^Intron/{gsub(/\"/,"",$2);g=$2;next;}/^Wei_LIF_any/{next;}/^Wei_LIF/{t=substr($1,9,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tWeiLIF\tIntron\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > wei.introns.LIF.ACDB.counts
+
+cat introns_zeno_counts.ace | gawk '/^Intron/{gsub(/\"/,"",$2);g=$2;next;}/^Zeno_ILM_any/{next;}/^Zeno_ILM/{t=substr($1,10,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tweiILM\tIntron\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > zeno.introns.ILM.ACDB.counts
+
+cat magic.introns.ILM.ACDB.counts | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if((a+b+c+d<6) || (a==c && c == d) || (a==c && d == b) || (b ==c && c == d)) next;k = 0 ;if(a >=c && c >=d && d >= b && a > 1.07*b) k=1 ; if(a <=c && c <= d && d <= b && 1.07*a < b) k=-1;if(k==0)next;printf("Intron %s\n",$1);if(k==1)printf("Magic_ILM_Titrating_A\n\n") ; else printf("Magic_ILM_Titrating_B\n\n");}' >  magic.ILM.introns.titrating.ace
+cat magic.introns.LIF.ACDB.counts | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if((a+b+c+d<6) || (a==c && c == d) || (a==c && d == b) || (b ==c && c == d)) next;k = 0 ;if(a >=c && c >=d && d >= b && a > 1.07*b) k=1 ; if(a <=c && c <= d && d <= b && 1.07*a < b) k=-1;if(k==0)next;printf("Intron %s\n",$1);if(k==1)printf("Magic_LIF_Titrating_A\n\n") ; else printf("Magic_LIF_Titrating_B\n\n");}' >  magic.LIF.introns.titrating.ace
+
+cat zeno.introns.ILM.ACDB.counts | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if((a+b+c+d<6) || (a==c && c == d) || (a==c && d == b) || (b ==c && c == d)) next;k = 0 ;if(a >=c && c >=d && d >= b && a > 1.07*b) k=1 ; if(a <=c && c <= d && d <= b && 1.07*a < b) k=-1;if(k==0)next;printf("Intron %s\n",$1);if(k==1)printf("Zeno_ILM_Titrating_A\n\n") ; else printf("Zeno_ILM_Titrating_B\n\n");}' >  zeno.ILM.introns.titrating.ace
+
+cat wei.introns.ILM.ACDB.counts  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if((a+b+c+d<6) || (a==c && c == d) || (a==c && d == b) || (b ==c && c == d)) next;k = 0 ;if(a >=c && c >=d && d >= b && a > 1.07*b) k=1 ; if(a <=c && c <= d && d <= b && 1.07*a < b) k=-1;if(k==0)next;printf("Intron %s\n",$1);if(k==1)printf("Wei_ILM_Titrating_A\n\n") ; else printf("Wei_ILM_Titrating_B\n\n");}' >  wei.ILM.introns.titrating.ace
+cat wei.introns.LIF.ACDB.counts  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if((a+b+c+d<6) || (a==c && c == d) || (a==c && d == b) || (b ==c && c == d)) next;k = 0 ;if(a >=c && c >=d && d >= b && a > 1.07*b) k=1 ; if(a <=c && c <= d && d <= b && 1.07*a < b) k=-1;if(k==0)next;printf("Intron %s\n",$1);if(k==1)printf("Wei_LIF_Titrating_A\n\n") ; else printf("Wei_LIF_Titrating_B\n\n");}' >  wei.LIF.introns.titrating.ace
+
+=====
+
+gunzip -c tmp/OR/Rhs*/d1.Rhs*.de_uno.txt.gz | gawk '{g=$2 "__" $3 "_" $4;nn[g]+=$7;}END{for(g in nn)printf("Intron %s\tFatigue_de_uno %d\n",g,nn[g]);}' | sort > tmp/OR/Fatigue.cumul.de_uno.cumul.txt
+gunzip -c tmp/OR/Rhs*/d1.Rhs*.de_uno.txt.gz | gawk '{g=$2 "__" $3 "_" $4;nn[g]+=$7;}END{for(g in nn)printf("Intron %s\tFatigue_de_uno %d\n",g,nn[g]);}' | sort > tmp/OR/NB.cumul.de_uno.cumul.txt 
+cat ~/NB_2013/tmp/OR/NB.cumul.de_uno.cumul.txt ~/Fatigue/tmp/OR/Fatigue.cumul.de_uno.cumul.txt | sort | gawk -F '\t' '{printf("%s\n%s\n\n",$1,$2);}' > nb_fatigue.de_uno.ace
+
+
+cat toto.txt | gawk -F '\t' '/\"/{ii=$1;for(i=2;i<=NF;i++)if ($i != "NULL")printf("%s\t%s\n",ii,$i);}' | sort -u > toto2.txt
+
+##=============================
+## SEQC_max, create the accreted count and export the max accross pipelines
+
+cd SEQC_max
+tbly ../LM5 << EOF
+  query  find intron boku
+  show -a -f introns.boku.ace boku
+  quit
+EOF
+echo "Intron ZZZZ\n\n" >> introns.boku.ace
+
+cat introns.boku.ace  | gawk '/^Intron/{gsub(/\"/,"",$2);ii=$2;if(old){nM=nMA+nMC+nMD+nMB;nW=nWA+nWC+nWD+nWB;nZ=nZA+nZC+nZD+nZB;if(0)print "nM nW nZ",nM,nW,nZ;if(nM>=nW &&  nM>=nZ){mm=nM;mA=nMA;mC=nMC;mD=nMD;mB=nMB;}else if(nW>nM && nW>=nZ){mm=nW;mA=nWA;mC=nWC;mD=nWD;mB=nWB;}else{mm=nZ;mA=nZA;mC=nZC;mD=nZD;mB=nZB;}if(mm>0){printf("Intron %s\n",old);if(nM>0)printf("Magic_any_any %d\n",nM);if(nW>0)printf("Wei_any_any %d\n",nW);printf("BOKU_max %d %d %d %d %d\n\n",mm,mA,mC,mD,mB);}}nM=0;nMA=0;nMC=0;nMD=0;nMB=0;nW=0;nWA=0;nWC=0;nWD=0;nWB=0;nZ=0;nZA=0;nZC=0;nZD=0;nZB=0;old=ii;}/_any/{next;}/^Magic_.*_A/{nMA+=$2;next;}/^Magic_.*_C/{nMC+=$2;next;}/^Magic_.*_D/{nMD+=$2;next;}/^Magic_.*_B/{nMB+=$2;next;}/^Wei_.*_A/{nWA+=$2;next;}/^Wei_.*_C/{nWC+=$2;next;}/^Wei_.*_D/{nWD+=$2;next;}/^Wei_.*_B/{nWB+=$2;next;}/^Zeno_.*_A/{nZA+=$2;next;}/^Zeno_.*_C/{nZC+=$2;next;}/^Zeno_.*_D/{nZD+=$2;next;}/^Zeno_.*_B/{nZB+=$2;next;}'  > boku_max.ace
+
+##=============================
+## exportation pour BOKU/Chris/Leming
+
+cd SEQC_max
+tbly ../LM5 <<EOF
+  table -title -o introns_counts_star_magic_wehi.2012_09_11.txt -f  /panfs/pan1.be-md.ncbi.nlm.nih.gov/aceview3/zoo/human/37/SEQC_2013/INTRON_VERIF/SEQC_max/star_magic_wehi_counts.def
+EOF
+
+set toto=all_introns_counts_star_magic_wehi.2012_09_11.txt
+echo -n '# ' > $toto
+date >> $toto
+cat  introns_counts_star_magic_wehi.2012_09_11.txt |  gawk -F '\t' '/^#/{printf("Intron\tChromosome\tStrand\tDonor\tAcceptor\tIntron boundaries\tGene RefSeq\tGene Ensembl\tGene AceView");for(i=5;i<=NF;i++)printf("\t%s",$i);printf("\n");}' >> $toto
+cat  introns_counts_star_magic_wehi.2012_09_11.txt  | gawk -F '\t'  '/^#/{next;}{gsub("NULL",0,$0);gsub(/\"/,"",$0);split($1,aa,"__");split(aa[2],bb,"_");strand="+";if(bb[1]>bb[2])strand="-";prefix="";if(aa[1]=="X" || aa[1]=="Y" || 0+aa[1]>0)prefix="chr";printf("%s%s:%s-%s\t%s\t%s\t%s\t%s",prefix,aa[1],bb[1],bb[2],aa[1],strand,bb[1],bb[2]);ib="";if($3 != 0)ib=$3;else if($4!=0)ib=$4;printf("\t%s",ib);gsub(/\\/,"",$2);gsub(/ /,"",$2);if($2==0)$2="";ng=split($2,aa,";");printf("\t");for(ig=1;ig<=ng;ig++)if(substr(aa[ig],1,3)=="X__")printf("%s ",substr(aa[ig],4));printf("\t");for(ig=1;ig<=ng;ig++)if(substr(aa[ig],1,4)=="ENSG")printf("%s ",aa[ig]);printf("\t");for(ig=1;ig<=ng;ig++){if(substr(aa[ig],1,3)=="X__" || substr(aa[ig],1,4)=="ENSG")continue; printf("%s ",aa[ig]);}for(i=5;i<=39;i++)printf("\t%s",$i);for(i=40;i<=NF;i++){if($i==0)$i="";printf("\t%s",$i);}printf("\n");}' >> $toto
+
+\cp $toto ../../RESULTS/INTRONS
+head -200 $toto >  ../../RESULTS/INTRONS/$toto.200lines.txt
+
+# verif de la somme des magic_ilm
+cat $toto | cut -f 1,21,22,23,24,25 | gawk '{n=$3+$4+$5+$6-$2;if(n*n> 10)print;}' | head
+
+
+
+##=============================
+## titration ratio
+## look for introns with large counts, C > 100, B > 1000, compute C-A/B-A
+cat ../BOKU/*Junctions_tab.txt | gawk -F '\t' '{printf("%s\tBoku\tWei\t%d\t%d\t%d\t%d\t%d\n",$1,$4,$5,$7,$8,$6);}' > boku.wehi.ACDB.counts.txt
+cat ../BOKU/*Junctions_tab.txt | gawk -F '\t' '{printf("%s\tBoku\tCStar\t%d\t%d\t%d\t%d\t%d\n",$1,$11,$12,$14,$15,$13);}' > boku.cstar.ACDB.counts.txt
+ 
+cat magic.RefSeq.tag_count.txt  | gawk '/^Gene/{gsub(/\"/,"",$2);g=$2;next;}/^A1_any/{t=substr($1,14,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tRefSeq\tGene\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > magic.RefSeq.ACDB.counts
+
+cat magic.av.tag_count.txt  | gawk '/^Gene/{gsub(/\"/,"",$2);g=$2;next;}/^A1_any/{t=substr($1,14,1);nn[g]+=$2;ng[g,t]=$2;next;}END{for(g in nn)printf("%s\tAceView\tGene\t%d\t%d\t%d\t%d\t%d\n", g,nn[g],ng[g,"A"],ng[g,"C"],ng[g,"D"],ng[g,"B"]);}' > magic.av.ACDB.counts
+
+
+
+
+set toto=star_introns.ACDB.collated_on_zenodotusNov2013.2013_08_25.preace2
+set toto=wehi.ACDB.counts
+set toto=magic.RefSeq.ACDB.counts
+set toto=boku.wehi.ACDB.counts.txt
+set toto=boku.cstar.ACDB.counts.txt
+set toto=magic.introns.ILM.ACDB.counts
+set alpha=1.02
+
+cat $toto  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if(c>10 && b > 1000 && a < c && c < d && d < b && 1.12*(c-a)<b-a)printf("%d\n",int(100 * (c-a*alpha)/(alpha*(b-a))));}' alpha=$alpha > ratio.ca_ba.txt
+cat ratio.ca_ba.txt | gawk '{if($1>100)next;print;}' | bin/histo -plain -w 100  -plot -o ratio2.ca_ba
+cat $toto  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if(c>10 && b > 1000 && a < c && c < d && d < b && 1.12*(d-a)<b-a)printf("%d\n",int(100 * (d-a*alpha)/(alpha*(b-a))));}' alpha=$alpha > ratio.da_ba.txt
+cat ratio.da_ba.txt  | gawk '{if($1>100)next;print;}'| bin/histo -plain -w 100 -plot -o ratio2.da_ba
+cat $toto  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if(d>10 && a > 1000 && a > c && c > d && d > b && 1.12*(d-b)<a-b)printf("%d\n",int(100 * (d-b*alpha)/(alpha*(a-b))));}' alpha=$alpha > ratio.db_ab.txt
+cat ratio.db_ab.txt  | gawk '{if($1>100)next;print;}'| bin/histo -plain -w 100 -plot -o ratio2.db_ab
+cat $toto  | gawk -F '\t' '{a=$5;c=$6;d=$7;b=$8;if(d>10 && a > 1000 && a > c && c > d && d > b && 1.12*(c-b)<a-b) printf("%d\n",int(100 * (c-b*alpha)/(alpha*(a-b))));}' alpha=$alpha > ratio.cb_ab.txt
+cat ratio.cb_ab.txt  | gawk '{if($1>100)next;print;}'| bin/histo -plain -w 100 -plot -o ratio2.cb_ab
+
+
+
+
+##=============================
+##=============================
+##=============================
+
+## support.ace contains all introns with support
+##
+## Histogram des introns with given max support
+## introns in only one pipeline, 
+
+foreach pp (_ ILM LIF Roche EST)
+  if (pp != EST) then
+    cat support.ace | gawk '/^Intron/{print old "\t" max; max=0; old=$2;next;}{if(index($1, pp "_any")>0 && max < $2+0)max=$2+0;next;}END{print old "\t" max;}' pp=$pp > intron2max.$pp.txt
+  endif
+
+  set toto=INTRONS/maxSupport.$pp.histo.txt
+  echo "# Platform $pp " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of intron for which the maximal support in any platform/pipeline exceeds the threshold\tCumul" >> $toto
+cat intron2max.$pp.txt |  gawk '{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+
+## Histogram des introns titrants with given max support
+## introns in only one pipeline, 
+
+cd ../WEHI
+tbly ../LM5 <<EOF
+  query find intron wei_ILM_titrating_a || wei_ILM_titrating_b
+  show -a -f wei.titrating.ILM.ace wei_ilm_any
+  query find intron wei_lif_titrating_a || wei_lif_titrating_b
+  show -a -f wei.titrating.LIF.ace wei_LIF_any
+EOF
+
+foreach pp (ILM LIF)
+  set toto=../../RESULTS/INTRONS/titratingSupport.$pp.histo.txt
+  echo "# Platform $pp " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of titrating introns for which the maximal support in Wehi exceeds the threshold\tCumul" >> $toto
+cat  wei.titrating.$pp.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+ cd ../MAGIC_introns/
+tbly ../LM5 <<EOF
+  query find intron magic_ILM_titrating_a || magic_ILM_titrating_b
+  show -a -f magic.titrating.ILM.ace magic_ilm_any
+  query find intron magic_lif_titrating_a || magic_lif_titrating_b
+  show -a -f magic.titrating.LIF.ace magic_LIF_any
+EOF
+
+foreach pp (ILM LIF)
+  set toto=../../RESULTS/INTRONS/magic.titratingSupport.$pp.histo.txt
+  echo "# Platform $pp " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of titrating introns for which the maximal support in magic exceeds the threshold\tCumul" >> $toto
+cat  magic.titrating.$pp.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+cd ../CSTAR
+tbly ../LM5 <<EOF
+  query find intron zeno_ILM_titrating_a || zeno_ILM_titrating_b
+  show -a -f star.titrating.ILM.ace zeno_ilm_any
+EOF
+
+foreach pp (ILM)
+  set toto=../../RESULTS/INTRONS/star.titratingSupport.$pp.histo.txt
+  echo "# Platform $pp " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of titrating introns for which the maximal support in Star exceeds the threshold\tCumul" >> $toto
+cat  star.titrating.$pp.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+cd ../CSTAR
+tbly ../LM5 <<EOF
+  query find intron zeno && ! magic_ && ! wei
+  show -a -f star.only.ace zeno_ilm_any
+EOF
+
+foreach pp (ILM)
+  set toto=../../RESULTS/INTRONS/star.only.histo.txt
+  echo "# STAR  $pp " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of introns detected only in Star for which the support  exceeds the threshold\tCumul" >> $toto
+cat  star.only.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+cd ../WEHI
+tbly ../LM5 <<EOF
+  query find intron ! zeno && ! magic_ &&  wei
+  show -a -f wei.only.ace wei_any_any
+EOF
+
+foreach pp (ILM)
+  set toto=../../RESULTS/INTRONS/wei.only.histo.txt
+  echo "# Subread  ILM + LIF + Roche " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of introns detected only in Wehi for which the support  exceeds the threshold\tCumul" >> $toto
+cat  wei.only.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+
+cd ../MAGIC_introns
+tbly ../LM5 <<EOF
+  query find intron ! zeno &&  magic_ && ! wei
+  show -a -f magic.only.ace magic_any_any
+EOF
+
+foreach pp (ILM)
+  set toto=../../RESULTS/INTRONS/magic.only.histo.txt
+  echo "# magic  ILM + LIF + Roche " > $toto
+  date >> $toto
+  echo "# Threshold\tNumber of introns detected only in Magic for which the support  exceeds the threshold\tCumul" >> $toto
+cat  magic.only.ace | gawk '/_any/{j=1;for(i=1;j>0 && i<30;i++){if($2<j){nn[int(0+j/2)]++;j=0;}j=2*j;}}END{nn[0]=0;for(j in nn)printf("%d\t%d\n",j,nn[j]);}' | sort -k 1nr | gawk '{n+=$2;printf("%d\t%d\t%d\n",$1,$2,n);}' | sort -k 1n >> $toto
+end
+
+## Venn diagram of A_or_B versus C and D per platform, pipeline
+set pps="MAGIC_ILM MAGIC_LIF Zeno_ILM Wehi_ILM Wehi_LIF"
+
+
+set pp=MAGIC_LIF
+set pp=MAGIC_ILM
+cd ../MAGIC_introns
+
+set pp=zeno_ILM
+cd ../CSTAR
+
+set pp=wei_ILM
+set pp=wei_LIF
+cd ../WEHI
+
+cat <<EOF > _q
+  query find intron ($pp'_'A || $pp'_'B) AND NOT ($pp'_'C || $pp'_'D)
+  query find intron $pp'_'C AND NOT ($pp'_'A || $pp'_'B || $pp'_'D)
+  query find intron $pp'_'D AND NOT ($pp'_'A || $pp'_'B || $pp'_'C)
+  query find intron ($pp'_'A || $pp'_'B) && $pp'_'C AND NOT $pp'_'D
+  query find intron ($pp'_'A || $pp'_'B) && $pp'_'D AND NOT $pp'_'C
+  query find intron NOT ($pp'_'A || $pp'_'B) && $pp'_'D AND $pp'_'C
+  query find intron  ($pp'_'A || $pp'_'B) && $pp'_'D && $pp'_'C
+EOF
+cat _q | sed -e "s/'//g" > _q1
+tbly ../LM5 < _q1 > ABCD.$pp.out
+
+
+cat ABCD.$pp.out | gawk '/Found/{i++;nn[i]=$3;nnn+=$3;}END{printf("Venn\tjust AB\tjust C\tjust D\tAB and C\tAB and D\tC and D\tAB C D\n%s counts",mm);for(i=1;i<=7;i++)printf("\t%d",nn[i]);printf("\n%s per cent",mm);for(i=1;i<=7;i++)printf("\t%.2f",100*nn[i]/nnn);printf("\n");}' mm=$pp >> ../../RESULTS/INTRONS/Venn.ABCD.txt
+
+set r="(Magic_Roche OR Wei_Roche)"
+set i="(Magic_ILM OR Wei_ILM || zeno_ILM)"
+set s="(Magic_LIF OR Wei_LIF)"
+cat <<EOF > _q
+  query find intron $r && NOT $i && NOT $s
+  query find intron $i && NOT $r && NOT $s
+  query find intron $s && NOT $r && NOT $i
+  query find intron $r && $i && NOT $s
+  query find intron $r && $s && NOT $i
+  query find intron $i && $s && NOT $r
+  query find intron $r && $i && $s
+EOF
+cat _q | sed -e "s/'//g" > _q1
+tbly ../LM5 < _q1 > RIS.limit1.out
+
+cat RIS.limit1.out | gawk '/Found/{i++;nn[i]=$3;nnn+=$3;}END{printf("Venn\tjust Roche\tjust ILM\tjust SOLiD\tRoche ILM\tRoche SOLiD\tILM SOLiD\tRoche ILM SOLiD\n%s counts",mm);for(i=1;i<=7;i++)printf("\t%d",nn[i]);printf("\n%s per cent",mm);for(i=1;i<=7;i++)printf("\t%.2f",100*nn[i]/nnn);printf("\n");}' mm=$pp >> ../../RESULTS/INTRONS/Venn.roche_ilm_solid.txt
+
+cat <<EOF > _q
+  query find intron $r && NOT $i && NOT $s && Boku_max >= 5
+  query find intron $i && NOT $r && NOT $s && Boku_max >= 5
+  query find intron $s && NOT $r && NOT $i && Boku_max >= 5
+  query find intron $r && $i && NOT $s && Boku_max >= 5
+  query find intron $r && $s && NOT $i && Boku_max >= 5
+  query find intron $i && $s && NOT $r && Boku_max >= 5
+  query find intron $r && $i && $s && Boku_max >= 5
+EOF
+cat _q | sed -e "s/'//g" > _q1
+tbly ../LM5 < _q1 > RIS.limit5.out
+
+cat RIS.limit5.out | gawk '/Found/{i++;nn[i]=$3;nnn+=$3;}END{printf("Max support >= 5\tjust Roche\tjust ILM\tjust SOLiD\tRoche ILM\tRoche SOLiD\tILM SOLiD\tRoche ILM SOLiD\n%s counts",mm);for(i=1;i<=7;i++)printf("\t%d",nn[i]);printf("\n%s per cent",mm);for(i=1;i<=7;i++)printf("\t%.2f",100*nn[i]/nnn);printf("\n");}' mm=$pp >> ../../RESULTS/INTRONS/Venn.roche_ilm_solid.limit5.txt
+
+## with limit = 1 2 3 5 10 the triple intersect magic star wehi grows like 1/2, 2/3, 3/4, 4/5, 5/6
+set limit=10
+set r="(Magic_)"
+set i="(zeno)"
+set s="(wei)"
+cat <<EOF > _q
+  query find intron $r && NOT $i && NOT $s && Boku_max >= $limit
+  query find intron $i && NOT $r && NOT $s && Boku_max >= $limit 
+  query find intron $s && NOT $r && NOT $i && Boku_max >= $limit 
+  query find intron $r && $i && NOT $s && Boku_max >= $limit 
+  query find intron $r && $s && NOT $i && Boku_max >= $limit 
+  query find intron $i && $s && NOT $r && Boku_max >= $limit 
+  query find intron $r && $i && $s && Boku_max >= $limit
+EOF
+cat _q | sed -e "s/'//g" > _q1
+tbly ../LM5 < _q1 > msw.limit$limit.out
+
+cat msw.limit$limit.out | gawk '/Found/{i++;nn[i]=$3;nnn+=$3;}END{printf("Venn\tjust Magic\tjust Star\tjust Wei\tMagic Star\tMagic Wei\tStar Wei\tMagic Star Wei\n%s counts",mm);for(i=1;i<=7;i++)printf("\t%d",nn[i]);printf("\n%s per cent",mm);for(i=1;i<=7;i++)printf("\t%.2f",100*nn[i]/nnn);printf("\n");}' mm="Max>=$limit" >> ../../RESULTS/INTRONS/Venn.magic_star_wei.limit$limit.txt
+
+
+##=============================
+##=============================
+##=============================
+## attribution des introns a des genebox
+485130
+# 6__551131_549292 has no ld but is inside gene EXOC2 on minus strand
+
+cd GENEBOX
+tbly ../LM5 <<EOF
+  query find intron
+  list -a -f intron.list
+EOF
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat intron.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");if(aa[1] != chrom)next;split(aa[2],bb,"_");strand=1;if(bb[1]>bb[2])strand=-1;printf("%s\tDonor\t%s\t%d\t%d\t%s\n",$2,aa[1],bb[1]-2*strand,bb[1]-strand,$2);printf("%s\tAcceptor\t%s\t%d\t%d\t%s\n",$2,aa[1],bb[2]+strand,bb[2]+2*strand,$2);}' chrom=$chrom > intron.$chrom.sdf
+end
+
+
+ln -s ../../TARGET
+foreach chrom ($chromSetAll)
+  scripts/submit intron.$chrom "scripts/mapSDF.tcsh   intron.$chrom.sdf  intron.$chrom stranded"
+end
+
+cat intron.*.sdfPosition.txt | gawk -F '\t' '{if($6!="Genome")next;printf("Intron %s\n",$1);}{t=0;if(index($6,"_genes")>0)t="in_intron";if(index($6,"_transcripts")>0)t="in_UTR";if(index($6,"_CDS")>0)t="in_CDS"; if($6=="Genome")printf("%s_intergenic\n\n",$2);else printf("%s_%s \"%s\" \"segment:%s\" \"%s:%d_%d\"\n\n",$2,t,$7,$8,$9,$10,$11);}' > intron.any.sdfPosition.ace3
+
+query find intron ! gene && ! gene_by_contact && (Donor_in_CDS || Donor_in_UTR ||  Donor_in_intron ||  Acceptor_in_CDS || Acceptor_in_UTR  ||  Acceptor_in_intron)
+edit intron_in_genebox
+(Donor_in_CDS || Donor_in_UTR ||  Donor_in_intron) && (  Acceptor_in_CDS || Acceptor_in_UTR  ||  Acceptor_in_intron)
+
+# new intergenic 3' exon
+ find intron gene_by_contact
+ same_donor && !  (  Acceptor_in_CDS || Acceptor_in_UTR  ||  Acceptor_in_intron)
+
+# new intergenic 5' exon
+ find intron gene_by_contact
+ same_acceptor && !(Donor_in_CDS || Donor_in_UTR ||  Donor_in_intron)
+magic_any_any >100
+
+
+# bin/geneelements  -mapSDF titi2.sdf -spongeFile RefSeq_CDS:tmp/METADATA/RefSeq_cds.ns.sponge,AceView_CDS:tmp/METADATA/av_cds.ns.sponge,EBI_CDS:tmp/METADATA/EBI_cds.ns.sponge,Discovery_CDS:tmp/METADATA/seqc_cds.ns.sponge,RefSeq_transcripts:tmp/METADATA/RefSeq.ns.sponge,AceView_transcripts:tmp/METADATA/av.ns.sponge,EBI_transcripts:tmp/METADATA/EBI.ns.sponge,Discovery_transcripts:tmp/METADATA/seqc.ns.sponge,RefSeq_genes:tmp/METADATA/RefSeq.ns.gene.sponge,AceView_genes:tmp/METADATA/av.ns.gene.sponge,EBI_genes:tmp/METADATA/EBI.ns.gene.sponge,Discovery_genes:tmp/METADATA/seqc.ns.gene.sponge,Genome:tmp/METADATA/genome.ns.sponge
+
+ bin/geneelements  -mapSDF titi2.sdf -spongeFile RefSeq_genes:tmp/METADATA/av.ns.gene.sponge
+
+
+        Localized LD UNIQUE Donor_in_CDS UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Donor_in_UTR UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Donor_in_intron UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Donor_intergenic UNIQUE Text REPEAT
+                  LA UNIQUE Acceptor_in_CDS UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Acceptor_in_UTR  UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Acceptor_in_intron UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Text
+                            Acceptor_intergenic UNIQUE Text REPEAT
+
+?Intron Gene ?Gene XREF Intron
+        Gene_by_contact ?Gene XREF Intron_by_contact
+        GeneId ?GeneId XREF Intron
+        Bridges ?Gene XREF Bridged_by
+        Cassetting ?Gene
+        From_gene ?Transcribed_gene XREF Intron UNIQUE Int UNIQUE Int
+        From_genefinder ?Genefinder XREF Intron UNIQUE Int UNIQUE Int
+        In_mRNA ?mRNA XREF Intron UNIQUE Int UNIQUE Int
+
+##=========
+## clean up script
+tbly ../LM5 
+  query find intron gene || Gene_by_contact || GeneId || Bridges ||   Cassetting || From_gene || From_genefinder ||  In_mRNA 
+  show -a -f toto.ace
+end
+cat  toto.ace | gawk '/^Intron/{print;printf("-D Gene\n-D Gene_by_contact \n-D GeneId \n-D Bridges \n-D   Cassetting \n-D From_gene \n-D From_genefinder \n-D  In_mRNA\n\n"); next;}' > toto.ace2
+
+cat  toto.ace | gawk '/^Intron/{print;printf("-D Gene\n-D Gene_by_contact \n-D GeneId \n-D Bridges \n-D   Cassetting \n-D From_gene \n-D From_genefinder \n-D  In_mRNA\n"); next;}{print;}' > toto.ace3
+
+##=============================
+## in the intron, specify the coordinates of the neighbouring exon
+tbly ../LM5 <<EOF
+  query find intron in_mrna
+  aql -active -o intron2mrna.txt select ii,m from ii in @active:1, m in ii->in_mRNA
+EOF
+gzip intron2mrna.txt
+zcat intron2mrna.txt.gz ZZZZZ  tmp/METADATA/mrnaRemap.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){gsub(/\"/,"",$0);ii=$1;m=$2;split($1,aa,"__");chr=aa[1]; split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;b1=a1-s;b2=a2+s;z1=m "\t" chr ":" b1; z2 = m "\t" chr ":" b2 ;m2d[z1]=m2d[z1] "," ii;m2a[z2]=m2a[z2] "," ii;next;}  z1=$2 "\t" $5 ":" $7 ;z2=$2 "\t" $5 ":" $6 ; if(m2d[z1])printf("Donor\t%s\t%s\t%s\t%s\n",m2d[z1],z1,$6,$7); if(m2a[z2])printf("Acceptor\t%s\t%s\t%s\t%s\n",m2a[z2],z2,$6,$7);}' | gawk -F '\t' '{n=split($2,aa,",");for(i=2;i<=n;i++)printf("Intron %s\tIn_mRNA %s 1 1 %s_exon %s %s\n",aa[i],$3,$1,$5,$6);}' | sort > intron2mrna2exon.txt
+gunzip intron2mrna.txt.gz
+
+# reformat
+cat  intron2mrna2exon.txt | gawk -F '\t' '{printf("%s\n%s\n\n",$1,$2);}' > intron2mrna2exon.ace
+
+# list non-remapped introns
+cat intron2mrna2exon.txt  ZZZZZ intron2mrna.txt  | gawk  '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next;}gsub(/\"/,"",$0);if(0+ok[$1]<1)print;}' 
+
+# do we have at least 100bp on each side
+cat intron2mrna2exon.txt | gawk '{ii=$2;da=$9-$8;if(da<0)da=-da;if(da>100){ok[ii]=1;oka[ii,$7]=1;}}END{for(ii in ok)if(oka[ii,"Donor_exon"]==1 && oka[ii,"Acceptor_exon"]==1)print ii;}' | sort -u  | gawk '{printf("Intron %s\n",$1);}' | sort -u > intron2with100bpborderingExons.list
+cat intron2mrna2exon.txt | gawk '{ii=$2;da=$9-$8;if(da<0)da=-da;if(da>100 && da < 200){ok[ii]=1;oka[ii,$7]=1;}}END{for(ii in ok)if(oka[ii,"Donor_exon"]==1 && oka[ii,"Acceptor_exon"]==1)print ii;}' | sort -u  | gawk '{printf("Intron %s\n",$1);}' > intron2with100not200bpborderingExons.list
+
+
+##=============================
+##=============================
+##=============================
+## PRIMERS
+# given a list of introns, export 200bp on each side, mask that region and remap
+
+ cat pcr.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");split(aa[2],bb,"_");printf("Intron %s\nTitle \"chr%s:%d-%d\"\n\n",$2,aa[1],bb[1],bb[2]);}' > pcr.title.ace
+
+cat pcr.list | gawk '/^Intron/{gsub(/\"/,"",$2);print $2;}' > pcr.select
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+
+  cat pcr.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"__");if(aa[1]!=chrom)next;split(aa[2],bb,"_");printf("%s\t%d\t%d\n",aa[1],bb[1],bb[2]);}'  chrom=$chrom > pcr.$chrom.intmap
+
+  cat pcr.$chrom.intmap  | gawk '{c=$1;a1=$2;a2=$3;s=1;if(a1>a2)s=-1;if(a1 < 300 || a2 < 300) next;printf("%s__%d_%d:donor\t1\t100\t%s\t%d\t%d\n",c,a1,a2,c,a1-101*s,a1-s);printf("%s__%d_%d:acceptor\t1\t100\t%s\t%d\t%d\n",c,a1,a2,c,a2+101*s,a2+1*s);}' > pcr.$chrom.shadow
+  cat  pcr.$chrom.shadow | cut -f 4,5,6 >  pcr.$chrom.mask
+
+end
+
+# export the reads
+foreach chrom ($chromSetAll)
+  echo $chrom
+  dna2dna -i ../TARGET/CHROMS/hs.chrom_$chrom.fasta.gz -shadow  pcr.$chrom.shadow >  pcr.$chrom.prefasta 
+end
+
+# reformat as pairs
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat pcr.$chrom.prefasta | gawk '/^>/{s=substr($1,2);split(s,aa,":");seq=aa[1];k=0;t=aa[2];if(t=="acceptor")k=1;else {dna[0] = ""; dna[1]="";}next;}{dna[k]=$1;if(k==1){printf(">%s\n%s><%s\n",seq,dna[0],dna[1]);}}' >  pcr.$chrom.pair.fasta 
+end
+
+# regroup
+cat   pcr.*.pair.fasta > pcr.all_pairs.fasta
+cat   pcr.*.mask  > pcr.mask.all
+
+#  align exactly on the whole genome
+clipalign -i  pcr.all_pairs.fasta -t  ../TARGET/CHROMS/hs.genome.fasta.gz  -minAli 90 -seedOffset 10 -seedLength 32 -showTargetPrefix  -showOverhang -minEntropy 16 -silent -o PHITS/pcr.exact
+
+# select the pairs with several alignments and remove them
+cat PHITS/pcr.exact.hits | gawk -F '\t' '/^#/{next;}{if($10!=1)next;n=length($1);print substr($1,1,n-1);}' | sort -u > pcr.select2
+cat PHITS/pcr.exact.hits | gawk -F '\t' '/^#/{next;}{if($10==1)next;n=length($1);print substr($1,1,n-1);}' | sort -u > pcr.ambiguous
+cat pcr.ambiguous | gawk '{print "Intron " $1;}' > pcr.ambiguous.list
+
+dna2dna -i   pcr.all_pairs.fasta  -o pcr.unique_pairs -reject  pcr.ambiguous  -select  pcr.select -I fasta -O fasta
+
+#  align non stringent on the whole genome after masking the original target
+clipalign -i  pcr.unique_pairs.fasta -t  ../TARGET/CHROMS/hs.genome.fasta.gz  -minAli 30 -seedOffset 1 -seedShift 5  -seedLength 16 -showTargetPrefix  -showOverhang -minEntropy 16 -targetMask  pcr.mask.all -silent -o PHITS/pcr.soft
+
+cat PHITS/pcr.soft.hits | gawk -F '\t' '/^#/{next;}{if($10==0)next;n=length($1);print substr($1,1,n-1);}' | sort -u > pcr.soft.ambiguous
+cat pcr.soft.ambiguous | gawk '{print "Intron " $1;}' > pcr.soft.ambiguous.list
+cat pcr.select2  | gawk '{print "Intron " $1;}' > pcr.aligned_ok.list
+
+##=============================
+## inter the PCR list as TG in the XX database
+
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat pcr.$chrom.intmap | gawk '{chr=$1;if(chr!=chrom)next; a1=$2;a2=$3;s=1;if(a1>a2)s=-1;b1=a1-101*s;b2=a1-s;c1=a2+s;c2=a2+101*s;da=(c2-b1+s)*s;dx=(a2-a1+s)*s;tg="XX:" chr "__" a1 "_" a2 ; printf("Sequence c_%s\nTranscribed_gene %s %d %d\n\nTranscribed_gene %s\n Genomic_sequence c_%s\nCovers %d \"bp from\" %d %d\nIntMap c_%s %d %d\nIntron %s__%d_%d\nSplicing 1 101 Exon 1 Length 101 bp\nSplicing 102 %d Intron xx_xx Length %d\nSplicing %d %d Exon 2 Length 101 bp\n\n",chr,tg,b1,c2,tg,chr,da,b1,c2,chr,b1,c2,chr,a1,a2,101+dx,dx,102+dx,203+dx);}' chrom=$chrom  > XX/XH$chrom/pcr.tg.ace
+end
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  tbly  XX/XH$chrom << EOF
+    pparse  XX/XH$chrom/pcr.tg.ace
+    save
+    quit
+EOF
+end
+
+  query find sequence transcribed_gene AND IntMap == $chrom
+  show -a -f z.g2tg.Y.ace transcribed_gene
+  show -a -f z.g2mrna.Y.ace mrna
+  follow transcribed_gene
+  spush
+  follow mrna
+  sor
+  spop
+  show -a -f z.tgm.ace
+
+
+phaseLoop:
+ echo done
+
+if (0) then
+  foreach ii (505 412 120 173)
+    cat toto.$ii.list |  gawk '/^Intron/{gsub(/\"/,"",$2);g=$2; split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];if(s==1)printf("%s\t%s\t%d\t%d\t%d\n",g,c,a1,a2,s);}' | sort -k 2,2 -k 3,3n | gawk '{c=$2;b1=$3;b2=$4;if(c!=old || b1>a1+200000){if(nn>1)print zz;zz="";nn=0;}a1=b1;a2=b2;old=c;nn++;zz=zz "\n" $0;}' > toto.plus.$ii.txt
+    cat toto.$ii.list |  gawk '/^Intron/{gsub(/\"/,"",$2);g=$2; split(g,aa,"__");split(aa[2],bb,"_");a1=bb[1];a2=bb[2];s=1;if(a1>a2)s=-1;c=aa[1];if(s==-1)printf("%s\t%s\t%d\t%d\t%d\n",g,c,a1,a2,s);}' | sort -k 2,2 -k 3,3nr | gawk '{c=$2;b1=$3;b2=$4;if(c!=old || b1<a1-200000){if(nn>1)print zz;zz="";nn=0;}a1=b1;a2=b2;old=c;nn++;zz=zz "\n" $0;}' > toto.minus.$ii.txt
+
+    cat toto.*us.$ii.txt | cut -f 1 | sort -u | gawk '{if($1)printf ("Intron %s\n",$1);}' >  clusters.$ii.list
+  end
+
+endif

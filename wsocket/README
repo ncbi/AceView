@@ -1,0 +1,290 @@
+
+===================================================================
+===================================================================
+ Beta release of tcp/sockets based version of acedb client/server.
+
+Authors:
+ Ed Griffiths edgrif@sanger.ac.uk
+ Jean Thierry-Mieg mieg@crbm.cnrs-mop.fr
+===================================================================
+===================================================================
+
+
+===================================================================
+== STATE OF THE RELEASE
+
+server: should be pretty solid.
+
+client: requires tidying up in serveral areas, including:
+
+		- moving over to aceIO instead of filsubs
+
+		- general error handling
+
+		- handling of ace_in/ace_out options (I am unclear what
+		  ace_out is for, or what it is supposed to do, I'm sure
+		  it's broken at the moment).
+
+		- command line needs completely redoing to account of
+		  various suggestions by Jean/James.
+
+		- clean up client command line
+
+		- clean up client structure (lots of untidy code....)
+
+		- testing....as always.
+
+		- do the client side file writing, needs some thought, we don't want to
+		  reimplement command.c on the client side !!
+
+
+Protocol: this may be expanded for aceio requests...not sure yet.
+
+
+
+===================================================================
+== OVERVIEW OF CODE LAYOUT:
+
+
+-----------------------------------------------------------------
+SOCKET LAYER - socket code only, knows nothing about acedb
+
+acesocket_.h 
+acesocket.c 
+acesocketlib.c 
+(also needs serverclientutils.c)
+
+-----------------------------------------------------------------
+servertransport.h - defines interface between transport layer,    
+                    in this case sockets, and acedb server
+
+
+-----------------------------------------------------------------
+ACEDB SERVER - acedb code only, knows nothing about sockets
+
+serverace_.h
+serverace.c
+serveracepasswd.c
+
+
+-----------------------------------------------------------------
+UTILS - used at acedb level by client and server (no socket code
+        in here)
+
+serverclientutils.h
+serverclientutils.c
+  
+ 
+-----------------------------------------------------------------
+ACEDB CLIENT - not well structured, but not worth a very layered
+               approach.
+
+saceclient.h
+saceclient_.h
+saceclient.c
+saceclientlib.c
+(also needs acesocketlib.c)
+(also needs serverclientutils.c)
+
+
+
+
+===================================================================
+== DOCUMENTATION
+                    
+There is also some documentation in wdoc:
+
+SOCKET_aceserver.html - users guide
+SOCKET_interface.html - developers internals guide.
+
+
+
+
+===================================================================
+== COMPILATION
+
+The two executables are called saceserver and saceclient to distinguish
+them from the rpc server/client.
+
+From within the usual acedb source code directory you need to type:
+
+> make saceserver saceclient
+
+
+===================================================================
+== SET UP
+
+The sockets based version of the client/server comes with a number
+of new features, these are fully described in SOCKET_aceserver.html.
+The following i a brief summary to get you started, this should 
+let you get the server/client going, after that you can tinker around
+to get more security etc.:
+
+1) Options in wspec/server.wrm:
+
+NO_RESTART
+	- turns ON no restart of server after a crash/shutdown.
+
+NO_HOSTNAME_RESOLUTION
+	- turns OFF checking for user being in a domain specified
+	  as having permission to log in, e.g.  sanger.ac.uk
+
+DEBUG
+	- turns ON server debugging output to database/server.log
+
+WRITE/READ
+	- set the basic database access permission levels for the
+	  read and write groups (admin users always have access).
+	  Default is PASSWD, but NONE & WORLD can also be set.
+
+All of these options can be left at their default settings for just
+testing out the client/server.
+
+
+2) Passwords in wspec/serverpasswd.wrm:
+
+This file contains two types of record: groups/associated users
+records and individual user records. There are three groups: admin, write and read
+and to set up a database to run with the new socket server there needs
+to be at least one user in the admin group. To 'bootstrap' an admin
+user so you can access the database via the client you need to:
+
+- choose your admin userid (this does _not_ need to be an existing
+  Unix userid, it can be any name you want), e.g. joebloggs
+
+- alter the admin group line in serverpasswd.wrm so it looks like
+  this:
+
+admin: joebloggs
+
+- now use the acedb utility program makeUserPasswd to create the
+  user entry for joebloggs (note that you won't see the password
+  you type):
+   (in the acedb source directory, 
+	make makeUserPasswd 
+        the executable is as usual in bin.$ACEDB_MACHINE)
+
+
+> makeUserPasswd joebloggs
+// Please enter passwd: jumbo10
+// Please re-enter passwd: jumbo10
+// The following line is a valid entry for wspec/serverpasswd.wrm
+
+joebloggs ccc5b9abf592836076410cdee518c518
+
+> 
+
+cut and paste the entry into a separate line in the serverpasswd.wrm file.
+
+Once the initial admin user has been set up, all other users can
+be set up from the admin userid via the new admin commands.
+
+
+You should now be in a position to test the server and client, it is
+recommended that you test the server in the foreground before trying
+to set it up to be run by inetd.
+
+
+
+===================================================================
+== TEST IN FOREGROUND
+
+-------------------------
+
+launch a server in foreground:
+
+  saceserver <your/data/base>  <your_port_number> <time_out_options>
+
+if something is wrong you shuold get a clear message
+
+-------------------------
+
+if the server starts OK, then start a client:
+
+saceclient <host_where_server_is_running> -port <port_number_from_above>
+acedb> status
+acedb> quit
+
+if that is ok, you can go ahead and try registering the server
+under inetd control (see next section).
+
+
+
+===================================================================
+== INSTALLATION UNDER INETD
+
+You can now run saceserver against any existing acedb database
+and/or register it under inetd by adding lines to the following
+files (you will need root access):
+
+For this example we assume:
+
+nickname for server/database -  MyfirstDB
+             port for server -  20113
+       path to server binary -  /usr/local/bin/saceserver
+            path to database -  /home/databases/aardvarkDB
+   timeout values for server -  200:200:0
+
+
+------------------------------
+in /etc/services add the line
+
+MyfirstDB  20113/tcp
+
+------------------------------
+in /etc/inetd.conf add the line
+
+MyfirstDB stream tcp wait mieg  /usr/local/bin/saceserver saceserver /home/databases/aardvarkDB 20113 200:200:0
+
+                MyfirstDB  seen in both files, a random name of my choice to name the service
+          stream tcp wait  mandatory, this is the way the daemon must be declared
+                     mieg  user name under which the daemon runs, avoid root,
+                           choose some local user owning /home/databases/aardvarkDB
+/usr/local/bin/saceserver  full path to saceserver executable
+               saceserver  repeat the name of the execuatble so that it is found as argv[0] by the code
+ /home/databases/aardvark  the database directory
+                    20113  a given port number
+                200:200:0  server and client time out in seconds, then a blocking factor
+                           (default zero is ok)
+
+------------------------------
+Now get inetd to reread /etc/inetd.conf and pick up the information for MyfirstDB:
+
+1) find out the process id of inetd
+
+> ps -A | grep inetd
+
+   545 ??       I        0:00.62 /usr/sbin/inetd
+
+2) Send inetd the interrupt signal
+
+> kill -HUP 545
+
+Sending this signal should be enough but on some old systems a reboot may be necessary.
+
+----------------------------
+
+then invoke the server via
+
+saceclient <host_where_server_is_running> -port 20113
+
+
+
+
+===================================================================
+== ACEPERL
+
+Jean says:
+
+i have under test a fixed AcePerl client code that i can also send
+
+
+
+===================================================================
+===================================================================
+please mail reports, error and suggestions to
+edgrif@sanger.ac.uk
+mieg@crbm.cnrs-mop.fr
+===================================================================
+===================================================================
+

@@ -1,0 +1,162 @@
+#!/usr/bin/perl
+#######################################################
+#
+# Written by Maria Lantin (lantin@cs.sfu.ca), 1996/11/01
+#
+# rsort was written to sort ace dump but
+# is general enough to be used for
+# other purposes.
+#
+# Bug reports and suggestions should be sent to
+# lantin@cs.sfu.ca
+#
+# Added to ACEDB wtools/ directory by RD 961108
+#
+# $Id: rsort,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+#######################################################
+
+use FileHandle;
+
+ProcessOptions();
+
+# Set the record seperator to be an empty line
+# and read the file into a 2-dimensional array where
+# each column is a field (line) of the record.
+$infile->input_record_separator("");
+$recnums = 0;
+while (<$infile>) {
+    push @records, [ split(/\n/) ];
+}
+
+# Sort the the records by each sort field specified in the 
+# -f options.  If no fields are specified sortfields = "1"
+for ($i = $#sortfields; $i >= 0; $i--) {
+    $sortfield = $sortfields[$i];
+    @records = sort byfield @records;
+}
+
+# reverse the order of the records if the '-d' option was specified
+if ($opt_d) {
+    @records = reverse @records;
+}
+
+# output the records
+$outfile->output_field_separator("\n");
+$outfile->output_record_separator("\n\n");
+foreach $record ( @records ) {
+    print $outfile @$record;
+}
+
+# Sorting routine used by the "sort" command above.  It is passed two
+# records $a and $b and it must return -1 if $a < $b, +1 if $a > $b, or
+# 0 if $a == $b
+sub byfield {
+    local($value1, $value2, $val1, $val2, $field, $sortf, $format);
+
+    # A sortfield is of the form field[a] or field[n].  The first
+    # form says to sort on field alphanumerically while the second
+    # says to sort on field numerically.  The default is [a] if
+    # it's not specified.  This next line parses out the field and
+    # the type of sort (alphanumeric or numeric).
+    $sortfield =~ /([^\[]*)(\[([an])\])?/, $sortf = $1, $format = $3;
+
+    # if we didn't get a format, assume 'a'
+    if (!$format) {
+        $format = "a";
+    }
+    
+    # if we're simply sorting on a field number then make value1 be 
+    # the field we're sorting on for $a and value2 be the corresponding
+    # field for $b.  It is assumed that the first field is 1.
+    if ($sortf =~ /^[0-9]+$/) { # The sort field is numeric
+        $value1 = $$a[$sortf-1];
+        $value2 = $$b[$sortf-1];
+    } else { 
+        # the sort field is a string so we assume that the field name will
+        # be the first string on the line.  We parse for it and make value1
+        # be the rest of the line after the field name for $a and
+        # value2 be the corresponding value for $b
+        foreach $field (@$a) {
+            $field =~ /^\s*$sortf\s+(.*)/ && ($value1 = $1, last) ;
+        }
+        foreach $field (@$b) {
+            $field =~ /^\s*$sortf\s+(.*)/ && ($value2 = $1, last) ;
+        }
+    }
+
+    if ($format eq "n") { 
+        # We are sorting numerically so we must do our best to find a number
+        # in the values recorded in the above statements. val1 and val2
+        # become the numbers we will be comparing for $a and $b 
+        # respectively.  If there are 2 numbers on the field, only the
+        # first one will be picked out.
+        $value1 =~ /(\d+)/ && ($val1 = $1);
+        $value2 =~ /(\d+)/ && ($val2 = $1);
+        $val1 <=> $val2;
+    } else {
+        # We are comparing alphanumerically so convert everything to
+        # lowercase and compare the strings.
+        lc($value1) cmp lc($value2);
+    }
+}
+
+sub Usage {
+    # Prints out the usage string for this utility
+    
+    print "This utility sorts multiline records\n";
+    print "Usage: rsort [-f fieldlist] [-o outfile] [-v] [-h] [-d] [infile]\n";
+    print "Options:\n";
+    print "\t-d            sorts the records in descending order\n";
+    print "\t-f fieldlist  sorts the record by the comma separated field list.\n";
+    print "\t              A field consists of a field name or number\n";
+    print "\t              followed by an optional format specifier.\n";
+    print "\t              A format specifier is one of [a] or [n] where\n";
+    print "\t              the first is used to sort alphanumerically (default)\n";
+    print "\t              and the second is used to sort numerically.\n";
+    print "\t-o file       puts sorted record into outfile\n";
+    print "\t-v -h         print this message and exit\n\n";
+    print "Examples:\n";
+    print "\trsort -fEmbryo_division_time[n] -o sortedcells.ace cell.ace\n";
+    print "\t  will sort cell.ace by Embryo_division_time numerically and\n";
+    print "\t  will put the newly sorted records in sortedcells.ace\n";
+    print "\trsort -f1,Embryo_division_time[n] cell.ace\n";
+    print "\t  will sort cell.ace by the first field and numerically by\n";
+    print "\t  the Embryo_division_time field.  The output will go\n";
+    print "\t  to standard output.\n";
+}
+
+# Procedure to process the options given on the command line.
+sub ProcessOptions {
+    use Getopt::Long;
+    GetOptions("v","h","d","f=s","o=s");
+
+    # help
+    if ($opt_v || $opt_h) { 
+        Usage();
+        exit(1);
+    }
+    # output file
+    if ($opt_o) { 
+        $outfile = new FileHandle($opt_o, "w");
+    } else {
+        $outfile = STDOUT;
+    }
+    # field list
+    if ($opt_f) { 
+        @sortfields = split(/,/,$opt_f);
+    } else {
+        @sortfields = 1;
+    }
+    
+    # input file
+    if ($#ARGV > 0) {
+        Usage();
+    } else {
+        if ($#ARGV == 0) {
+            $infile = new FileHandle $ARGV[0];
+        } else {
+            $infile = STDIN;
+        }
+    }
+}
+ 

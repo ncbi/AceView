@@ -1,0 +1,84 @@
+// $Id: EMBL_4.trans,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+
+Spec for translating EMBL/Genbank entries to ACEDB 4 objects
+============================================================
+
+Goal is to hand-edit NOTHING
+
+Name of object is EM:acc_no
+
+DNA sequence -> DNA object of same name
+
+Database EMBL ID_name Acc_no
+
+Upper region mapping:
+---------------------
+
+DE -> Title
+DT -> Date DateType Text
+	Text is info on what done
+(*) KW, split on ';' -> Keyword
+	Ian also splits DE and adds to Keyword.  Then remove junk
+	words and look by hand (now).
+(*) CC -> DB_remark
+
+cDNA_EST from division on title line
+
+Locus: we scan DE, KW, CC for worm gene name structure, then hand edit
+	For human can get this from GDB.
+
+References:
+-----------
+
+use getz: EMBL -> Medline
+
+Feature table:
+--------------
+
+Map the following to Subsequence objects, called {Name}.{feature}.1,
+etc. all direct first generation children of the main object.
+Following each are instructions on tags to be set in the subobject,
+including mapping some qualifiers.
+
+CDS	if /pseudo then set Pseudogene
+		   else set CDS
+	/codon_start=x -> CDS x
+misc_RNA	set Transcript
+mRNA		set mRNA
+prim_transcript	set Unprocessed_mRNA
+rRNA		set rRNA
+		/product=x -> rRNA x
+scRNA		set scRNA
+		/product=x -> scRNA x
+snRNA		set snRNA
+		/product=x -> snRNA x
+tRNA		set tRNA
+		/anticodon=(pos:x,aa:y) -> tRNA y
+
+General qualifier mapping:
+	/gene -> Locus
+	(*) /note=x -> DB_remark "Note:x"
+	(*) /product -> DB_remark "Product:x"
+	(*) /gdb_xref=x -> Database GDB x
+		?Look at this - maybe just report to log file
+		in a distinct form another script can pull out.
+
+Location mapping:
+  If position starts with '<', then set Start_not_found.
+  If position ends with '>', then set End_not_found.
+  Map join() to Source_exons.
+
+All other Features get mapped to EMBL_feature, except:
+
+Exon, Intron, if spanned by any Subsequence.
+Source, but perhaps /Clone=x -> DB_remark "Clone:x",
+	and similarly for Tissue_type, etc. (*)
+
+General rules for feature locations:
+For EMBL_feature
+(x..y)	= a range, take the outside value, i.e. the one that
+	makes the feature longest.
+U05316:1745..2396 really need to make a correctly ordered LINK object
+	and then propagate the Subsequence to be a subsequence of this
+	link.  Very messy.  Write message to log file, process by hand.
+

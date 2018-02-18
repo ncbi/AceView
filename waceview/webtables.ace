@@ -1,0 +1,522 @@
+
+Table : "collagens"
+Title	 "properties of 178 collagen genes"
+Sortcolumn	 1
+Colonne	 1 Subtitle "gene"
+Colonne	 1 From 1
+Colonne	 1 Visible
+Colonne	 1 Width 9
+Colonne	 1 Optional
+Colonne	 1 A_Class "Gene"
+Colonne	 2 Subtitle "predicted"
+Colonne	 2 From 1
+Colonne	 2 Tag "Genefinder"
+Colonne	 2 Visible
+Colonne	 2 Width 11
+Colonne	 2 Optional
+Colonne	 2 Condition "! IS *.*b AND ! IS *.*c AND !IS *.*d AND ! IS C44C10.9 AND !IS C01B12.8"
+Colonne	 2 A_Class "Sequence"
+Colonne	 3 Subtitle "alias"
+Colonne	 3 From 1
+Colonne	 3 Tag "Locus"
+Colonne	 3 Visible
+Colonne	 3 Width 8
+Colonne	 3 Optional
+Colonne	 3 Condition "! IS \%\%1 AND !IS zyg-6 AND !IS let-8 AND !IS sup-20 AND !IS dpy-15"
+Colonne	 3 A_Class "Locus"
+Colonne	 4 Subtitle "Map"
+Colonne	 4 From 1
+Colonne	 4 Tag "NewName"
+Colonne	 4 Visible
+Colonne	 4 Width 8
+Colonne	 4 Optional
+Colonne	 4 A_Class "NewName"
+Colonne	 5 Subtitle "RT-PCR"
+Colonne	 5 From 1
+Colonne	 5 Tag "Has_OST"
+Colonne	 5 Visible
+Colonne	 5 Width 9
+Colonne	 5 Optional
+Colonne	 5 Boolean
+Colonne	 6 Subtitle "Column #6"
+Colonne	 6 From 1
+Colonne	 6 Tag "Transcribed_gene"
+Colonne	 6 Hidden
+Colonne	 6 Width 12
+Colonne	 6 Optional
+Colonne	 6 A_Class "Transcribed_gene"
+Colonne	 7 Subtitle "#clones"
+Colonne	 7 From 6
+Colonne	 7 Tag "cDNA_clone"
+Colonne	 7 Visible
+Colonne	 7 Width 8
+Colonne	 7 Optional
+Colonne	 7 Count
+Colonne	 8 Subtitle "\%embryo"
+Colonne	 8 From 6
+Colonne	 8 Tag "Expression_profile"
+Colonne	 8 Visible
+Colonne	 8 Width 8
+Colonne	 8 Optional
+Colonne	 8 An_Int
+Colonne	 9 Subtitle "\% L1"
+Colonne	 9 Right_of 8
+Colonne	 9 Tag "HERE"
+Colonne	 9 Visible
+Colonne	 9 Width 8
+Colonne	 9 Optional
+Colonne	 9 An_Int
+Colonne	 10 Subtitle "\% L2"
+Colonne	 10 Right_of 9
+Colonne	 10 Tag "HERE"
+Colonne	 10 Visible
+Colonne	 10 Width 8
+Colonne	 10 Optional
+Colonne	 10 An_Int
+Colonne	 11 Subtitle "\% L3"
+Colonne	 11 Right_of 10
+Colonne	 11 Tag "HERE"
+Colonne	 11 Visible
+Colonne	 11 Width 8
+Colonne	 11 Optional
+Colonne	 11 An_Int
+Colonne	 12 Subtitle "\% L4"
+Colonne	 12 Right_of 11
+Colonne	 12 Tag "HERE"
+Colonne	 12 Visible
+Colonne	 12 Width 8
+Colonne	 12 Optional
+Colonne	 12 An_Int
+Colonne	 13 Subtitle "\% adult"
+Colonne	 13 Right_of 12
+Colonne	 13 Tag "HERE"
+Colonne	 13 Visible
+Colonne	 13 Width 8
+Colonne	 13 Optional
+Colonne	 13 An_Int
+Colonne	 14 Subtitle "dauer"
+Colonne	 14 Right_of 13
+Colonne	 14 Tag "HERE"
+Colonne	 14 Visible
+Colonne	 14 Width 6
+Colonne	 14 Optional
+Colonne	 14 An_Int
+Colonne	 15 Subtitle "phenotype"
+Colonne	 15 From 1
+Colonne	 15 Tag "Locus_Description"
+Colonne	 15 Hidden
+Colonne	 15 Width 12
+Colonne	 15 Optional
+Colonne	 15 Condition "! IS \"essential gene\""
+Colonne	 15 A_Class "Locus_Description"
+Colonne	 16 Subtitle "interacts"
+Colonne	 16 From 1
+Colonne	 16 Tag "Interacts"
+Colonne	 16 Visible
+Colonne	 16 Width 10
+Colonne	 16 Optional
+Colonne	 16 Boolean
+Colonne	 17 Subtitle "phenotype"
+Colonne	 17 From 1
+Colonne	 17 Tag "Locus_Description"
+Colonne	 17 Visible
+Colonne	 17 Width 14
+Colonne	 17 Optional
+Colonne	 17 Boolean
+Colonne	 18 Subtitle "Paper"
+Colonne	 18 From 1
+Colonne	 18 Tag "Reference"
+Colonne	 18 Hidden
+Colonne	 18 Width 10
+Colonne	 18 Optional
+Colonne	 18 Condition "IS pm* AND !IS pm8143939"
+Colonne	 18 A_Class "Paper"
+Colonne	 19 Subtitle "reference"
+Colonne	 19 From 1
+Colonne	 19 Tag "Reference"
+Colonne	 19 Visible
+Colonne	 19 Width 12
+Colonne	 19 Optional
+Colonne	 19 Boolean
+Colonne	 20 Subtitle "Vidal failed attempt"
+Colonne	 20 From 1
+Colonne	 20 Tag "RNAi"
+Colonne	 20 Hidden
+Colonne	 20 Width 12
+Colonne	 20 Optional
+Colonne	 20 Condition "IS mv*"
+Colonne	 20 A_Class "RNAi"
+Colonne	 21 Subtitle "ambiguous"
+Colonne	 21 From 20
+Colonne	 21 Tag "Ambiguous"
+Colonne	 21 Hidden
+Colonne	 21 Width 12
+Colonne	 21 Optional
+Colonne	 21 Boolean
+Colonne	 22 Subtitle "amplification"
+Colonne	 22 From 20
+Colonne	 22 Tag "No_obvious_phenotype"
+Colonne	 22 Hidden
+Colonne	 22 Width 12
+Colonne	 22 Optional
+Colonne	 22 Boolean
+
+Table : "Expression_title"
+Sortcolumn	 1
+Colonne	 1 Subtitle "Column #1"
+Colonne	 1 From 1
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Optional
+Colonne	 1 A_Class "Transcribed_gene"
+Colonne	 2 Subtitle "emb"
+Colonne	 2 From 1
+Colonne	 2 Tag "Expression_profile"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Mandatory
+Colonne	 2 Condition "\%\%2 < 50"
+Colonne	 2 An_Int
+Colonne	 3 Subtitle "l1"
+Colonne	 3 Right_of 2
+Colonne	 3 Tag "HERE"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Mandatory
+Colonne	 3 Condition "\%\%3 > 50"
+Colonne	 3 An_Int
+Colonne	 4 Subtitle "L2"
+Colonne	 4 Right_of 3
+Colonne	 4 Tag "HERE"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Optional
+Colonne	 4 An_Int
+Colonne	 5 Subtitle "L3"
+Colonne	 5 Right_of 4
+Colonne	 5 Tag "HERE"
+Colonne	 5 Visible
+Colonne	 5 Width 12
+Colonne	 5 Optional
+Colonne	 5 An_Int
+Colonne	 6 Subtitle "L4"
+Colonne	 6 Right_of 5
+Colonne	 6 Tag "HERE"
+Colonne	 6 Visible
+Colonne	 6 Width 12
+Colonne	 6 Optional
+Colonne	 6 An_Int
+Colonne	 7 Subtitle "ad"
+Colonne	 7 Right_of 6
+Colonne	 7 Tag "HERE"
+Colonne	 7 Visible
+Colonne	 7 Width 12
+Colonne	 7 Optional
+Colonne	 7 An_Int
+Colonne	 8 Subtitle "dauer"
+Colonne	 8 Right_of 7
+Colonne	 8 Tag "HERE"
+Colonne	 8 Visible
+Colonne	 8 Width 12
+Colonne	 8 Optional
+Colonne	 8 An_Int
+Colonne	 9 Subtitle "Column #9"
+Colonne	 9 From 1
+Colonne	 9 Tag "Gene"
+Colonne	 9 Visible
+Colonne	 9 Width 12
+Colonne	 9 Optional
+Colonne	 9 Condition "! expression_title = *Kohara*"
+Colonne	 9 A_Class "Gene"
+
+Table : "gb2function2gene"
+Sortcolumn	 1
+Colonne	 1 From 1
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Optional
+Colonne	 1 Condition "gb*"
+Colonne	 1 A_Class "Est"
+Colonne	 2 From 1
+Colonne	 2 Tag "Function"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Mandatory
+Colonne	 2 Condition "! IS Unknown"
+Colonne	 2 A_Class "Text"
+Colonne	 3 From 1
+Colonne	 3 Tag "From_gene"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Mandatory
+Colonne	 3 A_Class "Transcribed_gene"
+Colonne	 4 From 3
+Colonne	 4 Tag "Gene"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Mandatory
+Colonne	 4 Condition "smap"
+Colonne	 4 A_Class "Gene"
+
+Table : "go"
+Sortcolumn	 1
+Colonne	 1 Subtitle "Column #1"
+Colonne	 1 From 1
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Optional
+Colonne	 1 A_Class "GO"
+
+Table : "web2genelist"
+Title	 "web interface: genelist"
+Sortcolumn	 1
+Colonne	 1 Subtitle "gene"
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Optional
+Colonne	 1 A_Class "Gene"
+Colonne	 2 Subtitle "IntMap"
+Colonne	 2 From 1
+Colonne	 2 Tag "InterpolatedMap"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Optional
+Colonne	 2 A_Class "Map"
+Colonne	 3 Subtitle "LocusLinkColumn #3"
+Colonne	 3 From 1
+Colonne	 3 Tag "LocusLink"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Optional
+Colonne	 3 A_Class "LocusLink"
+Colonne	 4 Subtitle "title"
+Colonne	 4 From 1
+Colonne	 4 Tag "Title"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Optional
+Colonne	 4 A_Class "Text"
+Colonne	 5 Subtitle "Column #5"
+Colonne	 5 From 1
+Colonne	 5 Tag "Cytogenetic"
+Colonne	 5 Visible
+Colonne	 5 Width 12
+Colonne	 5 Optional
+Colonne	 5 A_Class "Chrom_band"
+Colonne	 6 Subtitle "Column #6"
+Colonne	 6 From 1
+Colonne	 6 Tag "Product"
+Colonne	 6 Visible
+Colonne	 6 Width 12
+Colonne	 6 Optional
+Colonne	 6 Condition "IS \"\%\%1\"  OR IS *.a OR ( IS *.pg AND ! IS *b.pg AND ! IS *c.pg AND ! IS *d.pg && ! IS *e.pg AND ! IS *e.pg AND ! IS *d.pg AND ! IS *f.pg AND ! IS *g.pg AND ! IS *h.pg)"
+Colonne	 6 A_Class "Product"
+Colonne	 7 Subtitle "Column #7"
+Colonne	 7 From 6
+Colonne	 7 Tag "Title"
+Colonne	 7 Visible
+Colonne	 7 Width 12
+Colonne	 7 Optional
+Colonne	 7 A_Class "Text"
+Colonne	 8 Subtitle "Column #8"
+Colonne	 8 Right_of 2
+Colonne	 8 Tag "HERE"
+Colonne	 8 Visible
+Colonne	 8 Width 12
+Colonne	 8 Optional
+Colonne	 8 A_Float
+Colonne	 9 Subtitle "Column #9"
+Colonne	 9 From 1
+Colonne	 9 Tag "Map"
+Colonne	 9 Visible
+Colonne	 9 Width 12
+Colonne	 9 Optional
+Colonne	 9 Condition "! IS chromosome_*"
+Colonne	 9 A_Class "Map"
+Colonne	 10 Subtitle "Column #10"
+Colonne	 10 Right_of 9
+Colonne	 10 Tag "HERE  # Position"
+Colonne	 10 Visible
+Colonne	 10 Width 12
+Colonne	 10 Optional
+Colonne	 10 A_Float
+Colonne	 11 Subtitle "Column #11"
+Colonne	 11 From 1
+Colonne	 11 Tag "IntMap"
+Colonne	 11 Visible
+Colonne	 11 Width 12
+Colonne	 11 Optional
+Colonne	 11 A_Class "Map"
+
+Table : "web2genelist2"
+Sortcolumn	 1
+Colonne	 1 Subtitle "Gene"
+Colonne	 1 From 1
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Optional
+Colonne	 1 A_Class "Gene"
+Colonne	 2 Subtitle "Column #2"
+Colonne	 2 From 1
+Colonne	 2 Tag "InterpolatedMap"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Optional
+Colonne	 2 A_Class "Map"
+Colonne	 3 Subtitle "Column #3"
+Colonne	 3 Right_of 2
+Colonne	 3 Tag "HERE"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Optional
+Colonne	 3 A_Float
+Colonne	 4 Subtitle "Column #4"
+Colonne	 4 From 1
+Colonne	 4 Tag "Cytogenetic"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Optional
+Colonne	 4 A_Class "Chrom_band"
+Colonne	 5 Subtitle "Column #5"
+Colonne	 5 Right_of 4
+Colonne	 5 Tag "HERE"
+Colonne	 5 Visible
+Colonne	 5 Width 12
+Colonne	 5 Optional
+Colonne	 5 A_Text
+Colonne	 6 Subtitle "Column #6"
+Colonne	 6 From 1
+Colonne	 6 Tag "Map"
+Colonne	 6 Visible
+Colonne	 6 Width 12
+Colonne	 6 Optional
+Colonne	 6 Condition "! chromoso*"
+Colonne	 6 A_Class "Map"
+Colonne	 7 Subtitle "Column #7"
+Colonne	 7 Right_of 6
+Colonne	 7 Tag "HERE  # Position"
+Colonne	 7 Visible
+Colonne	 7 Width 12
+Colonne	 7 Optional
+Colonne	 7 A_Float
+Colonne	 8 Subtitle "Column #8"
+Colonne	 8 From 1
+Colonne	 8 Tag "IntMap"
+Colonne	 8 Visible
+Colonne	 8 Width 12
+Colonne	 8 Optional
+Colonne	 8 A_Class "Map"
+Colonne	 9 Subtitle "Column #9"
+Colonne	 9 From 1
+Colonne	 9 Tag "Title"
+Colonne	 9 Visible
+Colonne	 9 Width 12
+Colonne	 9 Optional
+Colonne	 9 A_Class "Text"
+
+Table : "webpfam"
+Sortcolumn	 1
+Parameters	 "* * * 0"
+Colonne	 1 Subtitle "Title"
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Mandatory
+Colonne	 1 Condition "IS *\%1*"
+Colonne	 1 A_Class "PFam"
+Colonne	 2 Subtitle "Accession"
+Colonne	 2 From 1
+Colonne	 2 Tag "Accession"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Mandatory
+Colonne	 2 Condition "IS *\%2*"
+Colonne	 2 A_Class "Text"
+Colonne	 3 Subtitle "Definition"
+Colonne	 3 From 1
+Colonne	 3 Tag "Definition"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Mandatory
+Colonne	 3 Condition "IS *\%3*"
+Colonne	 3 A_Class "Text"
+Colonne	 4 Subtitle "#Products"
+Colonne	 4 From 1
+Colonne	 4 Tag "Product"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Mandatory
+Colonne	 4 Condition "\%\%4 >= \%4"
+Colonne	 4 Count
+
+Table : "webpfamg"
+Sortcolumn	 1
+Parameters	 "* * * 0 0"
+Colonne	 1 Subtitle "Title"
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Mandatory
+Colonne	 1 Condition "IS *\%1*"
+Colonne	 1 A_Class "PFam"
+Colonne	 2 Subtitle "Accession"
+Colonne	 2 From 1
+Colonne	 2 Tag "Accession"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Mandatory
+Colonne	 2 Condition "IS *\%2*"
+Colonne	 2 A_Class "Text"
+Colonne	 3 Subtitle "Definition"
+Colonne	 3 From 1
+Colonne	 3 Tag "Definition"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Optional
+Colonne	 3 Condition "IS *\%3*"
+Colonne	 3 A_Class "Text"
+Colonne	 4 Subtitle "#Products"
+Colonne	 4 From 1
+Colonne	 4 Tag "Product"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Mandatory
+Colonne	 4 Condition "\%\%4 >= \%4"
+Colonne	 4 Count
+Colonne	 5 Subtitle "Column #5"
+Colonne	 5 From 1
+Colonne	 5 Tag "Gene"
+Colonne	 5 Visible
+Colonne	 5 Width 12
+Colonne	 5 Mandatory
+Colonne	 5 Condition "\%\%5 >= \%5"
+Colonne	 5 Count
+
+Table : "webpfamlazy"
+Precompute	 "webpfamlazy#"
+Sortcolumn	 1
+Colonne	 1 Subtitle "Title"
+Colonne	 1 Visible
+Colonne	 1 Width 12
+Colonne	 1 Mandatory
+Colonne	 1 A_Class "PFam"
+Colonne	 2 Subtitle "Accession"
+Colonne	 2 From 1
+Colonne	 2 Tag "Accession"
+Colonne	 2 Visible
+Colonne	 2 Width 12
+Colonne	 2 Mandatory
+Colonne	 2 A_Class "Text"
+Colonne	 3 Subtitle "Definition"
+Colonne	 3 From 1
+Colonne	 3 Tag "Definition"
+Colonne	 3 Visible
+Colonne	 3 Width 12
+Colonne	 3 Mandatory
+Colonne	 3 A_Class "Text"
+Colonne	 4 Subtitle "#Products"
+Colonne	 4 From 1
+Colonne	 4 Tag "Product"
+Colonne	 4 Visible
+Colonne	 4 Width 12
+Colonne	 4 Optional
+Colonne	 4 Count
+

@@ -1,0 +1,51 @@
+
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+########### wmake/DEC_ALPHA_DEF    March-18-1993       ##########
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+####### for the DEC-Alpha 3000 model 500 running Unix ###########
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = ALPHA
+COMPILER = cc  -DACEDB4 -p
+
+LIBS = -lm -L/usr/ccs/lib/cmplrs/cxx 
+
+LINKER = cc 
+
+## man gproff on alpha
+##  To simply time the procedures
+
+##       cc -c myprog.c
+##       cc -p -o myprog myprog.o
+##       myprog                    (generates mon.out)
+##       prof myprog mon.out
+
+
+## To get a longer longer printout:
+## compile without the -p option
+#LINKER = cc
+##     cc -c myprog.c
+##     cc -o myprog myprog.o
+##     pixie -o myprog.pixie myprog            (generates myprog.Addrs)
+##     myprog.pixie                            (generates myprog.Counts)
+##     prof -pixie myprog myprog.Addrs myprog.Counts
+## pixie: info: to run instrumented program, specify -run or arguments, or run
+##             ./myprog.pixie [argument]...
+## pixie: info: to display profile for myprog
+##             specify -display or a prof-flag, or run prof:
+##             prof -pixie -all myprog {*.Counts*}
+
+.c.o:
+	$(CC) -c $*.c
+
+#################################################################
+#################################################################

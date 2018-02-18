@@ -1,0 +1,240 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2011-01-30_13:10:49
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Variant identifier                
+Width 25 
+Optional 
+Visible 
+Class 
+Class Variant 
+Condition !IS gi*
+ 
+Colonne 2 
+Subtitle dbSNP identifier is available     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class dbSNP 
+From 1 
+Tag dbSNP
+ 
+Colonne 3 
+Subtitle Chromosome     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 4 
+Subtitle Strand     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 5 
+Subtitle Coordinate     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 6 
+Subtitle Gene     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 7 
+Subtitle Target mRNA     
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class mRNA 
+From 1 
+Tag mRNA
+ 
+Colonne 8 
+Subtitle Target, model of NM in build 37.1     
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 7 
+Tag Gene
+ 
+Colonne 9 
+Subtitle Position                
+Width 6 
+Mandatory 
+Visible 
+Integer 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 10 
+Subtitle Type                
+Width 5 
+Mandatory 
+Visible 
+Text 
+From 1 
+Tag Typ
+ 
+Colonne 11 
+Subtitle Experiment                
+Width 22 
+Mandatory 
+Visible 
+Class 
+Class Experiment 
+From 1 
+Tag Counts
+ 
+Colonne 12 
+Subtitle Strand              
+Width 12 
+Optional 
+Hidden 
+Next_Tag 
+From 11 
+Tag Strand
+ 
+Colonne 13 
+Subtitle Mutation count    
+Width 5 
+Mandatory 
+Visible 
+Integer 
+Right_of 11 
+Tag HERE 
+Condition \%13 >= 0
+ 
+Colonne 14 
+Subtitle Coverage    
+Width 5 
+Mandatory 
+Visible 
+Integer 
+Right_of 13 
+Tag HERE 
+Condition \%14>=0
+ 
+Colonne 15 
+Subtitle Frequency                
+Width 5 
+Mandatory 
+Visible 
+Float 
+Right_of 14 
+Tag HERE  # Frequency
+ 
+Colonne 16 
+Subtitle Lower bound at risk 1/1000           
+Width 5 
+Mandatory 
+Visible 
+Float 
+Right_of 15 
+Tag HERE 
+ 
+Colonne 17 
+Subtitle Upper bound at risk 1/1000           
+Width 5 
+Optional 
+Visible 
+Float 
+Right_of 16 
+Tag HERE 
+ 
+Colonne 18 
+Subtitle Same letter as neighbour, applies only to indels    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag In_repeat
+ 
+Colonne 19 
+Subtitle Probably above 10%    
+Width 12 
+Mandatory 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_low
+ 
+Colonne 20 
+Subtitle Probably below 10 or above 80%    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_mid
+ 
+Colonne 21 
+Subtitle Probably below 80%    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_high
+ 
+Colonne 22 
+Subtitle Probably below 10%    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Low
+ 
+Colonne 23 
+Subtitle Probably between 10 and 80%    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Mid
+ 
+Colonne 24 
+Subtitle Probably over 80%    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # High
+ 
+ 
+
+// End of these definitions

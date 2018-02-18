@@ -1,0 +1,173 @@
+
+
+
+<html><head>
+<title>cDNA Gene Map</title>
+</head>
+
+<h2>cDNA Gene map</h2>
+
+ This display has been modified for cDNA edition. It shows the cDNA clones and their correllation to the genomic sequence. <p>
+
+
+<b>The Blue bar gives information on the selected object</b>(the last object you left-clicked on)<P>
+<b>Double click to get more info in a dedicated display.</b><tt>Graph for traces, text for genes.</tt>
+
+<h3>The Menu Buttons </h3>
+
+<ul>
+  <li><strong>Origin:</strong>Changes the origin of the coordinates. Pick a cosmid or a gene or a read
+   <li><strong>Active zone:</strong>Select an object or edit the values.
+   <li><strong>Zoom IN/OUT:</strong>left-click to zoom in or out or right-click to select th bases per line displayed.
+   <li><strong>Complement:</strong>left-click to reverse complement.NB:The gene must be on the <b>right strand</b> to open the <a href="Trace_Editor">trace display</a> by double left clicking on a read you have the sequence of.
+   <li><strong>Analysis...</strong>left-click to open a  <A HREF="DNA_analysis.html">DNA Analysis
+window</a> or right-click to access external DNA analysis tools. GENEFINDER(Phil Green)(see end of file) is one of these.
+   <li><strong>Assembly...</strong>This is a menu button.
+   <li><strong>Show:</strong>
+   <li><strong>Arrows: </strong>
+   <li><strong>Quality:</strong>
+   <li><strong>Report:</strong>
+   <li><strong>DNA:</strong>left click to show genomic DNA.Pick an object to see its position in the DNA sequence.As a gene can cover many kb, use the zoom to see details, and the restriction analysis window(reached through the <A HREF="DNA_analysis.html">DNA Analysis window</a>) .    
+
+ </ul>
+<p>
+ 
+<h3>Menu items:</h3>
+
+<ul>
+<li><strong>Quit:</strong> quits the window.
+
+<li><strong>Help:</strong> brings up this help.
+
+<li><strong>Print Screen:</strong>does what it says.
+
+<li><strong>Print Whole Map:</strong>
+
+<li><strong>Preserve:</strong> insure that the next gmap will be
+displayed in a different window, otherwise the present one will be
+reused.
+
+    
+<li><strong>Recalculate:</strong>recalculates the window=redraw.
+    
+<li><strong>Hide Header:</strong> Hides the buttons etc, useful before
+printing. The pop up menu remains available to toggle back.
+
+
+<li><strong>Export Sequence:</strong> Export the active DNA zone in
+fasta format.
+
+
+<li><strong>Export features:</strong> Export the translation of the
+active gene as an Ascii file in Fasta format
+
+<li><strong>Export translations:</strong> Export the translation of
+all the genes of the active map in a single file in Fasta format
+
+<li><strong>make a keyset from the active zone:</strong>
+
+<li><strong>EMBL dump:</strong>
+    <li><strong>Import sequence:</strong>reads and displays a DNA file in FASTA format 
+    <li><strong>Columns:</strong>Advanced display options.
+	
+</ul>
+
+
+
+
+
+<h3>Top Line</h3>
+
+The last sequence you touched is the Selected fMap, this shows in red in the top left corner. This is the sequence used by dna analysis and gels. You can have several sequence on the screen if you use the
+Preserve option in the menu. The blue line gives the name, nature, and coordinates of the selected object <p>
+
+<h3>Zooming</h3>
+
+This works as in the genetic map. It is controlled by the two zoom buttons and the
+middle mouse button: to recentre slowly if the mouse is right of the
+scale bar, or recenter fast and zoom continuously by dragging the mid
+button starting left of the scale bar.The green rectangle on the scale bar
+represents the screen currently displayed.<p>
+
+
+<h3>Active-Zone and Origin</h3>
+
+You can reset the origin by picking the origin value box, typing a
+number and RETURN. Alternatively, pick the Origin button then a
+gene.<p>
+
+The active zone, indicated in the same coordinate system limits the
+scope of the Anaylsis window, Genefinder, Fasta Dumps etc.  It then
+shows as blue Shutter on the left side of the yellow bar.<p>
+
+<h3>Clear</h3>
+
+Clears the colourings, genefinder selections etc.<p>
+
+<h3>Reverse-Complement</h3>
+
+Pick it with the left button to reverse complement the sequence.  But
+if you press the right mouse button, you get a sub-menu that lets you
+independently complement or reverse the sequence. This may be useful
+to compare the features of both strands. On the top right corner of
+the window, the staus REVERSED or COMPLEMENT is recalled.<p>
+
+
+Introns-exons are shown as rectangular boxes (the exons) connected by
+springs, the introns. The one on the right go downwards, the one on
+the left of the scale go upwards, i.e. they belong to the other
+strand. They correspond to the negative reading frames of the analysis
+menu.<p>
+
+Picking the subsequences move you to their text value or to the
+<a href="Trace_Editor">trace editor</a>if you have the sequences.<p>
+
+Picking the clone box which may occur at the top will move you to
+the physical map.<p>
+
+<h3>Genes, templates , clones</h3> each have their own menu(right mouse button).
+<ul>
+  <li>The Blue box+springs is the Genefinder prediction for this location.
+  <li>The pink box+springs is the structure of the gene as shown by the cDNA reads.
+      The intron (springs) are blue if they do not have the expected gt_ag boundaries.
+      The exons are filled in pink if they are confirmed, that is if both edges are adjusted and at least one sequence correlates the genomic.The first exon is filled if a transplice site has been tagged (SL1,SL2...), and the last if a polyadenylation site has been tagged on the 5 prime read.
+  <li><strong>Sequence menu button:</strong><ul>
+        <li>Show cDNA clone: calls text info on the clone
+        <li>Show EST: calls full info on a read
+	<li>Show EST sequence: opens a new  display with  the sequence
+	<li>Show EST trace:opens a graphical display of the trace if available
+	<li>Change Strand:use this button to tag a sequence as having been assembled on the wrong strand.
+	<li>Discard from here:discards a missassembled clone from a gene.(also available in the triangular up-down menu button of the trace editor.)
+</ul>
+	<li><strong>gf template menu button(blue)</strong>	
+  <li><strong>Constructed gene menu button(pink)</strong>
+
+</ul>
+
+<h3>Genefinder</h3>
+
+Much of the functionality of Phil Green's genefinder package is built
+into ACEDB.  A reference is given when you first use the package.  To
+access genefinder functions, use the right mouse button on the
+indicated box to get at the submenu.  You must get "Genefinder
+features" first.  Then "Autofind Gene" will act in the current active
+zone.  It will attempt to find the best predicted gene including all
+features currently selected (indicated in LIGHTGREEN).  If you have
+write access it will create a working gene model, called "Temp_gene".
+Selected features can be hand-edited by using the submenu attached to
+each feature.  "Fix temp_gene" allows you to make temp_gene into a
+permanently stored gene prediction.  "Gene -&gt; selected" allows you
+to set the selected features from a previously determined gene.
+"Selected -&gt; temp_gene" lets you convert the currently selected
+features into a gene structure.  One common cause of problems is that
+some features are selected somewhere else in the sequence (perhaps the
+other strand!) -- use the "Clear" button to reset everything.<p>
+
+Genefinder uses tables of codons frequencies etc which are part of the
+acedb distribution in the wgf subdirectory. The environment variable
+GF_TABLES will overide the $ACEDB/wgf default and let you use your own
+tables.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: June 1998<p>

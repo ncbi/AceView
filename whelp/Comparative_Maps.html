@@ -1,0 +1,175 @@
+<HTML>
+<HEAD>
+<TITLE> The display of comparative mapping data using ACeDB</TITLE>
+</HEAD>
+<BODY>
+<ADDRESS>
+Jo Dicks<BR>
+Genetics Laboratory<BR>
+Department of Biochemistry<BR>
+South Parks Road<BR>
+Oxford<BR>
+UK<BR>
+email : jld@bioch.ox.ac.uk<BR>
+TEL   : +44 1865 275314<BR>
+FAX   : +44 1865 275318<BR>
+</ADDRESS>
+<H1>The display of comparative mapping data using ACeDB</H1>
+Current work funded by the UK Human Genome Mapping Project is concerned with producing a comparative mapping database using ACeDB. This work is being carried out in collaboration with the Genetics Division MRC Radiobiology Unit in Chilton, Oxon. A key consideration of the project is to develop new graphics tools to show how two or more species differ genetically. New methods of comparing species within this version of ACeDB include<BR>
+<UL>
+<LI><A HREF="#oxgrid">The Oxford Grid</A> 
+<LI><A HREF="#pairmap">The Pairwise Chromosome Map</A>
+<LI><A HREF="#o2mmap">The One-to-Many Chromosome Map</A> 
+<LI><A HREF="#spec">The Species Grid</A>
+<LI><A HREF="#gridmap">The Grid Map</A>
+</UL>
+<P>In addition to these another map, <A HREF="#trans">The Translocation Grid</A>, has been written to show chromosomal rearrangements, particularly translocations, in a single species.
+<H1><A NAME=oxgrid>The Oxford Grid</A></H1>
+<P>We can compare the autosomal chromosomes of two species by means of an Oxford Grid. Click <A HREF="file://localhost/home/jld/html/oxgrid.gif">here</A> for an example showing a human/mouse grid. Each row or column represents a chromosome. The widths of these are directly proportional to the sizes of the chromosomes, if these sizes are known. Large chromosomes will produce large cells on the grid and small chromosomes will produce small cells. If chromosome sizes are not known, each cell will be of equal size to all others. Each homologous locus is plotted in the relevant cell, each cell being referenced by its chromosome number in each of the two species. For instance, if we have an homology concerning a gene on chromosome 4 in species 1 and on chromosome 3 in species 2 then we place a dot at random in the 4,3 cell. To give a general impression of the similarity of two species, it is simplest to plot each locus, randomly, as a point in the cell. A cell with a high point density <B>MAY</B> therefore be indicative of a large conserved chromosomal segment between the species. The grid is labelled by the maps contained within each species and by the species names. These are all clickable. Double-clicking on a species name will bring up text information relevant to it and on a map name will bring up a drawing of that map. Double-clicking on a chosen cell with the mouse brings up a text window with information on each of the homologous loci contained within it. Double-clicking on a locus name from this list will show its position on a chromosome map, should this be known. Two search facilities are provided, one for searching for a homology and one for a locus. If the text entered in either of these fields matches a homology or a locus that is present in the grid, then the cell in which it is found will be selected.
+<P>Button options available with the Oxford Grid are :<BR>
+<UL>
+<LI>Relative sizes - toggles between cell sizes equal and proportional to chromosome length
+<LI>Flip           - flips the grid to change the axes of the two species
+<LI>Highlight...   - a menu giving various highlighting options
+<LI>Statistics...  - a menu giving various statistics of genome reorganisation
+<LI>Zoom in        - increases the size of the graph
+<LI>Zoom out       - decreases the size of the graph
+</UL>
+<P>Menu options available with the Oxford Grid are :<BR>
+<UL>
+<LI>Quit             - destroys this window
+<LI>Pairmap          - this option should be chosen after a cell has been selected with the mouse. A <A HREF="#pairmap">Pairwise Chromosome Map</A> of the cell is brought up, showing the positions of the homologies relative to the two relevant chromosomes.
+<LI>One-to-many      - this option should be chosen after a cell has been selected with the mouse. A <A HREF="#o2mmap">One-to-Many Chromosome Map</A> is brought up, either for the column or the row to which the cell belongs. The user is prompted for this choice.
+<LI>Highlight cell   - highlights all homologies in the selected cell
+<LI>Unhighlight cell - unhighlights all homologies in the selected cell
+<LI>Help             - displays a help page similar to this information
+<LI>Print            - sends a Post Script file Oxfordxxx.PS to ./PS and then sends it to your local laser printer
+<LI>Preserve         - preserves the current Oxford Grid
+<LI>Dump             - dumps out all data contained within the grid 
+</UL>
+<H1><A NAME=pairmap>The Pairwise Chromosome Map</A></H1>
+<P>Click <A HREF="file://localhost/home/jld/html/pairmap.gif">here</A> for a Pairwise Chromosome Map of human chromosome 14 and mouse chromosome 12, which would normally be accessed through the Oxford Grid. The PairMap shows a single cell of an Oxford Grid in some detail. Homologies are shown with their respective positions on the chromosomes of the two species, should these be known. So if, for example, we are looking at the enlarged 14,12 cell, the x-coordinate of the cell will be the locus' position on chromosome 14 the first species and the y-coordinate will be its position on chromosome 12 of the other. Homologies are shown with error bars relating to the known errors of 
+their locations in each species. The pairmap will be labelled with chromosome ideograms, should these be known, or by numeric scales. If the former, then all chromosome band names will be shown and these may be double-clicked upon to being up text information on the bands. The chromosome names will be shown in bold black text and may be double-clicked upon to bring up maps of these chromosomes. The map will indicate segments that are conserved between the two species. An inversion of a segment between the two chromosomes will be easy to spot as a segment going "the wrong way". A single click on a blue homology box causes the names of the two homologous loci to be displayed in the light blue header bar beneath the button menus. Any homology may be selected by double-clicking on it with the mouse. Upon this a text window appears giving information on the homology and on homologies between the two loci involved and loci from other species. Two search facilities are provided, one for searching for a homology and one for a locus. If the text entered in either of these fields matches a homology or a locus that is present on the pairmap, then the relevant homology box will be selected.
+<P>Button options available with the Pairmap are :<BR>
+<UL>
+<LI>Hide/Draw Chromosomes - toggles between a numeric scale and banded chromosome ideograms, should these be known
+<LI>Hide/Draw Error Bars  - removes/returns the error bars relating to the accuracy of the loci's positions in the two species
+<LI>Flip                  - flips the Pairmap to change the axes of the two species
+<LI>Highlight...          - a menu giving various highlighting options
+<LI>Shade/Unshade         - the idea behind this is to see whether most loci lie in the white space, as they should do if the assumption that light bands contain more genes than dark bands is correct. This option shades or unshades the whole display as follows :<BR>
+<UL>
+<LI>Dark band species1/dark band species2   = dark
+<LI>Dark band species1/light band species2  = light grey
+<LI>Light band species1/dark band species1  = light grey
+<LI>Light band species1/light band species2 = white
+</UL>
+<LI>Zoom in               - increases the size of the graph
+<LI>Zoom out              - decreases the size of the graph
+</UL> 
+<P>Menu options available with the Pairmap are :<BR>
+<UL>
+<LI>Quit     - destroys this window
+<LI>Help     - displays this help page
+<LI>Print    - sends a Post Script file Pairwixxx.PS to ./PS and then sends it to your local laser printer
+<LI>Preserve - preserves the current Pairmap
+</UL>
+<H1><A NAME=o2mmap>The One-to-Many Chromosome Map</A></H1>
+<P>Click <A HREF="file://localhost/home/jld/html/o2m.gif">here</A> for a One-to-Many Chromosome Map of human chromosome 14 with all mouse chromosomes. This example shows that there are two likely conserved segments, one with mouse chromosome 12 and one with mouse chromosome 14. Like the pairwise chromosome map, this map is accessed through the Oxford Grid. It shows the loci in one of the Oxford Grid's rows or columns. If a column is selected, then an ideogram or numeric scale of the single chromosome of species 1 at the top of the column is placed alongside a grid showing all the chromosomes of species 2. Loci homologous in the two species are placed in the grid, their y-coordinate relating to the loci's location on the single chromosome and the x-coordinate being in the centre of the column of its chromosome in species 2. If an Oxford grid row is selected, then a single chromosome of species 2 is gridded with all chromosomes of species 1 in a similar way. This map shows the distribution of loci on the single chromosome and their homologues throughout the chromosomes of the other species. Conserved segments between the two species should become apparent. A single click on a blue box causes the names of the two homologous loci to be displayed in the light blue header bar beneath the button menus. Any homology may be selected by double-clicking on it with the mouse. Upon this a text window appears giving information on the homology and on homologies of the two loci with loci from other species. Two search facilities are provided, one for searching for a homology and one for a locus. If the text entered in either of these fields matches a homology or a locus that is present on the pairmap, then the relevant homology box will be selected.
+<P>Button options available with the One-to-Many-Map are :<BR>
+<UL>
+<LI>Relative sizes        - toggles between column widths equal and proportional to chromosome length
+<LI>Hide/Draw Chromosomes - toggles between a numeric scale on the y-axis and banded chromosome ideograms, should these be known
+<LI>Highlight...          - a menu giving various highlighting options
+<LI>Zoom in               - increases the size of the graph
+<LI>Zoom out              - decreases the size of the graph
+</UL>
+<P>Menu options available with the One-to-Many-Map are :<BR>
+<UL>
+<LI>Quit     - destroys this window
+<LI>Help     - displays this help page
+<LI>Print    - sends a Post Script file One-toxxx.PS to ./PS and then sends it to your local laser printer
+<LI>Preserve - preserves the current One-to-Many-Map
+</UL>
+<H1><A NAME="spec">The Species Grid</A></H1>
+<P>Click <A HREF="file://localhost/home/jld/html/spec.gif">here</A> for an example of a species grid showing homologues of loci on human chromosome 14. Such a grid shows all loci on a particular chromosome that have homologues in other species. The y-coordinate of the homologue is the loci's position on the single chromosome. The x-coordinate is the column midpoint of the second species and each homology is shown with the its chromosome number in the second species to its right. Conserved segments between the single chromosome and the other species may be inferred from this. A single click on a blue box causes the names of the two homologous loci to be displayed in the light blue header bar beneath the title. Any homology may be selected by double-clicking on it with the mouse. Upon this a text window appears giving information on the homology and on homologies of the two loci with loci from other species. Two search facilities are provided, one for searching for a homology and one for a locus. If the text entered in either of these fields matches a homology or a locus that is present on the pairmap, then the relevant homology box will be selected.
+<P>Button options available with the Species grid are :<BR>
+<UL>
+<LI>Hide/Draw Chromosomes - toggles between a numeric scale on the y-axis and banded chromosome ideograms, should these be known
+<LI>Highlight...          - a menu giving various highlighting options
+<LI>Zoom in               - increases the size of the graph
+<LI>Zoom out              - decreases the size of the graph
+</UL>
+<P>Menu options available with the Species grid are :<BR>
+<UL>
+<LI>Quit     - destroys this window
+<LI>Help     - displays this help page
+<LI>Print    - sends a Post Script file Speciexxx.PS to ./PS and then sends it to your local laser printer
+<LI>Preserve - preserves the current Species grid
+</UL>
+<H1><A NAME="gridmap">The GridMap</A></H1>
+<P>This is currently in its early stages. The GridMap will be a generalised two-dimensional grid, to compare objects that in some way "belong" to the x- and y-axis objects. These objects will be drawn within the grid. Grids such as the Oxford Grid (OxGrid) and the Translocation Grid (TransGrid) are just special cases of the generalised grid.
+<H2>How to store the data</H2>
+<P>There should not be a GridMap class. The total number of grids possible for even a small amount of data makes this unnecessarily complicated and would cause a large amount of duplicated data to be stored. We would also have problems with nomenclature. It should be possible to draw any grid by a single program, by simply selecting the objects that should be displayed on it. This program will take the data already stored in the database. It will know which data to take by the types of these selected objects. Essentially, the user decides what to display and a general program can cope with a variety of different data.
+<H2>How to access a grid</H2>
+<P>A Grid should be brought up by selecting the single GridMap option from the main menu. This will bring up a form, so that the user can specify what they would like to see on the grid.
+<P>There are three choices that MUST be specified on this form. They are (i) what object(s) should be shown on the x-axis (e.g. Human Chromosome 9) (ii) what object(s) should be shown on the y-axis (e.g. The Species Cow) and (iii) what "grid objects" (e.g. loci) should be drawn. Options (i) and (ii) may be qualified by an object choice or by a query. 
+<H2>Grid options</H2> 
+<P>Once these choices are made, a grid with default option settings should be brought up. There should be a number of ways to change the appearance of a grid.
+<UL>
+<LI>The initial grid will have "gridlines". These may be turned on or off. Gridlines will be drawn by finding numeric values, if these exist, of some "lower level" objects related to the axes objects. For instance, if the axes objects are chromosomes, the gridlines will be drawn by the relative lengths of the chromosome bands. Each object may have a default gridline object but the user may choose an alternative object on the GridMap form. Another option is to request cells of equal size. Thus, in this case, the number of chromosome bands would be counted but their numeric lengths would not be used.
+<LI>The user can view the grid in terms of the cells defined by the "gridlines".     The information shown within the grid will here relate to the objects contained within a particular cell. Alternatively, the user can view the grid in terms of the individual objects, regardless of whether they overlap adjacent cells. The user can toggle between these two views. In the first, the user can PICK a cell or group of cells to to display further information and in the second, an individual grid object. If the user turns off the "gridlines" then "grid objects" will automatically become pickable (if not already) as the user will no longer be able to see the cells.
+<LI>The grid objects may be defined in a number of ways. These objects will be in some way related to the axes objects.
+<OL>
+<LI>The grid objects may be "numerically contained" within the axes objects.
+<LI>The grid objects may be related to the axes objects, but not in a numerical context. The way maybe through the NEIGHBOURS query command but the result may have to be filtered. 
+</OL>
+<LI>If the Cell View is being used, the user can change the way a cell is drawn. The cell should have the facility to :<BR>
+<OL>
+<LI>Display the objects within it plotted at random.
+<LI>Display the objects within it plotted along a scale defined by the axes (only if the data are numeric).
+<LI>Display the number of objects within it.
+<LI>Be filled if it contains objects and empty otherwise (binary).
+</OL>
+<LI>There will be a number of ways of selecting cells within the Cell View. The user may either :<BR>
+<OL>
+<LI>Pick a single cell.
+<LI>Pick a row of cells.
+<LI>Pick a column of cells.
+<LI>Pick a (geometrically regular) group of cells.
+</OL>
+<LI>If the Object View is being used, the user can change the appearance of an object. The object should<BR>
+<OL>
+<LI>Be plotted as a rectangle with error bars.
+<LI>Be plotted as a rectangle without error bars.
+<LI>Have a colour code option.
+</OL>
+<LI>There should be a keyset option to restrict those objects shown to be those in the active keyset.
+<LI>A flip option should be able to exchange the x- and y- axes.
+<LI>The axes objects may, in some cases, be annotated by an ideogram to help the user. There will be an ideogram tag for each object which, if specified, may be drawn beside the grid. If a value is not given, no such drawing will be attempted. For example, a chromosome ideogram may be drawn alongside a grid axis if that axis object is a chromosome.  
+</UL>
+<H1><A NAME=trans>The Translocation Grid</A></H1>
+<P>Click <A HREF="file://localhost/home/jld/html/trans.gif">here</A> for a translocation grid of human chromosome 14 with all other human chromosomes. Such a grid depicts all the translocations that have occured between a chosen chromosome and all other chromosomes of the same species. Each translocation is shown as a line, the range of its y-coordinates showing the length of the segment translocated in the single chromosome. Its x-coordinate shows therelative position on the other chromosome involved (q arm left, p arm right). Translocations are colour coded according to type :<BR>
+<UL>
+<LI>Blue  = constitutional
+<LI>Green = acquired 
+<LI>Red   = both constitutional and acquired
+</UL>
+<P>A single click on a translocation causes its Paris nomenclature to be displayed in the light blue header bar beneath the button menus. Further information on any translocation may be displayed by double-clicking on it with the mouse. Upon this a text window appears with the information displayed within it.
+<P>Button options available with the One-to-Many-Map are :<BR>
+<UL>
+<LI>Constitutional data - only (blue and red) constitutional translocations are displayed   
+<LI>Acquired data       - only (green and red) acquired translocations are displayed
+<LI>Both types          - only transloactions that are both constitutional and acquired (red) are displayed
+<LI>All data            - all translocations are displayed 
+</UL>
+Menu options available with the Translocation grid are :<BR>
+<UL>
+<LI>Quit     - destroys this window
+<LI>Help     - displays this help page
+<LI>Print    - sends a Post Script file Translxxx.PS to ./PS and then sends it to your local laser printer
+<LI>Preserve - preserves the current Translocation grid
+</UL>
+<H1>Acknowledgments</H1>
+<P> This project has been funded by the Medical Research Council's Human Genome Mapping Project. Dr A. Searle of the Genetics Division MRC Radiobiology Unit in Chilton, Oxon has provided the human-mouse homology data. Much of this work has been carried out in collaboration with Michelle Kirby, also of this unit. </BODY>
+</HTML>
+

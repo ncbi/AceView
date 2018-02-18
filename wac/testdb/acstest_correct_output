@@ -1,0 +1,240 @@
+test: open_test
+USING DB SERVER wac/testdb
+test: aql_test_1
+table: 6 rows 6 cols
+-a1-                 -1-                  -1.5-                -text-               -2003-12-31-         -a-                  
+-a2-                 --                   -2-                  -t2-                 -2003-12-30-         -b-                  
+-a3-                 -3-                  --                   -more text-          -2003-12-29-         -c-                  
+-a4-                 -4-                  -5.5-                --                   -2003-12-28-         -d-                  
+-a5-                 -5-                  -5.001-              -lipton-             --                   -e-                  
+-a6-                 -6-                  -6-                  -lambda point-       -2003-12-27-         --                   
+test: aql_test_1, -active
+table: 4 rows 6 cols
+-a3-                 -3-                  --                   -more text-          -2003-12-29-         -c-                  
+-a4-                 -4-                  -5.5-                --                   -2003-12-28-         -d-                  
+-a5-                 -5-                  -5.001-              -lipton-             --                   -e-                  
+-a6-                 -6-                  -6-                  -lambda point-       -2003-12-27-         --                   
+test: ks1
+new keyset has 0 elements
+objects found: y y y y
+Keyset ks1: 2 elements
+	aql1:a1
+	aql1:a2
+Keyset ks2: 2 elements
+	aql1:a3
+	aql1:a4
+Keyset ks3: 2 elements
+	aql1:a1
+	aql1:a2
+Keyset ks1 = ks1 OR ks2: 4 elements
+	aql1:a1
+	aql1:a2
+	aql1:a3
+	aql1:a4
+Keyset ks1 = ( ks1 OR ks2) AND ks2: 2 elements
+	aql1:a3
+	aql1:a4
+Keyset ks1 = ( ( ks1 OR ks2) AND ks2 ) OR ks3: 4 elements
+	aql1:a1
+	aql1:a2
+	aql1:a3
+	aql1:a4
+Keyset ks4: 4 elements
+	aql1:a1
+	aql1:a2
+	aql1:a3
+	aql1:a4
+Keyset ks4 remove a2: 3 elements
+	aql1:a1
+	aql1:a3
+	aql1:a4
+Keyset ks1 = ks1 - ks4: 1 elements
+	aql1:a2
+freeing
+test: obj_test_1
+obj found: y
+arf a
+has arbitrary_tag
+ivalue 1
+fvalue 1.5
+tvalue this is text
+dvalue 926810112
+printable ivalue 1
+printable fvalue 1.5
+printable tvalue this is text
+printable dvalue 2003-12-31
+printable name (testing #constructs, should find one)    one
+printable name (testing #constructs, should find dude)    dude
+obj2 = arf b
+obj2 table:
+table: 11 rows 3 cols
+-arbitrary_tag-      --                   --                   
+-ivalue-             -1-                  --                   
+-fvalue-             -1.5-                --                   
+-tvalue-             -this is text-       --                   
+-dvalue-             -2003-12-31-         --                   
+-ovalue-             -b-                  --                   
+-nest1-              -name-               -one-                
+-nest1-              -value-              -1-                  
+-nest2-              -name-               -two-                
+-nest2-              -value-              -2-                  
+-name-               -dude-               --                   
+obj2 table:
+table: 11 rows 3 cols
+-arbitrary_tag-      --                   --                   
+-ivalue-             -1-                  --                   
+-fvalue-             -1.5-                --                   
+-tvalue-             -this is text-       --                   
+-dvalue-             -2003-12-31-         --                   
+-ovalue-             -b-                  --                   
+-nest1-              -name-               -one-                
+-nest1-              -value-              -1-                  
+-nest2-              -name-               -two-                
+-nest2-              -value-              -2-                  
+-name-               -dude-               --                   
+obj_test_2:
+table: 2 rows 2 cols
+-tvalue-             -self referencing object- 
+-ovalue-             -self_ref-           
+obj_test_2 calls ac-free
+obj_test_3:
+table: 11 rows 3 cols
+-arbitrary_tag-      --                   --                   
+-ivalue-             -1-                  --                   
+-fvalue-             -1.5-                --                   
+-tvalue-             -this is text-       --                   
+-dvalue-             -2003-12-31-         --                   
+-ovalue-             -b-                  --                   
+-nest1-              -name-               -one-                
+-nest1-              -value-              -1-                  
+-nest2-              -name-               -two-                
+-nest2-              -value-              -2-                  
+-name-               -dude-               --                   
+test: kt1
+find aql1
+table: 6 rows 1 cols
+-a1-                 
+-a2-                 
+-a3-                 
+-a4-                 
+-a5-                 
+-a6-                 
+find lots:
+2000 rows 1 cols
+	0000
+	0001
+	0002
+	0003
+	0004
+	0005
+	0006
+	0007
+	0008
+	0009
+	0010
+	0011
+	0012
+	0013
+	0014
+	0015
+	0016
+	0017
+	0018
+	0019
+	0020
+	0021
+	0022
+	0023
+	0024
+	0025
+	0026
+	0027
+	0028
+	0029
+test: tt1
+w
+table: 4 rows 5 cols
+-a-                  -a-                  -a-                  -a-                  --                   
+-a-                  -b-                  -c-                  -d-                  -e-                  
+-b-                  -b-                  -b-                  -b-                  -b-                  
+-c-                  -c-                  --                   --                   --                   
+w1
+w2
+table: 0 rows 0 cols
+test: ck
+find aql1:
+table: 6 rows 1 cols
+-a1-                 
+-a2-                 
+-a3-                 
+-a4-                 
+-a5-                 
+-a6-                 
+find arf:
+table: 6 rows 1 cols
+-a-                  
+-b-                  
+-c-                  
+-d-                  
+-e-                  
+-self_ref-           
+test: it_test_1
+	aql1:a1 1 1.500000
+	aql1:a2 -1 2.000000
+	aql1:a3 3 -1.000000
+	aql1:a4 4 5.500000
+	aql1:a5 5 5.001000
+	aql1:a6 6 6.000000
+	aql1:a1 1 1.500000
+	aql1:a2 -1 2.000000
+	aql1:a3 3 -1.000000
+	aql1:a4 4 5.500000
+	aql1:a5 5 5.001000
+	aql1:a6 6 6.000000
+raw command test: ok
+Keyset parse_test 1: 1 elements
+	load:a
+success 1
+etext:
+
+Keyset parse_test 2: 2 elements
+	load:b
+	load:c
+success 0
+etext:
+// Parse error near line 5 in load:c : Unknown tag "snarf"
+
+// // Some sort of parse error
+test: dict 2
+YOW! dict fails to find 2 -Voc-
+YOW! dict fails to find 66 -lots-
+ok
+Product pep1
+MACEDFGHIKLMNPQRSTVWY
+Sequence dna1 dna:
+tcagtcagtcagtcagtcag
+Zone Sequence dna1 6->14 dna:
+cagtcagtc
+Reverse Zone Sequence dna1 14->6 dna:
+gactgactg
+pop ccc
+st = ddd
+->aaa<-
+->bbbBBB<-
+->ddd<-
+tokenize:
+->this<-
+->is<-
+->a<-
+->test<-
+->string<-
+catBinary:
+000    0   00 00 00 00  78 79 
+            .  .  .  .   x  y 
+catBinary 2:
+000    0   61 62 00 
+            a  b  . 
+catBinary 3:
+found 4 bytes
+000    0   31 32 33 34 
+            1  2  3  4 

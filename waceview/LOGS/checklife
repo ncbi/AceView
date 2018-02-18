@@ -1,0 +1,27 @@
+#!/bin/tcsh
+
+exit 0
+
+setenv ici `pwd`
+#
+# verify that all servers listed has start in START_SERVERS
+# are indeed running
+#
+# echo 'hello from checklife'
+# first we collect all server that should be running
+cd /home/mieg/ee/SERVER/LOGS
+cat START_SERVERS | gawk '/#/{next}/servermonitor/{if($3=="start")print$2}' | sort -u > _s1
+# then we collect all running server_monitors
+ps -elf | gawk '/servermonitor/{if($17 && $18=="start")printf("%s\n",$17)}' | sort -u > _s2
+# then we select the one with are lacking
+diff _s1 _s2 | gawk '/</{print $2}' > _s3
+
+cd ..
+foreach ss (`cat LOGS/_s3`)
+  if ($ss != blast) then
+    echo "restarting $ss" | mail -s checklife mieg@ncbi.nlm.nih.gov
+  endif
+#  ./servermonitor $ss stop
+#  ./servermonitor $ss start
+end
+

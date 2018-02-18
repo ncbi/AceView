@@ -1,0 +1,335 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: the BS package </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to the BS package</H1>
+
+<PRE>
+
+
+	Programmers guide to the BS package
+
+This is the basic interface to all the tree objects in the database.
+It is fundamental to extracting data from ACEDB.
+
+General Principles
+==================
+
+The programmer interacts with acedb objects via handles of type OBJ.
+These have associated with them an implicit cursor.
+
+The Find, Get and Add functions in general reposition the cursor as
+well as getting/adding data.  They all return a BOOL value which
+indicates if their operation was successful.  If this is FALSE then
+the cursor position is not changed.
+
+Get and Add functions require a tag for location.  This can either be
+a tag in the current model, or one of the pseudotags _bsHere,
+_bsRight and _bsDown.
+
+bsMark/Goto can be used to store cursor positions to return to later.
+
+Overview of functions
+=====================
+
+operations on to get and free object handles:
+  bsCreate(), bsCreateCopy(), bsUpdate(), bsClone() - get object handles
+  bsDestroy(), bsSave(), bsKill()		- release handles
+
+access primitives on an object:
+  bsFindTag()					- locate on a tag
+  bsGetKey(), bsGetKeyTags(), bsGetData()	- get data
+  bsPushObj()					- enter subobject
+  bsFlatten()					- get subtree as Array
+  bsAddTag(), bsAddKey(), bsAddData(), bsAddComment()	- add data
+  bsPrune(), bsRemove()				- delete data
+  bsType(), bsIsTagInObj()			- check consistency
+  bsMark(), bsGoto(), bsMarkFree()		- save cursor info
+
+dump functions:
+  bsAceDump()					- .ace file dump
+  bsDump()					- for debugging
+
+special functions, mostly for upper kernel use:
+  bsKeySet()					- all keys in object
+  bsLocalClass()				- current model
+  bsTagsInClass()				- tags in a model
+  bsParentKey()					- for query package
+
+
+Alphabetic list of functions
+============================
+
+Starred functions are ones not normally used in general code,
+i.e. things written primarily for specific purposes.
+
+---------------------------------------------------------------- bsAceDump
+*	void bsAceDump (OBJ obj, FILE *fil, Stack s, char *cp)
+
+Dumps the object in .ace format.  Dumps to file fil, or if fil is zero
+to s, or if s is also zero then uses freeOut() routines.
+
+------------------------------------------------------------- bsAddComment
+*	BOOL bsAddComment (OBJ obj, char *text, char type)
+
+Adds a comment at the current cursor position in obj.  See the
+introduction for general comments on the bsAdd* functions.  Note
+however that this function does not change the cursor position, since
+the cursor can not rest on a comment, and there is no type checking
+with the model, because comments can be added anywhere.
+
+Comments can be added anywhere in a tree, and are ignored by the
+bsGet* functions.  The only way to see them is in a tree display, or a
+.ace dump.  The only legal type just now is 'C'.
+
+---------------------------------------------------------------- bsAddData
+	BOOL bsAddData (OBJ obj, KEY tag, KEY type, void *data)
+
+Adds the given data at the current cursor position in obj.  See the
+introduction for general comments on the bsAdd* functions.
+
+Type must be one of the legal data types, i.e. the systags with values
+less than _LastC.  For now these are {_Int, _Float, _DateType, _Text,
+_Greek}.  The final argument is a pointer to the data in the case of
+Int, Float or DateType, or the char* pointer itself for text types
+(Text, Greek).
+
+----------------------------------------------------------------- bsAddKey
+	BOOL bsAddKey (OBJ obj, KEY tag, KEY key)
+
+Adds the given key at the current cursor position in obj.  See the
+introduction for general comments on the bsAdd* functions.
+
+----------------------------------------------------------------- bsAddTag
+	BOOL bsAddTag (OBJ obj, KEY tag)
+
+Adds the given tag, which must be a true tag in the model, not
+_bsRight or _bsDown.  Resets the cursor to this tag.  Returns FALSE if
+the tag was already present, else TRUE.
+
+------------------------------------------------------------------ bsClone
+*	OBJ bsClone (KEY key, OBJ source)
+
+Specialised routine.  Creates or updates object refered to by key;
+throw away existing contents (if any) and replace with source.
+
+----------------------------------------------------------------- bsCreate
+	OBJ bsCreate (KEY key)
+
+Returns a read only handle for accessing an object.  Will return 0 if
+the object has no data attached yet.
+
+bsCreate() gives a handle to the last saved version of an object in
+secondary cache, building a tree structure there if necessary.
+Multiple calls to bsCreate() on the same key will give pointers into
+the same object.  Repeated bsCreate()/bsDestroy() calls to the same
+object are cheap.
+
+------------------------------------------------------------- bsCreateCopy
+*	OBJ bsCreateCopy (KEY key)
+
+Returns a handle of an object that you can edit, but will not be
+allowed to save using bsSave().  i.e. you must bsDestroy() it.
+
+---------------------------------------------------------------- bsDestroy
+	void bsDestroy (obj)
+
+Releases an object handle.  This call should match bsCreate(),
+bsCreateCopy() or bsUpdate().  Once all handles onto an object are
+released it can be bumped out of secondary cache.  If used on an
+object handle obtained with bsUpdate(), all changes made to the object
+are abandoned.  To save the changes use bsSave().
+
+------------------------------------------------------------------- bsDump
+*	void bsDump (OBJ obj)
+
+For debugging (for which it can be very useful).  Writes to stdout the
+complete tree structure of the object, giving all the pointer values
+as well as node key values.  Uses bsTreeDump (BS bs) which allows
+dumping of subtrees, but needs a BS argument, which is only available
+inside privileged packages.
+
+---------------------------------------------------------------- bsFindTag
+	BOOL bsFindTag (OBJ obj, KEY tag)
+
+If the tag exists in object then moves the cursor there and returns
+TRUE, else returns FALSE.
+
+---------------------------------------------------------------- bsFlatten
+	BOOL bsFlatten (OBJ obj, int n, Array a)
+
+This is a (very useful) convenience routine.  This recovers the entire
+subtree to the right of the current cursor position into a set of
+n-tuples in the given array.  i.e. it looks n positions to the right.
+The array a must be an array of BSunit, which are defined in bs.h as
+
+typedef union { int i; float f; KEY k; char *s ; mytime_t time } BSunit ; 
+
+It is presumed that the user knows the model, and so knows which
+version of the union to look at.  Missing values are entered as 0,
+which is unfortunately not distinguishable from a true 0 for numerical
+data.  bsFlatten() returns TRUE if any data were found, in which case
+arrayMax(a) will be n times the number of rows (tuples).
+
+Does not move the cursor.
+
+An example:
+{
+  Array flatA, segs ;
+  SEG *seg ;
+  OBJ Seq ;
+  int i ;
+
+  flatA = arrayCreate (8, BSunit) ;
+
+  if (bsFindTag (Seq, _Source_Exons) && bsFlatten (Seq, 3, flatA))
+    for (i = 0 ; i < arrayMax (flatA) ; i += 3)
+      { seg = arrayp (segs, arrayMax(segs)++, SEG) ;
+        seg->key = arr(flatA, i, BSunit).k ;
+        seg->x1 = arr(flatA, i+1, BSunit).i ;
+        seg->x2 = arr(flatA, i+2, BSunit).i ;
+      } 
+}
+
+---------------------------------------------------------------- bsGetData
+	BOOL bsGetData (OBJ obj, KEY tag, KEY type, void *x)
+
+Gets data from the position specified by tag.  Same arguments as
+bsAddData(), although in this case for Text types x should be a
+pointer to a string, i.e. type char**.  Returns TRUE if there was
+something there and fills x, otherwise does not change x.  If x is 0
+then still locates and returns TRUE or FALSE, but does not give you
+the value.
+
+----------------------------------------------------------------- bsGetKey
+	BOOL bsGetKey (OBJ obj, KEY tag, KEY *found)
+
+Gets a key if present at the position given by tag, in which case
+returns TRUE and fills found (if non-zero).  Will not get a tag.
+
+------------------------------------------------------------- bsGetKeyTags
+	BOOL bsGetKeyTags (OBJ obj, KEY tag, KEY *found)
+
+Will get either a key or a tag.  This function must be used when you
+want to get a tag.  To just find out if a tag is present and locate on
+it, call bsFindTag().
+
+------------------------------------------------------------------- bsGoto
+	void bsGoto (OBJ obj, BSMARK mark)
+
+Returns the cursor position for obj to that stored by bsMark() in
+mark.  You must use the correct obj!  bsGoto(obj,0) will return to the
+root of the object, which can be useful when you have been inside
+subobjects.
+
+------------------------------------------------------------- bsIsTagInObj
+	BOOL bsIsTagInObj (OBJ obj, KEY key, KEY tag)
+
+To test if a tag is present in a model.  i.e. could you call
+bsAddTag(obj, tag)?  You can either give an obj, in which case it will
+look in the local model for the current cursor position (possibly a
+submodel).  Else if obj is zero and key non-zero then look in the
+model for the class of key.
+
+----------------------------------------------------------------- bsKeySet
+	KEYSET bsKeySet (KEY key)
+
+Returns a keySet containing all the keys that can be found in
+bsCreate(key).
+
+------------------------------------------------------------------- bsKill
+	void bsKill (obj)
+
+Removes all data from obj and marks it as empty/deleted.
+
+------------------------------------------------------------------- bsMark
+	BSMARK bsMark (OBJ obj, BSMARK mark)
+
+Stores the current cursor information inside mark.  If given a
+non-zero mark as an argument, it will refill that structure.  If the
+mark argument is 0 it will make a new one and pass on a handle.  This
+saves on very frequent alloc/free operations.
+
+--------------------------------------------------------------- bsMarkFree
+	void bsMarkFree (BSMARK mark)
+
+Frees a mark created with bsMark().  Normally they are not freed, but
+used static as in the example under bsMark().  Implemented as a macro
+that only frees mark if non-zero, and if so sets it to 0.
+
+------------------------------------------------------------------ bsPrune
+	BOOL bsPrune (OBJ obj)
+
+Removes everything at the current cursor position and to the right of
+it, and also everything left of it that is unique.  i.e. If you add a
+fields which requires that several intermediate tags are made, then
+locate on the field, then call bsPrune() you will remove all the
+intermediate tags as well.  If you do not want to remove intermediate
+tags then use bsRemove().
+
+This call returns the cursor to the root of the object.
+
+---------------------------------------------------------------- bsPushObj
+	BOOL bsPushObj (OBJ obj)
+
+If the cursor is currently located at a position just left of a
+#submodel in the model, then returns TRUE and changes the current
+model to that of the submodel, locating the cursor conceptually at the
+root of that.  Otherwise, returns FALSE.
+
+----------------------------------------------------------------- bsRemove
+	BOOL bsRemove (OBJ obj)
+
+Like bsPrune(), except that it only removes the current cursor postion
+and everything to the right, not unique stuff to the left.  It also
+returns the cursor to the root.
+
+------------------------------------------------------------------- bsSave
+	void bsSave (OBJ obj)
+
+Save an updated object back to the database.  obj must have been
+created by a call to bsUpdate().
+
+------------------------------------------------------------ bsTagsInClass
+*	KEYSET bsTagsInClass (int table)
+
+Returns a keyset of all the tags in a model, which must be specified
+as a table or class number (a low integer) not as a key in the ?Model
+class. 
+
+------------------------------------------------------------------- bsType
+	KEY bsType (OBJ obj, KEY direction)
+
+Finds out what the model expects.  direction must be _bsRight or
+_bsHere or _bsDown (almost always _bsRight).  Will return 0 if there
+is nothing to the right, else a basic type tag (_Text, _Int etc.) else
+the 0'th element of a class for a pointer to that class, or the 1'st
+element of a class for a #construction.
+
+----------------------------------------------------------------- bsUpdate
+	OBJ bsUpdate (KEY key)
+
+Open an object for update, i.e. with write access.  Returns a handle
+to the object defined by key.  Will return 0 if the key does not
+exist, or the object is already being updated elsewhere.  It is
+possible to open an object with bsUpdate even if the user does not
+have write access.  In this case the object will be changed and locked
+in secondary cache, but not written back to disk.
+
+--------------------------------------------------------------------------
+ 
+<PRE>
+
+
+
+</BODY>
+</HTML>

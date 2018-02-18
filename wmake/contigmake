@@ -1,0 +1,244 @@
+###################################################################
+# $Id: contigmake,v 1.1.1.1 2002/07/19 20:23:29 sienkiew Exp $
+#
+# Makefile for contigc and related programs
+#
+# adapted by rd for SCCS structure from original of fw
+#
+# changed again by fw to work better with the acedb makesystem
+# removed duplicate compilation of graphlib etc.
+# libfree/graph.a are assumed to be there (handled in 'makefile')
+#
+######################
+#
+#   If you wish to specify one off compiler options such as
+#   setting the debug flag (-g) or a preprocessor macro
+#   value (-DMY_OWN_COMPILE_FLAG) then rather than editting
+#   this file use the USEROPTS make macro like this:
+#
+#   make USEROPTS='-g -DMY_OWN_COMPILE_FLAG -x -y'
+#
+#   these will then be included in the flags used to compile
+#   the .o files.
+
+# suppress auto SCCS extraction
+.SCCS_GET:
+.KEEP_STATE:
+.SUFFIXES: .o .c .ng.o
+
+#################################################################
+################## Graphic Libraries ############################
+#################################################################
+# In principle the following X libraries can be found using:
+
+Xt_LIBS = -lXaw -lXt -lXmu -lXext -lX11
+
+###########################################################
+##  Compiler and library options
+## CC, LIBS, NAME are defined in $(ACEDB_MACHINE)_DEF
+###########################################################
+ 
+IDIR = -I. -I../wh -I../contigc
+# Do not use -I/usr/include
+# it prevents gcc from picking up its own includes
+# (cc goes to /usr/include anyway)
+
+CCFLAGS =  ## to undefine any rubbish
+CCFLAGS =  -g
+GCFLAGS =  ## to undefine any rubbish
+
+## Different platforms use CC or COMPILE.c
+#  (USEROPTS - see comments at top of file)
+#
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c
+COMPILE.c = $(COMPILER)  $(USEROPTS) $(IDIR) -D$(NAME) -c
+
+#
+########### Compilation of non-graph variants ############
+#
+.c.ng.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DNO_GRAPHICS -c $< -o $@
+
+################ machine dependent compiler definitions ########
+
+include deffile
+
+# On badly configurated machines, you may redefine these libraries
+# in a more precise way in your $(ACEDB_MACHINE)_DEF file
+
+###################################################
+############### do not edit below  ################
+############### override the above ################
+###### settings in $(ACEDB_MACHINE)_DEF ###########
+############### if necessary ######################
+###################################################
+
+########## link-libaries for graphical and text-only apps ##########
+GRAPHIC_LIBS = -L. -lgraph -lfree $(Xt_LIBS) $(LIBS)
+TEXT_LIBS    = $(LIBS)
+
+##########################################
+# rules to link contig-sources to bin-dir
+##########################################
+
+CONTIGC_SOURCES = auto.c cemsub.c clib.c contaslib.c contasp.c \
+	contig.c difmap.c extend.c f2c.c fphinx.c fpabi.c \
+	anytoany.c checkdb.c rmvec.c getascdb.c graphc9.c laben.c \
+	lastclones.c makeascnam.c mapsub7.c openmapdb.c plot1.c \
+	pmap.c rjps.c vt640.c logdb.c rancl.c randb.c modelcc.c cc2ace.c
+
+$(CONTIGC_SOURCES):
+	ln -s ../contigc/$@ . 
+
+
+contig_clean:
+	rm -f $(CONTIGC_SOURCES:.c=.o)
+
+#######################################
+# contigc : interactive contig assembly
+#######################################
+
+CONTIG_OBJS = auto.o \
+		clib.o \
+		contig.o \
+		difmap.o \
+		laben.o \
+		plot1.o \
+		rjps.o \
+		cc2ace.o \
+		vt640.o \
+		graphc9.o \
+		f2c.o
+
+contig : $(CONTIG_OBJS)
+	 $(LINKER) -o contig $(CONTIG_OBJS) $(GRAPHIC_LIBS)
+
+####################################
+# pmap : readonly version of contigc
+####################################
+
+PMAP_OBJS = pmap.o \
+		cemsub.o \
+		contaslib.o \
+		clib.o \
+		laben.o \
+		auto.o \
+		f2c.o \
+		vt640.o \
+		plot1.o \
+		rjps.o \
+		graphc9.o
+
+pmap :  $(PMAP_OBJS)
+	$(LINKER) -o pmap $(PMAP_OBJS)  $(GRAPHIC_LIBS)
+
+###################################################
+# contasp: program to arrange contigs automatically
+###################################################
+
+CONTASP_OBJS = contasp.o \
+		contaslib.ng.o \
+		clib.ng.o \
+		f2c.ng.o
+
+contasp : $(CONTASP_OBJS)
+	$(LINKER) -o contasp $(CONTASP_OBJS) $(TEXT_LIBS)
+
+############################################################
+#######    seperate auxiliary programs
+############################################################
+
+################################################
+#fphinx: add data from .bands file to a database
+################################################
+fphinx:		fphinx.o f2c.ng.o
+		$(LINKER) -o fphinx fphinx.o f2c.ng.o  $(TEXT_LIBS)
+
+#################################################
+#fpabi: add data from ABI data file to a database
+#################################################
+fpabi:		fpabi.o f2c.ng.o
+		$(LINKER) -o fpabi fpabi.o f2c.ng.o $(TEXT_LIBS)
+
+#############################################################
+# lastclones:   show last clones of .nam file
+#############################################################
+lastclones:	lastclones.o f2c.ng.o
+		$(LINKER) -o lastclones lastclones.o f2c.ng.o  $(TEXT_LIBS)
+
+#############################################################
+# makeascnam:   dump .nam as ascii
+#############################################################
+makeascnam:	makeascnam.o f2c.ng.o
+		$(LINKER) -o makeascnam makeascnam.o f2c.ng.o  $(TEXT_LIBS)
+
+################################################
+#openmapdb: initialize a new database
+################################################
+openmapdb:	openmapdb.o f2c.ng.o
+		$(LINKER) -o openmapdb openmapdb.o f2c.ng.o  $(TEXT_LIBS)
+
+################################################
+#mapsub: generate MAP.OUT file
+################################################
+mapsub:		mapsub7.o clib.ng.o f2c.ng.o
+		$(LINKER) -o mapsub mapsub7.o clib.ng.o f2c.ng.o  $(TEXT_LIBS)
+
+################################################
+#extend: search contig ends
+################################################
+extend:		extend.o clib.ng.o f2c.ng.o difmap.ng.o rjps.ng.o
+		$(LINKER) -o extend extend.o clib.ng.o f2c.ng.o difmap.ng.o rjps.ng.o  $(TEXT_LIBS)
+
+######################################################################
+# getascdb:   program to convert ASCII VAX database to UNIX bin-format
+######################################################################
+getascdb:	getascdb.o f2c.ng.o
+		$(LINKER) -o getascdb getascdb.o f2c.ng.o  $(TEXT_LIBS)
+
+##################################################################
+# anytoany:   program to update one project with data from another
+##################################################################
+anytoany:	anytoany.o f2c.ng.o
+		$(LINKER) -o anytoany anytoany.o f2c.ng.o  $(TEXT_LIBS)
+
+####################################
+# checkdb:   check & correct project
+####################################
+checkdb:	checkdb.o f2c.ng.o
+		$(LINKER) -o checkdb checkdb.o f2c.ng.o  $(TEXT_LIBS)
+
+##########################################################
+# rmvec:   remove all vector bands from the whole database
+##########################################################
+rmvec:		rmvec.o f2c.ng.o
+		$(LINKER) -o rmvec rmvec.o f2c.ng.o  $(TEXT_LIBS)
+
+##################################
+# logdb : records project progress
+##################################
+logdb:		logdb.o f2c.ng.o
+		$(LINKER) -o logdb logdb.o f2c.ng.o  $(TEXT_LIBS)
+
+################################
+# rancl : random database model
+################################
+rancl:		rancl.o f2c.ng.o
+		$(LINKER) -o rancl rancl.o f2c.ng.o  $(TEXT_LIBS)
+
+################################
+# randb : create random database
+################################
+randb:		randb.o f2c.ng.o
+		$(LINKER) -o randb randb.o f2c.ng.o  $(TEXT_LIBS)
+
+########################################
+# model : database modelling
+########################################
+model:		modelcc.o f2c.ng.o
+		$(LINKER) -o model modelcc.o f2c.ng.o  $(TEXT_LIBS)
+
+
+############################################################
+## end of ContigC makefile ##
+############################################################

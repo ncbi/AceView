@@ -1,0 +1,16 @@
+#!/bin/csh -f
+
+cd /export/home/mieg/SERVER
+
+foreach db (36a_1 37a_1 mm_37_1 rat_1 worm_1 gold_1 blast)
+
+  ./servermonitor $db stop
+  \rm -rf $db/monitor
+  ./servermonitor $db  start
+
+  sleep 60
+
+end
+
+
+

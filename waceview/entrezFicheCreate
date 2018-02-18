@@ -1,0 +1,45 @@
+#!/bin/tcsh -f
+
+setenv ici `pwd`
+
+
+cat << EOF >! _xxx1
+<html>
+  <head>
+    <title>_ZZ1ZZ_</title>
+    <h2>
+        <i>Caenorhabditis elegans</i> gene
+	<a href="http://www.ncbi.nlm.nih.gov/IEB/Research/Acembly/av.cgi?db=worm&c=gene&l=_ZZ1ZZ_" target=_top>_ZZ1ZZ_</a>
+	</h2>
+  </head>
+
+  <body>
+
+EOF
+ 
+cat << EOF >! _xxx2
+<script>
+
+        window.open("http://www.ncbi.nlm.nih.gov/IEB/Research/Acembly/av.cgi\?db=worm\&c=gene\&l=_ZZ2ZZ_","_top");
+
+</script>
+</html>
+
+EOF
+
+
+
+
+cd Worm1
+echo aaa
+foreach ff (`ls *.html`)
+  set gene = `echo $ff | sed 's/.html//'`
+  sed "s/_ZZ1ZZ_/$gene/g" ../_xxx1 >! ../Worm/$ff
+  set nn = `grep -n This $ff | gawk -F ':' '{print $1;exit}'`
+  tail +$nn $ff >> ../Worm/$ff
+  sed "s/_ZZ2ZZ_/$gene/" ../_xxx2 >> ../Worm/$ff
+  echo $gene $nn
+end
+
+cd $ici
+exit 0

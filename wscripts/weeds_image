@@ -1,0 +1,35 @@
+#!/bin/csh -f
+
+# $ACEDB/externalFiles/weedsimage
+# Dave Matthews and Jean Thierry-Mieg 3 May 93
+# Transfer the named file ($1) from weeds.mgh.harvard.edu by anonymous ftp,
+# and display it with xv.
+
+# example
+#Image : "Arabidopsis"
+#Pick_me_to_call "weeds_image" "images/cs-20.gif"
+
+#ftp -vn weeds << FTP_DONE
+# 132.183.190.21 weeds.mgh.harvard.edu
+
+if (! -f $1) then
+ ftp -vn 132.183.190.21 << FTP_DONE
+ user anonymous acedb@
+ binary
+ get $1 remoteimage.tmp
+ quit
+FTP_DONE
+endif
+
+if (-f remoteimage.tmp) then
+  \mv remoteimage.tmp $1:t
+endif
+
+if (-f $1:t) then
+ xv $1:t
+else
+ xv remoteimage.tmp
+endif
+
+# end of this script
+

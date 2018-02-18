@@ -1,0 +1,655 @@
+<HEAD>
+<TITLE>Syntactic Definitions</TITLE>
+</HEAD>
+<H1>acedb --- A C.elegans Database<BR>
+Syntactic Definitions for the<br>
+ACEDB Data Base Manager</H1>
+<br>
+Revised September 2002
+<br>
+
+Jean Thierry-Mieg<br>
+CNRS--CRBM<br>
+Route de Mende, BP 5051, 34033 Montpellier, France<br>
+Email: mieg@crbm1.cnusc.fr<p>
+
+Richard Durbin<br>
+MRC Laboratory for Molecular Biology<br>
+Hills Road, Cambridge, CB2 2QH, UK<br>
+Email: rd@mrc-lmba.cam.ac.uk<p>
+
+<h2>Abstract</h2>
+
+ACEDB is an object-oriented database management system that we have
+developed for scientific research projects where many data are very
+incomplete.  The aim of this technical report is to give the formal
+syntactic definition of the schema of an ACEDB database, of the
+associated query language and of the update file
+mechanism. Corresponding syntactic validation tools are available on
+request.<p>
+
+<h2>The ACEDB Data Model</h2>
+
+<h3>Description</h3>
+
+A thorough description of the ACEDB semantics will be found in
+[Durbin, Thierry-Mieg, 1993]. In this section we just hope to clarify,
+using a simple example, the meaning of the 3 BNF grammars described in
+this technical document.<p>
+
+Figure 1 shows a simple ACEDB schema consisting of four models, three
+for classes and one for a constructed type.<p>
+
+<pre>
+?Paper     Title   UNIQUE Text Int
+           Author ?Author XREF Paper
+           Page Int UNIQUE Int
+           Reference UNIQUE Journal ?Journal XREF Paper
+                            Book #Paper
+                            Personal_communication
+           Language UNIQUE  French
+                            English
+           Complete_Text ?LongText
+                            
+?Journal Paper ?Paper XREF Journal
+
+?Author Address Int #Address
+        Paper ?Paper XREF Author
+        Director UNIQUE ?Author XREF Colleagues
+        Colleagues ?Author XREF Colleagues
+
+#Address  Mail Text
+          Phone Int REPEAT
+</pre>
+
+Data are organised into objects and classes. Each object belongs to
+exactly one class and has an externally visible name which is unique
+within that class. Each class and constructed type is identified by
+its externally visible model name, which is unique within the
+schema.<p>
+ 
+A model is presented as a tree [Figure 1].  It contains five types of
+node: <strong>tags</strong> (e.g.  <var> Title, French</var>), which
+are words that must be enumerated in a separate file, basic data types
+(<var> Int, Float, Text</var>), modifiers (<var> XREF, UNIQUE,
+REPEAT</var>), class names (e.g.  <var> ?Author</var>) and constructed
+type names (e.g. <var> #Address</var>).  The tags must form a rooted
+subtree of the model and can appear only once in a model (except those
+following XREF).  Note that tags may appear as leaves in the tree.
+This implements in a natural way Boolean flags, via the presence or
+absence of a tag, and restricted vocabularies, as following Language
+in model Paper.<p>
+
+<pre>
+acePaper Title "ACEDB - a database for Genomic Information"
+         Author "Thierry-Mieg J."
+                "Durbin R."
+         Reference Book Title "Genome Mapping and Sequencing"
+                        Author "Richard Myers" -C "et al"
+         Language French
+
+"Thierry-Mieg J." Address 1989 Mail "Observatoire de Meudon"
+                            1992 Mail "CNRS, Montpellier"
+                                 Phone  33 67 61 33 24 -C "Direct line"
+                                                    21 -C "Secretariat"
+                                              52 15 59 -C "Fax"
+                    Paper  acePaper
+
+
+                Example of ACEDB objects\label
+</pre>
+
+An instance of a class, i.e. an object belonging to that class, is
+also presented as a tree [Figure 2]. It contains tags, data items and
+pointers to other objects.  The object must match the model for
+its class: tags must appear in corresponding positions, data items must
+be of the type specified by the model, and pointers must refer to
+objects of the class specified by the model.  Hence, ACEDB is a
+strongly typed system. However, the -C construction allows to add
+anywhere in the objects free comments that will be visible to the
+human users but will not, in any way, affect the behaviour of
+client programs relying on the database server.<p>
+
+The single most important feature of the ACEDB design is that an
+object need only match a rooted subtree of its model; any branch in an
+object can legally be pruned off.  This allows one to extend the
+schema without touching the objects and implies that small partially
+specified objects cost little memory.<p>
+
+UNIQUE can follow any non-leaf node in a model.  If present, the
+matching node in an object will be followed immediately to its right
+by at most one node chosen from among those allowed by the model at
+that position.  This implements exclusive choice between branches
+(e.g.  after Language or Reference in class paper) and unicity of
+pointers or data items (e.g. after Title or Journal). By default, a
+data or class type in the model allows a non repetitive set of nodes
+of the given type, displayed in a vertical column (e.g after Author in
+Paper acePaper).<p>
+
+XREF establishes automatic cross-referencing between objects. It must
+follow a pointer and be followed by a tag name, which tells the system
+where to create or remove the back pointer.  Note however that XREF
+acts in only one direction and does not propagate; both XREF's should
+be stated if one wants to guarantee the existence of the double link.
+This is quite versatile as shown in the last 2 lines of Class Author.<p>
+
+REPEAT must follow a data or pointer node and must end a branch. It
+allows in the object the existence of an arbitrary tree of nodes of
+the given type (e.g. phone numbers in object Thierry-Mieg).  In the same
+conditions UNIQUE REPEAT forbids branching and hence just allows an
+ordered list of nodes with possible repetitions.<p>
+
+Constructed types allow a recursive specification of data within a
+model (e.g.  #Paper in ?Paper). The #Type node in the model is not
+represented by a node in the object but simply switches at that point
+the matching rule to the root of the included model.
+#Type is always UNIQUE and cannot be REPEAT.<p>
+
+Finally, in addition to the classes defined using models, ACEDB allows
+the existence of Array classes, which are simply treated by the
+database manager as binary buffers.  Such classes can appear in
+models, since pointers to them can exist, but they do not support XREF
+clauses.  It is up to the application to deal with the content of the
+buffer.  The standard ACEDB implementation defines LongText and DNA
+Array classes, optimised for text and DNA sequence storage.<p>
+
+<h3>BNF Grammar for the ACEDB Models</h3>
+
+<pre>
+&lt;models&gt; ::= &lt;model&gt; 
+           | &lt;model&gt; &lt;models&gt;
+           ;
+&lt;model&gt; ::= ?&lt;model name&gt; &lt;unique&gt; &lt;tag column&gt;  /* For classes */
+          | #&lt;model name&gt; &lt;unique&gt; &lt;tag column&gt;  /* For constructed types */
+          ;
+&lt;tag column&gt; ::= &lt;tag node&gt;
+               | &lt;tag node&gt; NL &lt;tag column&gt; 
+               ;
+&lt;tag node&gt; ::= &lt;tag&gt;
+             | &lt;tag&gt; &lt;unique&gt; &lt;data cluster&gt;		
+             | &lt;tag&gt; &lt;unique&gt; START_INDENT &lt;tag column&gt; END_INDENT 
+             ;
+&lt;data cluster&gt; ::= &lt;data type list&gt;
+                 | &lt;data type list&gt; REPEAT      
+                 | &lt;data type list&gt; #&lt;model name&gt;
+                 | #&lt;model name&gt;
+                 ;
+&lt;data type list&gt; ::= &lt;data type&gt;
+                   | &lt;data type&gt; &lt;unique&gt; &lt;data type list&gt; 
+                   ;   
+&lt;unique&gt; ::= &lt;null&gt; 
+           | UNIQUE
+           ;
+&lt;data type&gt; ::= &lt;primitive data type&gt;
+              | &lt;class reference&gt;
+              | ANY	/* reserved for kernel use */	
+              ;
+&lt;primitive data type&gt; ::= Int 
+                        | Text 
+                        | Float
+			| <coord>
+                        ;
+&lt;class reference&gt; ::= ? &lt;class name&gt;
+                    | ? &lt;class name&gt; XREF &lt;tag name&gt;	
+                    ;
+
+&lt;coord&gt; :== &lt; <font color=red>?</font> &gt
+		    | &lt;coord&gt;
+		    ;
+
+&lt;tag&gt; ::=  /* string starting with a letter 
+                       and containing letters, digits and `_' */
+        ;
+&lt;model name&gt; ::= /* string starting with a letter
+                       and containing letters, digits and `_' */
+</pre>
+
+<h3>Preprocessor</h3>
+
+There is a preprocessor ran before parsing the models. it takes
+the following actions.<p>
+
+<blockquote>
+A double slash "//" is considered as the beginning of a comment
+and input is skipped until the end of the line.<p>
+
+Tabs are reinterpreted as rounding to 8 spaces.<p>
+</blockquote>
+
+
+<h3>Additional Rules</h3>
+
+
+<blockquote>
+A tag name must be unique within a model.<p>
+
+An ACEDB model is defined as a hierarchical tree.  Items at the
+same level in the hierarchy must be identically indented on
+consecutive lines. This is indicated in the BNF grammar by indentation
+(<var> START_INDENT</var> and <var> END_INDENT</var>), and new line
+separators (<var> NL</var>).<p>
+
+If "?C XREF T", appears in a &lt; class reference &gt; clause in
+model M, then "T ?M" must appear in the model for class C. XREF
+clauses included recursively within a constructed subtype are ignored.<p>
+</blockquote>
+
+<h2>The ACEDB Query Language</h2>
+
+<h3>Introduction</h3>
+
+Acedb is object oriented. In contradistinction with relational
+databases like Oracle or Sybase, each data item is addressed by name
+rather than by content. This precludes a direct implementation of
+the standard relation oriented query language SQL. Rather, the
+central operation is to construct sets of objects with desirable
+properties, to combine and to filter these sets and to follow the
+pointers to neighbouring objects as in the following example:<p>
+
+<pre>
+     samPapers := {Find Paper Author = Sam } ;
+     { Find Journal Proceedings* ; Follow paper }
+           AND $samPapers ;
+      Year >= 1992 ;
+</pre>
+
+In the first line, we construct the set of all papers known in the
+database such that Sam is one of the authors, and name this set <var>
+samPapers</var>. In the second line, we search for journals named
+"Proceedings of something or other" and then obtain all the papers
+published in those journals. In the third line, we intersect this
+unnamed set with the former. The resulting intersection is then piped
+to the fourth line and filtered on the year of publication.<p>
+
+Obviously, there are many equivalent ways to express the same query.
+Given the automatic cross-referencing between Journal and Paper
+expresed in figure 1, we could have asked directly:<p>
+
+<pre>
+   Find Paper 
+     Author = Sam AND Journal = Proceedings* AND Year >= 1992 ;
+</pre>
+
+
+<h3>Target Set</h3>
+
+Apart from the usual nightmare of learning yet another language,
+with its peculiar punctuation and symbols, the only difficulty is to
+understand properly which data are screened against which part of
+the query.<p>
+
+The first operation is to select a target set. a) One can start from
+a whole class, as in "Find Paper". b) One can select a previous
+set by picking it on screen with the mouse or by the clause "From
+samPapers". c) One may follow pointers as in "Follow Paper" which
+will create the set of all objects following the tag Paper in
+objects of the active keyset. d) One may rely on the semicolon to
+pipe the result of the previous query as the default target of the
+next query. Hence "From samPapers &amp lt; condition &amp gt; ;" is equivalent
+to the double query "$samPapers ; &lt; condition &gt; ;".<p>
+
+If a query is of the form &lt; set operators &gt;, each &lt; set &gt;
+is entered with the same default target.<p>
+
+The scope of the set names is limited to a session or a command
+file.<p>
+
+<h3>Active object and node</h3>
+
+Given a target set, the &lt; condition &gt; clause is applied in turn to
+each object in the set.  This "active object" is kept if the
+condition is satisfied, discarded otherwise. A cursor, defining the
+"active node", is attached to the active object, initially at the
+root, and a twin cursor points to the root of the corresponding
+model. Each succesful &lt; locator &gt; clause will then move these
+cursors. A &lt; tag &gt; will move to the tag, if present in the object.
+NEXT will move once right. HERE will stay on the same node. A
+&lt; locator &gt; &lt; comparator &gt; &lt; string &gt; will move the cursor to
+the column right of the locator, and then, within that column, to the
+first node matching the comparison. It is important to realise that
+&lt; locators &gt; are evaluated by order of precedence of the operators
+linking them, and only as far as required to evaluate the boolean
+expression, as in C language. Thus, "A OR B OR C" will leave the
+cursor on the first tag among A,B, and C present in the object. "A =
+*" and "A AND NEXT" are equivalent clauses which leave the cursor
+on the node right of tag A and return TRUE if present, or else return
+FALSE.<p>
+
+<h3>Atomic conditions</h3>
+
+The rest of the syntax is straightforward. Elementary conditions
+return TRUE or FALSE and are combined by the usual operators NOT, AND,
+XOR, OR. Subexpressions can be paranthesised. CLASS and IS refer to
+the class and name of the active object and must be followed by a
+comparator and a string. As a short hand, IS as the first operator of
+a &lt; condition &gt; can be omitted at the user's risk, provided the
+string is not misinterpreted as a tag name by the system.  Also "="
+may be dropped following IS.  e.g. "IS &lt; string2 &gt;" is
+accepted as shorthand for "IS = &lt; string2 &gt;".<p>
+
+
+&lt; strings &gt; can contain wildcard characters (`*' for any text,
+`?' for a single character). For example, a*ba* will match strings
+starting with `a' aand containing `ba'. We may in the future allow
+more general Unix style regular expressions.<p>
+
+&lt; locator &gt; is a Boolean check on the existence of a node. <p>
+
+Finally, the # symbol evaluates to TRUE if both its left and right
+hand sides  do. The difference with AND is that # jumps
+the implicit model cursor, and hence the matching process, into a
+constructed type (which must be present at that point in the model),
+without moving the cursor in the active object. Recall that no node
+in the object corresponds to the #type node of the model.<p>
+
+<h3>Command files</h3>
+
+In place of a simple query, it is possible to invoke a command file
+that contains query text (which might possibly include further
+recursive invocations of command files).  Any strings after the
+command file name will be used as parameters, substituting for %1,
+%2, %3 etc. in the command file text.  This is done by macro
+string substitution. Named sets are inherited in the included
+command, without possible conflict with those declared locally.<p> 
+
+<h3>Extraction of data</h3>
+
+The system described in this section allows one to select objects, but
+not to extract numerical data. This operation can be performed in
+ACEDB, either in interactive or in batch mode, by using a facility
+called the table maker which essentially constructs a spreadsheet-like
+table. However, this facility has been introduced only recently and is
+still evolving, so it is too early to give its formal definition.<p>
+
+
+<h3>BNF Grammar for the ACEDB Query Language</h3>
+
+<pre>
+&lt;query&gt; ::= &lt;single query&gt;
+          | &lt;single query&gt; ";" &lt;query&gt;
+          ;
+&lt;single query&gt; ::= &lt;target set&gt;
+                 | &lt;target set&gt; &lt;condition&gt;
+                 | "@" &lt;file_name&gt; &lt;parameters&gt;   /* command file */
+
+&lt;target set&gt; ::= &lt;null&gt;         /* then the current key set is used */
+               | &lt;find class&gt; &lt;class name&gt;
+               | &lt;follow&gt; &lt;tag&gt; 
+     /* we could possibly allow &lt;follow&gt; &lt;atomic condition&gt; */
+
+               ;
+
+&lt;find class&gt; ::= "&gt;?" | FIND
+               ;
+&lt;follow&gt;     ::= "&gt;"  | FOLLOW
+               ;
+&lt;condition&gt; ::= &lt;atomic condition&gt;
+              | &lt;not&gt; &lt;atomic condition&gt;
+              | &lt;condition&gt; &lt;operator&gt; &lt;condition&gt;
+              ;
+
+  /* Order of precedence: OR, XOR, AND, NOT, #, comparator, IS, CLASS */
+&lt;operator&gt; ::= "|" | OR   
+             | "^" | XOR 
+             | "&" | AND
+             | "#"      /* AND, with jump in constructed type */
+             ;
+&lt;atomic condition&gt; ::= IS &lt;regexp&gt;     /* short hand for IS = &lt;regexp&gt; */
+                     | CLASS &lt;regexp&gt;  /* Checks class of object matches regexp */
+                     | COUNT &lt;locator&gt; /* counts the number of
+                                          entries in the column right of locator */
+                     | &lt;locator&gt;
+                     | &lt;atomic condition&gt; &lt;comparator&gt; &lt;regexp&gt;
+                     | "(" &lt;condition&gt; ")"
+                     ;
+&lt;locator&gt; ::= &lt;tag&gt; /* go to tag according to current model (which
+                       will depend on # symbols encountered previously) */
+            | HERE  /* stay put */
+            | NEXT  /* move one node right */
+            | IS    /* relocates at root and stands for the name of the object */
+            ;
+    /* All comparators have equal precedence */
+&lt;comparator&gt; ::= "&lt;"  | LT
+               | "&gt;"  | GT
+               | "&lt;=" | LE
+               | "&gt;=" | GE
+               | "="  | EQ
+               | "!=" | NEQ
+               ;
+
+&lt;tag&gt; ::= /* string starting with a letter or a digit 
+                             and containing letters, digits or `_' */
+        ;
+&lt;class name&gt; ::= /* string starting with a letter or a digit
+                             and containing letters, digits or `_' */
+               ;
+&lt;set name&gt; ::= /* string starting with a letter or a digit
+                             and containing letters, digits or `_' */
+               ;
+&lt;reg exp&gt; ::= /* integer or float decimal number */
+            | /* string of letters, digits, _, 
+                 ? (matching one letter) and * (matching any substring */
+            | /* arbitrary ascii string protected by double quotes */
+            ;
+</pre>
+
+
+
+
+<h3>Preprocessor</h3>
+
+There is a preprocessor ran before parsing the queries. it takes
+the following actions.<p>
+
+<blockquote>
+
+A double slash "//" is considered as the beginning of a comment
+and input is skipped until the end of the line.<p>
+
+The backslash can be used to escape a backslash, a  double
+quote or a newline. <p>
+
+Tabs are reinterpreted as rounding to 8 spaces.<p>
+
+Spaces inside names must be protected by double quotes, but to
+prevent runaway, a new line ends an ongoing open double quote.<p>
+</blockquote>
+
+<h3>Additional Rules</h3>
+
+<blockquote>
+
+&lt; comparators &gt; try to evaluate their operands as numbers and
+if they cannot fall back on comparing strings of characters. However
+ACEDB does not use strict alphabetic ordering. It recognises embeded
+integers and will order <var> a3x</var> left of <var> a25x</var>.<p>
+
+The &lt; condition &gt; is evaluated in succession on each object of
+the &lt; target set &gt;. When the condition is entered a cursor is
+set at the root of the object. This implicit cursor will then move
+with each successful &lt; locator &gt; clause. A &lt; locator &gt;
+&lt; comparator &gt; &lt; string &gt; clause will move the cursor if
+possible to the right of the locator and then down the column onto the
+first node satisfying the comparator or to the end of that
+column. This position can then be used as the start of the next
+search.<p>
+
+
+</blockquote>
+
+<h3>Description</h3>
+
+The ace file update language is used to import and export data as
+ascii text files. The following properties make it versatile and
+powerful.<p>
+<blockquote>
+
+Entries are based on records (lines) and paragraphs (groups of
+lines separated by blank lines).<p>
+
+Each paragraph starts with a class name and object name, and
+corresponds to a set of actions on that object.<p>
+
+Each subsequent line in a paragraph starts with a tag name and
+defines, according to the model, a path in the object to a single
+node.  Any parts of the branch up to the node not yet present in the
+object will be created.<p>
+
+In addition to simply specifying data, simple directives at the
+beginning of lines allow deletion of data, renaming of objects, and
+establishment of aliases.  Altogether this allows the propagation of
+any transformation of one database to a remote site.<p>
+</blockquote>
+
+Hence, in contrast to ASN-1 files, ace files are easy to read and
+hand edit and are highly compatible with the standard line oriented
+Unix commands. Furthermore, it is extremely easy to export data from
+one ace database and import part of these into another ace database
+with a rather different schema. One just has to delete or comment
+out with a ! those classes and tags unknown to the second schema.
+The fields common to the two schemas will then be read by the
+receiving ACEDB.<p>
+
+Property (c) relies on the construction of ACEDB models, which
+permits unambiguous addressing of each node of an object using an
+abbreviated path from the root.  Because tags are unique in a model,
+"interior" tags, i.e. tags that are followed by another tag, are
+not required.<p>
+
+In figure 4, we give an ace file sufficient to reconstruct the objects
+of figure 2.<p>
+
+<pre>
+
+Paper acePape
+Title  "ACEDB - a database for Genomic Information"
+Author "Thierry-Mieg J."
+Author  "Durbin R."
+Book  Title "Genome Mapping and Sequencing"
+Book  Author "Richard Myers" -C "et al"
+Language French
+
+
+Author "Thierry-Mieg J."
+Address 1989 Mail "Observatoire de Meudon"
+Address 1992 Mail "CNRS, Montpellier"
+Address 1992 Phone  33 67 61 33 24 -C "Direct line"
+
+Author "Thierry-Mieg J."
+Address 1992 Phone  33 67 61 33 21 -C "Secretariat"
+Address 1992 Phone  33 67 52 15 59 -C "Fax"
+
+
+            Example of ACE File\label
+</pre>
+
+
+<h3>BNF Grammar for the ace-update language</h3>
+
+<pre>
+&lt;ace file&gt; ::= &lt;object update&gt;
+	     |  &lt;object update&gt; NL NL &lt;ace file&gt;
+	     ;
+&lt;object update&gt; ::= &lt;class name&gt; &lt;name&gt;
+             | &lt;class name&gt; &lt;name&gt; NL &lt;data lines&gt;
+             | -D &lt;class name&gt; &lt;name&gt;         /* Delete */
+             | -R &lt;class name&gt; &lt;name&gt; &lt;name&gt;  /* Remame */
+             | -A &lt;class name&gt; &lt;name&gt; &lt;name&gt;  /* Alias */
+             ;
+
+&lt;data lines&gt; ::= &lt;data line&gt;
+               | &lt;data line&gt; NL &lt;data lines&gt;
+               ;
+&lt;data line&gt; ::= &lt;path&gt;
+              | -D &lt;path&gt;          /* Deletion */
+              | -T &lt;path&gt;          /* Tops within column, not in 1_8 */
+              | -R &lt;datum&gt; &lt;path&gt;  /* Substitution, not in 1_8 */
+              ;
+&lt;path&gt; ::= &lt;simple path&gt;
+         | &lt;simple path&gt; # &lt;path&gt;
+         ;
+&lt;simple path&gt; ::= &lt;tag&gt;
+	        | &lt;tag&gt; &lt;data list&gt;
+                ;
+&lt;data list&gt; ::= &lt;datum&gt;
+              | &lt;datum&gt; &lt;data list&gt;
+              ;
+
+&lt;tag&gt; ::= /* string starting with a letter or a digit 
+                             and containing letters, digits or `_' */
+             ;
+&lt;class name&gt; ::= /* string starting with a letter or a digit
+                             and containing letters, digits or `_' */
+               ;
+&lt;datum&gt; ::= /* string  containing letters, digits or `_' */
+          | " /* arbitrary printable string protected by double quotes */ "
+          ;
+
+&lt;longtext^gt; ::= "LongText" &lt;name&gt; NL
+	  &lt; lines of text &gt; NL		/* 0 or more lines of text */
+	"***LongTextEnd***" NL
+
+</pre>
+
+
+
+<h3>Preprocessor</h3>
+
+There is a preprocessor ran before parsing the ace files. it takes
+the following actions.<p>
+
+<blockquote>
+
+Paragraph starting with "!" are skipped.<p>
+
+Lines starting with "!" are skipped.<p>
+
+A double slash "//" is considered as the beginning of a comment
+and input is skipped until the end of the line.<p>
+
+The backslash can be used to escape a backslash, a  double
+quote or a newline. In the case of a newline all space and tabs at the
+beginning of the next line are also skipped. Therefore, one often
+wants to break a long line as follows:<p>
+
+<pre>
+  here is some text from a very long line.  There will be only \
+  one space between "only" and "one".
+</pre>
+
+Other files can be included recursively by the command @fileName, with
+@ the first character on a line.<p>
+
+Tabs are reinterpreted as 8 spaces.
+
+Spaces inside names must be protected by double quotes, but to prevent
+runaway, a new line ends an ongoing open double quote.  Furthermore,
+ACEDB will remove leading and trailing spaces from names even if the
+are protected by a double quotes.<p>
+
+</blockquote>
+
+
+<h3>Additional Rules</h3>
+
+&lt; path &gt; and &lt; data list &gt; are interpreted according to
+the model, and must conform.  In particular, if the model specifies a
+class, a &lt; datum &gt; will be interpreted as the name of an object
+in that class, and this object will silently be created if it does not
+already exist.  If the model specifies Float or Int &lt; datum &gt;
+will be interpreted as a numerical value if possible, else a parse
+error will be generated.  If the model specifies Text then the &lt;
+datum &gt; will be entered as a string.  There is also a parse error
+if a tag is given that can not be found in the currently relevant
+model.<p>
+
+In case of a parsing error, the whole paragraph is discarded with a
+warning message.<p>
+
+It is not an error if a -Delete, -Alias or -Rename clause does not
+find its target. This property ensures that the same ace file can be
+read twice without error (which is very useful).<p>
+
+
+<!--GH_SEARCH-->
+<!--GH_END-->

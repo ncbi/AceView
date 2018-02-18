@@ -1,0 +1,11 @@
+#!/usr/local/bin/gawk -f
+# $Id: classCount,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+#
+
+BEGIN { outside = 1 }
+
+(NF == 0) { outside = 1 }
+
+(outside && NF > 0 && $1 != "//") { class[$1]++ ; outside = "" }
+
+END { for (i in class) print i, class[i] }

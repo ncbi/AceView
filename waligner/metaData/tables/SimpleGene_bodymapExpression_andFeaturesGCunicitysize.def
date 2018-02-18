@@ -1,0 +1,77 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2012-01-18_19:02:48
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+ 
+Colonne 2 
+Subtitle variant a length (bp)  
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag Length
+ 
+Colonne 3 
+Subtitle Column #4  
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition 0.BodyMapRNA_Sep2011
+ 
+Colonne 4 
+Subtitle BodyMap sept 2011 index  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag HERE 
+ 
+Colonne 5 
+Subtitle variance in index in BM  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag HERE:6 
+ 
+Colonne 6 
+Subtitle %GC  
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag GC_percent
+ 
+Colonne 7 
+Subtitle unicity  
+Width 12 
+Optional 
+Visible 
+Float 
+From 1 
+Tag Unicity_index
+ 
+ 
+
+// End of these definitions

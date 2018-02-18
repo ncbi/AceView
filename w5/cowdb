@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# set up a copy-on-write database - you have a read-only database, and
+# you get a read/write database without first copying all the database
+# files.  The database uses the files from the read-only database until
+# it needs to write to the database.  At that time, it copies only the
+# file being modified.
+#
+# This script sets it up.  In fact, all you need is to make a database
+# with no block files, and insert the COW directive in wspec/database.wrm,
+# which names the directory where the old database files can be found.
+# You could do all this by hand if necessary.
+#
+# If your reference database is already copy on write, you need to make
+# a directory with the block files existing as symlinks to the various
+# correct block files from the different places that the old database
+# is looking for block files.
+#
+#
+
+old=$1
+new=$2
+if [ "$new" = "" ]
+then
+	echo 'usage: cowdb old_database_dir new_dir'
+	echo '       copies a database and sets up copy-on-write'
+	exit 1
+fi
+
+n=`grep COW $old/wspec/database.wrm`
+
+if [ "$n" != "" ]
+then
+	echo WARNING: ORIGIN DATABASE IS COPY ON WRITE
+	echo THIS PROBABLY WILL NOT WORK UNLESS YOU MANUALLY FIX IT
+fi
+
+[ -d $new ] || mkdir $new
+
+mkdir $new/database $new/wspec 
+
+cp $old/wspec/* $new/wspec
+
+echo 'COW '$old'/database' >> $new/wspec/database.wrm
+
+echo $USER >> $new/wspec/passwd.wrm
+
+cp $old/database/ACEDB.wrm $new/database
+cp $old/database/database.map $new/database
+

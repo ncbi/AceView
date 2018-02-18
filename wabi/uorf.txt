@@ -1,0 +1,30 @@
+saucissemode[0-3] (0: scf trace, 1: give one dna, 2: dna active keyset, 3: pep active set)   wordLength[1-16]  threshold[1-1000] ? > 3 3 1
+
+553348 words of length 3 analysed
+
+ 1641927 letters ::
+162554:L 155249:G 154039:S 151628:R 148124:P 143907:A 85405:V 80139:E 76281:T 66339:Q 
+58034:K 53100:F 52009:C 47044:D 43364:I 41434:H 35702:W 33702:N 29349:M 22865:Y 
+1659:X 
+ Loners (letters not counted above)
+
+
+
+
+
+
+
+Total count 553348, threshold 553
+
+Frequent multi letter words, cutout = 553
+1505 ::  A  A  A 
+1269 ::  R  R  R 
+1179 ::  G  G  G 
+924 ::  P  P  P 
+906 ::  G  A  G 
+865 ::  G  R  G 
+814 ::  G  G  R 
+810 ::  R  G  R 
+808 ::  A  A  G 
+781 ::  G  R  R 
+778 ::  L  L  L 

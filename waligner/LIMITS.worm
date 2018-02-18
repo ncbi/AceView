@@ -1,0 +1,73 @@
+#!/bin/tcsh -f
+
+setenv species worm
+setenv seedLength 16
+setenv minAli 16
+setenv minEntropy 16
+setenv minFastqQuality 0
+setenv overhangLength 8
+setenv bonusStrand 10
+setenv intronMaxLength 25000
+
+setenv project unified
+#setenv project mpi
+#setenv project  low
+setenv TMPDIR /export/home/TMP
+
+setenv chromSetAll "I II III IV V X"
+setenv chromSetAll ""
+# -offSet 1 -seedShift 10 is better than -seedShift 10 because it falls on 21-36
+# rater than 17-32, so te possibility for the intron extends 4-fold from 16^17  to 16^....^21
+setenv pivot 11
+setenv offSets "1 19 27 35 50 80 120 200 300 400 500 600 700 800 900 1000"
+
+# LIF: CGCCTTGGCCGTACAGCAGCCTCTTACAC se traduit par ttagacatatctccgtcgtagggatccc
+setenv exitVector ATmTCGTATGCCGTCTTCTGCTTGAAAAAA,CGCCTTGGCCGTACAGCAGCCTCTTACAC
+setenv exitVectorRaw ATmTCGTATGCCGTCTTCTGCTTGAAAAAA,ttagacatatctccgtcgtagggatccc
+
+#est
+setenv targets "rnaGene mito av pg HINV genome "
+setenv targets "rnaGene mito av pg EBI HINV genome chrom_I chrom_II chrom_III chrom_IV chrom_V chrom_X "
+setenv targets "mito SpikeIn rrna rnaGene av pg EBI HINV genome"
+#setenv targets "av mito"
+setenv targets "mito SpikeIn rrna rnaGene av pg EBI HINV genome"
+#setenv targets "genome"
+
+#setenv targets "HINV pg"
+setenv Etargets "av"
+setenv tissues "Embryo L1 L2 L3 L4 Adult Dauer Mixed Male Total Classic"
+# setenv tissues "DauerPure DauerEntry DauerExit"
+#setenv tissues "L4"
+setenv ntruetissues 0
+
+setenv manips_fastc_non_stranded "BOB3 BOB3bis Fraser1 DB Yale Dauer.00 Dauer.05 Dauer.10 Dauer.15 Dauer.20 Dauer.30 "
+setenv manips_fastc_non_stranded "BOB3 Fraser1 DB Yale YK"
+# setenv manips_fastc_non_stranded "BOB3 Fraser1 DB Yale"
+setenv manips_fastc_stranded "JK FPU"
+setenv manips_fastc_stranded ""
+setenv manips_ccfa "FABIO"
+# fastq with quality, for evaluation of the SNPs
+setenv manips_fastq_stranded  ""
+setenv manips_fastq_non_stranded "Dauer.FQ"
+setenv manips_fastq_33 "Dauer.FQ"
+
+setenv manips "$manips_fastc_non_stranded $manips_fastc_stranded $manips_ccfa"
+#setenv manips "$manips_fastc_non_stranded $manips_fastc_stranded"
+#setenv manips "$manips_fastc_non_stranded $manips_fastc_stranded $manips_ccfa $manips_fastq_stranded $manips_fastq_non_stranded"
+#setenv manips "Dauer.00 Dauer.05 Dauer.10 Dauer.15 Dauer.20 Dauer.30 Dauer.FQ"
+#setenv manips "Fraser1 Yale DB FABIO"
+#setenv manips "FABIO"
+#setenv manips "BOB3 Fraser1 DB Yale FABIO"
+
+setenv manipsPolyA "$manips_fastc_non_stranded  $manips_fastc_stranded $manips_ccfa $manips_fastq_stranded $manips_fastq_non_stranded"
+setenv manips_not_amplified "BOB3 BOB3bis Fraser1 DB Yale YK FABIO"
+
+setenv manips_danielle "$manips"
+setenv manips_truly_stranded "$manips_fastc_stranded $manips_ccfa"
+
+echo "manips  = $manips"
+echo "tissues = $tissues"
+echo "targets = $targets"
+echo "chroms  = $chromSetAll"
+echo "project = $project"
+

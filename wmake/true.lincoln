@@ -1,0 +1,162 @@
+From lstein@formaggio.cshl.org Thu Jan 14 19:45:00 1999
+Received: from xerxes.crbm.cnrs-mop.fr by alpha.crbm.cnrs-mop.fr; (5.65/1.1.8.2/06Mar96-0905PM)
+	id AA18804; Thu, 14 Jan 1999 19:44:59 +0100
+Received: from formaggio.cshl.org (formaggio.cshl.org [143.48.7.41])
+	by xerxes.crbm.cnrs-mop.fr (8.8.7/8.8.7) with ESMTP id TAA32689
+	for <mieg@xerxes.crbm.cnrs-mop.fr>; Thu, 14 Jan 1999 19:44:58 +0100
+Received: (from lstein@localhost)
+	by formaggio.cshl.org (8.9.0.Beta5/8.9.0.Beta5) id NAA03841;
+	Thu, 14 Jan 1999 13:43:41 -0500
+To: fw@sanger.ac.uk
+Subject: Failure to echo parse errors in gifaceserver
+Cc: mieg@xerxes.crbm.cnrs-mop.fr, lstein@formaggio.cshl.org
+From: Lincoln Stein <lstein@cshl.org>
+Date: 14 Jan 1999 13:43:41 -0500
+Message-Id: <m2ww2pn19e.fsf@formaggio.cshl.org>
+Lines: 143
+Status: RO
+
+Hi Fred,
+
+The gifaceserver fails to correctly return parsing errors to the
+socket connection because the build process links the server with
+libxace, in which parse.c is compiled without the NON_GRAPHIC switch.
+However, when NON_GRAPHIC is undefined, the parse error messages are
+sent to a dialog box rather than to the output file, and hence get
+lost.
+
+I have two small hacks to parse.c and to truemake to allow
+gifaceserver to be linked to the non-graphic version of parse.c.
+Please make the fix more elegantly and then let me know when the
+working server is ready to go.  I've got a couple of users at Cornell
+and Weizmann waiting on this.
+
+Thanks,
+
+Lincoln
+
+-- 
+========================================================================
+Lincoln D. Stein                           Cold Spring Harbor Laboratory
+lstein@cshl.org			                  Cold Spring Harbor, NY
+========================================================================
+
+*** w4/parse.c~	Wed Jan 13 17:56:02 1999
+--- w4/parse.c	Thu Jan 14 13:33:56 1999
+***************
+*** 951,957 ****
+    nob = 0 ; nerror = 0 ; state = DONE ;
+    parseDraw () ;
+  }
+! 
+  #endif
+  
+  /* RD - make parseFile() and parseBuffer() reentrant */
+--- 951,958 ----
+    nob = 0 ; nerror = 0 ; state = DONE ;
+    parseDraw () ;
+  }
+! #else
+! void parseControl (void) { } 
+  #endif
+  
+  /* RD - make parseFile() and parseBuffer() reentrant */
+***************
+*** 1101,1110 ****
+      doParseLevel (level, ks, TRUE) ;
+  }
+  
+- #ifndef NON_GRAPHIC
+  
+  void parseOneFile (FILE *fil, KEYSET ks)
+  { 
+    BOOL ParseGraphWasOpen = FALSE ;
+  
+    if (!checkWriteAccess())
+--- 1102,1111 ----
+      doParseLevel (level, ks, TRUE) ;
+  }
+  
+  
+  void parseOneFile (FILE *fil, KEYSET ks)
+  { 
++ #ifndef NON_GRAPHIC
+    BOOL ParseGraphWasOpen = FALSE ;
+  
+    if (!checkWriteAccess())
+***************
+*** 1137,1145 ****
+    if (graphActivate (parseGraph) &&
+        !ParseGraphWasOpen )
+      graphDestroy() ; 
+  }
+  
+- #endif /* !NON_GRAPHIC */
+  
+  /***** end of file ****/
+  
+--- 1138,1146 ----
+    if (graphActivate (parseGraph) &&
+        !ParseGraphWasOpen )
+      graphDestroy() ; 
++ #endif /* !NON_GRAPHIC */
+  }
+  
+  
+  /***** end of file ****/
+  
+*** wmake/truemake~	Tue Dec 29 11:41:38 1998
+--- wmake/truemake	Thu Jan 14 13:31:31 1999
+***************
+*** 227,232 ****
+--- 227,235 ----
+  GENERIC_ACE_GRAPH_OBJS = picksubs.o parse.o \
+  	dump.o longtext.o quovadis.o prefsubs.o biblio.o 
+  
++ GENERIC_GIFACE_GRAPH_OBJS = picksubs.o parse.ng.o \
++ 	dump.o longtext.o quovadis.o prefsubs.o biblio.o 
++ 
+  GENERIC_ACEMBLY_GRAPH_OBJS = picksubs.o parse.o \
+  	dump.o longtext.o quovadis.acm.o prefsubs.o biblio.o 
+  
+***************
+*** 587,597 ****
+--- 590,605 ----
+  ######## GENERIC_ACE_OBJS and GENERIC_ACE_(NON)GRAPH_OBJS have merged
+  
+  LIBXACE_OBJS = $(GENERIC_ACE_OBJS) $(GENERIC_ACE_GRAPH_OBJS) aceversion.o
++ LIBGIFACE_OBJS = $(GENERIC_ACE_OBJS) $(GENERIC_GIFACE_GRAPH_OBJS) aceversion.o
+  
+  libxace.a :  $(LIBXACE_OBJS)
+  	ar $(AR_OPTIONS) libxace.a $?
+  	if ( $(RANLIB_NEEDED) ) then ranlib libxace.a; fi
+  
++ libgiface.a :  $(LIBGIFACE_OBJS)
++ 	ar $(AR_OPTIONS) libgiface.a $?
++ 	if ( $(RANLIB_NEEDED) ) then ranlib libgiface.a; fi
++ 
+  libxace_clean : 
+  	rm -f $(LIBXACE_OBJS) libxace.a
+  
+***************
+*** 768,776 ****
+  	$(WORM_DISP_ACE_OBJS) \
+  	$(JO_OBJS)
+  
+! gifaceserver : libfree.a libgif.a libxace.a aceserver.c $(GIFACESERVER_OBJS) rpcace.x rpcace.h
+  	$(CC) -DGIFACESERVER -c aceserver.c -o gifaceserver.o 
+! 	$(LINKER)  -o gifaceserver gifaceserver.o $(GIFACESERVER_OBJS) -L. -lxace -lfree -lgif $(LIBS) $(LEX_LIBS)
+  	chmod 755 gifaceserver
+  	\rm -f rpc.gifacedbd
+  	ln -s gifaceserver rpc.gifacedbd
+--- 776,784 ----
+  	$(WORM_DISP_ACE_OBJS) \
+  	$(JO_OBJS)
+  
+! gifaceserver : libfree.a libgif.a libgiface.a aceserver.c $(GIFACESERVER_OBJS) rpcace.x rpcace.h
+  	$(CC) -DGIFACESERVER -c aceserver.c -o gifaceserver.o 
+! 	$(LINKER)  -o gifaceserver gifaceserver.o $(GIFACESERVER_OBJS) -L. -lgiface -lfree -lgif $(LIBS) $(LEX_LIBS)
+  	chmod 755 gifaceserver
+  	\rm -f rpc.gifacedbd
+  	ln -s gifaceserver rpc.gifacedbd
+

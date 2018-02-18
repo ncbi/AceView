@@ -1,0 +1,111 @@
+<!--  $Id: Tree.html,v 1.1.1.1 2002/07/19 20:23:22 sienkiew Exp $  -->
+<head>
+<title>Tree</title>
+</head>
+
+<BODY BGCOLOR=#ffffff>
+
+<h2>Tree (Text) Display</h2>
+
+Many objects in the database can be examined in text windows,
+including objects that are usually viewed in special displays (e.g.,
+loci on maps and maps themselves). The term "tree" refers to the fact
+that the data is arranged in a branching, hierarchical structure that
+functions as an outline--possibly with many levels of indentation.<p>
+
+<h3>Buttons</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: destroys this window.
+
+<li><strong>Tables... </strong>: this button is only present if a <A
+HREF="Table_Maker.html">TableMaker</a> command file has been
+registered with the class of the current object in the 
+file <A HREF="TreeTableMenu.html">wspec/table.menu.wrm</A>. 
+If present, the button contains a sub-menu with
+the list of these tables which are selected with the right mouse
+button.  If you choose a table, the TableMaker is launched and the
+table displayed.
+
+<li><strong>Attach</strong>: Allows you to graft information from a
+related object directly into the window. First pick an item by
+clicking on it once. The item must be a link to another object or a
+tag adjacent to the left of such a link. The attach button brings up a
+BLOCKING tag chooser window which lets you select what part of the
+related object to graft. You can graft any branch or sub-branch by
+double-clicking on a node in the tag chooser. Help for <A
+HREF="Attach.html">Attach</a> and for the <A
+HREF="Tag-Chooser.html">Tag Chooser</a> are available.
+
+</ul>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+<li><strong>Update</strong>: Lets you edit the object, only if you
+have write access.  See help on <A HREF="Update.html">Update</a> for
+more information.
+
+<li><strong>Toggle Timestamps</strong>: Displays to the right of each
+node the information on who/when last updated that value, this information
+corresponds to one of the session object which can be seen from the
+admin/session control menu of the main window
+
+<li><strong>Show selected object as text</strong>: Displays the
+selection in a text window if possible, rather than graphically as may
+happen when you double click a box.
+
+</ul>
+
+<H3>Special action tags</H3>
+
+The model for any class may contain special tags which launch special actions
+in the tree display. You can add these tags to any class in the database models.
+The fields that the models are expected to define to the right of the tag vary.
+A double click on the tag-name in the tree display will launch the special
+action.<P>
+
+<DL>
+  <DT><B>Pick_me_to_call</B><DT>
+  <DD>Calls up an external program. Has two Text fields to the right of the
+      tag. The first is the script name, the second one it's arguments.<BR>
+      Often present in class Image, to display an externally stored image file
+      using the 'display_script'.
+  </DD>
+  <P>
+
+  <DT><B>Gel</B></DT>
+  <DD>Launches the <A HREF="Gel-Patterns.html">Gel Pattern</a> display.
+      The field to the right of the tag should contain the
+      sub-model #Bands, which is a list of integers containing band 
+      lengths or migration distances.
+  </DD>
+  <P>
+
+  <DT><B>E_mail</B></DT>
+  <DD>Opens the configured mailer with the email address as it's argument.
+      The address is expected one field to the right of the E_mail
+      tag.<BR>
+      The script <CODE>$ACEDB/wscripts/acedb_mailer</CODE>
+      is invoked by this action, nothing will happen apart from
+      a warning on the command line if this script can't be invoked.
+  </DD>
+  <P>
+
+</DL>
+
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: May 1999<p>
+
+</BODY>

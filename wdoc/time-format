@@ -1,0 +1,66 @@
+DateType format
+
+	"now"
+		current local time to nearest second
+
+	"today"
+		current day at 00:00:00 local time
+
+	otherwise, a numeric spec specifying the time with varying
+	degrees of detail:
+
+		year
+		year-month
+		year-month-day
+		year-month-day_hour
+		year-month-day_hour:minute
+		year-month-day_hour:minute:sec
+
+		The year treatment is:
+			51-99     -> 19xx
+			00-50     -> 20xx
+			> 2053	  -> invalid
+			< 1900 	  -> invalid
+			1900-2053 -> xxxx
+
+			if the year is before 1991, you can store 
+			year/month/day but not hour:min:sec
+
+		The system does NOT normalize times on input.  The fields
+		must be in range:
+			month	1-12
+			day	1-31
+			hour	0-23
+			min	0-59
+			sec	0-59
+
+		Internally, the system stores the times UN-normalized, but
+		it normalizes them for most operations.  For example,
+		if you enter 2002-2-29, it will display as 2002-03-01.
+		It will also compare as equal to 2002-3-01 or 2002-2-29.
+
+		(It will still have 2002-2-29 inside the database; I'm not 
+		sure if you can ever tell.)
+
+		For the purposes of normalization during comparison or
+		display, the dates are assumed to be local time.  The
+		dates are NOT corrected if the time zone changes, but
+		apparently do handle daylight savings time correctly.
+
+		The internal timeDiff*() functions may or may not see some 
+		confusion with unnormalized times.
+
+	If two times are compared and one has only year/month/day, then
+	only the year/month/day are used for comparison.  If both times
+	were specificed to the second, the full time is used.
+
+	If two times are entered with different resolutions, it
+	attempts to use only the fields that are present in both times
+	for the comparison.  Sometimes it works and sometimes it does
+	not.  For example, create an object with 2002-2-29 and compare
+	to 2002-3-1_10 to match or 2002-3-1_10:10 to not match.
+
+	You can safely expect a time that contains year-month-day to
+	compare to a time that contains year-month-day_hour:minute:sec.
+	The hour:minute:sec is ignored.
+

@@ -1,0 +1,29 @@
+#include    <acec.h>
+#include    <vstd.h>
+
+vSTR blk;
+
+int funcObj(acOBJ * obj,void * param)
+{
+
+	return 1;
+}
+
+int main(int argc, char * argv[],char * envp[])
+{   
+	acDB   *  db;
+	char * par;
+	vargInit(argc,argv,0);
+
+	if( (par=vargVal("-db"))){
+		if((db = acOpen ( par , acAUTODB ))){
+			acQueryEnum(db, acFETCHEMPTY, funcObj, 0, "query find mrna *");
+			acClose(db);
+		}
+	}
+
+	vstrEmpty(&blk);
+	return 0;
+}
+
+

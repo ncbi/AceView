@@ -1,0 +1,164 @@
+<!--  @(#)Query_By_Example.html	1.2  2/17/95  >
+<head>
+<title>Query_By_Example</title>
+</head>
+
+
+
+<h2>Query_By_Example</h2>
+
+Query By Example is the simplest query interface available in
+ACEDB. See help for the <A HREF="Query_Builder.html">Query
+Builder</a>, the <A HREF="Query.html">Query Commands window</a>, and
+the <A HREF="Table_Maker.html">TableMaker</a> to learn more about
+other search tools. Help is also available for the <A
+HREF="Query_syntax.html"> query language</a> itself but you can use
+Query By Example without understanding it.<p>
+
+Based upon a fill-in-the-blank and toggle-button style of entry, Query
+By Example allows the user to fill in values in a class model-display.
+These values are then used in a conjunctive query command to retrieve
+data objects from the database.<p>
+
+This window can be used in conjunction with or independently of the <A
+HREF="Query.html">Query Commands window</a>. Query results appear in a
+<A HREF="KeySet.html">KeySet window</a>.<p>
+
+to execute a query formed in this window, use the <strong>Search
+Locally</strong> button.
+
+<h3>Buttons (above horizontal line)</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: Exits the window.
+
+<li><strong>Help</strong>: Invokes this section of the help file.
+
+<li><strong>Clear</strong>: Clears the entry boxes and redraws the
+window from scratch.
+
+<li><strong>New KeySet</strong>: Calls up a new, blank keyset window.
+
+<li><strong>Command Edit</strong>: Call up the Query Commands window.
+
+<li><strong>Search Locally</strong>: Execute the current query and put
+the found and selected objects in the Key Set.
+
+<li><strong>Undo</strong>: Cancels the last command and redisplays the
+previous Keyset (selection list).
+
+</ul>
+
+<h3>Boxes and Controls (above horizontal line)</h3>
+
+<ul>
+
+<li><strong>"From" Selector</strong>: Actually a menu (activate by
+right mouse button), this allows the user to use the current keyset as
+the base for a query or to use the current class shown.  Simple
+clicking of the left mouse button will "step" through the menu
+selections.
+
+<li><strong>"Class" Selector</strong>: Actually a menu (activate by
+right mouse button), this allows the class being currently shown to be
+changed to any class in the database.  Simple clicking of the left
+mouse button will "step" through the menu selections. As your do so
+the items below the horizontal line will change, reflecting the
+structure of each class you visit.
+
+<li><strong>ITEM NAME</strong>: This is a text entru box which can be
+filled in to query for particular names of items within the current
+class.
+
+</ul>
+
+<h3>Menu items:</h3>
+
+In addition the the above functions, the Menu has the following
+options:<p>
+
+<ul>
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer
+(specified by ACEDB_LPR).
+
+<li><strong>Refresh</strong>: Redraws the window.
+
+<li><strong>Query Builder</strong>: Same as the Builder Button.  Call
+up the Query Builder window.
+
+<li><strong>Query Command Edit</strong>: Same as Command Edit Button.
+Call up the Query Commands window.
+
+<li><strong>AND, OR </strong>: The various tags and fields are
+connected via the conjunctions AND (&amp;) and OR (|) as selected on
+the menu.  Use the Query Builder window to view the composed query
+command.
+
+<li><strong>Show Full Description</strong>: Calls up the metadata
+associated with the last picked (left mouse button) label or entry-box
+on the display.
+
+<li><strong>Show Long Description</strong>: Calls up the ?LongText
+metadata associated with the last picked (left mouse button) label or
+entry-box on the display.
+
+<li><strong>Search Locally</strong>: Same as Search Locally Button.
+Execute the current query and put the found and selected objects in
+the Keyset (selection list).
+
+<li><strong>Undo Search</strong>: Same as Undo Button: Cancels the
+last command and redisplays the previous Keyset (selection list).
+
+</ul>
+
+
+<h3>Below the Horizontal Line</h3>
+
+What you see below the horizontal line depends on which class you are
+querying. All the tags and fields in a class will be represented.<p>
+
+<strong>Fields</strong> are represented by the green text entry boxes.
+Activate an entry box by picking it (click with the left mouse
+button).  It turns yellow (dark grey on monochrome) and all
+keyboard-input will then enter into that box. Simply pick and edit a
+box for it to be folded into the current query command.
+Sub-conditions, such as "&lt; 100.1", "&gt; fred", and "!= gene21" are
+allowed in these lines.  For the numeric entries, the user will
+receive a warning that the syntax is not numeric, which can be ignored
+at the user's choice.<p>
+
+When you press carriage-return (CR), the entry is processed for
+correctness and, if the <A HREF="Query.html">Query Commands window</a>
+is up, you will see a formed query on the current query command
+line.<p>
+
+Click the Search Locally button to search. Each time you click here
+you will execute whatever query you have built.<p>
+
+<strong>Tags</strong> are the labels adjacent to the fields. You can
+search for the presence of a tag (rather than the contents of its
+field) in a boolean exists/does_not_exist fashion. Clicking once on
+the tag specifies it must be present. It will be highlighted. Clicking
+again deselects the tag.<p>
+
+<h3>Other Information</h3>
+
+<strong>Scope</strong>: The query commands will modify the active
+Keyset (selection list).  To select another key set, pick it once or
+use the New KeySet command.<p>
+
+<strong>Query Commands Display</strong>: If the Query Commands window
+is open, the syntax formed by the Query-By-Example window will be
+shown on a command edit line there.<p>
+
+<strong>Note to curators</strong>: If you Read Models and update the
+models, you may have to restart the ACEDB program for the correct QBE
+display to appear.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>
+

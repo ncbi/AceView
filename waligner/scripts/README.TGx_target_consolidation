@@ -1,0 +1,623 @@
+# 2012_06_03
+
+# /am/ftp-genbank/genomes/Eukaryotes/vertebrates_mammals/Rattus_norvegicus/Rnor_5.0
+
+# The consolidated genes for the rat TGx project is in
+# rat_2012/BacInfo
+
+# For the TGx project, every lab had its own fasta file
+The problem addressed here is to map a  collection of
+gene identifiers to corresponding genes
+
+the files were deposited by Hong, Zu, Meehan, Gaj, Cesare (FBK) and Mieg
+
+###################################################
+## ERCC
+The official ERCC file provided by Ambion has 92 ERCC with known concentration
+The fasta sequence was provided by Marc Salit, those sequences are NOT available from GenBank
+
+The ERCC fasta files were deposited by Gaj, Zu and mieg
+They are identical to Marc Salit's file except that Zu and Meehan changed ERCC-00002 to ERCC_00002
+
+The counts for the ERCC are available for
+
+Meehan: 92 ERCC reported
+Zu    : 92 ERCC reported
+FBK   :  0 ERCC
+mieg  : 95 ERCC
+Gaj   "  ? i do not have the count file
+Hong  "  ? i do not have the count file
+
+
+
+to reconstruct the Meehan fasta from the gtf file
+we first create a shadow file
+
+# get the + strand, verify the order and export
+cat rn4_refFlat.GTF | gawk -F '\t' '/exon/{if ($7 == "-")next;print}' | sort -k 9,9 -k 1,1 -k 4,4n -k 5,5n | gawk -F '\t' '{z=$9;i=index(z,"gene_id");z1=substr(z,i+9);j=index(z1,"\"");gene=substr(z1,1,j-1);i=index(z,"transcript_id");z1=substr(z,i+15);j=index(z1,"\"");tr=substr(z1,1,j-1);chrom=$1;if(cc[tr]!=chrom){cc[tr]=chrom;aa1[tr]=0;}a1=$4;a2=$5;if(aa1[tr]+0<1)aa1[tr]=a1;x1=a1-aa1[tr]+1;x2=a2-aa1[tr]+1;printf("%s|Gene|%s\t%d\t%d\t%s\t%d\t%d\n",tr,gene,x1,x2,chrom,a1,a2);}' > rna.shadow
+
+# get the - strand, verify the order and export
+cat rn4_refFlat.GTF | gawk -F '\t' '/exon/{if ($7 == "+")next;print}' | sort -k 9,9 -k 1,1 -k 4,4nr -k 5,5nr | gawk -F '\t' '{z=$9;i=index(z,"gene_id");z1=substr(z,i+9);j=index(z1,"\"");gene=substr(z1,1,j-1);i=index(z,"transcript_id");z1=substr(z,i+15);j=index(z1,"\"");tr=substr(z1,1,j-1);chrom=$1;if(cc[tr]!=chrom){cc[tr]=chrom;aa1[tr]=0;}a1=$5;a2=$4;if(aa1[tr]+0<1)aa1[tr]=a1;x1=-a1+aa1[tr]+1;x2=-a2+aa1[tr]+1;printf("%s|Gene|%s\t%d\t%d\t%s\t%d\t%d\n",tr,gene,x1,x2,chrom,a1,a2);}' >> rna.shadow
+
+dna2dna -i rn4.fa -shadow rna.shadow -O fasta -gzo -o SEQC_TGx.JMEEHAN.transcripts
+
+####
+#### we now have several renamed fasta files
+
+ ls -ls *.fasta.gz
+  4824 -rw-r--r-- 1 mieg worm   4273365 Jun  7 18:12 Affy.Rat230_2.fasta.gz
+ 25572 -rw-r--r-- 1 mieg worm  23161977 Jun  7 18:13 SEQC_TGx.AceView.NCBI_AceView.fasta.gz
+225496 -rw-rw-r-- 1 5809 worm 204987553 Jun 12 07:45 SEQC_TGx.FBK.cufflinks_regions.fasta.gz
+ 13072 -rw-rw-r-- 1 mieg worm  11802359 Apr 26 15:11 SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz
+ 15340 -rw-r--r-- 1 mieg worm  13860945 Jun  7 18:13 SEQC_TGx.JTM_RefSeq.refseq.fasta.gz
+ 18372 -rw-r--r-- 1 mieg worm  16641916 Jun  8 09:07 SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz
+
+
+# The are all distinguished by the secong .delimited. field
+
+set labs="HHong FBK AceView JMEEHAN JTM_RefSeq ZSU"
+
+# look for the first  identifier
+foreach lab ($labs)
+  echo -n "$lab\t"
+  gunzip -c SEQC_TGx.$lab.*.fasta.gz | head -1
+end
+
+# count the files
+foreach lab ($labs)
+  gunzip -c SEQC_TGx.$lab.*.fasta.gz | dna2dna -I fasta -count -o $lab
+end
+grep Sequence_processed *.count | gawk '{i=index($1,".");printf("%d\t%s\n",$2,substr($1,1,i-1));}' | sort -k 1n
+
+16978   HHong
+21905   FBK
+24352   JTM_RefSeq
+27269   ZSU
+72898   AceView
+
+# the nubers are variable
+
+# map
+
+# compare ZSU and JTM RefSeq
+mkdir HITS
+
+# no error
+ clipalign -i  SEQC_TGx.JTM_RefSeq.refseq.fasta.gz -t  SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -seedLength 24  -o HITS/JTM_ZSU.exact
+
+  clipalign -i  SEQC_TGx.JTM_RefSeq.refseq.fasta.gz -t  SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/JTM_ZSU
+  clipalign -t  SEQC_TGx.JTM_RefSeq.refseq.fasta.gz -i  SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/ZSU_JTM
+
+  clipalign -i  SEQC_TGx.AceView.NCBI_AceView.fasta.gz -t  SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/av_ZSU
+  clipalign -t  SEQC_TGx.AceView.NCBI_AceView.fasta.gz -i  SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/ZSU_av
+
+  clipalign -t  SEQC_TGx.JTM_RefSeq.refseq.fasta.gz -i  SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/HHong_JTM
+  clipalign -i  SEQC_TGx.JTM_RefSeq.refseq.fasta.gz -t  SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/JTM_HHong
+
+  clipalign -t   SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -i  SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/HHong_ZSU
+  clipalign -i   SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz -t  SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/ZSU_HHong
+
+
+# easiest case HHong_ZSU.hits : 16978 HH sequence, 17066 hits, 16604 map to the corresponding identifier
+cat  HHong_ZSU.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);printf("HHong:%s\tZSU:%s\n",$1,$11);}' | sort > HZ.txt
+# verif 
+cat  HHong_ZSU.hits | gawk '/^#/{next;}{gsub(/>/,"",$1); split($1,aa,".");if(aa[1]==$11)nok++;n++;}END{print n,nok}'
+cat  HHong_ZSU.hits | gawk '/^#/{next;}{gsub(/>/,"",$1); split($1,aa,".");if(aa[1]==$11)print $1,aa[1],$11}' | sort > HZ.perfect
+cat  HHong_ZSU.hits | gawk '/^#/{next;}{gsub(/>/,"",$1); split($1,aa,".");if(aa[1]==$11);else print $1,aa[1],$11}' | sort > titia
+
+
+we now identify the 5 missing ones
+cat  HZ.perfect HZ.bad.txt | cut -f 1 | sort -u > tutu2
+dna2dna -reject tutu2 -i ../SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -I fasta -O raw 
+
+# use the identifiers we get 16613 hits
+
+gunzip -c ../SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz | gawk '/^>/{print substr($1,2)}' | sort > HH.id
+gunzip -c ../SEQC_TGx.ZSU.Refseq_ERCC.fasta.gz | gawk '/^>/{print substr($1,2)}' | sort > ZSU.id
+cat HH.id | gawk '{i=index($1,".");print substr($1,1,i-1);}' | sort -u > HH.id2
+
+# import todays active if from NCBI (see BLY a5)
+cat a5.active_nx_mr.list | gawk '/Sequence/{gsub(/\"/,"",$2);print $2;}' | sort -u > NCBI.id
+cat NCBI.id HH.id2 | sort -u | wc
+wc NCBI.id HH.id2
+# BRAVO tous les identificateurs de HH sont connus du NCBI, I have coords in XmInfo for 15554  (1424 not recognized)
+
+cat HH.id ZZZZZ ZSU.id | gawk '/ZZZZZ/{zz=1;next;}{if(zz<1){a=$1;split($1,aa,".");b=aa[1];a2b[a]=b;b2a[b]=a;next;}b=$1;if(length(b2a[b])>1)print b2a[b],b,b;}' | sort -u > HH_ZSU.perfect.txt
+
+# identify the others we get 367 cases    16613 + 367 = 16980
+cat  HH_ZSU.perfect.txt HZ.perfect titia | gawk '{a=$1;b=$2;c=$3;if(b==c){ok[a]=1;next;}if(ok[a]+0<1)print;}' | sort -u  > HZ.bad.txt
+
+# verify
+cat HH_ZSU.perfect.txt HZ.bad.txt | gawk '{print $1}' | sort > aaa
+cat HH_ZSU.perfect.txt HZ.bad.txt | gawk '{print $1}' | sort -u > bbb
+diff aaa bbb
+
+# we have 2 double cases
+NM_001167551.1 NM_001167551 NM_001008942   perfect
+NM_001167551.1 NM_001167551 XM_002728686
+
+NM_001170590.1 NM_001170590 XM_001067427
+NM_001170590.1 NM_001170590 XM_216095      perfect
+
+# final table has 16978 entries
+cat HH_ZSU.perfect.txt HZ.bad.txt | grep -v XM_002728686 | grep -v  XM_001067427  | gawk '{print $1}' | sort -u | wc
+
+cat HH_ZSU.perfect.txt HZ.bad.txt | grep -v XM_002728686 | grep -v  XM_001067427  | gawk '{printf("HHong\t%s\tZSU\t%s\n",$1,$3);}' | sort -u > HH2ZSU.final.txt
+
+# CONCLUSION in ZSU, all 16978 entries are mapped, 363 did not match by identifier
+
+
+##########################################################
+##########################################################
+## zu mieg RefSeq
+# look for quasi perfect match of ZU inside a mieg RefSeq
+
+
+cat ZSU_JTM.hits | gawk -F '\t' '/^#/{next;}{gsub(/>/,"",$1);if ($4 < 1.2 * $5)printf("%s\t%d\t%s\n",$1,$2,$11);}'
+cat ZSU_av.hits | gawk -F '\t' '/^#/{next;}{gsub(/>/,"",$1);if ($4 < 1.2 * $5)printf("%s\t%d\t%s\n",$1,$2,$11);}'
+
+
+##########################################################
+##########################################################
+##########################################################
+##########################################################
+##########################################################
+##########################################################
+## 2012_06_16
+## Construct progressively an acedb database gathering all the annotations in a unified acedb database
+## in rat2012/TGx_consolidation
+
+# The ncbi chomosomes are in BacInfo created using 'BLY a4 a5 a6 all'
+
+# from a4 we obtain a database with all the models in NW from
+# /am/ftp-mapview/$species_ncbi_ftp/sequence/BUILD.$release_ncbi_ftp/initial_release/seq_contig.md.gz
+# remapped to the chromosomes called 1,2 3,...
+# an alternative file in NW is in 
+# /am/ftp-genomes/R_norvegicus/GFF/ref_RGSC_v3.4_scaffolds.gff3.gz 
+
+# from a6 we import
+# 10869752 Jan  4  2011 /am/ftp-mapview/Rattus_norvegicus/sequence/BUILD.4.2/initial_release/seq_gene.md.gz
+# and obtain all the NCBI public modes, the NM are in class GenBank and are linked to the predicted_genes
+# there are 29760 geneid associated to the models
+
+# from XmInfo we import the current geneid_pg (and actually everything about the pg)
+tbly XmInfo << EOF
+  query find predicted_gene // Found 31294 objects
+  show -a -f BacInfo/XmInfo.pg2gid.ace geneid_pg
+  follow geneid_pg // Found 29760 objects
+  quit
+EOF
+
+# from a5 we obtain all the current biology in LocusLinkInfo
+# there are 27044 query geneid sequence  : 21991 are in a4, 5053 are not recognized
+# example NM_173326 not aligned in Donna
+# we transfer to BacInfo
+tbly LocusLinkInfo << EOF
+  query find geneid sequence
+  show -a -f LocusLinkInfo/a6.geneid2sequence.ace
+  quit
+
+tbly BacInfo << EOF
+  parse LocusLinkInfo/a6.geneid2sequence.ace
+  save
+  quit
+EOF
+
+# gene2accession.gz -> genebox
+###############################################################
+### RefSeq official fasta file (could also be obtained from GenBankInfo/GbNm but Danielle was much faster
+### NM/NR current version: Danielle downloaded the fasta file 
+# /home/mieg/REPORTS/Rat_RefSeq_NOTgenomic_June16.fasta  -> 30833 sequence like this
+# >gi|374429559|ref|NR_046238.1| Rattus norvegicus 5.8S ribosomal RNA (Rn5-8s), ribosomal RNA
+# we parse them as
+cat ../GenebankInfo/Rat_RefSeq_NOTgenomic_downloaded_from_NCBI_web.2012_06_16.fasta.gz | gawk '/^>/{split($0,aa,"|");split(aa[4],bb,".");s=bb[1];s=aa[4];printf("\nSequence %s\nRef_Seq\nColour PALECYAN\nImported 2012-06-16\nReal_3prime\nIs_mRNA\nDatabase GENBANK %s GI:%s\nTitle \"%s\"\n\nDNA %s\n",s,aa[4],aa[2],aa[5],s);next;}{print}' > Rat_Refseq.title_dna.ace
+# we parsed this file into acedb and reexported into ../TARGET/Targets/RefSeq.NX_MR.2012_06_16.fasta
+# we had a locus tag in all the _*
+
+tbly . << EOF
+  query find predicted_gene _*
+  list -a -f toto._.list
+EOF
+cat  toto._.list | gawk '/^Sequence/{print;printf("Locus %s\n\n",$2);}' > toto._.ace
+
+tbly . << EOF
+  pparse toto._.ace
+  save
+  quit
+EOF
+
+###############################################################
+## HHong
+## comparison to HHong who gave us a RefSeq fasta file
+ln -s  ~/ftp-SEQC/TGx
+gunzip -c TGx/TGx_Reference/SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz | gawk '/^>/{s=substr($1,2);split(s,aa,".");printf("Sequence %s\n",aa[1]);}' | sort > HH.id.list
+tbly . << EOF
+  key  HH.id.list
+  edit DATABASE HHong
+  dna HH.id.list2dna.fasta
+  save
+  quit
+EOF
+  
+
+## compare the 2 fasta files: HHong fasta and the same RefSeq-id downloaded today from NCBI
+mkdir HITS
+clipalign -i TGx/TGx_Reference/SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -t  HH.id.list2dna.fasta -seedLength 24 -seedOffset 1 -seedShift 20 -minAli 24 -o HITS/HH_HH2
+cat HITS/HH_HH2.hits | gawk '/^#/{next;}{gsub(/>/,"",$1); split($1,aa,".");if(aa[1]==$11)print $1,aa[1],$11}' | sort > HH.perfect
+
+# 16958/16978 seem perfect, what about the 20 others
+# 11 are 'temporarillly suppressed rxample NM_001034930 based on incomplete homology to cow
+# ERROR: 8 are identical but where missied by clipalign 
+cat HH.perfect ZZZZZ HH.id.list | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){ok[$2]=1;next;}if(ok[$2]<1)print $2 }' > HH.bad.list
+cat HH.bad.list | gawk '{printf ("%s.1\n",$1);}' > HH.bad.list.1
+dna2dna -i  TGx/TGx_Reference/SEQC_TGx.HHong.refseqRatrn4-2012-04-26.fasta.gz -select HH.bad.list.1 -O raw -keepName > HH.bad.raw
+dna2dna -i    HH.id.list2dna.fasta  -select HH.bad.list -O raw  -keepName  >> HH.bad.raw
+cat HH.bad.raw | gawk '{printf ("%s\t%s\n",$2,substr($1,1,100));}' | sort >  HH.bad.raw.sorted
+
+# hack back the one which are identical
+cat HH.bad.raw.sorted | cut -f 1 | grep -v '\.1' | gawk '{printf ("Sequence %s\n",$1);}' > HH.hack.list
+tbly . << EOF
+  key
+  edit Database HHong
+  save
+  quit
+EOF
+
+# conclusion: HHong is quasi perfectly recovered except 9 temporarilly suppressed RefSeq
+
+###############################################################
+## Meehan 17192 transcripts + 121 errors (duplicate names on different chromosomes)
+## import Meehan gff as pg with method Meehan in the same system of genomic coordinates
+
+# this awk script is adapted to Joe's gff file and creates his models
+
+cat TGx/TGx_Reference/MEEHAN/rn4_refFlat.GTF |  grep -v ERCC_ | sort -k 1,1 -k 9,9 -k 4,4n | gawk -F '\t' -f scripts/gtx.gff2pg.awk lab=Meehan > gene.meehan.ace2
+# there are 128 double assignation
+
+###############################################################
+## Zhenqiang Su  23163 transcripts (+ 738 duplicate names on different chromosomes)
+## import Meehan gff as pg with method Meehan in the same system of genomic coordinates
+
+# this awk script is adapted to Joe's + Zhenkiang gff files and creates their models
+cat TGx/TGx_Reference/ZSU.rn4RefGene_zsu.gtf | grep -v ERCC_ | sort -k 1,1 -k 9,9 -k 4,4n | gawk -F '\t' -f scripts/gtx.gff2pg.awk lab=ZSu > gene.zsu.ace
+
+# Su cuts overlapping NM, example: NM_145779 Pzp_1 overlaps on RGD1569701 but is cut by Su and Magic agrees with Su
+
+###############################################################
+## FBK Cesare TGx/TGx_Reference/SEQC_TGX_FBK_cufflinks_regions.bed has 21844 'geneboxes' on chr1 to chrM, plus 61/92 ERCC
+## import with a simple awk scrip
+
+gunzip -c TGx/TGx_Reference/SEQC_TGX_FBK_cufflinks_20120625_merged.gtf.gz | grep -v ERCC_ | sort -k 1,1 -k 9,9 -k 4,4n | gawk -F '\t' -f scripts/gtx.gff2pg.awk lab=FBK > FBK.pg.ace
+
+###############################################################
+## Stan Gaj, Maastricht sent his gtf file june 26
+## import with a simple awk scrip
+
+gunzip -c TGx/TGx_Reference/Gaj_Maastricht_Rattus_norvegicus.RGSC3.4.66.ERCC.gtf.gz | grep -v 'ERCC-00' | sort -k 1,1 -k 9,9 -k 4,4n | gawk -F '\t' -f scripts/gtx.gff2pg.awk lab=Gaj chomPrefix=chr > Gaj.pg.ace
+
+###############################################################
+## affy: see mieg aceview (imported from ~/rat/DeepLeming/MicroArray/Hits
+# we impose for each 'affy_pg" at least 6 probes mapping in a segment at most 100kb"
+# possible bug we may be losing probeset hitting several genes in tandem on the same chrom
+set pp=Affy.Rat230_2
+
+pparse  $pp.probest2chrom.compact.counts.ace  
+
+###############################################################
+## mieg aceview
+## import the aceview tg models as tg in the same system of genomic coordinates
+
+cat << EOF > av.method.ace
+
+EOF
+
+# start from the mrna structures and create a model
+cat ../TARGET/MRNAS/mrnaStructure.txt | gawk -F '\t' -f ../scripts/av.mrna_structure2pg.awk lab=av > gene.av_2008.ace
+
+cat  ../DeepLeming/tmp/XH*/f5.mrnaStructure.txt  | gawk -F '\t' -f ../scripts/av.mrna_structure2pg.awk lab=mag2 > gene.magic.ace
+
+cat ../DeepLeming/tmp/XH*/f5.usupport.ok_merged.txt | gawk -F '\t' '{m=lab "__" $1;chrom=$2;a1=$3;a2=$4;x1=$5;x2=$6;printf("Sequence %s\nSubsequence %s %d %d\n\n",chrom,m,a1,a2);printf("Sequence %s\nModel_of X__%s\nMethod %s\nIs_predicted_gene\n-D Source_exons\nSource %s\nIntMap %s %d %d\nSource_exons %d %d\n\n",m,m,lab,chrom,chrom,a1,a2,x1,x2);}' lab=mag2 > gene.magic.unspliced.ace
+
+
+##  this may be used but probably the same as those from the NCBI gff
+cat ../TARGET/MRNAS/RefSeqStructure.txt | gawk -F '\t' -f ../scripts/av.mrna_structure2pg.awk lab=RSpg > gene.RefSeq_pg.ace
+
+
+###############################################################
+###############################################################
+## Of various genome naming of the attic
+# Jim Kent call it chr2_random
+#    Meehan and ZSu report genes on 2_random
+# NCBI 2012 calls them NW_047643.1   and the _A2M pg are mapped on these NW
+#    For convenience we added a super-sequence 2|NW..  which is just an alias of the NW
+# AceView genome (hence all our RNA-seq hit files, the av__* genes and the magic__* genes)
+#    use a completely different naming:  2|Rn2_WGA2161_4
+
+# To fix thing we must download the 3 sets of dna, compare their lengths and their dna
+# we already did that in march 2012 I think, but no idea in which disk or script
+
+# This is fixes in ~/aaa/DATA3/zoo/rat/rat.rn4.GenomeConsolidation.UCSC.NW.WGA
+# we import the resulting aliasing
+
+ cat ../DeepLeming/TARGET/Targets/rn.chromAlias.txt | gawk -F '\t' '/^#/{next}{printf ("-R Map \"%s\" \"%s\"\n\n",$1,$2);}' > rn.chromAlias.ace
+ cat ../DeepLeming/TARGET/Targets/rn.chromAlias.txt | gawk -F '\t' '/^#/{next}{printf ("-R Sequence \"%s\" \"%s\"\n\n",$1,$2);}' >> rn.chromAlias.ace
+
+
+###############################################################
+###############################################################
+## Reconstruct the intmap by iterating on
+
+# table in graphic mode : s2map2subseq.def,  export, gawk, import, table until empty
+# verify there is not too many remaining  pg !IntMap
+ cat s2map2subseq7.txt | gawk '/\"/{c1=$3;c2=$4;if(c1>c2){printf("// ERROR\t");print;next;}x1=$6;x2=$7;printf("Sequence %s\nIntMap %s %d %d\n\n",$5,$1,c1+x1-1,c1+x2-1);}' > s2map2subseq7.ace
+
+# the acedb internal method gene2chrom -any -pg -i . > ! a4.g2c.pgi.ace
+# does not work wel in this messy system
+
+tbly . << EOF
+  // pparse a4.g2c.pgi.ace
+  // save 
+  query find predicted_gene IS _* && geneid_pg && IntMap
+  show -a -f any.pg.ace1
+  query find predicted_gene ! IS _* && IntMap ;
+  show -a -f any.pg.ace2  
+  query find predicted_gene IntMap && NOT gene
+show -a -f any.pg.ace0 	
+  quit
+EOF
+
+cat  any.pg.ace2 | gawk '/^GeneId_pg/{next;}/NM_id/{next;}{print}' >  any.pg.ace3
+cat  any.pg.ace1  any.pg.ace3 >  any.pg.ace
+
+# construct  any.pg.geneid.txt and any.pg.nmid.txt
+
+# BUG pg2pg colle 100361178 in mag2__S19_Acd.a which is utterly wrong
+
+pg2pg -pg2pg  any.pg.ace -o any.pg
+
+cat any.pg.gid.txt  | gawk '/^_/{next;}{printf("Sequence %s\nGeneId_pg %s\n\n",$1,$3);}' > any.pg.gid.ace
+cat any.pg.locus.txt  | gawk '/^_/{next;}{printf("Sequence %s\nLocus %s\n\n",$1,$3);}' > any.pg.locus.ace
+cat any.pg.nmid.txt | gawk '/^_/{next;}{printf("Sequence %s\nNM_id %s\n\n",$1,$2);}'     > any.pg.nmid.ace
+cat any.pg.hit.txt | gawk '{printf("Sequence %s\nHit %s\n\n",$1,$2);}'        > any.pg.hit.ace
+
+# as a second step try, this will not transfer the gid but will create the genebox
+pg2pg -pg2gbx  any.pg.ace0 -o any.pg
+cat any.pg.gbx.txt | sort | sed -e 's/GeneId \tIntMap/IntMap 0\tIntMap/' | gawk '/^Gene/{printf("\nGene %s\n%s %s\n%s %s %s %s\n\n",$2,$3,$4,$5, $6,$7,$8);olds="";next;}/^Sequence/{s=$2;if(s != olds)printf("\nSequence %s\n",s);olds=s;printf("%s %s %s %s\n",$3,$4,$5,$6);}' > any.pg.gbx.ace
+
+tbly . << EOF
+  // pparse any.pg2introns.ace  
+  pparse any.pg.gbx.ace 
+  // pparse any.pg.nmid.ace
+  save
+  quit
+EOF
+
+
+# split the genebox that have several non touching sets of mrnas
+# transfer the geneid into single exon genes by contact
+# all transcripts with same geneid -> same genebox
+
+
+
+# transfer the gid to the gene box
+tbly . << EOF
+  table -o gid_pg2model.txt -f gid_pg2model.def
+  save
+  quit
+EOF
+cat gid_pg2model.txt | cut -f 2,3 | sort -u | gawk -F '\t' '/\"/{printf("Sequence %s\nGeneId_pg %s\n\n",$2,$1);}' > gid_pg2model.ace
+tbly . << EOF
+  // pparse gid_pg2intron2pg.ace
+  save
+  quit
+EOF
+
+
+
+###############################################################
+
+
+
+## export the first 50 bp of each sequence
+
+gunzip -c hg19.*.gz | dna2dna -I fasta -O raw -rightClipAt 50 -keepName | gawk '{print $2 "\t" $1}' | sort > UCSC/hg19.raw
+gunzip -c ../TARGET/Targets/hs.genome.fasta.gz | dna2dna -I fasta -O raw -rightClipAt 50 -keepName | gawk '{print $2 "\t" $1}' | sort > NCBI/37.raw
+
+## compare
+
+ cat NCBI/37.raw UCSC/hg19.raw | sort -k 2 | grep -v hap | grep -v nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn | gawk '{if ($2 != old)printf("\n") ; old=$2; printf(" %s ", $1);}' | sort | gawk '{if ($1 !=17) {n++;printf ("%d\t%s\t%s\n",n,$1,$2);}}' > map1.txt
+
+cat map1.txt | gawk '/chrUn/{if($2)printf ("gunzip -c hg19.genome.chrUn.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o UCSC/CC/cc.%d &\n",$3,$1) ;} ' > map2a
+cat map1.txt | gawk '/random/{if($2)printf ("gunzip -c hg19.genome.random.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o UCSC/CC/cc.%d &\n",$3,$1) ;} ' >> map2a
+
+cat map1.txt | gawk '{if($3)printf ("gunzip -c  ../TARGET/Targets/hs.genome.fasta.gz  | dna2dna  -I fasta -get \"%s\" -O fasta -o NCBI/CC/cc.%d &\n",$2,$1) ;} ' > map2b
+
+
+foreach ff (`ls UCSC/CC`)
+  echo $ff >> tutu.txt
+  diff UCSC/CC/$ff NCBI/CC/$ff >> tutu.txt
+end
+
+
+
+## verif the main chromosomes
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  dna2dna -i hg19.genome.main_chromosomes.fasta.gz -I fasta -get chr$chrom -O fasta -maxLineLn 60 -o UCSC/CHROMS/$chrom &
+end
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  dna2dna -i  ../TARGET/Targets/hs.genome.fasta.gz -I fasta -get $chrom -O fasta -maxLineLn 60 -o NCBI/CHROMS/$chrom &
+end
+
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  wc UCSC/CHROMS/$chrom.fasta  NCBI/CHROMS/$chrom.fasta | tee -a wc.txt1
+end
+
+
+echo "NCBI\tUCSC\tGenome name equivalences" >  genome.NCBI_UCSC_alias.txt
+foreach chrom (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X Y)
+  echo "$chrom\tchr$chrom" >> genome.NCBI_UCSC_alias.txt
+end
+cat map1.txt | gawk '{printf("%s\t%s\n",$2,$3);}' >> genome.NCBI_UCSC_alias.txt
+
+
+##########################
+ cat NoGene.mee.list | gawk '/Sequence/{print ; printf("Locus %s\n\n",$2);}' > NoGene.mee.locus.ace 
+# parse NoGene.mee.locus.ace 
+
+tbly . << EOF
+  query find predicted_gene IntMap && NOT gene
+  show -a -f any.pg.ace0 	
+  quit
+EOF
+pg2pg -pg2pg any.pg.ace0 -o any.pg 
+
+cat any.pg.locus.txt  | gawk '/^_/{next;}{printf("Sequence %s\nLocus %s\n\n",$1,$3);}' > any.pg.locus.ace
+cat any.pg.locus.ace any.pg.ace0 > any.pg.ace1 
+
+# as a second step try, this will not transfer the gid but will create the genebox
+pg2pg -pg2gbx  any.pg.ace1 -o any.pg
+cat any.pg.gbx.txt | sort | sed -e 's/GeneId \tIntMap/IntMap 0\tIntMap/' | gawk '/^Gene/{printf("\nGene %s\n%s %s\n%s %s %s %s\n\n",$2,$3,$4,$5, $6,$7,$8);olds="";next;}/^Sequence/{s=$2;if(s != olds)printf("\nSequence %s\n",s);olds=s;printf("%s %s %s %s\n",$3,$4,$5,$6);}' > any.pg.gbx.ace
+
+###########################
+## export 2 TGx tables
+## Per gene: gene, chrom, strand, a1, a2, RefSeq (transitive), Joe, Su, HHong, magic, av, FBK, Gaj, affy (transitive)
+## Per Affy: Affy, chrom, strand, a1, a2, Gene, RefSeq (direct contact), Joe, Su, HHong, magic, av, FBK, Gaj
+
+
+###########################
+## Export gaj/fbk/magic/av/Refseq fasta and gene structure
+## realign with a malus and using previous best score
+## those with good score will be reexported to Leming
+
+# modify target2target_class
+
+# add a malus in alignAndSelectBest
+  if ($target == av2008) set bonus=-1
+  if ($target == RefSeqCurrent) set bonus=-2
+  if ($target == Gaj) set bonus=-3
+  if ($target == FBK) set bonus=-4
+
+# export gaj and fbk, we have aceview already
+tbly .
+  query find predicted_gene FBK*
+  dna rn.FBK.fasta
+  query find predicted_gene Gaj*
+  dna rn.gaj.fasta
+  query find predicted_gene _*
+  dna rn.RefSeq_current.fasta
+  query find predicted_gene Gaj*
+  dna rn.Gaj.fasta
+  query find predicted_gene mag2_* ; COUNT Source_exons == 1
+  dna rn.magic_unspliced.fasta
+  query find predicted_gene mag2_* ; COUNT Source_exons > 1
+  list -a -f  magic.spliced.list
+  quit
+
+# recover the spliced magic directly : we have a problem because we added the chrom number
+ cat magic.spliced.list | gawk '/^Sequ/{gsub(/\"/,"",$2);print substr($2,7)}' > magic.spliced.list2
+ cat magic.any.list | gawk '/^Sequ/{gsub(/\"/,"",$2);print substr($2,7)}' | sort  > magic.any.list2
+ cat magic.any.list2 | gawk '{i=index($1,"_");print substr($1,i+1);}' | sort -u | wc
+
+ foreach chrom ($chromSetAll)
+   echo $chrom
+   cat ~/DeepLeming/tmp/XH$chrom/f5.mrna.fasta | gawk '/^>/{printf(">S%s_%s\n",chrom,substr($1,4));next;}{print}' chrom=$chrom >  ~/DeepLeming/tmp/XH$chrom/f5.mrna.fasta2
+ end
+ cat ~/DeepLeming/tmp/XH*/f5.mrna.fasta2 | gawk '/^>/{split($1,aa,"|");print aa[1];next;}{print}' > magic_june21.no_gene_name.fasta
+ cat magic_june21.no_gene_name.fasta  | gawk '/^>/{print substr($1,2);}' | sort > magic_june21.no_gene_name.list
+ dna2dna -i magic_june21.no_gene_name.fasta -I fasta -select magic.spliced.list2 -O fasta -o magic.spliced
+ cat magic.spliced.fasta | gawk '/^>/{print substr($1,2);}' | sort > magic.spliced.list3 
+ cat magic.spliced.list2 | sort > magic.spliced.list2s
+ cat magic.spliced.list3 | sort > magic.spliced.list3s
+ diff magic.spliced.list?s | gawk '/^</{printf("Sequence \"mag2__%s\"\n",$2)}' > magic.spliced.list4
+# recover magic.spliced.4.fasta the 81 missing guys from BacInfo
+tbly . << EOF
+  key magic.spliced.list4
+  dna magic.spliced.4.fasta
+EOF
+# so the totality of the magic fasta is  magic.spliced.fasta  magic.spliced.4.fasta rn.magic_unspliced.fasta
+cat magic.spliced.fasta rn.magic_unspliced.fasta magic.spliced.4.fasta | gzip > rn.magic.fasta.gz
+foreach target (magic RefSeqCurrent Gaj FBK)
+  cp  rn.$target.fasta.gz ../TARGET/Targets
+end
+# add av__ in the av file
+gunzip -c ../TARGET/Targets/rn.av.fasta.gz | gawk '/^>/{printf(">av__%s\n",substr($1,2));next;}{print}' | gzip  > ../TARGET/Targets/rn.av2008.fasta.gz
+
+### add the gene information directly in the fasta file
+tbly . << EOF
+  find gene
+  show -a -f g2pg.ace genefinder
+EOF
+gzip  g2pg.ace
+foreach target (magic av2008 RefSeqCurrent Gaj FBK)
+  gunzip -c g2pg.ace.gz ZZZZZ.gz ../TARGET/Targets/rn.$target.fasta.gz | gawk '/^ZZZZZ/{zz=1;next;}/^$/{gene="";next;}/^Gene/{gsub(/\"/,"",$2);gsub(/\\/,"",$2);}/^Genefinder/{gsub(/magic__/,"",$2);if(length(gene)>0)gf2g[$2]=gene;next}/^Gene/{gene=$2;next;}/^>/{split($1,aa,"|");pg=substr(aa[1],2);gsub(/mag2__/,"",pg);printf(">magic__%s",pg);g=gf2g[pg];if(g)printf("|Gene|%s",g);printf("\n");next;}{print}' | gzip > rn.$target.fasta_with_gene.gz
+end
+foreach target (magic av2008 RefSeqCurrent Gaj FBK)
+  \cp rn.$target.fasta_with_gene.gz  ../TARGET/Targets/rn.$target.fasta.gz 
+end
+
+# verif
+ gunzip -c rn.FBK.fasta_with_gene.gz | grep '>' | grep  Gene | wc
+# we get 73775:av2008 58139:FBK, 39152:Gaj, 23286+35:RefSeqCurrent, 148552:magic
+# realign all rat runs
+
+# export unlaigned NM XM
+find geneid Sequence AND ! gene ; follow sequence ; list -a -f NM_unaligned.list
+tbly ~/rn5/MrnaInfo
+  key NM_unmapped.list 
+  dna  NM_unaligned.fasta
+  quit
+cat  NM_unaligned.fasta | gawk '/^>/{printf("%s|Gene|%s\n",$1,substr($1,2));next;}{print}' > rn.unaligned_with_gene.fasta
+gunzip -c ../TARGET/Targets/rn.RefSeqCurrent.fasta.gz > tutu
+cat  rn.unaligned_with_gene.fasta >> tutu
+gzip tutu
+
+
+# we rename the gene adding once more a super class prefix
+# so that the TGx gene of type G_Gaj_xxx
+# is the TGx gene xxx but only contains the Gaj transcripts, etc
+
+# count the reads per transcript MAGIC a123 afer modifying ./LIMITS as
+etenv DNAtargets ""
+setenv RNAtargets "RefSeqCurrent magic av2008 Gaj FBK"
+setenv MAGIC_COUNT_DIR COUNT2
+
+######################
+## export the tables
+tbly . << EOF
+  find gene
+  show -a -f TGx.genes.ace
+  find predicted_gene Affy*
+  query ! Hit ||  COUNT Hit < 40
+  show -a -f TGx.affy.ace
+EOF
+
+set toto=TGx.Gene_table.txt
+echo -n "# " > $toto
+date >> $toto
+echo "#Chromosome\tStrand\tfrom base\tto base\tGene\tGeneId\tRefSeq\tAffymetrix\tHHong\tMeehan\tZSu\tAceView/RS08\tGaj\tFBK\tMagic" >> $toto
+echo "Gene YZZZZ" > ZZZZZ.g
+cat TGx.avRsExportedGeneList ZZZZZ  TGx.genes.ace ZZZZZ.g | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){if($2=="Gene_AceView08")avok[$1]=1;else RSok[$1]=1;next;}}{gsub(/\"/,"",$0);gsub(/\\/,"",$0);}/^Gene /{if(gene && npg>0){printf("%s\t%s\t%s",mm,gene,gid);for(i=1;i<10;i++){printf("\t%s",pg[i]);pg[i]="";}printf("\n");}mm="\tXX\t\t";npg=0;gid="";gene=$2;next;}/^IntMap/{s="+";a1=$3;a2=$4;if(0+a1>0+a2){s="-";a0=a1;a1=a2;a2=a0;}mm= $2 "\t" s "\t" a1 "\t" a2 ;next;}/GeneId/{if(length(gid)>0) gid=gid ",";gid=gid $2;next;}/^Genefinder/{gsub(/_predicted/,"",$2);n=split($2,aa,"___");if(n==1)n=split($2,aa,"__");if(n==1)n=split($2,aa,"_");z=aa[1];t=0;if(z==""){t=1;k=2;tg=$2;$2=substr(tg,1,length(tg)-2);}if(z=="Affy"){t=2;k=6;}if(z=="HH"){t=3;k=5;}if(z=="ZSu"){t=5;k=6;}if(z=="Meehan"){t=4;k=9;}if(z=="av"){t=6;k=5;tg=$2;i=index(tg,"Sep08");while (substr(tg,i,1)!="." && i>1)i--;tg=substr(tg,1,i-1);$2=tg;tg=substr(tg,k);if (0 && index(tg,"Vom2r3")>=0){printf ("### tg=%s\tii=%d\t",tg,avok[tg]);print;}if(avok[tg]<1)next;}if(z=="RS08"){t=6;k=7;tg=$2;$2=substr(tg,1,length(tg)-2);tg=$2;if(RSok[substr(tg,k)]<1)next;}if(z=="Gaj"){t=7;k=6;}if(z=="FBK"){t=8;k=6;}if(z=="mag2"){t=9;k=7;tg=$2;i=length(tg);while (substr(tg,i,1)!="." && i>1)i--;if(i>4)tg=substr(tg,1,i-1);$2=tg;}tg=substr($2,k);if(index(pg[t],tg)>0)next;if(length(pg[t])>0)pg[t]=pg[t] ","; pg[t]=pg[t] tg;npg++;;next;}' | sort -k 1,1 -k 2,2n >> $toto
+
+
+
+cat $toto | head -30  > ~/DeepLeming/RESULTS/toto.txt
+cat $toto | head -10000 | tail -30  >> ~/DeepLeming/RESULTS/toto.txt
+cat $toto | head -20000 | tail -30  >> ~/DeepLeming/RESULTS/toto.txt
+
+# cat titi4.list | gawk '/^Gene/{gsub(/\"/,"",$2);if (substr($2,length($2)-1,1)=="_"){k=substr($2,1,length($2)-2);nam[k]=$2;nn[k]++;}else nn[$2]++;}END{for(k in nn)if(nn[k]==1 && nam[k])printf("-R Gene \"%s\" \"%s\"\n\n",nam[k],k);}' > titi4b.ace
+# cat titi4.list | gawk '/^Gene/{gsub(/\"/,"",$2);i=index($2,".");k=substr($2,1,i-1);nam[k]=$2;nn[k]++;}END{for(k in nn)if(nn[k]==1 && nam[k])printf("-R Gene \"%s\" \"%s\"\n\n",nam[k],k);}' > titi4b.ace
+
+
+set toto=TGx.Affy_table.txt
+echo -n "# " > $toto
+date >> $toto
+echo "#Chromosome\tStrand\tfrom base\tto base\tProbeset\tGeneId\tRefSeq\tAffymetrix\tHHong\tMeehan\tZSu\tAceView/RS08\tGaj\tFBK\tMagic" >> $toto
+echo "Gene YZZZZ" > ZZZZZ.g
+cat  TGx.avRsExportedGeneList ZZZZZ TGx.affy.ace ZZZZZ.g | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){if($2=="Gene_AceView08")avok[$1]=1;else RSok[$1]=1;next;}}{gsub(/\"/,"",$0);gsub(/\\/,"",$0);}/^Sequence /{if(gene && length(mm)>1){printf("%s\t%s\t%s",mm,gene,gid);for(i=1;i<10;i++){printf("\t%s",pg[i]);pg[i]="";}printf("\n");}mm="";gid="";gene=substr($2,6);next;}/^IntMap/{s="+";a1=$3;a2=$4;if(0+a1>0+a2){s="-";a0=a1;a1=a2;a2=a0;}mm= $2 "\t" s "\t" a1 "\t" a2 ;next;}/GeneId_pg/{if(length(gid)>0) gid=gid ",";gid=gid $2;next;}/^Hit/{gsub(/_predicted/,"",$2);n=split($2,aa,"___");if(n==1)split($2,aa,"__");if(n==1)split($2,aa,"_");z=aa[1];t=0;if(z==""){t=1;k=2;tg=$2;$2=substr(tg,1,length(tg)-2);}if(z=="Affy"){next;t=2;k=6;}if(z=="HH"){t=3;k=5;}if(z=="ZSu"){t=5;k=6;}if(z=="Meehan"){t=4;k=9;}if(z=="av"){t=6;k=5;tg=$2;i=index(tg,"Sep08");while (substr(tg,i,1)!="." && i>1)i--;tg=substr(tg,1,i-1);$2=tg;tg=substr(tg,k);if (0 && index(tg,"Vom2r3")>=0){printf ("### tg=%s\tii=%d\t",tg,avok[tg]);print;}if(avok[tg]<1)next;}if(z=="RS08"){t=6;k=7;tg=$2;$2=substr(tg,1,length(tg)-2);if(RSok[substr(tg,k)]<1)next;}if(z=="Gaj"){t=7;k=6;}if(z=="FBK"){t=8;k=6;}if(z=="mag2"){t=9;k=7;tg=$2;i=length(tg);while (substr(tg,i,1)!="." && i>1)i--;if(i>4)tg=substr(tg,1,i-1);$2=tg;}tg=substr($2,k);if(index(pg[t],tg)>0)next;if(length(pg[t])>0)pg[t]=pg[t] ","; pg[t]=pg[t] tg;aa[2];next;}' | sort -k 1,1 -k 2,2n >> $toto
+
+
+cat $toto | head -30  > ~/DeepLeming/RESULTS/toto.txt
+cat $toto | head -10000 | tail -30  >> ~/DeepLeming/RESULTS/toto.txt
+cat $toto | head -20000 | tail -30  >> ~/DeepLeming/RESULTS/toto.txt

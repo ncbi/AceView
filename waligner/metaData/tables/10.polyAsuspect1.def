@@ -1,0 +1,156 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2006-11-07_16:33:10
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title finds reverse read starting inside the ORF
+
+Sortcolumn 1
+
+Colonne 1 
+Width 12 
+Optional 
+Visible 
+Class 
+Class MRNA 
+ 
+Colonne 2 
+Subtitle product          
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Product 
+From 1 
+Tag Product              
+Condition best_product && good_product
+ 
+Colonne 3 
+Subtitle Column #3     
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 2 
+Tag Down_stop     
+ 
+Colonne 4 
+Subtitle p1          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 2 
+Tag HERE               
+ 
+Colonne 5 
+Subtitle p2          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 4 
+Tag HERE               
+ 
+Colonne 6 
+Subtitle a1          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 1 
+Tag Constructed_from              
+ 
+Colonne 7 
+Subtitle a2          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 6 
+Tag HERE               
+Condition \%7 < [\%5 + 1] || ! ("\%3" == "Down_stop")
+ 
+Colonne 8 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+Right_of 7 
+Tag HERE               
+Condition reverse && (Real_3prime || polyA_after_base)
+ 
+Colonne 9 
+Subtitle clone          
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class cdna_clone 
+From 8 
+Tag cDNA_clone              
+Condition ! internal_priming && ! internal_priming_on_a_rich && COUNT {>read;forward && polya_after_base} == 0
+ 
+Colonne 10 
+Subtitle x1          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 8 
+Tag HERE               
+ 
+Colonne 11 
+Subtitle Column #11    
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 8 
+Tag PolyA_after_base    
+ 
+Colonne 12 
+Subtitle polyA          
+Legend truly aligned until polyA       
+Width 12 
+Optional 
+Visible 
+Integer 
+From 8 
+Tag PolyA_after_base            
+ 
+Colonne 13 
+Subtitle Column #13  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 8 
+Tag Vector_Clipping  
+ 
+Colonne 14 
+Subtitle Column #14  
+Width 12 
+Optional 
+Visible 
+Integer 
+From 8 
+Tag Vector_Clipping  
+ 
+Colonne 15 
+Subtitle x2  
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 10 
+Tag HERE     
+Condition \%12 > [\%15 - 5] || ("\%11" != "Polya_after_base" && ((\%13 != "Vector_Clipping" && \%15 < 5)||\%13=="Vector_Clipping" && \%15 < [\%14+5]))
+ 
+ 
+
+// End of these definitions

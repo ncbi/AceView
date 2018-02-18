@@ -1,0 +1,1246 @@
+<HTML>
+
+<HEAD>
+
+<TITLE> ACEDB source code documentation: the graph library </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to the graph library</H1>
+
+<H3>Who should read this document</H3>
+This document is for application programmers who wish to
+use <B>Version 1</B> of the graph package to implement GUI's, it
+covers the public interface to the package, the internals of the graph package
+are not discussed in detail.
+<P>
+Although variants of the Version 1 package do exist for the Macintosh and for
+Windows, areas specific to these operating systems (e.g. how to build an
+application) are not covered in this document. This document covers the graph
+package in general and how to build applications in the unix environment only.
+<P>
+The document covers Version 1 of the graph package which will be frozen
+from ACEDB release 4 onwards. A new version of the graph package, Version 2,
+will be developed from ACEDB release 5, which will make use of the
+<A href="http://www.freiburg.linux.de/~wxxt/">wxWindows</A>
+package to implement better windows support for Unix, MS windows
+and the Macintosh. This package is C++ based and will require applications to
+compile their main functions with a C++ compiler and then use the C++ compiler
+to link the final application to ensure that the C++ environment is correctly
+set up.
+
+<H2>Introduction</H2>
+<P>
+The graph package provides a device independent ANSI-C library of
+subroutines for access to graphical user interfaces. It was
+developed by Richard Durbin and Jean Thierry-Mieg for the ACEDB
+genomic database program. Originally the graph program was intimately linked
+to ACEDB but in a recent development the ACEDB specific code has been moved
+from the graph package so that it has become a stand alone library (it is
+currently used like this in the Image gel slab analysis package). Applications
+needing to use both ACEDB and the graph package can use the
+<A href="http://www.sanger.ac.uk/Software/Acedb/Acedocs/sourcedocs/graphAcedbInterface.html">
+ACEDB-graph interface package</A>
+to initialise the graph/acedb interface.
+
+<P>
+Currently there are three main versions of the graph package:
+<UL>
+<LI>The unix version which can be used to output to an X window,
+a Postscript file or to a gif file.
+<LI>The Macintosh version, this is in need of major work to bring it up
+to date.
+<LI>The Windows version, which is up to date but supports output only to an MS
+window currently.
+</UL>
+Only the unix version is dicussed in detail here.
+<P>
+There is an example program graphtest.c which shows how to use the graph
+package.
+
+
+<H2>Using the Graph library</H2>
+
+<H3>Initialisation & termination</H3>
+The graph library follows the initialisation protocol of X Windows
+and other graphical libraries in that
+the graph library <B>must be initialised</B> before use. This is
+done with a single call to the function <CODE>graphInit()</CODE>,
+<B>note</B> that further calls to graphInit will produce undefined
+results, i.e. <B>don't do it</B>. <CODE>graphInit()</CODE> sets up
+the connection to the display and this must only be done once. You
+should also note that calls to graph functions will produce undefined
+results if <CODE>graphInit()</CODE> has not been called. Currently it
+is not safe to have multiple sequences of <CODE>graphInit(),
+graphFinish()</CODE>:
+<PRE>
+     {
+     some code
+
+<CODE>     graphInit()</CODE>
+
+     some code
+
+<CODE>     graphFinish()</CODE>
+
+     some code
+
+<CODE>     graphInit()</CODE>
+
+     some code
+
+<CODE>     graphFinish()</CODE>
+     }
+</PRE>
+This will fail, the graph package is not stateless and cannot
+be shut down and then reinitialised in the same application.
+<P>
+The graph package should be closed down by calling <CODE>graphFinish()</CODE>,
+this is particularly important if the application makes use of other
+facilities such as messubs to issue messages and needs to send messages to
+stdout after the connection to the display has been closed.
+<CODE>graphFinish()</CODE> will tidy up its links with these other packages so
+that they will continue to function as they did before graph initialisation.
+
+<H3>Basic concepts - handles and drawing</H3>
+<P>
+The basic concept is that each window has associated with it a Graph
+object.  The window is made with graphCreate(), which returns the
+Graph handle.  Items such as lines and text are drawn onto a drawing
+stack attached to the handle, which is then used to draw those parts
+of the graph that are currently visible. (Of course this changes
+when, e.g. an obscuring window is removed.) The stack can also be
+used to provide postscript or gif output.  Note that because the drawing
+commands go to the stack, a call to graphRedraw() is necessary at
+the end of drawing to display material on the screen, the normal sequence will
+be something like:
+<PRE><CODE>
+	graphBox(params) ;
+	graphCircle(params) ;
+	graphMenu(params) ;
+
+	graphRedraw(params) ;
+
+</CODE></PRE>
+
+<H3>Basic concepts - the active graph</H3>
+At any one time there is one active graph.  Almost all
+the functions in the package act on the active graph.  The active
+graph can be changed explicitly using graphActivate(), but most
+changes are implicitly determined by user actions: when events
+occur, such as mouse clicks, keyboard typing, or menu selections,
+the window in which they took place is made active and a call is
+made to a callback function.  Callback functions are registered with
+the graph package via graphRegister() when the graph is created.
+
+<H3>Basic concepts - user coordinates</H3>
+User coordinates: All drawing and communication with respect to
+position is in a user coordinate system, normally with units
+corresponding to single characters (TEXT_FIT and TEXT_SCROLL graph
+types - see graphCreate()).
+
+<H3>Basic concepts - boxes</H3>
+A fundamental concept during drawing is that one or more
+drawing items can be bundled together into a box.  This is done by
+surrounding the drawing calls with graphBoxStart() and graphBoxEnd()
+calls.  Boxes can be nested.  Each box has a unique identifier
+within its graph. These are consecutive integers, starting at 0: the
+whole drawing space is box 0.  Each box keeps track of its limits,
+which are defined by the maximum extent of its contents.  There are
+two main uses of boxes: (1) they can be independently redrawn with
+new background and foreground colours using graphBoxDraw(), (2) a
+PICK pseudoevent can be registered via graphRegister(), which causes
+the graph package to find which box a LEFT_MOUSE_DOWN event has
+occurred in, and pass this as a parameter to the registered.  It is
+these two properties that allow selected items to be highlighted,
+and followed in a hypertext like fashion.
+
+<H3>Basic concepts - interrupting long operations</H3>
+The graph package provides two different interrupt handlers allowing the user to
+interrupt long operations:
+<DL>
+  <DT>Signal based
+  <DD>This interrupt uses the ANSI standard SIGINT signal to stop the program
+       regardless of what it is doing. The signal is initiated by the user
+       pressing the 'interrupt' key on their keyboard (BREAK or CTRL-C). The
+       graph package will then give the user the chance to abort or continue
+       where they left off.
+  <DT>Key based
+  <DD>This interrupt is based on the graph package detecting that the user
+       has pressed the F4 key, this is done by monitoring the keys pressed
+       and hence will not interrupt a program that is looping or busy processing
+       some data. The precise action taken by the graph package will depend on
+       which part of the application is being executed at the time.
+</DL>
+
+<H3>Basic concepts - the routines</H3>
+There are some 60 routines, which are listed alphabetically with
+notes at the end, but can be divided into several classes:
+<PRE>
+Initialisation/Cleanup:
+  graphInit(), graphFinish(),             - initialise/terminate graph package
+  graphCleanUp()		          - kills all but one graph
+  
+
+Event loop control:
+  graphLoop()			          - start loop
+  graphLoopReturn()		          - end loop
+  graphProcessEvents()		          - process all pending X events
+
+Management of individual graphs:
+  graphCreate(), graphDestroy()           - creation/destruction
+  graphActive(), graphActivate(), graphExists()
+                                          - set/test the active graph
+  graphRetitle()                          - change title of a graph
+  graphPop()			          - deiconify and raise
+  graphEvent()			          - create pseudo-event to go in loop
+  graphRegister()		          - set up callback functions
+  graphMenu(), graphFreeMenu()	          - add a menu (graphMenu preferred)
+
+Association of extra properties with the graph:
+  graphAssociate(), graphAssFind(), graphAssRemove()
+
+Coordinate system management:
+  graphTextBounds(), graphFitBounds(), graphPlainBounds()
+  graphTextInfo(), graphScreenSize()
+  graphGoto()
+
+Global drawing management:
+  graphClear()
+  graphRedraw()			          - draw stack on screen
+  graphPS(), graphPrint()	          - postscript
+
+Basic drawing commands (go on stack):
+  graphLine(), graphRectangle(), graphFillRectangle()
+  graphCircle(), graphText(), graphTextPtr()
+  graphPoint()			          - small square
+
+Drawing status control (go on stack):
+  graphLinewidth(), graphPointsize(), 
+  graphTextHeight(), graphFontFormat(),	  - FontFormat is new
+  graphColor()
+
+Box control:
+  graphBoxStart(), graphBoxEnd()
+  graphBoxDraw()
+  graphBoxClear()
+  graphBoxDim()			          - to get back box location/size
+  graphBoxDrag(), graphBoxShift()
+  graphBoxSetPick()		          - toggle pickability
+
+Complex prepackaged boxes:
+  graphTextEntry(), graphTextScrollEntry,
+  graphCompletionEntry(), graphCompletionScrollEntry(), 
+  graphEntryDisable()
+  graphButton(), graphButtons(), graphColouredButton(), graphColouredButtons()
+
+XOR functions (not on stack):
+  graphXorLine(), graphXorBox()
+
+Message windows:
+  graphMessage(), graphUnMessage()        - non-blocking message, use graphUnMessage
+                                            to remove it
+  graphOut()			          - blocking message with OK button
+  graphError()                            - blocking message with OK button
+  graphEnd()                              - blocking message with EXIT button
+  graphQuery()			          - blocking yes/no query
+  graphPrompt()			          - blocking request for data
+  graphSelect()			          - blocking forced choice
+</PRE>
+
+<H3>Basic concepts - the source files</H3>
+Broadly speaking the various graph source files contain the following code:
+<PRE>
+  graph.h                                 public header file
+  graphcon.c, graphsub.c                  display-method independent code
+  graphps.c graphprint.c                  postscript creation/print code
+  graphxt.c, graphxlib.c, xtsubs.c        X-dependent code
+  gifsubs.c, graphgd.c                    gif code
+  filquery.c                              file query box implementation
+  graphhelp.c, graphxwww.c, xnetscape_remote.c
+                                          help display, browser control code
+  chrono.c                                source code profiling code
+  viewedit.c                              control display of various types of graph
+  graphselect.c                           provides lists of items to be selected
+  graphAcedbInterface.c                   acedb/graph interface code
+  colcontrol.c                            controls layout of columns in fmap etc.
+  graphramp.c                             control intensity of a greyscale image.
+</PRE>
+
+
+<H2>Building an application using the Graph library</H2>
+<P>
+Although the graph package can be built independently of ACEDB, it does
+require some of the packages also used by ACECB:
+<UL>
+<LI>the array package (arraysub.c, array.h)
+<LI>the utilities package (libfree.a)
+</UL>
+The <CODE>.h</CODE> files are required for compilation of the application and
+the module arraysubs.o and the library libfree.a are required for the final
+linking of the application.
+
+<P>
+Graph applications can either be built that write to an X window or
+to a gif file, it is not possible to do both from the same application
+(writing to a postscript file or printed is possible from either type of
+application).
+Building either application requires the basic graph library (libgraph.a), and
+this is combined with other object modules to give either the X windows or gif
+flavour of the final library. The makefile (<CODE>truemake</CODE>) distributed
+with acedb gives examples of how to build an X windows application (e.g. xace)
+or a gif application (e.g. giface).
+
+
+<H2>The Graph Interface</H2>
+
+<H3>Graph graphActive (void)</H3>
+Returns the handle for the currently active graph.  This is
+normally used in a subsequent graphActivate() call.
+ 
+<H3>BOOL graphActivate (Graph g)</H3>
+If graphExists(g) then it makes g the active graph and returns
+TRUE, else returns FALSE.
+
+<H3>BOOL graphActivateChild (void)</H3>
+Attempts to make the child of the currently active graph the new active graph,
+returns TRUE if successful, FALSE otherwise.
+
+<H3>BOOL graphArc (float xcen, float yxen, float rad,
+float ang, float angDiff)</H3>
+Draws an arc of the specified length, note degrees are anticlockwise from 3 o'clock.
+
+<H3>BOOL graphAssociate (void* xin, void* xout)</H3>
+Uses the associator package (see the arraysubs utilities) to
+associate xin to xout for the active graph.  It will return FALSE
+and do nothing if there is already an entry for xin (use
+graphAssRemove() first), otherwise it makes the association and
+returns TRUE.
+<P>
+This function can be used to attach an arbitrary number of new
+attributes to a graph, by giving each an identifier that is used as
+xin.
+<P>
+Implemented via a macro so that the compiler is not so fussy about
+the void* argument typing (well what can you say...sigh).
+
+<H3>BOOL graphAssFind (void* xin, void* *pxout)</H3>
+If xin has been associated with the active graph using
+graphAssociate(), then it sets *pxout and returns TRUE, else
+returns FALSE.
+
+<H3>BOOL graphAssRemove (void *in)</H3>
+If xin has been associated with the active graph using
+graphAssociate(), then it removes the entry and returns TRUE, else
+returns FALSE.
+
+<H3>void graphBoundsPrint (float uw, float uh, void (*draw)(void))</H3>
+Allow caller to set special page sizes for multipage prints.
+
+<H3>void graphBoxAt (float x, float y, float *rx, float *ry)</H3>
+Returns id of box at given graph coordinates.
+
+<H3>void graphBoxClear (int k)</H3>
+This is a toggle function.  The first time it is called the box
+will be hidden, and the corresponding area of screen redrawn
+(possibly revealing material previously underneath).  The next time
+the box will be restored and so on. Crashes if k is not a valid box id.
+
+<H3>void graphBoxDim (int k,float *x1, float *y1,
+float *x2, float *y2) </H3>
+This useful function returns in *x1, *x2, *y1, *y2 the bounds of
+box k in user coordinates. Crashes if k is not a valid box id.
+
+<H3>void graphBoxDrag (int k,void (*client)(float*,float*,BOOL)) </H3>
+Call this after a <CODE>LEFT_DOWN</CODE> or <CODE>MIDDLE_DOWN</CODE> button event that you
+want to use to allow the user to drag a box.  The <CODE>LEFT</CODE> and <CODE>MIDDLE</CODE>
+<CODE>_DRAG</CODE> and <CODE>_UP</CODE> graphEvents are hijacked by this call (and restored at
+the end of the process).  The box's outline will appear in XOR
+pixels until the drag process finishes (button <CODE>_UP</CODE>).  An initial
+call is made to the client routine, with third arg <CODE>FALSE</CODE>, giving the
+current position of the top left corner of the box in user
+coordinates. For each <CODE>_DRAG</CODE> event a further call is made to the
+client routine, again with third argument <CODE>FALSE</CODE>.  The client can
+change the values of <CODE>*x, *y</CODE>.  e.g. keeping <CODE>*y</CODE> fixed forces dragging
+on a horizontal line.  When the up button is reached the client will
+be called once more with the third argument set <CODE>TRUE</CODE>, to allow final
+processing to be performed.
+<P>
+NB If the user wants to move the contents of the box they must call
+graphBoxShift() explicitly during the final client invocation.
+<P>
+Crashes if k is not a valid box id.
+<P>
+Example:
+<PRE><CODE>
+static float cursorX ;
+
+void cursorDrag (float *x, float *y, BOOL isUp)
+{
+  *y = 2.0 ;			/* horizontal dragging only */
+  if (isUp)
+    { cursorX = *x ;
+      graphBoxShift (CURSOR_BOX, *x, *y) ;
+    }
+}
+
+void myPick (int k)
+{
+  switch (k)
+    { ...
+    case CURSOR_BOX:
+      graphBoxDrag (k, cursorDrag) ;
+      break ;
+    ...
+    }
+}
+</PRE></CODE>
+
+<H3>void graphBoxDraw (int k, int fcol, int bcol)</H3>
+A very fundamental routine.  Box k is redrawn with the specified
+foreground and background colours.  If fcol or bcol is negative the
+current value is used.  This redraw is immediate (i.e. not placed on
+the event stack).  It is used e.g. to highlight a box that has been
+picked.  The colours fcol and bcol should be chosen from the list
+given in the graphColor() entry, with the addition that the
+pseudocolour TRANSPARENT can be used for the background.  If the
+background is not TRANSPARENT it is painted solid bcol before
+drawing starts on the box.  The foreground drawing colour can be
+reset within the box via graphColor(). Crashes if k is not a valid box id.
+
+<H3>void graphBoxEnd (void)</H3>
+Call during drawing to end the current box. Writes on the stack.
+
+<H3>void graphBoxMarkAsClear (int box)</H3>
+Marks a box for redrawing, actual redrawing is done when the current
+drawing commands are flushed.
+
+<H3>void graphBoxShift (int k, float xbase, float ybase)</H3>
+This translates the specified box so that its top left corner will
+go to (xbase, ybase) in user coordinates.  Anything that was under
+the original box location will be redrawn.  Subboxes will be moved with their parents.
+
+<H3>void graphBoxSetPick (int k, BOOL pick)</H3>
+If pick is FALSE this makes the box unpickable.  i.e. a left mouse
+button down event inside it will not generate a call to the function
+registered with graphRegister(PICK,...).  Calling with pick TRUE
+restores pickability.  By default boxes are pickable.
+<P>
+Rather specialised, huh?
+
+<H3>int graphBoxStart (void)</H3>
+Call this during drawing to start a new box.  All drawing commands
+between this call and the matching graphBoxEnd() will be assigned to
+the box.  The return value is the id of the box (an integer starting
+at 1 - 0 is the background box).  See the general introduction to
+boxes above. Writes on the stack.
+
+<H3>int graphButton (char* text, void (*f)(void),float x, float y)</H3>
+This creates a button containing the specified text with top left at
+location (x,y) in user coordinates.  The button is a box (of
+course!).  If it is picked the colour is inverted and your function
+f() is called.  On return the colour is inverted back unless the
+window has been redrawn (there are sometimes minor bugs here, so
+that the button stays the wrong colour, but this is purely aesthetic
+- the function stays the same.)
+<P>
+To display several buttons in a row use graphButtons().
+
+
+<H3>void graphButtons (MENUOPT *buttons,float x0, float y0, float xmax) </H3>
+Uses graphButton to display several buttons in a row, starting at
+(x0, y0).  The line wraps if it extends beyond xmax.
+<P>
+The argument buttons is a null-terminated string of MENUOPT, which
+are (function, text) pairs (see graphMenu() for a lengthier
+definition of MENUOPT).
+
+<H3>void graphCircle (float xcen, float ycen, float rad)</H3>
+Draws a hollow circle in the current foreground colour.  On the
+screen the perimeter has width 1 pixel, but in postscript it has
+width the current line width.
+<P>
+Writes on the stack.
+
+<H3>void graphCleanUp (void)</H3>
+Calls graphDestroy() for all graphs other than the current one.
+i.e. the "Clean Up" function from the ACEDB main menu.
+
+<H3>void graphClear (void)</H3>
+Empties the drawing stack and the box list for the active graph,
+clears the window on the screen, resets the drawing color to BLACK
+and the font to the standard font.
+
+<H3>STORE_HANDLE graphClearHandle (void)</H3>
+Returns the 'handle' by which the currently active graph is held.
+
+<H3>int graphColor (int color)</H3>
+This changes the current foreground drawing colour, with a scope of
+the current box.  It is placed on the stack.  The preferred way to
+control colour within boxes is using graphBoxDraw(), since anything
+following the graphColor() call will always be the specified colour,
+i.e. will not be changeable dynamically via graphBoxDraw().
+graphColor() is normally used to draw features of different colours
+in the background that are non-pickable.
+<P>
+Allowed colours are from:
+<PRE><CODE>
+enum Colour    {WHITE, BLACK, LIGHTGRAY, DARKGRAY,
+                RED, GREEN, BLUE,
+                YELLOW, CYAN, MAGENTA,
+		LIGHTRED, LIGHTGREEN, LIGHTBLUE,
+		DARKRED, DARKGREEN, DARKBLUE,
+               }
+</PRE></CODE>
+
+<H3>int graphColouredButton(char* text, void (*f)(void *arg), void *arg,
+int fg, int bg, float x, float y)</H3>
+
+Like graphButton except that the foreground and background of the button
+are specified (by fg and bg) and the callback function receives an argument
+(specified by arg, this is a void *, so you can put a pointer to anything here,
+except a pointer to func.)
+
+<H3>void graphColouredButtons(COLOUROPT *buttons, float x0, float y0, float xmax)</H3>
+Like graphButtons but uses the COLOUROPT structure to specify 
+button colours and callback arguments.
+<PRE><CODE>
+typedef struct colouropt
+{ void (*f)(void *arg);
+  void *arg;
+  int fg;
+  int bg;
+  char *text;
+  struct colouropt *next;
+} COLOUROPT;
+</PRE></CODE>
+The arrangement and use of a COLOUROPT structure is somewhat idionsyncratic;
+this is because it is intended to represent both statically defined 
+and dynamically built sets of buttons.
+
+The following rules interpret COLOUROPTS:
+1) To get to the next button; follow the next pointer, if the next pointer
+	is zero, go to the next element in an array of COLOUROPTS.
+2) The last button is marked by having its next pointer equal to
+	either the address originally passed to graphColouredButtons,
+	or to the address of the last button's record, or having
+        a NULL text field.
+3) Passing a NULL pointer to graphColouredButtons is legal, and
+	denotes no buttons.
+
+This stucture is can be used with static arrays thus :-
+<PRE><CODE>
+static COLOUROPT buttons[] = {
+  printf, "red", BLACK, LIGHTRED,  "red button", 0,
+  printf, "blue", BLACK, LIGHTBLUE, "blue button", 0,
+  printf, "green", BLACK, GREEN, "green button", 0,
+  printf, "yellow", BLACK, YELLOW, "yellow button", 0,
+  printf, "cyan", BLACK, CYAN, "cyan button", 0,
+  printf, "magenta", BLACK, MAGENTA, "magenta button", 0,
+  printf, "gray", BLACK, LIGHTGRAY, "gray button", buttons
+};
+</PRE></CODE>
+and to build linked lists thus :-
+<PRE><CODE>
+COLOUROPT *buttons = 0;
+COLOUROPT **p = &buttons;
+
+while (newbutton) {
+  *p = malloc(sizeof(struct colouropt));
+  *p->next = *p;
+
+  *p->text = .......
+
+  p = &(*p->next);
+
+}
+</PRE></CODE>
+
+<H3>int graphCompletionEntry (void (*gcf)(char*, int),
+char* cp, int len, float x, float y, void (*fn)(char*)) </H3>
+This creates a text entry box, using graphTextEntry(), with the
+addition that the TAB key will generate a call to the function gcf
+with arguments (cp, len).  gcf should be used as a completion
+function - i.e. it will extend the text buffer cp if there is a
+unique extension in this context.  We use it for completing names
+within a class -- see ksetClassComplete() and the examples in
+griddisp.c.
+
+<H3>int graphCompScrollEntry (GraphCompletionFunc f, char* text,
+int len, float x, float y, void (*fn)()) </H3>
+Similar to graphCompletionEntry() with changes in accordance to
+graphTextScrollEntry().
+<P>
+See graphTextEntry(), graphCompletionEntry(), graphTextScrollEntry()
+
+
+<H3>BOOL graphContainedIn (Graph parent)</H3>
+Returns TRUE if the the currently active graph is a subgraph of the supplied graph.
+
+<H3>Graph graphCreate (int type, char *name,
+float x, float y, float w, float h)</H3>
+Creates a new window, which becomes the active window, and returns
+a handle for it.
+<P>
+name is used on the title bar.
+<P>
+x,y,w,h are the location on the screen in screen units.  1.0 = 900
+pixels (typical height).  Some window managers ignore x,y (e.g.
+twm).
+<P>
+type is from
+<PRE><CODE>
+  enum GraphType  { PLAIN, TEXT_SCROLL, TEXT_FIT, MAP_SCROLL, 
+		    PIXEL_SCROLL, TEXT_FULL_SCROLL, PIXEL_FIT } ;
+</PRE></CODE>
+You are advised to use either TEXT_SCROLL or TEXT_FIT.  Both these
+set the user coordinates to standard font character size. i.e. you
+give locations on the graph in character coords from top left =
+(0,0).  graphTextInfo() will tell you the pixel dimensions of a
+character (and hence the aspect ratio).
+<P>
+  TEXT_SCROLL gives a scroll bar, and lets you determine the height
+of the drawing area with graphTextBounds().
+<P>
+  A TEXT_FIT graph normally uses graphRegister(RESIZE,...) to
+register a RESIZE callback function, which then will call
+graphFitBounds() to find the current dimensions.
+<P>
+  PLAIN lets you set the user bounds to anything you want using
+graphPlainBounds().  By default they are [0,1]x[0,1].  The user
+bounds fill the graph, however large on the screen.  Resizing
+events are handled automatically, e.g. resizing the graph bigger
+will magnify its contents.  It is essentially impossible to handle
+text well in a PLAIN graph, so they are limited to simple line
+drawings.
+<P>
+  MAP_SCROLL was for a horizontally scrolling PLAIN type graph, but
+is now not used anywhere and should be treated as unsupported.
+<P>
+ PIXEL_SCROLL is the type used for displaying background images using
+graphPixels() or graphPixelsRaw(). Using graphPixelBounds() you can
+set the drawing region which will activate scrollbars if this is
+bigger than the windowsize. graphWhere will tell you the coordinates
+of the currently visible section of the drawing field.  You can't
+register a resize call with this graphType (use PIXEL_FIT) .
+<P>
+ PIXEL_FIT is a graphType without scrollbars. It can be used
+for displaying images within fixed window dimensions.
+A resize register is possible for this type.
+
+<H3>void graphDestroy (void)</H3>
+Destroys the current active graph.  If a DESTROY callback has been
+registered using graphRegister() that will be called from
+graphDestroy() while the graph is still active.
+
+<H3>void graphDisableBlock (void)</H3>
+Returns currently active graph to blockable state.
+
+<H3>void graphEnableBlock (void)</H3>
+Prevents currently active graph from being blocked by e.g. a blocking message.
+
+<H3>void graphEnd (char *text)</H3>
+Displays blocking message with button labelled "END", can be used for terminating
+an application gracefully (the application should call this routine from its own
+termination routine.
+
+<H3>void graphEntryDisable (void)</H3>
+Deactivates all text entry boxes.  See graphTextEntry().
+
+<H3>void graphError (char *text)</H3>
+Displays blocking message with button labelled "Continue", can be used for reporting
+non-fatal errors.
+
+<H3>void graphEvent (int action, float x, float y)</H3>
+This creates a false event that is placed on the event stack.  The
+argument action may either be a GraphEvent value (see
+graphRegister()) or a printable character.  In the latter case the
+event will be passed to the KEYBOARD callback routine, if one is
+registered via graphRegister().  (x, y) give the location in user
+coordinates of the pseudo-event.  
+<P>
+Important: the event will not be processed immediately (i.e. before
+graphEvent() returns).  It will be processed after control returns
+to the current event-handling loop, possibly after other itervening
+events.
+<P>
+NB graphEvent() may not work for all events for all implementations
+(the X version currently allows only mouse button up and down
+events and characters).
+
+<H3>BOOL graphExists (Graph g)</H3>
+Returns TRUE if g is a handle for an alive graph
+FALSE if g is not a handle, or has been destroyed.
+
+<H3>float graphFakeBounds (float ny)</H3>
+Sets the y size of a graph to be longer (perhaps for printing) and returns
+the old y size so application can reset to old size later.
+
+<H3>void graphFillArc (float xcen, float yxen, float rad,
+		  float ang, float angDiff)</H3>
+Draw a filled arc, note that angles are degrees anticlockwise from 3 o'clock.
+
+<H3>void graphFillRectangle (float x0, float y0, </H3>
+Draws a filled rectangle with opposite corners at (x0,y0), (x1,y1)
+in user coordinates, in the current foreground colour.
+<P>
+Writes on the stack.
+
+<H3>void graphFinish (void)</H3>
+Call at the end of the application to clean up the graphics
+properly.
+
+<H3>void graphFitBounds (int *nx, int *ny)</H3>
+For TEXT_FIT graph types only (see graphCreate()).  Sets *nx, *ny,
+reporting on how many whole characters (= user units) fit in the
+active graph.  Used in the drawing routine, particularly after
+RESIZE events.
+
+<H3>void graphFreeMenu (void (*f)(KEY), FREEOPT *options)</H3>
+Sets up the menu with a list of FREEOPT options.  When one is picked
+f() is called with the corresponding KEY value as an argument.  The
+FREEOPT structure is given in the notes for graphSelect().
+<P>
+NB graphMenu() is the preferred way to establish a menu.
+
+<H3>void graphGoto (float x, float y)</H3>
+Tries to centre (x, y) in user coordinates in the middle of the
+displayed window.  Only relevant for TEXT_SCROLL.
+
+<H3>STORE_HANDLE graphHandle (void)</H3>
+Returns the handle by which the currently active graph is held.
+
+<H3>char* graphHelp (char* item)</H3>
+This call registers the active graph with the help package, linking
+it to the help page specified by item.  Subsequently a call to
+help() (e.g. from the menu) with this graph active will display the
+correct help page.
+The return value is the previous string registered with the help
+package, if any.
+<P>
+Note that in ACEDB the display manager allows the help page to be 
+specified in wspec/displays.wrm.
+
+<H3>void graphInit (int *argcptr, char **argv)</H3>
+Call this in main() to initialise the graph package.  
+<P>
+The arguments should be (&argc,argv), where (int argc, char **argv)
+were the arguments to main.  graphInit() passes them on to the
+device dependent graphics initialiser.  The X initialiser will act
+on, and strip out, the standard X arguments, changing *argcptr (=
+argc) and *argv (the argument list).  Other graphics initialisers
+may not change argc, argv.
+
+<H3>int graphLastBox (void)</H3>
+Returns the last box in the active graph.
+
+<H3>void graphLine (float x1, float y1, float x2, float y2)</H3>
+Draws a line from (x1,y1) to (x2,y2) in user coordinates in the
+current foreground colour with the current line width.
+<P>
+Writes on the stack.
+
+<H3>float graphLinewidth (float x)</H3>
+Sets the width in user coordinates for graphLine().  Returns the old
+value.  If x < 0 then just returns the old value.  This may only
+work partially on graphics systems, but will be exact for postscript
+output.  For postscript it also affects rectangle and circle line
+width.
+
+<H3>float graphLineSegs (Array pts) </H3>
+Draws a segmented line in the active graph.
+
+<H3>int graphLoop (BOOL isBlock)</H3>
+This starts a new event loop, processing all events until either the
+graph that was active when it was called is destroyed, or
+graphLoopReturn() is called during some event on that graph.  In the
+former case graphLoop() returns 0.  In the latter, after that event
+finishes graphLoop() returns with the value given as the argument to
+graphLoopReturn().
+<P>
+If isBlock is TRUE then PICK, MENU and KEYBOARD events are only handled
+for the graph that graphLoop() was called on - used e.g. in the file
+chooser.
+<P>
+graphLoop() is now reentrant, so you can call it at any time.  Recursive
+non-blocking calls could get complex.
+
+<H3>BOOL graphLoopReturn (int retval)</H3>
+see graphLoop().  Returns FALSE if it can't find an unterminated loop 
+initiated using graphLoop() on the current graph.
+
+<H3>void graphMapBounds (float ux, float uy, float uw, float uh, float aspect)</H3>
+Set the size of the current graph.
+
+<H3>void graphMenu (MENUOPT *menu)</H3>
+Sets up the menu.  menu must be a null terminated array of MENUOPT
+structures:
+<PRE><CODE>
+typedef struct menuopt
+  { void (*f)(void);
+    char *text;
+  } MENUOPT ;
+</PRE></CODE>
+When a particular text item is selected on the menu the
+corresponding function is called.  There is a global empty function,
+menuSpacer() that can be used with a blank title "" to provide a
+blank line in the menu to separate sets of commands.
+
+<H3>void graphMessage (char *text)</H3>
+Puts up a little message window containing the message and a
+"Remove" button.  The message window will be destroyed if (i) the
+parent dies, (ii) the button is pressed, (iii) graphUnMessage() is
+called.  If graphRegister(MESSAGE_DESTROY,...) has been issued for
+the parent then the registered routine is called when the message
+window dies.  Only one message at a time can be displayed for any
+graph -- additional calls are ignored.
+
+<H3>void graphOut (char *text)</H3>
+graphOut() pops up a little window containing the text and a
+"Continue" button that must be pressed to continue.  i.e. it is
+blocking.
+
+<H3>Graph graphParent (void)</H3>
+Returns the graph id of the parent of the currently active graph.
+
+<H3>void graphPlainBounds (float ux, float uy, 
+float uw, float uh, float aspect)</H3>
+For PLAIN graph types only (see graphCreate()).  Sets the extent of
+the drawing area in user coordinates.  This will automatically fill
+the available window space, resizing as the window is resized.  
+The aspect ratio of the drawing is preserved, so if the window is
+made too narrow the drawing does not extend to the bottom, and if
+too wide then it does not extend to the right hand side.  The
+effect of the aspect argument makes
+<PRE><CODE>
+      graphPlainBounds (0,0,1,2,0.5)
+</PRE></CODE>
+define a square region on the screen.
+
+<H3>void graphPixels (char *pixels,</H3>
+                             int w, int h, int lineWidth,
+float x0, float y0, float x1, float y1)</H3>
+<P>
+Draw a pixel image expanded or shrunk in a box.
+<P>
+Can be used with PIXEL_SCROLL and PIXEL_FIT graphs. 
+<P>
+pixels - is a data array which can be messfree'd after the call.
+<P>
+linewidth - is the length of a line in the array, the array
+has the form  p(x,y) = pixels[y*linewidth+x].
+<P>
+w, h - width and height of the raw pixel image.
+<P>
+x0, y0, x1, y1 - topleft and bottomright corner to positions of the 
+box that the image will be fitted in to.
+
+<H3>void graphPixelBounds (int nx, int ny)</H3>
+Set the graph size in pixel coordinates.
+
+<H3>void graphPixelsRaw (char *pixels,
+int w, int h, int lineWidth, float x0, float y0)</H3>
+Can be used with PIXEL_SCROLL and PIXEL_FIT graphs. 
+<P>
+pixels - is a data array which must be created with MALLOC and must
+	NOT be free'd by the user.  DON'T use messalloc !!! since it
+	is freed by free() in XDestroyImage when graphDestroy is called.
+<P>
+linewidth - is the length of a line in the pixel array, the array
+	has the form  p(x,y) = pixels[y*linewidth+x]
+	linewidth has to be a multiple of 4 !!!
+<P>
+w, h - width and height of image to display
+<P>
+x0, y0 - topleft corner to position image on the drawing field.
+
+
+<H3>void graphPoint (float x, float y)</H3>
+Draws a small square at the point (x,y) in the current foreground
+colour.  The width of the square in user units can be set by
+graphPointsize().
+<P>
+Writes on the stack.
+
+<H3>float graphPointsize (float x)</H3>
+Sets the size for graphPoint().  Returns the old value.  If x < 0
+then just returns the old value.
+
+<H3>void graphPolygon (Array pts)</H3>
+Draw a filled polygon.
+
+<H3>void graphPrint (void)</H3>
+Merely calls graphPS (graphHelp(0)).  graphHelp(0) returns a name
+that was registered with the help package by the graph.  The
+purpose of this is to allow graphPrint() to be placed directly in
+the menu for the graph (using graphMenu()), rather than having to
+write a tiny intermediate routine.
+
+<H3>void graphProcessEvents (void)</H3>
+Will process all pending events in the window system event queue, then
+return back to the user.  This does not wait.  For a waiting event
+loop use graphLoop().
+
+<H3>BOOL graphPrompt (char *prompt, char *dfault, char *fmt)</H3>
+graphPrompt() puts up a blocking window with the text followed by a
+textEntry box that allows the user to enter the reply, and two
+buttons: OK and Cancel.  The initial text in the textEntry box is
+given by dfault.  If Cancel is pressed it returns FALSE.  If the OK
+box is pressed, or the Return key, then freecheck() is called on the
+current text buffer to see if it satisfies the format fmt.  If it
+does the buffer becomes the current buffer for freesubs, which
+allows reading of values using freeint(), freefloat(), freeword()
+etc, and graphPrompt() returns TRUE.  If there is no match message
+and the
+<P>
+The format is a string containing the following chars:
+<PRE>
+  i	integer
+  f	float
+  d	double
+  w	single word (if it contains spaces or commas, must be in "")
+  t	text - all to the end of the line taken in next freeword()
+</PRE>
+If the format ends with 'z' then the match must be exact.
+<P>
+e.g. format "iiz" is matched by "23 -19", but not "13" or "13 16 ?",
+the latter of which does match "ii" and "iiwz".
+
+<H3>void graphPS (char *basename)</H3>
+Writes out the active graph as a PostScript file and prints it.
+<P>
+Uses basename to construct a file name by adding an integer (unique
+per process) and ".PS".  It tries to open this in the subdirectory
+PS of the home directory, where the home directory is the result of
+filsetdir(0) (set to $ACEDB in main() for acedb).  If this fails it
+prints out a message and returns.  Otherwise the current drawing
+stack is written into the file as postscript.  Following this an
+attempt is made to print the file.  If the environment variable
+ACEDB_LPR is set, then the value of this is used as the print
+command, otherwise "lpr" will be used.  If ACEDB_LPR is set and
+null then no printing is attempted.  Printing is attempted using
+system("print_command file_name").
+<P>
+NB Currently Helvetica is used as a font; this is not a fixed-width
+font.  Ideally it should be.
+
+<H3>void graphPop (void)</H3>
+Uniconizes the active graph if iconized, and brings it to the top
+of the desktop.
+
+<H3>BOOL graphQuery (char *text)</H3>
+graphQuery() pops up a little window with the text and two buttons,
+"Yes" and "No".  One of these must be pressed to continue, and
+graphQuery() returns TRUE is Yes and FALSE if No.
+ 
+<H3>void graphRectangle (float x0, float y0, float x1, float y1)</H3>
+Draws a hollow rectangle with opposite corners at (x0,y0), (x1,y1)
+in user coordinates, in the current foreground colour.  On the screen
+the perimeter has width 1 pixel, but in postscript it has width the
+current line width.
+<P>
+Writes on the stack.
+
+<H3>void graphRedraw (void)</H3>
+Forces a complet redraw of the entire drawing stack for the active
+graph.  To be called after finishing drawing.  This is carried out
+by creating an X expose event, in contrast to graphBoxDraw(), which
+acts immediately.
+
+<H3>GraphFunc graphRegister (int event, void (*f)())</H3>
+This is the main routine to register callback functions for a graph.
+event must come from:
+<PRE><CODE>
+  enum GraphEvent {LEFT_DOWN, LEFT_DRAG, LEFT_UP,
+	  	   MIDDLE_DOWN, MIDDLE_DRAG, MIDDLE_UP,
+		   PICK, KEYBOARD, RESIZE, 
+		   MESSAGE_DESTROY, DESTROY
+		  } ;
+</PRE></CODE>
+f is function that will be called back.  Before calling f the
+relevant graph is made active.
+<P>
+The return value is the previous function registered with this
+event, or 0 if there was none.
+<PRE>
+Details:
+ Mouse buttons: the callback is f (double x, double y), where (x,y)
+  gives the coordinates of the event in user units.  Note that x, y
+  must be double, since this is not type-checked by the compiler.  
+  The RIGHT mouse button events are reserved for the menu.
+ PICK: if a pick function is registered then it takes precedence 
+  over LEFT_DOWN.  It will call back f (int k, double x, double y)
+  where k is the id of the innermost box that contains the cursor 
+  point, and (x,y) are user coordinates with respect to the top 
+  left corner of the box (NB - RELATIVE COORDINATES).  All picks 
+  lie in some box, because the whole drawing area is box 0.  Boxes
+  can refuse picks by calling graphBoxSetPick().
+ KEYBOARD: The callback is f (int c), where c is normally the ascii
+  character that was pressed.  For special keys the #define name 
+  given in  in key.h should be used, as follows:
+<CODE>
+#define      SPACE_KEY           32
+#define     ESCAPE_KEY           27
+#define     RETURN_KEY           13
+#define  BACKSPACE_KEY            8
+#define         UP_KEY          257
+#define       DOWN_KEY          258
+#define       LEFT_KEY          259
+#define      RIGHT_KEY          260
+#define       HOME_KEY          261
+#define        END_KEY          262
+#define    PAGE_UP_KEY          263
+#define  PAGE_DOWN_KEY          264
+#define     INSERT_KEY          265
+#define     DELETE_KEY          127
+</CODE>
+ RESIZE: The callback is f().  The application normally calls 
+  graphFitBounds() to determine the new size of the window.
+ MESSAGE_DESTROY: The callback is f().
+ DESTROY: The callback is f().
+</PRE>
+
+<H3>void graphRectangle (float x0, float y0, float x1, float y1)</H3>
+Draw a rectangle in a graph.
+
+<H3>void graphRetitle (char *name)</H3>
+Resets the title on the window for the active graph.
+
+<H3>void graphScreenSize (float *sx, float *sy,
+float *fx, float *fy, int *px, int *py)</H3>
+Return screen size in graphCreate units, TEXT units and pixels.
+
+<H3>BOOL graphSelect (KEY *kpt, FREEOPT *options)</H3>
+Presents a forced choice from options.  This is a blocking call that
+requires a response.
+<P>
+Cancel returns FALSE. Selection of one of the legitimate options
+returns TRUE and fills *kpt.
+<P>
+The FREEOPT structure is:
+<PRE><CODE>
+typedef struct freestruct
+  { KEY  key ;
+    char *text ;
+  } FREEOPT ;
+</CODE></PRE>
+options should be an array of FREEOPT.  The length of the array is
+given in the key field of the first item.  The text field of the
+first itme gives a title.
+<P>
+NB Use of this function is discouraged.  It is hard to keep it
+working in all the different environments.  Use Buttons or Menu
+instead if possible.
+
+<H3>BOOL graphSetSelectDisplayMode (GraphSelectDisplayMode mode)</H3>
+Sets the mode for displaying selection lists, the mode is has the values:
+<PRE><CODE>
+typedef enum _GraphSelectDisplayMode
+  {GRAPH_SELECT_SCROLLED,
+   GRAPH_SELECT_PLAIN} GraphSelectDisplayMode ;
+</CODE></PRE>
+<CODE>GRAPH_SELECT_SCROLLED</CODE> (default) shows the selections in a scrolled window,
+<CODE>GRAPH_SELECT_PLAIN</CODE> shows the selections in a plain window.
+
+<H3>Graph graphSubCreate (int type, float ux, float uy, float uw, float uh)</H3>
+Creates a new window, which is a subwindow of the currently active graph and returns
+a handle for it.. See graphCreate()
+for a description of the parameters.becomes the active window, and returns
+a handle for it.
+
+
+<H3>Graph graphText (char *text, float x0, float y0)</H3>
+Draws text in the currently active graph at the given coordinates.
+
+<H3>Graph graphTextBounds (int nx, int ny)</H3>
+Set the size of a graph in text coordinates.
+
+<H3>int graphTextEntry (char* cp, int len, float x, float y, 
+			    void (*fn)(char*)) ;</H3>
+This creates a box that the user can type into of length len at
+coords (x,y).  The text buffer is cp, which must be of length at
+least (len+1).  cp can be initialised by the user before calling.
+graphTextEntry() grabs the KEYBOARD event input, and processes
+keystrokes by inserting printable characters into the buffer at the
+current cursor position and responding to arrow keys, delete keys
+and emacs control keys as appropriate to move the cursor.  When the
+return key is pressed the registered function, fn, is called with
+current contents of its buffer as an argument.
+<P>
+The return value of graphTextEntry() is the id of the box containing
+the text.  The user can change the contents of the cp buffer in the
+code and redraw this box (e.g. graphBoxDraw (entryBox, -1, -1) ;).
+<P>
+There can be several text entry boxes in one graph.  At any one time
+at most one is active (grabbing keyboard input).  This has a yellow
+background, while the inactive ones have a green background.  The
+active one is the last for which graphTextEntry (cp,...) has been
+called.  i.e. if you recall graphTextEntry() with the a cp buffer
+that has already been used it will activate the existing box, not
+create a new one.  This is often done in response to PICK'ing the
+dormant box.  graphEntryDisable() can be used to disable all text
+entry boxes, and restore the original KEYBOARD callback function.
+<P>
+NB two boxes are actually made by each call to graphTextEntry: the
+main one and one to hold the cursor that is a subbox.
+<P>
+See also graphCompletionEntry().
+
+<H3>int graphTextInfo (int *dx, int *dy, float *cw, float *ch) </H3>
+Get the size of text in the active graph.
+
+<H3>int graphTextScrollEntry (char* text, int len, int wlen, </H3>
+                                  float x, float y, void (*fn)())</H3>
+Similar to graphTextEntry with following differences:
+<P>
+This creates a box that the user can type into of length 'wlen' at
+coords (x,y).  The text buffer is 'text', which must be of length at
+least ('len'+1).  'text' can be initialised by the user before calling.
+<P>
+Because the buffer length may now be greater than the window length
+(no truncation of input) we now allow for scrolling of text.  Text
+is only partially displayed up to as many characters as the size of
+the box allows.  Left and right keys will scroll if the cursor is at the 
+margins of the box and more text exists in the buffer to the "left" 
+and "right" of the current cursor position.
+<P>
+Control-L will center the text buffer in the window (show the middle) and
+center the cursor position.
+<P>
+See also graphTextEntry(), graphCompletionEntry(), graphCompScrollEntry()
+
+<H3>void graphText (char *text, float x0, float y0)</H3>
+Writes the given string with top left at the given location.  Line
+breaking must be done by the user code (possibly using the uLines
+package from arraysubs).  See also graphTextPtr().
+<P>
+Writes on the stack.
+
+<H3>void graphTextBounds (int nx, int ny)</H3>
+For TEXT_SCROLL graph types only (see graphCreate()).  Sets the
+drawing area in character coords (columns, rows).  Top left is
+always (0,0).  
+The ny argument is used to set up scrolling if necessary.  nx is
+only used when writing PostScript files with graphPS(); normally
+the user must extend the window rightwards to see more.
+graphTextbounds() can be called after drawing (i.e.  once you know
+how big the drawing is), which is useful.
+
+<H3>int graphTextFormat (int format)</H3>
+Sets the format to one of
+<PRE><CODE>
+	enum TextFormat { PLAIN_FORMAT, BOLD, ITALIC }
+</PRE></CODE>
+Returns the old value.  If format < 0 then just returns the old value.
+
+<H3>float graphTextHeight (float x)</H3>
+Sets the height in user coordinates for text.  Returns the old
+value.  If x < 0 then just returns the old value.  Except for
+postscript the actual height achieved will be only approximately
+that requested.
+<P>
+Setting height = 0 gives the default font.
+
+<H3>void graphTextInfo (int *dx, int *dy, float *cw, float *ch)</H3>
+Can be called on any graph.  Fills *dx, *dy, *cw, *ch.  Gives the
+size of the current font in pixels (*dx, *dy) and in user units
+(*cw, *ch).
+
+<H3>void graphScreenSize (float *sx, float *sy, 
+			      float *fx, float *fy, int *px, int *py)</H3>
+
+Can be called before graphCreate().  (But must be after graphInit of
+course.)  This function provides sizes of the screen, font and pixels
+in graphCreate units.  Fills *sx, *sy, *fx, *fy, *px and *py only if
+they are non-zero.
+<PRE><CODE>
+*sx - Width  of entire screen in graphCreate units.
+*sy - Height of entire screen in graphCreate units.
+
+*fx - Number of text columns over entire width of screen.
+*fy - Number of text rows over entire height of screen.
+
+*px - Number of pixels over entire width of screen.
+*py - Number of pixels over entire height of screen.
+</PRE></CODE>
+By dividing sx with fx or px, the width of a character or pixel can be
+calculated in graphCreate units.  Dividing px with fx gives the width
+of a character in pixels.  Apologies that this is such an indirect and
+complicated function, but a more intuitive version was vetoed.
+
+Examples:
+<PRE>
+Create a graph which uses half the screen:
+<CODE>
+{
+  float sx, sy ; 
+  graphScreenSize (&sx, &sy, 0, 0, 0, 0) ;
+  graphCreate (TEXT_SCROLL, "Half", 0, 0, sx, 0.5*sy) ;
+}
+</CODE>
+Create a graph with 80 columns and 25 rows:
+<CODE>
+{
+  float sx, sy, fx, fy ;
+  graphScreenSize (&sx, &sy, &fx, &fy, 0, 0) ;
+  graphCreate (TEXT_SCROLL, "80x25", 0, 0, 80*sx/fx, 25*sy/fy) ;
+}
+</CODE>
+</PRE>
+Note: unfortunately graphCreate does not make extra space for
+scrollbars, so you have to do that yourself.
+
+<H3>void graphTextPtr (char *text, float x0, float y0, 
+			   int length)</H3>
+Similar to graphText() except that a pointer to the text is kept on
+the stack, rather than the text itself.  This allows the text to be
+changed without redrawing the whole graph.  The maximum expected
+length of the text must be given to determine the box extent.
+<P>
+Writes on the stack.
+
+<H3>void graphTextPtrPtr (char *text, float x0, float y0, </H3>
+As for <CODE>graphTextPtr()</CODE> except that a pointer to a pointer to text is stored
+on the stack.
+
+<H3>Graph graphTextUp (char *text, float x0, float y0)</H3>
+Draw updatable text into current graph, length is length to extend the box.
+
+<H3>void graphUnMessage (void)</H3>
+See graphMessage().
+
+<H3>void graphWaitCursor (BOOL)</H3>
+Set a wait cursor (usually watch or egg-timer shaped) for the active graph.
+
+<H3>void graphWaitCursorAll (BOOL)</H3>
+Set a wait cursor (usually watch or egg-timer shaped) for all graphs.
+
+<H3>void graphWhere (float *x1, float *y1, float *x2, float *y2)</H3>
+Return coordinates of the active graph.
+
+<H3>void graphWindowSize (float *xp, float *yp, float *wp, float *hp)</H3>
+Returns the size of the active graphs window (in user coordinates, not pixels).
+
+<H3>void graphXorBox (int kbox, float x, float y)</H3>
+Draws a rectangle in XOR mode of the same dimensions as box kbox,
+with top left at (x,y).  This does not affect the drawing stack -
+e.g. it is not seen in the postscript output.
+<P>
+Low level: used by graphBoxDrag(), which should normally be used by
+the user.
+
+<H3>void graphXorLine (float x0, float y0, float x1, float y1)</H3>
+Draws a line in XOR mode on the screen.  This does not affect the
+drawing stack - it is purely for temporary cursor type operations.
+Calling a second time on the same line removes it.
+
+
+</BODY>
+</HTML>
+

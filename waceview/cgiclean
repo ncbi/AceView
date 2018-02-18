@@ -1,0 +1,22 @@
+#!/bin/sh
+#
+# This program cleans up after context files used by pfam.cgi
+# Run it from cron with this entry:
+#	58      *       *       *       *       /bin/sh /a/mark/query_temp/cgi_clean
+#
+
+cd /net/vesta/a/mark/query_temp
+
+TZ=gmt0
+export TZ
+
+now=`date +ctx-%j%H-`
+
+list=` ( ls ctx* | grep -v '^'$now ) 2>/dev/null `
+
+for x in $list
+do
+        rm -f ./$x
+done
+
+find . -type f -name 'ctx*' ! -mtime -1 -exec rm -f {} ';'

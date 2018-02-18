@@ -1,0 +1,120 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-09-07_21:23:12
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Column #1       
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition ercc*
+ 
+Colonne 2 
+Subtitle Column #2       
+Width 12 
+Mandatory 
+Hidden 
+Float 
+From 1 
+Tag Mix1
+ 
+Colonne 3 
+Subtitle Mix1 log       
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle Column #4       
+Width 12 
+Optional 
+Hidden 
+Float 
+From 1 
+Tag Mix2
+ 
+Colonne 5 
+Subtitle Mix2 log       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 4 
+Tag HERE 
+ 
+Colonne 6 
+Subtitle 100 Expected concentration Log2(Mix2/Mix1)       
+Width 12 
+Mandatory 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag 100* (\%5 - \%3)
+ 
+Colonne 7 
+Subtitle Run       
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs347
+ 
+Colonne 8 
+Subtitle index Rhs 347 
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 7 
+Tag HERE 
+Condition \%8 > 1
+ 
+Colonne 9 
+Subtitle Run       
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs348
+ 
+Colonne 10 
+Subtitle Index Rhs348 
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 9 
+Tag HERE 
+Condition \%10 > 1
+ 
+Colonne 11 
+Subtitle Observed       
+Width 12 
+Optional 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag 100 * (\%10 - \%8)
+ 
+ 
+
+// End of these definitions

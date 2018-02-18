@@ -1,0 +1,3068 @@
+// models.wrm - main file defining tree class structures
+// This file is read only when starting a new database or when you select 
+// "Read Models" or "Add Update File" from the main menu.
+//
+// all tags must appear in tags.wrm or systags.wrm
+//
+// Magic tag2 construct, such as Inside xxx ?AA
+//  denotes a case where Inside and ?AA are read by the display code
+// whereas the intermediate xxx is up to the schema designer
+
+// @  is for Attach-Query
+
+
+?Map    No_cache // Don't cache segs for this map.
+        Type UNIQUE Global_map
+        Display Non_graphic  // Prevents a graphic display!
+                Title UNIQUE ?Text
+                Flipped // Then coordinates go upwards
+                Unit UNIQUE Text 
+                        // e.g. kb, centiMorgan, MegaParsec
+                Centre UNIQUE Float UNIQUE Float  
+                        // default centre, width - else 0, 10
+                Extent UNIQUE Float UNIQUE Float  
+                        // min, max - else min, max gene/locus
+                Default_view UNIQUE ?View
+                Minimal_view UNIQUE ?View // use this when >1 map displayed
+                View ?View                // Columns to display
+        Inherits  From_map UNIQUE ?Map         // To locally edit
+                  Author Text        // login name of who created it
+        Main_Marker Main_Locus ?Locus         // XREF Main_Marker removed to
+                                        // allow tag2 system
+                // tag2 system for items shown left of locator
+        Map ?Map XREF Map_shown #Map_position
+        EMBL_chromosome UNIQUE Text
+// Include all objects in these maps (must be mapped and have extents)
+        Includes ?Map
+        Wiggle Text UNIQUE Text  // wiggle name, file name
+        Contains Gene ?Gene XREF Map
+                 Gene_i ?Gene XREF IntMap
+                 Locus ?Locus XREF Map
+                 Clone ?Clone XREF Map
+                 Sequence ?Sequence XREF Map
+                 Map_shown ?Map XREF Map
+                 Section  ?Section XREF Map
+                 Transcribed_gene  ?Transcribed_gene XREF Map
+                 mRNA ?mRNA XREF Map
+                 Product ?Product XREF Map
+                 // OST_i ?OST XREF IntMap
+                // tag2 system for items shown in main region
+
+#Map_position           Position UNIQUE Float #Map_error
+                        Ends Left UNIQUE Float #Map_error
+                             Right UNIQUE Float #Map_error
+                        Cyto_location Text
+                        Multi_Position  Float #Map_error
+                        Multi_Ends Float UNIQUE Float
+                        With UNIQUE With_locus UNIQUE ?Locus #Map_offset
+                                    With_clone UNIQUE ?Clone #Map_offset
+                                // tag2 system for "burying"
+
+#Map_error Error UNIQUE Float
+
+?Map_offset Relative #Map_position
+
+?MultiMap Map ?Map
+          Min Int // keep loci appearing on at least min maps. Default = 2 
+          Anchor UNIQUE Text UNIQUE Text UNIQUE Text  // Class tag1 tag2
+                            // i.e Locus Homeology_group Homelogs
+                            // class members on different maps with the
+                            // same Anchor tag will be chained
+
+?Primer Origin Text
+        Type UNIQUE  Oligo Motif UNIQUE Text
+                     Transposon 
+                     Vector_Primer UNIQUE T7
+                                          SP6
+                                          M13
+        Length UNIQUE Int
+        Clone UNIQUE ?Clone XREF Primer #Map_position
+        Read ?Sequence XREF Primer
+        Strand UNIQUE Forward
+                      Reverse
+        OSp TM UNIQUE Float
+            Score  UNIQUE Float
+        RNAi ?RNAi XREF Primers
+        OST ?OST XREF Primers
+        Gene ?Gene XREF Primers
+        Hits ?Sequence XREF Primer_hit Int UNIQUE Int
+     
+?Section Map ?Map XREF Section #Map_position
+         Transcribed_gene ?Transcribed_gene XREF Section
+         Sequence ?Sequence XREF Section
+
+?LocusId  Title UNIQUE Text     // we need to have this class around for the webquery system
+
+?GeneId    Gene ?Gene XREF GeneId   // MUST be top line to simplify transfer of data
+           Other_gene ?Gene XREF Other_geneId  
+           mRNA ?mRNA XREF GeneId  
+           TT Title UNIQUE Text   // human extracted from gene_info
+              Summary UNIQUE Text   // human extracted from locus id
+              Proteome_summary UNIQUE Text   // human extracted from locus id
+           ID  NewName ?NewName XREF GeneId // same as Locustag
+               LocusLink ?LocusLink XREF GeneId
+               NM_id ?GenBank XREF GeneId
+           Related Locus ?Locus XREF GeneId
+                   Synonym  Text
+                   Sequence ?Sequence XREF GeneId
+                   Product Text
+                   Predicted_gene ?Sequence XREF GeneId_pg
+                   Intron ?Intron XREF GeneId
+                   DbXref Text Text  // URL description
+                   Unigene ?Unigene XREF GeneId
+                   Probe_set ?Probe_set XREF GeneId
+                   Probe_set_one2one ?Probe_set XREF GeneId_one2one
+                   Probe_set_Jensen ?Probe_set XREF GeneId_Jensen
+                   Probe_set_Taqman ?Probe_set XREF GeneId_Taqman
+           Confirmation UNIQUE Confirmed
+                               Not_confirmed
+           Status  UNIQUE Provisional_ref_seq
+                          Reviewed_ref_seq
+                          Predicted_ref_seq
+                          LocusLink_ref_seq
+                          Validated_ref_seq
+                          Inferred_ref_seq
+                          Model_ref_seq
+           Position Map  Text
+                    Cytogenetic Text Text
+                    IntMap ?Map UNIQUE Int UNIQUE Int // from NCBI gene2refseq file
+           Genetic Locus_Phenotype ?Text  // texts  hand composed by Danielle or imported i.e from C.elegansII or GAD-precise-description
+                   Locus_description  ?Locus_description XREF GeneId // Danielle's controlled voc equivalent in worm of human ?disease
+                   Gene_RIF Text  // goes to Gene->Locus_Phenotype
+                   Disease ?Mesh // mainly text-name of mesh_key type C and F
+                   Extern ?Extern XREF GeneId @Details // supersedes  OMIM, GAD, KEG, users-feedback
+                   PubMedMesh ?Mesh XREF GeneId @Parent
+                   Go_b_ace ?GO_b Text Text             // process
+                   Go_b_iea ?GO_b Text Text             // process
+                   Pathway Text
+           Molecular Descriptor ?Text  // wormbase:locus->geneclass->phenotype //human: refseq +proteomesummary
+                     Properties Text
+                     OMIM_mol  ?Extern XREF GeneId_mol
+                     Go_m_ace ?GO_m Text Text
+                     Go_m_iea ?GO_m Text Text
+           Function EC_number ?Text
+                    Gene_ontology Text Text Text Text 
+           Expression Go_c_ace ?GO_c Text Text
+                      Go_c_iea ?GO_c Text Text
+           Interacts with_gene ?GeneId XREF with_gene ?Paper Text  
+                     with_geneId ?GeneId XREF with_geneId ?Paper Text   // Text is the web link
+                     with_geneBox ?Gene XREF with_geneId ?Text         // 150 cases
+                     with_protein ?GeneId XREF with_protein ?Text   // 50 cases 
+           Reference ?Paper XREF GeneId // locus->reference
+
+
+?NewName Transcribed_gene ?Transcribed_gene XREF NewName
+         Gene ?Gene XREF NewName
+         GeneOld ?Gene XREF NewNameOld
+         GeneId ?GeneId XREF NewName
+         NM_id ?GenBank XREF NewName // to consolidate across gene renamings
+         Old_clone ?cDNA_clone XREF Old_newName
+
+?Clone_group   Contains ?cDNA_clone XREF Clone_group Text
+               Best_match ?Text
+               Transcribed_gene ?Transcribed_gene XREF Clone_group UNIQUE ?Sequence
+               Gene ?Gene XREF Clone_group UNIQUE ?Sequence
+               
+//                         tRNA UNIQUE Text
+//                         rRNA UNIQUE Text
+//                         snRNA UNIQUE Text
+//                         scRNA UNIQUE Text
+//                         misc_RNA UNIQUE Text
+
+#W_quality_type Date UNIQUE DateType
+                Title Text
+                Rearrayed Text
+                Anomaly  Text
+                Aligned_reads UNIQUE Both
+                                     Aligned_5p Text 
+                                     Aligned_3p Text 
+                Insert_length UNIQUE Text UNIQUE Int Text // == or > or ~  "bp" may include the gap length
+                Coding Coding_length UNIQUE Int Text 
+                       Expected_coding_length UNIQUE Int Text 
+                       Non_best_protein Best_is UNIQUE  Text 
+                                        Best_encodes UNIQUE Int Text  //  bp
+                                        Best_is_upstream  UNIQUE Int Text  //  bp
+                                        Best_is_downstream  UNIQUE Int Text  //  bp
+                                        Best_is_in_another_frame
+                                        Best_intersects_by  UNIQUE Int Text  //  bp
+                Mismatch UNIQUE Int // differences with the mRNA         
+                No_Mismatch
+                Missing_sequence Gap UNIQUE Int Text// length in bp between the 2 reads
+                                 Missing_5p  UNIQUE Int Text // in case 3p read missing, bp until our Met
+                                 Missing_3p  UNIQUE Int Text // in case 5p read missing, bp until our Stop
+                Stops Contains_5p_stop  UNIQUE Int Text // "5p UTR length" i.e.: start of OST to ATG of protein
+                      Contains_3p_stop  UNIQUE Int Text // "3p UTR length"
+                Frame In_frame start_on_our_start 
+                               start_on_first_Met UNIQUE Int Text // "bp from our start to OST start"
+                               Complete Perfect // (start_on_our_start || start_on_first_Met) && end_on_our_end and no gap and no missmatch
+                      Out_of_frame Out_of_frame_Met  UNIQUE Int // if != 2: since OST should start on T of ATG
+                                   Out_of_frame_partial UNIQUE Int // if != 2 mod 3: since OST should start on T of ATG
+                      In_frame_end
+                      Out_of_frame_end  UNIQUE Int Text // if != 2: OST should end on A of UAG etc.
+                Ends_on_our_end
+                Partial_ORF Partial_5p UNIQUE Int Text // "bp from our start to OST start"
+                            Partial_3p UNIQUE Int Text // "bp from OST end to stop "
+                            Fragment  // if Partial_5p AND Partial_3p
+                Externally_confirmed_protein Confirmed_ends
+                                             Confirmed_Met // externallyconfirmed by yk clones
+                                             Confirmed_stop
+                Unconfirmed_ends P_gap UNIQUE Int Text
+
+
+?cDNA_clone Read ?Sequence XREF cDNA_clone @"From_gene"
+            Fully_sequenced ?Transcribed_gene XREF Fully_sequenced_clone 
+            Resequence r_gap    // manual
+                       s_gap    ?mRNA  XREF Gap_clone UNIQUE Int // automatic, estimated gap
+            Length Seq_length UNIQUE Int                         // bp
+                   Insert_size UNIQUE Float Text   // kb = pcr - vector (200bp for yk clones)
+                   PCR_product_size  UNIQUE Float Text REPEAT // text is kb
+            Library UNIQUE ?Library
+            WORF WORF1 Text Text // WS9 then WS100 pg-name
+                 WORF3 Text // WS100 pg-name
+                 WORF_out_of_frame // from Tong 2007_03_29 == rearrayed_as 112 113 114 312 313
+                 ORF_quality Text  #W_quality_type // Text is mrna_name
+                 Bad_ORF
+                 Rearrayed_as Text
+            MGC_ref
+            HINV_libs DKFZ
+                      KIAA
+                      FLJ
+                      MGC MGC_r // MGC , MGC reference subset
+                      No_NM 
+            FLJ.1_1 // HRI+UT
+            FLJ.1_2 // KRDI
+            FLJ.2   // UT
+            FLJ.3   // ?? // FLJ.4 HRI
+            FLJ_HRIandIMS // 21791,  filtered set june 20 2004
+            FLJ_KDRI // 397, filtered set june 20 2004
+            Not_real_5prime    // Start of this clone is artificial, agregation does not count
+            Primed_on_polyA    // End of clone is the end of the full mRNA
+            RT_PCR // if set does not count in 5p_complete by clustering
+            Capped_5prime Confirmed CC_TSL
+                                    CC_other_SL
+                                    CC_stop     // Begin of clone is the begin of the full mRNA
+                                    CC_blast
+                                    CC_cluster
+            From_gene ?Transcribed_gene XREF cDNA_clone @"Genetic_position"
+            Ignored_in_gene ?Transcribed_gene XREF Ignored_clone @"Genetic_position"
+            In_mRNA ?mRNA XREF cDNA_clone
+            In_gene ?Gene XREF Has_cDNA_clone
+            Best__of ?mRNA XREF Best_available_clone 
+            Specific__of ?mRNA XREF Specific_clone 
+            Complete_CDS_of ?Product XREF Complete_CDS_clone 
+            Complete_CDS__of ?mRNA XREF Complete_CDS_clone // should be restricted to best product
+            R Representative
+              Redundant
+              Partial
+            Parent_clone ?cDNA_clone XREF Child_clone
+            Child_clone ?cDNA_clone XREF Parent_clone
+            Tracking_clone  // for reconciliation,  such clone will get assembled but not contribute to splicing
+            NM_id ?GenBank XREF GB_clone
+            Homolog_gene ?Transcribed_gene XREF Homolog_cDNA
+            Discarded_from ?Sequence XREF Discarded_cDNA Int UNIQUE Int
+            Clone_group UNIQUE ?Clone_group XREF Contains
+            Hit ?Sequence Int COORD UNIQUE Int COORD Int COORD UNIQUE Int COORD
+            Stage UNIQUE Mixed
+                         Embryo
+                         L1
+                         L2
+                         L3
+                         Dauer
+                         L4
+            Anomalous_clone Suspected_internal_deletion ?Sequence Int // will get assembled but disregard anomalous introns
+                            Suspected_internal_deletion2 ?Sequence Int // to test cdna_flag
+                            Manual_internal_deletion ?Sequence Int // done by hand
+                            Manual_no_internal_deletion // done by hand
+                            Suspected_genomic_contamination
+                            VSim_Suspects_internal_deletion ?Sequence Int
+                            VDel  ?Sequence Int UNIQUE  Int UNIQUE  Int UNIQUE  Int
+                            Internal_priming             // disregard 3p end 
+                            Internal_priming_manual      // disregard 3p end 
+                            Internal_priming_on_A_rich UNIQUE Text   // 12 A in genome in the 18 bp downstream of last aligned base
+                            Internal_capping             // disregard 5p end 
+                            Inverted  // one of the reads is inverted
+                            Mosaic                       // disregard length
+                            Possible_mosaic              // added automatically during clean_up (cDNA_31)
+                            Partly_inverted                  // disregard length
+                            Incomplete_5p_Match UNIQUE Int   // disregard length
+                            Incomplete_3p_Match UNIQUE Int   // disregard length
+                            Ignore_this_clone  UNIQUE Text   // disregard, for example  non editable 
+                            Ignore_this_clone_automatic  UNIQUE Text   // disregard, for example  non editable 
+                            Unspliced_non_coding
+                            Possibly_unspliced Int           // no intron et length = genome et ! in good transcript
+                            Duplicate_clone             // will get assembled but disregard anomalous introns
+                            Length_anomaly  UNIQUE Text  UNIQUE Float  UNIQUE  Text UNIQUE Int UNIQUE Text
+                            Double_fuzzy                 // automatically set in mrnaScore
+                            Fuse_to_clone ?cDNA_clone XREF Fuse_to_clone
+                            Comment ?Text
+            Hybridizes_to ?Clone XREF Positive_cDNA
+            Hybridizes_weakly_to ?Clone XREF Weak_Positive_cDNA
+            RNAi ?RNAi XREF cDNA_clone
+            Image ?Url  XREF cDNA_clone 
+            Previous_NewName Text Text Text// name in previous release, [pfam || (nothing == pseudo)], chrom
+            Old_newName ?NewName XREF Old_clone  Int Int Int Int Int // length begin ali error quality
+
+?Clone  Sequence ?Sequence XREF Clone
+        Main_Clone #Map_position // Contains main info on sequencing vector etc
+        Directed_sequencing Transposon Text UNIQUE Int // Int = Positition 
+                            Read ?Sequence XREF Subclone
+                            Contig ?Sequence XREF Multiplet
+                            Subclone ?Clone XREF Subclone_of
+                            Subclone_of ?Clone XREF Subclone
+        Length Seq_length UNIQUE Int                         // bp
+               Gel_length UNIQUE Float                        // Kb
+               Insert_size UNIQUE Int UNIQUE Int
+               Subclone_Length UNIQUE Int  // base pair, max direct/reverse distance
+        Gel ?Motif  #Lane                    // Magic tag2 construct
+        Est_set Main_est ?Sequence XREF Buries
+                Buried_est ?Sequence XREF Is_buried_under
+        Stolen_reads ?Sequence XREF Stolen        // for neighbouring cosmids, not Main_clone
+        Vector Sequencing_Vector ?Vector UNIQUE Text // Text is the codage of the read names
+               Cloning_Vector ?Vector UNIQUE Text  // CAF uses an Int here as the cloning site position (default 1)
+               Cutter ?Motif
+        Primer ?Primer XREF Clone
+        Clone_left_end ?Sequence XREF Clone_left_end 
+        Clone_right_end ?Sequence XREF Clone_right_end 
+        Map ?Map XREF Clone #Map_position
+        Positive_cDNA ?cDNA_clone XREF Hybridizes_to
+        Weak_Positive_cDNA ?cDNA_clone XREF Hybridizes_weakly_to
+        Strategy MainTitle UNIQUE Text  // appears as main Window title
+                 Species UNIQUE Text
+                 Genome_release UNIQUE Text
+                 Aceview_release_suffix UNIQUE Text  // i.e. Aug05, used to name the transcripts
+                 Name_by UNIQUE Name_by_clone_group // default, YK clone groups
+                                Name_by_section // geographic naming
+                                Name_by_gene   // phenotypic naming 
+                 Statistics Nb_RefSeq UNIQUE Int UNIQUE DateType
+                            Nb_RefMrna UNIQUE Int UNIQUE DateType
+                            Nb_EST UNIQUE Int UNIQUE DateType
+                            Nb_Trace UNIQUE Int UNIQUE DateType
+                 PleaseNoGap   // construct only gapless mRNAs
+                 NoWeirdIntrons // keep only gt_ag gc_ag in (green) mRNAs
+                 PleaseIntrons   // construct mRNAs with at least one intron
+                 MaxIntronSize UNIQUE Int  // reject long introns
+                 MinIntronSize UNIQUE Int  // flag as suspect intron below this length
+                 MaxGapSize UNIQUE Int  Text // in kb clone pair gaps over this length
+                 MinTranscriptSize  UNIQUE Int // reject small mRNAs
+                 MaskFrequentWords  UNIQUE Text // Mask frequent genomic 15mers against seeding hits
+                 SearchForTandemRepeats // slows the code by a factor 3
+                 IgnoreWalls
+                 IgnoreDiscard   // incorporate discarded-clones as if normal
+                 IgnorePolyAInProduct // do not search for a stop above a polyA, for anastasia
+                 MarkDoubleFuzzy
+                 StealFromPrediction
+                 AddPolyA // autoamtically add a polyA if last 6bp == A
+                 MultipleORF  // look for several orfs 
+                 StealUpStream // allow to steal up to 18 bp if lib = yke/ykm
+                 UseLeucine // authorization to start on ctg ttg
+                 NoKantorInfo  // do not attempt to add the kantor info
+                 NoAbandon   // do not abandon clones in very expressed genes
+                 AcceptNegativeIntron // allow a gap on the genome
+                 Kill_non_best_mRNA // kill non best_in_gene mrnas
+
+// the way to use the vector description is as follows
+// given a read, i will try to match its name against the Codage
+// Text to identify the sequencing vector
+// but you may also repeat in the read or the subclone just the
+// short hand identifier.
+// Note also the recursivity of the process: the sequencing vector
+// of the complete clone is the cloning vector of its direct
+// subclones.
+
+
+?Vector  Codage UNIQUE Text // may also be specified in main clone 
+  // subclones whose name match use this vector
+  // if possible give the vector, cloning site and oligo used
+  // if i know the full vector, i will reconstruct from that the rest
+         Sequence UNIQUE ?Sequence  // i.e. lawrist or M13, the full vector
+         Cloning_Site UNIQUE ?Motif  UNIQUE ?Motif // i.e. bamhI ecoRV, (mind the roman I)
+         Oligo UNIQUE ?Oligo // the oligo used, if i have the vector sequence
+  // If these data are missing, you can directly give the clipping sites
+  // these are exactly the sequences you can read and want to clip on your abi traces
+         Left_Motif UNIQUE Text // 12 or more bases, left of insert
+         Followed_by_linker UNIQUE Text // linker
+         Followed_by_polyT // clip 6 or more T just downstream of this vector
+         Right_Motif UNIQUE Text // 12 or more bases, right of insert
+         Position UNIQUE Int // the approximate position of the vector in the read
+  // the approximate distance +- 20 bp facilitates the recognition of the vector site
+         Maximal_position UNIQUE Int // never clip a vector after this position
+
+#Lane UNIQUE Bands UNIQUE Float REPEAT // In base pairs: if you prefer to minimise the ace format
+             Band_Lengths  UNIQUE Float REPEAT // in mm: if you prefer to minimise the ace format
+             Band Float Text    // if you wish to comment single band value
+
+
+?Motif  Site UNIQUE Text // AA or DNA or some more elaborate descriptor
+        Match_sequence  UNIQUE Text // idem for ace4
+        Restriction_Enzyme      Isoschizomer ?Motif XREF Isoschizomer
+                                Offset UNIQUE Int   
+                                Cleavage UNIQUE Text  // will show the cleavage points ex: G_ACGT'C
+                                Overhang UNIQUE Int
+                                Company UNIQUE Text
+                                Redundant
+        Remark Text
+        Substrate UNIQUE DNA
+                         Peptide
+        Homol   DNA_homol ?Sequence XREF Motif_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Pep_homol ?Protein XREF Motif_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Motif_homol ?Motif XREF Motif_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Product_homol ?Product  ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+
+?Pfam   Accession  ?Text
+        Definition UNIQUE ?Text 
+        Interpro UNIQUE Text Text Text Text // not ?Text, so does not contribute to webquery
+        GO ?GO XREF Pfam
+        Reference Text UNIQUE Text UNIQUE Text
+        Paper ?Paper XREF Pfam
+        Comment UNIQUE Text 
+        Pfam_comment UNIQUE Text 
+        Interpro_comment UNIQUE Text 
+        Manual_edition       
+        Run_date UNIQUE DateType        
+        Homol   Gene ?Gene XREF Pfam
+                Product ?Product XREF Pfam  @"Pfam"
+                CDS ?Sequence XREF Pfam_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+
+
+// Pfam data comes from http://pfam.wustl.edu, download the file
+// Pfam-A.full.gz and load it into the database.  After that, download
+// the Interpro data and load it into the database. The Interpro data
+// overwrites some of the WUSTL data, but is more complete.
+//
+// The name of the Pfam object is the pfam identifier from the Pfam-A.full file.
+// Accession is the PF number.  
+// Definition is a short description.
+// Interpro and GO come from the Interpro data.
+// Reference is obsolete, but some databases may still contain this data.
+// Paper is a list of pubmed Paper objects.
+// Comment is the "GF CC" description in the Pfam file, or may be supersede by
+//   Interpro data
+// Manual_edition is set manually when making manual changes to a Pfam record.
+//   After importing, "find pfam ; query manual_edition" and check all the
+//   resulting objects for correctness.
+// Run_date is the date that the data was downloaded
+// Homol is computed by the genome pipeline.
+// 
+
+
+?Oligo  Sequence UNIQUE Text  // verbatim sequence 
+        Length UNIQUE Int
+        In_sequence ?Sequence XREF Oligo
+        OSP  Score UNIQUE Float
+             Tm UNIQUE Float
+             Pairwise_scores ?Oligo XREF  Pairwise_scores UNIQUE Float Float // score and Tm
+        Status Temporary
+               Ordered UNIQUE DateType
+               //Received UNIQUE DateType
+
+?Transcribed_gene T Transpliced_title UNIQUE Text
+                    Operon_title UNIQUE Text
+                    Antisens_title ?Transcribed_gene XREF  Antisens_title // at least 100 bp
+                  Gene ?Gene  XREF Transcribed_gene 
+                  Locus ?Locus XREF Transcribed_gene
+                  RNA_interference ?Text
+                  Exactly_known mRNA_Length
+                                Nb_codons
+                                Total_intron_length UNIQUE Int
+                  Composite
+                  Transcribed_from Genomic_sequence UNIQUE ?Sequence XREF Transcribed_gene
+                                   Covers UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Int
+                                   Section UNIQUE ?Section XREF Transcribed_gene
+                                   NewName UNIQUE ?NewName XREF Transcribed_gene
+                                   DefinitiveName UNIQUE Text
+                                   Map ?Map XREF Transcribed_gene #Map_position
+                                   IntMap UNIQUE ?Map UNIQUE Int UNIQUE Int
+                  mRNA ?mRNA XREF From_gene UNIQUE Int UNIQUE Int // coords of tr in tg
+                  Product ?Product XREF From_gene 
+                  Comparison_to_genome  Quality UNIQUE Int 
+                                        Possible_SNP ?Sequence XREF Possible_SNP
+                                        Possible_genomic_error ?Sequence XREF Possible_genomic_error
+                  Status Remark UNIQUE Text
+                         To_do
+                         To_be_done
+                         Edited Date UNIQUE DateType Text
+                         Submitted
+                  HINV   Method AceView
+                                Bcembly
+                                GBIRC
+                                JBIRC
+                                NEDO
+                                Kent
+                                EBI
+                                FBI
+                                NCBI
+                                NCBH
+                                Splign
+                                Splign2
+                                Unigene
+                         Smith_Waterman_done 
+                         ORF UNIQUE Int Text // ORF_length "bp"
+                         Rank  G_strand G_forward
+                                        G_reverse
+                               Masked // falls in a hyghly polymorphic region
+                               Ali Score  UNIQUE Int UNIQUE Int
+                                   No_score
+                                   Bad_score
+                                   Local_best
+                                   Best_in_method
+                                   Alternate UNIQUE Int
+                                   Repetition_5 UNIQUE Int
+                                   Genomic_contamination
+                                   ORF_bonus
+                               Identical_exon  UNIQUE Int
+                               Exon_tested
+                               M_score UNIQUE Int UNIQUE Int
+                               M_range Best
+                                       Best5
+                                       Best50
+                                       Best500
+                                       Best5000
+                               M_split M_Major
+                                       M_minor
+                               Alibaba ?Sequence XREF Alibaba
+                               Alibaba_old
+                               AliName UNIQUE Text  // Gold  or Method_title
+                               Identical_in_n UNIQUE Int
+                               Gold   Gold_score UNIQUE Int
+                                      Per_mille  UNIQUE Int
+                                      Gold_rank Excellent Diamond
+                                                Good
+                                                Partial Partial1
+                                                        Partial2
+                                                Dubious Dubious1
+                                                        Dubious2
+                                                        Dubious3
+                                                        Dubious4
+                                                Bad_ignored
+                                                Bad Bad1
+                                                    Bad2
+                                                    Bad3
+                                                    Bad4
+                                                Bad_short
+                                      Repetition UNIQUE Int
+                               Rear  Split Mosaic
+                                           Inversion UNIQUE Int
+                                           Transposition
+                                           Fuse_with
+                                           Pile_up UNIQUE Int
+                                     Genome_deletion UNIQUE Int
+                                     Variable_repeat UNIQUE Int
+                                     Multiple Major
+                                              Minor
+                         Bug Twin // please always kill one of the twins
+                             Ambiguous // aligned twice by same method
+                             Duplicate_of_read Text
+                             Bad_intron UNIQUE Int // number of non gt_ag gc_ag introns
+                             ORF_malus Int // loses because of optimal ORF
+                             Wrong_map   // because an excellent gold is elsewhere 
+                             Wrong_strand
+                             Dubious_strand
+                             Dubious_map_B // because a very_good gold is elsewhere 
+                             Dubious_map_C // because a not_so_good gold is elsewhere 
+                             Too_long
+                             More_exon  UNIQUE Int
+                             More_5p UNIQUE Int
+                             More_central UNIQUE Int
+                             More_3p UNIQUE Int
+                             More_intron UNIQUE Int
+                             More_micro_indel UNIQUE Int                            
+                             PolyA_first_exon
+                             PolyA_exon
+                             Vector_exon
+                             Too_short_first_exon UNIQUE Int
+                             Wrong_exon
+                             Missed_exon  UNIQUE Int
+                             Missed_5p UNIQUE Int
+                             Missed_central UNIQUE Int
+                             Missed_3p UNIQUE Int Text
+                             Missed_intron UNIQUE Int
+                             Missed_micro_indel  UNIQUE Int                           
+                  Structure  Nb_possible_exons UNIQUE Int
+                             Nb_alternative_exons  UNIQUE Int
+                             Nb_confirmed_introns  UNIQUE Int
+                             Nb_non_coding_introns  UNIQUE Int
+                             Nb_confirmed_alternative_introns  UNIQUE Int
+                             Total_gap_length UNIQUE Int
+                             Transpliced_to  ?Motif  Int COORD UNIQUE Text
+                             PolyA_after_base UNIQUE Int COORD
+                             Initial_polyA UNIQUE Int COORD UNIQUE Int // start position number of A
+                             No_5prime_read
+                             No_3prime_read
+                             Actual_gap Int Text ?cDNA_clone
+                             Complete
+                             Walls Int UNIQUE Text
+                  Intron_boundaries  gt_ag UNIQUE    Int Int Int ?cDNA_clone  // number x1 x2 support
+                                     ct_ac UNIQUE    Int Int Int ?cDNA_clone
+                                     gc_ag UNIQUE    Int Int Int ?cDNA_clone
+                                     at_ac UNIQUE    Int Int Int ?cDNA_clone
+                                     Fuzzy UNIQUE    Int  Int Int ?cDNA_clone Text // type of fuzzy
+                                     Other Text UNIQUE Int Int Int ?cDNA_clone
+                                     Intron ?Intron XREF From_gene
+                  Element ?Element XREF From_gene
+                  Small_deletion Text UNIQUE Int Int ?cDNA_clone // all introns < minIntronSize
+                  V_repeat UNIQUE    Int Int Int ?cDNA_clone // number x1 x2 supporting clone
+                  Longest_cDNA_clone UNIQUE ?cDNA_clone UNIQUE Int 
+                  Longest_cDNA_product  UNIQUE ?cDNA_clone  UNIQUE Float UNIQUE Text
+                  Fully_sequenced_clone ?cDNA_clone XREF Fully_sequenced
+                  cDNA_clone ?cDNA_clone XREF From_gene  @From_gene
+                  Ignored_clone ?cDNA_clone XREF Ignored_in_gene
+                  Image  ?cDNA_clone @Image
+                  Read ?Sequence XREF From_gene UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int  UNIQUE Int // length offset lengthmatch err quality maxExact
+                  Homolog_cDNA ?cDNA_clone XREF Homolog_gene
+                  Clone_group ?Clone_group XREF Transcribed_gene UNIQUE Int // number of clones of that group
+                  Expression_profile Int REPEAT   // sum of expression profile, each clone adds to 100
+                  Matching_genefinder_gene ?Sequence XREF Matching_transcribed_gene
+                  Identical_to_genefinder UNIQUE ?Sequence
+                  Details  Missing_read ?Sequence XREF Missing_from_gene @From_gene
+                           LostRead ?Sequence
+                           Overlaps ?Transcribed_gene XREF Overlaps
+                           Antisens_to ?Transcribed_gene XREF Antisens_to UNIQUE Int
+                           To_be_fused_with ?Transcribed_gene XREF To_be_fused_with UNIQUE Int
+                           Shedded_from ?Transcribed_gene XREF Sheds
+                           Sheds ?Transcribed_gene XREF Shedded_from
+                           Possible_operon ?Transcribed_gene XREF Possible_operon UNIQUE Int
+                           Next_gene_in_cis UNIQUE ?Transcribed_gene XREF Previous_gene_in_cis UNIQUE Int
+                           Previous_gene_in_cis UNIQUE ?Transcribed_gene XREF Next_gene_in_cis UNIQUE Int
+                           Splicing Int COORD  Int COORD #Splicing_confirmation // do NOT say unique
+                           Assembled_from Int Int  ?Sequence UNIQUE Int  UNIQUE Int  UNIQUE Int  // a1 a2 read x1 x2 nberr
+                  
+
+?mRNA  Title UNIQUE ?Text
+       Bad_quality Text 
+       Fiche UNIQUE ?Fiche XREF mRNA
+       Genetic_code UNIQUE ?Genetic_code
+       From_gene ?Transcribed_gene XREF mRNA
+       GeneId ?GeneId  XREF mRNA
+       NM_id ?GenBank XREF mRNA
+       NM_idexported ?GenBank XREF mRNAexported
+       NM_idaligned ?GenBank XREF mRNAaligned
+       Genefinder From_AM 
+                  From_prediction ?Sequence XREF Predicted_mRNA
+                  Matching_genefinder ?Sequence XREF Matching_mRNA
+                  Identical_to_genefinder ?Sequence XREF Identical_to_mRNA
+                  Stop_of  ?Sequence UNIQUE Int  // last base of the genefinder stop
+       RNAi ?RNAi XREF mRNA
+       SMAP S_Parent Genomic_sequence UNIQUE ?Sequence XREF mRNAs
+            Covers UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int
+            DNA UNIQUE ?DNA UNIQUE Int Text // Int is the length
+            Constructed_from Int Int  ?Sequence XREF In_mRNA Int Int
+            S_Child Product ?Product XREF mRNA UNIQUE Int UNIQUE Int  Int UNIQUE Int @ID
+       Position  IntMap UNIQUE ?Map UNIQUE Int UNIQUE Int
+                 Map ?Map XREF mRNA #Map_position  
+       Structure  Longest_ORF UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // 600 bp 200 AA from end to end
+                  Longest_CDS UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // 645 bp 215 AA from end to end
+                  Length_5prime_UTR UNIQUE Int UNIQUE Text
+                  Length_3prime_UTR UNIQUE Int UNIQUE Text
+                  Splicing Int UNIQUE Int UNIQUE Int UNIQUE Int #Splicing_confirmation
+                  Coding Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Text 
+                  Nb_exons UNIQUE Int
+                  Nb_alternative_exons  UNIQUE Int
+                  Nb_stolen_exons  UNIQUE Int
+                  Nb_predicted_exons  UNIQUE Int
+                  Total_gap_length UNIQUE Int
+                  Intron_boundaries  gt_ag UNIQUE    Int Int Int ?cDNA_clone
+                                     ct_ac UNIQUE    Int Int Int ?cDNA_clone
+                                     gc_ag UNIQUE    Int Int Int ?cDNA_clone
+                                     at_ac UNIQUE    Int Int Int ?cDNA_clone
+                                     Fuzzy UNIQUE    Int  Int Int ?cDNA_clone Text // type of fuzzy
+                                     Other Text UNIQUE Int Int Int ?cDNA_clone
+                                     Intron ?Intron XREF In_mRNA
+                  Small_deletion Text UNIQUE Int Int ?cDNA_clone // all introns < minIntronSize
+                  V_repeat UNIQUE    Int Int Int ?cDNA_clone // number x1 x2 supporting clone
+       Quality Score UNIQUE  Int // refsequisable mrna and score
+               Rating UNIQUE Text
+               RefSeq
+               Best_in_gene
+               Low_expression
+               NMD UNIQUE NMD_yes
+                          NMD_no
+               Ambiguous_best_product
+               Well_supported // cds_covered_by == 1 && cds >= 100 AA || (cds >= 50 && tax != *sapiens*)
+               Mrna_covered_by ?Sequence // minimum covering set
+               CDS_covered_by ?Sequence  // minimum covering set
+               RefSeqMaker UNIQUE ?Sequence XREF RefSeqMaker
+               Tiling  Tiling_gap Int Int  // in mrna, in cds
+                       Tiling_error UNIQUE Int
+                       Tiling_base_error UNIQUE Int
+                       Tiling_path Int Int  ?Sequence XREF mRNA_tiling Int Int
+               To_resequence ?cDNA_clone
+       AKGN   AceKogN_Date UNIQUE DateType 
+              AceKogNHuman Text UNIQUE   Text  // Text, because this is an external reference
+              AceKogNMouse Text UNIQUE   Text  // Text, because this is an external reference
+              AceKogNWorm Text UNIQUE   Text  // Text, because this is an external reference
+              AceKogNAra Text UNIQUE   Text  // Text, because this is an external reference
+       Homol AceKogN Text ?Method UNIQUE Float Int Int Int Int Text
+       Colour  #Colour 
+       Expression_profile Int REPEAT   // sum of expression profile, each clone adds to 100
+       Coding_antisens_to ?mRNA XREF Coding_antisens_to Int
+       Signature SL0 SL0_m UNIQUE Int
+                     SL0_e UNIQUE Int
+                     SL0_d UNIQUE Int
+                     SL0_L1 UNIQUE Int
+                     SL0_L2 UNIQUE Int
+                     SL0_L3 UNIQUE Int
+                     SL0_L4 UNIQUE Int
+                 SL1 SL1_m UNIQUE Int
+                     SL1_e UNIQUE Int
+                     SL1_d UNIQUE Int
+                     SL1_L1 UNIQUE Int
+                     SL1_L2 UNIQUE Int
+                     SL1_L3 UNIQUE Int
+                     SL1_L4 UNIQUE Int
+                 SL2s SL2s_m UNIQUE Int
+                      SL2s_e UNIQUE Int
+                      SL2s_d UNIQUE Int
+                      SL2s_L1 UNIQUE Int
+                      SL2s_L2 UNIQUE Int
+                      SL2s_L3 UNIQUE Int
+                      SL2s_L4 UNIQUE Int
+       Completeness  Complete  // found5p && Found3p && convaincant
+                     Found5p  Transpliced_to  ?Motif ?cDNA_clone
+                              Aggregated_5p_clones  UNIQUE Int
+                              Submitted_as_5p_complete ?cDNA_clone 
+                              Valid5p Int UNIQUE Int UNIQUE Int // position, spliced position,  nb of supporting clones 
+                     Found3p   PolyA_primed_clone
+                               PolyA_found Int ?cDNA_clone
+                               PolyA_Signal AATAAA Int 
+                                            Variant Text Int
+                               Submitted_as_3p_complete ?cDNA_clone
+                     Multi3p   PolyA_primed_clone_seen Int ?cDNA_clone
+                               PolyA_seen Int ?cDNA_clone
+                               Valid3p Int UNIQUE Int UNIQUE Int  UNIQUE Text  UNIQUE Int ?Sequence Int UNIQUE Text// position, spliced position,  nb of supporting clones  aataaa||variant signal-position supporting-Est distance-to-en PolyA
+                     Gap Gap_length UNIQUE Int
+                         Gap_clone ?cDNA_clone XREF s_gap Int Int Int Int // gap unalignedLength 5pLength 3pLength
+       Clones Best_available_clone ?cDNA_clone XREF Best__of
+              Specific_clone ?cDNA_clone XREF Specific__of
+              Complete_CDS_clone  ?cDNA_clone XREF Complete_CDS__of
+              cDNA_clone ?cDNA_clone XREF In_mRNA UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  @Anomalous_clone // 1022 "bp measured" .9 "kb variation" -12 "%"
+              Probes  Probe_hit  ?Probe XREF mRNA_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+                      Probe_exact_hit  ?Probe XREF mRNA_exact_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+                      Probe_anti_hit  ?Probe XREF mRNA_anti_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+       Solexa Text Int UNIQUE Int // manip position tag-multiplicity in old fashioned format
+       Wiggle Text Int UNIQUE Float // manip position tag-multiplicity in AM format
+
+?Probe  Probe_set ?Probe_set XREF Probe @Tissue
+        Definition Motif UNIQUE Text
+                   Length UNIQUE Int
+                   Strand UNIQUE Forward
+                                 Reverse
+                   Sequence ?Sequence XREF Sequence_of_probe
+                   Alias     ?Probe XREF Alias
+                   Antialias ?Probe XREF Antialias
+        OSp Tm UNIQUE Float
+            Score  UNIQUE Float
+        Tissue Barcode_afx ?Tissue
+               Barcode_av05 ?Tissue
+        IntMap ?Map Int UNIQUE Int
+        Hits  Genes Gene ?Gene
+                    GeneId ?GeneId
+                    Antigene  ?Gene
+                    AntigeneId ?GeneId
+                    Cloud_gene ?Gene
+                    Cloud_antigene ?Gene
+              mRNA_hit ?mRNA XREF Probe_hit Int UNIQUE Int UNIQUE Int  UNIQUE Int  UNIQUE Int UNIQUE Int  UNIQUE Int // a1 a2 nErr nStretch , g1 g2 = gene coordinates, pos-first error, 
+              mRNA_many_hits UNIQUE Int
+              mRNA_exact_hit ?mRNA XREF Probe_exact_hit Int UNIQUE Int UNIQUE Int  UNIQUE Int // a1 a2 nErr nStretch
+              mRNA_anti_hit ?mRNA XREF Probe_anti_hit Int UNIQUE Int UNIQUE Int  UNIQUE Int // a1 a2 nErr nStretch
+              NM_hit ?Sequence  XREF Probe_NM_hit Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch errPos
+              NM_exact_hit ?Sequence  XREF Probe_NM_exact_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+              NM_anti_hit ?Sequence  XREF Probe_NM_anti_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+              Tiling_hit ?Sequence XREF Probe_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // probes matching a genome tile yet mapped on the whole chromosome
+              Genome_exact_hit  ?Sequence  Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+              Genome_approximate_hit  ?Sequence  Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+        Type Exon_exon_hit ?mRNA
+             Last_exon_hit ?mRNA                 // best_product is COOH_complete
+             Single_exact_gene ?Gene             // class 1 si pas de Approximate_gene else class 2
+             Single_exact_geneid ?GeneId         // class 1 si pas de Approximate_gene else class 2
+             Exact_gene ?Gene                    // class 3 unless Single_exact
+             Single_approximate_gene ?Gene       // class 1 with error
+             Approximate_gene ?Gene              // class 2 if Single_exact else class 3
+             Confirmed_gene ?Gene XREF MAQC_probe   // class 1 with or without error
+             Confirmed_anti_gene ?Gene XREF MAQC_anti_probe   // class 1 with or without error
+             Confirmed_exon_gene ?Gene XREF MAQC_exon_probe
+             Confirmed_antiexon_gene ?Gene XREF MAQC_antiexon_probe
+             Confirmed_gene3 ?Gene XREF MAQC_probe3   // class 3 quasi exact gene
+             Confirmed_geneId                    // the confirmed_gene has a geneid
+             Antisense_only                      // class 4 even if approximate
+             Single_genome_only                  // class 5 even if approximate
+             Multi_chromo_hit                    // class 6 multi on single chromo with approx
+             Multi_genome_hit                    // class 7 multi chromo with approx
+             Probe_class UNIQUE Int              // zero hit count as class 6
+             Probe_grade UNIQUE Probe_grade1
+                                Probe_grade2
+                                Probe_grade3
+                                Probe_grade4
+                                Probe_grade5
+                                Probe_grade6
+        Geometry P1 Sense1     Cloud_f1
+                               Gene_f1 Exon_f1 Coding_f1
+                    Antisense1 Cloud_r1
+                               Gene_r1 Exon_r1 Coding_r1
+                 P2 Sense2     Cloud_f2
+                               Gene_f2 Exon_f2 Coding_f2
+                    Antisense2 Cloud_r2
+                               Gene_r2 Exon_r2 Coding_r2
+                 Probe_type  one_strand one_strand_pure one_strand_pure_intergenic
+                                                        one_strand_pure_cloud_outside
+                                                        one_strand_pure_intronic
+                                                        one_strand_pure_cloud_in_gene
+                                                        one_strand_pure_exonic_non_coding
+                                                        one_strand_pure_exonic_mixed
+                                                        one_strand_pure_exonic_coding
+                                        one_strand_mix one_strand_mix_intergenic_cloud
+                                                       one_strand_mix_intergenic_exon
+                                                       one_strand_mix_intron_cloud                             
+                                                       one_strand_mix_intron_exon
+                             merged_strands merged_strands_pure merged_strands_pure_intergenic
+                                                                merged_strands_pure_cloud_outside
+                                                                merged_strands_pure_intronic
+                                                                merged_strands_pure_cloud_in_gene
+                                                                merged_strands_pure_exonic_non_coding
+                                                                merged_strands_pure_exonic_mixed
+                                                                merged_strands_pure_exonic_coding
+                                            merged_strands_mix merged_strands_mix_intergenic_cloud
+                                                               merged_strands_mix_intergenic_exon
+                                                               merged_strands_mix_intron_cloud                             
+                                                               merged_strands_mix_intron_exon
+                             one_strand_no_cloud one_strand_no_cloud_pure one_strand_no_cloud_pure_intergenic
+                                                                          one_strand_no_cloud_pure_intronic
+                                                                          one_strand_no_cloud_pure_exonic_non_coding
+                                                                          one_strand_no_cloud_pure_exonic_mixed
+                                                                          one_strand_no_cloud_pure_exonic_coding
+                                                 one_strand_no_cloud_mix one_strand_no_cloud_mix_intergenic_exon
+                                                                         one_strand_no_cloud_mix_intron_exon
+                             merged_strands_no_cloud merged_strands_no_cloud_pure merged_strands_no_cloud_pure_intergenic
+                                                                                  merged_strands_no_cloud_pure_intronic
+                                                                                  merged_strands_no_cloud_pure_exonic_non_coding
+                                                                                  merged_strands_no_cloud_pure_exonic_mixed
+                                                                                  merged_strands_no_cloud_pure_exonic_coding
+                                                     merged_strands_no_cloud_mix merged_strands_no_cloud_mix_intergenic_exon
+                                                                                 merged_strands_no_cloud_mix_intron_exon
+        Array UNIQUE ?Library
+        Constructor_info Probe_id ?Probe XREF Probe_number
+                         Probe_number ?Probe XREF Probe_id
+                         C_NM Text
+                         C_GeneId Text
+        Signal Text Float
+        Signal_eric Text Float
+        Signal_after_image_smoothing  Text Float
+        Expressed Expressed_pA ?Tissue Text
+                  Expressed_Nuc_pA_moins ?Tissue Text
+                  Expressed_total ?Tissue Text
+        Sign2  ACDB ACDB_plus   
+                    ACDB_plus_confirmed
+                    ACDB_plus_anti
+                    ACDB_minus  
+                    ACDB_minus_confirmed
+                    ACDB_minus_anti
+               A_D  Signal_A  UNIQUE Float
+                    Signal_C  UNIQUE Float
+                    Signal_D  UNIQUE Float
+                    Signal_B  UNIQUE Float
+                    Signal_E  UNIQUE Float
+                    Signal_F  UNIQUE Float
+               Data Text UNIQUE Float UNIQUE Float // value flag
+        Colour #Colour
+        Background_colour #Colour
+
+?Probe_set Probe ?Probe XREF Probe_set @Tissue
+           Library ?Library
+           Tissue Barcode_afx ?Tissue
+                  Barcode_av05 ?Tissue
+           Confirmed_gene ?Gene XREF MAQC_probe_set
+           ACDB ACDB_plus   
+                ACDB_plus_confirmed
+                ACDB_minus  
+                ACDB_minus_confirmed
+           GeneId ?GeneId XREF Probe_set
+           GeneId_details GeneId_one2one ?GeneId XREF Probe_set_one2one
+                          GeneId_Jensen ?GeneId XREF Probe_set_Jensen
+                          GeneId_Taqman ?GeneId  XREF Probe_set_Taqman
+           NM_details NM_one2one ?Sequence XREF Probe_set_one2one
+                      NM_Jensen ?Sequence XREF Probe_set_Jensen
+                      NM_Damir ?Sequence XREF Probe_set_Damir
+                      NM_Jean ?Sequence XREF Probe_set_Jean
+                      NM_Taqman ?Sequence  XREF Probe_set_Taqman
+
+?Product   ID Title UNIQUE ?Text  // the title kernel we export to refseq
+              Kantor_title UNIQUE ?Text // copied from kantor->title or from kantor->Kantor_title
+              Short_kantor_title UNIQUE Text
+              Suggested_class Text // ufo nmt ... generated from kantor
+              Blastp_title  UNIQUE Text // generated from kantor
+              Pfam_title  ?Pfam REPEAT  // liste des pfam
+              Motif_title UNIQUE Text  // not text it would be too much XREF'd
+              Psort_title UNIQUE Text  // not text it would be too much XREF'd
+              Tax_common_ancestor Text
+              Family_title  UNIQUE Text
+              Molecular_weight UNIQUE Float UNIQUE Float
+           GeneBox ?Gene XREF Product
+           From_gene UNIQUE ?Transcribed_gene XREF Product
+           Genefinder From_prediction ?Sequence XREF Predicted_product
+                      Matching_gene ?Sequence XREF Matching_product
+                      Identical_to_gene ?Sequence XREF Identical_to_product
+           Expasy UNIQUE Float UNIQUE Float
+           Expasy_class A
+                        B B1
+                          B2
+                          B3
+           Completeness Partial ?Product XREF Included_in_partial
+                        Complete  ?Product  XREF Included_in_complete  // NH2_Complete && COOH_Complete
+                        NH2_Complete Up_stop       UNIQUE Int REPEAT // negative numbers, if Met_at_position_1
+                                     Early_Met
+                                     Manual_Met
+                                     mRNA_5p_complete 
+                        Met at_position_1    // Only possible if NH2_Complete,  if present: A of ATG defines base 1
+                        First_Met UNIQUE Int // AA units, obsolete, kept for backwards compatibility
+                        First_ATG UNIQUE Int // AA units
+                        First_NTG UNIQUE Int UNIQUE Text // AA units
+                        First_Kozak UNIQUE Int UNIQUE Text // AA units
+                        COOH_Complete Down_stop    UNIQUE Int REPEAT
+           Qual    Quality UNIQUE Int
+                   Best_product  // longest CDS, or if none longest ORF
+                   Very_good_product  // many introns and/or 200 AA
+                   Good_product  // has some kind of good annot or CDS >= 100 AA
+                   uORF
+                   uORF_candidate
+                   Complete_CDS_clone ?cDNA_clone XREF Complete_CDS_of
+                   Covered_by ?Sequence XREF Covers_product UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // delta # nV # type
+           Structure Frame UNIQUE Int
+                     Open_length   UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // 645 bp 215 AA from end to end
+                     Coding_gap   UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // 201 bp 67 X
+                     Length_5prime_UTR UNIQUE Int UNIQUE Text
+                     Coding_length UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text // from Met to Stop, and only if they exist
+                     Length_3prime_UTR UNIQUE Int UNIQUE Text
+                     Introns Nb_introns_in_CDS UNIQUE Int
+                             Nb_Introns_outside_CDS UNIQUE Int
+           Unicity Original  // if complete not identical or partial not included and not identical
+                   Identical_to ?Product
+                   Included_in_complete ?Product XREF Complete 
+                   Included_in_partial ?Product  XREF Partial 
+                   Same_stop_as ?Product XREF  Same_stop_as
+                   Same_stop_as_model ?Sequence XREF  Same_stop_as_product
+           Homol AKG AceKogHuman Text UNIQUE  Text // Gene NewName_or_GeneId Text, because this is an external reference
+                     AceKogWorm Text UNIQUE   Text  // Text, because this is an external reference
+                     AceKogMouse Text UNIQUE   Text  // Text, because this is an external reference
+                     AceKogRat Text UNIQUE   Text  // Text, because this is an external reference
+                     AceKogAra Text UNIQUE   Text  // Text, because this is an external reference
+                     AceKog Text Text Float Int UNIQUE Int Int UNIQUE Int Text 
+                 Pfam ?Pfam  XREF Product ?Method Float Int UNIQUE Int Int UNIQUE Int Text Text
+                 Blastp ?Protein ?Method Float Int UNIQUE Int Int UNIQUE Int Text  // ?may be costly  
+                 Domain ?Motif ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                 Nucleic_acid_binding Leucine_zipper_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                      Zinc_finger_domain  ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                      RNA_binding_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                 Psort_domain   Transmembrane_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Cleavable_signal_peptide ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                N_terminal_signal_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                N_terminal_domain  ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Nuclear_localization_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                2nd_peroximal_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                actin_binding_1_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                actin_binding_2_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                ATP_binding_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Coiled_coil_region ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Coil_coil_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Coil_coil_4 ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Ribosomal_protein_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Dileucine_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                ER_membrane_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                ER_retention_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Golgi_transport_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                N_myristoylation_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                peroxisomal_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                prenylation_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                vacuolar_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+                                Mitochondrial_cleavage_site_domain ?Method Float Int UNIQUE Int Int UNIQUE Int Text   
+           Tax_tree   Archaea
+                      Viruses
+                      Bacteria   Escherichia_coli
+                      Eukaryota  Plasmodium_falciparum
+                                 Mycetozoa Dictyostelium_discoideum
+                                 Viridiplantae    Chlamydomonas_reinhardtii
+                                                  Arabidopsis_thaliana
+                                                  Zea_mays
+                                 Fungi_Metazoa_group   Fungi    Saccharomyces_cerevisiae
+                                                                Schizosaccharomyces_pombe
+                                                                Neurospora_crassa
+                                                       Metazoa  Bilateria  Pseudocoelomata  Caenorhabditis_elegans
+                                                                           Protostomia      Mollusca
+                                                                                            Panarthropoda  Anopheles_gambiae_str_PEST
+                                                                                                           Drosophila_melanogaster 
+                                                                           Deuterostomia    Echinodermata
+                                                                                            Chordata   Vertebrata   Teleostomi  Teleostei Takifugu_rubripes
+                                                                                                                                          Danio_rerio
+                                                                                                                                Amphibia   Xenopus_laevis
+                                                                                                                                Amniota    Mammalia  Eutheria  Mus_musculus
+                                                                                                                                                               Rattus_norvegicus
+                                                                                                                                                               Homo_sapiens
+           Tax_count    NArchaea UNIQUE Int 
+                        NViruses UNIQUE Int
+                        NBacteria UNIQUE Int  ?Method ?Protein Float
+                        NEscherichia_coli   UNIQUE Int  ?Method ?Protein Float
+                        NEukaryota UNIQUE Int
+                        NPlasmodium_falciparum   UNIQUE Int  ?Method ?Protein Float 
+                        NMycetozoa UNIQUE Int 
+                        NDictyostelium_discoideum   UNIQUE Int  ?Method ?Protein Float
+                        NViridiplantae UNIQUE Int
+                        NArabidopsis_thaliana   UNIQUE Int  ?Method ?Protein Float 
+                        NZea_mays  UNIQUE Int  ?Method ?Protein Float 
+                        NChlamydomonas_reinhardtii  UNIQUE Int  ?Method ?Protein Float 
+                        NFungi_Metazoa_group UNIQUE Int
+                        NFungi UNIQUE Int
+                        NSaccharomyces_cerevisiae   UNIQUE Int  ?Method ?Protein Float
+                        NSchizosaccharomyces_pombe   UNIQUE Int  ?Method ?Protein Float
+                        NNeurospora_crassa   UNIQUE Int  ?Method ?Protein Float
+                        NMetazoa UNIQUE Int
+                        NBilateria UNIQUE Int
+                        NPseudocoelomata UNIQUE Int
+                        NCaenorhabditis_elegans   UNIQUE Int  ?Method ?Protein Float
+                        NProtostomia UNIQUE Int
+                        NMollusca UNIQUE Int
+                        NPanarthropoda UNIQUE Int
+                        NAnopheles_gambiae_str_PEST   UNIQUE Int  ?Method ?Protein Float
+                        NDrosophila_melanogaster   UNIQUE Int  ?Method ?Protein Float
+                        NDeuterostomia UNIQUE Int
+                        NEchinodermata UNIQUE Int
+                        NChordata UNIQUE Int   
+                        NVertebrata UNIQUE Int  
+                        NTeleostomi UNIQUE Int  
+                        NTeleostei UNIQUE Int  
+                        NTakifugu_rubripes UNIQUE Int  ?Method ?Protein Float 
+                        NDanio_rerio UNIQUE Int  ?Method ?Protein Float 
+                        NAmphibia UNIQUE Int     
+                        NXenopus_laevis UNIQUE Int  ?Method ?Protein Float
+                        NAmniota UNIQUE Int     
+                        NMammalia UNIQUE Int     
+                        NEutheria UNIQUE Int     
+                        NMus_musculus UNIQUE Int  ?Method ?Protein Float
+                        NRattus_norvegicus UNIQUE Int  ?Method ?Protein Float
+                        NHomo_sapiens UNIQUE Int  ?Method ?Protein Float
+           Localisation Psort  Cytoplasmic  UNIQUE Float // was ?Psort XREF Product // localisation de la protein
+                               Cytoskeletal  UNIQUE Float 
+                               Endoplasmic_reticulum  UNIQUE Float 
+                               Secreted  UNIQUE Float   // extracellular, including cell wall
+                               Golgi  UNIQUE Float 
+                               Mitochondrial  UNIQUE Float 
+                               Membrane  UNIQUE Float 
+                               Nuclear  UNIQUE Float 
+                               Peroxisomal  UNIQUE Float 
+                               Plasma_membrane  UNIQUE Float 
+                               Vacuolar  UNIQUE Float 
+                               Vesicles_of_secretory_system  UNIQUE Float 
+                        Antibody
+                        GFP_tag
+           Primers Text UNIQUE Text UNIQUE Text UNIQUE Float // ATGGATCAATTCCAAGCTTTGATT "(Met->24bp,T=55.1)" "osp_score" 70.0
+           SMAP S_Parent mRNA  UNIQUE ?mRNA XREF Product
+                         From_EST UNIQUE ?Sequence XREF EST_translation
+                Peptide UNIQUE ?Peptide UNIQUE Int UNIQUE Int // Int is the signature
+                Source_Exons Int COORD UNIQUE Int COORD #Protein_fragment // gene splicing in bp then AA
+                Source_Introns Int COORD UNIQUE   Int COORD
+           Position  IntMap UNIQUE ?Map UNIQUE Int UNIQUE Int
+                     Map ?Map XREF Product #Map_position  
+           CDS Method UNIQUE ?Method // for display purposes
+           Kantor UNIQUE ?Kantor XREF Product @Title_hints 
+
+?Psort Title ?Text
+
+
+// ClassK antor maintains exterior protein annotations maintained on the sole
+// basis of its peptide sequence, it is named based on the peptide hash-value
+// the searches (BLAST, PFAM etc) can be run 'in advance' of creating the Product
+// object and are hooked to it on the basis of the peptide sequence hash value
+
+// this is a secret class without any XREF originating from it
+
+// ace     -> michel peptide product Predicted_product Representative_product
+// pfam    -> pfam_date Pfam hit_info PFAM_title
+// blastp  -> blastp_date title_hints blastp Blastp_title Short_title 
+// taxblast-> taxblast_date  Tax_count Tax_tree
+// psort   -> psort_date  psort domain 
+// expasy  -> expasy_date expasy
+
+?Kantor  Hand   Title UNIQUE Text  // hand edited out of kantor_title + GenBank Is_mrna ->Brief_identification
+                Short_title  UNIQUE Text // hand edited 
+         Auto ID Kantor_title  UNIQUE Text // fully automatic
+                 Short_kantor_title  UNIQUE Text // fully automatic
+                 mRNA_title  UNIQUE Text
+                 Suggested_class UNIQUE Text // ufo nmt ... generated from kantor
+                 Family_title  UNIQUE Text
+                 Blastp_title  UNIQUE Text
+                 Taxblast_title UNIQUE Text
+                 PFAM_title  UNIQUE Text
+              Product ?Product   // NO XREF 
+              Representative_product UNIQUE ?Product  // NO XREF 
+              Peptide UNIQUE ?Peptide UNIQUE Int UNIQUE Int
+              Michel UNIQUE Float UNIQUE Float 
+              Kantor_Date UNIQUE DateType
+         EXP Expasy_Date UNIQUE DateType 
+             Expasy UNIQUE Float UNIQUE Float
+         PFM    Pfam_Date UNIQUE DateType 
+                Pfam ?Pfam ?Method Float Int UNIQUE Int Int UNIQUE Int Text Text // score,a1.a2.x1.x2,method,expect(out of range of floats)
+                Hit_Info Pfam_Significant_Hits UNIQUE Int
+                         Pfam_Non_Significant_Hits UNIQUE Int
+         BLP Blastp_Date UNIQUE DateType 
+             Blastp ?Protein ?Method Float Int UNIQUE Int Int UNIQUE Int Text  
+             Title_hints Text
+         AKG AceKog_Date UNIQUE DateType 
+             AceKog Text Text Float Int UNIQUE Int Int UNIQUE Int Text 
+             AceKogHuman Text  Text   // Text, because this is an external reference
+             AceKogMouse Text  Text   // Text, because this is an external reference
+             AceKogRat Text  Text   // Text, because this is an external reference
+             AceKogWorm Text  Text   // Text, because this is an external reference
+             AceKogAra Text Text // Text, because this is an external reference
+         PSR Psort_Date UNIQUE DateType 
+             Psort Localization ?Psort UNIQUE Float
+             Domain ?Motif ?Method Float Int UNIQUE Int Int UNIQUE Int Text    
+         TXB    Taxblast_Date UNIQUE DateType 
+                Tax_tree   Archaea
+                           Viruses
+                           Bacteria   Escherichia_coli
+                           Eukaryota  Plasmodium_falciparum
+                                      Mycetozoa Dictyostelium_discoideum
+                                      Viridiplantae    Chlamydomonas_reinhardtii
+                                                       Arabidopsis_thaliana
+                                                       Zea_mays
+                                      Fungi_Metazoa_group   Fungi    Saccharomyces_cerevisiae
+                                                                     Schizosaccharomyces_pombe
+                                                                     Neurospora_crassa
+                                                            Metazoa  Bilateria  Pseudocoelomata  Caenorhabditis_elegans
+                                                                                Protostomia      Mollusca
+                                                                                                 Panarthropoda  Anopheles_gambiae_str_PEST
+                                                                                                                Drosophila_melanogaster 
+                                                                                Deuterostomia    Echinodermata
+                                                                                                 Chordata   Vertebrata   Teleostomi  Teleostei  Takifugu_rubripes
+                                                                                                                                                Danio_rerio
+                                                                                                                                     Amphibia   Xenopus_laevis
+                                                                                                                                     Amniota    Mammalia  Eutheria  Mus_musculus
+                                                                                                                                                                    Rattus_norvegicus
+                                                                                                                                                                    Homo_sapiens
+                Tax_count    NArchaea UNIQUE Int 
+                             NViruses UNIQUE Int
+                             NBacteria UNIQUE Int  ?Method ?Protein Float
+                             NEscherichia_coli   UNIQUE Int  ?Method ?Protein Float
+                             NEukaryota UNIQUE Int
+                             NPlasmodium_falciparum   UNIQUE Int  ?Method ?Protein Float 
+                             NMycetozoa UNIQUE Int
+                             NDictyostelium_discoideum   UNIQUE Int  ?Method ?Protein Float
+                             NViridiplantae UNIQUE Int
+                             NChlamydomonas_reinhardtii UNIQUE Int  ?Method ?Protein Float 
+                             NArabidopsis_thaliana   UNIQUE Int  ?Method ?Protein Float 
+                             NZea_mays   UNIQUE Int  ?Method ?Protein Float 
+                             NFungi_Metazoa_group UNIQUE Int
+                             NFungi UNIQUE Int
+                             NSaccharomyces_cerevisiae   UNIQUE Int  ?Method ?Protein Float
+                             NSchizosaccharomyces_pombe   UNIQUE Int  ?Method ?Protein Float
+                             NNeurospora_crassa   UNIQUE Int  ?Method ?Protein Float
+                             NMetazoa UNIQUE Int
+                             NBilateria UNIQUE Int
+                             NPseudocoelomata UNIQUE Int
+                             NCaenorhabditis_elegans   UNIQUE Int  ?Method ?Protein Float
+                             NProtostomia UNIQUE Int
+                             NMollusca UNIQUE Int
+                             NPanarthropoda UNIQUE Int
+                             NAnopheles_gambiae_str_PEST   UNIQUE Int  ?Method ?Protein Float
+                             NDrosophila_melanogaster   UNIQUE Int  ?Method ?Protein Float
+                             NDeuterostomia UNIQUE Int
+                             NEchinodermata UNIQUE Int
+                             NChordata UNIQUE Int   
+                             NVertebrata UNIQUE Int  
+                             NTeleostomi UNIQUE Int  
+                             NTeleostei UNIQUE Int  
+                             NTakifugu_rubripes UNIQUE Int  ?Method ?Protein Float 
+                             NDanio_rerio UNIQUE Int  ?Method ?Protein Float 
+                             NAmphibia UNIQUE Int     
+                             NXenopus_laevis UNIQUE Int  ?Method ?Protein Float
+                             NAmniota UNIQUE Int     
+                             NMammalia UNIQUE Int     
+                             NEutheria UNIQUE Int     
+                             NMus_musculus UNIQUE Int  ?Method ?Protein Float
+                             NRattus_norvegicus UNIQUE Int  ?Method ?Protein Float
+                             NHomo_sapiens UNIQUE Int  ?Method ?Protein Float
+           
+?WbId Predicted_gene ?Sequence XREF WbId
+      Gene ?Gene XREF WbId
+      Concise_description UNIQUE Text
+
+?Sequence Title UNIQUE Text // absolutelly NO ?Text here, 4M est have it
+          Product_title UNIQUE ?Text
+          mRNA_title  UNIQUE ?Text
+          Full_name UNIQUE Text
+          Previous_NewName Text UNIQUE Text UNIQUE Text// name in previous release, [pfam || (nothing == pseudo)], chrom
+          Name_history Previous_newname_31 Text UNIQUE Text UNIQUE Text
+                       Previous_newname_35f Text UNIQUE Text UNIQUE Text
+                       Previous_newname_36a Text UNIQUE Text UNIQUE Text
+          Extern ?Extern XREF Sequence
+          Mesh ?Mesh XREF Sequence
+          GeneId_pg  ?GeneId XREF Predicted_gene
+          GeneId  ?GeneId XREF Sequence
+          Unigene ?Unigene XREF Sequence
+          WbId ?WbId XREF Predicted_gene
+          COG ?COG XREF Sequence  @Info
+          GO ?GO
+          Has_EST has_exact_est
+          Homolog ?Text
+          Reference ?Paper XREF Sequence
+          DNA UNIQUE ?DNA UNIQUE Int Text // Int is the length
+          RNA                        // if this tag is set display AUGC
+          Type UNIQUE Is_read  Difficult_to_align
+                      Is_ignored_read
+                      Is_buried_under ?Clone XREF Buried_est
+                      Is_contig
+                      Is_assembly
+                      Is_bac
+                      Is_AM
+                      Product  
+                      Genomic  Is_Cosmid In_junction ?Sequence XREF  Parts
+                               Is_gene_tile  // to cover large genes
+                      // Is_Link // Parts ?Sequence
+                      Junction Parts ?Sequence XREF In_junction
+                      Is_Pair
+                      Is_gap UNIQUE Int
+                      Is_chain UNIQUE Int
+                      YBR_contig
+                      GS_tiling
+                      Is_predicted_gene
+                      Gene_predicted_by Genefinder
+                      Vector Is_vector              // double appelation fro compatibility
+                      Sequence_of_probe ?Probe XREF Sequence
+          Structure  From Source UNIQUE ?Sequence XREF Subsequence
+                     Subsequence ?Sequence XREF Source UNIQUE Int UNIQUE Int  UNIQUE Int UNIQUE Int 
+                     Section UNIQUE ?Section XREF Sequence
+                     Fragment ?Sequence XREF Compound
+                     Compound ?Sequence XREF Fragment Int UNIQUE Int  UNIQUE Int UNIQUE Int  
+                     Source_Exons Int COORD UNIQUE Int COORD #Splicing_confirmation   // start at 1, to display gene splicing and translations
+                     Source_Introns Int COORD UNIQUE   Int COORD
+                     Intron ?Intron XREF From_genefinder
+                     Transcribed_gene ?Transcribed_gene XREF Genomic_sequence UNIQUE Int UNIQUE Int          
+                     Gene_wall Int UNIQUE Int
+                     Super_long
+          SMAP S_Child Genes ?Gene XREF Genomic_sequence UNIQUE Int UNIQUE Int  #SMap_info  
+                       mRNAs ?mRNA XREF Genomic_sequence UNIQUE Int UNIQUE Int  #SMap_info  
+                       RNAi ?RNAi XREF Genomic_sequence Int UNIQUE Int  #SMap_info  
+                       OST ?OST XREF Genomic_sequence Int UNIQUE Int  #SMap_info  
+                       PBS ?PBS XREF Genomic_sequence UNIQUE Int UNIQUE Int   #SMap_info  
+               Assembled_in In_mRNA ?mRNA
+                            mRNA_tiling ?mRNA
+          Gene  Gene_model ?Sequence XREF Model_of
+                Model_of UNIQUE ?Sequence XREF Gene_model
+                Model_of_gene ?Gene XREF Genefinder
+                Model_of_previous_gene ?Gene XREF Previous_genefinder
+                Identifies ?Sequence
+                Version UNIQUE Int
+                Primers Text UNIQUE Text
+          Confirmed_intron  Int Int #Splice_confirmation
+          Map ?Map XREF Sequence #Map_position
+          IntMap UNIQUE ?Map UNIQUE Int UNIQUE Int
+          Tested_by Tested_by_AceView
+                    Tested_by_JBIRC
+                    Tested_by_GBIRC
+                    Tested_by_NEDO
+                    Tested_by_Kent
+                    Tested_by_NCBI
+                    Tested_by_NCBH
+                    Tested_by_EBI
+                    Tested_by_Splign
+          Alibaba ?Transcribed_gene XREF Alibaba
+          cDNA From_gene ?Transcribed_gene XREF Read  UNIQUE Int UNIQUE Int UNIQUE Int  UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Text // length offset lengthmatch nerors quality maxexact section
+               From_gene_35f ?Transcribed_gene XREF Read  UNIQUE Int UNIQUE Int UNIQUE Int  UNIQUE Int UNIQUE Int UNIQUE Text // length offset lengthmatch nerors quality section
+          From_cosmid ?Sequence Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int   UNIQUE Int  UNIQUE Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality maxExact section
+          From_cosmid_35f ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          From_cosmid_jap34_oct13 ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          From_cosmid_jap34_oct14 ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          From_cosmid_ncbi34_oct14 ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          From_cosmid_ncbi34_oct30 ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          From_cosmid_jap34_oct30 ?Sequence Int Int Int Int Int Int Int Int Text // cosmid a1 a2 x1 x2 lengthest ali nerr quality section
+          Best_cosmid_alignment ?Sequence Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int   UNIQUE Int  UNIQUE Text// cosmid a1 a2 x1 x2 lengthest ali nerr quality maxExact section
+          Best_gene_alignment ?Transcribed_gene Int  UNIQUE Int  UNIQUE Int  UNIQUE Int  UNIQUE Int   UNIQUE Int  UNIQUE Text// tg len offsett ali nerr quality maxExact section
+          Missing_from_gene ?Transcribed_gene XREF Missing_read
+          Assembly   Colour #Colour  // seen in trace editor
+                     Is_Reference  // Reference sequence, for acembly: align command
+                     Assembled_from ?Sequence XREF Assembled_into UNIQUE Int COORD UNIQUE Int COORD UNIQUE Int UNIQUE Int
+                     Assembled_into ?Sequence XREF Assembled_from
+                // these two are the binding relationships reads <-> contigs - they are loose
+                // the first two ints are the positions in the contig.  The next two are the left and right clip points
+                // for the read with respect to this assembly.
+                     Aligned ?Sequence XREF Aligned_into  UNIQUE Int COORD UNIQUE Int COORD UNIQUE Int UNIQUE Int
+                     Aligned_into ?Sequence XREF Aligned  // for sequence comparisons in acembly
+                // historic of asssemblies
+                     History Derived_from UNIQUE ?Sequence UNIQUE DateType 
+                             Previous_contig ?Sequence XREF Later_part_of UNIQUE Int COORD UNIQUE Int COORD UNIQUE Int UNIQUE Int
+                             Later_part_of ?Sequence XREF Previous_contig
+                     Golden_path ?Sequence UNIQUE Int COORD UNIQUE Int COORD
+          Phrap Tag // ?Tag_type Int COORD Int COORD Text 
+                Template UNIQUE ?Clone XREF Read
+                Align_to_SCF Int COORD UNIQUE Int COORD UNIQUE Int UNIQUE Int
+                        // tight alignment of current (edited) read to SCF file
+                Staden_id UNIQUE Int
+          Library ?Library UNIQUE Text UNIQUE Text // Texts are ID, Accession_number
+                                                   // to be used for reads from EMBL etc.
+          Origin  From_Library ?Library
+                  Dev_stage Text // LOCK 
+                  Tissue ?Tissue // LOCK
+                  Strain Text 
+                  Date Text
+                  Genetic_Code unique ?Genetic_code @"name"
+                  Japanese
+                  HINV_cluster_id UNIQUE Text // link to HINV database
+                  Nb_cDNA_clone UNIQUE Int // includes shed clones
+          Species Text
+          Clone_structure  Length UNIQUE Int
+                           Nb_Exons UNIQUE Int
+                           Exon_Length  UNIQUE Int
+                           Intron_Length UNIQUE Int
+                           Gap_Length UNIQUE Int
+                           Overlap_right UNIQUE ?Sequence XREF Overlap_left UNIQUE Int
+                        // potentially use Overlap_right integer for auto-linking
+                           Overlap_left UNIQUE ?Sequence XREF Overlap_right
+                           Clone_left_end ?Clone XREF Clone_left_end UNIQUE Int
+                           Clone_right_end ?Clone XREF Clone_right_end UNIQUE Int
+                           Connected // no gap from here to origin of coordinates
+          Visible       Remark ?Text // LOCK what people have put in their GenBank submission
+                        Note_gb Text // LOCK what people have put in their GenBank submission
+                        Concise_description ?Text // used in wormbase elegans_cds
+                        Long_remark ?LongText
+                        Function ?Text // LOCK as imported from GenBank
+                        Matching_Genomic ?Sequence XREF Matching_cDNA
+                        Matching_cDNA ?Sequence XREF Matching_Genomic
+                        Matching_transcribed_gene  ?Transcribed_gene XREF Matching_genefinder_gene
+                        Matching_mRNA  ?mRNA XREF Matching_genefinder #Met_stop
+                        Matching_product  ?Product XREF Matching_gene #Met_stop
+                        Same_stop_as_product ?Product XREF  Same_stop_as_model
+                        Identical_to_mRNA  ?mRNA XREF Identical_to_genefinder
+                        Predicted_mRNA  ?mRNA XREF From_prediction
+                        Predicted_product  ?Product XREF From_prediction
+                        Identical_to_product  ?Product XREF Identical_to_gene
+                        Corresponding_protein UNIQUE ?Protein XREF Corresponding_DNA    
+                        Related_protein ?Protein XREF Related_DNA
+                        Spliced_cDNA ?Sequence XREF Component_of Int UNIQUE Int Int UNIQUE Int
+                        Component_of ?Sequence XREF Spliced_cDNA
+                        Rescued_gene ?Gene XREF Rescuing_cosmid
+                        Locus ?Locus XREF Sequence
+                        Locus_102 ?Locus XREF Sequence_102 // 
+                        Locus_130 ?Locus XREF Sequence_130 // 
+                        Locus_140 ?Locus XREF Sequence_140 // 
+                        Locus_169 ?Locus XREF Sequence_169 // 
+                        Locus_190 ?Locus XREF Sequence_190 // 
+                        Locus_200 ?Locus XREF Sequence_200 // 
+                        Locus_GB ?Locus XREF Sequence_GB  //LOCK GenBank names like unc-32
+                        Locus_GB_dubious ?Locus XREF Sequence_GB_dubious // GB of bizare form
+                        Locus_cgc ?Locus XREF Sequence_cgc
+                        Allele ?Allele XREF Sequence
+                        Brief_identification UNIQUE ?Text
+                        Expr_pattern ?Expr_pattern XREF Sequence
+                        Sage Text Int Int Float // catg #dauer #mixed score
+                        Affymetrix Text  // used on affymetrix chips
+          NCBI Ref_Seq Provisional_ref_seq
+                       Reviewed_ref_seq
+                       Predicted_ref_seq
+                       LocusLink_ref_seq
+                       Validated_ref_seq
+                       Inferred_ref_seq
+                       Model_ref_seq
+               RefSeqMaker UNIQUE ?mRNA XREF RefSeqMaker
+               Ref_id  ?Locus XREF Ref_id
+               NM_id ?GenBank XREF Predicted_gene_NM
+               NM_idexported ?GenBank XREF Predicted_gene_NMexported
+               NM_idaligned ?GenBank XREF Predicted_gene_NMaligned
+               GenBank_id UNIQUE ?GenBank XREF Sequence
+               GeneCard_id UNIQUE Text
+               Ref_mRNA
+          Properties    Pseudogene Text
+                        Transposon Text                // transposon type
+                        Coding  CDS UNIQUE Int COORD UNIQUE Int COORD
+                                CDS_predicted_by ?Method Float // score of method
+                                Precursor
+                                Covers_product ?Product XREF Covered_by #Coverage
+                        Status  Received UNIQUE DateType
+                                Library_construction UNIQUE DateType
+                                Shotgun        UNIQUE DateType
+                                Shotgun_complete UNIQUE DateType
+                                Contiguous UNIQUE DateType
+                                Finished UNIQUE DateType
+                                Submitted UNIQUE DateType
+                                Archived UNIQUE DateType UNIQUE Text // Date Disk
+                        ProcessStatus UNIQUE Text
+                        Asped UNIQUE DateType
+                        Is_mRNA
+			    // is_mrna is more specific than it looks.. it 
+			    // means an mRNA that should be used to construct 
+			    // a reference sequence (an NM)
+                        Is_partial
+                        Is_EST
+                        Is_mutant
+                        Complete_mRNA  // same as real_3prime AND Real_5prime
+                        Complete_CDS  //  same has having an SL0, means find Met inside this read
+                        Composite UNIQUE Int REPEAT  // number of supporting tags
+                        Real_5prime    // do not fuse upstream   by  hand
+                        Real_3prime    // do not fuse downstream by  hand
+                        Manual_real_5prime    // do not fuse upstream   by  hand Danielle aug23
+                        Manual_real_3prime    // do not fuse downstream by  hand Danielle aug23
+                        Gold_repeat    // repeat identified in Gold project
+                        Start_not_found
+                        End_not_found
+                        GenBank_tag Text Text
+                        AM Score UNIQUE Int
+                           Rating UNIQUE Text
+                        Transcript UNIQUE mRNA  UNIQUE  Processed_mRNA
+                                                        Unprocessed_mRNA
+                                          tRNA UNIQUE Text
+                                          rRNA UNIQUE Text
+                                          ncRNA UNIQUE Text
+                                          snRNA UNIQUE Text
+                                          snoRNA UNIQUE Text
+                                          scRNA UNIQUE Text
+                                          stRNA UNIQUE Text         // [010723 dl]
+                                          miRNA UNIQUE Text         // [011129 dl]
+                                          G26RNA UNIQUE Text
+                                          u21RNA UNIQUE Text
+                                          misc_RNA UNIQUE Text
+                        Anticodon UNIQUE Text
+                        Expression_profile Int REPEAT   // sum of expression profile, each clone adds to 100
+          Oligo ?Oligo XREF In_sequence Int UNIQUE Int        // for OSP
+          OligoRepeat UNIQUE Text // ?OligoRepeat UNIQUE Int
+          cDNA_clone  UNIQUE ?cDNA_clone XREF Read  @From_gene
+          cDNA_clone_GB Text
+          EST_translation ?Product XREF From_EST UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // product_from to(excluding stop) .tg (met or leu)  atg (met) 
+          From_cDNA_clone  UNIQUE ?cDNA_clone XREF Read  @From_gene
+          Discarded_cDNA ?cDNA_clone XREF Discarded_from Int Int
+          Possible_error_at_base Int UNIQUE Text UNIQUE Text
+          Possible_genomic_error  ?Transcribed_gene XREF Possible_genomic_error Int UNIQUE Text
+          Possible_SNP  ?Transcribed_gene XREF Possible_SNP Int UNIQUE Text
+          Strand UNIQUE Forward
+                        Reverse
+          Intron_boundaries  gt_ag          UNIQUE Int
+                             ct_ac          UNIQUE Int
+                             gc_ag          UNIQUE Int
+                             at_ac          UNIQUE Int
+                             Fuzzy          UNIQUE Int
+                             other   Text   UNIQUE Int
+                             V_repeat       UNIQUE Int // number
+          Small_deletion Text Text Int Text Int  ?cDNA_clone // gt_ag  position 431 length 17
+          Exon_coord Int UNIQUE Int  Int UNIQUE Int // when mRNA is used as genome: a1 a2 x1 x2
+          Genbank_CDS UNIQUE Int UNIQUE Int // start stop of cds as seen in genbank
+          Bad_quality Text 
+          Directed_sequencing Opposite ?Sequence XREF Opposite
+                              Clone ?Clone
+                              Subclone UNIQUE ?Clone XREF Read  @Read
+                              Buries ?Clone XREF Main_est
+                              Duplicate_of_read ?Sequence // do not XREF Duplicate_of_read, do not label smallest
+                              Insert_size UNIQUE Int UNIQUE Int // should really be in subclone
+                              Seq_vec ?Vector Int Int Text 
+                              Clone_vec ?Vector Int Int Text
+                              aPrioriStrand UNIQUE aForward
+                                                   aReverse
+                              manualStrand UNIQUE  mForward
+                                                   mReverse
+                              deepStrand  dForward Text UNIQUE Int
+                                          dReverse Text UNIQUE Int
+                              Inverted  // aForward && Reverse || aReverse && Forward
+                              RNA_editing Int ?Transcribed_gene Int
+                              PolyA_after_base UNIQUE Int COORD
+                              manual_polyA  UNIQUE Int COORD
+                              Number_of_N  UNIQUE Int  UNIQUE Int 
+                              Number_of_terminal_A UNIQUE Int 
+                              Initial_polyA UNIQUE Int COORD UNIQUE Int // start position number of A
+                              Initial_polyT UNIQUE Int COORD UNIQUE Int // start position number of T
+                              Transpliced_to ?Motif UNIQUE Int UNIQUE Text
+                              Transpliced_to2 ?Motif UNIQUE Int UNIQUE Text
+                              Transpliced_to3 ?Motif UNIQUE Int UNIQUE Text
+                              Manual_transpliced_to ?Motif UNIQUE Int UNIQUE Text
+                              Dye UNIQUE Dye_Primer
+                                         Dye_Terminator  
+                              Primer_Info UNIQUE Universal_primer
+                                                 Custom UNIQUE Text        // text may be the oligo - or should it be an object?
+                                                 Primer UNIQUE ?Primer XREF Read
+                              Contains Multiplet ?Clone XREF Contig UNIQUE Int // Dog mapping of contigs
+                              Tags Int REPEAT // Number of tags represented by this sequence in different libraries
+// Clips is a tag 2 system, any sequence editor should update all numbers at once on a deletion
+          Clips    Clipping UNIQUE Int COORD UNIQUE Int COORD  // present clipping
+                   Old_Clipping UNIQUE Int COORD UNIQUE Int COORD // as imported from Ted
+                   CAF_Clipping UNIQUE Int COORD UNIQUE Int COORD // as imported from CAF
+                   Vector_Clipping UNIQUE Int COORD UNIQUE Int COORD UNIQUE ?Vector Text// vector clipping, do not overpass, Text = OPen, meaning the est has its ORF open above the vector clipping
+                   Contamination Int UNIQUE Int ?Vector // do not use to seed 
+                   Hand_Clipping UNIQUE Int COORD UNIQUE Int COORD // hand clip, can be restored
+                   Excellent_upto UNIQUE Int COORD 
+                   Good_upto UNIQUE Int COORD 
+                   Fair_upto UNIQUE Int COORD 
+                   Best200  UNIQUE Int
+          Discarded By_hand
+          ABI      ABI_Date Text
+                   Run_Start Text
+                   Run_Stop Text
+                   BaseCall ?BaseCall UNIQUE Int
+                   OriginalBaseCall ?BaseCall
+                   SCF_Position ?BasePosition  UNIQUE Int // CALF system
+                   Quality ?BaseQuality  UNIQUE Int  // Int between 0 (bad) and 50 (excellent)
+                   Base_caller Text // Phred, ABI, acembly
+                   Significant_bases Int COORD UNIQUE Text
+                   Otto Text REPEAT
+                   Stolen ?Clone
+                   ABI_Comment Text  // comments no s for compatibility, 
+                   ABI_Comments Text  // comments with s, using Text rather than expansive ?Text
+                   ABI_Analysis Text
+                   ABI_Machine Text
+                   Sample Text
+                   SCF_File UNIQUE Text
+                   CTF_File UNIQUE Text
+                        // for acembly: absolute file name, or relative to $SCF_DATA, or to $ACEDB/SCF
+                   New_Read     // Set by newScf, used by add new reads
+                   Fragment_of UNIQUE ?Sequence 
+          Solexa Text UNIQUE Text  // experiment file_name in $ACEDB/SOLEXA , ff.u should also exist
+          Padding UNIQUE Padded
+                         Unpadded
+          DB_info       Database ?Database Text Text Text // ID  Accession.Version GI
+                        AC_number Text
+                        NI_number UNIQUE Text
+                        Protein_id Text UNIQUE Int
+                        DB_remark ?Text                // EMBL/GenBank
+                        SwissProt_DE ?Text      // Swiss prot description
+                        Keyword ?Keyword        //  // LOCK EMBL/GenBank
+                        DB_annotation ?Database UNIQUE ?LongText
+                        EMBL_dump_info #EMBL_dump_info
+                        Imported DateType Text Text
+			    // The date is the date that this sequence object 
+	                    // was imported from some external database.
+			    // The first text is the name of the importing
+			    // program.  The second text is the query 
+			    // identifier that the import program used to
+			    // obtain the data.
+		        Not_curated
+                        Transfered
+			    // This tag is set by the importing program
+			    // to indicate that this record has not been
+			    // examined and/or edited by a biologist. It is
+			    // cleared when the record is manually curated.
+          Similarity  Homol DNA_homol ?Sequence XREF DNA_homol ?Method Float Int COORD UNIQUE Int COORD Int UNIQUE Int #Homol_info
+                      Pep_homol ?Protein XREF DNA_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Motif_homol ?Motif XREF DNA_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Sage_hit  ?Sage XREF Hits ?Method  Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Probe_hit  ?Probe XREF Tiling_hit Int UNIQUE Int UNIQUE Int UNIQUE Int // a1 a2 nErr nStretch
+                      Probe_NM_hit ?Probe XREF NM_hit  Int UNIQUE Int UNIQUE Int UNIQUE Int
+                      Probe_NM_exact_hit ?Probe XREF NM_exact_hit  Int UNIQUE Int UNIQUE Int UNIQUE Int
+                      Probe_NM_anti_hit ?Probe XREF NM_anti_hit  Int UNIQUE Int UNIQUE Int UNIQUE Int
+                      Primer_hit  ?Primer XREF Hits ?Method  Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Probe_set_one2one ?Probe_set XREF NM_one2one
+                      Probe_set_Jensen ?Probe_set XREF NM_Jensen
+                      Probe_set_Damir ?Probe_set XREF NM_Damir
+                      Probe_set_Jean ?Probe_set XREF NM_Jean
+                      Probe_set_Taqman ?Probe_set XREF NM_Taqman
+                      Pfam_homol ?Pfam XREF CDS ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Cel_homol ?Pfam XREF CDS ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Vector_homol ?Pfam XREF CDS ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      No_homol ?Pfam XREF CDS ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                      Other_homol ?Pfam XREF CDS ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                        // We will generate a column for each distinct ?Method.  So for
+                        // distinct Worm_EST and Worm_genomic columns, use ?Method objects
+                        // Worm_EST_Blastn and Worm_genomic_Blastn.
+          Hit ?Sequence XREF Hit Int COORD UNIQUE Int COORD Int COORD UNIQUE Int COORD
+          BlastHit ?Sequence XREF BlastHit Int COORD UNIQUE Int COORD Int COORD UNIQUE Int COORD
+          WordHit ?Sequence XREF WordHit UNIQUE Int
+          KentHit  ?Sequence XREF KentHit Int COORD UNIQUE Int COORD
+          Method UNIQUE ?Method
+          Feature ?Method Int Int Float Text 
+                // Float is score, Text is note
+                // note is shown on select, and same notes are neighbours
+                // again, each method has a column double-click shows the method.
+                // Absorb Assembly_tags?
+
+#Coverage Gap Gap_length UNIQUE Int
+              nX UNIQUE Int
+          Length From Int
+                 To Int
+                 CDS_length UNIQUE Int Text // Length of corresponding CDS in Read
+                 Delta UNIQUE Int Text // positive if Read CDS longer than Product CDS
+          Variation Nv UNIQUE Int Text // number of AA differences in Product zone, when delta >= 0
+                    Score UNIQUE Float // use Blosom to measure the AA imporatance
+                    Type UNIQUE Text // P236V V2423P (P236 exists and is AA 236 of Product)
+
+#Splice_confirmation cDNA
+                     EST
+                     Homology
+                     Spliced_cDNA
+                     Begin_Not_Found
+                     End_Not_Found
+
+         
+#Met_stop Predicted_Met UNIQUE mExact
+                               mInexact
+                               mNoInfo
+                               mAbsent
+          Predicted_Stop UNIQUE sExact
+                                sInexact
+                                sNoInfo
+                                sAbsent
+          Includes
+          Included
+          Identical
+          Different
+          Same_5p
+          Shorter_5p
+          Longer_5p
+          Identical_internal_exon UNIQUE Int
+          Different_internal_exon UNIQUE Int
+          Same_3p
+          Shorter_3p
+          Longer_3p
+
+?Intron From_gene ?Transcribed_gene XREF Intron UNIQUE Int UNIQUE Int
+        Gene ?Gene XREF Intron
+        GeneId ?GeneId XREF Intron
+        From_genefinder ?Sequence XREF Intron UNIQUE Int UNIQUE Int
+        In_mRNA ?mRNA XREF Intron UNIQUE Int UNIQUE Int
+        IntMap ?Map UNIQUE Int UNIQUE Int
+        Length UNIQUE Int
+        Cat UNIQUE Intron
+                   Exon
+                   SL
+                   pA
+                   m
+                   g
+        Type UNIQUE gt_ag
+                    gc_ag
+                    ct_ac
+                    at_ac
+                    Other UNIQUE Text
+        Fuzzy
+        Alternatif Local ?Intron XREF Local // shares a base with another intron
+                   Global // not part of every mrna
+                   Includes ?Intron XREF Included_in
+                   Included_in ?Intron XREF Includes
+        Support Genefinder AV
+                           NM
+                           XM
+                           SS
+                RefSeq UNIQUE Int
+                mRNA UNIQUE Int
+                EST UNIQUE Int 
+                cDNA UNIQUE Int // mRNA + EST
+                de_novo UNIQUE Int UNIQUE Int  // donor acceptor in discovery more
+                de_uno Text Text UNIQUE Int  // manip,tissue,support jumping single sequence in discovery more
+                Brain UNIQUE Int
+                Stratagene UNIQUE Int
+                Supports ?Sequence
+        Motifs Donor UNIQUE Text  // 12bp: 8 in exon + 4 in intron of donor
+               Acceptor UNIQUE Text // 12bp: 4 in intron + 8 in exon of acceptor
+               Left_motif UNIQUE Text
+               Right_motif UNIQUE Text
+        Homol ?Species Text UNIQUE Int  // species intron_name #errors
+        AceKog  BlastP HumanP
+                       MouseP
+                       WormP
+                       AraP
+                BlastP_001 HumanP_001
+                           MouseP_001
+                           WormP_001
+                           AraP_001
+        	BlastN HumanN
+                       MouseN
+                       WormN
+                       AraN
+        SEQC  ILM ILM_35  ILM_35_A   UNIQUE Int  UNIQUE Int  // Number of tags, number of uniquely mapping tags
+                          ILM_35_B   UNIQUE Int  UNIQUE Int 
+                  ILM_100 ILM_100_A  UNIQUE Int  UNIQUE Int  // Number of tags, number of uniquely mapping tags
+                          ILM_100_B  UNIQUE Int  UNIQUE Int 
+              LifeTech FosterCity FosterCity_A UNIQUE Int  UNIQUE Int // SOLID
+                                  FosterCity_B UNIQUE Int  UNIQUE Int 
+                       Keil Keil_A UNIQUE Int UNIQUE Int  
+                            Keil_B UNIQUE Int UNIQUE Int  
+              Helicos Hel_ Helicos_A UNIQUE Int  UNIQUE Int 
+                           Helicos_B UNIQUE Int  UNIQUE Int 
+                      HH_  HH_A UNIQUE Int  UNIQUE Int UNIQUE Float // all, unique, combined submitted by Helicos 
+                           HH_B UNIQUE Int  UNIQUE Int UNIQUE Float // all, unique, combined submitted by Helicos 
+              Roche454 Roche_ Roche454_A UNIQUE Int   UNIQUE Int 
+                              Roche454_B UNIQUE Int  UNIQUE Int 
+                       R454_  R454_A UNIQUE Int   UNIQUE Int 
+                              R454_B UNIQUE Int  UNIQUE Int 
+              TAQ TAQ_A UNIQUE Float
+                  TAQ_B UNIQUE Float
+        Deep ?Experiment UNIQUE Int  UNIQUE Int   // manip tag-multiplicity
+        Tissue ?Tissue UNIQUE Float REPEAT
+   
+?Element Title UNIQUE ?Text
+         From_gene ?Transcribed_gene XREF Element
+         Gene ?Gene XREF Deep
+         GeneId ?GeneId
+         eGene ?Element XREF emRNA 
+         eMrna ?Element XREF eGene
+         eIntron ?Element XREF eIGene
+         eIGene ?Element XREF eIntron
+         Length UNIQUE Int
+         In_mRNA ?mRNA 
+         IntMap ?Map UNIQUE Int UNIQUE Int
+         Pastille Pastille_coding
+                  Pastille_marginally_coding
+                  Pastille_spliced_non_coding
+                  Pastille_conserved
+                  Pastille_standard_intron
+         Type UNIQUE Intron  gt_ag
+                             gc_ag
+                             ct_ac
+                             at_ac
+                             Other UNIQUE Text
+                             Fuzzy
+                     Exon
+                     SL
+                     pA
+                     m
+                     g Main
+                       Putative
+                       Cloud
+         Support Genefinder AV
+                            pg
+                            JJ
+                            NM NR
+                            XM XR
+                            SS
+                            Vega
+                            EBI  EBI_pseudo
+                                 EBI_known
+                            HINV
+                            Combi
+                            De_novo UNIQUE Int UNIQUE Int
+                            OtherSupport Text Text  // Method Gene_name _for_that_method
+                 RefSeq UNIQUE Int
+                 mRNA UNIQUE Int
+                 EST UNIQUE Int 
+                 cDNA UNIQUE Int // mRNA + EST
+                 U454
+                 Kim
+                 Brain UNIQUE Int
+                 Stratagene UNIQUE Int
+                 Supports ?Sequence
+         Motifs Donor UNIQUE Text  // 12bp: 8 in exon + 4 in intron of donor
+                Acceptor UNIQUE Text // 12bp: 4 in intron + 8 in exon of acceptor
+                Left_motif Text
+                Right_motif Text
+                Same_donor ?Element XREF Same_donor
+                Same_acceptor ?Element XREF Same_acceptor
+         SEQC X_Total   X_      UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_A     UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_B     UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_pA    UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_pA_A  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_pA_B  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_tot   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_tot_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_tot_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_st    UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_st_A  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        X_st_B  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        Anti_   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        Anti_A  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                        Anti_B  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              ILM ILM_pA ILM_St  ILM_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                 ILM_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                 Anti_ILM_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                 Anti_ILM_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                         ILM_noSt  ILMnoSt_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                   ILMnoSt_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                  ILM_tot ILM_st_tot  ILM_totA UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                      ILM_totB UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                      Anti_ILM_totA UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                      Anti_ILM_totB UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                          ILM_noSt_tot  ILMnoSt_totA UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                                        ILMnoSt_totB UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              LIF LIF_pA LIF_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                         LIF_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                         Anti_LIF_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                         Anti_LIF_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                  LIF_tot  LIF_totB UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                           Anti_LIF_totB  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              HEL     HEL_noSt HEL_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                               HEL_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                               Anti_HEL_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                               Anti_HEL_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                      HELdg  HELdg_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                             HELdg_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                             Anti_HELdg_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                             Anti_HELdg_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              Roche    R454_  R454_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                              R454_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                              Anti_R454_A UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                              Anti_R454_B UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              Cap   S_cap  S_cap_B   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                           Anti_S_cap_B   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              TX  TX_ TX_A   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                      TX_B   UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              Small Hannon Hannon_si UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+                           Anti_Hannon_si  UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text  // x tags n bp
+              SEQC_index UNIQUE Float
+              SEQC_fold_change UNIQUE Float
+         MAQC MAQC_acdb_plus  UNIQUE Int
+              MAQC_acdb_minus UNIQUE Int
+              MAQC_avg_signal  UNIQUE Float
+              MAQC_fold_change UNIQUE Float
+              MAQC_A  UNIQUE Float
+              MAQC_B  UNIQUE Float
+              TAQ TAQ_A UNIQUE Float
+                  TAQ_B UNIQUE Float
+         BestIndex UNIQUE Float UNIQUE ?Tissue ?Experiment
+         Deep ?Tissue ?Experiment UNIQUE Float UNIQUE Float  UNIQUE Int UNIQUE Text // tissue manip index tag ali bp
+         Deep2 ?Experiment ?Tissue UNIQUE Float UNIQUE Text UNIQUE Int  UNIQUE Text // manip tissue x tag n bp
+         Deep_expression_profile Text UNIQUE Float
+         Uniqueness UNIQUE Quasi_unique UNIQUE Float
+                           Intermediate UNIQUE Float
+                           Repeated     UNIQUE Float          
+         Tissue ?Tissue
+         Bad_quality Text
+
+   
+#Protein_fragment  Exon UNIQUE Int UNIQUE Text  // 23 56 aa
+                   UTR_3prime
+                   UTR_5prime
+                   Gap
+                   ORF_Gap
+
+
+#Splicing_confirmation         Intron                    UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // gt_ag, Length, %d , bp
+                               Exon                      UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number, length,%d, bp
+                               Partial_Exon              UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               First_Exon                UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Last_Exon                 UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Stolen_Exon                 UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Predicted_Exon                 UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Gap                       UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // 'unspanned' length,, bp
+                               ORF_Gap                   UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // 'open'exon number, length,, bp
+                               Alternative_Intron        UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // frame, gt_ag, Length,, bp
+                               Stolen_Intron             UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // frame, gt_ag, Length,, bp
+                               Small_deletion            UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // frame, gt_ag, Length,, bp
+                               Predicted_Intron          UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // frame, gt_ag, Length,, bp
+                               Alternative_Exon          UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Alternative_First_Exon    UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               Alternative_Partial_Exon  UNIQUE Text   UNIQUE Text UNIQUE Int UNIQUE Text  // exon number , length,, bp
+                               3prime_UTR
+                               5prime_UTR
+                               UTR_3prime
+                               UTR_5prime
+                               CDS
+
+?Protein  Title UNIQUE ?Text
+          Other_name ?Text        // for repeats
+          Description ?Text
+          Reference Text
+          Locus ?Locus XREF Protein
+          Peptide UNIQUE ?Peptide UNIQUE Int UNIQUE Int // Length + checksum
+          View ?View
+          Default_view UNIQUE ?View
+          DB_info Database ?Database Text Text // ID  Accession_number
+                  DB_remark ?Text                // Swissprot CC entries
+                  Keyword ?Keyword        // Swissprot
+                  DB_searched ?Database Text // Version
+          Origin  From_Database ?Database UNIQUE Int        // release number
+                  Date DateType Text                        // Text for comments on operation
+                  Species ?Species
+                  Wormpep Replaces ?Protein XREF Replaced_by
+                          Inactive Replaced_by ?Protein XREF Replaces
+                // inactive wormpep entries won't be output in standard wormpep dumps
+          Visible  Corresponding_DNA ?Sequence XREF Corresponding_protein
+                   Related_DNA ?Sequence XREF Related_protein
+                   Related_protein ?Protein XREF Related_protein
+                // tag2 system.  For now I have not populated this column.  For C. elegans
+                // wormpep we want to get the information from the ?Corresponding_DNA 
+                // object.  Because those objects have long term continuity, while wormpep
+                // objects are one per protein sequence.  At least that is the current 
+                // plan.
+          Swiss_feature        Text Int Int Text // feature name, start, stop, note
+          Match_table UNIQUE ?MatchTable
+          Homol DNA_homol ?Sequence XREF Pep_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Pep_homol ?Protein XREF Pep_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Motif_homol ?Motif XREF Pep_homol ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+                Product_homol ?Product XREF Blastp ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+          Feature ?Method Int Int UNIQUE Float        // display according to method
+                                        // double-click shows the method
+
+#Match  Percent_identity UNIQUE Int
+        Score ?Method UNIQUE Float
+        N_gaps UNIQUE Int
+        Loop UNIQUE Int UNIQUE Int        // rel start, stop
+        Unit_Length UNIQUE Int
+
+
+// Method
+
+?Method Remark ?Text
+          // the Display information controls how the column looks.
+        Display No_display
+                Colour #Colour
+                CDS_colour #Colour
+                Frame_sensitive
+                Strand_sensitive Show_up_strand #Colour
+                Score   Score_by_offset        // has priority over width, for Jean
+                        Score_by_width
+                        Score_by_histogram UNIQUE Float        // baseline value
+                        Score_bounds UNIQUE Float UNIQUE Float 
+                                // limits for squashing
+                        Percent // '%' in text, + default bounds 25, 100
+                Overlap_mode UNIQUE  Overlap                  // draw on top - default
+                                     Bumpable          // bump to avoid overlap
+                                     Cluster                  // one column per homol target
+                Width UNIQUE Float
+                Symbol UNIQUE Text        // first char only is used
+                Right_priority UNIQUE Float // the greater the more right
+                Web_right_priority UNIQUE Float // superseded web_priority on the web
+                Max_mag UNIQUE Float        // don't show if more bases per line
+                Min_mag UNIQUE Float        // don't show if fewer bases per line
+                Show_text      // only put text in right-hand column if set
+        Blastn                // can calculate percent from score if blastn
+        Blixem  Blixem_X
+                Blixem_N
+                Blixem_P
+        Belvu
+        Gene_assemble   Gene_assemble_method ?Method UNIQUE Float
+                                // Float factor to multiply score by
+                        Intron_min UNIQUE Int
+                        Exon_min UNIQUE Int
+                        Intron_cost UNIQUE Float UNIQUE Float UNIQUE Int
+                                // base cost, cost per log bp beyond min
+                                // Int is min for this if not Intron_min
+                        Inter_gene_cost UNIQUE Float
+        GF_parameters   GF_range UNIQUE Int
+                                // +- range for genefinder feature calculation
+                        GF_ATG_cutoff UNIQUE Float
+                        GF_5_cutoff UNIQUE Float
+                        GF_3_cutoff UNIQUE Float
+        EMBL_dump_info #EMBL_dump_info
+        EMBL_dump EMBL_feature UNIQUE Text                // require this
+                  EMBL_threshold UNIQUE Float                // apply to score unless overridden
+                  EMBL_qualifier Text UNIQUE Text
+        GFF     GFF_source UNIQUE Text
+                GFF_feature UNIQUE Text
+          // if 1 Text, it is the entire qualifier including '/'
+          // if 2 Texts, 1st is an sprintf format and 2nd is
+          //   an argument.  If this is "score", "note", "y1", "y2" or "target"
+          //   then use the corresponding field of the Feature or Homol line.
+          // multiple formats will be concatenated until one starts with '/'.
+
+#EMBL_dump_info EMBL_dump_method UNIQUE ?Method
+                ID_template UNIQUE Text
+                ID_division UNIQUE Text
+                DE_format UNIQUE Text  
+                OS_line UNIQUE Text    
+                OC_line Text           
+                RL_submission Text     
+                // EMBL_reference ?Paper  
+                CC_line Text           
+                source_organism UNIQUE Text   
+
+#Homol_info Segs #Match_seg
+            Bury                // do not show on the standard display
+            Score UNIQUE Float  // remember the score and the expect are both mysterious but different
+            Expect UNIQUE Float  // remember the score and the expect are both mysterious but different
+            Confidence  Text  // exemple in pfam a !! means we believe it !
+           
+
+#Match_seg UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int #Match_seg  // Start, End of Aligment;  Start, End of Subject
+
+?Locus  Map ?Map XREF Locus  #Map_position
+        IntMap ?Map UNIQUE Int  UNIQUE Int 
+        Gene ?Gene XREF Locus
+        Gene_class ?Gene_class XREF Loci
+        GeneId ?GeneId XREF Locus
+	Gene_information ?Text
+        Sequence ?Sequence XREF Locus
+        Sequence_102 ?Sequence XREF Locus_102
+        Sequence_130 ?Sequence XREF Locus_130
+        Sequence_140 ?Sequence XREF Locus_140
+        Sequence_169 ?Sequence XREF Locus_169
+        Sequence_190 ?Sequence XREF Locus_190
+        Sequence_200 ?Sequence XREF Locus_200
+        Sequence_GB ?Sequence XREF Locus_GB
+        Sequence_GB_dubious ?Sequence XREF Locus_GB_dubious
+        Sequence_cgc ?Sequence XREF Locus_cgc
+        SequenceTmp ?Sequence
+        Protein ?Protein XREF Locus
+        Transcribed_gene ?Transcribed_gene XREF Locus
+        Ref_id ?Sequence XREF Ref_id
+        Priority UNIQUE Int  // for hierarchical display
+        Quality UNIQUE Int  // for hierarchical display
+        Expr_pattern ?Expr_pattern XREF Locus
+        Tiling_wall ?Method ?Map Int UNIQUE Text // used in htiledisplay.c
+        Solexa Text UNIQUE Text  // experiment file_name in $ACEDB/SOLEXA
+        Reference ?Paper XREF Locus
+
+
+?Extern Type UNIQUE OMIM OMIM_disease // Donna chooses between these subtypes:: pten:60728 et 158350
+                         OMIM_molecular // see related dans Donna::             pten:601728
+                         OMIM_unkown Text
+                    KEGG KEGG_disease
+                    BioCarta
+                    GAD
+                    MGI
+                    RGD  UNIQUE Text  // RGD symbol
+                    TAIR UNIQUE Text  // TAIR identifier
+                    User_feedback
+        Links Gene ?Gene XREF Extern
+              LocusLink ?LocusLink XREF Extern   // Official gene symbol
+              GeneId ?GeneId XREF Extern
+              Gene_mol ?Gene XREF OMIM_mol
+              GeneId_mol ?GeneId XREF OMIM_mol
+              Disease ?Mesh XREF Extern ?Paper // in mouse : supporting paper imported from jaxon lab
+              Sequence ?Sequence XREF Extern
+              Reference ?Paper XREF Extern
+              GO GO_number ?GO Text Text // evidence type , pmid
+                 GO_b ?GO_b XREF Extern UNIQUE Text
+                 GO_c ?GO_c XREF Extern UNIQUE Text
+                 GO_m ?GO_m XREF Extern UNIQUE Text
+                 GO_slim ?GO_slim XREF Extern
+        Details Disease_class UNIQUE Text // GAD
+                OMIM_title ?Mesh XREF OMIM_title
+                OMIM_alias ?Mesh XREF OMIM_alias ?GeneId
+                GAD_title ?Mesh XREF GAD_title
+                GAD_alias ?Mesh XREF GAD_alias
+                Title ?Gene_title XREF Extern
+                Summary UNIQUE Text // RGD summary
+                Pathway ?Mesh XREF KEGG_pathway
+                Biocarta_title ?Mesh XREF Biocarta_title
+                Properties Text
+                Cytogenetic Text Text
+
+?Mesh MeshKey ?MeshKey XREF Mesh @">Parent;Mesh"
+      Aliases Alias ?Mesh XREF Alias_of
+              Alias_of ?Mesh XREF Alias
+              Hidden_alias ?Mesh XREF Hidden_alias_of
+              Hidden_alias_of ?Mesh XREF Hidden_alias
+              OMIM_title ?Extern XREF OMIM_title
+              OMIM_alias ?Extern XREF OMIM_alias
+              GAD_title ?Extern XREF GAD_title
+              GAD_alias ?Extern XREF GAD_alias
+              KEGG_pathway ?Extern XREF Pathway
+              Biocarta_title ?Extern XREF Biocarta_title
+      Links  Gene ?Gene XREF Disease
+             GeneId ?GeneId XREF Disease
+             Extern ?Extern XREF Disease
+             Sequence ?Sequence XREF Mesh
+      Reference ?Paper XREF Mesh
+
+?MeshKey Mesh ?Mesh XREF MeshKey
+         Parent ?MeshKey XREF Child @Mesh
+         Child ?MeshKey XREF Parent @Mesh
+
+?OMIM Title Text // maintain a minimal definition for backward compatibility
+
+?GAD Title Text // maintain a minimal definition for backward compatibility
+
+?KEGG Title Text // maintain a minimal definition for backward compatibility
+
+//
+// Views and Columns
+//
+
+?View   Type UNIQUE     Pepmap
+                        Fmap  Fmap_Header
+                              Fmap_Locator
+                              Fmap_Summary_bar
+                              Fmap_scale Fmap_scale_coords
+                              Fmap_DNA 
+                              Fmap_3_translation
+                              Fmap_Clones
+                              Fmap_Gene Fmap_Gene_Name
+                                        Fmap_Cloud_gene
+                                        Fmap_Gene_Up
+                                        Fmap_Gene_Down
+                              Fmap_Pg Fmap_Pg_Up
+                                      Fmap_Pg_Down
+                              Fmap_Tg Fmap_Tg_Up
+                                      Fmap_Tg__Down
+                                      Fmap_Tg_Just_Gold
+                              Fmap_mRNA Fmap_mRNA_Up
+                                        Fmap_mRNA_Down
+                              Fmap_mProduct Fmap_Down_Gene_Translation
+                              Fmap_Spliced_cDNA Fmap_CDS_Tiling
+                                                Fmap_cDNA_Decorate
+                                                Fmap_Spliced_cDNA_Up
+                                                Fmap_Spliced_cDNA_Down
+                              Fmap_RNAi Fmap_RNAi_Up
+                                        Fmap_RNAi_Down
+                              Fmap_Oligo
+                              Fmap_Probe
+                              Fmap_Allele
+                              Fmap_Homol
+                              Fmap_Solexa
+                              Fmap_Text_Features
+                        Gmap
+                        Grid  Grid_map Int #View_tags // Int is priority
+                              Grid_edit_default UNIQUE Text UNIQUE Text 
+                              Grid_edit_menu Text UNIQUE Text 
+                        Pmap  Pmap_probes Pmap_probe_query Text
+                                          Pmap_probe_height Int
+                              Pmap_YAC  Pmap_YAC_query Text
+                                        Pmap_YAC_bold_query Text
+                                        Pmap_YAC_height Int
+                              Pmap_cmid Pmap_cmid_query Text
+                                        Pmap_cmid_bold_query Text
+                                        Pmap_cmid_height Int
+                              Pmap_locus Pmap_locus_query Text
+                                         Pmap_locus_height Int
+                              Pmap_remark Pmap_remark_query Text
+                                          Pmap_remark_height Int
+                                // 1st text tag name, 2nd text optional "Negative"
+        Display Submenus        // BOOL for submenus on item boxes
+                Cambridge        // Cambridge v. Montpellier behaviour
+                No_buttons      // suppress header buttons for WWW 
+                Hide_header     // No headers and footers 
+        Name         UNIQUE         Text
+        Columns        Text UNIQUE Int #Column        // Int is BOOL for Hidden/Visible
+
+?Column UNIQUE  Scale Scale_unit UNIQUE Float        // minimum increment
+                Cursor Cursor_on
+                       Cursor_unit UNIQUE Float
+                Scroller
+                Locator Magnification UNIQUE Float
+                        Projection_lines_on
+                Marker_points
+                Marker_intervals
+                Contigs
+                Reversed_physical
+                Physical_genes
+                Two_point
+                Multi_point
+                Likelihood
+                Points  Point_query UNIQUE Text
+                        Point_yellow Text  // To be made redundant.
+                        Point_colour Text #Colour // to replace above
+                        Point_width UNIQUE Int        // max width if not at RHS
+                        Point_error_scale UNIQUE Float
+                        Point_segregate_ordered
+                        Point_show_marginal
+                        Point_pne #Colour // positive, no error
+                        Point_pe  #Colour // positive, error
+                        Point_nne #Colour // negative, no error
+                        Point_ne  #Colour // negative, error
+                        Point_symbol Text // can now have more than one of these
+                Interval_JTM        #Interval_col_conf
+                Interval_RD        #Interval_col_conf
+                Interval_SRK         #Interval_col_conf
+                Derived_tags    DT_query UNIQUE Text
+                                DT_width UNIQUE Int
+                                DT_no_duplicates
+                                DT_neighbours
+                                DT_parents
+                                DT_follow_parent
+                                DT_symbol_query
+                                DT_tag Text Int
+                                DT_hide
+                Spacer          Spacer_colour #Colour
+                                Spacer_width Float
+                RH_data         RH_query UNIQUE Text
+                                RH_spacing UNIQUE Float
+                                RH_show_all
+                                RH_positive #Colour
+                                RH_negative #Colour
+                                RH_contradictory #Colour
+                pepSequence     PS_Highlight_residue   // il all needed for colomn display of peptides
+                                PS_Residues_per_wrap Int
+                                PS_Colours Text #Colour
+                Hydrophobicity  HP_Show_Zero_bar
+                                HP_Fixed_Scaling
+                                HP_Calculation_window Int
+                                HP_Display_width Int
+                Homol           HOM_bump
+                pepFeature      FEA_bump
+                                FEA_Query Text
+                Homol_Name      HOM_NAME_bump
+                                HOM_NAME_width Int
+                pepActiveZone
+                Submaps         Loci_Query UNIQUE Text
+                                Interval_Query UNIQUE Text
+                                Show UNIQUE Int
+                                Tolerance UNIQUE Int
+                                Pos_By_Loci
+        
+
+?View_tags      Colour #Colour
+                Surround_colour #Colour        // colour when surround
+                Tag Text                // could be many tags
+
+?Interval_col_conf      Query UNIQUE Text // Query
+                        Names_on
+                        No_neighbours
+                        Show_multiple
+                        Width UNIQUE Int
+                        Symbol UNIQUE Text
+                        Colours Text #Colour // Only for chrom_bands.
+                        Pne #Colour // positive, no error
+                        Pe  #Colour // positive, error
+                        Nne #Colour // negative, no error
+                        Ne  #Colour // negative, error
+
+?Url    Url UNIQUE Text // Simple, text of Url
+        Template UNIQUE ?Url // use this object as a generic template
+        Reference_tag UNIQUE Text // look for this tag in the reffing object for url
+        Remove_prefix UNIQUE Text // prefix to remove to make url
+        Remove_postfix UNIQUE Text // postfix to remove
+        Prepend UNIQUE Text // then add these.
+        Append UNIQUE Text
+        Use_name
+        Refers_to cDNA_clone ?cDNA_clone XREF Image
+
+?Library Title UNIQUE ?Text
+         Symbol UNIQUE Text  // One letter symbol, to be displayed under the Read arrow
+         Vector_length UNIQUE Int // (bp) length clone - length insert
+         Expression_profile Int REPEAT
+         Stage UNIQUE Mixed
+                      Embryo EmbE  // early embryo
+                             EmbL  // late embryo
+                      L1
+                      L2
+                      L3
+                      Dauer
+                      L4
+                      Adult YA  // Young adult
+         Tissue Male
+                Ovary
+                Somatic  // no germinal 
+                Infected
+         Release_date UNIQUE Text
+         Embargoed_until  UNIQUE DateType
+         Million_reads UNIQUE Float // Number of associated sequences
+         Wiggle Text
+
+?Experiment  Type Deep Solexa
+                       Solid
+                       Helicos
+             Tissue ?Tissue
+             Reference ?Paper
+             Stage Embryo
+                   L1
+                   L2
+                   L3
+                   L4
+                   YA
+                   Adult
+             Body Brain
+                  Heart
+                  Liver 
+
+?Database Title UNIQUE ?Text
+
+?Species Title UNIQUE ?Text
+
+
+
+
+?Sage Origin Text
+      Motif UNIQUE Text
+      Length UNIQUE Int
+      Strand UNIQUE Forward
+                    Reverse
+      RNAi ?RNAi XREF Primer
+      Hits ?Sequence XREF Sage_hit Int UNIQUE Int
+
+
+?Fiche mRNA ?mRNA XREF Fiche
+       FichedDate UNIQUE Text
+       SubmittedDate UNIQUE Text
+       Title UNIQUE Text
+       FlatFile UNIQUE Text
+       Blast UNIQUE Text
+       Hints UNIQUE Text
+       Status UNIQUE Text
+
+
+#SMap_info Method ?Method    // methods used in child (optional)
+           Frame UNIQUE Int
+           Content Homol_only // useful for -nohomol gff option
+                   Feature_only // useful for -nofeature gff option
+           Mapping Align Int UNIQUE Int UNIQUE Int 
+                        // not needed if full alignment is ungapped
+                        // one row per ungapped alignment section
+                        // first int is position in parent, second in child
+                        // third int is length - only necessary when gaps in both sequences align
+                   Mismatch Int
+                        // Int give position(s) in parent of mismatches (technically in which they will
+                        // not create an error if they occur
+                        // if just the tag is set without values, then accept mismatches anywhere
+           Display Max_mag UNIQUE Float        // don't show if more bases per line
+                   Min_mag UNIQUE Float        // don't show if fewer bases per line
+
+       
+       
+
+
+// locus->Molecular_information->Product->Text should go in the title bar of the TGin some way
+       
+//  the name of the phenotype is either unc-32 or 3B231 or zk637.4 if no info if associated with sjj-pair
+?Chrom_band Gene ?Gene XREF Cytogenetic
+
+?Unigene Gene ?Gene  XREF Unigene
+         GeneId ?GeneId   XREF Unigene
+         Sequence ?Sequence    XREF Unigene
+
+?LocusLink Gene ?Gene XREF LocusLink   // MUST be top line to simplify transfer of data
+           GeneId ?GeneId   XREF LocusLink
+           Extern ?Extern   XREF LocusLink
+
+?Allele Gene    ?Gene XREF Allele
+        Strain ?Strain XREF Allele
+        Sequence ?Sequence XREF Allele
+        Remark ?Text
+
+?Knock_out Gene ?Gene XREF Knock_out
+           Locus ?Locus
+           Cosmid UNIQUE ?Sequence UNIQUE Int UNIQUE Int // position according to ko consortium
+           Predicted_gene ?Sequence
+           Strain ?Strain
+           Description UNIQUE Text
+
+?Locus_description Symbol Text // 3 letter symbol
+                   Gene ?Gene XREF Locus_description
+                   Gene_pathway ?Gene XREF Pathway
+                   GeneId ?GeneId XREF Locus_description
+                   Gene_descriptor ?Gene XREF Descriptor 
+                   Genbank_product_descriptor ?Gene XREF Genbank_product_descriptor
+                   Gene_class ?Gene_class XREF Description
+
+?GenBank  Gene_id ?Gene XREF GenBank_id 
+          GeneId ?GeneId XREF NM_id
+          Gene_NM ?Gene XREF NM_id 
+          NewName ?NewName XREF NM_id
+          Predicted_gene_NM ?Sequence XREF NM_id 
+          Predicted_gene_NMexported ?Sequence XREF NM_idexported 
+          Predicted_gene_NMaligned ?Sequence XREF NM_idaligned 
+          mRNA ?mRNA XREF NM_id
+          mRNAexported ?mRNA XREF NM_idexported
+          mRNAaligned ?mRNA XREF NM_idaligned 
+          GB_clone ?cDNA_clone XREF NM_id 
+          Sequence ?Sequence XREF GenBank_id
+          Variant Text    
+	  NPtext Text  // corresponding NP
+          Supporting_GB ?Sequence
+          Info Submission_date DateType 
+               Title UNIQUE ?Text          // hand edited at submission time
+               Product Product_Title UNIQUE ?Text  // hand edited at submission time
+                       mRNA_signature UNIQUE Int   // establishes the signature of this submission
+               Fiche UNIQUE ?LongText              // fiche as hand edited at submission time
+               Author ?Author REPEAT
+               Status UNIQUE RefSeq UNIQUE Predicted_refseq
+                                           Provisional_refseq
+                                           Validated_refseq
+                                           Inferred_ref_seq
+                                           LocusLink_refseq
+                                           Reviewed_refseq
+                                           Secondary_refseq
+                             Supported UNIQUE mRNA_evidence
+                                              EST_evidence
+                                              mRNA_EST_evidence
+                             Ab_initio with_EST_support
+
+?Gene_id Gene ?Gene XREF Gene_id
+
+?Gene_title Gene ?Gene XREF Title
+            Extern ?Extern XREF Title
+
+?Theme Gene ?Gene XREF Theme
+
+?Gene      Title UNIQUE ?Gene_title XREF Gene        // hand edited
+           Title2 UNIQUE ?Text         // hand edited tmp for debug
+           Summary   ?Text         // hand edited, rm UNIQUE jan 23, 2004
+           Proteome_summary  UNIQUE ?Text         // hand edited
+           Transcribed_gene  ?Transcribed_gene XREF Gene  @T
+           Product ?Product XREF GeneBox @ID     // pfam_go a mettre sous ID
+           NewName UNIQUE ?NewName XREF Gene  UNIQUE Text     // NCBI Text = locuslink|pfam|pseudo|doublelocuslink newName
+           NewNameOld  ?NewName XREF GeneOld  UNIQUE Text     // NCBI Text = locuslink|pfam|pseudo|doublelocuslink  newName
+           Tmp Text                   // for temporary use such as while exporting to locuslink
+           WB_id ?Text        // ->mocecular, avant old_product, herited from wormbase-51, then hand edited
+           WbId ?WbId XREF Gene
+           GenBank_id ?GenBank XREF Gene_id  @Info // NCBI // GenBank submission, to be revamped
+           NM_id  ?GenBank XREF Gene_NM Text      // NCBI
+           Gene_id UNIQUE ?Gene_id XREF Gene       // NCBI
+           GeneId ?GeneId XREF Gene       // NCBI
+           Other_geneId  ?GeneId XREF  Other_gene
+           LocusLink ?LocusLink XREF Gene          // NCBI locuslink
+           GeneCard_id UNIQUE Text         // GeneCard
+           Unigene ?Unigene XREF Gene
+           Clone_group  ?Clone_group XREF Gene UNIQUE Int   // NCBI //To be fixed in code, number of clones of that group
+           Error_in_genome 
+           Bad_quality
+           Use_AM           // use_am ->NCBI==ID, Error, to keep, detail de la soumission de l'error
+           Notes ?Text
+           Specialist ?Person XREF Specialist Text
+           Type UNIQUE Main
+                       Putative
+                       Cloud
+           Molecular Descriptor ?Locus_description XREF Gene_descriptor  // wormbase:locus->geneclass->phenotype
+                     Genbank_product_descriptor  ?Locus_description XREF  Genbank_product_descriptor
+                     Pastille_coding // has a good+best product && !Non_protein_coding
+                     Pastille_marginally_coding
+                     Pastille_spliced_non_coding // spliced AND !Pastille_coding
+                     Pastille_conserved pastille_conserved_pfam
+                                        pastille_conserved_taxblast
+                     EC_number ?Text                                   //  a completer, now just let-70
+                     Properties ?Text
+                     Cloud_gene
+                     Pseudogene // COUNT {>transcribed_gene;!gt_ag && !gc_ag;>mrna;COUNT cdna_clone>3 && tiling_error>10}>0
+                     Non_protein_coding // non protein coding gene
+                     COG ?COG XREF Gene @Info 
+                     OMIM_mol ?Extern XREF Gene_mol
+                     GO_m_pfam ?GO_m XREF Gene_pfam  ?Product // Text is the method IEAA etc
+                     GO_m_ace ?GO_m XREF Gene_ace Text Text // Text is the method IEAA etc
+                     GO_m_iea ?GO_m XREF Gene_iea  Text Text // Text is the method IEAA etc
+                     Gene_ontology Pfam_go Text Text Text               // DELETE, in product, oxydase IP2001 GO:1234
+                     Pfam ?Pfam XREF Gene
+                     Old_product ?Text                                  // 112 cases DELETE ??
+                     Predicted Genefinder ?Sequence XREF Model_of_gene
+                               Previous_genefinder ?Sequence XREF Model_of_previous_gene // tmp when moving
+                     Homolog In_human Text Text         // name, aceview_gene_title
+                             In_Arabidopsis Text Text   // Text, because this is an external reference
+                             In_drosophila Text Text 
+                             In_worm Text Text
+           Genetic Locus ?Locus   XREF Gene // all ?Locus of wormbase with Phenotype OR Allele
+                   Locus_description ?Locus_description XREF Gene  // locus->description, some locus->geneclass->phenotype
+                   Locus_Phenotype ?Text   // copy here LocusLink->Loc_pheno or in worm [C.elegansII] if existing
+                   Pastille_disease
+                   Theme ?Theme XREF Gene  // danielle's way to 
+                   Extern ?Extern XREF Gene @Details // supersedes  OMIM, GAD, KEG
+                   Disease ?Mesh XREF Gene
+                   Pathway  ?Locus_description XREF Gene_pathway
+                   GO_b_pfam ?GO_b XREF Gene_pfam Text ?Product // Text is the method IEAA etc
+                   GO_b_ace ?GO_b XREF Gene_ace Text Text // Text is the method IEAA etc
+                   GO_b_iea ?GO_b XREF Gene_iea Text Text // Text is the method IEAA etc
+                   GO_locuslink Text Text Text// to import from locusLink in human case
+                   //  Locus_remark  ?Text     // Locus->remark to verify
+                   Allele  ?Allele  XREF Gene 
+                   Knock_out ?Knock_out XREF Gene
+                   Knock_out_allele Text Text Text Text
+                   Strain ?Strain XREF Gene @Remark   // A reimporter en diff versus WS51
+                   Rescued_by ?Text  // 11 DELETE ?
+                   Not_rescued_by Text   // if !SMAP, 63 cases ???
+                   Rescuing_cosmid ?Sequence XREF Rescued_gene Text REPEAT //  if !SMAP, 1158 cases
+                   RNAi ?RNAi XREF Gene @P   // move away the OST from here
+           Transgenic ?Text // 86 cases
+           Expression Expression_title UNIQUE ?Text
+                      Expression_profile @">Transcribed_gene ; Expression_profile"
+                      Has_expression_profile UNIQUE Int REPEAT // a copy for the exported database
+                      Deep_expression_profile Text UNIQUE Float
+                      Pattern ?Text  // hand curated resume of all expr_patterns
+                      GO_c_psort ?GO_c XREF Gene_psort  Text ?Product // Text is the method IEAA etc
+                      GO_c_pfam ?GO_c XREF Gene_pfam  Text ?Product // Text is the method IEAA etc
+                      GO_c_ace  ?GO_c XREF Gene_ace  Text Text// Text is the method not IEAA
+                      GO_c_iea  ?GO_c XREF Gene_iea  Text Text// Text is the method IEAA ND NR
+                      Expr_pattern ?Expr_pattern XREF Gene
+                      Has_OST // == has amplified non ambiguous OST
+                      OST ?OST XREF Gene
+                      PBS_in ?PBS XREF In_gene
+                      PBS_up ?PBS XREF Up_of
+                      PBS_down ?PBS XREF Down_of
+                      Has_NM
+                      Has_cDNA_clone ?cDNA_clone XREF In_gene
+                      Nb_cDNA_clone UNIQUE Int // includes shed clones
+                      Signal ?Text Float REPEAT
+           MAQC MAQC_signal MAQC_tested_by Text 
+                            MAQC_avg_signal UNIQUE Float
+                            MAQC_avg_exon_signal UNIQUE Float
+                            MAQC_avg_anti_exon_signal UNIQUE Float
+                            MAQC_fold_change UNIQUE Float
+                            MAQC_probe_signal Text UNIQUE Float Int
+                            MAQC_anti_probe_signal Text UNIQUE Float Int
+                            MAQC_exonic_signal Text UNIQUE Float Int
+                            MAQC_anti_exonic_signal Text UNIQUE Float Int
+                MAQC_acdb_plus  UNIQUE Int // validated by 3 platforms confirmed_gene
+                MAQC_acdb_minus  UNIQUE Int // validated by 3 platforms confirmed_gene
+                MAQC_probe ?Probe XREF Confirmed_gene // probe_class 1 or 2 or 110 
+                MAQC_anti_probe ?Probe XREF Confirmed_anti_gene // probe_class 1 or 2 or 110 
+                MAQC_exon_probe ?Probe XREF Confirmed_exon_gene
+                MAQC_antiexon_probe ?Probe XREF Confirmed_antiexon_gene
+                MAQC_probe3 ?Probe XREF Confirmed_gene3 // probe_class 1 or 2 or 110 
+                MAQC_probe_set ?Probe_set XREF Confirmed_gene // probe_class 1 or 2 or 110 
+           Regulation Promoter ?Text
+                      UTR ?Text
+                      uORF ?Text
+                      Pastille_regulation pastille_regulation_complex_locus
+                                          pastille_regulation_structure 
+                                          pastille_regulation_NMD
+                                          pastille_regulation_Valid3p
+                                          pastille_regulation_uORF
+                                          pastille_regulation_antisens
+                                          pastille_regulation_RNA_editing
+                      Complex_locus Two_geneid
+                                    Two_product
+                      Operon Operon_title ?Text
+                             Operon_with ?Gene XREF Operon_with
+                             Operon_member UNIQUE Int  // 1: is SL1, next is SL2  and so on
+                             SL2_Blumenthal
+                             SL2_Kohara
+                             Other_tandem ?Text
+                      Isolated_gene
+                      Not_transpliced_5pcomplete
+                      Transplicing Mostly_SL1 First_in_operon  // 
+                                              Not_in_operon Next_far_no_SL
+                                                            Next_far_SL1
+                                   Mostly_SL2s Second_in_operon  // down of SL1
+                                               Next_in_operon
+                                               Middle_in_operon
+                                               Last_in_operon
+                      pA_signal Text
+                      Antisense ?Text
+                      Antisens_to ?Gene XREF Antisens_to UNIQUE Int
+                      Shedded_from ?Gene XREF Sheds
+                      Sheds ?Gene XREF Shedded_from
+                      Highly_mutable ?Text
+                      RNA_editing ?Text
+                      Translational_frameshift ?Text
+                      Selenocysteine ?Text
+                      Kozak non_ATG_start
+                      siRNA s_sense      Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text  // tag bp
+                            s_antiSense  Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text  // tag bp
+           Interacts with_gene ?Gene XREF with_gene  ?Paper Text       // 150 cases
+                     with_geneId ?GeneId XREF with_geneBox  ?Paper Text          // 150 cases
+                     with_protein ?Gene XREF with_protein ?Text   // 50 cases 
+           Reference ?Paper XREF Gene  // locus->reference
+           WB_reference ?Paper XREF Gene_wb
+           GenBank_reference ?Paper XREF Gene_gb
+           DbXref Text UNIQUE Text
+           Method ?Method          // a vider
+           Element Intron ?Intron XREF Gene  // contains the deep sequencing info
+                   Deep ?Element XREF Gene
+           Structure   nExons  UNIQUE Int
+                       nIntrons  UNIQUE Int
+                       nStandardIntrons  UNIQUE Int
+                       nUnspliced_mRNA  UNIQUE Int
+                       First_exon nPossiblePromotors UNIQUE Int
+                                  nAltFirstExons  UNIQUE Int
+                                  nNonOverlappingAltFirstExons  UNIQUE Int
+                                  nAltFirstCodingExons  UNIQUE Int
+                       Central_exon   n5pSkippedCentralExons    UNIQUE Int
+                                      nSkippedCentralExons    UNIQUE Int
+                                      nsce nAnyCassettedExons  UNIQUE Int
+                                           nCassettedExons  UNIQUE Int  
+                                           nCassettingIntrons  UNIQUE Int
+                                           nMultiCassettedExons  UNIQUE Int                              
+                                           nMultiCassettingIntrons  UNIQUE Int
+                                           nMutExclusives  UNIQUE Int
+                                      nCitroenIntrons UNIQUE Int                                      
+                                      nOverlappingCentralExons    UNIQUE Int
+                                      noce nInternalDonorSite  UNIQUE Int
+                                           nInternalDonorSite369_18  UNIQUE Int REPEAT
+                                           nInternalAcceptorSite  UNIQUE Int
+                                           nInternalAcceptorSite369_18  UNIQUE Int REPEAT
+                                      nRetainedIntrons  UNIQUE Int
+                                      nOrfBreakingRetainedIntrons UNIQUE Int // break the ORF
+                       Last_exon   n3pSkippedCentralExons    UNIQUE Int
+                                   nAltLastExons  UNIQUE Int
+                                   nNonOverlappingAltLastExons  UNIQUE Int
+           Position Balise // balise genes are shown to allow rapid motion on the maps
+                    Map    ?Map XREF Gene #Map_position
+                    Map_priority UNIQUE Int
+                    InterpolatedMap UNIQUE  ?Map UNIQUE Float
+                    IntMap UNIQUE ?Map XREF Gene_i UNIQUE Int UNIQUE Int
+                    Cytogenetic ?Chrom_band XREF Gene Text                // human 
+	            SMAP S_Parent Genomic_sequence  UNIQUE ?Sequence XREF Genes
+                    Primers ?Primer XREF Gene                  // Tracking,  used when changing genome release
+                    Ambiguous            //  Tracking, when positioned by primers   used when changing genome release
+                    Same_position                            //  Tracking, used when changing genome release
+                    Previous_cosmid UNIQUE ?Sequence UNIQUE Int UNIQUE Int  //  Tracking,   used when changing genome release
+
+?RNAi   Gene ?Gene XREF RNAi
+        mRNA ?mRNA XREF RNAi #Met_stop
+        Experiment      Reference Text  // Paper as in medline
+                        Author Text // ?Author
+                        Date UNIQUE DateType
+                        Injection
+                        Feeding
+        Probe cDNA_clone ?cDNA_clone XREF RNAi
+              PCR_product Primer ?Sage XREF RNAi  // ?PCR_product->Oligo
+                          Primers ?Primer XREF RNAi  // ?PCR_product->Oligo
+              Ambiguous
+        P Phenotype ?Text  // ?RNAi ->Phenotype  && ?RNAi->Phenotype->description %% ?Rnai ->Phenotype##Phenotype_info
+          Movie ?URL
+          Hyman DIC_Phenotype_Class ?Text
+                DIC_Phenotype_Definition  ?Text
+                DIC_Phenotype_Description  ?Text
+                DIC_Movie_available
+                Progeny_Phenotype_Class  ?Text
+                Progeny_Phenotype_Definition  ?Text
+                Progeny_Phenotype_Description  ?Text
+          No_obvious_phenotype Text
+        Position    IntMap UNIQUE ?Map Int UNIQUE Int
+                    SMAP S_Parent Genomic_sequence  ?Sequence XREF RNAi
+        Remark ?Text
+        Predicted_gene ?Sequence 
+
+?OST    Gene ?Gene XREF OST
+        T Target UNIQUE Text      // target accoding to vidal
+          Target_found            // AceView analysis
+	R Amplified               // experimental result
+          Not_amplified           // experimental result
+        C Complete                // exactly agrees with Tg
+          Partial                 // matches but too short relaive to Tg
+          Bad                     // not expected to amplify
+        Primers ?Primer XREF OST
+        Library ?Library
+	P Amplified_not_ambiguous   // result + alignment summary      
+          Ambiguous                 // alignment summary
+          Non_ambiguous Shed_gene
+                        Repeated_gene
+          Position    IntMap UNIQUE ?Map Int UNIQUE Int
+                      SMAP S_Parent Genomic_sequence  ?Sequence XREF OST
+
+?PBS   Gene In_gene ?Gene XREF PBS_in UNIQUE Int // distance from 5' end, +/- for gene on +/- strand
+            Up_of ?Gene XREF PBS_up UNIQUE Int // distance from 5' end, +/- for gene on +/- strand
+            Down_of ?Gene  XREF PBS_down UNIQUE Int // distance from 3' end, +/- for gene on +/- strand
+       Right_gene ?Gene UNIQUE Int // Position relative to PBS centre
+       Left_gene ?Gene  UNIQUE Int // Position relative to PBS centre
+       Overlaps ?PBS XREF Overlaps
+       Site ?PBS XREF Peak
+       Peak ?PBS XREF Site @area
+       Max  UNIQUE Float UNIQUE Int
+       Width UNIQUE Int
+       Area UNIQUE Float
+       Type SEQC All.Brain.f
+                 All.Brain.r
+                 All.UHR.f
+                 All.UHR.r
+            IRF4 IRF4all_12
+                 IRF4bIL21_8
+                 IRF4inIL21_8
+                 IRF4mIL21IRF4KO
+                 IRF4mIL21WT_4
+                 IRF4pIL21IRF4KO
+                 IRF4pIL21WT_4
+                 IRF4uIL21_8
+            STAT3  STAT3all_8
+                   STAT3all_6
+                   STAT3bIL21IRF4KO_5
+                   STAT3bIL21WT_7
+                   STAT3mIL21IRF4KO
+                   STAT3mIL21IRF4KO_2
+                   STAT3mIL21IRF4KObis
+                   STAT3mIL21WT_6
+                   STAT3mIL21WTquat
+                   STAT3mIL21ter
+                   STAT3pIL21IRF4KO
+                   STAT3pIL21IRF4KO-WT
+                   STAT3pIL21IRF4KO_3
+                   STAT3pIL21IRF4KObis
+                   STAT3pIL21IRF4KOter
+                   STAT3pIL21WT-IRF4KO
+                   STAT3pIL21WT_7
+                   STAT3pIL21WTcin
+                   STAT3pIL21WTquat
+                   STAT3pIL21ter
+                   STAT3uIL21IRF4KO_5
+                   STAT3uIL21WT_7
+            STAT5A   STAT5Aall_7
+                     STAT5AbIL2KI_7
+                     STAT5AbIL2KI_8
+                     STAT5AbIL2WT_7
+                     STAT5AbIL2WT_8
+                     STAT5AbIL2WT_9
+                     STAT5AmIL2KI_4
+                     STAT5AmIL2KI_WT_7
+                     STAT5AmIL2KIa1
+                     STAT5AmIL2KIa2
+                     STAT5AmIL2KIb1
+                     STAT5AmIL2KIb2
+                     STAT5AmIL2WT_3
+                     STAT5AmIL2WT_4
+                     STAT5AmIL2WT_KI_7
+                     STAT5AmIL2WTa1
+                     STAT5AmIL2WTa2
+                     STAT5AmIL2WTb1
+                     STAT5AmIL2WTb2
+                     STAT5ApIL2KI_3
+                     STAT5ApIL2KI_4
+                     STAT5ApIL2KI_WT_8
+                     STAT5ApIL2KIa1
+                     STAT5ApIL2KIa2
+                     STAT5ApIL2KIb1
+                     STAT5ApIL2KIb2
+                     STAT5ApIL2WT_4
+                     STAT5ApIL2WT_5
+                     STAT5ApIL2WT_KI_8
+                     STAT5ApIL2WTa1
+                     STAT5ApIL2WTa2
+                     STAT5ApIL2WTb1
+                     STAT5ApIL2WTb2
+                     STAT5ApIL2WTc
+                     STAT5AuIL2KI_7
+                     STAT5AuIL2KI_8
+                     STAT5AuIL2WT_7
+                     STAT5AuIL2WT_8
+                     STAT5AuIL2WT_9
+                     STAT5Aall_8
+            STAT5B   STAT5Ball_6
+                     STAT5Ball_8
+                     STAT5BbIL2KI_7
+                     STAT5BbIL2KI_8
+                     STAT5BbIL2WT_7
+                     STAT5BbIL2WT_8
+                     STAT5BmIL2KI_4
+                     STAT5BmIL2KI_WT_8
+                     STAT5BmIL2KIa1
+                     STAT5BmIL2KIa2
+                     STAT5BmIL2KIb1
+                     STAT5BmIL2KIb2
+                     STAT5BmIL2WT_4
+                     STAT5BmIL2WT_KI_8
+                     STAT5BmIL2WTa1
+                     STAT5BmIL2WTa2
+                     STAT5BmIL2WTb1
+                     STAT5BmIL2WTb2
+                     STAT5BpIL2KI_2
+                     STAT5BpIL2KI_4
+                     STAT5BpIL2KI_WT_8
+                     STAT5BpIL2KIa1
+                     STAT5BpIL2KIa2
+                     STAT5BpIL2KIb1
+                     STAT5BpIL2KIb2
+                     STAT5BpIL2WT_3
+                     STAT5BpIL2WT_4
+                     STAT5BpIL2WT_KI_8
+                     STAT5BpIL2WTa1
+                     STAT5BpIL2WTa2
+                     STAT5BpIL2WTb1
+                     STAT5BpIL2WTb2
+                     STAT5BuIL2KI_8
+                     STAT5BuIL2WT_8
+            IgG  Ig3all_5
+                 Ig3pIL21WT_3
+                 Ig3pIL21WTquar
+                 Ig3pIL21ter
+                 Ig4all_2
+       Motif GAS XTTC___GAA TTC___GAA Int // Position relative to PBS Centre
+                 XTTC_A_GAA TTC_A_GAA Int
+                            TTC_T_GAA Int
+                 XTTC_G_GAA TTC_G_GAA Int
+                            TTC_C_GAA Int
+             VGAS XTTT___GAA TTT___GAA Int
+                             TTC___AAA Int
+                  XCTC___GAA CTC___GAA Int
+                             TTC___GAG Int
+                  XTGC___GAA TGC___GAA Int
+                             TTC___GCA Int
+                  XTCC___GAA TCC___GAA Int
+                             TTC___GGA Int
+                  XTTG___GAA TTG___GAA Int
+                             TTC___CAA Int
+                  XGTC___GAA GTC___GAA Int
+                             TTC___GAC Int
+                  XTTA___GAA TTA___GAA Int
+                             TTC___TAA Int
+                  XTAC___GAA TAC___GAA Int
+                             TTC___GTA Int
+                  XATC___GAA ATC___GAA Int
+                             TTC___GAT Int
+             VIRF4  XAA__GAAA AA__GAAA Int
+                              TTTC__TT Int
+             COMB XCCA___CCT CCA___CCT Int
+                             AGG___TGG Int
+                  XTTC___TTT TTC___TTT Int
+                             AAA___GAA Int
+                  XGCC___CCC GCC___CCC Int
+                             GGG___GGC Int
+                  XCAC___CTG CAC___CTG Int
+                             CAG___GTG Int
+                  XGAA___AGG GAA___AGG Int
+                             CCT___TTC Int
+                  XAGG___GAA AGG___GAA Int
+                             TTC___CCT Int
+                  XGGA___AAG GGA___AAG Int
+                             CTT___TCC Int
+                  XAAG___GGA AAG___GGA Int
+                             TCC___CTT Int
+                  XTCC___AAG TCC___AAG Int
+                             CTT___GGA Int
+                  XCCC___CCG CCC___CCG Int
+                             CGG___GGG Int
+                  XCAG___CCG CAG___CCG Int
+                             CGG___CTG Int
+                  XCCG___CCT CCG___CCT Int
+                             AGG___CGG Int
+                  XCCG___CCG CCG___CCG Int
+                             CGG___CGG Int
+                  XAGG___CCG AGG___CCG Int
+                             CGG___CCT Int
+             M6 XAGGAAG AGGAAG  Int
+                        CTTCCT  Int
+                XCAGGAA CAGGAA  Int
+                        TTCCTG  Int
+                XACTTCC ACTTCC  Int
+                        GGAAGT  Int
+                XTGACTC TGACTC  Int
+                        GAGTCA  Int
+                XGACTCA GACTCA  Int
+                        TGAGTC  Int
+                XCCGCCC CCGCCC  Int
+                        GGGCGG  Int
+                XCCCGCC CCCGCC  Int
+                        GGCGGG  Int
+                XCCCCGC CCCCGC  Int
+                        GCGGGG  Int
+                XCGCCCC CGCCCC  Int
+                        GGGGCG  Int
+                XGCCGCC GCCGCC  Int
+                        GGCGGC  Int
+                XCTTCCG CTTCCG  Int
+                        CGGAAG  Int
+                XGGCGGA GGCGGA  Int
+                        TCCGCC  Int
+                XCCGGAA CCGGAA  Int
+                        TTCCGG  Int
+                XATGACT ATGACT  Int
+                        AGTCAT  Int
+                XGTTTCA GTTTCA  Int
+                        TGAAAC  Int
+                XGGTTTC GGTTTC  Int
+                        GAAACC  Int
+                XAGTTTC AGTTTC  Int
+                        GAAACT  Int
+                XACTCAT ACTCAT  Int
+                        ATGAGT  Int
+                XGCGCGC GCGCGC  Int
+             M5 XGAAAC GAAAC Int
+                       GTTTC Int
+                XAGAAA AGAAA Int
+                       TTTCT Int
+                XAGTCA AGTCA Int
+                       TGACT Int
+                XCCGCC CCGCC Int
+                       GGCGG Int
+                XCTTCC CTTCC Int
+                       GGAAG Int
+             M7 XTGACTCA TGACTCA Int
+                         TGAGTCA Int
+       DNA ?DNA UNIQUE Int
+       Method ?Method
+       Position    IntMap UNIQUE ?Map Int UNIQUE Int
+                   SMAP S_Parent Genomic_sequence  UNIQUE ?Sequence XREF PBS
+
+?Strain  Genotype Text
+         Contains  Gene    ?Gene XREF Strain
+                   Allele  ?Allele XREF Strain
+                   Expr_pattern ?Expr_pattern XREF Strain
+         Remark        ?Text
+
+
+?Expr_pattern	Gene ?Gene XREF Expr_pattern
+                Locus ?Locus XREF  Expr_pattern
+                Sequence ?Sequence  XREF Expr_pattern
+                Protein_description Text   // dl1 010307 from geneace
+                Expressed_in Cell ?Text
+                             Cell_group  ?Text
+                             Life_stage  Text
+                Subcellular_localization ?Text
+                Type    Reporter_gene Text
+                        In_situ Text
+                        Antibody Text
+                        Transgene Text
+                        Western 
+                        Northern
+                        RT_PCR Text
+                Pattern ?Text
+                Remark Text
+                Experiment      Laboratory ?Laboratory
+                                Author Text
+                                Date UNIQUE DateType
+                                Strain UNIQUE ?Strain XREF Expr_pattern
+                Picture
+                Reference ?Paper XREF Expr_pattern
+                Not_done
+
+
+?Medline Paper  ?Paper XREF Medline_acc
+         Paper_PMID // ?Paper XREF PMID NO XREF in human
+         Paper_CGCID  ?Paper XREF CGCID
+         Paper_LeonID  ?Paper XREF LeonID
+
+
+?Journal Full_name ?Text
+         Paper ?Paper
+
+?GO Nickname UNIQUE Text
+    Type Molecular_function ?GO_m XREF GO
+         Biological_process ?GO_b XREF GO
+         Cellular_component ?GO_c XREF GO 
+    Slim ?GO_slim XREF GO
+    Synonym ?GO_s XREF GO
+    Pfam ?Pfam XREF GO
+
+?GO_b GO ?GO XREF Biological_process
+      Gene_pfam ?Gene XREF GO_b_pfam
+      Gene_ace ?Gene XREF GO_b_ace
+      Gene_iea ?Gene XREF GO_b_iea
+      Extern ?Extern XREF GO_b
+
+?GO_c GO ?GO XREF Cellular_component
+      Gene_psort ?Gene XREF GO_c_psort
+      Gene_pfam ?Gene XREF GO_c_pfam
+      Gene_ace ?Gene XREF GO_c_ace
+      Gene_iea ?Gene XREF GO_c_iea
+      Extern ?Extern XREF GO_c
+
+?GO_m GO ?GO XREF Molecular_function
+      Gene_pfam ?Gene XREF GO_m_pfam
+      Gene_ace ?Gene XREF GO_m_ace
+      Gene_iea ?Gene XREF GO_m_iea
+      Extern ?Extern XREF GO_m
+
+?GO_slim GO ?GO XREF Slim
+         Extern ?Extern XREF GO_slim
+
+?GO_s GO ?GO XREF Synonym
+
+?COG Info   Title ?Text
+            Information_storage_and_processing Translation_ribosomal_structure_and_biogenesis J ?Text
+                                               Transcription K ?Text
+                                               DNA_replication_recombination_and_repair L ?Text
+            Cellular_processes Cell_division_and_chromosome_partitioning D ?Text
+                               Posttranslational_modification_protein_turnover_chaperones O ?Text
+                               Cell_envelope_biogenesis_outer_membrane M ?Text
+                               Cell_motility_and_secretion N ?Text
+                               Inorganic_ion_transport_and_metabolism P ?Text
+                               Signal_transduction_mechanisms T ?Text
+            Metabolism Energy_production_and_conversion C ?Text
+                       Carbohydrate_transport_and_metabolism G ?Text
+                       Amino_acid_transport_and_metabolism E ?Text
+                       Nucleotide_transport_and_metabolism F ?Text
+                       Coenzyme_metabolism H ?Text
+                       Lipid_metabolism I ?Text
+                       Secondary_metabolites_biosynthesis_transport_and_catabolism Q ?Text
+            Poorly_characterized  General_function_prediction_only R ?Text
+                                  Function_unknown S ?Text
+     Gene ?Gene XREF COG
+     Sequence ?Sequence XREF COG
+        
+?Genetic_code	Other_name ?Text
+		NCBI_id UNIQUE	Int
+		Translation  UNIQUE	Text
+		Start  UNIQUE	Text
+		Base1 UNIQUE	Text
+		Base2 UNIQUE	Text
+		Base3 UNIQUE	Text
+
+
+?Paper Title ?Text
+       Author Text // ?Author // XREF Paper
+       Journal UNIQUE ?Journal
+       Year UNIQUE Int
+       Volume Text Text
+       Page UNIQUE Text UNIQUE Text
+       Medline_acc  UNIQUE  ?Medline XREF Paper
+       PMID  UNIQUE  Text // ?Medline XREF Paper_PMID
+       CGCID  UNIQUE  ?Medline XREF Paper_CGCID
+       LeonID UNIQUE  ?Medline XREF Paper_LeonID
+       Sequence ?Sequence //  XREF Reference
+       Gene ?Gene XREF Reference
+       Gene_class ?Gene_class XREF Reference
+       Locus ?Locus XREF Reference
+       Gene_symbol Text // ?Text
+       GeneId ?GeneId XREF Reference
+       Extern ?Extern XREF Reference
+       Disease ?Mesh XREF Reference
+       Mesh ?Mesh XREF Reference
+       EC_symbol  Text
+       Pfam ?Pfam XREF Paper
+       Erratum_in  Text
+       Retraction_in  Text
+       Citation Text
+       Gene_wb ?Gene XREF WB_reference
+       Gene_gb ?Gene XREF GenBank_reference
+       Gene_mark ?Gene
+       Expr_pattern ?Expr_pattern  XREF Reference
+       Not_done
+       Gene_RIF UNIQUE Text
+       Abstract ?LongText
+
+//-----------------------------------------------------------------------------
+// Paper is a description of a paper.  Author is a reference to all the
+// authors of the paper, but see author below.
+?Author Full_name ?Text
+        Person ?Person XREF Author
+	Paper ?Paper   // do NOT XREF, this would alter the author order
+	
+//-----------------------------------------------------------------------------
+// Author is really just a name that is signed to a paper.  It has a
+// reference back to all the papers it was signed to, but we don't really
+// know who it is.  For example, Medline might list both John Smith and
+// James Smith as "Smith J".  We would then have an author named "Smith J"
+// with the Who tag referencing both of them.  A human reading the displayed
+// data would be able to deal with the ambiguity even if a computer cannot.
+//-----------------------------------------------------------------------------
+
+?Laboratory     Address Mail Text
+			Phone Text
+			E_mail Text
+			Fax Text
+		CGC     Representative UNIQUE ?Person XREF Laboratory 
+			Strain_designation Text
+			Allele_designation Text
+			Gene_classes ?Gene_class XREF  Designating_laboratory
+
+
+//-----------------------------------------------------------------------------
+// Laboratory describes an institution.  The Address tag refers to the
+// organization, not a person at that organization.  In particular, E_mail
+// should be a general purpose address like "info" instead of the email
+// address of the director.
+// Contact is a person who expects to handle laboratory business.
+// Who is a list of persons affiliated with that laboratory.  
+// 
+//-----------------------------------------------------------------------------
+
+?Person Full_name ?Text UNIQUE Text UNIQUE Text UNIQUE Text // for gb submission: full, surname, first, initial
+	Author ?Author XREF Person @Paper
+	Address Mail Text
+		E_mail Text
+		Phone Text
+		Fax Text
+	Laboratory UNIQUE ?Laboratory XREF Representative
+        Gene_class ?Gene_class XREF Specialist
+        Specialist ?Gene XREF Specialist
+	Notes ?Text
+
+//-----------------------------------------------------------------------------
+// Person describes a real person.
+// Names is a list of names that we know this person by.
+// Author is a list of names that they have used to publish papers.
+//
+// For example, "Robert Smith" might have 
+//
+//	Names 
+//		"Robert Smith"
+//		"Bob Smith"
+//		"Robert W Smith"
+//	Author
+//		"Smith R"
+//		"Smith RW"
+//
+// The address information is intended for a human to read, not for a
+// computer to process.  You can list multiple phone numbers with notes:
+//	Phone
+//		"+1 301 123 4567 (office)"
+//		"+1 240 765 4321 (cell)"
+// 
+//-----------------------------------------------------------------------------
+// Tags removed from Author:
+//
+//        Details Surname UNIQUE Text
+//                Firstname UNIQUE Text
+//                Initial UNIQUE Text
+//        Laboratory UNIQUE ?Laboratory XREF Representative
+//        Address Mail Text
+//                E_mail Text
+//                Phone Text
+//                Fax   Text
+//        Specialist ?Gene XREF Specialist
+//-----------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
+
+?Tissue Title Text
+
+?Gene_class  Main_name  ?Gene_class XREF Other_name 
+             Other_name ?Gene_class XREF Main_name
+             ID Description UNIQUE ?Locus_description XREF Gene_class
+                Specialist ?Person XREF Gene_class
+             Remark Text
+             Designating_laboratory UNIQUE ?Laboratory XREF Gene_classes
+             Type UNIQUE Genetic
+                         Molecular
+             Loci ?Locus XREF Gene_class @">gene;Descriptor"
+             Reference ?Paper XREF Gene_class
+   
+// comparison to wormbase WS85             
+//   we throw away         Allele ?Allele	XREF Gene_class
+//             CGC_approved // added by krb 24/01/02
+//             CGC_unresolved Text // added by krb 28/01/02
+//	     Phenotype we copy under description
+//           if phenotype != "", type = genetic
+

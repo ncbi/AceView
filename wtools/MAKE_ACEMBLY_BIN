@@ -1,0 +1,42 @@
+#!/bin/csh -f
+#
+# script to make distribution tar files - edit as needed each time.
+#
+#  $Id: MAKE_ACEMBLY_BIN,v 1.1.1.1 2002/07/19 20:23:37 sienkiew Exp $
+
+if ($#argv != 1) then
+ echo 'usage:   MAKE_ACEMBLY_BIN machine  e.g. MAKE_ACEMBLY ALPHA_4_OPT'
+ exit 1
+endif
+
+# test exitence 
+if !(-d ~/distrib.acembly) then
+ echo 'No directory ~/distrib.acembly, i quit'
+ exit 1
+endif
+
+cd $ACEDB_SRC
+
+set vv = `$ACEDB_SRC/wtools/aceGetVersion.pl $ACEDB_SRC/wnq`
+set sx = $1
+
+echo 'I will prepare the distribution in ~/distrib.acembly for target ' $sx
+
+echo Construct the bin.tar files
+
+foreach ff (`\ls -d bin.$sx`)
+  echo construct $ff
+  echo sx: $sx  ff: $ff version:$vv
+  mkdir ~/distrib.acembly/toto
+  mkdir ~/distrib.acembly/toto/$ff
+  cp $ff/tacembly $ff/xacembly $ff/makeSCF $ff/gnbkclient ~/distrib.acembly/toto/$ff
+  cd ~/distrib.acembly/toto
+  tar cf ../bin.$sx.$vv.tar $ff
+  cd ..
+  \rm -rf toto
+  gzip bin.$sx.$vv.tar
+  cd $ACEDB_SRC
+end
+
+
+

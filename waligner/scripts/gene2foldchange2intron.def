@@ -1,0 +1,153 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2010-03-25_00:19:36
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Gene 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Element 
+Condition g && seqc_fold_change
+ 
+Colonne 2 
+Subtitle log2(B/A) fold change 
+Width 12 
+Mandatory 
+Visible 
+Float 
+From 1 
+Tag SEQC_fold_change
+ 
+Colonne 3 
+Subtitle Intron 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Element 
+From 1 
+Tag eIntron
+ 
+Colonne 4 
+Subtitle UHR 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Tissue 
+From 3 
+Tag Deep
+Condition IS UHR
+ 
+Colonne 5 
+Subtitle any platform 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 4 
+Tag  HERE 
+Condition any.U
+ 
+Colonne 6 
+Subtitle Index (dubious in case of introns) 
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 5 
+Tag  HERE 
+ 
+Colonne 7 
+Subtitle Tag 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 6 
+Tag  HERE 
+ 
+Colonne 8 
+Subtitle Brain 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Tissue 
+From 3 
+Tag Deep
+Condition IS Brain
+ 
+Colonne 9 
+Subtitle any platform 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 8 
+Tag  HERE 
+Condition any.U
+ 
+Colonne 10 
+Subtitle Index 
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 9 
+Tag  HERE 
+ 
+Colonne 11 
+Subtitle Tag 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+Colonne 12 
+Subtitle Column #12 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS any
+ 
+Colonne 13 
+Subtitle Column #13 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 12 
+Tag  HERE 
+Condition IS any.U
+ 
+Colonne 14 
+Subtitle gene index 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag  HERE 
+ 
+ 
+
+// End of these definitions

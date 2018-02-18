@@ -1,0 +1,469 @@
+#!/bin/tcsh -f
+#  2014_01_05
+
+################################################################
+# Construct a mini project
+##### Mini genome
+#  2 small chromosomes, extracted from around gene A and B, C
+#  A and B should be spliced, one on each strand, C antisense to B
+#  the genes are described by a gff file
+################################################################
+
+if (! -d MagicMiniTest) mkdir MagicMiniTest
+if (! -d  MagicMiniTest) then
+  echo "Sorry, i cannot find the directory ./MagicMiniTest, maybe you are not in the correct directory"
+  exit 1
+endif
+
+set path =($path .)
+
+pushd MagicMiniTest
+
+## Task 1: construct tmp/METADATA -> .sponge, .info 
+## this phase only needs to be run once
+
+if (! -e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
+  echo "Sorry, i cannot find the file DATA/TARGET/MagicMiniTest.data_preparation.done, so the test data are not  ready"
+  echo " and I cannot find the  ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz, so i cannot prepeare the test data, I quit"
+  exit (1)
+endif
+
+
+if (-e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
+
+  if (! -d TARGET) mkdir TARGET
+  if (! -d TARGET/Targets) mkdir TARGET/Targets
+  if (! -d TARGET/GTF) mkdir TARGET/GTF
+
+  echo "Creating the MiniTest genome and artificial reads"
+
+  echo " extract the genome"
+  dna2dna -I fasta -i ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz -leftClipAt 95510001 -rightClipAt  95810000 -O fasta -gzo -maxLineLn 60 >  hs.genome.dicer1_region.fasta.gz
+  # get the corresponding transcripts from AceView and RefSeq and shift their coordinates
+  zcat ~/37_6/TARGET/GTF/hs.av.gtf.gz | gawk -F '\t' '/^14/{a1=$4;a2=$5;if(a1>=95510001 && a2<=95810000){$4-=95510000;$5-=95510000;printf("%s",$1);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}}' | gzip > hs.av_v4.dicer1_region.gtf.gz
+  zcat ~/37_6/TARGET/GTF/hs.RefSeq.gtf.gz | gawk -F '\t' '/^14/{a1=$4;a2=$5;if(a1>=95510001 && a2<=95810000){$4-=95510000;$5-=95510000;printf("%s",$1);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}}' | gzip > hs.RefSeq_v105.dicer1_region.gtf.gz
+  echo "export the  the fasta sequence of the transcripts"
+  dna2dna -gtf hs.av_v4.dicer1_region.gtf.gz -gtfGenome hs.genome.dicer1_region.fasta.gz -o hs.av_v4.dicer1_region -O fasta  -maxLineLn 60 -gzo
+  dna2dna -gtf hs.RefSeq_v105.dicer1_region.gtf.gz -gtfGenome hs.genome.dicer1_region.fasta.gz -o hs.RefSeq_v105.dicer1_region -O fasta  -maxLineLn 60 -gzo
+
+  mv  hs.*.dicer1_region.gtf.gz TARGET/GTF
+  mv  hs.*.dicer1_region.fasta.gz TARGET/Targets
+  
+  pushd TARGET/GTF
+    ln -s hs.RefSeq_v105.dicer1_region.gtf.gz hs.RefSeq.gtf.gz
+    ln -s hs.av_v4.dicer1_region.gtf.gz hs.av.gtf.gz
+  popd
+  pushd TARGET/Targets
+    ln -s hs.av_v4.dicer1_region.fasta.gz hs.av.fasta.gz
+    ln -s hs.RefSeq_v105.dicer1_region.fasta.gz hs.RefSeq.fasta.gz
+    ln -s hs.genome.dicer1_region.fasta.gz hs.genome.fasta.gz
+    ln -s hs.genome.dicer1_region.fasta.gz hs.gdecoy.fasta.gz
+    cp ~/37_6/TARGET/Targets/hs.DNASpikeIn.fasta.gz .
+    cp ~/37_6/TARGET/Targets/hs.SpikeIn.fasta.gz .
+    cp ~/37_6/TARGET/Targets/hs.mito.fasta.gz .
+    cp ~/37_6/TARGET/Targets/hs.rrna.fasta.gz .
+  popd
+  mkdir  TARGET/CHROMS
+  cp TARGET/Targets/hs.genome.fasta.gz TARGET/CHROMS/hs.chrom_14.fasta.gz
+  ls -ls TARGET/CHROMS TARGET/GTF TARGET/Targets
+
+cat << EOF > TARGET/LIMITS
+#!/bin/tcsh -f
+
+setenv MAGIC_SUBMIT MULTICORE
+
+# Parameters adapted for human
+setenv species hs
+setenv Reference_genome GRCh37.Dicer1_region
+setenv intronMaxLength 100000
+setenv chromSetAll "14"
+setenv MAGIC_A2G 0
+
+setenv DNAtargets "DNASpikeIn SpikeIn mito genome gdecoy"
+setenv RNAtargets "rrna  av RefSeq"
+
+setenv Etargets "av RefSeq"
+
+EOF
+
+echo " create manually TARGET/LIMITS"
+
+  touch TARGET/MagicMiniTest.data_preparation.done
+endif
+
+
+if (! -e DATA/Fastc/MagicMiniTest.fastc_preparation.done) then
+    if (! -d Fastc) mkdir Fastc
+
+set NN=40000
+    echo "Create the artificial runs"
+    echo "dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/SingleExact50
+    cat toto.*.exact.forward.fasta   | gawk '/^>/{printf("%s#2\n",$1);next;}{print}'    | gzip >  Fastc/SingleExact50/f2.1.fastc.gz
+    mkdir Fastc/SingleSub50
+    cat toto.*.exact.forward.fasta    | gzip >  Fastc/SingleSub50/f2.1.fastc.gz
+    cat toto.*.variant.forward.fasta    | gzip >  Fastc/SingleSub50/f2.2.fastc.gz
+    mkdir Fastc/SingleSub50R
+    cat toto.*.exact.forward.fasta   | dna2dna -complement  | gzip >  Fastc/SingleSub50R/f2.1.fastc.gz
+    cat toto.*.variant.forward.fasta    | dna2dna -complement  | gzip >  Fastc/SingleSub50R/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+     echo "Create the artificial runs"
+    echo "dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/SingleExact50.NoPolyA
+    cat toto.*.exact.forward.fasta  | gawk '/^>/{printf("%s#2\n",$1);next;}{print}' | gzip >  Fastc/SingleExact50.NoPolyA/f2.1.fastc.gz
+    mkdir Fastc/SingleSub50.NoPolyA
+    cat toto.*.exact.forward.fasta    | gzip >  Fastc/SingleSub50.NoPolyA/f2.1.fastc.gz
+    cat toto.*.variant.forward.fasta    | gzip >  Fastc/SingleSub50.NoPolyA/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+    echo "dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsInDel -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsInDel -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/SingleIndel50
+    cat toto.*.exact.forward.fasta   | gawk '/^>/{printf("%s#2\n",$1);next;}{print}'    | gzip >  Fastc/SingleIndel50/f2.1.fastc.gz
+    cat toto.*.variant.forward.fasta    | gawk '/^>/{printf("%s#2\n",$1);next;}{print}'   | gzip >  Fastc/SingleIndel50/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+    echo "dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 50 -ctsStep 1 -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/SingleIndel50.NoPolyA
+    cat toto.*.exact.forward.fasta    | gzip >  Fastc/SingleIndel50.NoPolyA/f2.1.fastc.gz
+    cat toto.*.variant.forward.fasta    | gzip >  Fastc/SingleIndel50.NoPolyA/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+
+
+
+    echo "dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsAddPolyA -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/PairExact100_180
+    cat toto.*.exact.reverse.fasta   | gawk '/^>/{printf("%s#2\n",$1);next;}{print}'    | gzip >  Fastc/PairExact100_180/f2.1.fastc.gz
+    mkdir Fastc/PairSub100_180
+    cat toto.*.exact.reverse.fasta    | gzip >  Fastc/PairSub100_180/f2.1.fastc.gz
+    cat toto.*.variant.reverse.fasta    | gzip >  Fastc/PairSub100_180/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+    echo "dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/PairExact100_180.NoPolyA
+    cat toto.*.exact.reverse.fasta   | gawk '/^>/{printf("%s#2\n",$1);next;}{print}'    | gzip >  Fastc/PairExact100_180.NoPolyA/f2.1.fastc.gz
+    mkdir Fastc/PairSub100_180.NoPolyA
+    cat toto.*.exact.reverse.fasta    | gzip >  Fastc/PairSub100_180.NoPolyA/f2.1.fastc.gz
+    cat toto.*.variant.reverse.fasta    | gzip >  Fastc/PairSub100_180.NoPolyA/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+    echo "dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsAddPolyA -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsAddPolyA -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/PairIndel100_180
+    cat toto.*.exact.reverse.fasta    | gzip >  Fastc/PairIndel100_180/f2.1.fastc.gz
+    cat toto.*.variant.reverse.fasta    | gzip >  Fastc/PairIndel100_180/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+    echo "dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz "
+          dna2dna -createTestSet $NN -ctsL 100 -ctsP 180 -ctsStep 1 -ctsInDel -o toto -i TARGET/Targets/hs.av.fasta.gz 
+    mkdir Fastc/PairIndel100_180.NoPolyA
+    cat toto.*.exact.reverse.fasta    | gzip >  Fastc/PairIndel100_180.NoPolyA/f2.1.fastc.gz
+    cat toto.*.variant.reverse.fasta    | gzip >  Fastc/PairIndel100_180.NoPolyA/f2.2.fastc.gz
+    \rm toto.*.fasta
+
+# create runs.ace
+   cat << EOF > runs.ace
+
+Run SingleExact50.NoPolyA
+Sorting_title 100
+RNA
+SNP
+Forward
+Is_run
+group ExactFR
+project Test
+W_colour_plus RED
+W_colour_minus LIGHTRED
+
+Run SingleExact50
+Sorting_title 101
+RNA
+SNP
+Forward
+Is_run
+group ExactFR
+project Test
+W_colour_plus RED
+W_colour_minus LIGHTRED
+
+Run SingleSub50.NoPolyA
+Sorting_title 110
+RNA
+SNP
+Is_run
+Forward
+group SubFR
+project Test
+W_colour_plus RED7
+W_colour_minus RED3
+
+Run SingleSub50
+Sorting_title 111
+RNA
+SNP
+Is_run
+Forward
+group SubFR
+project Test
+W_colour_plus RED7
+W_colour_minus RED3
+
+Run SingleSub50R
+Sorting_title 101
+RNA
+SNP
+Is_run
+Reverse
+group ExactFR
+project Test
+W_colour_plus RED
+W_colour_minus LIGHTRED
+
+Run SingleIndel50.NoPolyA
+Sorting_title 120
+RNA
+SNP
+Is_run
+Forward
+group IndelFR
+project Test
+W_colour_plus RED7
+W_colour_minus RED3
+
+Run SingleIndel50
+Sorting_title 121
+RNA
+SNP
+Is_run
+Forward
+group IndelFR
+project Test
+W_colour_plus RED7
+W_colour_minus RED3
+
+
+
+Run PairExact100_180.NoPolyA
+Sorting_title 200
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group ExactFR
+project Test
+W_colour_plus GREEN
+W_colour_minus LIGHTGREEN
+
+Run PairExact100_180
+Sorting_title 201
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group ExactFR
+project Test
+W_stranded
+W_colour_plus GREEN
+W_colour_minus LIGHTGREEN
+
+
+Run PairSub100_180.NoPolyA
+Sorting_title 210
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group SubFR
+project Test
+W_colour_plus GREEN7
+W_colour_minus GREEN3
+
+Run PairSub100_180
+Sorting_title 211
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group SubFR
+project Test
+W_colour_plus GREEN7
+W_colour_minus GREEN3
+
+Run PairIndel100_180.NoPolyA
+Sorting_title 220
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group IndelFR
+project Test
+W_colour_plus GREEN7
+W_colour_minus GREEN3
+
+Run PairIndel100_180
+Sorting_title 221
+RNA
+SNP
+Is_run
+Reverse
+Paired_end
+group IndelFR
+project Test
+W_colour_plus GREEN7
+W_colour_minus GREEN3
+
+
+Run ExactFR
+Sorting_title 1100
+RNA
+SNP
+project Test
+Sample Dicer_region_exact
+SNP
+Wiggle
+W_colour_plus BLUE
+W_colour_minus LIGHTBLUE
+Variance
+de_duo
+Title "mix of F and R dicer region artificial reads"
+
+Run SubFR
+Sorting_title 1200
+RNA
+SNP
+project Test
+Sample Dicer_region_with_indel
+SNP
+Wiggle
+W_New_Exon
+W_colour_plus ORANGE
+W_colour_minus YELLOW
+Variance
+de_duo
+Title "mix of F and R dicer region with substitutions"
+
+Run IndelFR
+Sorting_title 1300
+RNA
+SNP
+project Test
+Sample Dicer_region_with_indel
+SNP
+Wiggle
+W_colour_plus CYAN
+W_colour_minus PALECYAN
+Variance
+de_duo
+Title "mix of F and R dicer region with In/Del"
+
+EOF
+
+
+    touch Fastc/MagicMiniTest.fastc_preparation.done
+    mkdir DATA
+    mv runs.ace Fastc TARGET DATA
+    echo MagicMiniTest.fastc_preparation.done
+    popd 
+    ls -ls MagicMiniTest/DATA/Fastc/*/*.gz
+    exit 0
+endif
+
+##### Mini runs
+#  3 runs : ILM paired stranded, ILM nonstranded, Solid stranded
+#  each run contains 10 reads of read pairs
+#  with all possible geomeries, including a gene fusion and SNPs
+#  and should include a run comparioson and a group
+## Task 2: construct the Fastc files
+## Task 3: Align, Quality control, wiggle, SNPs, Expression, introns
+
+
+##########################################################################
+## verify that the ENV is correct
+
+if (! $?MAGIC_SRC) then
+  echo "Please setenv MAGIC_SRC to point to the Magic source code (so that the file "'$'"MAGIC_SRC/waligner/scripts/MAGIC exists"
+  exit 1
+endif
+if (! -e $MAGIC_SRC/waligner/scripts/MAGIC) then
+  echo "Sorry, the file $MAGIC_SRC/waligner/scripts/MAGIC does not exist"
+  exit 1
+endif
+if (! -x $MAGIC_SRC/waligner/scripts/MAGIC) then
+  echo "Sorry, the file $MAGIC_SRC/waligner/scripts/MAGIC exists but is not executable, please report this error to mieg@ncbi.nlm.nih.gov"
+  exit 1
+endif
+
+if (! $?ACEDB_MACHINE) then
+   echo "please setenv ACEDB_MACHINE so that  $MAGIC_SRC/bin."'$'"ACEDB_MACHINE/tacembly exist"
+  exit 1
+endif
+
+##########################################################################
+## create the configuration
+
+pwd
+
+setenv MAGIC Test
+if (! -d MetaDB) then
+  cp $MAGIC_SRC/wacext/clipalign.c .
+  ln -s DATA/Fastc
+  ln -s DATA/TARGET
+  $MAGIC_SRC/waligner/scripts/MAGIC init RNA
+echo "parsing DATA/runs.ace"
+  bin/tacembly MetaDB << EOF
+    pparse DATA/runs.ace
+    show
+    save
+    quit
+EOF
+
+endif
+
+##########################################################################
+## run the code
+
+setenv MAGIC_SUBMIT MULTICORE
+if (1) then
+  MAGIC ALIGN
+
+  MAGIC ALIGN  SNP WIGGLE GENE_EXPRESSION INTRON_EXON
+  MAGIC wait f1 wait f2 wait f3 wait f4 wait
+
+  echo "pparse tmp/METADATA/gtf.av.transcripts.ace.gz" | tbly tmp/XH14 -no_prompt
+ tbly tmp/XH14 <<EOF
+   find predicted_gene
+   spush
+   IS *.a*
+   sminus
+   spop
+   kill
+   save
+   quit
+EOF
+  bly tmp/XH14/ &
+endif
+
+#### Verif: verify all output files automatically using Aquila or a derivative
+#### 1) verify by hand that all output files are useful and correct
+#### 2) register a reference copy of these files and diff to check the current code
+
+
+exit 0 
+
+
+bin/clipalign -i Fastc/PairSub100_180/f2.2.fastc.gz  -t TARGET/Targets/hs.genome.fasta.gz -maxHit 10 -clipPolyA -clipPolyT -minEntropy 16 -seedLength 16 -probeMinLength 24 -clipN 2 -minAli 24 -MRNAH -targetBonus 0 -seedOffset 1 -seedShift 5 -intronMaxLength 100000 -o tatou8p -showOverhang -strategy RNA_seq -splice
+	
+bin/clipalign -i Fastc/PairSub100_180/f2.2.fastc.gz -gzo -t TARGET/Targets/hs.genome.fasta.gz -maxHit 10 -clipPolyA -clipPolyT -minEntropy 16 -seedLength 16 -probeMinLength 24 -clipN 2 -minAli 24 -MRNAH -targetBonus 0 -seedOffset 1 -seedShift 5 -intronMaxLength 100000 -o tatou8p -showOverhang -strategy RNA_seq -splice
+ 

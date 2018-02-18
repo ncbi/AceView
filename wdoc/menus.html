@@ -1,0 +1,283 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: a new menu system </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>A New menu system</H1>
+
+<H2><FONT color=red>*** THIS IS A SPEC, CODE ONLY EXISTS AS A PROTOTYPE ***</FONT></H1>
+
+<PRE>
+
+Proposal for new menu system, based on Montpellier discussions and
+Cyrus and Frank's letter.  For discussion.
+
+/*******************/
+
+#define OPTION_DISABLED		0x01
+#define OPTION_TOGGLE		0x02
+#define OPTION_TOGGLE_STATE	0x04
+#define OPTION_RADIO_SET	0x08
+#define OPTION_RADIO_STATE	0x10
+
+typedef struct
+{ char *label ;
+  void (*callBack)(OPTION *) ;	/* gets called with entire option structure */
+  char *callMessage ;		/* loose linking - see below */
+  unsigned int flag ;		/* values from OPTION_* */
+  int  value ;			/* for simple specialisation */
+  void *ptr ;			/* for more complex specialisation */
+  MENUOPT *submenu ;
+	/* other stuff I am less sure about - see below */
+  void *icon ;
+  int  forecolor, backcolor ;	/* for buttons */
+  char override ;		/* override character */
+} OPTION ;
+
+/********************/
+
+We have 3 choices for the way to specify a menu from its options.  
+Either we use the first item as a header, with its label becoming the 
+title, so we get
+	graphBoxMenu (int box, OPTION *options)
+or we add the title to the command line
+	graphBoxMenu (int box, OPTION *options, char *title)
+  which would not allow titles on walking submenus if we have them.  But
+  I don't think you need them on the Mac?
+or we have a new structure
+	typedef struct
+	{ char *title ;
+	  OPTION *options ;
+	} MENU ; 
+	graphBoxMenu (int box, MENU *menu)
+  which is more of a pain to initialise, which is important (see below).  
+
+In all cases the options can be zero terminated.
+
+/*******************/
+
+The callMessage field allows use of some loose-linking call-by-name system,
+e.g. but not restricted to Simon's new call() system.
+
+On making a menu:
+if opt->callBack, then a line/button is created as normal
+else if callExists(opt->callMessage) then a line is created
+else no line created -- the function is not linked in.
+
+On a menu selection:
+  if (opt->callBack)
+    (*opt->callBack)(opt) ;
+  else
+    call (opt->callMessage, opt) ;
+
+Spacer lines should be uniform, i.e. always use the same symbol 
+(could be different on Mac than Unix).
+Similarly the mark for on/off should be standard on toggles, and also
+a different standard one for radio options.
+Maybe we should have two sorts of toggles, one for presence or absence of 
+something, with a check mark, and one flipping between two text states. 
+Or perhaps that is better handled by a two-item radio set.
+
+->submenu can be used for menus on buttons, and also perhaps for walking 
+menus.  Not sure whether to allow those in our "style guide".
+
+Perhaps even a single button should take a single *OPTION argument.
+
+The value and ptr fields are required for making menus on the fly.  In
+that case the function must be fixed, and these fields will tell which
+option was picked.  void* ptr allows arbitrary information to be attached.
+
+The callback will not include the box number.  The user can get it from
+
+  int box = graphBoxAt (graphEventX, graphEventY, 0, 0) ;
+
+This works now.
+
+/*******************/
+
+Comments on Cyrus/Frank scheme:
+
+(1) we need to be able to statically define menus, e.g.
+
+OPTION menuOpts[] = {
+  { "Quit", graphDestroy, 0, 0, 0, 0, 0, 0, 0},
+  { "Print", graphPrint, 0, 0, 0, 0, 0, 0, 0},
+  { "Assemble", 0, "miegAssemble", 0, 0, 0, 0, 0, 0},
+  { 0, 0, 0, 0, 0, 0, 0, 0, 0}} ;
+MENU menu = { "Test", menuOpts} ;
+
+In your linked-list scheme this would be not really possible.
+
+(2) keyboard overrides seem to present some problems.  I guess they
+would not mean anything for boxmenus?, or would they apply to the 
+menu on the innermost box.
+
+(3) menu bars as you have them really don't exist in X.  You mention emacs,
+but that is one window.  If I had them, I would have to have them per 
+window, which would create a nightmare for you.  
+
+==========================================================================
+A quick response to your comments:
+
+The programmer may not care about the box, but in some cases it is
+very important.  They care when the action selected in the menu
+applies to the box over which the menu action took place (most of the
+uses of graphBoxMenu).  I proposed not specifying the box in the
+generated return call.  It is easy and probably better to eliminate
+graphEventX/Y with a convenience call:
+	int box = graphEventBox() ;
+to give the box for the last event.  In fact maybe we should also use
+this for PICK events, to make things consistent.  I agree one should
+be wary of globals, but I think that in fact globals for the last
+event coordinates are natural.  Compare with the implicit "active
+graph" global.
+
+The "value" field is exactly to store a magic number.  The "ptr" field
+is completely flexible -- it lets you store anything you want, though
+of course you must then allocate space for it.  I think this caters
+for what you want -- it was in fact missing in your original proposal,
+and present in mine.  Note that the called function always gets as
+an argument a pointer to the ENTIRE structure, so you get value, ptr
+etc. to use or ignore as you want.
+
+Aha - I see the point about menuInitialise.  It would allow us to add
+extra fields in the future (e.g. icons), without changing the code
+anywhere that doesn't have them.  The downside is that to add or
+access those fields requires extra calls.  I guess we require labels
+to be unique within a menu.  I started off referring to items by
+label, but for reasons later on with buttons I switched to introducing
+a special handle for items.
+
+This is what I have ended up with:
+
+typedef struct
+{ char *label ;
+  void (*func)() ;	/* NB can be 0 if using menuSetCall() below */
+} MENUSPEC ;
+
+typedef void* MENU ;		/* public menu handle */
+typedef void* MENUITEM ;	/* public handle for menu items */
+
+/* a menu is maintained internally as a header and a linked list of
+   items */
+
+MENU menuInitialise (char *title, MENUSPEC *spec) ;
+	/* makes a simple menu from a spec terminated with label = 0 */
+	/* if called on same spec, give existing menu */
+MENU menuCreate (char *title) ;		/* makes a blank menu */
+MENUITEM menuCreateItem (char *label, void (*func)()) ;
+MENUITEM menuItem (MENU menu, char *label) ;  /* find item from label */
+BOOL menuAddItem (MENU menu, MENUITEM item, char *beforeLabel) ;
+	/* add an item; if before == 0 then add at end */
+BOOL menuDeleteItem (MENU menu, char *label) ; /* also destroys item */
+void menuDestroy (MENU menu) ;	/* also destroys items */
+
+The behaviour of menuInitialise when repeatedly called with the same
+spec allows simple cases to be handled like now, e.g.
+	static MENUSPEC spec[] = 
+	  { "Quit", graphDestroy,
+	    "Print", graphPrint,
+	    0, 0
+	  } ;
+	graphMenu (menuInitialise ("Toto", spec)) ;
+
+It seems always simpler to use labels for deleting and the before
+field of add, rather than items.  We should definitely enforce that
+labels must be unique within a menu.  Note that the item can be
+obtained transiently, e.g. typical use would be
+	menuAddItem (menu, menuCreateItem (label, func), 0) ;
+
+
+To set extra information on an item:
+
+BOOL menuSetCall (MENUITEM item, char *callFuncName) ;
+BOOL menuSetFunc (MENUITEM item, void (*Func) ;
+BOOL menuSetFlags (MENUITEM item, int flags) ;
+BOOL menuUnsetFlags (MENUITEM item, int flags) ;
+BOOL menuSetValue (MENUITEM item, int value) ;
+BOOL menuSetPtr (MENUITEM item, void *ptr) ;
+	with perhaps menuSetIcon(), menuSetOverride() etc. as needed
+The BOOL's all return success or failure.  e.g. failure if label or
+menu do not exist when they should.  Again, it is easy to write
+	menuSetValue (menuItem (menu, "Frame 3"), 3) ;
+
+Now what happens when an item is picked?  We get called back with
+	func (MENUITEM item)
+and can get the other information with
+	int menuGetFlags (MENUITEM item)
+etc.
+
+We have a rule that if the function for a menu item is zero and it doesn't
+have a Call routine set which exists then the item becomes invisible.
+This makes is easy to have options which only appear when the relevant 
+code has been linked in.
+
+I still want graphBoxMenu (MENU menu, int box) to register the menu.  I
+need to know where the menu's domain of action is.  For popup menus
+you need to know where on the screen it can pop up.  That is a box in
+the graph library.  We'll keep graphMenu (MENU menu) as a #define to
+graphBoxMenu (menu, 0) ;
+
+What about buttons?  I like the idea of them using the same structure.
+For a single button we could have
+	int graphButton (MENUITEM item, float x, float y) ;
+allowing for simple cases the single call:
+	graphButton (menuCreateItem (label, func), x, y) ;
+For more complex ones you would explicitly create the item and
+decorate it.  For a row of buttons, including for example radio button
+features, one would want
+	int graphButtons (MENU menu, float x0, float y0, float xmax) ;
+and to add a menu to a button, you would use
+	BOOL menuSetMenu (MENUITEM item, MENU menu) ;
+I guess graphMenu() on the box would still work, but would be strongly
+frowned upon.
+	
+I like this so much that I am going to start coding it (the standalone
+menu handling side of it).  But that does not mean it is fixed -
+please feel free to comment.  In most cases, as you say, this is an
+overhead of at most one call (menuInitialise) above what we do now.
+
+Note that all our horrible menu-adjusting stuff used for the main menu
+becomes MUCH easier.  Now you just say
+  menuAddItem (menu, menuCreateItem ("Save", saveFunc), "Write Access") ;
+  menuDeleteItem (menu, "Write Access") ;
+to toggle them.
+
+
+Altenatively, using the zero functions are invisible rule, we can create
+a menu using menuInitialise which had both Write Access and Save, and do
+
+  menuSetFunc(menuItem(menu,"Save"), saveFunc);
+  menuSetFunc(menuitem(menu,"Write Access", 0);
+
+There are some technical implementation problems: I have, and want to
+keep, cached X menu structures.  This is for two reasons: first I am
+always using the same menu for new versions of the same display, and
+worse I often have the same menu attached to thousands of boxes even
+in one display.  But what is "same" in this case?  It can't be just
+the header, because that stays the same when I add and delete items,
+nor even the header and list of labels.  Ah, maybe it should be the
+header, and I should do the following: when I call graphMenu() I
+create a copy of the state in the menu.  Then when called again on the
+same header, I can check if there are any changes since last time, and
+if so bring the X menu up to date.  There is also an issue of how to
+update buttons.  I guess toggles and radio sets will maintain
+themselves.
+
+I guess for these reasons, and also for the user who wants to
+simultaneously show variant menus, I need
+
+MENU menuCopy (MENU menu) ;
+
+</PRE>
+
+</BODY>
+</HTML>

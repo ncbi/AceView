@@ -1,0 +1,144 @@
+#!/usr/local/bin/perl
+# $Id: acecsplit,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+#  File: acecsplit
+#  Author: Detlef Wolf (D.Wolf@dkfz-heidelberg.de)
+#  Copyright (C) European Data Resource, 1994
+#--------------------------------------------------------------------
+# This file is part of the IGD project
+#
+# Description: split a .ace file into parts according to mapping file
+# usage: acecsplit [-c <configfile>] [-p <prefix>] [<filename>...]
+# Inputs: .ace data from files or stdin
+#         if option -c is given, then
+#         split according to config file,
+#         else split by class name
+# Output: .ace data is distributed into files according to config
+#         if <prefix> is given then all output files start with it,
+#         default for <prefix> is "split."
+# Precondition: 
+# Postcondition: 
+# HISTORY:
+# Created: Fri Nov 11 09:49:27 1994 (dok256)
+#--------------------------------------------------------------------
+
+
+# ------------------ evaluate command line options
+if ($ARGV[0] =~ /^-h(elp)?/) { 
+  print 
+"usage: acecsplit [-h] [-c <configfile>] [-p <prefix>] [<filename>...]
+purpose: split .ace files into parts
+<prefix> is the string prepended to all output file names; default \"split.\"
+modes of operation:
+- automatic
+  put all objects of each class into a file with the classes name
+- configured  (option -c)
+  a mapping file controls witch class goes to which file;
+  Format of the lines in the mapping file: 
+    <class_name> <split_file_name>
+  A special class name is \"default\", where all non-mapped classes go
+";
+exit;
+};
+
+if ($ARGV[0] eq "-c") { 
+  shift;
+  $configfile = $ARGV[0];
+  shift;
+  $byname=0;
+} else {$byname=1};
+
+#$byname && die "class name split no yet implemented; use -c option\n";
+
+$prefix="split.";
+if ($ARGV[0] eq "-p") { 
+  shift;
+  $prefix = $ARGV[0];
+  shift;
+};
+
+if (! $byname) {
+# ------------------  parse the config file
+open(L,"<$configfile") || die "couldn't open $configfile";
+  while (<L>) {
+    /^\s*#/ && next;
+    /^\s*(\w+)\s+(\w+)\b/ || next;    
+    $class2db{$1}=$2;
+    $db2class{$2}= $db2class{$2} . " " . $1;
+    print "mapping class $1 onto output $2\n";
+  };
+close(L);
+if (! $class2db{"default"}) {die "$configfile must contain a default clause"};
+
+# ---------------------- open the output channels for write
+
+foreach (keys %db2class) {
+  &openoutput($_);
+};
+
+};
+
+
+# --------------------- parse the .ace file
+# set an intitial target file name
+if ($byname) {
+#  $targetdb="unclassified";
+#  $db2class{$targetdb}= "(lines before first object)"
+#  &openoutput($targetdb);  
+  $targetdb="";  # ignore the lines before the first object
+} else {
+  $targetdb=$class2db{"default"};
+}
+
+$inobject=0;
+while (<>) {
+  m|^//| && next;       # skip comments
+  if (/^(\w+)\s*:?\s+"?([^"]+)"?/ && !$inobject) {  # a new object starts
+    $class=$1;
+    $object=$2;
+    $inobject=1;
+
+    $targetdb=$class2db{$class};  # determine output destination
+    if (! $targetdb) {            # a new/unknown destination
+      if ($byname) {              # to a new file or to default?
+        $class2db{$class}=$class; # open a new file
+        $db2class{$class}= $db2class{$class} . " " . $class;
+        &openoutput($class);
+        $targetdb=$class;
+      }
+      else {
+        $targetdb=$class2db{"default"}
+      }
+    }
+
+    if ($class eq "LongText") {
+      print $targetdb $_;
+      while (<>) {
+        print $targetdb $_;
+        /^\*\*\*LongTextEnd\*\*\*$/ && last;
+      };
+      print $targetdb "\n";
+      $inobject=0;
+      next;
+    }
+  };
+  if (/^\s*$/ && $inobject) {  # an object ends
+    $inobject=0;
+  }
+  print $targetdb $_;
+
+};  # loop over the .ace lines
+
+# -------------------- subroutines ----------------
+sub openoutput {
+  # input: $_[0]  -- name of output channel
+  local($handle,$file);
+  $handle=$_[0];
+  $file="$prefix$_[0].ace";
+  open($handle,">$file") || die "file $file not writeable";
+  chop ($date=`date`);
+  print $handle "// file $file created by acecsplit on $date
+// for class(es) $db2class{$_[0]}\n\n";
+  print "opening $file\n";
+};
+
+

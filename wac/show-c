@@ -1,0 +1,121 @@
+show -C protocol
+
+
+Initialization
+--------------
+
+to initialize, send command
+	system_list
+
+the response is
+	4 bytes 0x12345678
+		used to find byte order
+	4 bytes N
+		number of tag names
+	repeats N times:
+		">g"
+		tag name N
+		"\n"
+	repeats 256 times:
+		".k"
+		class name
+		"\n"
+	"#"
+
+Without this information, you cannot understand any of the other responses.
+The size of the response depends on the exact configuration of the database,
+but some sample sizes from Feb 2003 are:
+	worm		32428
+	human 30	33488
+	human 31	32966
+
+
+Show -C
+-------
+
+To get an object, send "show -C"
+
+The response is a table descriptor.  Make an empty table in the object
+and a cursor pointing at row 0, column -1.  As you parse the response,
+the various commands will move the cursor and deposit data in the table.
+The table is NOT extended by the cursor movement - a row or column is
+not added until data is deposited there.
+
+	"N" %c object_name "\0"
+		new object
+	"."
+		increment row
+	">"
+		increment column
+	"<"
+		increment row, decrement column
+	"l%c"
+		subtract %c from column.  Do not change row, but this
+		is always followed by a "." that increments the row.
+	"t" string "\0"
+		deposit text in current cell
+	"i" 4 bytes
+		deposit integer in current cell
+	"f" 4 bytes
+		deposit float in current cell
+	"d" 4 bytes
+		deposit date in current cell
+	"K" %c string "\0"
+		deposit object reference in current cell
+		%c is class number, string is object name
+	"k" %c string "\0"
+		deposit object reference in current cell
+		%c is class number, string is object name.
+		The object is known to be empty.
+	"g" 4 bytes
+		depost tag in current cell - the number is
+		the tag number from system_list
+	"\n"
+		no operation
+	"#"
+		end of object
+	"c" 4 byte integer
+		object is type A. length of type A data is N
+	"D" string
+		type A data (dna)
+	"p" string
+		type A data (peptide)
+	"!"
+		enter a defined type section of an object (i.e. beginning
+		data in a #xxx construct)
+	"@"
+		leave a defined type section (end #xxx)
+	"\0"
+		no operation - strictly speaking, this does not
+		belong here, but some ace servers insert spurious \0
+		characters in between "encore" sections.
+
+
+
+Table-maker -C
+--------------
+      same as above at least in principle
+acedb> table -C -n toto
+
+N!Table
+>KƒKemphues KJ>K.[wm97ab392]l
+.KƒMatthews LR>K.[wm97ab392]l
+.KƒThierry-Mieg D>K.[wm97ab392]l
+#
+        same as above at least in principle
+
+
+AQL
+---
+      same as above at least in principle
+
+acedb> aql -C select a,p from a in class "author", p in a->paper
+
+// New Acedb Query Language : AQL beta release
+N!Table
+>KKemphues KJ>K.[wm97ab392]l
+.KMatthews LR>K.[wm97ab392]l
+.KThierry-Mieg D>K.[wm97ab392]l
+#
+// 1 Active Objects
+

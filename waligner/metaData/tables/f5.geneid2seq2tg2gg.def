@@ -1,0 +1,52 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2006-10-23_18:11:34
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle geneid  
+Width 12 
+Optional 
+Visible 
+Class 
+Class GeneId 
+ 
+Colonne 2 
+Subtitle Column #2  
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Sequence 
+From 1 
+Tag Sequence  
+Condition COUNT { > from_gene ; >gene} = 1
+ 
+Colonne 3 
+Subtitle Column #3  
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Transcribed_gene 
+From 2 
+Tag From_gene  
+ 
+Colonne 4 
+Subtitle gene  
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Gene 
+From 3 
+Tag Gene  
+ 
+ 
+
+// End of these definitions

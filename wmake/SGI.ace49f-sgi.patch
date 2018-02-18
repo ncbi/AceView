@@ -1,0 +1,146 @@
+diff -urN acedb.old/w1/messubs.c acedb/w1/messubs.c
+--- acedb.old/w1/messubs.c	Wed Jul 18 11:29:52 2001
++++ acedb/w1/messubs.c	Tue Feb  5 14:55:17 2002
+@@ -101,9 +101,7 @@
+ #include </usr/include/varargs.h>
+ 
+ #endif /* ED_G_NEVER_INCLUDE_THIS_CODE */
+-
+-
+-
++#include </usr/include/varargs.h>
+ 
+ #include <glib.h>
+ #include <wh/regular.h>
+diff -urN acedb.old/w6/plot.c acedb/w6/plot.c
+--- acedb.old/w6/plot.c	Fri Nov 26 10:44:14 1999
++++ acedb/w6/plot.c	Tue Feb  5 16:32:56 2002
+@@ -90,6 +90,7 @@
+ static void histoExport (void);
+ static void histoImport (void);
+ static void plotPrint (void) ;
++void plotHistoRemove(void);
+ /******************************************************************/
+ 
+ static MENUOPT histoMenu[]={
+@@ -864,7 +865,7 @@
+   graphBoxEnd () ;
+   graphBoxMenu(look->xyBox, histoMenu);
+   isFac = 0 ;
+-  if (look->xDiv > 1 || look->xMul > 1)
++  if (look->xDiv > 1 || look->xMul > 1) {
+     if (look->xDiv > look->xMul) {
+       fac = look->xDiv / look->xMul ;
+       isFac = 1 ;
+@@ -873,6 +874,7 @@
+       fac = look->xMul / look->xDiv ;
+       isFac = -1 ;
+     }
++  }
+   /*mhmp 19.04.99 -1/+1*/
+   zoneMin = utArrondi(look->xMin/xDiv) ;
+   if (zoneMin > look->xMin/xDiv)
+diff -urN acedb.old/w6/plot2d.c acedb/w6/plot2d.c
+--- acedb.old/w6/plot2d.c	Wed Oct 27 18:22:12 1999
++++ acedb/w6/plot2d.c	Tue Feb  5 14:07:06 2002
+@@ -35,7 +35,7 @@
+ 
+ #include <regular.h>
+ #include <graph.h>
+-#include <plot.h>
++#include </mnt/usr/verhoevs/home/temp/acedb/wh/plot.h>
+ 
+ static magic_t Plot2d_MAGIC = "Plot2d";
+ 
+@@ -329,7 +329,7 @@
+   if (dx * xMag < 2.5)
+     dx *= 2 ;
+   isScale = 0 ;
+-  if (xDiv > 1 || xMul > 1)
++  if (xDiv > 1 || xMul > 1) {
+     if (xDiv > xMul) {
+       scale = xDiv / xMul ;
+       isScale = 1 ;
+@@ -338,7 +338,7 @@
+       scale = xMul / xDiv ;
+       isScale = -1 ;
+     }
+-
++  }
+   if (isScale >= 0) /* mhmp 06.07.99 > ---> >= */
+     graphText (messprintf ("scale x: 1/%d", scale), xPos, yPos + 3.0) ;
+   else
+@@ -430,7 +430,7 @@
+      yDiv /= 10 ;
+ 
+   isScale = 0 ;
+-  if (yDiv > 1 || yMul > 1)
++  if (yDiv > 1 || yMul > 1) {
+     if (yDiv > yMul) {
+       scale = yDiv / yMul ;
+       isScale = 1 ;
+@@ -439,6 +439,7 @@
+       scale = yMul / yDiv ;
+       isScale = -1 ;
+     }
++  }
+   if (isScale >= 0) /* mhmp 06.07.99 > ---> >= */
+     graphText (messprintf ("scale y: 1/%d", scale), 2,yPos + 3) ;
+   else 
+diff -urN acedb.old/wmake/SGI_65_GCC_DEF acedb/wmake/SGI_65_GCC_DEF
+--- acedb.old/wmake/SGI_65_GCC_DEF
++++ acedb/wmake/SGI_65_GCC_DEF	Tue Feb  5 14:50:00 2002
+@@ -0,0 +1,30 @@
++# $Id: SGI.ace49f-sgi.patch,v 1.1.1.1 2002/07/19 20:23:29 sienkiew Exp $
++ 
++#################################################################
++############### acedb: R.Durbin and J.Thierry-Mieg ##############
++#################################################################
++
++#################################################################
++########## Machine dependant compiler modification ##############
++########### for the SGI Silicon Graphics & gcc ##################
++#################################################################
++########### This file is included by wmake/truemake #############
++######  Edit this file to adapt the ACeDB to a new machine ######
++#####   following the explanations given in wmake/truemake  #####
++#################################################################
++
++NAME = SGI 
++# Compiler used to build 3rd party libraries 
++LIBCC = gcc
++
++COMPILER = gcc -g -DNO_LEFT_CASTING -Wall -DACEDB5 -I/usr/freeware/include -I/usr/freeware/include/gtk-1.2 -I/usr/freeware/include/glib-1.2 -I/usr/freeware/lib32/glib/include 
++LINKER = gcc -g
++
++LIBS = -L/usr/freeware/lib32 -lgtk -lgdk -lgmodule -lglib -lXi -lXext -lX11 -lm -lcurses -lreadline
++RANLIB_NEEDED = false
++
++.c.o:
++	$(CC) -c $*.c
++
++#################################################################
++#################################################################
+diff -urN acedb.old/wmake/truemake acedb/wmake/truemake
+--- acedb.old/wmake/truemake	Wed Jun 27 16:01:02 2001
++++ acedb/wmake/truemake	Tue Feb  5 14:47:50 2002
+@@ -113,7 +113,7 @@
+ # gtk-config should be in the path.
+ # These are overridable by the _DEF file :
+ 
+-XWIN_LIBS = `../w3rdparty/acedb-config`
++XWIN_LIBS =  -lgtk -lgdk -lglib -lXext -lX11
+ 
+ # These two need to be over-rideable for the windows build.
+ # The order should be gex followed by graph since gex calls
+diff -urN acedb.old/wnq/aceversion.c acedb/wnq/aceversion.c
+--- acedb.old/wnq/aceversion.c	Tue Sep  4 14:10:00 2001
++++ acedb/wnq/aceversion.c	Tue Feb  5 13:49:44 2002
+@@ -81,6 +81,7 @@
+ #define ACEDB_VERSION          5
+ #define ACEDB_RELEASE          0
+ #define ACEDB_UPDATE           ""
++#define ACEDB_RELEASE_DIR "RELEASE.2001_09_04"
+ 
+ #else
+ 

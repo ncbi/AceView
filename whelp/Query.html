@@ -1,0 +1,148 @@
+<!--  @(#)Query.html	1.2  2/17/95  >
+<head>
+<title>Query</title>
+</head>
+
+<h2>Query Commands</h2>
+
+The syntax of the acedb query language is a little complex but quite
+powerful. It is explained in the <A
+HREF="Query_syntax.html">Query_syntax</a> help section and in the
+latex document doc/query_syntax. The query interface allows you to
+write command files with parameters. You can load and execute these as
+external programs (in $ACEDB/wquery/xxx.qry). Thus you can prepare in
+advance sets of useful commands for selecting data.<p>
+
+An easier, but less powerful, interface is provided by the <A
+HREF="Query_Builder.html">Query_Builder</a> and <A
+HREF="Query_By_Example.html">Query_by_example</a> which can be accessed
+from the main acedb menu. The related <A
+HREF="Table_Maker.html">Table_Maker</a> allows the contruction of
+relational tables.<p>
+
+
+<h3>Buttons</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: Quits this window with an option to save
+your current file of commands, provided you have given a file name.
+
+<li><strong>Help</strong>: Invokes this section of the help file.
+
+<li><strong>Print</strong>: Print this window to a postscript file and
+send to printer (ACEDB_LPR).
+
+<li><strong>Clear</strong>: Clears all the user-entry boxes on the
+window.
+
+<li><strong>New KeySet</strong>: Calls up a new, blank keyset window
+titled "Query Answer".
+
+<li><strong>By Example</strong>: Call up the Query-by-example window.
+
+<li><strong>Builder</strong>: Call up the Query Builder window.
+
+<li><strong>Load</strong>: Loads the file Directory/FileName.qry if it
+exists. The ending .qry is added automatically
+
+<li><strong>Save</strong>: Saves the present set of commands into the
+file Directory/FileName.qry if you have write access to Directory.
+The ending .qry is added automatically
+
+<li><strong>Search Locally</strong>: Execute the current query on the
+local database and put the found and selected objects in the Keyset
+(selection list).
+
+<li><strong>Search IGD</strong>: Execute the current query for IGD and
+put the found and selected objects in the Keyset (selection list).
+
+<li><strong>Search Server</strong>: Execute the current query on a
+remote ACEDB server and put the found and selected objects in the
+Keyset (selection list).
+
+<li><strong>Undo</strong>: Cancels the last command and redisplays the
+previous Keyset (selection list).
+
+</ul>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print Window</strong>: prepares a Post Script file in ./PS
+which you can then print on your local laser printer.
+
+<li><strong>Refresh</strong>: Redraws the window.
+
+<li><strong>Clear Entries</strong>: Same as Clear Button: Clears all
+the user-entry boxes on the window.
+
+<li><strong>Query By Example</strong>: Same as the By Example Button.
+Call up the Query-by-example window.
+
+<li><strong>Query Builder</strong>: Same as the Builder Button.  Call
+up the Query Builder window.
+
+<li><strong>Load From File</strong>: Same as Load Button: Loads the
+file Directory/FileName.qry if it exists. The ending .qry is added
+automatically
+
+<li><strong>Save To File</strong>: Same as Save Button: Saves the
+present set of commands into the file Directory/FileName.qry if you
+have write access to Directory.  The ending .qry is added
+automatically
+
+<li><strong>Send</strong>: Same as Send Button: Not used widely
+yet. (For Otto Ritter) This command sends the query to a remote
+distributed database.
+
+<li><strong>Enable [Disable}Autosave</strong>: When enabled (either by
+setenv ACEDB_AUTOSAVE or from menu on query window), this function
+will save the current series of query commands by appending the it to
+the end of a time-stamp labelled file in wquery/.  These files can be
+later edited (using a simple text editor) and/or loaded.  The backup
+save occurs whenever a Find (query search) is executed.
+
+<li><strong>Search Locally</strong>: Same as Search Locally Button:
+Execute the current query and put the found and selected objects in
+the Keyset (selection list).
+
+<li><strong>Search IGD</strong>: Same as Search IGD Button: Execute
+the current query for IGD and put the found and selected objects in
+the Keyset (selection list).
+
+<li><strong>Search Server</strong>: Same as Search Server Button:
+Execute the current query on a remote ACEDB server and put the found
+and selected objects in the Keyset (selection list).
+
+<li><strong>Undo Search</strong>: Same as Undo Button: Cancels the
+last command and redisplays the previous Keyset (selection list).
+
+</ul>
+
+<h3>Other details</h3>
+
+<strong>Direct Query Commands</strong> allows the FULL query syntax.
+See help on <A HREF="Query_syntax.html">Query_syntax</a> for more
+details. Edit the text box the same as any User Entry Boxes (pick with
+mouse, use keyboard).  Execute a query command by clicking (again) on
+the left mouse button or hitting the RETURN key.<p>
+
+If you edit the last command line a new, blank box is created for the
+next input query command.<p>
+	
+<strong>Scope</strong>: If the query starts as <strong>FIND
+my_class</strong>, the whole class my_class is searched; otherwise the
+query commands act on the active Keyset (selection list).  To select
+another KeySet, pick it once (the pink label "Selected KeySet" will
+appear in the KeySet window). See <A HREF="KeySet.html">help on
+KeySets</a> for more information.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

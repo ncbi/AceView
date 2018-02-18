@@ -1,0 +1,76 @@
+#!/bin/csh
+#
+# script to make distribution tar files - edit as needed each time.
+#
+#   $Id: MAKE_ACEMBLY,v 1.1.1.1 2002/07/19 20:23:37 sienkiew Exp $
+
+if ($1 == "") then
+ echo usage MAKE_ACEMBLY version
+ echo example MAKE_ACEMBLY 4_2
+ exit 1
+endif
+
+setenv vv $1
+
+echo 'I will prepare the distribution in ~/distrib.acembly'
+  # test exitence 
+if !(-d ~/distrib.acembly) then
+ echo 'No directory ~/distrib.acembly, i quit'
+ exit 1
+endif
+
+if !($?ACEMBLY) then
+ echo ACEMBLY not set, i quit
+ exit 1
+endif
+
+if !(-d $ACEMBLY) then
+ echo $ACEMBLY does not exist, i quit
+ exit 1
+endif
+
+
+cd $ACEMBLY
+cp USAGE ~/distrib.acembly
+cd ..
+if !(-d ACEMBLY) then
+ echo ACEMBLY does not exist in $ACEMBLY/.. i quit
+ exit 1
+endif
+
+mv ACEMBLY/seqmgr .
+tar cf ~/distrib.acembly/tar1 ACEMBLY
+mv seqmgr ACEMBLY
+
+echo fix the ACEMBLY directory
+
+cd ~/distrib.acembly
+if (-d toto) \rm -rf toto
+mkdir toto
+cd toto
+tar xf ../tar1
+cd ACEMBLY
+\rm *~
+\rm -rf bin*
+mkdir seqmgr
+mkdir seqmgr/archive
+gunzip *.ace
+cd ..
+tar cf ../ACEMBLY.$vv.tar ACEMBLY
+cd ..
+gzip ACEMBLY.$vv.tar
+\rm -rf toto tar1
+
+cd $ACEDB_SRC
+tar chf ~/distrib.acembly/source.$vv.tar w*
+cd ~/distrib.acembly
+gzip source.$vv.tar
+
+cd $ACEDB_SRC/wtools
+cp README.acembly  ~/distrib.acembly
+cp INSTALL.acembly ~/distrib.acembly
+chmod 755 INSTALL.acembly
+
+
+
+

@@ -1,0 +1,17 @@
+set -e
+
+d=$1
+if [ ! -d $d ]
+then
+	mkdir $d
+fi
+
+cp blastd $d
+cp blastd_convert_table $d
+
+cd ../waceview
+
+cp blast_*.def $d
+
+cp blast_generate $d
+

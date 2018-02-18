@@ -1,0 +1,160 @@
+#!/bin/tcsh -f
+
+# ssh ace01, ace1, ace31 == 165.112.10.74  (CF /etc/hosts.nis)
+# on each machine cd SERVER/worm_1 ... and run ../bin/consolidate 2017
+#                 cd SERVER ;  tar cvf LOGS.ace11.2016.tar */LOGS.2016_*
+# transfer the 3 tar files into ACEVIEWHELP/SERVERSTAS/ace01 ace11 ace31
+# open them in subdir ACEVIEWHELP/SERVERSTATS/ace01 ace11 ace31
+# then run serverstats 2017 08 > serverstats.2017_08.txt
+
+if ($2 == "") then
+  echo "usage serverstats month_number year, example for March 2012 you would say\n./serverstats 2012 03"
+  echo "Before running, please mv the LOGS from ace01 to ace11, and from ace31 to ace11, then run serverstas on ace11"
+  echo 'After: rsync to acedev01:ACEVIEW/SERVERSTATS and there run cat $ff | gawk /^cumul/{printf("%s\t",ff);print} ff=$ff >> _t'
+endif
+set year=$1
+set mmm=$2
+
+set month=XXX
+if ($mmm == 01) set month=Jan
+if ($mmm == 02) set month=Feb
+if ($mmm == 03) set month=Mar
+if ($mmm == 04) set month=Apr
+if ($mmm == 05) set month=May
+if ($mmm == 06) set month=Jun
+if ($mmm == 07) set month=Jul
+if ($mmm == 08) set month=Aug
+if ($mmm == 09) set month=Sep
+if ($mmm == 10) set month=Oct
+if ($mmm == 11) set month=Nov
+if ($mmm == 12) set month=Dec
+if ($mmm == 00) set month=Dec
+if ($month == XXX) then
+  echo "usage serverstas month_number year, example for March 2012 you would say\n./serverstats 2012 03"
+endif
+
+#/^2003.*\&l=[0-9]+\$/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfromloc++; nnfromloc[dd]++ ;} } 
+cat << EOF >! ./serverstats.awk
+/^$year/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { tothits++; nnhits[dd]++ ;} }
+/^$year.*REMOTE_ADDR/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) {uuu=dd \$9; client[\$9]++;dayclient[uuu]++; if(client[\$9]==1)totClt++;if(dayclient[uuu]==1)clt[dd]++;} }
+/^$year.*c=product.*a=fiche/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfmrna++; nnfmrna[dd]++ ;}next; }
+/^$year.*open/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totopen++; nnopen[dd]++ ;} next;}
+
+/^$year.*c=mrna.*a=fiche/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfmrna++; nnfmrna[dd]++ ;}next; }
+/^$year.*a=fiche/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totgene++; nngene[dd]++ ;} }
+/^$year.*a=fgene/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totgene++; nngene[dd]++ ;} }
+/^$year.*a=fmol/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfmol++; nnfmol[dd]++ ;} }
+/^$year.*a=fexp/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfexp++; nnfexp[dd]++ ;} }
+/^$year.*a=ffunc/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totffunc++; nnffunc[dd]++ ;} }
+/^$year.*a=vmrna/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totvmrna++; nnvmrna[dd]++ ;} }
+/^$year.*&s&/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totflash++; nnflash[dd]++ ;} }
+/^$year.*&G&/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totgif++; nngif[dd]++ ;} }
+/^$year.*a=vgene/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totvgene++;nnvgene[dd]++ ;} }
+/^$year.*a=vmrna/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totvmrna++;nnvmrna[dd]++ ;} }
+/^$year.*a=hmrna/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { tothmrna++;nnhmrna[dd]++ ;} }
+/^$year.*a=locatorbig/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { tothloc++;nnhloc[dd]++ ;} }
+/^$year.*a=locator&/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { tothlocbig++;nnhlocbig[dd]++ ;} }
+/^$year.*a=clone/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totclo++; nnclo[dd]++ ;} }
+/^$year.*a=fasta/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfasta++; nnfasta[dd]++ ;} }
+/^$year.*a=DNA/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totDNA++; nnDNA[dd]++ ;} }
+
+/^$year.*c=PFam/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totpfam++; nnpfam[dd]++ ;} }
+/$year.*blastn/ {if (\$2==month) { dd = \$3 ; totblast++;nnblast[dd]++;}}
+/^$year.*org=/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totfromloc++; nnfromloc[dd]++ ;} }
+/^$year.*ctx=ctx/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totctx++; nnctx[dd]++ ;} }
+/^$year.*webpfamg/ { mm=0+substr(\$1,6,2); dd =0+ substr(\$1,9,2) ; if (mm == mmm) { totpfX++; nnpfX[dd]++ ;} }
+
+END {
+for (nam in client) print "XXXXX", client[nam], nam ;
+  printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+         "day","client","hits","gene","hrna","loc","big","vgen","mrna","vrna","mol","exp","func", "DNA","fasta","pfam","open","ctx", "blst","pfX","flash","gif",":ll","clo") ;
+			
+
+    printf("%s:%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+      "cumul",serv, totClt, tothits,totgene, tothmrna,tothloc,tothlocbig,totvgene,totfmrna,totvmrna,totfmol,totfexp,totffunc,totDNA, totfasta,totpfam,totopen,totctx,totblast,totpfX,totflash,totgif,totfromloc,totclo) ; 
+
+    for (ii=0; ii <= 31; ii++) 
+      { if (nnhits[ii]>0) printf("%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", 
+    ii,clt[ii],nnhits[ii],nngene[ii],nnhmrna[ii],nnhloc[ii],nnhlocbig[ii],nnvgene[ii],nnfmrna[ii],nnvmrna[ii],nnfmol[ii],nnfexp[ii],nnffunc[ii],nnDNA[ii], nnfasta[ii],nnpfam[ii],nnopen[ii],nnctx[ii],nnblast[ii],nnpfX[ii],nnflash[ii],nngif[ii],nnfromloc[ii],nnclo[ii]) ;
+      } 
+}
+EOF
+
+cat  <<EOF >! /tmp/_sstat.awk
+/NSLOOK/ { ns[\$2]=\$3 ; next ;}
+{ i = index(\$1, "REMOTE") ;
+  nn = substr (\$1, 1, i-1) ;
+  j = index(\$1, "=") ;
+  nam = substr(\$1,j+1) ;
+  if (i > 1 && j > 1 && ! (nam in ns))
+    {
+      printf ("echo NSLOOK\t%s >> ns.list2 \n ", nam) ;
+      printf ("host %s  >>& ns.list2\n", nam) ;
+      printf ("echo ' ' >> ns.list2\n") ;
+    }
+}
+EOF
+
+cat  <<EOF >! /tmp/_sstat2.awk
+/NSLOOK/ { ns[\$2]=\$3 ; next ;}
+{ i = index(\$1, "REMOTE") ;
+  nn = int(substr (\$1, 1, i-1)) ;
+  j = index(\$1, "=") ;
+  nam = substr(\$1,j+1) ;
+  if (nn>0) { printf ("%5d\t%s\t", nn, nam) ;
+              if (nam in ns) printf ("%s", ns[nam]) ;
+              printf ("\n") ;
+            }
+}
+EOF
+
+cat  <<EOF >! /tmp/_sstat3.awk
+/^NSLOOK/ { printf ("%s\t%s", \$1, \$2); next;}
+/not found/ {printf ("\tNon-existent\n") ; next; }
+/pointer/ {printf ("\t%s\n",\$5); next;}
+EOF
+
+foreach serv  (any gold_1 ara_1 worm_1 36a_1 37a_1 mm_37_1 rat_1)
+end
+echo "$year $mmm $serv  ace*/$serv/LOGS.$year'_'$mmm "
+ls -ls  ace*/$serv/LOGS.$year'_'$mmm 
+
+# (gold_1 ara_1 worm_1 36a_1  mm_37_1 rat_1 any)
+foreach serv  (any gold ara_1 worm_1 36a_1 37a_1 mm_37_1 rat_1)
+  if ($serv == "ara_1") set nam =  " ARA BUIL jan 2007"
+  if ($serv == "35g_1") set nam =  " BUILD 35 aug 2005 "
+  if ($serv == "36a_1") set nam =  " BUILD 36 jun 2007 "
+  if ($serv == "36a_2") set nam =  " BUILD 36 jun 2007 "
+  if ($serv == "37a_1") set nam =  " BUILD 37 aug 2010 "
+  if ($serv == "mm_37_1") set nam =  " MOUSE 37 jun 2007 "
+  if ($serv == "gold") set nam =  " GOLD aug 2004 "
+  if ($serv == "worm_1") set nam =  " WORM jan 2010 "
+  if ($serv == "any") set nam =  " Any AceView server "
+  echo ' '
+  echo -n  "server $serv $nam, statistics for $year $month, cumulated "
+  date
+  if ($serv == any) then
+    cat  ace*/*/LOGS.$year'_'$mmm | egrep '(webpfamg|REMOTE_ADDR)' >! ss.$serv.all
+  else
+    cat  ace*/$serv/LOGS.$year'_'$mmm | egrep '(webpfamg|REMOTE_ADDR)' >! ss.$serv.all
+  endif
+  if ($serv == "37a_1") cat ../BLAST/log_file | grep human >> ss.$serv.all
+  if ($serv == "37a_2") cat ../BLAST/log_file | grep human >> ss.$serv.all
+  if ($serv == "worm_1") cat ../BLAST/log_file | grep worm >> ss.$serv.all
+  if ($serv == "worm_1") cat ../BLAST/log_file | grep worm >> ss.$serv.all
+  gawk -f ./serverstats.awk mmm=$mmm month=$month serv=$serv ss.$serv.all >! ss.tmp1
+  grep -v XXXXX ss.tmp1
+
+  touch  ns.list
+  grep XXXXX ss.tmp1 | sort  -k 2nr  | sed 's/XXXXX//' | grep -v '130.14.29.1' | head -300 >! /tmp/_sstat1
+  cat ns.list  /tmp/_sstat1 >!  /tmp/_sstat2
+  gawk -F '\t' -f /tmp/_sstat.awk /tmp/_sstat2  >!  /tmp/_sstat3
+  touch ns.list2 ; \rm  ns.list2 ; touch  ns.list2 
+  source /tmp/_sstat3 
+  gawk -f /tmp/_sstat3.awk ns.list2 >> ns.list
+  cat ns.list  /tmp/_sstat1 >!  /tmp/_sstat4
+  gawk -F '\t' -f /tmp/_sstat2.awk /tmp/_sstat4 | grep -v msnbot | grep -v existent | grep -v crawl | head -40
+  # grep Refusing ../$serv/server.log
+  echo  '/usr/sbin/nslookup is now called: host'
+  #\rm /tmp/_sstat*
+end

@@ -1,0 +1,1665 @@
+#!/bin/tcsh -f
+
+# exit linker illumina CTGTAGGCACCATCAAT   to be clipped at the 3' end of the solexa reads
+
+############################################################################################
+# Master script for short sequence alignments
+#  Author: mieg@ncbi.nlm.nih.gov
+############################################################################################
+setenv TMPDIR /export/home/TMP
+setenv SGE_SUMMARY stderr
+setenv SGE_NOMAIL
+if (! -d tmp) mkdir tmp
+if (! -d tmp/ELEMENTS) mkdir tmp/ELEMENTS
+if (! -e ZZZZZ || ! -e ZZZZZ.gz) then
+  echo ZZZZZ > ZZZZZ
+  gzip -c ZZZZZ > ZZZZZ.gz
+endif
+############################################################################################
+## definition particular to the project are in
+if (-e LIMITS.MAGIC) then
+  source LIMITS.$MAGIC 
+else
+  source TARGET/LIMITS
+endif
+
+############################################################################################
+## prerequisites
+if (! $?species) then
+  echo species should be hs or rn or worm
+  exit 0
+endif
+
+############################################################################################
+
+if ($1 == a3) goto phasea3
+
+if ($1 == b0) goto phaseb0
+if ($1 == g1) goto phaseg1
+if ($1 == g2) goto phaseg2
+if ($1 == g3) goto phaseg3
+if ($1 == g4) goto phaseg4
+if ($1 == m1) goto phasem1
+if ($1 == m2) goto phasem2
+if ($1 == b2) goto phaseb2
+if ($1 == b3) goto phaseb3
+if ($1 == b4) goto phaseb4
+if ($1 == b5) goto phaseb5
+if ($1 == b6) goto phaseb6
+if ($1 == b7) goto phaseb7
+
+if ($1 == c0) goto phasec0
+if ($1 == c1) goto phasec1
+if ($1 == c2) goto phasec2
+if ($1 == c3) goto phasec3
+if ($1 == c4) goto phasec4
+if ($1 == c5) goto phasec5
+if ($1 == c6) goto phasec6
+
+if ($1 == d1) goto phased1
+if ($1 == d2) goto phased2
+if ($1 == d3) goto phased3
+if ($1 == d4) goto phased4
+if ($1 == d5) goto phased5
+if ($1 == d6) goto phased6
+
+
+echo "b0 :    Search for empty lanes, which should not exist"
+echo "g1 :    Exportation des comptages $MAGIC par gene ou intron et par track"
+echo "g2 :    Centralization des comptages $MAGIC par gene ou intron et par plateforme"
+echo "g3 :    Importation des index et des comptages dans la base ZE"
+echo "g4 :    Exportation a partir de ZE des tables d'index par genes annotes pour leming"
+echo "m1 :    Exportation des comptages $MAGIC par mRNA et par track"
+echo "m2 :    Centralisation des comptages $MAGIC par mRNA et vpar plateforme"
+echo "b3 :    "
+echo "b4 :    "
+echo "b5 :    "
+echo "b6 :    "
+echo "b7 :    "
+
+
+# 2009_01_28
+# CF README.introns for the construction of the intron summary
+
+goto phaseloop
+
+#############################################################################################
+# introns 
+
+phasea4:
+
+$tacembly ../ZE <<EOF
+  pparse IntronElements.ace
+  query find element intron
+  bql -a -o intronList.txt select ii from ii in @
+  query find element intron
+  list -a -f ii.list
+  quit
+EOF
+
+
+cat ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2}' | gawk -F '_' '{c=$1;a1=$3;a2=$4;ln=a2-a1+1;if(ln<0)ln=-ln;printf("Element %s__%s_%s\nIntMap %s %s %s\nLength %d\n\n",c,a1,a2,c,a1,a2,ln);}' > intron2length.ace
+
+foreach chrom ($chromSetAll)
+  echo $chrom
+  cat intronList.txt | gawk -F '_' '{gsub(/\"/,"",$0);if($1 != chrom)next;printf("%s__%s_%s\t%s_%s\t%s_%s\n",$1,$3,$4,$1,$3,$1,$4);}'  chrom=$chrom | gawk -F '\t' '{g=$1;d=$2;a=$3;dd[d]++;for(ii=1;ii<dd[d];ii++)printf("Element %s\nSame_donor %s\n\n",g,ddg[d,ii]);ddg[d,ii]=g;aa[a]++;for(ii=1;ii<aa[a];ii++)printf("Element %s\nSame_acceptor %s\n\n",g,aag[a,ii]);aag[a,ii]=g;}' > intron.same.donor_acceptor.$chrom.ace
+end
+
+$tacembly ../ZE <<EOF
+  read-models
+  parse intron.same.donor_acceptor.ace
+  save
+  quit
+EOF
+
+goto phaseloop
+
+## reexport the data for further analysis
+cd ZE
+$tacembly . << EOF
+  query find element G && deep && av
+  show -a -f gene2deep.av.ace   Deep
+  show -a -f gene2length.av.ace Length
+  show -a -f geneTitle.av.ace  Title
+  show -a -f geneGid.av.ace  Geneid
+
+  query find element G && deep && av && maqc
+  show -a -f gene2deep.av.maqc.ace   Deep
+  show -a -f gene2maqcA.av.maqc.ace  MAQC_A
+  show -a -f gene2maqcB.av.maqc.ace  MAQC_B
+
+  query find element G && deep && av && maqc && taq
+  show -a -f gene2deep.av.taq.ace   Deep
+  show -a -f gene2maqcA.av.taq.ace  MAQC_A
+  show -a -f gene2maqcB.av.taq.ace  MAQC_B
+  show -a -f gene2taqA.av.taq.ace  TAQ_A
+  show -a -f gene2taqB.av.taq.ace  TAQ_B
+  query find element G && deep && HINV
+  show -a -f gene2deep.HINV.ace   Deep
+
+  query find element G && deep && pg //  refseq
+  show -a -f gene2deep.RefSeq.ace   Deep
+  show -a -f gene2length.RefSeq.ace Length
+  show -a -f geneTitle.RefSeq.ace  Title
+  show -a -f geneGid.RefSeq.ace  Geneid
+
+  query find element G && deep && EBI
+  show -a -f gene2deep.EBI.ace   Deep
+    query find element G && av && deep
+    table -active -title -o gene2index2ali.av.txt -f ../scripts/gene2index2ali.def any
+    query find element G && RefSeq && deep
+    show -a -f gene2length.RefSeq.ace Length
+    table -active -title -o gene2index2ali.RefSeq.txt -f ../scripts/gene2index2ali.def any
+    query find element G && EBI && deep
+    show -a -f gene2length.EBI.ace Length
+    table -active -title -o gene2index2ali.EBI.txt -f ../scripts/gene2index2ali.def any
+    query find element G && HINV && deep
+    show -a -f gene2length.HINV.ace Length
+    table -active -title -o gene2index2ali.HINV.txt -f ../scripts/gene2index2ali.def any
+  quit
+EOF
+
+cd ..
+
+goto phaseloop
+
+#######################################################################################
+#######################################################################################
+# exportation des tables pour Leming
+
+phaseg4:
+
+## Light table, one per annotation, (all,pA,Total)X(Any,UHR,Brain)X(index,tag,bp)
+#  EBI HINV)
+foreach target (av RefSeq)
+  cat ZE/gene2length.$target.ace ZE/geneGid.$target.ace  ZE/geneTitle.$target.ace >! toto.$target
+  cat ZE/gene2deep.$target.ace  >> toto.$target
+end
+
+
+foreach target (av)
+  foreach type (index tag bp)
+    echo "$target $type"
+    date >! ZE/$MAGIC.genecounts.$target.$type.txt
+    cat toto.$target | gawk -f scripts/exportGeneCounts.awk type=$type > tutu
+    head -2 tutu  >> ZE/$MAGIC.genecounts.$target.$type.txt
+    cat tutu | tail -n +3 | gawk -F '\t' '{if(length($2)>0)print;}' | sort >> ZE/$MAGIC.genecounts.$target.$type.txt
+    cat tutu | tail -n +3 | gawk -F '\t' '{if(length($2)>0)next ;print;}' | sort >> ZE/$MAGIC.genecounts.$target.$type.txt
+  end
+end
+
+goto phaseloop
+
+#######################################################################################
+#######################################################################################
+## histo des index stored in aceview per geneid and conservation
+
+phaseg5:
+# cd ZE
+
+$tacembly . << EOF
+  query find element G && deep && av  
+  kstore gg
+
+  kget gg
+  query geneid && pastille_coding && pastille_conserved && Pastille_standard_intron
+  list -a -f g2type.11.list
+
+  kget gg
+  query geneid && pastille_coding && ! pastille_conserved && Pastille_standard_intron
+  list -a -f g2type.10.list
+
+  kget gg
+  query geneid && pastille_coding && pastille_conserved && ! Pastille_standard_intron
+  list -a -f g2type.9.list
+
+  kget gg
+  query geneid && pastille_coding && ! pastille_conserved && ! Pastille_standard_intron
+  list -a -f g2type.8.list
+
+  kget gg
+  query geneid && ! pastille_coding && Pastille_standard_intron
+  list -a -f g2type.7.list
+
+  kget gg
+  query geneid && ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2type.6.list
+
+  kget gg
+  query ! geneid && pastille_coding && pastille_conserved && Pastille_standard_intron
+  list -a -f g2type.5.list
+
+  kget gg
+  query ! geneid && pastille_coding && ! pastille_conserved && Pastille_standard_intron
+  list -a -f g2type.4.list
+
+  kget gg
+  query ! geneid && pastille_coding && pastille_conserved && ! Pastille_standard_intron
+  list -a -f g2type.3.list
+
+  kget gg
+  query ! geneid && pastille_coding && ! pastille_conserved && ! Pastille_standard_intron
+  list -a -f g2type.2.list
+
+  kget gg
+  query ! geneid && ! pastille_coding && Pastille_standard_intron
+  list -a -f g2type.1.list
+
+  kget gg
+  query ! geneid && ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2type.0.list
+
+  kget gg
+  show -a -f g2index.ace deep
+  quit
+EOF
+
+# grep just the any any index
+
+foreach tissue (Brain UHR any)
+
+  \rm toto
+
+  foreach ii (0 1 2 3 4 5 6 7 8 9 10 11)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2type.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+  cat g2index.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "any.nU")printf("%s\t%s\n",g,$4)}'  tt=$tissue >> toto
+
+  date >! toto1
+  echo "Histogram of gene index, per gene category, in $tissue" >> toto1
+  echo "Index\tGeneId Coding-conserved Spliced\tGeneId Coding-new Spliced\tGeneId Coding-conserved Unspliced\tGeneId Coding-new Unspliced\tGeneId  Non-coding Spliced\tGeneId  Non-coding  Unspliced\tNew-gene Coding-conserved Spliced\tNew-gene Coding-new  Spliced\tNew-gene Coding-conserved Unspliced\t New-gene Coding-conserved Unspliced\tNew-gene  Non-coding Spliced\t New-gene  Non-coding Unspliced\tAny" >> toto1
+  cat toto | gawk '/^ZZZZZt/{type=$2;next;}/ZZZZZx/{zz=1;next;}{dx=.4;if(zz==0) { gt[$1]=type + 1 ; next; } g = $1 ; type = gt[g] ; z = $2 ; for (x = -5 ; x <= 25 ; x += dx) if (z >= x - dx/2 && z < x + dx/2) {tt[type,x]++ ;ttt[x]++;next;}}END{ for (x = -5 ; x <= 25 ; x += dx) { printf("%.1f",x); for (type = 12 ; type >= 1 ; type--)printf("\t%d",  tt[type,x]); printf("\t%d\n", ttt[x]);}}'  >> toto1
+
+  mv toto1 $MAGIC.indexPerGenetype.$tissue.histo.txt
+  \cp $MAGIC.indexPerGenetype.$tissue.histo.txt ~/ACEVIEWHELP/
+end
+
+######
+## histo cumulatifs des tags en fonction de l'indice des genes
+
+  \rm toto
+  foreach ii (0 1 2 3 4 5 6 7 8 9 10 11)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2type.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+  cat g2index.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "any.nU")printf("%s\t%s\t%s\n",g,$4,$5)}'  tt=any >> toto
+
+  date >! toto1
+  echo "Cumulative histogram of the tags per gene index" >> toto1
+  echo "Index\tGeneId Coding-conserved Spliced\tGeneId Coding-new Spliced\tGeneId Coding-conserved Unspliced\tGeneId Coding-new Unspliced\tGeneId  Non-coding Spliced\tGeneId  Non-coding  Unspliced\tNew-gene Coding-conserved Spliced\tNew-gene Coding-new  Spliced\tNew-gene Coding-conserved Unspliced\t New-gene Coding-conserved Unspliced\tNew-gene  Non-coding Spliced\t New-gene  Non-coding Unspliced\tAny" >> toto1
+
+  cat toto | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{dx=.4;if(zz==0) { gt[$1]=type ; next; } g = $1 ; type = 0+gt[g] ; z = $2 ; for (x = -5 ; x <= 25 ; x += dx) if (z >= x - dx/2 && z < x + dx/2) {tt[type,x]+=$3 ;ttt[x]+=$3;next;}}END{ for (x = -5 ; x <= 25 ; x += dx){for (type = 12 ; type >= 1 ; type--){ttc[type,x] = ttc[type,oldx] + tt[type,x] ;} tttc[x] = tttc[oldx] + ttt[x] ; oldx = x ; }for (x = -5 ; x <= 25 ; x += dx) { printf("%.1f",x); for (type = 12 ; type >= 1 ; type--)printf("\t%d",  ttc[type,x]); printf("\t%d\n", tttc[x]);}}'  >> toto1
+
+ mv toto1 $MAGIC.tagCumulPerGeneIndex.histo.txt
+  \cp $MAGIC.tagCumulPerGeneIndex.histo.txt ~/ACEVIEWHELP/
+
+######
+## histo of gene coverage relative to gene index
+
+  \rm toto
+  echo "ZZZZZt 0" >> toto
+  cat gene2length.av.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Length/{printf("%s\t%s\n",g,$2);}' >> toto
+  echo "ZZZZZx $ii" >> toto
+  cat g2index.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "any.nU")printf("%s\t%s\t%s\n",g,$4,$6)}'  tt=any >> toto
+
+  date >! toto1
+  echo "Histogram of gene coverage per gene index" >> toto1
+  echo "Index\tCoverage" >> toto1
+
+  cat toto | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{dx=.2;if(zz==0) { gln[$1]=$2 ; next; } g = $1 ; ln= 0+ gln[g] ; if (ln == 0) next ; bp = $3 ; z = $2 ; for (x = -5 ; x <= 25 ; x += dx) if (z >= x - dx/2 && z < x + dx/2) {lnx[x] += ln ; bpx[x] += bp ; next ; }}END{ for (x = -5 ; x <= 25 ; x += dx) { printf("%.1f",x); z=0;if(lnx[x]>0)z=bpx[x]/lnx[x];printf("\t%.2f\n",z);}}'  >> toto1
+
+ mv toto1 $MAGIC.coveragePerIndex.histo.txt
+  \cp $MAGIC.coveragePerIndex.histo.txt ~/ACEVIEWHELP/
+
+##############################################################
+##############################################################
+## histo des index stored in aceview per fold change
+
+# Define the fold change
+cat g2index.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($3 == "any.nU") {gg[g]=g;gbx[g,$2]=$4;gbt[g,$2]=$5;}}END{for (g in gg)if(gbt[g,"any"]>20){a=-2;b=-2;if (gbx[g,"UHR"])a=gbx[g,"UHR"];if(gbx[g,"Brain"])b=gbx[g,"Brain"];z=b-a;printf("Element %s\nSEQC_fold_change %.2f\n\n",g,z);}}' > g2fold_change.ace
+
+# here we should use all genes, not just aceview
+cat g2index.all.ace | gawk '/^Element/{printf("\n");print; next;}/^Deep/{gsub(/\"/,"",$0);if($2=="any" && $3=="any.U")printf("SEQC_index %s\n\n",$4);}' > geneSeqcIndex.any.ace
+
+date >!  ~/ACEVIEWHELP/$MAGIC.gene_fold_change.histo.txt
+echo "Histogram of B/A differential expression in the AceView genes, the gene is over expressed in Brain if its B/A  index is positive" >>  ~/ACEVIEWHELP/$MAGIC.gene_fold_change.histo.txt
+cat g2fold_change.ace | gawk '/^SEQC_fold_change/{dx=.5;z = $2 ; for (x = -25 ; x <= 25 ; x += dx) if (z >= x - dx/2 && z < x + dx/2) {ttt[x]++;}}END{ for (x = -20 ; x <= 20 ; x += dx) { printf("%.1f",x);printf("\t%d\n", ttt[x]);}}' >> ~/ACEVIEWHELP/$MAGIC.gene_fold_change.histo.txt
+
+$tacembly . << EOF
+  query find element G && deep && av  
+  kstore gg
+
+  kget gg
+  query SEQC_fold_change >= 3
+  kstore gBS   // 5666
+
+  kget gg
+  query SEQC_fold_change <  3 && SEQC_fold_change >= 1
+  kstore gB // 13593
+
+  kget gg
+  query SEQC_fold_change <  1 && SEQC_fold_change >= -1
+  kstore gU // 40935
+
+  kget gg
+  query SEQC_fold_change <= -1 && SEQC_fold_change > -3
+  kstore gA //  13835
+
+  kget gg
+  query SEQC_fold_change <= -3
+  kstore gAs // 5352
+
+  kget gU
+  query pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.19.list
+
+  kget gU
+  query pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.18.list
+
+  kget gU
+  query ! pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.17.list
+
+  kget gU
+  query ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.16.list
+
+
+  kget gU
+  query pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.19.list
+
+  kget gU
+  query pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.18.list
+
+  kget gU
+  query ! pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.17.list
+
+  kget gU
+  query ! pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.16.list
+
+
+
+
+  kget gBS
+  query pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.15.list
+
+  kget gBS
+  query pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.14.list
+
+  kget gBS
+  query ! pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.13.list
+
+  kget gBS
+  query ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.12.list
+
+
+
+
+  kget gAS
+  query pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.11.list
+
+  kget gAS
+  query pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.10.list
+
+  kget gAS
+  query ! pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.9.list
+
+  kget gAS
+  query ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.8.list
+
+  kget gBS
+  query pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.15.list
+
+  kget gBS
+  query pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.14.list
+
+  kget gBS
+  query ! pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.13.list
+
+  kget gBS
+  query ! pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.12.list
+
+
+
+
+  kget gAS
+  query pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.11.list
+
+  kget gAS
+  query pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.10.list
+
+  kget gAS
+  query ! pastille_coding && Pastille_standard_intron && ! geneid
+  list -a -f g2abN.9.list
+
+  kget gAS
+  query ! pastille_coding && ! Pastille_standard_intron && ! geneid
+  list -a -f g2abN.8.list
+
+
+
+  kget gB
+  query pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.7.list
+
+  kget gB
+  query pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.6.list
+
+  kget gB
+  query ! pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.5.list
+
+  kget gB
+  query ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.4.list
+  kget gg
+
+
+
+  kget gA
+  query pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.3.list
+
+  kget gA
+  query pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.2.list
+
+  kget gA
+  query ! pastille_coding && Pastille_standard_intron
+  list -a -f g2ab.1.list
+
+  kget gA
+  query ! pastille_coding && ! Pastille_standard_intron
+  list -a -f g2ab.0.list
+
+  quit
+EOF
+
+# grep just the any/any.nU index
+  \rm toto
+
+  foreach ii (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2ab.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+  cat g2index.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "any.nU")printf("%s\t%s\n",g,$4)}'  tt=any >> toto
+
+
+  date >! toto1
+  echo "Histogram of differentially expressed gene per index" >> toto1
+  echo -n "Index" >> toto1
+  echo -n "\tUbiquitous coding spliced\tUbiquitous coding unspliced\tUbiquitous non-coding spliced\tUbiquitous non-coding  unspliced" >> toto1
+  echo -n "\tB specific coding spliced\tB specific coding unspliced\tB specific non-coding spliced\tB specific non-coding  unspliced" >> toto1
+  echo -n "\tA specific coding spliced\tA specific coding unspliced\tA specific non-coding spliced\tA specific non-coding  unspliced" >> toto1
+  echo -n "\tB mainly coding spliced\tB mainly coding unspliced\tB mainly non-coding spliced\tB mainly non-coding  unspliced" >> toto1
+  echo -n "\tA mainly coding spliced\tA mainly coding unspliced\tA mainly non-coding spliced\tA mainly non-coding  unspliced" >> toto1
+  echo -n "\tToo low\tAny" >> toto1
+  echo >> toto1
+  cat toto | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{dx=.4;if(zz==0) { gt[$1]=type ; next; } g = $1 ; type = 0+gt[g] ; z = $2 ; for (x = -5 ; x <= 25 ; x += dx) if (z >= x - dx/2 && z < x + dx/2) {tt[type,x]++ ;ttt[x]++;}}END{ for (x = -5 ; x <= 25 ; x += dx) { printf("%.1f",x); for (type = 20 ; type >= 0 ; type--)printf("\t%d",  tt[type,x]); printf("\t%d\n", ttt[x]);}}'  >> toto1
+
+  mv toto1 $MAGIC.indexPerDifferentialExpression.histo.txt
+  \cp $MAGIC.indexPerDifferentialExpression.histo.txt ~/ACEVIEWHELP/
+
+
+##########
+# construct the keyset of A specific extremal genes
+
+  cat g2index.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "any.nU")printf("%s\t%s\n",g,$4)}'  tt=any >! totoGX
+
+  \rm toto
+  foreach ii (8 9 10 11)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2ab.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedASpecificGenes.list
+
+\rm toto
+  foreach ii (15 14 13 12)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2ab.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX  | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedBSpecificGenes.list
+
+\rm toto
+  foreach ii (19 18 17 16)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2ab.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX  | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedUbiquituousGenes.list
+
+
+  \rm toto
+  foreach ii (8 9 10 11)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2abN.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedNewASpecificGenes.list
+
+\rm toto
+  foreach ii (15 14 13 12)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2abN.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX  | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedNewBSpecificGenes.list
+
+\rm toto
+  foreach ii (19 18 17 16)
+    echo "ZZZZZt $ii" >> toto
+    cat  g2abN.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+
+  cat toto totoGX  | gawk '/^ZZZZZt/{type=1+$2;next;}/ZZZZZx/{zz=1;next;}{if(zz==0) { gt[$1]=type ; next; } g = $1 ; z = $2 ;type = 0+gt[g] ; if(type > 0) printf("%s\t%s\n", g, z) ;}' | sort -k 2n | tail -100 | gawk '{printf("Element %s\n",$1);}' > MostExpressedNewUbiquituousGenes.list
+
+
+
+##############################################################
+##############################################################
+## histo des introns
+
+# Define the fold change
+
+if (! -e intron2length.ace) then
+  $tacembly . << EOF
+    query find element intron && length && deep
+    show -a -f intron2length.ace Length
+    query find element intron && av && deep && length && (gt_ag || gc_ag)
+    show -a -f intron2length.av.ace Length
+    query find element intron && de_novo && length && (gt_ag || gc_ag)
+    show -a -f intron2length.de_novo.ace Length
+    query find element intron && deep  // 516315
+    show -a -f introns2deep.ace deep
+  quit
+EOF
+endif
+
+$tacembly . << EOF
+  query find element intron && deep 
+  query gt_ag || gc_ag || de_novo
+  kstore gg
+
+  kget gg
+  query refseq
+  list -a -f introns.1.list
+
+  kget gg
+  query av && ! refseq
+  list -a -f introns.2.list
+
+  kget gg
+  query !av && ! refseq
+  list -a -f introns.3.list
+
+EOF
+
+# grep just the any any index
+
+foreach tissue (any.any)
+
+  \rm toto
+
+  foreach ii (1 2 3)
+    echo "ZZZZZt $ii" >> toto
+    cat  introns.$ii.list | gawk '/^Element/{gsub(/\"/,"",$0);print $2;}' >> toto
+  end
+  echo "ZZZZZx $ii" >> toto
+  cat introns2deep.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($2==tt && $3 == "U")printf("%s\t%s\n",g,$5)}'  tt=$tissue >> toto
+
+
+  date >! toto1
+  echo "Histogram of number of tags supporting introns annotated in different ways" >> toto1
+  echo -n "Supporting tags" >> toto1
+  echo -n "\tRefSeq\tOther AceView\tNew\tAny" >> toto1
+  echo >> toto1
+  cat toto | gawk '/^ZZZZZt/{type=0+$2;next;}/ZZZZZx/{zz=1;next;}{dx=1;if(zz==0) { gt[$1]=type ; next; } g = $1 ; type = 0+gt[g] ; z = $2 ; if(type == 0)next ;  x = dx * int(z/dx) ; if(x>50)x=50; {tt[type,x]++ ;ttt[x]++;next;}}END{ for (x = 0 ; x <= 50 ; x += dx) { printf("%d",x); for (type = 1 ; type <= 3 ; type++)printf("\t%d",  tt[type,x]); printf("\t%d\n", ttt[x]);}}'  >> toto1
+  cat toto | gawk '/^ZZZZZt/{type=0+$2;next;}/ZZZZZx/{zz=1;next;}{dx=10;if(zz==0) { gt[$1]=type ; next; } g = $1 ; type = 0+gt[g] ; z = $2 ; if(type == 0)next ;  x = dx * int(z/dx) ; if(x>500)x=500; {tt[type,x]++ ;ttt[x]++;next;}}END{ for (x = 0 ; x <= 500 ; x += dx) { printf("%d",x); for (type = 1 ; type <= 3 ; type++)printf("\t%d",  tt[type,x]); printf("\t%d\n", ttt[x]);}}'  >> toto1
+
+  mv toto1 $MAGIC.intronTagSupport.histo.txt
+  \cp $MAGIC.indexPerDifferentialExpression.histo.txt ~/ACEVIEWHELP/
+end
+
+###### Search for differentially expressed introns
+
+  cat introns2deep.ace  | gawk '{gsub(/\"/,"",$0);}/^Element/{g=$2;next;}/^Deep/{if($3 == "any.U")printf("%s\t%s\t%s\n",g,$2,$5)}' | head
+
+ > toto
+  cat toto | gawk '{g = $1 ;  t=$2;z = $3 gg[g]=1;gt[g,t]=z;}END{for(g in gg){; for (type = 1 ; type <= 3 ; type++)printf("\t%d",  tt[type,x]); printf("\t%d\n", ttt[x]);}}'  >> toto1
+
+###### Search for differentially expressed introns in differentially expressed genes
+$tacembly . <<EOF 
+  table -o gene2foldchange2intron.txt -f ../../scripts/gene2foldchange2intron.def
+  quit
+EOF
+
+date >! toto1
+echo "Histogram of differentially expressed introns in differentially expressed genes" >> toto1
+echo "log2(B/A) fold change of the gene\tNumber of A specific introns\tNumber of other well supported introns\tNumber of B specific introns\n" >> toto1
+cat gene2foldchange2intron.txt | gawk -F '\t' '/\"/{dx=.2;gsub(/\"/,"",$0);g=$1;fc=100+$2;fc=dx*int(fc/dx)-100;ffc[fc]++;a=0+$5;b=0+$7;k=0;if(a>8*b && a >= 10)k=-1;else if(b>8*a && b >= 10)k=1;if(k==0 && a+b<15)next; UU[fc,k]++;}END{for(fc in ffc){printf("%.1f\t%d\t%d\t%d\n",fc,UU[fc,-1],UU[fc,0],UU[fc,1]);}}' | sort -k 1n >> toto1
+
+  mv toto1 $MAGIC.tissueSpecificIntronPerGeneFoldChange.txt
+  \cp $MAGIC.tissueSpecificIntronPerGeneFoldChange.txt ~/ACEVIEWHELP/
+
+### count the supported introns per gene index (column 2 and 8 are  the gene fold-change and index
+
+date >! toto1
+echo "For genes with a given index, how many introns are supported by at least n unique tags" >> toto1
+echo "Index of the gene\tIntrons supported by >=100unique tags\t99 to 10\t9 to 3\t2\t1" >> toto1
+cat gene2foldchange2intron.txt | gawk -F '\t' '/\"/{dx=.4;gsub(/\"/,"",$0);g=$1;fc=100+$8;fc=dx*int(fc/dx)-100;ffc[fc]++;a=0+$5;b=0+$7;z=a+b;if(z>=100)k=5;else if (z>=10)k=4;else if (z>=3)k=3;else if(z>0)k=z;else next;UU[fc,k]++;}END{for(fc=-4.8;fc<=25.2;fc+=dx){printf("%.1f\t%d\t%d\t%d\t%d\t%d\n",fc-.2,UU[fc,5],UU[fc,4],UU[fc,3],UU[fc,2],UU[fc,1]);}}' | sort -k 1n >> toto1
+
+  mv toto1 $MAGIC.NbIntronsPerGeneIndex.txt
+  \cp  $MAGIC.NbIntronsPerGeneIndex.txt ~/ACEVIEWHELP/
+
+## number of genes with an intron with n support
+cat gene2foldchange2intron.txt | gawk -F '\t' '/\"/{a=$5+$7+0;g=$1;ng[g]+=a;}END{for(g in ng){z=ng[g];if(z>=100)k=5;else if (z>=10)k=4;else if (z>=3)k=3;else k=z;if(k>0)UUU++;UU[k]++;}printf("%d\t%d\t%d\t%d\t%d\t%d\n",UU[5],UU[4],UU[3],UU[2],UU[1],UUU);}'
+
+cat gene2foldchange2intron.txt | gawk -F '\t' '/\"/{a=$5+$7+0;if(a>100 && $8<3.9)print;}'
+###### R  length histo
+## format for R
+echo "Lengh" > iiLn.R
+cat  intron2length.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{printf("%s",$2);next;}/^Length/{printf("\t%d\n",$2);next;}' >> iiLn.R
+
+echo "Lengh" > iiLn.av.R
+cat  intron2length.av.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{printf("%s",$2);next;}/^Length/{printf("\t%d\n",$2);next;}' >> iiLn.av.R
+
+echo "Lengh" > iiLn.de_novo.R
+cat  intron2length.de_novo.ace | gawk '{gsub(/\"/,"",$0);}/^Element/{printf("%s",$2);next;}/^Length/{printf("\t%d\n",$2);next;}' >> iiLn.de_novo.R
+
+## analyse
+
+R
+v = read.table("iiLn.av.R")
+v2 = read.table("iiLn.de_novo.R")
+hist (log(v[,1])/log(10),100)
+hh=hist (log(v2[,1])/log(10),100,plot=FALSE)
+lines(hh$breaks[1:130],1.0*hh$counts[1:130],col="red")
+
+ii=v[,1]<500
+hist (v[ii,1],100)
+
+
+##############################################################
+##############################################################
+## Index comparisions accross tissues Signature genes 
+
+## find the best index of any gene in any tissue
+## 
+cat g2index.ace | head
+
+# 2010_12_01 liste specifique pour cette recherche
+
+foreach target (av)
+  echo $target
+  cat gene2deep.$target.ace |  gawk 'BEGIN{ truetissues = "Sexy_Brain Sexy_UHR  adps  adrn  brain  breast  colon  heart  kidney  liver  lung  lymph  ovary  prostate  skelet  testes  thyrd  wbc"}/^Element/{if (oldGene && bestI>0)printf("Element %s\nBestIndex %.2f %s %s\n\n",oldGene,bestI,bestT,bestE);oldGene=$2;bestI=0;next;}/^Deep/{gsub(/\"/,"",$0);t=$2;x=$3;if(index(x,".nU")>0)next;z=$4;if(z>bestI  && index(truetissues,t)>0){bestI = z ;bestT=t;bestE=x;}next}END{if (oldGene && bestI>0)printf("Element %s\nBestIndex %.2f %s %s\n\n",oldGene,bestI,bestT,bestE);}' > gene2bestIndex.$target.ace
+end
+
+
+parse gene2bestIndex.$target.ace
+table bestIndex2anyIndex // limit [best - any] > -.5 => 5987 genes, export best5987, with limit -1.2 -=> best11296.txt
+tabe geneEelem2Tissue2pAindex.txt => best11296.txt
+
+
+ cat  best11296.txt | grep -v mix  | grep -v any | grep -v Anti | gawk '/\"/{gsub(/\"/,"",$0);gsub(/G_/,"",$0);g=$1;t=$2;z[g,t]=$4;tt[t]=1;gg[g]=1;}END{for(t in tt)printf("\t%s",t);for (g in gg){printf("\n%s",g);for(t in tt){u=-10;if(z[g,t])u=z[g,t];printf("\t%s",u);}printf("\n");}}' > best11296.R.txt
+\cp best11296.R.txt ~/ACEVIEWHELP
+
+# from the keyset of 11296 signatureGenes, i export all pA index
+#    table elements.signatureGeneCandidates.def   which is in the CVS/MAGIC/bin
+# now we want to construct the matrix of counts of gene at given threshold seen in pairs of tissues
+#    table geneElem2tissue2pAindex.def  on the active keyset you want of type "Element av"
+
+set nam=22928avGenesWithGeneId
+set nam=48075avGenesWithOutGeneId
+set nam=11209SignatureGenes
+set nam=71003avGenes
+set toto=$nam.matrix.txt
+date > $toto
+foreach limit (6 10 12)
+  echo "$nam prevalence in pairs of samples, expressed at index >= $limit" >> $toto 
+  cat $nam.txt | gawk '/mix/{next}/Anti/{next}{print $1,$2,$4;}' | gawk -f scripts/matrixIntersect.awk limit=$limit >> $toto 
+  echo "\n\n" >> $toto 
+end
+\cp $toto ~/ACEVIEWHELP
+
+### try to do a heat map, not successful, works but seems useless
+R
+
+
+genes = read.table("best11296.R.txt")
+cc=cor(genes)
+heatmap(cc)
+
+pp=prcomp(genes,center=TRUE,scale=FALSE)
+
+bp23=biplot(pp,choices=c(2,3),col=c("white", "red"))
+
+##############################################################
+##############################################################
+## R principal component analysis
+
+cd ZE
+
+echo ZZZZZ > ZZZZZ
+echo Element >! ZZZZZe
+foreach target (av RefSeq  HINV EBI av.maqc av.taq)
+  echo $target
+  cat gene2*.$target.ace | grep -v Mixed  | gawk '/TAQ_A/{printf("Deep UHR TAQ %s 0 0\n",$2);next;}/TAQ_B/{printf("Deep Brain TAQ_B %s 0 0\n",$2);next;}/^MAQC_A/{printf("Deep UHR MAQC %s 0 0\n",$2);next;}/^MAQC_B/{printf("Deep Brain MAQC_B %s 0 0\n",$2);next;}/^Length/{printf("Deep Length Length %s %s %s\n",$2,$2,$2);next;}{print}' | gawk '/^Element/{gene = $2;next;}/^Deep/{printf("%s\t",gene);print}' | sort -u | gawk '{g=$1;if(g!=oldg)printf("\nElement %s\n",g);oldg=g;$1="";print ;}END{printf("\n");}' | sed -e 's/^ Deep/Deep/'  | grep -v R454_SW | grep -v '.nU' | grep -v R454_GE >! tutu
+  cat tutu ZZZZZ tutu ZZZZZe | sed -e "s/\'//g" | gawk '/^ZZZZZ/{zz=1;for (i=1;i<=nT;i++){printf("\t%s",ts[i]);}printf("\n");gene=0;next;}{gsub(/\"/,"",$0);gsub(/#/,"_",$0);}/^Element/{if(zz==1 && gene){printf("\"%s\"",gene);for (i=1;i<=nT;i++){printf("\t%.2f",nx[ts[i]]);nx[ts[i]]=-5};printf("\n");}gene=$2; next;}/^Deep/{t=$2 ":" $3;if(zz==0){tt[t]++;if(tt[t]==1){nT++;ts[nT]=t;}next;}nx[t]=$4;}' > gene2index.$target.txt
+  cat tutu ZZZZZ tutu ZZZZZe | sed -e "s/\'//g" | gawk '/^ZZZZZ/{zz=1;for (i=1;i<=nT;i++){printf("\t%s",ts[i]);}printf("\n");gene=0;next;}{gsub(/\"/,"",$0);gsub(/#/,"_",$0);}/^Element/{if(zz==1 && gene){printf("\"%s\"",gene);for (i=1;i<=nT;i++){printf("\t%.2f",nx[ts[i]]);nx[ts[i]]=0;};printf("\n");}gene=$2; next;}/^Deep/{t=$2 ":" $3;if(zz==0){tt[t]++;if(tt[t]==1){nT++;ts[nT]=t;}next;}nx[t]=$5;}' > gene2tag.$target.txt
+  cat tutu ZZZZZ tutu ZZZZZe | sed -e "s/\'//g" | gawk '/^ZZZZZ/{zz=1;for (i=1;i<=nT;i++){printf("\t%s",ts[i]);}printf("\n");gene=0;next;}{gsub(/\"/,"",$0);gsub(/#/,"_",$0);}/^Element/{if(zz==1 && gene){printf("\"%s\"",gene);for (i=1;i<=nT;i++){printf("\t%.2f",nx[ts[i]]);nx[ts[i]]=0;};printf("\n");}gene=$2;; next;}/^Deep/{t=$2 ":" $3;if(zz==0){tt[t]++;if(tt[t]==1){nT++;ts[nT]=t;}next;}nx[t]=$6;}' > gene2bp.$target.txt
+
+  \rm tutu
+end
+
+
+
+R
+genes = read.table("gene2index.av.txt")
+genes = read.table("gene2index.EBI.txt")
+genes = read.table("gene2index.HINV.txt")
+genes = read.table("gene2index.RefSeq.txt")
+genes = read.table("gene2index.av.taq.txt")
+genes = read.table("gene2index.av.maqc.txt")
+genes = read.table("gene2bp.av.txt")
+genes = read.table("gene2bp.av.taq.txt")
+cc=cor(genes)
+heatmap(cc)
+
+hist(genes[,3])
+hist(genes[,11])
+#round(100*cc,0)
+
+sink("/home/mieg/ACEVIEWHELP/Tissue.correl.avgeneid.txt")
+  write.table(round(100*cc),sep="\t")
+sink ()
+pdf("/home/mieg/ACEVIEWHELP/Tissue.correl.avgeneid.pdf")
+  heatmap(cc)
+dev.off ()
+
+hh=hist(genes$Length.Length,50)
+nx=13
+plot (hh$breaks[1:nx],log(hh$counts[1:nx])/log(10),xlab="Length in bases of each gene",ylab="Log base 10 of the number of genes")
+lines (hh$breaks[1:nx],log(hh$counts[1:nx])/log(10))
+title ("Length distribution of the 86456 AceView genes")
+pdf("/home/mieg/ACEVIEWHELP/av.genelength.pdf")
+
+dev.off()
+
+### Direct hitogram of the bp counts
+genes = read.table("gene2bp.av.txt")
+ v=log(genes$any.any.U)/log(10)
+hist(v,100)
+x=seq(1,8,0.1)
+
+g1=3200*dnorm(x,mean=3.70,sd=.54)
+g2=1050*dnorm(x,mean=6.55,sd=.42)
+g3=4200*dnorm(x,mean=3.95,sd=1.18)
+g4=g1+g2+g3
+
+
+hist(v,100, xlab="log base 10 of the number of bases aligned in each gene at best quality",ylab="Number of AceView genes", main="Histogram of the expression level of 85275/86436  AceView genes")
+lines(x,g1,col="red")
+lines(x,g2,col="blue")
+lines(x,g3,col="green")
+lines(x,g4,col="cyan")
+text(7, 3300, expression(3200*exp((x-3.7)^2/2(.54^2))),cex = .8,col="red")
+text(7, 3000, expression(1050*exp((x-6.55)^2/2( .42^2))),cex = .8,col="blue")
+text(7, 2700, expression(4200*exp((x-3.95)^2/2(1.18^2))),cex = .8,col="green")
+text(7, 2400, "Sum of the 3 Gaussians",cex = .8,col="cyan")
+
+
+pdf("/home/mieg/ACEVIEWHELP/tripleGauss.pdf")
+
+dev.off()
+
+############################## RPKM hitogram of the bp counts
+genes = read.table("gene2bp.av.txt")
+x=seq(-2,4,0.1)
+
+## look at the correction induced by the lengths
+v=log(genes$any.any.U)/log(10)
+vL=log(genes$any.any.U/genes$Length.Length)/log(10)
+hist(vL,100)
+h2=hist(vL,100,plot=FALSE)
+lines(h2$breaks[1:100]+2.8,.85*h2$counts[1:100],col="red")
+
+## Divide the coverage by the length of the genes
+
+g1=2600*dnorm(x,mean=1.05,sd=.40)
+g2=1050*dnorm(x,mean=2.85,sd=.42)
+g3=4800*dnorm(x,mean=.83,sd=.96)
+g4=g1+g2+g3
+
+
+hist(vL,100, xlab="log of the coverage factor of the 86400 gene at best quality",ylab="Number of AceView genes", main="Histogram of the expression level of the AceView genes")
+lines(x,g1,col="red")
+lines(x,g2,col="blue")
+lines(x,g3,col="green")
+lines(x,g4,col="cyan")
+text(3.5, 3300, expression(2600*exp((x-1.05)^2/2(.40^2))),cex = .8,col="red")
+text(3.5, 3000, expression(1050*exp((x-2.85)^2/2( .42^2))),cex = .8,col="blue")
+text(3.5, 2700, expression(4800*exp((x-.83)^2/2(.96^2))),cex = .8,col="green")
+text(3.5, 2400, "Sum of the 3 Gaussians",cex = .8,col="cyan")
+
+
+pdf("/home/mieg/ACEVIEWHELP/tripleGauss.av.coverage.pdf")
+
+dev.off()
+
+############################## comparaison des histos
+
+genes = read.table("gene2histo.av.txt")
+x=seq(-10,30,.4)
+hhh=matrix(round(x,2)[1:100],100,1)
+colnames(hhh)=list("index");
+    
+for (tissue in c("any")) {
+  for (manip in c("any")) {
+    for (type in c("any"))  {
+	print (manip) ;
+	mt=paste(tissue,".",manip,".U",sep="")
+	print (mt) ;
+	    
+	v=genes[mt]
+	    
+        hh=hist(v[,1],x,plot=FALSE);
+	nm1=colnames(hhh) ;
+        
+        hhh = cbind(hhh,hh$counts)
+	colnames(hhh) = c(nm1, type) ;
+    }
+  }
+}
+
+sink("/home/mieg/ACEVIEWHELP/SEQC.indexDirect.histos.txt")
+write.table(hhh,sep="\t")
+sink()
+
+
+############################## comparaison des histos
+
+genes = read.table("gene2bp.av.txt")
+x=seq(-10,30,.4)
+hhh=matrix(round(x,2)[1:100],100,1)
+colnames(hhh)=list("index");
+# for polyA selected libraries, the upper bound is 3kb
+# this would not apply to the new body-map data
+LnH=genes$Length ;
+ii = LnH > 3000
+LnH[ii] = 3000 ;
+LnHR=genes$Length ;
+# randomize a little the histogram, to avoid quantization bins in low Helicos genes
+for (i in 1:length(LnH)){LnHR[i] = (runif(1)-.5)*1000+2000 ;}
+for (tissue in c("Brain", "UHR")) {
+  for (manip in c("HEL", "HELdge", "LIF_S", "ILM_S", "ILM_nS", "R454_Ti"))
+    {
+print (manip) ;
+mt=paste(tissue,".",manip,".U",sep="")
+print (mt) ;
+      n = sum (genes[mt])
+      print (n) ;
+      
+      v=log(1000000000000*(genes[mt])/(LnH*n))/log(2)
+      if(manip == "HEL" || manip == "HELdge")  v=log(1000000000000*(genes[mt])/(LnHR*n))/log(2)
+      hh=hist(v[,1],x,plot=FALSE);
+nm1=colnames(hhh) ;
+      hhh = cbind(hhh,hh$counts)
+colnames(hhh) = c(nm1, mt) ;
+    }
+ }
+
+sink("/home/mieg/ACEVIEWHELP/SEQC.index.histos.txt")
+write.table(hhh,sep="\t")
+sink()
+
+
+############################## compare the expression in the different platforms
+
+genes = read.table("gene2bp.av.txt")
+x=seq(-2,4,0.2)
+n=length(x)
+xx=matrix(x,n,n)
+xx1=c(xx)
+xx2=c(t(xx))
+
+zb=log(genes$Brain.any/genes$Length.Length)/log(10)
+zu=log(genes$UHR.any/genes$Length.Length)/log(10)
+
+z<-function(x_,y_){
+dx=.1
+x1=x_-dx;x2=x_+dx;
+y1=y_-dx;y2=y_+dx;
+ib = (zb >= x1) & (zb < x2)
+iu = (zu >= y1) & (zu < y2)
+ic = ib[ib & iu == TRUE]
+length(ic)
+}
+
+zz1=matrix(1,n,n)
+for(i in 1:n)for(j in 1:n) zz1[i,j]=z(x[i],x[j])
+
+contour(1:n,1:n,zz1)
+persp(1:n,1:n,zz1,xlab="log(Brain coverage)",ylab="log(UHR coverage)",zlab="Number of genes",ticktype="detailed",theta=-30,phi=-10,col=c("lightgreen","palegreen"))
+
+
+## idem ILM versus LIF 
+zb=log((10+genes$Brain.ILM_S.U)/genes$Length.Length)/log(10)
+zu=log((10+genes$Brain.LIF_S.U)/genes$Length.Length)/log(10)
+
+zz1=matrix(1,n,n)
+for(i in 1:n)for(j in 1:n) zz1[i,j]=z(x[i],x[j])
+
+contour(1:n,1:n,zz1)
+persp(1:n,1:n,zz1,xlab="log(ILM Brain coverage)",ylab="log(LIF Brain coverage)",zlab="Number of genes",ticktype="detailed",theta=100,phi=20,col=c("lightgreen","palegreen"),main="Coverage factor in Brain, in ILM and LIF")
+
+zb=log((10+genes$Brain.ILM_S.U)/genes$Length.Length)/log(10)
+zu=log((10+genes$Brain.LIF_S.U)/genes$Length.Length)/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .90
+
+zb=log((10+genes$Brain.ILM_S.U))/log(10)
+zu=log((10+genes$Brain.LIF_S.U))/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .93
+
+# idem ILM versus HEL 
+zb=log((10+genes$Brain.ILM_S.U)/genes$Length.Length)/log(10)
+zu=log((10+genes$Brain.HEL.U)/genes$Length.Length)/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .81
+
+# idem ILM versus HEL dge
+zb=log((10+genes$Brain.ILM_S.U)/genes$Length.Length)/log(10)
+zu=log((10+genes$Brain.HELdge.U)/genes$Length.Length)/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .81
+
+zb=log((10+genes$Brain.ILM_S.U)/genes$Length.Length)/log(10)
+zu=log((10+genes$Brain.HELdge.U))/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .84
+
+zb=log((10+genes$Brain.ILM_S.U))/log(10)
+zu=log((10+genes$Brain.HELdge.U))/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .884
+
+
+zb=log((50+genes$UHR.ILM_S.U)/(10+genes$Brain.ILM_S.U))/log(10)
+zu=log((50+genes$UHR.LIF_S.U)/(10+genes$Brain.LIF_S.U))/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .768
+genes = read.table("gene2tag.av.txt")
+zb=log((5+genes$UHR.ILM_S.U)/(5+genes$Brain.ILM_S.U))/log(10)
+zu=log((5+genes$UHR.LIF_S.U)/(5+genes$Brain.LIF_S.U))/log(10)
+m1=cbind(zb,zu)
+cor(m1) # .87
+
+############################## RPKM hitogram of the bp counts, in RefSeq
+genes = read.table("gene2bp.RefSeq.txt")
+x=seq(-2,5,0.1)
+
+## look at the correction induced by the lengths
+v=log(genes$any.any.U)/log(10)
+vL=log(genes$any.any.U/genes$Length.Length)/log(10)
+hist(v,100)
+h2=hist(vL,100,plot=FALSE)
+lines(h2$breaks[1:100]+2.8,.85*h2$counts[1:100],col="red")
+
+## Divide the coverage by the length of the genes
+
+g1=400*dnorm(x,mean=1.75,sd=.80)
+g2=1150*dnorm(x,mean=2.85,sd=.5)
+g3=1100*dnorm(x,mean=.83,sd=1.1)
+g4=g1+g2+g3
+
+
+hist(vL,100, xlab="Log base 10 of the coverage factor of the 27043 RefSeq genes at best quality",ylab="Number of RefSeq genes", main="Histogram of the expression level of the RefSeq genes")
+lines(x,g1,col="red")
+lines(x,g2,col="blue")
+lines(x,g3,col="green")
+lines(x,g4,col="cyan")
+text(-1.0, 1000, expression(400*exp((x-1.75)^2/2(.80^2))),cex = .8,col="red")
+text(-1.0, 900, expression(1150*exp((x-2.85)^2/2( .50^2))),cex = .8,col="blue")
+text(-1.0, 800, expression(1100*exp((x-.83)^2/2(1.1^2))),cex = .8,col="green")
+text(-1.0, 700, "Sum of the 3 Gaussians",cex = .8,col="cyan")
+
+
+pdf("/home/mieg/ACEVIEWHELP/tripleGauss.RefSeq.coverage.pdf")
+
+dev.off()
+
+
+### differential expression
+z1=log(genes$UHR.LIF_S.U+sqrt((genes$UHR.LIF_S.U)^2+10))-log(genes$Brain.LIF_S.U+sqrt((genes$Brain.LIF_S.U)^2+10))
+z2=log(genes$UHR.ILM_S.U+sqrt((genes$UHR.ILM_S.U)^2+10))-log(genes$Brain.ILM_S.U+sqrt((genes$Brain.ILM_S.U)^2)+10)
+z3=log(genes$UHR.ILM_nS.U+sqrt((genes$UHR.ILM_nS.U)^2+100))-log(genes$Brain.ILM_nS.U+sqrt((genes$Brain.ILM_nS.U)^2+100))
+
+m=cbind(z1,z2)
+plot(m)
+# good gauss fit of the left part of the ILM_nS brain distrib
+x=seq(1,8,0.1)
+ v=log(genes$Brain.ILM_nS.U)/log(10)
+hist(v,50)
+lines(x,5200*dnorm(x,mean=2.75,sd=.62),col="red")
+
+ v=log(genes$UHR.ILM_nS.U)/log(10)
+hist(v,100)
+lines(x,1200*dnorm(x,mean=5.85,sd=.49),col="blue")
+lines(x,6200*dnorm(x,mean=3.2,sd=.68),col="red")
+
+
+v=log(genes$any.any.U)/log(10)
+hist(v,100)
+
+### Principal component analysis on expression index
+### locate the most diferentially expressed sites
+
+pp=prcomp(genes,center=TRUE,scale=FALSE)
+
+bp23=biplot(pp,choices=c(2,3),col=c("white", "red"))
+pdf("biplot234.pdf")
+bp23=biplot(pp,choices=c(2,3),col=c("white", "red"))
+bp24=biplot(pp,choices=c(2,4),col=c("white", "red"))
+bp34=biplot(pp,choices=c(3,4),col=c("white", "red"))
+dev.off()
+
+
+# les axes sont bien orthogonaux !
+round (100*cov(predict(pp)),0)
+
+# extract first axis as a row vector
+v1=pp$rotation[,1]
+
+# find the projection of all genes on the first axis
+gg=as.matrix(genes)
+alpha1= gg  %*% v1
+p1gg = alpha1 %*% t(v1)
+o1gg = gg - p1gg
+# verify the orthogonality to the first axis
+o1gg  %*% v1
+
+# find the most differential candidates
+
+zz=genes
+n1gg=as.matrix(o1gg[,1]*o1gg[,1])
+for (i in 2:dim(o1gg)[2]) n1gg = n1gg + o1gg[,i]*o1gg[,i]
+xtrm=data.frame(zz[,1],n1gg)
+
+summary(xtrm)
+iixtrm = xtrm$n1gg>50
+
+sink("/home/mieg/ACEVIEWHELP/mostextremegenes.txt")
+write.table(df[iixtrm,],sep="\t")
+sink()
+
+# awk
+# date > /home/mieg/ACEVIEWHELP/mostextremegenes.2.txt
+# head -1 /home/mieg/ACEVIEWHELP/mostextremegenes.txt >> /home/mieg/ACEVIEWHELP/mostextremegenes.2.txt
+# tail +2  /home/mieg/ACEVIEWHELP/mostextremegenes.txt > titi
+cat titi ZZZZZ  /home/mieg/ACEVIEWHELP/mostextremegenes.txt | gawk '/ZZZZZ/{zz=1;next;}{gsub(/\"/,"",$0);}{if(zz==0){ng[$2]++;next;}if(ng[$2]>1)print}' >> /home/mieg/ACEVIEWHELP/mostextremegenes.2.txt
+
+
+t(o1gg) %*% o1gg
+
+# plot the distribution
+hist(alpha1,br=50)
+
+# find the projection of all remainders on the second axis
+v2=pp$rotation[,2]
+alpha2= o1gg  %*% v2
+p2gg = alpha2 %*% t(v2)
+o2gg = o1gg - p2gg
+# verify the orthogonality to the first axis
+o2gg  %*% v2
+
+# plot the distribution
+hist(alpha2)
+# export the histo as a table of numbers
+table(round(alpha2,0))
+
+# find the projection of all remainders on the second axis
+v3=pp$rotation[,3]
+alpha3= o1gg  %*% v3
+hist(alpha3,br=20)
+p3gg = alpha3 %*% t(v3)
+o3gg = o2gg - p3gg
+mo1gg = as.matrix(o1gg)
+mo2gg = as.matrix(o2gg)
+mo3gg = as.matrix(o3gg)
+# verify the orthogonality to the first axis
+#o2gg  %*% v2
+rownames(o1gg) = tt[,1]
+rownames(o2gg) = tt[,1]
+rownames(o3gg) = tt[,1]
+
+which(mo3gg < -6.942960122 & mo3gg > -7.  , arr.ind=TRUE)
+bin60=which(alpha1 < -60 & alpha1 > -70 , arr.ind=TRUE)
+bin60=which(alpha1 < -60 & alpha1 > -70 & alpha2 < -10, arr.ind=TRUE)
+
+
+bin60c=which(mo3gg < -6 , arr.ind=TRUE)
+
+# plot the distribution
+hist(alpha3)
+pdf("AceView.PCA.hito.pdf")
+hist(alpha1,br=50)
+hist(alpha2,br=50)
+hist(alpha3,br=50)
+dev.off()
+
+
+##################################################################
+## comptage de la couverture
+
+date >! toto
+foreach tissue (any $tissues)
+  echo "Number of genes with n-fold coverage in $tissue : bp/length of transcript a" >> toto
+  foreach level (1 2 5 10 20 50 100)
+    echo -n "\t$level" >> toto
+  end 
+  echo >> toto
+  foreach target (RefSeq EBI HINV av)
+  echo -n "$target" >> toto
+  foreach level (1 2 5 10 20 50 100)
+    cat gene2index2ali.$target.$tissue.txt | gawk -F '\t' '{idx=$4;tag=$5;bp=$6;ln=0+$7;if(ln<=0)next;z=bp/ln;if(z>level)n++}END{printf("\t%d", n);}' level=$level >> toto
+  end
+  echo >> toto
+end
+cat toto
+cp toto ~/ACEVIEWHELP/$MAGIC.gene_Xfold_coverage.txt
+
+echo >> toto
+echo >> toto
+
+date >! toto
+  echo "Number of genes supported by at least n tags per kb: 1000*tag-count/length of transcript a in bp" >> toto
+  foreach level (1 2 5 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000)
+    echo -n "\t$level" >> toto
+  end
+  echo >> toto
+  foreach target (RefSeq EBI HINV av)
+  echo -n "$target" >> toto
+  foreach level (1 2 5 10 20 50 100 200 500 1000 2000 5000 10000 20000 50000)
+    cat gene2index2ali.$target.txt | gawk -F '\t' '{idx=$4;tag=$5;bp=$6;ln=0+$7;if(ln<=0)next;z=1000*tag/ln;z/=1734;if(z>level)n++}END{printf("\t%d", n);}' level=$level >> toto
+  end
+  echo >> toto
+end
+echo >> toto
+cat toto
+cat toto >> ~/ACEVIEWHELP/$MAGIC.gene_Xfold_coverage.txt
+
+
+foreach level (5)
+  foreach tissue ($tissues)
+    cat gene2index2ali.$tissue.av.txt | gawk -F '\t' '/^#/{next}{bp=0+$6;ln=0+$7;if(ln<=0)next;z=bp/ln;if(z>level)print $1}' level=$level | sort -u > ttt.$tissue
+  end
+end
+
+  wc ttt.*
+  39869   39869  474665 ttt.Brain
+  48459   48459  580897 ttt.UHR
+  88328   88328 1055562 total
+mieg@lmem01:~/36a/SeqcInfo/ELEMENTS/ZE> cat ttt.Brain ttt.UHR | sort -u | wc
+  53271   53271  638410
+
+##############################################################
+##############################################################
+
+
+# Construct the cumuls
+echo -n 'Construct and parse the cumuls '
+date
+
+cat ZE/$MAGIC.g.ace | gawk -f ../scripts/seqcTotal.awk > ZE/$MAGIC.seqcTotal.g.ace
+#cat ZE/$MAGIC.i.ace | gawk -f seqcTotal.awk > ZE/$MAGIC.seqcTotal.i.ace
+
+$tacembly ZE <<EOF 
+  pparse  ZE/$MAGIC.seqcTotal.g.ace
+  // pparse  seqcTotal.i.ace
+  save
+  quit
+EOF
+ 
+# kill the 18S 28S 
+# NR_003287       GeneId_100008589
+# NR_024187       GeneId_440423
+# NR_003285       GeneId_100008587
+# NR_003286       GeneId_100008588
+
+# reexport
+echo -n 'Reexport and reformat per gene category '
+date
+
+$tacembly ZE <<EOF 
+  query find element IS G_GeneId_100008587 || IS G_GeneId_100008588 || IS G_GeneId_100008589 || IS G_GeneId_440423
+  kill 
+  save 
+  query find element g && AV && putative AND cloud
+  edit -D cloud
+  query find element g && AV && !geneid && NM
+  edit geneid
+  query find element g && AV && geneid && ! main
+  edit main
+  edit -D cloud
+  edit -D putative
+
+  query find element g && AV  && geneid 
+  show -a -f ZE/$MAGIC.g.geneid.preace SEQC
+  query find element g && AV  && geneid 
+  show -a -f ZE/$MAGIC.g.geneid.preace2 Deep2
+  show -a -f ZE/$MAGIC.gln.geneid.preace Length
+  query find element g && geneid && !seqc && !Deep2
+  list -a -f ZE/$MAGIC.g.geneid.noseqc.list
+
+  query find element g && main && !geneid
+  show -a -f ZE/$MAGIC.g.main.preace SEQC
+  show -a -f ZE/$MAGIC.g.main.preace2 Deep2
+  show -a -f ZE/$MAGIC.gln.main.preace Length
+  query find element g && main && !geneid && !seqc && !Deep2
+  list -a -f ZE/$MAGIC.g.main.noseqc.list
+
+  query find element g && putative 
+  show -a -f ZE/$MAGIC.g.putative.preace SEQC
+  show -a -f ZE/$MAGIC.g.putative.preace2 Deep2
+  show -a -f ZE/$MAGIC.gln.putative.preace Length
+  query find element g && putative && !seqc && !Deep2
+  list -a -f ZE/$MAGIC.g.putative.noseqc.list
+
+  query find element g && cloud
+  show -a -f ZE/$MAGIC.g.cloud.preace SEQC
+  show -a -f ZE/$MAGIC.g.cloud.preace2 Deep2
+  show -a -f ZE/$MAGIC.gln.cloud.preace Length
+  query find element g && cloud && !seqc && !Deep2
+  list -a -f ZE/$MAGIC.g.cloud.noseqc.list
+
+  query find element g && RefSeq && seqc
+  show -a -f ZE/$MAGIC.RefSeq.preace SEQC
+  query find element g && RefSeq && Deep2
+  show -a -f ZE/$MAGIC.RefSeq.preace2 Deep2
+  query find element g && RefSeq && ! seqc  && !Deep2
+  list -a -f ZE/$MAGIC.RefSeq.noseqc.list
+
+  query find element g && HINV && seqc
+  show -a -f ZE/$MAGIC.HINV.preace SEQC
+  show -a -f ZE/$MAGIC.HINV.preace2 Deep2
+  query find element g && HINV && ! seqc && !Deep2 
+  list -a -f ZE/$MAGIC.HINV.noseqc.list
+
+  query find element g && EBI && seqc
+  show -a -f ZE/$MAGIC.EBI.preace SEQC
+  show -a -f ZE/$MAGIC.EBI.preace2 Deep2
+  query find element g && EBI && ! seqc  && !Deep2
+  list -a -f ZE/$MAGIC.EBI.noseqc.list
+
+  query find element intron && seqc
+  // show -a -f ZE/$MAGIC.i.preace SEQC
+  query find element intron && seqc && (gt_ag || gc_ag)
+  // show -a -f ZE/$MAGIC.i.gt_ag.preace SEQC
+  query find element intron && Support
+  // show -a -f ZE/$MAGIC.intron.support.ace Support
+  query find element intron && Support && (gt_ag || gc_ag)
+  // show -a -f ZE/$MAGIC.intron.gt_ag.support.ace Support
+  query find element m && seqc
+  // show -a -f ZE/$MAGIC.m.preace SEQC
+  quit
+EOF
+
+######## Reformat to please the input of the solexa program
+
+foreach tt (geneid main putative cloud)
+  cat   ZE/$MAGIC.gln.$tt.preace  MAQC.ace ZE/$MAGIC.g.$tt.preace | gawk '/^Element/{print;next;}{printf("%s %s %s\n",$1,$2,$4);}'  | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g' >!  ZE/$MAGIC.g.$tt.txt
+  cat   ZE/$MAGIC.gln.$tt.preace  MAQC.ace ZE/$MAGIC.g.$tt.preace2 | gawk '/^Element/{print;next;}/^Deep2/{printf("%s %s %s\n",$2,$3,$5);}{printf("%s %s %s\n",$1,$2,$4);}'  | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g' >>  ZE/$MAGIC.g.$tt.txt
+end
+
+cat ZE/$MAGIC.g.main.txt ZE/$MAGIC.g.geneid.txt ZE/$MAGIC.g.putative.txt ZE/$MAGIC.g.cloud.txt  >! ZE/$MAGIC.anyaceview.txt
+cat ZE/$MAGIC.g.main.txt ZE/$MAGIC.g.geneid.txt ZE/$MAGIC.g.putative.txt  >!  ZE/$MAGIC.allnoncloud.txt
+cat ZE/$MAGIC.g.main.txt ZE/$MAGIC.g.geneid.txt >! ZE/$MAGIC.mainaceview.txt
+cat ZE/$MAGIC.g.main.txt >! ZE/$MAGIC.mainnogeneid.txt
+cat ZE/$MAGIC.g.putative.txt  >! ZE/$MAGIC.putative.txt
+
+
+foreach tt (g.geneid RefSeq EBI HINV)
+  cat  ZE/$MAGIC.$tt.preace2 | gawk '/^Element/{print;next;}{printf("%s %s %s\n",$1,$2,$4);}'  | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g'   > ZE/$MAGIC.$tt.txt
+end
+
+goto phaseloop
+
+
+##### export as tab delimited
+## limit the number of columns with the grep in the first line
+
+
+phaseg4:
+
+gawk '{print $1}' ZE/$MAGIC.RefSeq.txt | sort -u | grep -v Element | grep X_ | grep -v Anti | grep -v cap | grep -v tot | grep -v X_pA >! toto
+gawk '{print $1}' ZE/$MAGIC.RefSeq.txt  | sort -u | grep -v Element >! toto
+echo ZZZZZ >> toto
+cat gid2title.txt | gawk -F '\t' '{gsub(/\"/,"",$0);gsub(/ /,"=",$3);printf("%s\t%s\t%s\n",$1,$2,$3);}' >> toto
+echo ZZZZZ2 >> toto
+cat ZE/$MAGIC.RefSeq.txt  >> toto
+echo Element >> toto
+cat toto | gawk  '/^ZZZZZ2/{zz=2;next;}/^ZZZZZ/{zz=1;printf("GeneID\tGene\tTitle");for(i=1;i<=n;i++)printf("\t%s", mm[i]);printf("\n");next;}/^Element/{if(g){printf("%s\t%s\t%s",g,pg[g],tit[g]);for(i=1;i<=n;i++){printf("\t%d",nn[i]);nn[i]=0;}printf("\n");}g=$2;gsub(/\"/,"",g);gsub(/G_GeneId_/,"",g);next;}{if(zz==0){n++;m[$1]=n;mm[n]=$1;next;}if(zz==1){pg[$1]=$2;gsub(/=/," ",$3);tit[$1]=$3;next;}i=m[$1];if(i>0)nn[i]=$2;next;}' > toto1
+cat toto1 >!  ZE/$MAGIC.RefSeq.tbl.txt
+tail +2 toto1 | gawk -F '\t'  '{for (i=4;i<=NF;i++)n[i]+=$i;if(NF>imax)imax=NF;}END{printf("Any\tAny\tAny");for (i=4;i<=imax;i++)printf("\t%d",n[i]);printf("\n");}'  >> ZE/$MAGIC.RefSeq.tbl.txt
+
+#\cp ZE/$MAGIC.RefSeq.tbl.txt ~/ACEVIEWHELP/$MAGIC.RefSeq.tbl.bestg.multi.pureNsStrand.txt 
+
+
+#######  reformat the deep2 
+
+foreach target (g.geneid)
+
+cat ZE/$MAGIC.$target.preace2 | grep "16_Tissues" | gawk '{gsub(/\"/,"",$0);print $3}' | sort -u >! toto
+echo ZZZZZ >> toto
+cat ZE/$MAGIC.$target.preace2  >> toto
+echo Element >> toto
+cat toto | gawk  '/^ZZZZZ/{zz=1;printf("Gene");for(i=1;i<=n;i++)printf("\t%s",tt[i]);printf("\n");next;}{gsub(/\"/,"",$0);}/Element/{if(gene){printf("%s",gene);for(i=1;i<=n;i++){printf("\t%f",gt[i]);gt[i]=0;}printf("\n");}gene = $2;next;}{if(zz==0){n++;tissues[$1]=n;tt[n]=$1;next;}t=$3;if(tissues[t]==0)next;i=tissues[t];gt[i]=log(500+$6)/log(2);next;}' | sed -e "s/'//g" -e "s/^G_//g" -e "s/\ //g"> toto2
+
+
+head -1 toto2 >! ZE/$MAGIC.$target.log2.tbl.txt
+tail +2 toto2  | gawk '{nz++;for (i=2;i<=NF;i++)z[i]+=$i;if(NF>imax)imax=NF;}END{printf("TOTAL") ;for(i=2;i<=imax;i++)printf("\t%f",z[i]/nz);printf("\n");}'  > toto3
+cat toto3 toto2 | gawk '/^Gene/{next;}/TOTAL/{for (i=2;i<=NF;i++)z[i]=$i;next;}{printf("%s",$1);for (i=2;i<=NF;i++)printf("\t%.2f",$i-z[i]+10);printf("\n");}' >> ZE/$MAGIC.$target.log2.tbl.txt
+
+
+
+R
+
+tt=read.table("ZE/$MAGIC.g.geneid.log2.tbl.txt2", header=TRUE) ;
+tt=read.table("ZE/$MAGIC.RefSeq.log2.tbl.txt", header=TRUE) ;
+gg=as.matrix(tt[,2:17])
+rownames(gg) = tt[,1]
+
+pp=prcomp(gg,center=TRUE,scale=FALSE)
+cc=cor(gg)
+heatmap(cc)
+bp23=biplot(pp,choices=c(2,3),col=c("blue", "red"))
+pdf("biplot234.pdf")
+bp23=biplot(pp,choices=c(2,3),col=c("white", "red"))
+bp24=biplot(pp,choices=c(2,3),col=c("white", "red"))
+bp34=biplot(pp,choices=c(2,3),col=c("white", "red"))
+dev.off()
+round(100*cor(gg),0)
+
+# les axes sont bien orthogonaux !
+round (100*cov(predict(pp)),0)
+
+# extract first axis as a row vector
+v1=pp$rotation[,1]
+
+w1=as.integer(1000 * pp$rotation[,1])
+w2=as.integer(1000 * pp$rotation[,2])
+w3=as.integer(1000 * pp$rotation[,3])
+w4=as.integer(1000 * pp$rotation[,4])
+w5=as.integer(1000 * pp$rotation[,5])
+
+# find the projection of all genes on the first axis
+alpha1= gg  %*% v1
+p1gg = alpha1 %*% t(v1)
+o1gg = gg - p1gg
+# verify the orthogonality to the first axis
+o1gg  %*% v1
+
+# plot the distribution
+hist(alpha1)
+
+# find the projection of all remainders on the second axis
+v2=pp$rotation[,2]
+alpha2= o1gg  %*% v2
+p2gg = alpha2 %*% t(v2)
+o2gg = o1gg - p2gg
+# verify the orthogonality to the first axis
+o2gg  %*% v2
+
+# plot the distribution
+hist(alpha2)
+# export the histo as a table of numbers
+table(round(alpha2,0))
+
+# find the projection of all remainders on the second axis
+v3=pp$rotation[,3]
+alpha3= o1gg  %*% v3
+p3gg = alpha3 %*% t(v3)
+o3gg = o2gg - p3gg
+mo1gg = as.matrix(o1gg)
+mo2gg = as.matrix(o2gg)
+mo3gg = as.matrix(o3gg)
+# verify the orthogonality to the first axis
+#o2gg  %*% v2
+rownames(o1gg) = tt[,1]
+rownames(o2gg) = tt[,1]
+rownames(o3gg) = tt[,1]
+
+which(mo3gg < -6.942960122 & mo3gg > -7.  , arr.ind=TRUE)
+bin60=which(alpha1 < -60 & alpha1 > -70 , arr.ind=TRUE)
+bin60=which(alpha1 < -60 & alpha1 > -70 & alpha2 < -10, arr.ind=TRUE)
+
+
+bin60c=which(mo3gg < -6 , arr.ind=TRUE)
+rownames(alpha1) = tt[,1]
+rownames(alpha2) = tt[,1]
+rownames(alpha3) = tt[,1]
+
+# plot the distribution
+hist(alpha3)
+pdf("AceView.PCA.hito.pdf")
+hist(alpha1,br=50)
+hist(alpha2,br=50)
+hist(alpha3,br=50)
+dev.off()
+
+
+
+#####  analyse
+#solexa -exp [-venn] < ZE/$MAGIC.preace
+
+solexa -exp  -hammer -title "Non cloud AceView Genes, gene coverage " < ZE/$MAGIC.anyaceview.txt > ZE/$MAGIC.geneHammered.noncloud.txt
+
+solexa -exp  -nPlatform -title "Any AceView Genes, nPlatform" < ZE/$MAGIC.anyaceview.txt > ZE/$MAGIC.geneExpressedInNplatform.anyaceview.txt
+solexa -exp  -nPlatform -title "NM/NR or AceView Genes with GeneId, nPlatform" < ZE/$MAGIC.g.geneid.txt > ZE/$MAGIC.geneExpressedInNplatform.geneid.txt
+solexa -exp  -nPlatform -title "Main AceView Genes no GeneId, nPlatform" < ZE/$MAGIC.g.main.txt > ZE/$MAGIC.geneExpressedInNplatform.main.txt
+solexa -exp  -nPlatform -title "Putative AceView Genes, nPlatform" < ZE/$MAGIC.g.putative.txt > ZE/$MAGIC.geneExpressedInNplatform.putative.txt
+solexa -exp  -nPlatform -title "Cloud AceView Genes, nPlatform"  < ZE/$MAGIC.g.cloud.txt > ZE/$MAGIC.geneExpressedInNplatform.cloud.txt
+
+solexa -exp  -nPlatform -title "HINV Genes, nPlatform" < ZE/$MAGIC.HINV.txt > ZE/$MAGIC.geneExpressedInNplatform.HINV.txt
+solexa -exp  -nPlatform -title "ensEMBL Genes, nPlatform" < ZE/$MAGIC.EBI.txt > ZE/$MAGIC.geneExpressedInNplatform.EBI.txt
+solexa -exp  -nPlatform -title "RefSeq Genes, nPlatform" < ZE/$MAGIC.RefSeq.txt > ZE/$MAGIC.geneExpressedInNplatform.RefSeq.txt
+
+set best=g
+solexa -exp  -correl <  ZE/$MAGIC.mainaceview.txt > ~/ACEVIEWHELP/$MAGIC.correl.mainaceview.$best.txt
+solexa -exp  -correl -count <  ZE/$MAGIC.mainaceview.txt > ~/ACEVIEWHELP/$MAGIC.correl.mainaceview.count.$best.txt
+
+solexa -exp  -correl <  ZE/$MAGIC.g.geneid.txt > ~/ACEVIEWHELP/$MAGIC.correl.geneid.$best.txt
+solexa -exp  -correl -count <  ZE/$MAGIC.g.geneid.txt > ~/ACEVIEWHELP/$MAGIC.correl.geneid.count.$best.txt
+
+solexa -exp  -correl <  ZE/$MAGIC.mainnogeneid.txt > ~/ACEVIEWHELP/$MAGIC.correl.mainnogeneid.$best.txt
+solexa -exp  -correl -count <  ZE/$MAGIC.mainnogeneid.txt > ~/ACEVIEWHELP/$MAGIC.correl.mainnogeneid.count.$best.txt
+
+solexa -exp  -correl <  ZE/$MAGIC.putative.txt > ~/ACEVIEWHELP/$MAGIC.correl.putative.$best.txt
+solexa -exp  -correl -count <  ZE/$MAGIC.putative.txt > ~/ACEVIEWHELP/$MAGIC.correl.putative.count.$best.txt
+
+solexa -exp  -correl < ZE/$MAGIC.anyaceview.txt > ~/ACEVIEWHELP/$MAGIC.correl.anyaceview.$best.txt &
+solexa -exp  -correl -count < ZE/$MAGIC.anyaceview.txt > ~/ACEVIEWHELP/$MAGIC.correl.anyaceview.count.$best.txt &
+
+solexa -exp  -correl <  ZE/$MAGIC.g.cloud.txt > ~/ACEVIEWHELP/$MAGIC.correl.cloud.$best.txt &
+solexa -exp  -correl -count <  ZE/$MAGIC.g.cloud.txt > ~/ACEVIEWHELP/$MAGIC.correl.cloud.count.$best.txt &
+
+
+solexa -exp  -correl <  ZE/$MAGIC.allnoncloud.txt > ~/ACEVIEWHELP/$MAGIC.correl.allnoncloud.$best.txt
+solexa -exp  -correl -count <  ZE/$MAGIC.allnoncloud.txt > ~/ACEVIEWHELP/$MAGIC.correl.allnoncloud.count.$best.txt
+
+solexa -exp  -correl < ZE/$MAGIC.RefSeq.txt > ~/ACEVIEWHELP/$MAGIC.correl.RefSeq.$best.txt
+solexa -exp  -correl -count < ZE/$MAGIC.RefSeq.txt > ~/ACEVIEWHELP/$MAGIC.correl.RefSeq.count.$best.txt
+solexa -exp  -correl < ZE/$MAGIC.EBI.txt > ~/ACEVIEWHELP/$MAGIC.correl.EBI.$best.txt
+solexa -exp  -correl -count < ZE/$MAGIC.EBI.txt > ~/ACEVIEWHELP/$MAGIC.correl.EBI.count.$best.txt
+solexa -exp  -correl < ZE/$MAGIC.HINV.txt > ~/ACEVIEWHELP/$MAGIC.correl.HINV.$best.txt
+solexa -exp  -correl -count < ZE/$MAGIC.HINV.txt > ~/ACEVIEWHELP/$MAGIC.correl.HINV.count.$best.txt
+
+# exportation de tous les dot plot de correl  dot plot
+# solexa -plot -exp < ZE/$MAGIC.anyaceview.txt
+# solexa -plot -exp < ZE/$MAGIC.RefSeq.txt
+solexa -plot -exp < ZE/$MAGIC.allnoncloud.txt 
+
+goto phaseloop
+
+mkdir CORRELPLOTS
+mv *.tt.txt *.bb.txt *.LL.txt CORRELPLOTS
+pushd  CORRELPLOTS
+echo  'set terminal postscript color'    >! _gp
+echo  'set terminal postscript solid'     >> _gp
+echo  'set terminal postscript landscape' >> _gp
+
+foreach ff (*.tt.txt *.bb.txt *.LL.txt)
+  set pp=`echo $ff | gawk '{i=index($1,".txt");print substr($1,1,i-1);}'`
+  echo $pp | gawk 'END{pp=$1;gsub (/_/," ",pp);gsub(/\.LL\./,"differential expression log2(A/B)",pp); printf("set title #%s#\n", pp);}' | sed -e "s/#/\'/g" >> _gp
+
+  cat $ff |  gawk '{x=int(1000+10*$1);y=int(1000+10*$2);n[x-1000 "\t" y-1000]++;}END{for(k in n)printf("%s\t%d\n",k,n[k]);}' > $pp.bined
+
+  echo $pp | gawk 'END{printf("set output #%s.ps#\nplot ", $1);}' | sed -e "s/#/\'/g" >> _gp
+  foreach x (1 5  20 100 1000)
+    cat $pp.bined | gawk '{if($3>=x && $3<10*x)printf("%f\t%f\n",$1/10,$2/10);}' x=$x > $pp.$x
+    echo "$x $pp.$x" | gawk 'END{if($1>1)printf(", ");printf("#%s# title ##",$2);}'  | sed -e "s/#/\'/g" >> _gp
+  end
+  echo ' ' >> _gp
+end
+
+gnuplot -bg white < _gp
+
+# now look at the .ps files
+foreach ff (*.ps)
+  gv $ff
+end
+
+# _gp looks like: 
+gnuplot -bg white
+  plot 'ILM_A_LIF_A.LL.1' title 'ILM stranded versus LIF differential expression log2(A/B) over AceView genes ', 'ILM_A_LIF_A.LL.5' title '', 'ILM_A_LIF_A.LL.20' title '', 'ILM_A_LIF_A.LL.100' title '' , 'ILM_A_LIF_A.LL.1000' title ''
+
+
+  set terminal push
+  set terminal postscript color 
+  set terminal postscript solid 
+  set terminal postscript landscape
+  set output 'ILM_A_LIF_A.LL.ps'
+ plot 'ILM_A_LIF_A.LL.1' title 'ILM stranded versus LIF differential expression log2(A/B) over AceView genes ', 'ILM_A_LIF_A.LL.5' title '', 'ILM_A_LIF_A.LL.20' title '', 'ILM_A_LIF_A.LL.100' title '' , 'ILM_A_LIF_A.LL.1000' title ''
+  set terminal pop
+ 
+
+# histo des nb de tags par genes
+gawk '/^Element/{next;}/^HH_/{next;}{t=$1;gsub(/_A/,"",t);gsub(/_B/,"",t);x=int($2/10);n[t]++;nn[t,x]++;}END{printf("Type");for(t in n)printf("\t%s",t);for(x=0;x<=100;x++){printf("\n%d",10*x);for(t in n)printf("\t%d",nn[t,x]);}printf("\n") ;}' ZE/$MAGIC.anyaceview.txt >! ~/ACEVIEWHELP/$MAGIC.tagPerGene.txt
+
+
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343511_brain.ace
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343512_cerebralCortex.ace
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343514_liver.ace
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343515_lung.ace
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343513_heart.ace2
+  pparse /home/mieg/36_3/DeepInfo/Blencowe/main_aceview_hits.GSM343516_skelMuscle.ace2
+
+
+# tests  on finding the best way to normalize the tag counts
+cat ZE/$MAGIC.RefSeq.txt | gawk '/Element/{if(e)printf("%s\t%d\t%d\n",e,na,nb);na=0;nb=0;e=$2;gsub(/\"/,"",$2);next;}/^ILM_A /{na=$2;next;}/^LIF_A /{nb=$2;next}' > ZE/refseq.X_pA.txt
+ plot 'ZE/refseq.X_pA.txt' using (log($2+sqrt($2*$2+100))):(log($3+sqrt($3*$3+400))), 1.0*x+log(1.76)
+
+########################################################################################
+### mRNAs and Introns
+
+gawk '/^Element/{print;next;}{printf("%s %s %s\n",$1,$2,$4);}' ZE/$MAGIC.m.preace  | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g'   > ZE/$MAGIC.m.txt
+gawk '/^Element/{print;next;}{printf("%s %s %s\n",$1,$2,$4);}' ZE/$MAGIC.i.preace    | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g'    > ZE/$MAGIC.i.txt
+gawk '/^Element/{print;next;}{printf("%s %s %s\n",$1,$2,$4);}' ZE/$MAGIC.i.gt_ag.preace  | sed -e 's/totA/tot_A/g' -e 's/totB/tot_B/g'  > ZE/$MAGIC.i.gt_ag.txt
+
+#solexa -exp  -nPlatform  -title "Introns any type, nPlatform" < ZE/$MAGIC.i.txt > ZE/$MAGIC.geneExpressedInNplatform.introns.txt
+#solexa -exp  -nPlatform  -title "Introns gt_ag, nPlatform" < ZE/$MAGIC.i.txt > ZE/$MAGIC.geneExpressedInNplatform.introns.gt_ag.txt
+
+
+
+# analyse the the support of the introns predicted by the various methods
+grep -v  EST intron.support.ace > intron.support.ace2
+grep -v  EST intron.gt_ag.support.ace > intron.gt_ag.support.ace2
+solexa -exp -intron -support intron.support.ace2 -title 'Introns supported in A or B'  <  ZE/$MAGIC.i.txt >  ZE/$MAGIC.introns.support.txt
+solexa -exp -intron -support intron.gt_ag.support.ace2 -title 'Introns gt_ag supported in A or B'  <  ZE/$MAGIC.i.gt_ag.txt >  ZE/$MAGIC.introns.gt_ag.support.txt
+grep -v _B ZE/$MAGIC.i.gt_ag.txt >  ZE/$MAGIC.i.gt_ag.A.txt
+grep -v _A ZE/$MAGIC.i.gt_ag.txt >  ZE/$MAGIC.i.gt_ag.B.txt
+solexa -exp -intron -support intron.gt_ag.support.ace2 -title 'Introns supported in A'  <  ZE/$MAGIC.i.gt_ag.A.txt >  ZE/$MAGIC.introns.gt_ag.support.A.txt
+solexa -exp -intron -support intron.gt_ag.support.ace2 -title 'Introns supported in B'  <  ZE/$MAGIC.i.gt_ag.B.txt >  ZE/$MAGIC.introns.gt_ag.support.B.txt
+\cp  ZE/$MAGIC.introns.gt_ag.support.?.txt ZE/$MAGIC.introns.support.txt ZE/$MAGIC.introns.gt_ag.support.txt ~/ACEVIEWHELP
+
+solexa -exp  -correl < ZE/$MAGIC.i.txt > ~/ACEVIEWHELP/$MAGIC.correl.introns.r.txt
+solexa -exp  -correl -count < ZE/$MAGIC.i.txt > ~/ACEVIEWHELP/$MAGIC.correl.introns.count.txt
+solexa -exp  -correl < ZE/$MAGIC.m.txt > ~/ACEVIEWHELP/$MAGIC.correl.mRNA.r.txt
+solexa -exp  -correl -count < ZE/$MAGIC.m.txt > ~/ACEVIEWHELP/$MAGIC.correl.mRNA.count.txt
+
+########################################################################################
+## saturation
+
+mkdir SATURATION
+# works for introns, for gene the problem is not to double count 
+foreach target (introns)
+  foreach mm (ILM_35 ILM_100 LIF_Bev LIF_WT Helicos ILM L)
+    foreach tisssue (Brain UHR)
+      if (! -e SATURATION/$target.$mm.$tissue.txt) then
+        (cat tmp/PHITS_$target.u/$mm*.$tissue.*.$target.u.hits | cut -f 2 | solexa -saturation 20 > SATURATION/$target.$mm.$tissue.txt) &
+      endif
+    end
+  end
+
+  foreach tisssue (Brain UHR)
+    if (! -e SATURATION/$target.any.$tissue.txt) then
+      (cat tmp/PHITS_$target.u/*.$tissue.*.$target.u.hits | cut -f 2 | solexa -saturation 20 > SATURATION/$target.any.$tissue.txt) &
+    endif
+  end
+
+  if (! -e SATURATION/$target.any.anySample.txt ) then
+    (cat tmp/PHITS_$target.u/*.$target.u.hits | cut -f 2 | solexa -saturation 20 > SATURATION/$target.any.anySample.txt) &
+  endif
+end
+
+foreach target (RefSeq EBI main_aceview)
+ if (! -e SATURATION/$target.any.anySample.txt ) then
+    (cat tmp/PHITS_$target.u/*.$target.u.hits | gawk -F '\t' '{p=$2;g=$4;if(p==oldp && g==oldg)next;print g}' | solexa -saturation 20 > SATURATION/$target.any.anySample.txt) &
+  endif
+end
+
+sleep 50000
+date >! toto
+foreach target (RefSeq EBI main_aceview)
+  echo $target >> toto
+  cat SATURATION/$target.any.anySample.txt >> toto
+end
+Mail mieg -s saturation < toto
+#########################################################################################
+
+phaseloop:
+echo "Normal exit"
+exit

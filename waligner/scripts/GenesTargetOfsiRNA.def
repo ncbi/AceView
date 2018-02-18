@@ -1,0 +1,337 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2009-12-15_22:07:54
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition s_antisense
+ 
+Colonne 2 
+Subtitle Entrez Gene ID (if any)  
+Width 12 
+Optional 
+Visible 
+Class 
+Class GeneId 
+From 1 
+Tag GeneId
+ 
+Colonne 3 
+Subtitle total number of antisense tags  
+Width 12 
+Mandatory 
+Hidden 
+Text 
+From 1 
+Tag s_antiSense
+Condition "\%3" = any
+ 
+Colonne 4 
+Subtitle total number of antisense tagss  
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 3 
+Tag HERE 
+Condition \%4 > 1
+ 
+Colonne 5 
+Subtitle Column #5  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 1 
+Tag s_sense
+Condition "\%5" = "any"
+ 
+Colonne 6 
+Subtitle total number of sense tags  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 5 
+Tag HERE 
+ 
+Colonne 7 
+Subtitle Column #7  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 1 
+Tag s_antiSense
+Condition "\%7" = hESC
+ 
+Colonne 8 
+Subtitle Antisense in hESC  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 9 
+Subtitle Column #9  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 1 
+Tag s_antiSense
+Condition "\%9" = NPC
+ 
+Colonne 10 
+Subtitle Antisense in NPC  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 9 
+Tag HERE 
+ 
+Colonne 11 
+Subtitle Column #11  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 1 
+Tag s_sense
+Condition "\%11" = hESC
+ 
+Colonne 12 
+Subtitle Sense tags in ESC  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 11 
+Tag HERE 
+ 
+Colonne 13 
+Subtitle Column #13  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 1 
+Tag s_sense
+Condition "\%13" = NPC
+ 
+Colonne 14 
+Subtitle Sense tags in NPC  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 13 
+Tag HERE 
+ 
+Colonne 15 
+Subtitle number of cDNAs supporting the gene  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Transcribed_gene 
+From 1 
+Tag Transcribed_gene
+ 
+Colonne 16 
+Subtitle number of GenBank/dbEST cDNAs  
+Width 12 
+Optional 
+Visible 
+Class ... 
+Count 
+From 15 
+Tag cDNA_clone
+ 
+Colonne 17 
+Subtitle Number of alternative variants  
+Width 12 
+Optional 
+Visible 
+Class ... 
+Count 
+From 15 
+Tag mRNA
+ 
+Colonne 18 
+Subtitle Number of gt-ag introns  
+Width 12 
+Optional 
+Visible 
+Class ... 
+Count 
+From 15 
+Tag gt_ag
+ 
+Colonne 19 
+Subtitle Target gene is antisense to gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Transcribed_gene 
+From 15 
+Tag Antisens_to
+ 
+Colonne 20 
+Subtitle antisense over n bp  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 19 
+Tag HERE 
+ 
+Colonne 21 
+Subtitle antisense gene has n sense tags  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 19 
+Tag Gene
+ 
+Colonne 22 
+Subtitle Column #22  
+Width 12 
+Optional 
+Hidden 
+Text 
+From 21 
+Tag s_sense
+Condition "\%22" = any
+ 
+Colonne 23 
+Subtitle number of sense tags in antisense gene  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 22 
+Tag HERE 
+ 
+Colonne 24 
+Subtitle Column #24 
+Width 12 
+Optional 
+Hidden 
+Text 
+From 21 
+Tag s_antiSense
+Condition "\%24" = any
+ 
+Colonne 25 
+Subtitle number of antisense tags in antisense gene 
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 24 
+Tag  HERE 
+ 
+Colonne 26 
+Subtitle Chromosome  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Map 
+From 1 
+Tag IntMap
+ 
+Colonne 27 
+Subtitle from bp (NCBI 36)  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 26 
+Tag HERE 
+ 
+Colonne 28 
+Subtitle to bp (NCBI 36)  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 27 
+Tag HERE 
+ 
+Colonne 29 
+Subtitle protein coding  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_coding
+ 
+Colonne 30 
+Subtitle conserbed Pfam domain  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag pastille_conserved_pfam
+ 
+Colonne 31 
+Subtitle conserved through BlastP  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag pastille_conserved_taxblast
+ 
+Colonne 32 
+Subtitle poor coding, or only a minority of variants encode protein 
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_marginally_coding
+ 
+Colonne 33 
+Subtitle spliced non coding gene  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_spliced_non_coding
+ 
+Colonne 34 
+Subtitle Gene title 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene_title 
+From 1 
+Tag Title
+ 
+ 
+
+// End of these definitions

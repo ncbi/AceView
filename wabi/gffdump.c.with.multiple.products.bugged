@@ -1,0 +1,199 @@
+#include "../wacec/acec.h"
+#include "../wh/regular.h"
+#include <stdio.h>
+
+/* Dumps transcripts from an AceDB db conforming to new 'mrna' schema as GFF (GTF) to standard out.
+*/
+
+
+/**************************************************************************/
+
+static void gffdump (acOBJ * tr, int debug) 
+{
+  int x1[100], x2[100], ex1[100], ex2[100], extype[100];
+  int i, j, exon_no, y1, y2, startcoding = 0, stopcoding = 0, stopcodon = 0, frame;
+  acOBJ * splicing, * product, * mapobj, * start, * stop ;
+  char * gene_id, * transcript_id, * map, A, AA3[3], AA5[3];
+  
+  transcript_id = acName(tr);
+  gene_id = acName(acGetObj(tr, 0,0, "From_gene"));
+  
+  mapobj = acGetObj(tr, 0,0, "IntMap");
+  start = acTag(tr, "Found5p");
+  stop = acTag(tr,"Found3p");
+  map = acName(mapobj);
+  
+  if (1)
+    {
+      char *cp ;
+      
+      if (!strncmp(transcript_id,"G_t",3))
+	{
+	  cp = transcript_id + 4 ;
+	  if (*cp == '_' || *(++cp) == '_')
+	    transcript_id = cp + 1 ;
+	}
+      if (!strncmp(gene_id,"G_t",3))
+	{
+	  cp = gene_id + 4 ;
+	  if (*cp == '_' || *(++cp) == '_')
+	    gene_id = cp + 1 ;
+	}
+      if (!strncmp(map,"c_",2))
+	{
+	  map += 2 ;
+	}
+      
+    }
+  
+  y1 = acInt(acPos(mapobj,0,0));
+  y2 = acInt(acPos(mapobj,0,1));
+  if (debug) printf ("y1 = %d   y2 = %d\n\n", y1, y2);
+
+  /* find best product */
+  A = 'Z' ;
+  {
+    if ((product = acTag(tr, "Product")))
+      {
+	int qq, bestQuality = 0 ;
+	acOBJ * pp ;
+	
+	for ( i=0; i<product->rows; i++) 
+	  {
+	    pp = acPos(product, i, 0) ;
+	    qq = acTagInt(pp, "Quality",-1) ;
+	    if (qq > bestQuality)
+	      { bestQuality = qq ; A = (char)('A'+i) ; }
+	  }
+      }
+  }
+  AA3[0] = '3'; AA3[1] = A ; AA3[2] = 0 ;
+  AA5[0] = '5'; AA5[1] = A ; AA5[2] = 0 ;
+  if ((splicing = acTag(tr, "Coding")))
+    {  
+      /* store all the coordinates in arrays... */
+      for ( i=0; i<splicing->rows; i++) 
+	{
+	  x1[i] = acInt(acPos(splicing, i, 0));
+	  x2[i] = acInt(acPos(splicing, i, 1));
+	  ex1[i] = acInt(acPos(splicing, i, 2));
+	  ex2[i] = acInt(acPos(splicing, i, 3));
+	  if (! strstr(acText(acPos(splicing,i,4)), AA3) &&
+	      ! strstr(acText(acPos(splicing,i,4)), AA5)) 
+	    extype[i] = 1;
+	  else
+	    extype[i] = 0;
+	  /* concentrate exons subdivisions due to other products */
+	  if (i > 0 && x1[i]==x2[i-1]+1 && ex1[i]==ex2[i-1]+1 && extype[i] && extype[i-1])
+	    { x1[i]=x1[i-1];ex1[i]=ex1[i-1];extype[i-1]=0 ; }	      
+	}
+      
+      for (exon_no=1, startcoding = 0, i=0;i<splicing->rows; i++ )
+	{      
+	  if (extype[i]) 
+	    {  /* start_codon */
+	      if (!startcoding) {
+		startcoding = ex1[i];
+		if (start)
+		  {
+		    if (y1 <= y2)
+		      printf("%s\tacembly\tstart_codon\t%d\t%d\t.\t+\t", map, y1 + x1[i] - 1, y1 + x1[i] + 1);
+		    else
+		      printf("%s\tacembly\tstart_codon\t%d\t%d\t.\t-\t", map, y1 - x1[i] - 1, y1 - x1[i] + 1);
+		    printf("0\tgene_id %s; transcript_id %s;\n", gene_id, transcript_id);
+		  }
+	      }
+	      
+	      /* update stopcodon info */
+	      if (ex2[i] > stopcoding)
+		{
+		  stopcoding = ex2[i];
+		  stopcodon = x2[i];
+		}
+	      
+	      /* CDS */
+	      if (y1 <= y2)
+		printf("%s\tacembly\tCDS\t%d\t%d\t.\t+\t", map, y1 + x1[i] - 1, y1 + x2[i] - 1);
+	      else 
+		printf("%s\tacembly\tCDS\t%d\t%d\t.\t-\t", map, y1 - x2[i] + 1, y1 - x1[i] + 1);
+	      
+	      frame = (ex1[i] - startcoding) % 3;
+	      printf("%d\tgene_id %s; transcript_id %s; exon_number %d\n", frame, gene_id, transcript_id, exon_no);
+	    }
+	  
+	  /* exon - print out exon when last segment encountered... (easier for me this way round) */
+	  if ((i == splicing->rows - 1 ||
+	       x2[i] + 1 < x1[i+1]))
+	    {
+	      for (j=i; j>0; j--)
+		{
+		  if (x2[j-1] + 1 < x1[j]) break;
+		}
+	      if (y1 <= y2) 
+		printf("%s\tacembly\texon\t%d\t%d\t.\t+\t", map, y1 + x1[j] - 1, y1 + x2[i] - 1);
+	      else 
+		printf("%s\tacembly\texon\t%d\t%d\t.\t-\t", map, y1 - x2[i] + 1, y1 - x1[j] + 1);
+	      
+	      printf(".\tgene_id %s; transcript_id %s; exon_number %d\n", gene_id, transcript_id, exon_no);
+	      exon_no++;
+	    }
+	  
+	  /* stop_codon */
+	  if (stop && i == splicing->rows - 1)
+	    {
+	      if (y1 <= y2) 
+		printf("%s\tacembly\tstop_codon\t%d\t%d\t.\t+\t", map, y1 + stopcodon - 3, y1 + stopcodon - 1);
+	      else 
+		printf("%s\tacembly\tstop_codon\t%d\t%d\t.\t-\t", map, y1 - stopcodon + 1, y1 - stopcodon + 3);
+	      
+	      /* should always spit this puppy out in frame 0, but may as well double check! */
+	      frame = (stopcoding + 1 - startcoding) % 3;
+	      printf("%d\tgene_id %s; transcript_id %s;\n", frame, gene_id, transcript_id);
+	    }
+	}
+    }
+}
+
+/**************************************************************************/
+
+int main (int argc, char * argv[]) 
+{
+  acDB * db;
+  acITER * transcripts;
+  acOBJ * tr;
+  char *dbName = "(missing dabase argument)" ;
+  int debug = 1, i=0;
+  char * filter = "IS * && COUNT {>product ;peptide:2 >= 100} > 0";
+  char * query = "query find mrna %s";
+  char * usage = "gffdump [acedb_dir | host:port] [filter (default IS * && COUNT {>product ;peptide:2 >= 100} > 0]" ;
+  
+  switch (argc)
+    {
+    case 3:
+      filter = argv[2];
+      /* fall thru */
+    case 2: 
+      dbName = argv[1];
+      break ;
+    default :
+      printf ("Usage: %s\n", usage);
+      exit (1) ;
+    }
+
+  if (!( db = acOpen(dbName, acAUTODB)))
+    {
+      printf("ERROR: Cannot open the database %s, sorry\n\n", dbName);
+      exit (1) ;
+    }
+  
+  transcripts = acFetchMany (db, 0, query, filter);
+  for (i = 0; (tr = acNext(transcripts)); i++)
+     gffdump(tr, debug); 
+  
+  fprintf (stderr, "// Exported %d mrnas\n", i) ;
+  acClose(db); 
+  return 0;
+}
+
+/**************************************************************************/
+/**************************************************************************/

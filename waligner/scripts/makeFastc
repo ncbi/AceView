@@ -1,0 +1,325 @@
+#!bin/tcsh -f
+
+###################################################################################
+###################################################################################
+## Automatic creation of the Fastc files from the original data
+#
+# This script is part of the AceView project: www.aceview.org
+# Author: Danielle and Jean Thierry-Mieg, NCBI
+# Please send any comment or suggestion to mieg@ncbi.nlm.nih.gov
+#
+# Objective:
+#   Given a presumably very large sequence file from a next-gene sequencing machine
+#   in fasta, fastq, or raw format
+#   Drop the identifiers and the quality factors, sort alphabetically and merge to
+#   create the corresponding fastc.gz file, often 10 times smaller than the
+#   original data file, yet containing exactly the same sequences.
+#
+#   The program runs in 3 phases
+#      1: input format -> raw   (fanning out on the first 3 letters of each sequence)
+#      2: raw -> tc             (merge identical sequences into tc== tag-count format)
+#      3: tc->fastc.gz          (create sequential identifiers and compress the files)
+#
+#   The AceView aligner pipeline will then work on the fastc.gz file therefore
+#   aligning repeated sequences only once. This sequence clustering is very beneficial
+#   because in actual data sets, some sequences may be repeated up to a million time,
+#   (for example the ribosomal RNA sequences) and because the alphabetic ordering
+#   of the sequences is polite to the computer and greatly accelerates the processing
+#   and the efficiency of the gzip and analogous compressors.
+#
+# Usage:
+#   makeFastc run format files out_dir
+# Recommended parameters
+#   The files, for eacample "DATA/file1;DATA/file2;" are ";" separated
+#   The known input formats are fasta, csfasta, fastq, csfastq, tc, fastc, raw and raw:column_number.
+#   For paired end use   fastq/1  fastq/2
+#   The recommended blocking is 250 (250 MegeBases per file i.e. 5 millions 50-mers)
+# Example:
+#   makeFastc  Rhs1 DATA/myfile.fastq.gz  fastq ourDir
+#   This command will process file DATA/myfile.fastq.gz
+#   and create a set of files called 
+#      outDir/$run/f2.[1-9]*.fastc.gz 
+#   each containing at most 5M different sequences.
+#
+# While the this program is running it accumulates partial results in 
+#      $outDir/$run/tmp
+# which is erase when the program is successfully completed
+###################################################################################
+## How to download a file from the NCBI SRA archive
+## The best way to download the run and its meta-data is to look at scripts/SRX_import
+##
+## Inside NCBI: add vdb to facilities or use
+## /panfs/traces01/trace_software/toolkit/centos64/bin/fastq-dump 
+## Elsewhere download the SRA toolkit
+## To download a file in fastq format use the option
+##         fastq-dump  SRR074943
+## To treat a paired end experiment as fasta use the options
+##         fastq-dump --fasta --split-files SRR341576 -O mydirectory
+
+## This will generate 2 files that should be declared as fastq/1 and fastq/2
+
+## this script can be used to reassociate the first line of the file to the SRR name
+## foreaach ff (`ls *.fastq`) ; head -1 $ff >> tutu ; end
+## cat runs.ace tutu | gawk '/^Run/{r=$2;}/^SRR/{run[$2]=r}/^@/{s=substr($1,2);gsub(/\.1/,"",s);printf("Run %s\nSRR %s  \"%s %s\"\n\n", run[s],s,$2,$3)}' > ~/RatRunMasterDB/srr_title.ace
+
+## example: download on the web from sra
+## run : fastq-dump --fasta --split-files SRR341576.sra -O my_directory
+
+## alternative method adapted to the blast_mapper code of Gregory Boratin, 2015_02_15
+## fastq-dump --fasta --split-spot --readids -Z
+## The --readids option added ".1" and ".2" at the end of accessions to differentiate between reads in a pair.
+
+# On an 8Gb harware, we split the sequence files in chucnks of 250Mb
+# The most programs will use aroung 8Gb of RAM, and should never exceed 16Gb
+# If you only have 8Gb of RAM, you may need to chose a smaller value, say 150Mb
+# but we are not sure since it depends on the exact nature of the dataset
+if (! $?splitMb) set splitMb=250
+
+###################################################################################
+###################################################################################
+
+echo "makeFastc $*"
+date
+
+phase1:
+
+if ($4 == "") then
+   echo "ERROR missing 4th parameter"
+   goto usage
+endif
+
+set run=$1
+set format=$2
+set files=$3
+set outDir=$4"/"$run 
+set filesQ=`echo $files| sed -e 's/_____/     /g'`
+set prefix="f2"
+set nFiles=`echo $files | gawk '{n=split($1,aa,"_____");if(aa[n]=="")n-=1;print n}'`
+ 
+# split the sequences usinga reasonable number of letters
+set prefixLength=`limit | gawk '/^descriptors/{n=$2;}END{n=n+0;if(n<64)n=64;x=4;for(i=1;i<=4 && x<n;i++)x=4*x;print i-1;}'`
+if ($prefixLength < 3) set prefixLength=3
+
+
+# treat the Solid formats exactly as if they were fasta/fastq since we wish to stay in color space
+
+set isSolid=0
+set format2 = $format
+if ($format == csfasta || $format == csfastq) then
+  set isSolid=1
+  set format2=fasta
+endif
+
+###################################################################################
+
+echo "phase1 prepare the raw files run=$run  format=$format nFiles=$nFiles files=$files"
+
+if (! -d  $outDir) mkdir $outDir
+# Often the local $TMPDIR is too small to open the very large fastq files
+set tmp=$outDir/tmp
+# set tmp=$TMPDIR/aceview.makeFastc.$run.$$
+if (! -d $tmp) mkdir $tmp
+
+if (! -e $tmp/c1.raw.done) then 
+  echo " Splitting the original files : $files by prefix in directory $tmp/raw"
+  if (! -d  $tmp/cumul) mkdir $tmp/cumul
+
+  if ( -e $outDir/first_line.ace) \rm Fastc/first_line.ace
+
+  foreach nn (1 2 3 4 5)
+    if ($nn <= $nFiles) then
+      set file = `echo $files | gawk '{split($1,aa,"_____");print aa[nn]}' nn=$nn`
+      # check if we uncompress correctly
+      set isgz=`echo $file | gawk '/\.gz$/{n=1}END{print n+0}'`
+      if ($isgz == 1) then
+        echo "unzip  $file"
+        ( gunzip -c $file > $tmp/cumul/f$nn) >& $outDir/zcat.err
+      else
+        cat $file  > $tmp/cumul/f$nn
+      endif
+
+      cat $tmp/cumul/f$nn | head -1 >>  $outDir/first_line.txt
+
+      if ($isSolid == 1 && -e $tmp/cumul/f$nn) then # change cfa to ccfa then treat as fasta so we actually stay in color space
+        mv $tmp/cumul/f$nn $tmp/cumul/fcs
+        echo "bin/dna2dna -I csfasta -O ccfa -i $tmp/cumul/fcs -o $tmp/cumul/ff -count"
+              bin/dna2dna -I csfasta -O ccfa -i $tmp/cumul/fcs -o $tmp/cumul/ff -count >>& $outDir/csfasta.err
+        mv  $tmp/cumul/ff.ccfa $tmp/cumul/f$nn
+      endif
+    endif
+  end
+  ls -ls $tmp/cumul/*
+
+  set format = $format2
+  set nf1 = 0
+  set nf2 = 2
+  if ($nFiles == 1) then
+    set nf1 = `cat $tmp/cumul/f1 | wc | gawk '{print $1;}'`
+    # mv $tmp/cumul/f1 $tmp/cumul/ff.fasta
+    bin/dna2dna -I $format -O fasta -i $tmp/cumul/f1 -o $tmp/cumul/ff
+  else  # if ($nFiles == 2) then
+    echo "merge paired end $files into >< format"
+    set nf1 = `cat $tmp/cumul/f1 | wc | gawk '{print $1;}'`
+    set nf2 = `cat $tmp/cumul/f2 | wc | gawk '{print $1;}'`
+
+    if ($nf1 > 0 && $nf2 > 0 && $nf1 != $nf2) then
+      echo "FATAL ERROR in makeFastc Number of f1 files not equal to number of f2 files : $nf1 :: $nf2   in $files"
+      exit 1
+    endif
+    echo "bin/dna2dna  -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff"
+    bin/dna2dna  -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff
+  endif
+
+  echo "found nf1=$nf1  nf2=$nf2 reads "
+  echo "split by prefix of length  $prefixLength"
+  if (! -d  $tmp/raw) mkdir $tmp/raw
+  bin/dna2dna -I fasta -O raw -count -i  $tmp/cumul/ff.fasta -o $tmp/raw/ff -splitByPrefix $prefixLength  >& $outDir/raw.err
+  mv $tmp/raw/ff.count $outDir/original.count
+
+  if ($nf1 < 10000000) set prefixLength=3
+
+  \rm -rf tmp/cumul/*
+  touch $tmp/c1.raw.done
+
+endif
+
+###################################################################################
+
+phase2:
+
+echo "phase2 prepare the tc files"
+
+if ($isSolid > 0) set SS=T
+if (! -d $tmp/tc) mkdir $tmp/tc
+if (! -e $tmp/c2.tc.done) then 
+
+    foreach a (A T G C)
+      foreach t (A T G C)
+        foreach g (A T G C)
+
+          if ($prefixLength == 3) then
+            if (!  -e  $tmp/tc/$a$t$g.tc) then
+              echo "cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g"
+                    cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g
+            endif
+          else
+  
+            foreach c (A T G C)
+              if (! -e  $tmp/tc/$a$t$g$c.tc) then
+                echo "cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g$c"
+                      cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g$c
+              endif
+            end
+
+          endif
+
+        end
+      end
+    end
+
+  \rm tmp/raw/*
+  touch $tmp/c2.tc.done
+endif
+
+###################################################################################
+
+phase3:
+
+echo "phase3 prepare the fastc files"
+
+if (! -d $tmp/fastc) mkdir $tmp/fastc
+if (! -d $tmp/fastc/$run) mkdir $tmp/fastc/$run
+if (! -e $tmp/c3.fastc.done) then 
+
+  echo "cat $tmp/tc/*.tc | bin/dna2dna -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2"
+        cat $tmp/tc/*.tc | bin/dna2dna -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2
+
+
+  if ($isSolid == 1) then
+    mv  $tmp/fastc  $tmp/ccfa
+    mkdir $tmp/fastc $tmp/fastc/$run
+    foreach ff (`ls $tmp/ccfa/$run/f2.*.fastc.gz`)
+      bin/dna2dna -i  $ff -I ccfa -O csfasta -gzo  -o $tmp/fastc/$run/f2
+      mv  $tmp/fastc/$run/f2.csfasta.gz $tmp/fastc/$run/f2.csfastc.gz 
+    end
+  endif
+
+  \rm tmp/tc/*
+  touch $tmp/c3.fastc.done
+endif
+
+###################################################################################
+
+phase4:
+
+echo "phase4 count"
+
+echo " construct the lanelist"
+if (-e $outDir/LaneList) \rm $outDir/LaneList
+ls $tmp/fastc/$run/f2.*fastc.gz | gawk '{n=split($1,aa,"/");split(aa[n],bb,".");n=0+bb[2];if(n>nn)nn=n;}END{for(n=1;n<=nn;n++)printf("%s/f2.%d\n",run, n);}' run=$run  > $outDir/LaneList
+wc  $outDir/LaneList
+
+echo count
+
+set format=fastc
+if ($isSolid == 1) set format=csfastc
+
+foreach lane (`cat $outDir/LaneList`)
+   if (! -e  $tmp/fastc/$lane.count) then
+     bin/dna2dna -i $tmp/fastc/$lane.fastc.gz -I $format -gzi -O count -minEntropy $minEntropy -minLength $minLength  -o $tmp/fastc/$lane
+   endif
+end
+touch $tmp/c4.count.done
+
+mv $tmp/fastc/$run/*.*fastc.gz  $outDir
+mv $tmp/fastc/$run/*.count     $outDir
+# mv $tmp/fastc/$run/*.id.gz  $outDir
+
+if ($?MAGIC_KILL_FASTQ) then  
+   echo "makeFastc done: rm  $filesQ"
+   \rm $filesQ
+endif
+
+###################################################################################
+
+# cleanup 
+ \rm -rf $tmp
+
+exit 0
+
+
+usage:
+  echo "# Usage: makeFastc run format files outDir"
+  echo "# Example: makeFastc Rhs1 fastq/1 DATA/f_1.fastq.gz;f_2.fastq.gz Fastc"
+  echo "# Please fix the parameters: you wrote:"
+  echo "#   $*"
+  exit 1
+
+###################################################################################
+###################################################################################
+ 
+## more example of bam2fastc, probably oboslete, look rather at scripts/SRX_import
+
+# -f -> required flag,   -F  -> avoid flag
+# flags are combined in binary 16=read should be reversed, 256=non primary alignment
+
+# stranded data, we need to redefine the pairs
+# Jim Mullikin provided a perl code that we edited to export directly the paired-fasta
+
+# bam2fastq.pl $ff | sort | gawk '{if($1 == old){n++;next;}if(n>0)printf("\t%d\n",n);printf("%s",$1);old=$1;n=1;}END{if(n>0)printf("\t%d\n",n);}' | bin/dna2dna -I tc -O fastc -gzo -o f2 -count -split $splitMs -splitMb $NN 
+
+
+# set ff=NA12878.ga2.exome.maq.raw.bam
+# scripts/bam2fasta $ff
+
+
+# recover the 0-based coordinates of the alignment
+# samtools convert -format bed -i file.bam -out file.bed
+
+
+# hack to extract the fist line a posteriori, now incorportated in phase1
+if (0) then
+  foreach run (`cat MetaDB/$MAGIC/RunList`)
+    gunzip -c Fastc/$run/Data.f/*.fq.gz | head -1 >  Fastc/$run/first_line.txt
+  end
+endif

@@ -1,0 +1,91 @@
+#!bin/tcsh -f
+
+set old=$1
+set new=$2
+
+if ($new == "") then
+  echo
+  echo "usage: magicDiff old new"
+  echo "  Regression analysis script for the magic pipeline"
+  echo "  First run "
+  echo "       scripts/miniTest dir1"
+  echo "       scripts/miniTest dir2"
+  echo "  Then"
+  echo "       scripts/magicDiff dir1 dir2"
+  echo "  Use this code to compare 2 versions of the pipeline"
+  echo "  or, when installing the code on a new hardware,"
+  echo "  to compare the results to the reference magic test directory"
+  echo
+  exit 1
+endif
+  
+set version=v1
+echo -n "Program magicDiff version $version : "
+date
+echo "Searching all differences between directories old:$1 and new:$2"
+
+
+if (! -d $old) then
+  echo "Sorry, I cannot open directory $old"
+  exit 1
+endif
+if (! -d $new) then
+  echo "Sorry, I cannot open directory $new"
+  exit 1
+endif
+
+set oldN=`echo $old | sed -e 's/\//_/g'`
+set newN=`echo $new | sed -e 's/\//_/g'`
+
+setenv out magicDiff__$oldN'__'$newN
+echo "All results are stored in directory $out"
+
+if (-d $out) \rm -rf $out
+mkdir $out
+find $old -print | sed -e "s/^$old\///" > $out/fileList.old
+find $new -print | sed -e "s/^$new\///" > $out/fileList.new
+ 
+goto laba
+
+foreach dir (DATA/Fastc DATA/Target)
+  echo
+  echo "... magicDiff.compareDir $dir"
+  $new/scripts/magicDiff.compareDir $old $new $out $dir
+  if ($status) then
+    exit 1
+  else
+    echo "... success"
+  endif
+end
+ 
+echo "... magicDiff.compareFile DATA/runs.ace"
+$new/scripts/magicDiff.compareFile $old $new $out DATA/runs.ace
+
+laba:
+
+echo "... compare the MetaDB directory "
+foreach f (` cat $out/fileList.new | grep MetaDB | grep -v database | grep List `)
+  $new/scripts/magicDiff.compareFile $old $new $out $f
+  if ($status) then
+    exit 1
+  endif
+end
+echo "... success"
+
+echo '... compare the MetaDB/*List* files'
+foreach f (` cat $out/fileList.new | grep MetaDB | grep -v database | grep List `)
+  $new/scripts/magicDiff.compareFile $old $new $out $f
+  if ($status) then
+    exit 1
+  endif
+end
+echo "... success"
+
+echo '... compare the alignment files'
+foreach f (` cat $out/fileList.new | grep tmp/COUNT | grep hits.gz `)
+  $new/scripts/magicDiff.compareFile $old $new $out $f
+  if ($status) then
+    exit 1
+  endif
+end
+echo "... success"

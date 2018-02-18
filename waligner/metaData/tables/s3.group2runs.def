@@ -1,0 +1,55 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2016-03-28_11:59:54
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Parameters Tissue
+
+Sortcolumn 1
+
+Colonne 1
+Subtitle Group 
+Width 12
+Optional
+Visible
+Class
+Class Run
+Condition project == "%1"
+
+Colonne 2
+Subtitle Union_of
+Width 12
+Optional
+Visible
+Class
+Class Run
+From 1
+Tag Union_of
+Condition project == "%1"
+
+Colonne 3
+Subtitle Column #3
+Width 12
+Optional
+Visible
+Class
+Class Run
+From 1
+Tag Sublibraries
+Condition project == "%1"
+
+Colonne 4
+Subtitle Column #4
+Width 12
+Optional
+Visible
+Integer
+From 1
+Tag Group_level
+
+ 
+
+// End of these definitions

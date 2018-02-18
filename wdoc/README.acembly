@@ -1,0 +1,41 @@
+@(#) $Id: README.acembly,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+
+This is the acembly distribution directory. Acembly is a sequence
+assembly package layered over acedb, so the source code includes
+the whole acedb kernel, but not necessarilly all the peripheric
+tools. The current release of the acedb code is version 4_2. 
+ This directory should contain at least
+
+README.acembly	  This file
+NOTES		  Further notes - please get and read this file unless
+			you know exactly what you want to do.
+INSTALL.acembly	  The installation script 
+USAGE             The minimal instruction set
+ACEMBLY.*.tar.gz  The ACEMBLY tool box
+
+  At least one of:
+bin.*.tar.gz	  Machine dependant binaries.
+
+  Optionally:
+source.*          The acedb-kernel/acembly source code 
+demo.*            Demos containing ABI trace files.
+doc.*             More documentation.
+
+Further information about acedb can be obtained via the bionet
+newsgroup bionet.software.acedb, and from the documentation archive at
+http://probe.nalusda.gov:8000/acedocs/index.html.
+
+****************** IMPORTANT ******************************************
+To install acembly, ftp in binary mode, type:
+chmod 755 INSTALL.acembly ; INSTALL.acembly
+
+In your .login file:
+1) Unless acembly is in your home directory you need to:
+setenv ACEMBLY 'full path to the ACEMBLY directory'
+2) If automatic recognition fails (see $ACEMBLY/GetEnv) you also need:
+setenv ACEDB_MACHINE 'one of SUN, ALPHA etc,'
+    such that $ACEMBLY/bin.$ACEDB_MACHINE exists
+
+To run, follow the instructions in USAGE
+
+***********************************************************************

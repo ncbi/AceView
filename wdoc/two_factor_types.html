@@ -1,0 +1,113 @@
+<HTML>
+
+<HEAD>
+<TITLE>ACEDB documentation: CLASSIFICATION OF TWO-FACTOR DATA</TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>CLASSIFICATION OF TWO-FACTOR DATA</H1>
+
+<PRE>
+
+CLASSIFICATION OF TWO-FACTOR DATA 	Jonathan Hodgkin 21/4/93
+=================================
+
+
+   Phenotypes:  WT = wild type
+                nonWT = viable non-wild-type,
+                ALL = total viable progeny
+                X = x/x and xy/x+, Y = y/y and xy/+y
+                XY = xy/xy
+                D = d/+ and d/d, dx/+ etc
+                H = xy/x+
+
+        Type            Phenotypes              Calculation
+
+A.  Recessive markers x and y, segregation from xy/++ hermaphrodites
+
+    1.  Full            WT X Y XY               (2p-p^2)/2 =
+                                                (X+Y)/(WT+X+Y+XY)
+
+    2.  One_recombinant WT X                    (2p-p^2)/3 =
+                                                 X/(WT+X)
+
+    3.  Selected           X   XY               (2p-p^2) = X/(X+XY)
+
+    4.  One_all            X       ALL          (2p-p^2)/4 = X/ALL
+
+    5.  Recs_all           X Y     ALL          (2p-p^2)/2 =
+                                                (X+Y)/ALL
+
+A'   Recessive markers x and y, segregation from xy+/++z, where z is
+        tightly linked and z/z is lethal or otherwise not scored.
+
+    6.  One_let            X       ALL          (2p-p^2)/2 = X/ALL
+
+B    Recessive markers, segregation from x+/+y hermaphrodites
+
+    7.  Tested             H             X       2p/(1+p) = H/X
+
+
+    8.  Selected_trans     X    XY               p^2 = XY/(X+XY)
+
+
+C    Recessive markers, scored by backcross: xy/++ males crossed with
+        xy/xy hermaphrodites.  Usually only males scored.
+
+    9.  Backcross       WT X Y XY                p = (X+Y)/(WT+X+Y+XY)
+
+   10.  Back_one        WT X                     p = X/(WT+X)
+
+
+
+D    Recessive sex-linked markers, x+/+y hermaphrodites crossed with wild
+        males, male progeny scored.
+
+   11.  Sex_all         WT X Y XY                p = (WT+XY)/(WT+X+Y+XY)
+
+   12.  Sex_one         WT X                     p = WT/(WT+X)
+
+
+D'   Recessive sex-linked markers, xy/++ hermaphrodites crossed with wild
+        males, male progeny scored.
+
+   13.  Sex_cis            X            ALL      p/2 = X/ALL
+
+
+E    One marker (d) is dominant or semidominant.  Segregation from x+/+d
+        hermaphrodites.  For dom_semi, D = d/+, not d/d (as in sqt)
+
+
+   14.  Dom_one         WT      nonWT           (2p-p^2)/4 = WT/(WT+nonWT)
+
+   15.  Dom_selected    WT X                    (2p-p^2) = WT/(WT+X)
+
+   16.  Dom_semi                   XD   ALL     (p-p^2)/2 = XD/ALL
+
+
+E'  One marker (d) is dominant, and either d or x is recessive lethal
+
+   17.  Dom_let         WT              ALL     (2p-p^2)/3 = WT/ALL
+
+
+
+F   Direct: single progeny picked and tested for genotype
+        on both chromosomes
+
+   18.  Direct          R = # recombinant chromosomes   p = R/T
+                        T = # total chromosomes
+
+
+G   Complex:
+
+   19.  Complex_mixed      X            ALL             (2p-p^2)/5 =
+
+</PRE>
+</BODY>
+</HTML>

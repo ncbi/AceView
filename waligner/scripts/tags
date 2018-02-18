@@ -1,0 +1,2 @@
+#!bin/tcsh -f
+  gawk '{n[$1]++;}END{for (k in n)printf("%s\t%d\n",k,n[k]);}' $1 | sort

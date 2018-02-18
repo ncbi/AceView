@@ -1,0 +1,180 @@
+wego - an easy library for simple SMP/multithreading in C
+
+OUT OF DATE ALREADY, BUT CLOSE
+
+Multi-threaded programming can much easier if you make certain
+assumptions that simplify the process.  
+
+
+SIMPLE FEATURE
+--
+
+task = wego_run(NULL, function, 
+		parameter_struct, parameter_struct_size, 
+		result_struct, result_struct_size 
+	);
+
+	runs function with given parameters.  wego_run returns
+	immediately.  There may be some delay before a thread is available
+	to perform the function.
+
+	The parameter struct is copied; you do not need to preserve the
+	content after wego_run() returns.
+
+	if result_struct is NULL, a structure of result_struct_size is
+	automatically allocated.
+
+r = wego_result(task)
+	blocks until the function results are available, then returns
+	a pointer to the result structure.
+
+wego_free(task)
+	frees all overhead from a task.  If the result structure was
+	automatically allocated, it is also freed.
+
+
+
+Example 1:
+	wego_task t[10];
+	struct think_parameters p;
+	struct think_results *r;
+
+	for (x=0; x<10; x++)
+		{
+		p.number = x;
+		d[x] = wego_run( NULL, think, &p, sizeof(p), NULL, sizeof(*r) )
+		}
+
+	for (x=0; x<10; x++)
+		{
+		r = wego_result(t[x]);
+		printf("%d: %d\n",x,r->answer);
+		wego_free(t[x])
+		}
+
+ADVANCED FEATURE
+--
+
+Example 1 works fine if the function "think" takes about the same time for
+any parameter.  But if think(0) takes 10 times as long as any other value,
+wego_result(t[0]) will block until everything is finished.  This time spent
+waiting is time that could have been spent doing something else.
+
+To solve this problem, you can collect tasks into a wego_group:
+
+group = wego_group()
+	creates a group of tasks.
+
+
+task = wego_run(group, ... )
+	start a task as a member of a group
+
+r = wego_any_result(group)
+	finds a result from any task that 1) has produced a result,
+	and 2) has not been returned by wego_any_result() before.
+	It blocks if none available.
+
+
+Example 2:
+	wego_group g;
+	struct think_parameters p;
+	struct think_results *r;
+
+	for (x=0; x<10; x++)
+		{
+		t.number = x;
+		d[x] = wego_group_run( g, think, &t, sizeof(t), NULL, sizeof(*r) )
+		}
+
+	while ( (r=wego_any_result(g)) > -1 )
+		{
+		printf("%d: %d\n",r->x,r->answer);
+		}
+
+	wego_free(g);	// knows it is a group, not a task
+
+
+Sometimes you may expect that only one task will find the answer.  In that
+case, you can free the task or the task group before all the tasks are
+finished running.  Any task not started yet will not be started.  Any task
+not finished may run to completion and be ignored, or it may be aborted.
+(Depends how hard it is to kill it with the pthread library.)
+
+	while ( (r=wego_any_result(g)) > -1 )
+		{
+		if (r->I_have_the_answer)
+			break;
+		}
+	x = r->the_answer;	// get data before the struct is freed
+	wego_free(g);
+	printf("the answer was %d\n",x);
+
+
+PROVIDING YOUR FUNCTION
+--
+
+Your function has a parameter struct and a result struct.  This is a
+way to pass arbitrarily many parameters and receive arbitrarily many
+return values.  You can have as many different functions as you like.
+Even in a wego_group, every task can be running a different function
+with different parameters and results.
+
+To make memory allocation easier, wego_alloc() allocates memory that is
+automatically freed when the function returns.  I suppose there should
+also be wego_free() in case your function uses a lot of memory that does
+not need to stay allocated.
+
+	struct think_parameters
+		{
+		int 	number;
+		};
+
+	struct think_results
+		{
+		int	answer;
+		int	answer_is_good;
+		};
+
+	void think( wego_task t, void *parameters, void *result )
+	{
+		struct think_parameters *p = (struct think_parameters *)parameters;
+		struct think_result *r = (struct think_result *)result;
+		char *s;
+
+		s = wego_alloc(t,100);
+		sprintf(s,"%d",parameters->number);
+
+		r->answer = atoi(s);
+		r->answer_is_good = F(parameters->number);
+	}
+
+Of course, this function can use wego to run other functions.
+
+
+Implementation notes
+--
+
+The library uses pthread internally.  This means it should work on all
+multi-threaded unix systems.
+
+Your function could use regular pthread features for locking,
+synchronization, etc, but then you are getting away from the idea of the
+simple interface.  pthreads locking is fairly simple, but synchronization
+is a bit ugly.  Do we need a simple locking / synchronization interface?
+
+The AceDB kernel can never be thread safe without a major rewrite.  It
+might be that the AceC socket client could be thread safe with less of
+a rewrite.  It would take some doing.  Until then, you can still have
+a main program gather a bunch of records from the database and then
+process them in parallel.
+
+About the name
+--
+
+Disney has a TV show called "Kim Possible" about a teenage girl superhero.
+One of the villians is named "Shego".  In one of the episodes, we find
+out that Shego has brothers who are superheros.  They are named Hego,
+Mego, and Wego.  (So, "she go", "he go", "me go", and "we go".)  Wego is
+two twins, and their super power is the ability to make additional copies
+of themselves.
+

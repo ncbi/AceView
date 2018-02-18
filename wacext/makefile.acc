@@ -1,0 +1,425 @@
+#  %W% %G%
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### wext/makefile.ext  Feb 1998        ##############
+#################################################################
+#
+# ATTENTION:
+#   Define in this file machine independant directives
+#   to compile external codes linked against acelib
+#
+#   The makefile is decomposed into 2 parts
+#     makefile: which selects the machine and creates ./bin.*
+#     then copies the present file into ../bin.*
+#     and the present file which gives details on the linking
+#  
+#   Machine specific choices, like linker and compiler
+#     are specified in ../wmake/*_DEF
+#
+#   Object modules and exe are created in ../bin.*
+#     to keep the present directory clean and allow
+#     multiple architectures
+#
+#################################################################
+# Before running the make command
+# setenv ACEDB_MACHINE to indicate one of the predefined
+# Machine dependant option files, or write your own.
+# These files are called  $(ACEDB_SRC)/wmake/$(ACEDB_MACHINE)_DEF
+#
+# See the explanation at the top of ../wmake/truemake
+#################################################################
+
+# LINK_ACC is the set of object files needed if you use
+# the client version of the new Ace C library
+LINK_ACC=libaccl.a  libfree.a  libtsfree.a libacedna.a libtcpfn.a $(LINK_ACC_RPC)
+LINK_LIGHT=libfree.a  libtsfree.a libacedna.a 
+
+# LINK_ACS is the set of object files needed if you use
+# the standalone acinside version of the new Ace C library
+LINK_ACS=libace.a libfree.a libtsfree.a
+
+# LINK_DRMAA is the Sun Grid Engine API libraru
+LINK_DRMAA= -L$(SGE_ROOT)/lib/lx24-amd64 -Wl,-rpath,$(SGE_ROOT)/lib/lx24-amd64  -ldrmaa 
+
+.KEEP_STATE: 
+
+# suppress auto SCCS extraction
+.SCCS_GET:
+
+#define defaults  overridable in $(ACEDB_MACHINE)_DEF
+RANLIB_NEEDED = true	
+AR_OPTIONS = rlu
+
+LINKER = cc 
+COMPILER = cc
+TEST = test
+
+#################################################################
+# most versions of lex require you to use -ll
+# but not Linux - reset LEX_LIBS in $(ACEDB_MACHINE)_DEF file
+
+LEX_LIBS = -ll
+
+#################################################################
+# include your choice from a machine dependant file
+# do not edit the present makefile for this purpos
+# this simplifies multiple architecture maintainance
+
+include deffile
+
+# Note that you can keep different DEF files for the same machine
+# setting  various compiler  options
+
+###########################################################
+##  Compiler and library options
+## CC, LIBS, NAME are defined in $(ACEDB_MACHINE)_DEF
+##
+ 
+IDIR = -I. -I.. -I../wh -I/netopt/sge/include 
+
+# Do not use -I/usr/include
+# it prevents gcc from picking up its own includes
+# (cc goes to /usr/include anyway)
+
+## to undefine any rubbish
+CCFLAGS =
+GCFLAGS =
+
+## Different platforms use CC or COMPILE.c
+#  (USEROPTS - see comments at top of file)
+#
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
+COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
+
+
+#################################################################
+#################################################################
+# Add here your definitions
+#################################################################
+#################################################################
+
+ALL_ACC_OBJS = go2gene.o bly2hosac.o kscount.o akg.o gene_nm_remap.o \
+	biblio_as_dna.o resizegenebox.o abstractchi2.o fichemain.o fichepickmatch.o \
+	genecardexport.o gintegra.o alibaba.o  blystats.o e8.o su21.o geturl.o \
+	gene2gene.o gene2chrom2.o gene2chrom3.o \
+	laure.o timehisto.o dnachip.o buildstats.o ts.o worf.o resequence.o  \
+	omim2ace.o maqc.o bestali.o clipalign.o paraclipalign.o estscan.o  UCSCtrackCompare.o \
+	genexml2ace.o p2gmap.o synonyms.o genetiling.o geneelements.o nico_worf.o \
+	av.o david.o golay.o  taxtree.o jumpalign.o dnamotif.o mute.o mktable.o \
+	split.o wiggle_smoother.o samclustering.o dna2dna.o  wiggle.o histo.o snp.o \
+	mega3psort2ace.o calireport.o googletable.o  geneindex.o pg2pg.o seqc.o \
+	dnastitch.o kmercount.o g2x.o qcsummary.o dnabloom.o snpbloom.o \
+	cnv.o sv.o chanserver.o chanclient.o chanscript.o chantest.o sra_metadata.o \
+	demazure.o dnawalk.o pi_channel_test.o introns.o table_histo.o
+
+ALL_ACC_SOURCES =  $(ALL_ACC_OBJS:.o=.c) 
+
+FICHE_OBJS = fichelogic.o ficheasn.o gtitle.o sworm.o fichetxbl.o
+
+FICHE_SOURCES = $(FICHE_OBJS:.o=.c)
+
+$(FICHE_SOURCES) :
+	$(TEST) -L $@ || ln -s ../wfiche/$@
+
+$(ALL_ACC_SOURCES)  :
+	$(TEST) -L $@ || ln -s ../wacext/$@ . 
+
+ASN_DUMP_OBJS = fichemain.o fichelogic.o ficheasn.o fichetxbl.o gtitle.o sworm.o 
+
+ASN_DUMP_SOURCES =  $(ASN_DUMP_OBJS:.o=.c)
+
+# "all" should always be the first target so that it is the default make action.
+all: go2gene bly2hosac kscount akg sakg gene_nm_remap sgene_nm_remap gene2gene gene2chrom2 \
+	biblio_as_dna sbiblio_as_dna resizegenebox sresizegenebox \
+	abstractchi2 sabstractchi2 genecardexport sgenecardexport gintegra \
+	alibaba alibabaclient blystats e8 su21 laure geturl \
+	dnachip buildstats sbuildstats  \
+	omim2ace maqc maqccl UCSCtrackCompare  bestali clipalign \
+	estscan genetiling geneelements  \
+	estscan genexml2ace synonyms  nico_worf \
+	david taxtree jumpalign dnamotif mute \
+	wiggle_smoother  dna2dna dnastitch kmercount  wiggle histo snp \
+	mega3psort2ace  geneindex pg2pg seqc g2x qcsummary dnabloom snpbloom \
+	chanserver chanclient cnv sv chantest dnawalk pi_channel_test \
+	sra_metadata introns table_histo
+
+e8: e8.o $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+demazure: demazure.o  $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a  libwego.a -lpthread
+
+su21: su21.o $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+jumpalign: jumpalign.o $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS) libchannels.a libwego.a -lpthread
+
+cnv: cnv.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a  libwego.a -lpthread
+
+dna2dna: dna2dna.o $(LINK_LIGHT) 
+	$(LINKER) -o $@  $@.o  $(LINK_LIGHT) $(LIBS)
+
+dnastitch: dnastitch.o $(LINK_LIGHT) 
+	$(LINKER) -o $@  $@.o  $(LINK_LIGHT) $(LIBS)
+
+dnamotif: dnamotif.o $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+david: david.o $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+genetiling: genetiling.o $(LINK_ACS)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+geneelements: geneelements.o $(LINK_ACS)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+geneindex: geneindex.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+g2x: g2x.o $(LINK_LIGHT) 
+	$(LINKER) -o $@  $@.o  $(LINK_LIGHT) $(LIBS)
+
+kmercount: kmercount.o $(LINK_LIGHT) 
+	$(LINKER) -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+
+sanclustering: samclustering.o $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS) chan
+
+mute: mute.o mktable.o  $(LINK_ACS) $(LIBS)
+	$(LINKER) -o $@  $@.o  messubs.o mktable.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+pg2pg: pg2pg.o $(LINK_LIGHT) 
+	$(LINKER) -o $@  $@.o  $(LINK_LIGHT) $(LIBS)
+
+split: split.o
+	$(LINKER) -o $@  $@.o  
+
+histo: histo.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+sra_metadata: sra_metadata.o $(LINK_ACS) $(LIBS) 
+	$(LINKER)  -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+seqc: seqc.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+snp: snp.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+sv: sv.o $(LINK_ACS) $(LIBS)  libchannels.a
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)  connect_socket.o libtcpfn.a libchannels.a listen_socket.o libfree.a libtsfree.a  libwego.a -lpthread -lm
+
+wiggle_smoother: wiggle_smoother.o
+	$(LINKER) -o $@  $@.o  -lm
+
+wiggle: wiggle.o $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o  -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+
+nico_worf: nico_worf.o $(LINK_ACS)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+synonyms: synonyms.o $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+geturl: geturl.o $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+omim2ace: omim2ace.o $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+table_histo: table_histo.o 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+genexml2ace: genexml2ace.o $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)
+
+maqc: maqc.o $(LINK_ACS)
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+maqccl: maqc.o $(LINK_ACC) 
+	$(LINKER)  -o $@  maqc.o $(LINK_ACC) $(LIBS) $(LEX_LIBS)
+
+UCSCtrackCompare: UCSCtrackCompare.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+taxtree: taxtree.o libtcpfn.a cgi.o
+	$(LINKER)  -o $@  $@.o cgi.o libtcpfn.a $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+mega3psort2ace: mega3psort2ace.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+bestali: bestali.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)  -lpthread
+
+introns: introns.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)  -lpthread
+
+qcsummary: qcsummary.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+calireport: calireport.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+clipalign: clipalign.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+clipalign_chan: clipalign_chan.o  
+	$(LINKER) -o $@  $@.o   -lm $(LINK_ACS) $(LIBS) $(LEX_LIBS)  connect_socket.o libtcpfn.a libchannels.a listen_socket.o libfree.a libtsfree.a  libwego.a -lpthread -lm
+
+paraclipalign: paraclipalign.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+dnabloom: dnabloom.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+dnawalk: dnawalk.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+pi_channel_test: pi_channel_test.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+snpbloom: snpbloom.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+chantest: chantest.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) libchannels.a libwego.a -lpthread
+
+chanclient: chanclient.o libtcpfn.a libchannels.a
+	$(LINKER)  -o $@  $@.o  connect_socket.o libtcpfn.a libchannels.a listen_socket.o  libfree.a libtsfree.a  libwego.a -lpthread -lm
+
+chanserver: chanserver.o libtcpfn.a libchannels.a
+	$(LINKER)  -o $@  $@.o  connect_socket.o libtcpfn.a libchannels.a listen_socket.o libfree.a libtsfree.a  libwego.a -lpthread -lm
+
+chanscript: chanscript.o libtcpfn.a libchannels.a
+	$(LINKER)  -o $@  $@.o  connect_socket.o libtcpfn.a libchannels.a listen_socket.o libfree.a libtsfree.a  libwego.a -lpthread -lm  $(LINK_ACC)
+
+googletable: googletable.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+av: av.o
+	$(LINKER) -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) $(LINK_DRMAA)
+
+estscan: estscan.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+vcgitest: vcgitest.o
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+worf: worf.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+resequence: resequence.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+laure: laure.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+timehisto: timehisto.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+blystats: blystats.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+gintegra: gintegra.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+alibaba: alibaba.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+alibabaclient: alibaba.o  $(LINK_ACC) 
+	$(LINKER)  -o $@  alibaba.o $(LINK_ACC)  $(LIBS)
+
+dnachip: dnachip.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+dnachipclient: dnachip.o  $(LINK_ACC) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACC) $(LIBS)
+
+gene2gene: gene2gene.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+gene2chrom2: gene2chrom2.o p2gmap.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o p2gmap.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+gene2chrom3: gene2chrom3.o p2gmap.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o p2gmap.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+genecardexport: genecardexport.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+sgenecardexport: genecardexport.o  $(LINK_ACC) 
+	$(LINKER)  -o $@  genecardexport.o $(LINK_ACC) $(LIBS) $(LEX_LIBS)
+
+go2gene: go2gene.o  $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o $(LINK_ACC) $(LIBS)
+
+gene_nm_remap:  gene_nm_remap.o $(LINK_ACC)
+	$(LINKER)  -o $@ gene_nm_remap.o  $(LINK_ACC) $(LIBS)
+
+sgene_nm_remap:  gene_nm_remap.o $(LINK_ACS)
+	$(LINKER)  -o $@ gene_nm_remap.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+resizegenebox:  resizegenebox.o $(LINK_ACC)
+	$(LINKER)  -o $@ resizegenebox.o  $(LINK_ACC) $(LIBS)
+
+sresizegenebox:  resizegenebox.o $(LINK_ACS)
+	$(LINKER)  -o $@ resizegenebox.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+abstractchi2:  abstractchi2.o $(LINK_ACC)
+	$(LINKER)  -o $@ abstractchi2.o  $(LINK_ACC) $(LIBS)
+
+sabstractchi2:  abstractchi2.o $(LINK_ACS)
+	$(LINKER)  -o $@ abstractchi2.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+biblio_as_dna:  biblio_as_dna.o $(LINK_ACC)
+	$(LINKER)  -o $@ biblio_as_dna.o  $(LINK_ACC) $(LIBS)
+
+sbiblio_as_dna:  biblio_as_dna.o $(LINK_ACS)
+	$(LINKER)  -o $@ biblio_as_dna.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+bly2hosac: bly2hosac.o  $(LINK_ACC)
+	$(LINKER)  -o $@  $@.o $(LINK_ACC) $(LIBS)
+
+kscount: kscount.o  $(LINK_ACC)
+	$(LINKER) -o $@ kscount.o $(LINK_ACC) $(LIBS)
+
+akg: akg.o   $(LINK_ACC)
+	$(LINKER) -o $@ akg.o  $(LINK_ACC) $(LIBS)
+
+sakg: akg.o   $(LINK_ACS)
+	$(LINKER) -o $@ akg.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+buildstats: buildstats.o   $(LINK_ACC)
+	$(LINKER) -o $@ buildstats.o  $(LINK_ACC) $(LIBS)
+
+sbuildstats: buildstats.o   $(LINK_ACS)
+	$(LINKER) -o $@ buildstats.o  $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+skscount: kscount.o  $(LINK_ACS)
+	$(LINKER) -o $@ kscount.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)
+
+asndump: $(ASN_DUMP_OBJS) fichepickmatch.o  $(LINK_ACC)
+	$(LINKER) -o $@  $(ASN_DUMP_OBJS) fichepickmatch.o $(LINK_ACC) $(LIBS) libvsim.a
+
+sasndump:  $(ASN_DUMP_OBJS)  $(LINK_ACS)
+	$(LINKER) -o $@  $(ASN_DUMP_OBJS) $(LINK_ACS) $(LIBS) $(LEX_LIBS) libvsim.a
+
+ts: ts.o  $(LINK_ACS) 
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) $(LEX_LIBS)  -lpthread
+
+###########################################################
+# cgi library code
+
+cgi.o:	cgi.c
+
+cgi.c:
+	test -L $@ || ln -s ../w1/cgi.c .
+
+###########################################################
+########### end of     acedb makefile.ext  ################
+###########################################################
+ 

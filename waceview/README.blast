@@ -1,0 +1,144 @@
+Blast search web pages
+
+Installing
+--
+To add a species edit: blast_cgi.c (compile wsetopt)
+                       blast.html 
+                       pushd ~/AceView ; CHANGE ; popd
+                       add below the code to blast_generate
+
+1) HTML and CGI
+
+	The HTML and CGI components are installed as part of AceView.
+
+# cp ~/ace/waceview/blast.html ~/AceView
+
+2) the blastd compute server
+
+setenv SS /home/mieg/SERVER
+setenv BB /home/mieg/SERVER/BLAST
+# cvs checkout ace
+# on ace
+
+cd ~/ace
+# blastd no longer works if compiled optimized on linux_x86_64
+# use the non optimized code, it is just an interface code anyway
+# however, blast_cgi must be compiled in _OPT mode
+setenv ACEDB_MACHINE LINUX_X86_64_4_OPT
+make allblast
+setenv ACEDB_MACHINE LINUX_X86_64_4
+make allblast
+
+if (! -d $BB/x86_64) mkdir $BB/x86_64
+cd ~/ace/bin.$ACEDB_MACHINE
+sh  ../waceview/blast_install  $BB/x86_64
+
+cd  $BB/x86_64
+ln -s ../../bin/tacembly tbly
+scp /netopt/ncbi_tools64/bin/formatdb mieg@ace11:/home/mieg/SERVER/BLAST/x86_64
+
+date ; ./blast_generate worm $SS/worm_1 ; date
+#  takes about 5 minutes on vesta, 1 minute on ace
+date ; ./blast_generate ara $SS/ara_1 ; date
+#  takes about 3 minutes on vesta, 3 minute on ace
+date ; ./blast_generate human $SS/36a_1 ; date
+#  takes about 1h on vesta, 3 minute on ace
+date ; ./blast_generate mouse $SS/mm_37_2 ; date
+#  takes about 4 minutes on ace
+date ; ./blast_generate rat $SS/rat_1 ; date
+#  takes about 3 minutes on ace
+date ; ./blast_generate omim  $SS/human ; date
+#  takes about 10 minutes on deuce
+
+# now that the files are ready, move then to the production dir
+\cp n.* ..
+
+# this operation is irrelevant to the blast server but
+# is needed for the sake of pipeline megaRun acekog
+#   copy the blast databases to the MEGA2 directory
+scp n.*.* mieg@ace:~/aaa/DATA1/BLAST
+
+# now configure the aceview interface
+        cd ~/AceView
+        echo 'ace 3001' >! blast_host
+        CHANGE
+
+        # now start the service on machine deuce
+        cd ~/ace/bin.$ACEDB_MACHINE
+
+        cd ~/SERVER
+        ./servermonitor blast stop
+        ./servermonitor blast start
+
+        # after testing export to production machines as usual (touch pub/rdist_me)
+
+
+Testing
+--
+
+1) install the blast server somewhere else.  (Use just the worm to make
+the install go faster.)
+
+2) in the pub.v* directory on your test web server, make a file "blast_host" 
+that contains the name of the machine running blastd.
+
+3) use the test web server to make a blast query
+
+Overview of operation
+--
+
+blast.html presents a query form, which is submitted to the web server.
+
+blast.cgi is the CGI that services that query.  The file blast_host
+contains the host name or IP number of the computation server.  (If the
+file is missing, "ace11" is used.)  blast.cgi contacts blastd on port
+3001 of the computation server and passes in the query.
+
+blastd really just runs the standard NCBI blastall program with the
+parameter to create HTML output.  The output is passed unmodified
+to the CGI.
+
+The CGI passes the blastall output back to the user, but it recognizes
+certain patterns in the output and inserts some HTML markup to create
+links to our own database.
+
+
+
+blast.cgi to blastd interface
+--
+
+blast.cgi contacts blastd on tcp port 3001.  There is no prompt.  blast.cgi sends
+	../waceview/blast_install /a/mark/web/blast
+	parameter block
+	query sequence
+	\n
+
+The parameter block is exactly 100 bytes.  It contains a null terminated string,
+which contains the parameters separated by a single space.  The parameters are:
+	evalue - a human readable representation of the evalue parameter
+		for blastall
+	databases - a list of database names, with each database name
+		terminated by '_'.  For example, x_y_z_ for x, y, and z.
+		The database name determines whether it will be a peptide or
+		nucleotide search.  peptided database names begin "p" and
+		nucleotide databases being "n".  Behaviour is undefined if
+		you mix n-type and p-type database names.
+
+The query sequence is whatever the user entered, which is presumed to
+be either a plain sequence or a fasta formatted list of sequences.
+The sequence is always followed by a '\n' in case the user did not
+provide one.
+
+The client is required to shutdown the socket after writing all the data,
+to cause an EOF at the server.
+
+blastall is run with the socket as it's standard output.  The output sent to the
+client is exactly the blastall output.
+
+implementation notes
+--
+
+blastd reads 100 bytes from the socket and parses it.  It then execs blastall,
+leaving the remaining input available on stdin.  blastall reads directly from
+the socket, getting EOF when the client shuts down its end of the socket.
+

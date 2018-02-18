@@ -1,0 +1,22 @@
+rm -rf database wspec whelp
+
+mkdir database wspec whelp
+
+cp *.wrm wspec
+
+echo $USER > wspec/passwd.wrm
+echo NOLOCK >> wspec/passwd.wrm
+
+touch wspec/displays.wrm
+
+ln ../../whelp/* whelp
+
+sh gendata.sh > gendata.big
+
+tace . << FOO
+y
+parse testdata.ace
+parse gendata.big
+parse dna
+save
+FOO

@@ -1,0 +1,30 @@
+#################################################################
+#                                                               #
+#  $Id: SUN_4_DEF,v 1.2 2006/03/02 22:01:28 mieg Exp $
+#                                                               #
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+########### for SUN stations with SunOS 4.1.x ###################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = SUN
+
+## NOMEMMOVE will define memmove on SunOS (for staden package)
+COMPILER = gcc -g -O2 -Wall -DNOMEMMOVE -DACEDB4
+
+LINKER = gcc -g -static 
+
+#LIBS = -lm -L/usr/lib -L/usr/openwin.old/lib -L/usr/X11R6.3/lib
+LIBS = -lm -L/usr/lib
+
+
+#################################################################
+#################################################################
+ 

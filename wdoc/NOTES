@@ -1,0 +1,326 @@
+$Id: NOTES,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+
+	ACEDB: A C.elegans Database
+
+	R. Durbin and J. Thierry-Mieg
+
+	Last updated: 22 janvier 1996.
+
+
+List of distribution files
+==========================
+
+  README	brief list of files
+  NOTES		this file
+  INSTALL	first time installation script
+
+in ace4/
+  bin.sunos.n_k	SUN Sparc executables for SunOS 4.1.3, run time files,
+		documentation.
+  bin.solaris.n_k Sun SPARC Solaris 2.2 and above.
+  bin.alpha.n_k	DEC-alpha/OSF-1 executables, etc.
+  bin.sgi.n_k	Silicon Graphics Irix executables, etc.
+  bin.xxx.n_k   more ports are available (see wmake directory)
+  source.n_k	the full source directories for remaking acedb, including
+		documentation.
+in celegans/
+  README	general information on the worm data
+  update.n-i	update files.  i will range from 1 to m, the current
+		database minor version.
+
+in doc/		various documentation files, in particular
+		WRITE_ACCESS, which explains about how to manage write
+		access for multiple users.
+
+
+All files except NOTES, README and INSTALL are tar.Z files.  They will
+be uncompressed and untarred automatically by the INSTALL script if
+you are using it to install, which is recommended.
+
+The letters n, k and i in the above refer to version numbers.  So
+bin.sunos.4_1 has major version n=4 and minor version k=1.  The major
+version, n, should agree for all the files that you are using.  The
+minor versions for the program (source and bin) and for the data
+(updates) are different.  update.n-i converts from database.n-(i-1) to
+database.n-i.
+
+		     ******* IMPORTANT ******* 
+
+You should only need one of the files in ace4/, either bin... or
+source...  It is simplest to take the correct bin...  to run on your
+machine.  Then you should not need to recompile acedb.  You would only
+need source... if you are going to recompile, e.g. for a computer type
+not available in the distribution, or if you want to look at the code.
+
+Current state of the system
+===========================
+
+The current release, is 4_3i.  It supports the C. elegans genomic
+database.  So in the above n,k,m notation: n=4, k=3, m=16.
+
+This new release 4_3 is fully compatible with 4_1 and 4_2.
+It is much faster than 4_1 on large databases, many imporvements
+and clears many bugs. The client server is fully operational, and the
+text command language has been improved and rationalised. 
+
+Thus, we strongly urge you to upgrade from 4_1 to 4_3.  Warning: 4_2,
+which was only released in test, has a bad bug and, if used accross
+architectures with different byte order (i.e. if you run a dec and a
+sun binary on the same disk accross NFS) will corrupt ireversibly the
+database.
+
+There is a copyright notice in subdirectory wdoc that says that there
+is absolutely no guarantee of any kind, and that we don't mind you
+giving acedb away, but we don't want either you, or whoever you give
+it to, to try to make money from it.
+
+How to get the latest release
+=============================
+
+You are welcome to copy acedb from a friend, but if you have access to
+internet then it may be best to get your own version to be sure it is
+up to date.  The latest version of this program is available by ftp
+from several public file servers.  In each case log in as user
+"anonymous" and give a user identifier as password.
+
+1) ncbi.nih.gov (130.14.20.1) in the USA, in repository/acedb
+2) ftp.sanger.ac.uk in England, in pub/acedb
+3) lirmm.lirmm.fr (193.49.104.10) in France, directory pub/acedb
+
+Under each of these there should be directories ace4/, celegans/, doc/
+as listed above.
+
+An example session would be:
+				# comments
+ftp ncbi.nlm.nih.gov
+login: anonymous
+password: your user id or email address
+cd repository/acedb             # change to relevant directoy
+binary				# IMPORTANT
+dir				# display files in this directory
+get README
+get NOTES
+get INSTALL
+cd ace4				# change to ace4 directory
+get bin.sunos.4_1.tar.Z		# get program
+cd ../celegans			# change to worm data directory
+mget update*			# get all update files
+quit
+
+How to install acedb
+====================
+
+If installing for the first time, make a new home directory for acedb
+and place all the .tar.Z files you need plus INSTALL into this
+directory.  If you are installing the worm data, this should be on a
+disk with 250Mb of free space.  If updating, put the extra files you
+are adding, and a new copy of INSTALL, into your existing acedb home
+directory.  The INSTALL script works correctly for both new
+installations and when just installing the latest release.  In the
+later case, it saves and restores the passwd file.  To run the INSTALL
+script type:
+	source INSTALL
+
+In our default configuration the acedb database can only be updated by
+the user who installed it.  If you want other people than the
+installer to be able to edit acedb, please read the document
+WRITE_ACCESS (in doc/).
+
+IMPORTANT: DO NOT INSTALL AS ROOT: this would create a security loophole. 
+
+Loading the C. elegans data
+===========================
+
+After installation, you should have a set of files like update.4_1 in
+the subdirectory rawdata/.  If not, get the files update.4_1.tar.Z
+from the ftp site, put them in the home directory, and run INSTALL
+again.  The files in rawdata/ are in .ace text format, and must be
+read by acedb and saved in binary format in the database/ directory.
+To do this, start acedb by typing "acedb", click "Yes" to accept
+initialising the database, and then when the main window comes up,
+select "Add Update File" from the main menu (right button), and click
+on the "All updates" button.  You will have to wait for some time (up
+to several hours on slower machines) for all the data to load in.  A
+progress report is given in the Update window.
+
+Directory structure
+===================
+
+You will typically have $ACEDB (the home directory) layed out
+something like as follows:
+
+       acedb   		# executable script to be moved in /usr/local/bin
+       textace  	# executable script to be moved in /usr/local/bin
+       database/
+	  ACEDB.wrm	# little file needed for acedb to run
+          block1.wrm	# the database
+          block2.wrm etc.   ""
+	  database.map	# info on all the block* files
+	  log.wrm	# log file
+		# all these files in database/ are only created after
+		# running acedb the first time
+       bin/		# the executable(s)
+	  xace		# X graphics version (usual interface)
+	  tace		# command line version
+	  acediff	# for comparing two ace files
+       wspec/		# database dependent specification files.
+	  GraphPackage	# X resources file - not needed
+          cachesize.wrm # You may want to edit this file
+	  copyright	
+	  options.wrm   # You may want to edit this file
+	  database.wrm	# specifies chunk sizes to split the database into
+	  displays.wrm  # You may want to edit this file
+	  models.wrm 	# database schema
+	  help.wrm	# help
+	  passwd.wrm    # User access control - see doc/WRITE_ACCESS
+	  server.wrm	# control file for server/client version
+	  subclasses.wrm # subclass schema information
+	  xfonts.wrm    # Edit this to change screen fonts
+	  psfonts.wrm   # Edit this file to change printing fonts
+       rawdata/
+	  update files
+
+The minimal requirements for running acedb are that the database/ and
+wspec/ directories exist, and wspec/ contains cachesize, options,
+displays, models, passwd.  The files in database/ will be made as
+necessary by the program - do not try to edit them yourself.  For
+update files to load properly they must be in $ACEDB/rawdata.  The
+executables can be somewhere other than $ACEDB/bin.  Sites with
+multiple acedb databases can use the same executables for all of them.
+Conversely, the same database files can be read by executables for
+multiple machine types (at least within Unix systems), which will
+require some reorganising of directories and/or file names.
+
+To run the program you must either set the environment variable ACEDB
+to the absolute path to the ACEDB home directory (by e.g.  "setenv
+ACEDB ~acedb"), or make the home directory the first argument of xace
+or tace on the command line (e.g. "xace ~acedb").  Of course xace must
+be in your path.  All this is done most easily by moving the shell
+scripts acedb and textace prepared by the INSTALL script into
+/usr/local/bin, where they are set up for any user, who can then type
+"acedb" or "textace" to run the X or command line versions,
+respectively.
+
+Help system
+===========
+
+The help system has been revised. We know have an in-lined html viewer
+for local files. It is much fatser than Mosaic, and defaults to Mosaic
+(or netscape as defined in wscripts/Mosaic) on http references.  The
+help pages will be searched 1) in $ACEDB/whelp/*.html, 2) in
+wspec/help.wrm. In case 1, we use the Prilusky system so you can
+register help to a particualr class or tag in trre displays for
+axemple wdir/Tree_Author_Paper.html, gives help oon tag paper in class
+Author in Tree display.
+
+Server Client:
+==============
+
+Acedb now has server client capabilities. But since this is useful
+only in bigger laboratories, we do not precompile the server. The
+documentation to do so in in the subdirectory wrpc. 
+
+
+X-client in test
+================
+
+There is know an X-client in test. Its purpose is to give a complete
+graphic acedb, without loading all the data. To use it, you must first
+compile it (setenv ACEDB_SRC `pwd` ; setenv ACEDB_MACHINE ..)  then
+(make xclient). Then you initialise a database on the current source
+code distribution models with xace, but do not load any data. Then you
+start xclient. Because that address is given in wspec/server.wrm, you
+will automatically download data from Montpellier. If you then save
+and run xace, you will work locally with the same data. But each time
+you start xclient, you load again from the network. I would lie to
+know a) if it works at all, b) if it is useful, c) how it should be
+improved. 
+
+WWW interface
+=============
+
+There are now three ways to serve the web: 
+
+The Moulon server, which runs tace and exports precomputed images.
+
+The perl server, documented on Bigwood's web page 
+http://probe.nalusda.gov:8000/acedocs/index.html
+This systems runs off the aceserver, via a perl client, which is
+part of the wrpc directory.
+
+The java server, developped by Lincoln Stein (Whitehead-MIT) and JTM.
+The Jade code is very preliminary and will be distributed later this
+spring.It runs off the same aceserver, via a special: netclient
+whcih is part of the acedb makefile. We expect Jade to change fast
+but we hope that the netclient will be stable.
+
+The hope is to fuse these various approaches into a stable product
+within the next few months. Contact us is you are interested.
+
+Known problems:
+===============
+
+On DEC stations, there is a font problem, Jack Leunissen reports
+that on his DEC 5000, running ultrix 4.2, you can fix it this way:
+        xset +fp ......
+        mv fonts.alias-mit fonts.alias (in the MIT font dir)
+        and then reboot your machine.
+Alternatively, you can edit wspec/xfonts.wrm
+Also, to recompile on the DEC, add in wh a symbolic link to mit X11:
+        cd $ACEDB_SRC/wh ; ln -s /usr/include/mit/X11 X11
+
+On Solaris machines you sometimes get messages saying that a library
+can not be found, e.g. libXt.so.  It will be somewhere on your system.
+You can avoid this by setting the environment variable LD_LIBRARY_PATH
+to include the relevant directory, in addition to the standard places
+like /usr/lib.  This will get used to find the library at run time.
+If you make the executable setuid this becomes harder, due to security
+features of Solaris.  We hope we have made this problem less common in
+the 4_1 release.
+
+On some machines the lock file mechanism does not appear to work
+correctly, so that no data can be read in (not even enough to
+bootstrap initialisation).  You will see a message 
+	"Don't-know-who (session 0) already has write access" 
+even before the database exists.  To defeat the file locking
+mechanism, set the environment variable ACEDB_NO_LOCK before starting
+the program (e.g. "setenv ACEDB_NO_LOCK").  Of course if you do this
+you are responsible for making sure that two people do not try to
+update or edit the database at the same time.  Alternatively, create a
+fake user "NOLOCK" in the wspec/passwd.wrm file.
+
+The program is supposed to recognise monochrome and color screens.
+This sometimes fails; if you understand why, please let us know.  In
+case of problems with a black and white screen, try 'setenv
+ACEDB_MONO', or alternatively, 'setenv ACEDB_COLOR', or 'setenv
+ACEDB_GRAY'
+
+Macintosh version
+-----------------
+
+For macace, the Macintosh version of acedb, look in directory macace/
+of the ftp archive sites.  You need a Macintosh with absolute mimimum
+16Mb of memory and a decent monitor.  You also need some way of
+obtaining the files from an ftp site (e.g. Mosaic, Netscape, NCSA
+telnet, Versaterm Pro...).
+
+Additional Information 
+======================
+
+An on line help file is contained in ${ACEDB}/wspec/help.wrm and is
+activated by the help option in the menu, or by function key F1 or
+F10, or, on a Sun under twm, the help key.
+
+Some documentation files are available in the doc/ subdirectory of the
+distribution.  Amongst these, the nicest general user guide is
+angistute, which was written by Bruno Gaeta of the Australian National
+Genome Information Service, and is available as a compressed Unix
+postscript file (angistute.ps.Z) and a Macintosh Word binhex/stuffit
+compressed file (angistute.sit.hqx).  Although written for version 2
+acedb, this is still very relevant for most uses.
+
+Further information is available in files in the wdoc/ subdirectory of
+the source distribution, and via the acedb documentation archive at
+http://probe.nalusda.gov:8000/acedocs/index.html.
+
+------------------------ end of file ------------------------------

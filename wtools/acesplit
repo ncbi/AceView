@@ -1,0 +1,106 @@
+#!/usr/local/bin/perl
+# $Id: acesplit,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+# read a .ace file and split it every n objects
+# contributed by Detlef Wolf, DKFZ
+
+# Fri Feb  3 10:54:04 MET 1995  dok256
+# - comments may start anywhere on a line
+# Thu Feb  2 10:28:53 MET 1995  dok256; bugs fixed:
+# - DNA tags are no longer treated as objects
+# - .ace commands -D -R -A are recognized
+# - terminates even if last line of last file does not end with a newline
+# created: Fri Dec  2 17:36:57 MET 1994  dok256
+
+($#ARGV>=0) || die 
+   "usage: acesplit [-<objectcount>] [-p <name>] [<filename>...]
+    if -<objectcount> is omitted then only statistics are produced.
+    default value for the prefix option -p is 'split.'
+    use - as <filename> to read from stdin
+    options must be given in the order shown above\n";
+
+$f=1;
+$prefix="split.";
+$outfileno=1;
+
+if ($ARGV[0] =~ /^-[0-9]+$/) {
+  $splitsize= -($ARGV[0]); shift;
+  $nosplit=0;
+}
+else {
+  $splitsize=999999;
+  print "Only producing statistics, splitting turned off\n";
+  $nosplit=1;
+};
+
+if ($ARGV[0] eq "-p") { 
+  shift;
+  $prefix = $ARGV[0];
+  shift;
+};
+$objcount=0;
+
+if ($nosplit) {
+  $outfile="/dev/null";
+}
+else {
+  print "Splitting with prefix $prefix every $splitsize objects.\n";
+  $outfile="$prefix$outfileno";
+}
+
+open(F,">$outfile") || die;
+
+
+while (<>) {
+
+  if (/^LongText\b/) {
+    &route;
+    print F $_;
+    $cl{"LongText"}++ ;
+    while (<>) {
+      print F $_;
+      /^\*\*\*LongTextEnd\*\*\*$/ && last;
+    };
+    print F "\n";
+    eof() && last;
+    next; 
+  };
+
+  # blank line or comment between objects -- ignore
+  (/^\s*$/ || m|^\s*//| ) && next;
+
+  # no LongText --> a new-line terminated thing (DNA or B-class obj.)
+  if (/^(-[DAR]\s+)?(\w+).*/) {
+    $class=$2;
+    &route;
+    print F $_;
+    $cl{$class}++ ;
+    while (<>) {
+      print F $_;
+      /^$/ && last; 
+    };
+    eof() && last;
+    next;
+  };
+
+  warn "unrecognized line no $. : $_";
+};
+
+$sum=0;
+foreach (sort keys %cl) {
+  printf("%-30s%8d\n",$_, $cl{$_}) ;
+  $sum+=$cl{$_};
+};
+printf("%-30s%8d\n","--- total ---", $sum) ;
+
+sub route {
+  if ($objcount++ >= $splitsize) {
+    $objcount=1;
+    if ($nosplit==0) {
+      close(F);
+      $outfileno++;
+      $outfile="$prefix$outfileno";
+      open(F,">$outfile") || die;
+    };
+  };
+};
+

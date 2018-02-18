@@ -1,0 +1,117 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: histogramming </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Using the histogram features in Physical-Chromo-Map</H1>
+
+<PRE>
+
+
+Several people have asked how to use the facility in acedb to show
+histograms of the chromosomal distribution of various items.  There is
+in fact quite a flexible system for doing this, but it is a little
+intricate to use.  I always have to relearn it myself whenever I use
+it, so it seemed a good idea to write comprehensive instructions.
+
+From a standard map display, go to "Physical Chromo Map" (the last
+item on the menu).  From there choose "Full Genome Distribution".
+With a worm database, you should now see the six chromosomes with
+yellow bars for the physically mapped regions.  There are now two
+relevant menu entries, "Create histogram from file" and "Create
+histogram from keyset".
+
+Create histogram from file
+--------------------------
+
+The file version is more flexible, so I will describe that first.  The
+file must have the ending ".hisinf" to be read in by the program.  The
+required format is
+
+	CLONE_NAME [n] [len]
+
+where n is the number of items in that cosmid, and len is its length.
+The clone must be on the physical map for the information to register.
+If n is missing it is assumed to be 1.  Multiple lines for the same
+clone will add; this is fine for the n values, but the lengths also
+add (unfortunately), so you should not have multiple lines per clone
+if you give length information.  
+
+You can create multiple histograms for a single window by reading in
+multiple files.  For each data set, you get a little window that lets
+you set a number of different parameters:
+
+  Histogram bin: bin size in Mb (i.e. as on image scales).  Must be > 0.
+    If you set the bin width to 0 you suppress the column, even in line
+    mode.
+  Width factor: Let us call this wfac. In histogram mode, if you gave
+    lengths then the width of each block is wfac*ntot*1000000/lentot,
+    i.e. wfac=1 shows the normalised number per Mb.  In a histogram
+    without length information, the block width is wfac*ntot/binsize, 
+    equivalent to assuming there is complete coverage of information
+    in the bin (not a good assumption for sequence-based information!).
+    In line mode, lengths are ignored, and the line size for each
+    clone is wfac*n.
+  Colour: acedb colour: 0=WHITE, 1=BLACK, 2=LIGHTGREY, 3=DARKGREY, 
+    4=RED, 5=GREEN, 6=BLUE, etc.
+  Offset: offset right of yellow bars, in character width units.
+  Name: gets printed above the column for each chromosome.
+  Is Line: 0 or 1 - 0 for a histogram, 1 for a line per clone
+
+To see any effect after a change you must redraw the display with
+"Full Genome Distribution".
+
+If you quit the column specification window, you can get it back again
+with "Edit histogram columns" from the menu.
+
+Create histogram from keyset
+----------------------------
+
+The "from keyset" option makes a list from the active keyset.  It
+takes all Clone objects that are either directly on the physical map,
+or that are connected by a Positive tag2 relationship with clones on
+the map, e.g. cDNA clones with hybridisation data.  Note that the
+latter functionality is only available via the keyset option.  It then
+works the same way as the file option without lengths.
+
+Example
+-------
+
+There is an example file containing the number of CDS per cosmid from
+in ~rd/worm.data/9510/cosmids.cds.hisinf:
+
+  AH6 13 37801
+  B0034 5 35228
+  B0228 9 38946
+  B0244 8 43546
+  ...
+
+Load this file, set (bin 1, wfac 0.02, colour 3, offset 0, name
+"His", isline 0), and to see something.
+
+Now load the same file again, and use (bin 1, wfac 0.5, colour 6,
+offset 5, name "Line", isline 1) to see an example of line display.
+
+You can vary the histogram width in histogram mode without changing
+anything else.  If you set it very small, e.g. 0.1, you get something
+that looks quite like the line display, but is in fact a little
+different.
+
+Make a keyset of all A* clones, load this with "Create histogram from
+keyset" and set (bin 1, wfac 1, colour 4, offset 10, name "A*", isline
+0).  This shows the chromosomal distribution of the 97 unburied Axxxx
+clones.
+
+</PRE>
+
+</BODY>
+
+</HTML>

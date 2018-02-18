@@ -1,0 +1,127 @@
+<!--  $Id: Attach.html,v 1.1.1.1 2002/07/19 20:23:21 sienkiew Exp $  >
+<head>
+<title>Interactive Attach</title>
+</head>
+<h2>Interactive Attach</h2>
+
+<h3>Useful Terms</h3>
+
+<DL>
+<DT><strong>acceptor</strong>
+<DD>the text window into which you are importing data.
+<DT><strong>donor</strong>
+<DD>the object or class from which you are importing data
+</DL>
+
+Attach allows you to move information from one object or group of
+objects into the for another object. This is useful for viewing
+convenience, printing, and dumping. Attach is complex but extremely
+powerful; we recommend learning about it via experimentation. It is
+still being developed and will probably be extended to include
+additional features.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Attach</strong>: invokes <A HREF="Tag-Chooser.html">tag
+chooser</a> corresponding to selected donor(s); you must pick branch
+from donor to import into acceptor. The tag chooser is a blocking
+window; you must respond to it with a selection or CANCEL to continue.
+
+<li><strong>Detach</strong>: remove attached data from selected donor;
+you must collapse and expand the relevant tag in the acceptor for this
+to take effect. See help for <A HREF="Tree.html">text windows</a>
+for an explanation of collapse/expand.
+
+<li><strong>Attach Recursively</strong>: invokes tag chooser
+corresponding to selected donor; you must pick branch from donor to
+import into acceptor. <var>Recursively</var> means donor refers to a
+donor which refers to a donor... and you want to import this entire
+data chain into the acceptor.
+
+<li><strong>Help on attach</strong>: brings up this help.  </ul>
+
+<H3>Making an attachment</h3>
+
+1. First you must choose a single or group of donor objects from which
+to retrieve information.  Do this by selecting (clicking once) on a
+tag or object in the acceptor window. If you click a tag, ACE looks to
+the right to determing the object or objects in the donor
+class(es). Note that data in a <A HREF="Tree.html">text window</a> is
+arranged in a branching structure which functions as a hierarchical
+outline. A tag identifies all objects "under" it as potential
+donors.<p>
+
+<ul>
+<li>If a tag is flanked on the right by another tag, ACEDB continues
+rightward until it finds a valid object. It must find the first
+valid object on the first line or else the attachment will fail
+with an error.
+
+<li>If additional data lies to the right of the donor object in the
+acceptor, the attachment operation fails for that object.
+
+</ul>
+
+2. Second, you must choose which part of the donor to retrieve.<p>
+
+Select "Attach" from the pull-down "Attach..." menu (see below for
+"Attach Recursively"). A <A HREF="Tag-Chooser.html">tag chooser
+window</a> will appear. The tag chooser shows the layout of the donor
+class. In cases where a tag identifies donors from different classes,
+the tag chooser shows the class for the donor on the same line as the
+tag.<p>
+
+Again, data in objects is arranged in a branching structure which
+functions as a hierarchical outline. To identify a branch or
+sub-branch to import, double-click on a tag or field. Choose a tag if
+you want to import the branch it defines, i.e., the tag itself as well
+as everything "indented" under that tag.<p>
+
+Choosing a field gives a different effect. ACEDB identifies the branch
+that contains the field by looking leftward until it encounters a
+tag. But instead of importing the entire branch, only the part of the
+branch that contains the field of interest is taken.<p>
+
+The tag chooser will only show a single class. However, if your donors
+come from different classes, ACEDB will silently examine them to see
+if they contain a branch like the one you chose in the tag-chooser.<p>
+
+As soon as you double-click, the tag chooser will disappear.<p>
+
+3. Third, the donor you originally selected will now be collapsed
+(indicated by arrow and number). Uncollapse it by clicking once to see
+the attached information. See help for <A HREF="Tree.html">text
+windows</a> for more information about collapse/expand.<p>
+
+<ul>
+<li>you can now choose other donors in the acceptor and import
+information from them by repeating the steps above. Donors may 
+be chosen from newly attached information.
+<li>no data appears if the donor object(s) lack the information
+you are trying to import.
+<li>no data appears for a donor if it is flanked on the right 
+in the acceptor by other information.
+</ul>
+
+<h3>Detatch</h3>
+
+To remove imported information, pick the donor in the acceptor window
+and select the "Detach" item from the menu. The information will still
+be visible in the acceptor until you collapse and expand the donor by
+clicking on it. If a text window opens instead, that's because you
+clicked on an object name. Try collapsing and expanding a tag to the
+donor's left instead.<p>
+
+<h3>Attach Recursively</h3>
+
+In some cases objects are linked together in a recursive fashion. For
+example, in a cell lineage a particular cell may have one or more
+daughters, each of which may have daughters, and so on. A recursive
+attachment allows you to follow these links and import information
+from them into the same acceptor window.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

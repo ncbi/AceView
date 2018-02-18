@@ -1,0 +1,82 @@
+<!--  @(#)Interval_Mapping.html	1.2  2/17/95  >
+<head>
+<title>Interval_Mapping</title>
+</head>
+
+<h2>Interval_Mapping</h2>
+
+This program tries to compute a genetic map using deficiency data.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.<p>
+
+<li><strong>Help</strong>: brings up this help.<p>
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.<p>
+
+<li><strong>Parse database</strong>: Must be run once, when you have
+changed the 2_point_data It looks for deficiency data and reorgaizes
+them internally for later use by this package. In particular, genes
+and def are sorted into contigs defined as a set of genes and
+deficiencies tested against each other.<p>
+
+<li><strong>Read file</strong>: This allows you to run the same
+analysis on some data that you do not want to parse into your
+database.  The data file should consist of ND+1 lines of NM symbols 1
+or 0 where NM is the number of markers and ND the number of
+deficiencies. A 1 indicates that the deficiency uncovers the gene.
+The first line indicates which genes to take into account.  It should
+have NM 1 to use everything, any 0 will discard the corresponding
+column. i.e. gene from the analysis.  One can also impose the order of
+subgroups and block some genes together. An example input file is
+given in the next help page.<p>
+
+<li><strong>Get contig</strong>: Ask for a contig number. If you give
+a bad answer, it does not matter. The number of contigs is specified
+when you Parse the database.<p>
+
+<li><strong>Cost</strong>: Gives the cost of the running order of the
+marker, The cost function is n for a deficiency splitted in n+1
+discontinuous pieces There is also a way to impose the order of some
+of the markers, but I this is not yet done in a smooth way.<p>
+
+<li><strong>Shuffle</strong>: Reshuffles the markers before a new try.<p>
+
+<li><strong>Monte Carlo</strong>: Inserts the markers one by one in an
+expanding list. It tries to keep the cost to a minimum and remembers n
+previous configurations, n is a parameter asked from the user. We had
+fast and good results with NM = ND = about 20 and n = 5 This is a
+monte carlo, so you must repeat the search several times.  Once a good
+solution is found, it will no longer print the bad ones.  With NM = ND
+around 100, n = 8, it was very slow but the results were rather good.<p>
+
+<li><strong>Intrinsic tree</strong>: This is an independant fast and
+innacurate algorithm to reorder the genes. It should be completed by
+the next button:<p>
+
+<li><strong>Refine tree</strong>: This should better the results of
+the preceeding button but is not yet available.<p>
+
+<li><strong>Map</strong>: Creates a new window with a useful graphic
+presentation of the data. It is interesting even on the standard data,
+before selecting the order option. The Map graph has its own menu with
+the usual options Quit-Help-Print. The Help is the same one. Quit
+quits the application. Print prepares defmapxxx.PS.  With NM = ND =
+100, the resulting graph will not be printed on my laser, probably it
+is a font problem, sorry.<p>
+
+<li><strong>Histo</strong>: Plots the marginal ditributions :
+Histogram of the number of deficiencies carrying a given number of
+markers and vice versa
+
+</ul>
+
+to <a href="TOC.html">Table of Contents</a><p>
+</pre>
+
+last edited: July 1994<p>
+

@@ -1,0 +1,69 @@
+#! /bin/csh
+#
+#    $Id: parsecode,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+echo "// Acedb Source code" > code.ace
+
+foreach sourcefile (`ls w*/*.c`)
+	echo $sourcefile
+	echo ' ' >> code.ace
+	echo -n "SourceCode : " >> code.ace
+	echo $sourcefile >> code.ace
+	echo -n "SourceFile : " >> code.ace
+	echo $sourcefile >> code.ace
+	echo ' ' >> code.ace
+	echo -n "LongText : " >> code.ace
+	echo $sourcefile >> code.ace
+	echo ' ' >> code.ace
+	if (-f $sourcefile) then
+		cat $sourcefile >> code.ace
+	endif
+        echo ' ' >> code.ace
+	echo '***LongTextEnd***' >> code.ace
+        echo ' ' >> code.ace
+end
+
+mv wspec/help.wrm wspec/help.uu
+
+cd wh
+foreach hfile (`ls *.h`)
+	echo $hfile
+	echo ' ' >> ../code.ace
+	echo -n "Include : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo -n "SourceFile : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo ' ' >> ../code.ace
+	echo -n "LongText : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo ' ' >> ../code.ace
+	if (-f $hfile)  then  
+		cat $hfile >> ../code.ace
+	endif
+        echo ' ' >> ../code.ace
+	echo '***LongTextEnd***' >> ../code.ace
+        echo ' ' >> ../code.ace
+end
+
+cd ../wspec
+foreach hfile (`ls *.wrm`)
+	echo $hfile
+	echo ' ' >> ../code.ace
+	echo -n "Include : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo -n "SourceFile : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo ' ' >> ../code.ace
+	echo -n "LongText : " >> ../code.ace
+	echo $hfile >> ../code.ace
+	echo ' ' >> ../code.ace
+	if (-f $hfile)  then  
+		cat $hfile >> ../code.ace
+	endif
+        echo ' ' >> ../code.ace
+	echo '***LongTextEnd***' >> ../code.ace
+        echo ' ' >> ../code.ace
+end
+cd ..
+
+mv wspec/help.uu wspec/help.wrm

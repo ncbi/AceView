@@ -1,0 +1,38 @@
+This is a list of some operators that would make the client code run
+faster, but would require changes to the database server.
+
+
+
+implementation notes
+--
+
+new operators:
+
+	ksave name
+		puts current keyset into named keyset; leaves current keyset 
+		blank
+		- look up keyset name
+		- if keyset there, kdestroy it
+		- load current keyset into array
+		- set current keyset to new empty keyset
+
+		never copies the keyset
+
+	kload name
+		gets current keyset from named keyset; leaves named keyset blank
+		- look up keyset name
+		- if keyset there, 
+		-	destroy current keyset
+		- 	copy named keyset to current keyset
+		- 	drop keyset from keyset table
+
+	kadd keysetname class name [ class name ... ]
+		adds objects to a keyset
+
+	kdel keysetname class name [ class name ... ]
+		removes objects from a keyset
+
+	kdup name newname
+		- look up keyset name
+		- copy it into active keyset
+		- ksave newname

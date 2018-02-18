@@ -1,0 +1,84 @@
+<!--  %W%  %G%  >
+<head>
+<title>Status</title>
+</head>
+
+<h2>Status</h2>
+
+Available from <A HREF="acedb.html">Main Window</a> pop-up
+menu. Displays information about disk and memory useage and also
+software and data version.<p>
+
+The first line contains the software version number and the data
+release number. The data release number changes each time the database
+curator distributes a new official update file.<p>
+
+The next line indicates explicitly the session number. This number is
+changed whenever new data are entered and saved. Also shown is the
+login name of the user and the current write access state.<p>
+
+The <strong>On disk</strong> line concerns the file
+database/blocks.wrm It indicates the number of blocks really used by
+the database, followed by the number of blocks still available.  You
+may want to monitor these figures from time to time. The number of
+used blocks should grow substantially only when you parse a lot of new
+data or when you multiply the number of different sessions kept
+available. It should decrease when you destroy old sessions.  If at
+some point blocks.wrm becomes full, the program will ask permission to
+extend it as needed. If you refuse, the current session will be lost
+and you will simply restart on the statu quo ante.<p>
+
+The number of lexiques corresponds to the number of different
+classes as defined in wspec/classes.wrm. The number of keys
+is the number of independent objects known to the database. The
+number of char is the cumulated length of their names and of
+the entries in class Text.<p>
+
+The number of nodes and arrays gives an indication on the
+usage of the memory. They may be useful to debug a new piece of
+code and check, for example that all the arrays created for a given
+purpose get destroyed when they should.<p>
+
+You should have <p>
+
+<pre>
+	used objects = locked + known
+</pre>
+
+with locked dropping to zero after a clean up.<p>
+
+The number of modified objects should drop to 0 after a Save (<A
+HREF="acedb.html">Main Window</a> pop-up menu).
+
+Stream level should drop to 1, unless you are in the process of
+reading data.</a>
+
+
+<h3>Menu items:</h3>
+<ul>
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: Outputs the result to the Post Script file
+in $ACEDB/PS which you can print to your local laser printer.
+
+<li><strong>Update</strong>: Refreshes the data displayed in the
+status window.
+
+<li><strong>More on lexiques</strong>: shows how many objects there
+are in each class.
+
+<li><strong>Array report on stderr</strong>:
+
+<li><strong>Array Mark</strong>:
+
+<li><strong>BlockShow</strong>:Gives some detail on the content of the
+first cache This info is only useful to debug or optimize the kernel
+of the acedb program.
+
+</ul>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

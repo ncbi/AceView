@@ -1,0 +1,99 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2009-12-15_23:50:58
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle mRNA targetted by antisense sRNAs 
+Width 12 
+Optional 
+Visible 
+Class 
+Class MRNA 
+ 
+Colonne 2 
+Subtitle Column #2 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Product 
+From 1 
+Tag Product
+Condition best_product AND good_product
+ 
+Colonne 3 
+Subtitle taxonomy common ancestor 
+Width 12 
+Optional 
+Visible 
+Text 
+From 2 
+Tag Tax_common_ancestor
+ 
+Colonne 4 
+Subtitle Pfam 
+Width 12 
+Optional 
+Visible 
+Class 
+Class PFam 
+From 2 
+Tag Pfam_title
+ 
+Colonne 5 
+Subtitle product info 
+Width 12 
+Optional 
+Visible 
+Text 
+From 2 
+Tag Short_kantor_title
+ 
+Colonne 6 
+Subtitle gene 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Transcribed_gene 
+From 1 
+Tag From_gene
+ 
+Colonne 7 
+Subtitle gene 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 6 
+Tag Gene
+ 
+Colonne 8 
+Subtitle antisense tags in gene 
+Width 12 
+Optional 
+Hidden 
+Text 
+From 7 
+Tag s_antiSense
+Condition "\%8" = any
+ 
+Colonne 9 
+Subtitle antisense tags in gene 
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 8 
+Tag  HERE 
+ 
+ 
+
+// End of these definitions

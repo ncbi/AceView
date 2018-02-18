@@ -1,0 +1,70 @@
+acein.c
+
+aceout.c
+	? - used only by wsocket and wsocket7
+
+arraysub.c
+	dynamic array library
+
+	see
+		wdoc/array.html
+		wh/array.h
+bump.c
+
+call.c
+
+chronoexe.c
+
+dict.c
+	"dictionary" - enter a word into a dictionary and get back
+	an index number; later look up word to find same index number;
+	lookup does not necessarily create an entry
+
+	see
+		wh/dict.h
+
+
+filsubs.c
+
+freeout.c
+
+freesubs.c
+
+freesubs.new.c
+
+heap.c
+
+helpsubs.c
+
+liste.c
+
+memsubs.c
+
+memtest1.c
+memtest2.c
+	external programs for malloc_log test in memsubs.c
+
+menu.c
+
+messubs.c
+
+pseudoword.c
+	constructs arbitrary prounceable words
+
+randsubs.c
+
+strsubs.c
+
+texthelp.c
+
+timesubs.c
+	time manipulation functions that operate on mytime_t
+	!!! mytime_t uses bit patterns to encode y/m/d etc! it is NOT like a
+	!!! time_t
+	- convert to/from string
+	- time differences
+
+	see
+		wh/mytime.h
+
+utils.c

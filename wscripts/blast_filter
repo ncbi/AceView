@@ -1,0 +1,186 @@
+#!/bin/csh -f
+############################################################################
+############################################################################
+##  File: blast_filer
+#  %W% %G%
+# This file is part of the ACEDB package
+#  Author: J Thierry-Mieg, (mieg@kaa.crbm.cnrs-mop.fr)
+#  Copyright (C) R.Durbin & J Thierry-Mieg, 1995
+#-------------------------------------------------------------------
+# Usage: Usage blast_filter infile
+#   infile: the output of 
+#        blast | MSPcrunch -4s
+#-------------------------------------------------------------------
+# Description: 
+#   Complementys the result of MSPcrunch with the importation 
+#   of the homologous sequences
+#
+#-------------------------------------------------------------------
+# Configuration:
+#   For this system to run on your own server 
+#   you must duplicate the vega environment, contact us about that
+# To run the client, you need gnbkclient, perl and the network
+#
+############################################################################
+############################################################################
+## Choose the blast server
+
+echo blast_filter $1
+
+setenv server vega.igh.cnrs.fr
+setenv blastPort 20200
+
+############################################################################
+## Check for particular args and default paths
+
+if ($1 == "") goto usage 
+
+setenv ici `pwd`
+
+if ($?ACEDB) then
+ setenv s $ACEDB/wscripts
+else
+# echo ACEDB not defined
+ if (-d wscripts) then
+   setenv s $ici/wscripts
+  else
+   setenv s $ici
+  endif
+endif
+cd $s
+
+if ($?ACEDB_SRC) then
+ if (-d $?ACEDB_SRC) then
+  cd $?ACEDB_SRC
+  endif
+endif
+
+if ($?ACEDB_MACHINE) then
+ if (-d bin.$ACEDB_MACHINE) then
+  cd bin.$ACEDB_MACHINE
+ else
+  if ($?ACEMBLY) then
+   if ($?ACEDB_MACHINE) then
+    if (-d $ACEMBLY/bin.$ACEDB_MACHINE) then
+      cd $ACEMBLY/bin.$ACEDB_MACHINE
+    endif
+   endif
+  endif
+ endif
+endif
+
+if (-x  gnbkclient) then
+ setenv gnbkclient `pwd`/gnbkclient
+else if (-x  /usr/local/bin/gnbkclient) then
+ setenv gnbkclient /usr/local/bin/gnbkclient
+ else
+  echo Sorry Can t find /usr/local/bin/gnbkclient
+  goto usage
+ endif
+endif
+
+cd $ici
+echo arguments ok
+
+############################################################################
+## Check for necessary software
+
+/bin/env perl < /dev/null || goto noperl
+
+if ( ! -x $gnbkclient) then
+	echo Sorry Can t find $gnbkclient
+	goto usage
+endif
+
+if ( ! -x $s/client.pl) then
+	echo Sorry Can t find client.pl in directory $s, from ici=$ici
+	goto usage
+endif
+echo 'gnbkclient, client.pl found'
+############################################################################
+## Start blast search
+
+
+echo // `date` >! $1.b
+echo // `date` >> $1.b
+
+# Extract the protein names in various nomenclatures
+echo // extract the proteins >> $1.b
+nawk '/^Protein/{print $2;}' $1 | sort -u >! $1.prot
+#nawk '/gp\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $1.prot > ! $1.gp
+nawk '/sp\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s;\n",pq);}' $1.prot > ! $1.swiss
+nawk '/pir\|S\|/ {pp = substr($1,7) ; i = index(pp, "|") ; if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $1.prot > ! $1.pir
+
+
+# Extract the sequence  names in various nomenclatures
+echo // extract the sequences >> $1.b
+nawk '/^Sequence/{print $2;}' $1 | sort -u >! $1.seq
+nawk '/gb\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s;\n",pq);}' $1.seq > ! $1.gb
+nawk '/emb\|/ {pp = substr($1,5) ; i = index(pp, "|") ; if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $1.seq > ! $1.emb
+
+#Prepare a .ace rename file
+
+# BUG: i should really use -R, but dec 18 96, i found a bug in the ace kernel
+# so i change to -Alias temporarilly
+
+
+echo // nawk to list the various database calls >> $1.b
+#nawk '/gp\|/ {old = $1 ; pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s GP:%s\n",old, pq);}' $1.prot > $1.r.ace
+nawk '/sp\|/ {old = $1 ; pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s SP:%s\n",old, pq);}' $1.prot >! $1.r.ace
+nawk '/pir\|S\|/ {old = $1 ; pp = substr($1,7) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s PIR:%s\n",old, pq);}' $1.prot >>  $1.r.ace
+
+nawk '/gb\|/ {old = $1 ; pp = substr($1,4) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Sequence %s GenBank:%s\n",old, pq);}' $1.seq >>  $1.r.ace
+
+nawk '/emb\|/ {old = $1 ; pp = substr($1,5) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Sequence %s EMBL:%s\n",old, pq);}' $1.seq >>  $1.r.ace
+
+# arrange so that aliased objects are not empty when alias command is run
+echo '// Create a non empty entry for all proteins that should be aliased'  >! $1.R.ace
+echo ' ' >> $1.R.ace
+nawk '{if ($2 != "") printf("%s %s\nTitle\n\n%s %s\nTitle\n\n",$2,$3,$2,$4);}' $1.r.ace >> $1.R.ace
+echo ' ' >> $1.R.ace
+
+
+#Collect the protein sequences on the server
+echo // Import the proteins from $server >> $1.b
+$gnbkclient -host $server -port 20000111 < $1.swiss  | nawk -f $s/swiss.awk >! $1.swiss.out.ace 
+$gnbkclient -host $server -port 20000112 < $1.pir    | nawk -f $s/pir.awk   >! $1.pir.out.ace
+
+$gnbkclient -host $server -port 20000110 < $1.gb    | nawk -f $s/gb.awk    >! $1.gb.out.ace
+$gnbkclient -host $server -port 20000110 < $1.emb    | nawk -f $s/emb.awk    >! $1.emb.out.ace
+
+# I don t know how to parse pir.out
+#accumulate everything in $1.b in the correct order
+echo // Accumulate >> $1.b
+cat $1.R.ace $1.r.ace  $1.pir.out.ace  $1.swiss.out.ace  $1.gb.out.ace >> $1.b 
+cat $1.emb.out.ace $1  >> $1.b
+
+# Copy localy the input and the output file
+# cp $1.a  /var/tmp/$1.a  # if you want to keep a copy for debugging
+
+echo // done  >> $1.b
+ mv $1.b ./$1.ace
+ echo blast_search done result saved as: ./$1.ace
+
+# Clean up
+#\rm $1.prot $1.swiss $1.pir $1.r.ace $1.R.ace $1.gb $1.emb  $1.seq
+#\rm $1.swiss.out.ace  $1.pir.out.ace $1.gb.out.ace  $1.emb.out.ace
+exit 0
+
+
+############################################################################
+
+usage:
+ echo '-----------------blast_filter error----------------------------'
+ echo 'Usage blast_filter ace_file_name '
+ echo 'filters the output of blast | MSPcrunch -4 > file_name'
+ echo You called:  blast_filter "$*"
+ echo '---------------------------------------------------------------'
+ exit 1 
+
+noperl:
+ echo Sorry Can t find /usr/local/bin/perl
+ exit 1
+
+############################################################################
+############################################################################
+

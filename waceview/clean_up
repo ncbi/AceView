@@ -1,0 +1,20 @@
+#!/bin/tcsh -f
+echo 'le 7 janv ce code a pardu tout du 1 au 17 dec, alors attention'
+exit 1
+../bin/srotate
+sort_all
+mkdir OK1 OK2
+mv server.log.* OK1
+\cp sorted/* .
+cat server.log.* >! uu1
+mv server.log.* OK2
+\rm server.log.*
+perl specialsort.pl < uu1 >! uus
+setenv nn2 `grep -n '2008-01' uus | head -1 | gawk -F ':' '{print $1}'`
+setenv nn1 `grep -n '2008-01' uus | head -1 | gawk -F ':' '{printf("%d",$1-1)}'`
+
+head -$nn1 uus >! uus1
+tail +$nn2 uus >! uus2
+mv uus1 server.log.1
+mv uus2 server.log.0
+

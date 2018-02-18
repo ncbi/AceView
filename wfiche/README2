@@ -1,0 +1,22 @@
+
+_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/_/
+_/
+_/ how to generate and verify asn 
+_/
+_/
+
+web-page with asn schema 
+http://imgt.cnusc.fr:8104/informatics/stages/ASN1/NCBI/seqfeat.asn.html
+
+
+sworm annie:2310200 mrna 'tol-1' fiche asn > ~/test.asn
+testval -s -i ~/test.asn
+sequin -x < ~/test.asn
+
+how to get help in asn2gb ... the most natural way of course 
+asn2gb . /* I am not stupid I really mean dot */
+asn2gb -i ~/test.asn -o ~/test.html 
+
+	
+predicted exon 1b610
+stolen exon 1b15.b

@@ -1,0 +1,48 @@
+# @(#)LINUX_4_OPT_DEF	1.1    7/7/95 #
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### ported to 64 bit around 1992       ##############
+############### wmake/X86_64        Aug-2006       ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+##########   for the X86_64bits, running LINUX  #################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = OPTERON
+COMPILER = gcc -O4 -Wall -fno-strict-aliasing -I/usr/X11/include  -DACEDB4
+LINKER = gcc
+#CPP = /usr/local/gcc-3.4.1/bin/cpp
+
+LIBS = -lm
+
+# adapt these lines if the X11 libs are not in /usr/X11/lib
+Xt_LIBS = -L/usr/lib64 /usr/lib64/libXaw7.so.7.0.0 -lXt -lXmu -lXext -lX11
+#Xt_LIBS = -L/usr/X11/lib64 /usr/X11/lib64/libX11.so \
+#			   /usr/X11/lib64/libXaw.so \
+#			   /usr/X11/lib64/libXt.so \
+#			   /usr/X11/lib64/libXmu.so \
+#			   /usr/X11/lib64/libXext.so
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX_LIBS = -lfl
+LEX = flex
+LEX_OPTIONS = -l
+
+
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS = 
+
+#RPCGEN_FLAGS = -Y /usr/local/gcc-3.4.1/bin/ -b -I -K -1
+RPCGEN_FLAGS = -b -I -K -1
+
+#################################################################
+#################################################################
+

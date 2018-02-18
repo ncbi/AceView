@@ -1,0 +1,20 @@
+#!/bin/csh
+# $Id: addSCCSdefs,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+
+if ( $1 == '-a' ) then
+  mv $2 xxx
+  echo -n "// %W" >! $2
+  echo -n "%  %G" >> $2
+  echo "%" >> $2
+  cat xxx >> $2
+else
+  mv $1 xxx
+  echo -n "/*  %W" >! $1
+  echo -n "%  %G" >> $1
+  echo "%  */" >> $1
+  cat xxx >> $1
+endif
+
+
+\rm xxx

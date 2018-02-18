@@ -1,0 +1,592 @@
+#!/usr/local/bin/perl 
+
+# GenEmbl2ace
+# Version 1.1
+#
+# GENBANK and/or EMBL to .ace parser
+# Extensively plagiarised from Richard Durbin's embl2ace
+#
+# Sean Walsh sean@nasc.nott.ac.uk
+
+# Usage:
+# GenEmbl2ace.pl FILE(s)
+#
+# a FILE consists of one or more database RECORDs
+# a RECORD may be in GENBANK or EMBL format
+
+# BUG FIXES
+# 25-01-99 modified by mieg@crbm.cnrs-mop.fr to
+#  conform to c.elegans current models
+# 24-04-96 reg-ex for page numbers of papers
+
+
+############################# CONFIGURABLES ############################
+
+# comment lines to select options
+# the last option is the default in each case
+
+# use either database accession number or identifier (LOCUS in GENBANK, ID in EMBL)
+# as basis for ?Sequence object name
+
+
+$objectName = 'LOCUS';
+$objectName = 'VERSION';
+$objectName = 'ACCESSION';
+
+print "// Sequence may be named by acc.version OR Locus OR gi, see options at top of script\n\n" ;
+# use transcript identifiers as extension to sequence object name
+# eg. EM:AT7SLRNA.1_scRNA
+# eg. EM:AT81KBGEN.4_CDS
+
+$objectExtension = 'NONE';
+$objectExtension = 'TRANSCRIPT';
+
+# include database record as LongText
+
+$LongText = 'YES';
+$LongText = 'NO';
+
+# parse papers 
+
+$paperStyle = 'NONE';		# no paper parsing 
+$paperStyle = 'UNIQUE_KEY';	# a unique object name is generated from paper details
+				# eg. Shimomura_1993_s633
+				# ie. 1stAuthor_Year_1stCharacterOfTitle+1stPage
+$paperStyle = 'MEDLINE';	# object name is eg. [Medline:94297934]
+$paperStyle = 'PUBMED';	        # object name is eg. pm94297934
+
+# parse keywords
+
+$keyWords = 'NO';
+$keyWords = 'YES';
+
+
+######################### END OF CONFIGURABLES #########################
+
+
+$/="\n//\n";
+
+# create %transcipts, set elements to 1
+for (split (" ", "CDS mRNA tRNA snRNA scRNA rRNA misc_RNA")){
+    $transcripts{$_} = 1 ;
+}
+
+
+while (<>){
+
+    /(^LOCUS|^ID)/ || die "Entry does not start with LOCUS (GENBANK) or ID (EMBL) line: $_" ;
+    $db = ($1 eq 'LOCUS') ? 'GB' : 'EM'; # GENBANK or EMBL ?
+
+    /(^LOCUS|^ID)\s+(\S+)/ || die "Entry does not have an identifier: $_"; 
+    $locus = $2;
+
+    # insert dividers for splitting
+    s/\n(\S+)/\nSPLITHERE\n$1/g if $db eq 'GB';
+    s/\nXX/\nSPLITHERE/g if $db eq 'EM';
+#print "vvvv $_\n" ;
+    # $text to store full text of record
+    $text = '';
+    # $papers to concatenate paper objects
+    $papers = '';
+
+    for (split(/SPLITHERE\n/)){
+	
+	if (/^ORIGIN|^SQ/){
+            s/ //g ;
+            s/\d//g ;
+            s/\/\/\n// ;
+            s/U/T/g ;
+            s/^.*\n// ;
+            $seq = $_ ;
+        } else {		
+            $text .= $_ ;
+        }
+	
+	if (/(^ACCESSION|^AC)\s+(.*)/){
+            @ac = split(/\;| /,$2);
+	    $ac = shift(@ac);
+	}
+
+	if (/(^VERSION)\s+(.*)/){
+            @versiona = split(/\;| /,$2);
+	    $ncbiversion = shift(@versiona);
+	}
+
+	if (/(^NID|^NI)\s+(\w+)/){
+	    $ni = $2;
+	}
+
+        if (/^DEFINITION|^DE/){
+          if ($db eq 'GB'){
+	      s/DEFINITION  //;
+	      s/            //g;
+	  }
+	  s/DE   //g if $db eq 'EM';
+	  chomp ;
+	  s/\n/ /g ;
+	  $title = $_;
+	  $direction = "Forward"  if ($title =~ /5\'/) ;
+	  $direction = "Reverse" if ($title =~ /3\'/) ;
+	  $isCDNA = 1 if ($title =~ /mRNA/) ;
+          $isComplete = 1 if ($title =~ /complete cds/) ;
+        }
+
+	if (/^KEYWORDS|^KW/){
+	    s/KEYWORDS    // if $db eq 'GB';
+	    s/KW   / /g if $db eq 'EM';
+	    s/\n\s+/ /g;
+	    s/^\s+//;
+	    s/\n$//;
+	    s/\.$//;
+	     
+	    # object name locus or accession ?
+            # default
+	    $nam = $ac ;
+	    $nam = $db . ':' . $nam;
+
+            if  ($locus && ($objectName eq 'LOCUS'))
+	      {
+		$nam = $locus ;
+		$nam = $db . ':' . $nam;
+	      }
+	    elsif  ($objectName eq 'ACCESSION')
+	      {
+		$nam = $ac ;
+		$nam = 'G'.$db . ':' . $nam; # GGB not to confuse with previous imports
+	      }
+	    elsif  ($ncbiversion && ($objectName eq 'VERSION'))
+	      {
+		$nam = $ncbiversion ;
+	      }
+
+	    $dbnam = ($db eq 'GB') ? 'GENBANK' : 'EMBL';
+	    $nPaper = 0 ;
+	    # start output
+	    print  "\nSequence $nam\n" ;
+	    print  "Title \"$title\"\n" ;
+	    print "$direction\n" if ($direction) ; undef $direction ;
+	    print "cDNA\nIs_read\n" if ($isCDNA) ; undef $isCDNA ;
+	    print "Complete_mRNA\n" if ($isComplete) ; undef $isComplete ;
+	    #print  "!From_database $dbnam\n" ;
+	    print  "DB_annotation $dbnam $nam\n" if ($LongText eq 'YES');
+            #print  "Database $dbnam\n";
+            print  "Database $dbnam $ncbiversion\n";
+	    # mieg print  "Identifier $locus\n";
+	    # print  "Locus $locus\n"  if ($locus) ; pas correct ?
+	    
+	    for(@ac){
+		print "!Accession $_\n";
+		print  "Database Genbank $ncbiversion\n";
+	    }
+
+	    print  "!Nucleotide_id $ni\n";
+	    
+	    next unless $keyWords eq 'YES';
+	    for(split(/\; /)){
+		print "Keyword \"$_\"\n";
+	    } 
+	    next;		# else, $_ is tested against e.g. /^RN/ (see below)
+				# causes a spurious ?Paper to be printed after
+				# an RNA .* Keyword
+	}
+
+	if (/^SOURCE|^OS/) {
+	    /ORGANISM  (\w+ \w+)/ if $db eq 'GB';
+	    /OS   (\w+ \w+)/ if $db eq 'EM';
+
+	    print  "Species \"$1\"\n" ;
+
+        }
+
+        if (/^REFERENCE|^RN/){
+	  print "MGC\n" if ($_ =~ /MGC/) ;
+	    unless($paperStyle eq 'NONE'){
+		&Paper($db,$nam,$_,$paperStyle);
+	    }
+
+	}
+
+	if (/^FEATURES|^FH/) {
+
+	    # insert dividers for splitting into features
+            s/\n\s{5}(\S+)/ZZZZ$1/g if $db eq 'GB';
+	    s/\nFT\s{3}(\S+)/ZZZZ$1/g if $db eq 'EM';
+#print "uuuuu $_\n" ;
+	    undef $haveExons ;
+            undef (@subseqs) ;
+	    $nsubs = 0 ;
+
+	    # split into features
+	    for (split(/ZZZZ/)) {
+		
+		/^FEATURES|^FH/ && next ; # throw away, not a feature
+		chomp ;
+		
+		if ($db eq 'GB'){
+		    s/\n\s{21}\//ZZZZ/g; # insert dividers for splitting into qualifiers
+		    s/\n\s{21}//g;       # substitute excess space
+		} elsif ($db eq 'EM'){
+		    s/\nFT                   \//ZZZZ/g ;
+		    s/\nFT                   //g ;
+		}
+
+		(s/(\S+)\s+// && ($key = $1)) || die "No FT key in $locus\n" ;
+
+		@quals = split (/ZZZZ/) ; # split into qualifiers
+		($loc = shift (@quals)) || die "No loc in $id - $key\n" ; # pull out location
+
+		# do nothing with these
+		if ($key eq "source")
+		  {
+		    #print "// key=$key\n" ;
+		    #@quals = split (/ZZZZ/) ; # split into qualifiers
+		    foreach $qual (@quals)
+		      { 
+			#print "// qual $qual\n" ;
+			if ($qual =~ /^clone=/) 
+			  {
+			    $qual =~ s/clone=// ;
+			    # i do not know why only in this case i must rm the \n
+			    $qual =~ s/\n// ;
+			    $qual =~ s/ 5\'// ;
+			    $qual =~ s/Kohara clone// ;
+			    $qual =~ s/from Y\. Kohara// ;
+			    $qual =~ s/obtained from Yuji Kohara// ;
+                            ($clone) = split(/\;/,$qual) ;
+			    $clone =~ s/\"//g ;
+			    $clone =~ s/^\s*//g ;
+			    chomp ($clone) ;
+			    print "cDNA_clone \"GGB:$clone\"\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^clone_lib=/) 
+			  {
+			    $qual =~ s/clone_lib=// ;
+			    print "Library $qual\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^clone_lib=/) 
+			  {
+			    $qual =~ s/clone_lib=// ;
+			    print "Library $qual\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^tissue_type=/) 
+			  {
+			    $qual =~ s/tissue_type=// ;
+			    $qual =~ s/\"//g ;
+			    print "Tissue \"$qual\"\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^dev_stage=/) 
+			  {
+			    #$qual =~ s/tdev_stage=// ;
+			    $qual =~ s/\"//g ;
+			    print "Remark \"$qual\"\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^lab_host=/) 
+			  {
+			    $qual =~ s/lab_host=// ;
+			    print "!Lab_host $qual\n" ;
+			    next ;
+			  }	
+			if ($qual =~ /^note=/) 
+			  {
+			    $qual =~ s/note=// ;
+			    $qual =~ s/\n// ;
+			    print "MGC_Remark $qual\n" ;  # a Text not ?Text in the acedb schema
+			    $qual =~ s/\"// ;
+			    @notesa = split (/\;\s*/,$qual) ;
+			    foreach $note (@notesa)
+			      {
+				#print "// note=$note\n" ;
+				if ($note =~ /^Organ: /)
+				  {
+				    $note =~ s/^Organ: // ;
+				    print "Organ \"$note\"\n" ;
+				  }
+				if ($note =~ /^Vector: /)
+				  { 
+				    $note =~ s/^Vector: // ;
+				    print "Seq_vec \"$note\"\n" ;
+				  }
+				if ($note =~ /^Site_1:/)
+				  { 
+				    $note =~ s/^Site_1:// ;
+				    print "!Site_1 \"$note\"\n" ;
+				  }
+				if ($note =~ /^Site_2:/)
+				  { 
+				    $note =~ s/^Site_2:// ;
+				    print "!Site_2 \"$note\"\n" ;
+				  }
+			      }
+			    next ;
+			  }	
+		      }
+		    next ;
+		  }
+
+		($key eq "intron") && next ;
+		($key eq "3'UTR") && next ;
+		($key eq "5'UTR") && next ;
+		($key eq "-") && next ;
+		
+		# set flag if exons present
+		if ($key eq "exon"){
+		    $haveExons = 1 ;
+		    next ;
+		}
+
+				# parse the location, somewhat roughly I am afraid
+		$_ = $loc ; 
+
+				#  arbitrarily take first of complex options
+		s/(one-of\(([^,]+),[^\)]+\))/$2/ && warn "Fixed $1 into $2\n" ;
+		s/\((\d+).\d+\)/$1/ ;
+                
+				# shift replace() argument into qualifiers
+		s/^replace\(([^,]+),(.*)\)$/$1/ && push (@quals, "replace_by=$2") ;
+                
+				# expand single position to pair of the same
+		s/^([<>]?\d+)$/$1..$1/ ;
+
+				# replace ^ symbol by ..
+		s/\^/\.\./ ;
+
+		undef @exons ;
+
+                if (/join\(complement\((.*complement.*)\)$/){
+                    $_ = $1;
+                    s/complement\(|\)//g;
+                    s/<//g && push (@quals, "End_not_found") ;
+                    s/>//g && push (@quals, "Start_not_found") ;
+                    $start = 0 ;
+                    for (split (/,/, $_)) {
+                        s/^(\d+)$/$1..$1/ ;
+                        /(\d+)\.\.(\d+)/ || warn "In $id CJ parse $loc | $_\n" ;
+                        ($start == 0) && ($start = $2) ;
+                        push (@exons, ($start+1-$2) . " " . ($start+1-$1)) ;
+                        $stop = $1 ;
+
+                    }
+
+		} 
+                elsif (/^complement\((.*)\)$/) {
+		    $_ = $1 ;
+		    s/<//g && push (@quals, "End_not_found") ;
+		    s/>//g && push (@quals, "Start_not_found") ;
+		    if (/^join\((.*)\)$/) {
+			$start = 0 ;
+			for (reverse split (/,/, $1)) {
+			    s/^(\d+)$/$1..$1/ ;
+			    /(\d+)\.\.(\d+)/ || warn "In $id CJ parse $loc | $_\n" ;
+			    ($start == 0) && ($start = $2) ;
+			    push (@exons, ($start+1-$2) . " " . ($start+1-$1)) ;
+			    $stop = $1 ;
+			}
+		    } else {
+			/(\d+)\.\.(\d+)/ || warn "In $id C parse $loc | $_\n" ;
+			$start = $2 ; $stop = $1 ;
+		    }
+		} else {
+		    s/<//g && push (@quals, "Start_not_found") ;
+		    s/>//g && push (@quals, "End_not_found") ;
+		    if (/^join\((.*)\)$/) {
+			$start = 0 ;
+			for (split (/,/, $1)) {
+			    s/^(\d+)$/$1..$1/ ;
+			    /(\d+)\.\.(\d+)/ || warn "In $id J parse $loc | $_\n" ;
+			    ($start == 0) && ($start = $1) ;
+			    push (@exons, ($1+1-$start) . " " . ($2+1-$start)) ;
+			    $stop = $2 ;
+			}
+		    } else {
+			/(\d+)\.\.(\d+)/ || warn "In $id parse $loc | $_\n" ;
+			$start = $1 ; $stop = $2 ;
+		    }
+		}
+
+		# add to subseq stack, or write out
+		if ($transcripts{$key}) {
+		    ++$nsubs ;
+		    $Ext = ($objectExtension eq 'TRANSCRIPT') ? '_' . $key : '';
+		    print  "Subsequence $nam.$nsubs$Ext $start $stop\n" ;
+		    push (@subseqs, join ("ZZZ", $key, join ("YYY", @quals), 
+					  join ("XXX", @exons))) ;
+		} else {
+		    print  "$key $start $stop\n" ;
+		}
+	    }
+	}
+    }
+
+
+    ($haveExons && !@subseqs) && warn "Exons but no subseqs in $locus\n" ;
+
+    $nsubs = 0 ;
+    for (@subseqs) {
+	++$nsubs ;
+	($key, $q, $e) = split (/ZZZ/) ;
+	@quals = split (/YYY/, $q) ;
+
+	@exons = split (/XXX/, $e) ;   
+	$Ext = ($objectExtension eq 'TRANSCRIPT') ? '_' . $key : '';
+	print  "\nSequence $nam.$nsubs$Ext\n" ;
+	print  "$key\n" ;
+	for (@exons) {
+	    print  "Source_exons $_\n" ;
+	}
+
+	#my $briefId = "" ;
+	for (@quals) {
+	    (/Start_not_found/ || /End_not_found/) && print  "$_\n" ;
+
+ 	    /codon_start=(.*)/ && ($1 != 1) && print  "CDS $1\n" ;
+	    #if (/product=(.*)/) { $briefId .= $1 ; }
+	    #if (/note="(.*)"/) { $briefid .= ". " if (length($briefId) ; $briefid .= $1 ; }
+            /product=(.*)/ && print  "Brief_identification $1\n" ;
+            /note="(.*)"/ && print  "Remark \"$1\"\n";
+            /dev_stage="(.*)"/ && print  "Remark \"dev_stage=$1\"\n";
+            if (/gene="(.*)"/)
+	      {
+		my $gene = $1 ;
+		if ($gene =~ /^[a-z][a-z][a-z]\-[0-9]*$/)
+		  { $gene = lc($gene) ;  print  "Locus_GB \"$gene\"\n"; } # was Locus_62
+		else
+		  { print  "Locus_GB_dubious \"$gene\"\n"; } # was Locus_cgc
+	      }
+	}
+	#print  "Brief_identificationzzz \"$briefId\"\n" if ($briefId) ;
+    }
+
+
+    print "$papers";
+
+    print  "\nDNA $nam\n" ;
+    print  $seq ;
+
+    $text =~ s|\n//||;
+
+    if ($LongText eq 'YES'){
+	print  "\nLongText $nam\n" ;
+	print  $text ;
+	print  "***LongTextEnd***\n" ;
+    }
+}
+
+
+
+sub Paper {
+
+  my($db,$seqNam,$paper,$style) = @_;
+  my($medId,$pmId,$authors,$title,$jnl,@authors,@jnl,$jname) = '';
+  my($issue,$page1,$pageEnd,$year,$zoo,$foo,$goo,$part) = '';
+  my($bin,$authorFirst,$paperFirst) = '';
+
+  if ($db eq 'EM'){
+      #$paper =~ /RL   (Unpublished|Submitted|Thesis)/ && return;
+      for(split(/\n/)){
+	  $medId = $1 if /RX   MEDLINE\; (\d+)/; # medline id
+	  $pmId = $1 if /RX   PUBMED\; (\d+)/; # pubmed id
+	  $authors .= $1 if /RA   (.*)/; # authors
+	  $title .= " $1" if /RT   (.*)/; # paper title
+	  $jnl = $1 if /RL   (.*)/;	# journal, date and pages
+      }
+      undef $title if ($title =~ /Direct Submission/) ;
+      # process authors
+      $authors =~ s/\;//;
+      @authors = split(/, /,$authors);
+
+      # process title
+      $title =~ s/ \"|\";//g;
+   
+      # process journal, date and pages
+      @jnl = split(/\s+/,$jnl);
+      $jname = join(' ',@jnl[0..$#jnl-1]);
+      ($issue,$page1,$pageEnd,$year) = /(\d+):(\d+)-(\d+)\((\d+)\)/;
+
+  }
+
+  if ($db eq 'GB'){
+      #$paper =~ /  TITLE     Direct Submission/ && return;
+      #$paper =~ /  JOURNAL   Unpublished/ && return;
+      #$paper =~ /  JOURNAL .* In press/ && return;
+      #$paper =~ /  JOURNAL .* Thesis/ && return;
+      $paper =~ s/\n            / /g;
+      
+      for(split(/\n/,$paper)){
+
+	  $authors = $1 if /  AUTHORS   (.*)/;
+	  $title = $1 if /  TITLE     (.*)/;
+	  $medId = $1 if /  MEDLINE   (\d+)/;
+	  $pmId = $1 if /  PUBMED   (\d+)/;
+	  $jnl = $1 if /  JOURNAL   (.*)/;
+      }
+      # process title
+      if ($db eq 'GB' && $title =~ /Direct Submission/)
+	{ $title = $jnl ; $jnl = '' ; }
+
+      # process authors
+      $authors =~ s/ and /, /;
+      $authors =~ s/,(\S)/ $1/g;
+      @authors = split(/, /,$authors);
+
+      # process journal, date and pages
+      $jnl =~ s/ (\d)/ZZZZ$1/;
+      ($jname,$zoo) = split(/ZZZZ/,$jnl);
+      $zoo =~ s/, /ZZZZ/;
+      ($foo,$goo) = split(/ZZZZ/,$zoo);
+      $issue = $1 if $foo =~ /^(\d+)/;
+      $part = $1 if $foo =~ /\((\d+)\)/;
+      if ($goo =~ /(\d+)?-?(\d+)?/) { $page1 = $1; $pageEnd = $2 };
+      $year = $1 if $goo =~ /\((\d+)\)/; 
+      $jnl = '' if ($jnl =~ /Unpublished/) ;
+  }
+
+  if ($style eq 'UNIQUE_KEY'){
+      $paperFirst = substr($title,0,1);
+      ($authorFirst,$bin) = split(/ /,$authors[0]);
+      $paperName = "$authorFirst\_$year\_\L$paperFirst$page1";
+      warn "Paper name error: $paperName\n$_\n"
+	  if $paperName !~ /\w+_19\d{2}_[a-z0-9]\d+/;
+  }
+
+  if ($style eq 'MEDLINE'){
+      return if $medId eq '';
+      $paperName = "[Medline:$medId]";
+  }
+
+  if ($style eq 'PUBMED'){ 
+    # $nPaper is a global, yuuk
+    $nPaper++ ;
+    if ($pmId ne '') { $paperName = "pm$pmId"; }
+    else { $paperName = $seqNam.'_'.$nPaper; }
+#    print "XXXXXXXXXXXXX $nPaper  $paperName\n";
+  }
+
+  print "Reference $paperName\n";
+  
+  # $papers is a global
+  $papers .= "\nPaper $paperName\n"; # ! so i will rather import the paper from medline directly
+  if  ($pmId ne '')
+    {  $papers .= "PMID $pmId\n" ; }
+  else # give details
+    {
+      $papers .= "Title \"$title\"\n" unless $title eq '' ;
+      foreach(@authors)
+	{ $papers .= "Author \"$_\"\n";  }
+      $papers .= "Journal \"$jname\"\n" unless $jname eq '' ;
+      $papers .= "Year $year\n" unless $year eq '' ;
+      #$papers .= "Volume $issue\n";
+      $papers .= "Page $page1 $pageEnd\n" unless $page eq '' ;
+      $papers .= "Medline_acc $medId\n\n" unless $medId eq '';
+    }
+
+}
+
+
+
+
+

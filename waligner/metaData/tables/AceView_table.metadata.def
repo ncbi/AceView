@@ -1,0 +1,166 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2014-02-21_20:52:15
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Gene 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition transcribed_gene && !cloud
+ 
+Colonne 2 
+Subtitle Chrom  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Map 
+From 1 
+Tag IntMap
+ 
+Colonne 3 
+Subtitle From  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle to  
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 3 
+Tag HERE 
+ 
+Colonne 5 
+Subtitle GeneId  
+Width 12 
+Optional 
+Visible 
+Class 
+Class GeneId 
+MultiData
+From 1 
+Tag GeneId
+ 
+Colonne 6 
+Subtitle protein_coding  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_coding
+ 
+Colonne 7 
+Subtitle marginally_coding  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_marginally_coding
+ 
+Colonne 8 
+Subtitle ancient  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag pastille_conserved_taxblast
+ 
+Colonne 9 
+Subtitle spliced non coding  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Pastille_spliced_non_coding
+ 
+Colonne 10 
+Subtitle spliced  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Spliced_gene
+ 
+Colonne 11 
+Subtitle single_exon  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Single_exon_gene
+ 
+Colonne 12 
+Subtitle Is spliced and has antisense spliced_gene 
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag pastille_regulation_antisens
+ 
+Colonne 13 
+Subtitle gene description  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene_title 
+From 1 
+Tag Title
+ 
+Colonne 14 
+Subtitle Column #13  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Transcribed_gene 
+From 1 
+Tag Transcribed_gene
+ 
+Colonne 15 
+Subtitle Transcripts 
+Width 12 
+Optional 
+Visible 
+Class 
+Class MRNA 
+MultiData
+From 14 
+Tag mRNA
+ 
+Colonne 16 
+Subtitle Microarray probes 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Probe 
+MultiData
+From 1 
+Tag MicroArray
+ 
+ 
+
+// End of these definitions

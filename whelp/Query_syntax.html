@@ -1,0 +1,152 @@
+<!--  @(#)Query_syntax.html	1.2  2/17/95  >
+<head>
+<title>Query_syntax</title>
+</head>
+
+<h2>Query_syntax</h2>
+
+[Related to the query language: see help for <A
+HREF="Query_By_Example.html">Query By Example</a>, the <A
+HREF="Query_Builder.html">Query Builder</a>, the <A
+HREF="Query.html">Query Command Window</a>, and the <A
+HREF="Table_Maker.html">TableMaker</a>. The help for <A
+HREF="KeySet.html"> KeySet windows</a> is also important. A more
+formal description of the language is presented in the manual
+doc/query_language_guide.tex]<p>
+
+There are 3 general forms for a query command:<p>
+<dl>
+<dt><strong>Find  Class  xxxxxx</strong>
+<dd>The command xxx is applied to all the keys of the (sub)Class.
+Can be abbreviated as<br>
+<pre>&gt;?Class xxxxxx</pre>
+<dt><strong>Follow Tag xxxx</strong>
+<dd>The command xxx is applied to all the keys following
+tag in the objects of the active key set. Can be abbreviated as:<br>
+<pre>&gt; Tag xxxxxx</pre>
+<dt><strong>xxxx</strong>
+<dd>The command xxx is applied directly to the active key set.
+</dl>
+
+A command is a logical expression evaluating to True or False.  It is
+applied to a key which is discarded or retained in a KeySet based on
+the outcome of the test.<p>
+
+A composite query can be formed by chaining a series of queries
+separated by semicolons, in which case the active KeySet obtained
+as intermediate results are passed into the next query.<p>
+
+<h3>Operators</h3>
+
+Recognised operators are, in order of increasing precedence:<p>
+
+<pre>
+        $|           SETOR
+        $&amp;           SETOR
+        $^           SETXOR
+        $-           SETMINUS
+        $=           SETDEFINE (possibly bugged)
+                     NEIGHBOURS
+	|            OR
+	^            XOR
+	&            AND
+	!            NOT
+        #            Jumps in constructed types.
+        &lt;            to compare numbers
+        &lt;=                   "
+        &gt;                    "
+        &gt;=                   "
+	=            to compare numbers or match the left hand side
+	 	     to a template, i.e  a word with wild chars *, ?.
+        COUNT        Counts the number of entries to right of its rhs
+        IS  xxx      Checks if name of the active object matches xxx
+        CLASS xxx    Checks if active object belongs to (sub)class xxx
+</pre>
+
+Parentheses of all sorts "( [" can be used freely, but must be
+matched.<p>
+
+Words are matched to a tag or treated just as text.  They must be put
+in "double quotes" if they include spaces or any operator &, |, ^,
+&lt;, &gt;, =, (, ), [, ], {, }.  Wild cards can be used in words but
+then they are not at present matched to tags except in a redirection.
+Numbers are parsed as floats.<p>
+
+<h3>Examples</h3>
+<pre>
+1.     &gt;?Chrom*
+</pre>
+lists all chromosomes<p>
+<pre>
+2.     &gt;?Author s* | a*
+</pre>
+lists all authors whose name begins with s or a<p>
+<pre>
+3.     &gt;?Au*  s?s* OR b*s*
+</pre>
+lists all authors whose name matches s?s* or b*s*<p>
+<pre>
+4.     &gt;Pap*  Journal = N* OR Year &gt; 1987 
+</pre>
+Checks the previous list from query 3; redirect to papers then lists
+all papers published in N(ature) or after 1987<p>
+<pre>
+5.      Year = 1988
+</pre>
+Restricts to the papers of exactly 1987<p>
+<pre>
+6.      &gt;?Gen* myo* Clone
+</pre>
+All the cloned myosin genes<p>
+<pre>
+7.      Find Author IS "Sulston JE" ; &gt;Paper ; &gt;Author
+</pre>
+Finds all the coauthors of papers by Sulston.<p>
+
+<h3>Subfields, Subtypes, and COUNT</h3>
+
+<strong>Subfields</strong>: some tags are followed by more than one
+value. To test the value of subfields you must first locate yourself
+on the tag then move right from it using NEXT (move right) or HERE
+(move here) for multiple checks.  For example, suppose there were a
+class "Chemical" with a tag identifying the boiling and freezing
+points of compounds, e.g. for water:<p>
+
+<pre>
+        B_F  100 0
+</pre>
+
+to identify compounds with boiling and freezing points in a
+certain range:<p>
+
+<pre>
+        Find Chemical B_F &gt;50 AND NEXT &gt;100 AND HERE &lt;250
+</pre>
+i.e., with boiling points &gt; 50 and freezing points between
+100 and 250 degrees.<p>
+
+This is clearly hard to read. Also, it will be evaluated at execution
+left to right as it should only if the precedence of the operators
+allows it. Be careful.<p>
+
+<strong>Subtypes</strong>: to locate a tag in a subtytpe, you must
+indicate the path using the operator #, for example:<p>
+
+<pre>
+        Find Gene Lab AND NEXT#freezer = 4
+</pre>
+
+To find all the genes in your freezer number 4<p>
+
+<strong>COUNT</strong>: this operator can be used to test the number
+of entries. For example, to find prolific authors:<p>
+
+<pre>
+        Find Author COUNT Paper &gt; 100
+</pre>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>
+
+

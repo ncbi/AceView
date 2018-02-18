@@ -1,0 +1,49 @@
+Transactions between the client and server are a stream of messages.  Each
+message is formatted as:
+
+	length
+		3 bytes, lsb first
+
+	signature block
+		variable size depending on the auth type in use
+
+	message type
+		1 byte
+
+	message
+		length many bytes of transaction data
+
+
+Before connection, the auth type of a connection is DEFAULT.
+
+The auth type can be one of:
+	DEFAULT
+		The client is declining to use a username/password.  It is
+		granted access according to what is configured for the host
+		it is calling from.  The signature block is 0 bytes.
+
+		This is what you get just for connecting.
+
+	USER_MD5_
+		The user is presenting a user name and is implementing the
+		full MD5 challenge/response described above.
+
+
+Messages from the server to client are:
+
+	message type - 1 byte
+		'C' server challenge
+		'R' tace response
+		'E' error message
+		'a' select auth type
+
+Messages from the client to server are:
+
+	message type - 1 byte
+		't' tace command
+		'e' encore tace command
+		'n' tace command, send no response
+		'a' select auth type
+
+
+On initial connection, the server sends a CHALLENGE

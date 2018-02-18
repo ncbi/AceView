@@ -1,0 +1,49 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-05-09_18:32:36
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Parameters Z_genome
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Ali   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Ali 
+ 
+Colonne 2 
+Subtitle Rejected reads too many hits
+Width 12 
+Mandatory 
+Visible 
+Float
+From 1 
+Tag Rejected_too_many_hits
+
+Colonne 3 
+Subtitle caption
+Width 12 
+Mandatory 
+Visible 
+Text
+Right_of 2
+Tag HERE
+
+Colonne 4 
+Subtitle Tags
+Width 12 
+Mandatory 
+Visible 
+Float
+Right_of 3
+Tag HERE
+
+ 
+// End of these definitions

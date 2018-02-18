@@ -1,0 +1,2 @@
+select all a in class Author where count(select all a->Paper) > 100
+

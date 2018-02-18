@@ -1,0 +1,212 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-02-23_14:23:16
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Parameters condition in 15 imposes problem: av has less reads than refseq
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle GeneID    
+Width 12 
+Optional 
+Visible 
+Class 
+Class GeneId 
+ 
+Colonne 2 
+Subtitle refseq gene    
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Element 
+From 1 
+Tag Element
+Condition pg AND Deep AND g
+ 
+Colonne 3 
+Subtitle aceview gene    
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Element 
+From 1 
+Tag Element
+Condition AV AND Deep AND g
+ 
+Colonne 4 
+Subtitle Column #4    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 2 
+Tag Group_U
+Condition IS Brain23_SEQC_Any
+ 
+Colonne 5 
+Subtitle index Brain in RefSeq    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag HERE 
+ 
+Colonne 6 
+Subtitle Sequences Brain in RefSeq gene    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 5 
+Tag HERE 
+ 
+Colonne 7 
+Subtitle Column #7    
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 6 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle Reads Brain in RefSeq gene    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 9 
+Subtitle Column #9    
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 8 
+Tag HERE 
+ 
+Colonne 10 
+Subtitle kb Brain aligned in RefSeq gene    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 9 
+Tag HERE 
+ 
+Colonne 11 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 10 
+Tag HERE 
+ 
+Colonne 12 
+Subtitle Variance Brain in RefSeq gene    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 11 
+Tag HERE 
+ 
+Colonne 13 
+Subtitle Column #13    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 3 
+Tag Group_U
+Condition IS Brain23_SEQC_Any
+ 
+Colonne 14 
+Subtitle Index Brain in AceView gene    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag HERE 
+ 
+Colonne 15 
+Subtitle sequences Brain in AceView gene    
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 14 
+Tag HERE 
+Condition \%15 < [\%6 * 0.8]
+ 
+Colonne 16 
+Subtitle Column #16   
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 15 
+Tag HERE 
+ 
+Colonne 17 
+Subtitle Reads Brain av  
+Width 12 
+Optional 
+Visible 
+Text 
+Right_of 16 
+Tag HERE 
+ 
+Colonne 18 
+Subtitle Column #18   
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 17 
+Tag HERE 
+ 
+Colonne 19 
+Subtitle kb Brain AV   
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 18 
+Tag HERE 
+ 
+Colonne 20 
+Subtitle Column #20   
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 19 
+Tag HERE 
+ 
+Colonne 21 
+Subtitle variance in AV   
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 20 
+Tag HERE 
+ 
+ 
+
+// End of these definitions

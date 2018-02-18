@@ -1,0 +1,140 @@
+#
+# generate a plot file from the various */week.* files
+#
+
+case "$1"
+in
+"")	list="36a_1 ara_1 worm_1 mm_37_1"
+	;;
+*)	list="$*"
+	;;
+esac
+
+#
+# Standard set of gnuplot commands
+#	set grid
+#		actually draw the grid across the plot area
+#	set xdata time
+#	set x2data time
+#		both x axes are time
+#	set timefmt "%Y-%b-%d"
+#		INPUT time format year-month-day, month is alpha 3 char abbreviation
+#	set format x "%b"
+#		x axis label is 3 char abbreviation for month name
+#	set xtics ( ... )
+#		an x major grid at the start of each month
+#	set mxtics 1
+#		no x minor ticks
+#	set format x2 ""
+#		x2 axis lables are blank
+#	set x2tics mirror "2002-jan-1", 604800
+#		tics for x2 start jan 1, happen 1 per week, and are on both top and bottom
+#	set mx2tics 1
+#		no x2 minor ticks
+#	set data style linespoints
+#		data set is plotted as points with connecting lines
+#	set title "..."
+#		title at top of plot
+#	set terminal postscript color
+#	set terminal postscript solid
+#	set terminal postscript landscape
+#	set output "plot.ps"
+#		generate color postscript into file
+
+cat > plot.cmd << FOO
+set grid
+set xdata time
+set x2data time
+set timefmt "%Y-%b-%d"
+set format x "%b"
+set xtics ( "2002-jan-1", "2002-feb-1", "2002-mar-1", "2002-apr-1", "2002-may-1", "2002-jun-1", "2002-jul-1", "2002-aug-1", "2002-sep-1", "2002-oct-1", "2002-nov-1", "2002-dec-1", "2003-jan-1", "2003-feb-1", "2003-mar-1", "2003-apr-1", "2003-may-1", "2003-jun-1", "2003-jul-1", "2003-aug-1", "2003-sep-1", "2003-oct-1", "2003-nov-1", "2003-dec-1", "2004-jan-1", "2004-feb-1", "2004-mar-1", "2004-apr-1", "2004-may-1", "2004-jun-1", "2004-jul-1", "2004-aug-1", "2004-sep-1", "2004-oct-1", "2004-nov-1", "2004-dec-1", "2005-jan-1", "2005-feb-1", "2005-mar-1", "2005-apr-1", "2005-may-1", "2005-jun-1", "2005-jul-1", "2005-aug-1", "2005-sep-1", "2005-oct-1", "2005-nov-1", "2005-dec-1", "2006-jan-1", "2006-feb-1", "2006-mar-1", "2006-apr-1", "2006-may-1", "2006-jun-1", "2006-jul-1", "2006-aug-1", "2006-sep-1", "2006-oct-1", "2006-nov-1", "2006-dec-1", "2007-jan-1", "2007-feb-1", "2007-mar-1", "2007-apr-1", "2007-may-1", "2007-jun-1", "2007-jul-1", "2007-aug-1", "2007-sep-1", "2007-oct-1", "2007-nov-1", "2007-dec-1", "2008-jan-1", "2008-feb-1", "2008-mar-1", "2008-apr-1", "2008-may-1", "2008-jun-1", "2008-jul-1", "2008-aug-1", "2008-sep-1", "2008-oct-1", "2008-nov-1", "2008-dec-1", "2009-jan-1", "2009-feb-1", "2009-mar-1", "2009-apr-1", "2009-may-1", "2009-jun-1", "2009-jul-1", "2009-aug-1", "2009-sep-1", "2009-oct-1", "2009-nov-1", "2009-dec-1" )
+set mxtics 1
+set format x2 ""
+set x2tics mirror "2002-jan-1", 604800 
+set mx2tics 1 
+set ytics mirror 0, 5000
+set mytics 5
+set data style linespoints
+set title "AceView Queries per Week (2007)"
+set terminal postscript color 
+set terminal postscript solid 
+set terminal postscript landscape
+set output "plot.ps"
+FOO
+
+#
+# we add a plot command to the file we just created.  First, we
+# collect all the pieces into plot.tmp as a bunch of lines (so
+# it is easy to create), then use tr to turn all the \n into spaces
+#
+
+#echo 'plot  ["2003-jan-1":"2003-dec-31"][0:150000]' > plot.tmp
+#echo 'plot  ["2003-jul-1":"2004-jun-30"][0:150000]' > plot.tmp
+#echo 'plot  ["2003-jul-1":"2004-jul-1"][0:150000]' > plot.tmp
+#echo 'plot  ["2004-jan-1":"2004-dec-31"][0:150000]' > plot.tmp
+#echo 'plot  ["2004-jul-1":"2005-jul-1"][0:150000]' > plot.tmp
+#echo 'plot  ["2005-jan-1":"2005-dec-31"][0:150000]' > plot.tmp
+echo 'plot  ["2007-sep-1":"2007-dec-31"][0:150000]' > plot.tmp
+comma=""
+
+for x in $list
+do
+	if [ "$x" = "-" ]
+	then
+		echo ', "holidays" using 1:2 title "holidays" with impulses' >> plot.tmp
+	else
+
+		#
+		# $x/week.* files contain data sets of individual weeks.
+		# we want to extract the interesting data from each and
+		# concatenate it into a single plot file
+		
+		rm -f $x/plot-table
+
+		read latest_week < $x/latest_week
+
+		for y in $x/week.*
+		do
+			if [ "$y" != "$x/$latest_week" ]
+			then
+				egrep '^(WEEK|-non-junk)' $y | tr '\n' ' ' |  \
+					gawk '{ if ( $8 != "" ) print $4, $8; }' >> $x/plot-table
+			fi
+		done
+
+		#
+		# here is the portion of the plot command for this dataset
+
+		if [ -f $x/plot-table ]
+		then
+			echo "$comma" >> plot.tmp
+			echo '"'$x'/plot-table" using 1:2 title "'$x'"' >> plot.tmp
+
+			#
+			# need a comma before the next portion of the plot command
+			comma=", "
+		fi
+
+	fi
+
+done
+
+
+
+#
+# eliminate the \n from the plot command and add them to the script
+# for gnuplot
+
+tr '\n' ' ' < plot.tmp >> plot.cmd
+
+#
+# get a newline on the end of the plot command at the end of the script
+
+echo '' >> plot.cmd
+
+#
+# plot it
+
+gnuplot < plot.cmd
+
+#rm plot.tmp plot.cmd

@@ -1,0 +1,14 @@
+// $Id: examples.qry,v 1.1.1.1 2002/07/19 20:23:31 sienkiew Exp $
+Find Gene ace*
+{ >Allele } $| { > Strain }
+>?Paper  Author = Sul* & (Journal = Nature | Year > 1986)
+FIND Gene unc* AND Positive_Clone
+>? Gene unc*
+Positive_clone
+>?Paper Volume > 100
+>?Paper Volume > 90 AND NOT (Volume > 100)
+Author = Chalf*
+Year > 1980
+>?Author Sulst* ; >Paper ; >Author
+Author = Chalfie*
+>Author

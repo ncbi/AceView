@@ -1,0 +1,216 @@
+#!/bin/csh
+# $Id: INSTALL.acembly,v 1.1.1.1 2002/07/19 20:23:37 sienkiew Exp $
+##########################################################################
+# Ace.mbly installation script, 
+# Uses the acedb installation script with very minor modifications
+# flagged by the $ACEMBLY variable
+##########################################################################
+#################      A C.elegans database    ###########################
+#################   R.Durbin and J.Thierry-Mieg  #########################
+#################                                #########################
+#################   Installation script, june 91 #########################
+##########################################################################
+
+# To install ACeDB, this file and the appropriate distribution tar.Z files
+# should be in the same directory. See the NOTES file to find out which
+# distribution tar.Z files you need for your site. You must have write
+# access in the directory to be able to run the INSTALL script.
+
+# We can provide executables for most X11-Unix platforms, like SUN
+# DEC stations, Next, Alliant, Silicon Graphics, IBM
+# and for PC-compatibles running the freeware Unix-OS called LINUX
+
+# Go to the directory and, omitting the leading #, type the command
+#  chmod 755 INSTALL.acembly
+#  INSTALL ace.mbly
+
+###################################################################
+
+echo ' '
+echo 'ACEMBLY installation script'
+echo ' '
+
+setenv ici `pwd`
+
+if ($USER == "root") then
+ echo 'You should not be root when installing ACEDB'
+ echo 'su to some other user name and try again'
+ exit
+endif
+
+echo 'We are going to install the acedb system in the present directory: '
+echo -n "      "
+pwd
+echo 'This is your available disk space in this directory: '
+df .
+echo ' '
+echo "We need 10 MB for the installation."
+echo -n "Should we proceed?  Please answer yes/no : "
+
+switch("$<")
+case "yes":
+case "y":
+	breaksw
+default:
+	echo 'You did not answer yes, I quit'
+        exit
+        breaksw	
+endsw
+
+echo 'Starting the installation'
+
+if (! -e ACEMBLY.*.tar.gz) then
+ echo "I cannot find the ACEMBLY.tar.gz file, I quit"
+ exit 1 
+endif
+
+mkdir ACEMBLY
+if (! -d ACEMBLY) then
+ echo "I cannot create the ACEMBLY directory, I quit"
+ exit 1 
+endif
+
+mkdir ACEMBLY/seqmgr
+if !(-d ~/archive) then
+ mkdir ~/archive
+ echo 'I created an archive directory as ~/archive'
+ echo 'Preferably, it should be a link pointing to a different machine'
+ echo " this directory is used when you run the \'acembly -abi2ace\' command"
+endif
+
+foreach f  (`ls $ici/ACEMBLY.*.tar.gz`)
+    echo Restoring files from $f
+    gunzip -c $f | tar xf -
+    if !(-e $ici/ACEMBLY/acembly) then
+     echo the command gunzip -c $f | tar xf -   failed
+     echo  most probably gunzip is missing on your machine
+     echo  sorry, i can t decompress the acembly distribution
+     echo i quit
+     exit 1
+     endif
+    break
+end
+
+cd $ici
+mkdir ACEDB
+cd $ici/ACEDB
+
+# next items fix problems in the tar.Z files
+cd $ici/ACEDB
+foreach f  (`ls $ici/source.*.tar.gz`)
+    echo Restoring files from $f
+    gunzip -c $f | tar xf -
+    break
+end
+
+cd $ici/ACEDB
+foreach f  (`ls $ici/bin.*.tar.gz`)
+    echo Restoring files from $f
+    gunzip -c $f | tar xf -
+    break
+end
+
+cd $ici
+echo 'chmod ACEMBLY/*'
+chmod 755 ACEMBLY/*
+ln -s ACEMBLY/acembly acembly
+
+cd $ici/ACEDB	
+echo 'chmod ACEDB/bin*/*acembly*'
+chmod 755 bin*/xacembly
+chmod 755 bin*/tacembly
+chmod 755 wscripts/*
+
+foreach f (`\ls | grep bin`)
+ if (-d $f) then
+  echo linking $f
+  cd $f
+  setenv mybin `pwd`
+  cd $ici/ACEMBLY
+  ln -s $mybin $f
+  cd $ici/ACEDB	
+  endif
+end
+
+if (-d wmake && -e wmake/makefile) ln -s wmake/makefile makefile
+
+echo ' '
+echo 'Before running the program, each user must define the'
+echo 'environment variable ACEMBLY and put this directory in his path.'
+echo 'Do this either by copying into their .login or .cshrc file the commands:'
+echo ' '
+echo "setenv ACEMBLY $ici/ACEMBLY"
+echo 'set path = ($path ' "$ici" '/ACEMBLY)'
+echo  ' '
+
+echo 'If you need to recompile you need:'
+echo -n "  setenv ACEDB_SRC "
+echo `pwd`
+echo  ' and also '
+echo '  setenv ACEDB_MACHINE one of SUN, DEC etc, see wmake/truemake'
+echo ' '
+echo -n 'Hit return to proceed'
+switch("$<")
+default:
+        breaksw	
+endsw
+echo ' '
+echo 'For more information :'
+echo 'a) Read ACEMBLY/USAGE and the documentation'
+echo 'b) Use the on-line help (help key or F1 or F10), while running acembly'
+echo 'c) Use e-mail :  mieg@kaa.cnrs-mop.fr'
+echo ' '
+echo 'Let us know if this installation script does not work.'
+echo ' '
+echo 'If you received no error message the installation is complete'
+echo ' '
+echo 'The command acembly will start the program.'
+echo 'The first time you run you must do'
+echo 'acembly -Create clone_name'
+echo ' '
+echo 'After testing the program, archive and remove the tarfiles'
+echo ' '
+echo "If you do not object, a report of the installation will now be mailed"
+echo 'to the developpers of acembly and you will be added to our mailing list'
+echo ' '
+echo -n 'Should we mail this report ? Please answer yes ! (or no) '
+
+switch("$<")
+case "no": case "n":
+        setenv Mail_status 0
+	breaksw	
+default:
+	setenv Mail_status 1
+        echo "merci"
+        exit
+        breaksw	
+endsw
+
+
+cd $ici
+
+## Report attempt to Acedb authors 
+
+echo 'acembly 4.5_f install attempt' > ! toto
+echo `hostname` >> toto
+echo `uname -a` >> toto
+echo `date` >> toto
+echo `whoami` >> toto
+echo `pwd` >> toto
+ls bin.*.gz source.*.gz >> toto
+
+if ($Mail_status == 1) then
+mail mieg@ncbi.nlm.nih.gov < toto
+endif
+
+echo 'This is an automatically generated report of the installation of' >! toto1
+echo 'the acembly software.' >> toto1
+echo ' ' >> toto1
+echo ' ' >> toto1
+cat toto >> toto1
+
+mail root < toto1
+
+\rm toto toto1
+echo ok, the installation is finished
+## end of Installation script ##

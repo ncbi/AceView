@@ -1,0 +1,128 @@
+<!--  @(#)Genetic-map.html	1.2  2/17/95  >
+<head>
+<title>Genetic-map</title>
+</head>
+
+
+
+<h2>Genetic-map</h2>
+
+This display represent the genetic map.  You can pick most things.<p>
+
+The contigs are displayed past their last gene -- in many
+cases they extend much further, but we don't really know how far in
+genetic units so take our estimate with caution.<p>
+
+If you double click on the contig it interpolates to the physical map
+using the nearest two genes for which there is genetic map data.
+Sometimes if the relative order is wrong this can be confusing.  All
+this will improve in the future.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+<li><strong>Preserve</strong>: ensure that the next gmap will be
+displayed in a different window, otherwise the present one will be
+reused.
+
+<li><strong>Recalculate</strong>: recomputes the display from the map
+data.  Otherwise, the same display is shown again and again. We could
+make the recalculation automatic after any update of the clone tress
+but it would slow the program if you alter some data which do not
+actually influence the drawing.
+
+<li><strong>Highlight Selected Objects/Show Selected Objects/Show All
+Objects</strong>: Highlight or restrict to only those objects
+belonging to the map and the selected keyset (normally the list in the
+Main Selection Window, or one made by the Query facility).  All
+reverts to the complete unhighlighted map, and removes any
+highlighting from the GMap Data button option.
+
+<li><strong>Load/Save Private Map</strong>: After editing a map you
+can save and retrieve it later.  The saved map does not appear in the
+standard chromosome list.
+
+</ul>
+
+<h3>Buttons</h3>
+
+<ul>
+
+<li><strong>Whole Chromosome, Zoom In/Out</strong>: affect the amount
+of the map being displayed. They are equivalent to the continuous
+centering and zooming that you get by picking with the middle button
+in the left column of the map and dragging up-down to recenter,
+left-right to zoom.
+
+<li><strong>GMap Data</strong>: Shows CGC map data in graphical form.
+You can click on the 2point and 3point data entries to see the actual
+data.
+
+<li><strong>Highlight/Some/All</strong>: Equivalent of the menu
+entries to highlight or show selected or all objects.
+
+<li><strong>Drag Gene</strong>: Pick a gene or a def-dup, press this
+button, then drag the gene with the mid mouse button. Useful to edit
+the map. You can then save your private version.
+
+</ul>
+
+<h3>Colour Code</h3>
+
+When using the "GMap Data" button, colours represent
+the following information:<p>
+
+<ul>
+
+<li><strong>Red</strong>: The active object.
+
+<li><strong>Yellow</strong>: Contact to the physical map.  Yellow
+genes are cloned.  The little yellow boxes are direct hooks to these
+clones.  The long yellow bar is the contig. Picking it moves you to
+the corresponding place in the contig.
+
+<li><strong>Grey</strong>: Background to the name of the colored
+rearrangement.
+
+<li><strong>Green</strong>: Those genes covered by the red
+rearrangement.  Those rearrangements covering a red gene.  The gene
+mapped 2_points relative to the red gene.
+
+<li><strong>Blue</strong>: Those genes not covered by the red
+rearrangement.  Those rearrangements not covering a red gene.  The
+gene mapped 3_points relative to the red gene.
+
+<li><strong>Magenta </strong>: Objects explicitly highlighted with the
+Highlight option.
+
+</ul>
+
+The <strong>All</strong> button removes green, blue and magenta
+colours.<p>
+
+<h3>Zoom and Recentre</h3>
+
+The <strong>ZOOM</strong> buttons act on the whole map around the
+center represented by the little green box.<p>
+
+You can recenter the display by pressing with the centre mouse
+button and dragging, or by picking with the left mouse button and
+dragging either:<p>
+
+<ul>
+<li>the small  black box sitting on the scale.
+<li>or the long green box at the left of the picture.
+</ul>
+
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

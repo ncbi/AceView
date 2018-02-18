@@ -1,0 +1,32 @@
+#!bin/tcsh -f
+
+set old=$1
+set new=$1
+set out=$3
+set dir=$4
+
+  cat $out/fileList.old | grep $dir >  $out/f.old
+  cat $out/fileList.new | grep $dir >  $out/f.new
+  
+  diff  $out/f.old  $out/f.new >  $out/f.diff
+  set n=`wc  $out/f.diff | gawk '{print $1}'`
+  if ($n > 0) then
+    echo "...... Sorry, the 2 directories do not contain the same list of fastc file"
+    echo "...... See  $out/f.diff"
+    cat  $out/f.diff
+    exit 1
+  endif
+  
+  echo "...... checking the $dir data input directory, if any difference is found the comparison stops"
+  foreach f (`cat $out/f.old`)
+    #jump the directories
+    set n=`ls -lsd  $new/$f | gawk '{ n=0;if (substr($2,1,1) == "d") n=1; print n}'`
+    if ($n == 1) continue
+  
+    $new/scripts/magicDiff.compareFile $old $new $out $f
+    if ($status) exit 1
+
+  end 
+  echo "...... the old amd new $dir directories are identical"
+ exit 0
+

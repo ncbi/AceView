@@ -1,0 +1,76 @@
+#!/bin/csh -f
+
+# $Id: MAKE_DNA2DNA_DISTRIBUTION,v 1.2 2011/10/11 22:41:54 mieg Exp $
+
+if ($#argv != 1) then
+   echo "usage - MAKE_DNA2DNA_DISTRIBUTION <version>"
+   echo "  ex: MAKE_DNA2DNA_DISTRIBUTION 2006_10_11"
+   exit 1
+endif
+
+setenv ici `pwd`
+
+if (-d tmp_dna2dna_src) then
+  echo 'please remove first directory tmp_dna2dna_src'
+  exit 1
+endif
+
+mkdir tmp_dna2dna_src
+cd tmp_dna2dna_src
+mkdir dna2dna.$1
+cd  dna2dna.$1
+cvs checkout ace
+mv ace/* .
+rmdir ace
+\rm -rf CVS
+\rm -rf w*/CVS
+\rm -rf test*/CVS
+\rm -rf demo/CVS
+\rm -rf wac/testdb/CVS
+\rm -rf w6/michel w7/jean w*/fiche idoc misc
+#\rm wabi/cdnaalign.c wabi/cdnatr.c  wabi/makemrna.c wabi/cdnapath.c wabi/diamino.c
+\rm README.PROJECT
+\rm -rf GAMES
+\rm -rf wscripts/ficheold
+chmod 755 demo/test*
+\rm makefile
+ln -s wmake/makefile .
+
+# no idea why, but the CVS seems to have a knot
+pushd wh
+\rm ac.h
+ln -s ../wac/ac.h
+popd
+
+# simplify the distribution tree
+mv wtools/README.dna2dna .
+mkdir JJ JJ/wacext
+mv wacext/dna2dna.c JJ/wacext
+mv wacext/makefile  wacext/makefile.acc  JJ/wacext
+mv  w1  w6  wac wh  whooks  wmake  wmd5  wsocket  wtcp JJ
+\rm -rf w*
+mv JJ/* .
+rmdir JJ
+
+
+chmod 755  waligner/scripts/submit
+cd ..
+tar cf dna2dna.$1.source.tar dna2dna.$1
+
+gzip dna2dna.$1.source.tar
+
+mv dna2dna.$1.source.tar.gz $ici
+
+cd $ici
+echo 'done, the tar file is ready'
+cd $ici
+ls -ls  dna2dna.$1.source.tar.gz
+echo 'if ok, please: \rm -rf tmp_dna2dna_src'
+
+echo "please mv dna2dna.$1.source.tar.gz ~/ftp/Software/AceView/dated/"
+
+
+
+
+
+

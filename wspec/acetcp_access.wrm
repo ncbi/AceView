@@ -1,0 +1,7 @@
+# This file determines read/write access to the acedb server 
+# It is used in particular by the MAGIC WEBSERVER interface. 
+# Specify a machine ip number 
+# Followed by r or w to grant read or read-write access
+# Followed possibly by a commentary 
+# Example:  
+# 123.45.67.89 r // my_computer

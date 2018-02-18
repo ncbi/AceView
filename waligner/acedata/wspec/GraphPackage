@@ -1,0 +1,29 @@
+!  @(#)GraphPackage	1.1    1/20/94 
+!
+! resources for the X version of the Graph package
+! used in acedb
+!
+*Continue.label: Continue [from resource file]
+
+*Text.Translations:\
+	Ctrl<Key>F:	forward-character() \n\
+	Ctrl<Key>B:     backward-character() \n\
+	Ctrl<Key>D:	delete-next-character() \n\
+	Ctrl<Key>A:	beginning-of-line() \n\
+	Ctrl<Key>E:	end-of-line() \n\
+	Ctrl<Key>K:	kill-to-end-of-line() \n\
+	Ctrl<Key>W:	kill-selection() \n\
+	Ctrl<Key>Y:	unkill() \n\
+	<Key>Right:	forward-character() \n\
+	<Key>Left:      backward-character() \n\
+	<Key>Delete:    delete-previous-character() \n\
+	<Key>BackSpace: delete-previous-character() \n\
+	<Key>Return:    promptReturn() \n\
+	<Key>:		insert-char() \n\
+	<Btn1Down>:     select-start() \n\
+	<Btn1Motion>:	extend-adjust() \n\
+	<Btn1Up>:	extend-end(PRIMARY, CUT_BUFFER0) \n\
+	<Btn2Down>:	insert-selection(PRIMARY, CUT_BUFFER0) \n\
+	<Btn3Down>:	extend-start() \n\
+	<Btn3Motion>:   extend-adjust() \n\
+	<Btn3Up>:	extend-end(PRIMARY, CUT_BUFFER0)

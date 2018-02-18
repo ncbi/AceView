@@ -1,0 +1,80 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-10-05_12:14:36
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title Mismatch rates
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Run  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Ali 
+ 
+Colonne 2 
+Subtitle Column #2  
+Width 12 
+Mandatory 
+Hidden 
+Text 
+From 1 
+Tag Error_profile
+Condition "\%2"="any"
+ 
+Colonne 3 
+Subtitle Number of mismatches  
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle Aligned Mb 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag HERE 
+ 
+Colonne 5 
+Subtitle Number of Mismatches per Mb aligned  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag HERE 
+ 
+Colonne 6 
+Subtitle Column #8 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run
+ 
+Colonne 7 
+Subtitle Species 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Species 
+From 6 
+Tag Species
+ 
+ 
+
+// End of these definitions

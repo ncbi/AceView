@@ -1,0 +1,42 @@
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+#
+# hack everything up to make it work on Cygwin - this doesn't
+# make everything work on cygwin, but it makes enough to be
+# useful
+#
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = CYGWIN
+COMPILER = gcc -g -Wall -DACEDB4 -I/usr/X11R6/include
+LINKER = g++ -g
+
+LIBS = -lm
+Xt_LIBS = -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXext -lX11
+LEX_LIBS = -lfl
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX = flex
+LEX_OPTIONS = -l
+
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS =
+
+# RPCGEN_FLAGS = -b -I -K -1
+RPCGEN_FLAGS = 
+
+#################################################################
+#################################################################
+ 
+ 
+ 
+ 

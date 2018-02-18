@@ -1,0 +1,21 @@
+#!/bin/tcsh -f
+
+# To send a mail with all the not-fond errors in the
+# current log files
+
+set errors=/home/mieg/ee/SERVER/LOGS/AceErrorLog/Err$$
+date >! $errors
+
+cd /home/mieg/ee/SERVER/bin
+#ssc
+foreach ff (`ls /home/mieg/ee/SERVER/*/server.log`)
+  grep no_result $ff >> $errors
+  grep saturated $ff >> $errors
+end
+
+gawk -F '\t' '{gsub(/exdb=AceView&/,"",$0) ; gsub(/&/,"\t",$0) ; n=index($0, "no_results") ; if (n < 1) n=index($0, "saturated") ;a = substr($0,n+11) ; n1=index(a," ") ; printf ("%s\n",substr($0,n,n1+11));}'  $errors >! $errors.a 
+foreach user ($1)
+  Mail $user < $errors.a
+end
+
+#/server.log /home/mieg/deuce/SERVER/*/server.log  /home/mieg/ACE/SERVER/*/server.log`)

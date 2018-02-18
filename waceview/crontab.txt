@@ -1,0 +1,11 @@
+17      3       *       *       0       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+17      3       *       *       1       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+17      3       *       *       2       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+17      3       *       *       3       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+17      3       *       *       4       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate plot
+17      3       *       *       5       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+17      3       *       *       6       /home/mieg/ee/SERVER/LOGS/daywatch crash rotate
+50      23      *       *       *       /home/mieg/ee/SERVER/LOGS/daywatch cgi
+43      *       *       *       *       /home/mieg/ee/SERVER/LOGS/ctxclean 
+19      *       *       *       *       /home/mieg/ee/SERVER/LOGS/ace_timer
+49      *       *       *       *       /home/mieg/ee/SERVER/LOGS/ace_timer

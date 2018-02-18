@@ -1,0 +1,4 @@
+#!/bin/csh
+# $Id: mail,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $
+
+Mail -s "from ACEDB" $1 # < $2

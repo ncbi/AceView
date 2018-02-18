@@ -1,0 +1,149 @@
+   $Id: README,v 1.1.1.1 2002/07/19 20:23:03 sienkiew Exp $
+
+
+EXAMPLE FOR D1044
+   pgassemble d1044.fasta > d1044.assemble
+	 mv contigs.seq d1044.contigs.seq
+   seqpress <  d1044.con > d1044.xbap.pg
+   echo " " >> d1044.xbap.pg
+   cat d1044.contigs.seq >> d1044.xbap.pg
+   pgassemble d1044.xbap.pg > d1044.xbap.pg.assemble
+   #mv contigs.seq d1044.xbap.pg.contigs.seq
+	now, names the output file d1044.xbap.pg.contigs for me
+  
+
+EXPLANATION OF THE VARIOUS FILES:
+d1044.seq - the "answer"...the big contig from the final xbap database
+D1044.final.showrel - final show relationships file from xbap
+d1044.assemble - output of Phil's assemble on d1044.fasta , version 940603
+d1044.assemble.new - output of Phil's assemble on d1044.fasta, version 940605
+d1044.con - fasta formatted file of file xbap contigs...this
+		is the final con file for the final xbap database
+		since this is a finished cosmid
+d1044.contigs.seq - contigs.seq file Phil outputs as contigs.seq
+d1044.fasta - fasta formatted file containing all original data (no vector)
+		including r1, s2, etc.
+d1044.s1.fasta - fasta formatted file containing all original s1 data
+		without vector
+d1044.s1.fasta.assemble.new  - output of Phil's assembly, version 940605
+		when run on d1044.s1.fasta
+d1044.xbap.pg - contains xbap final contigs and "assemble" contigs.seq
+			used as input to assemble to compare the final
+			contigs for xbap and assemble
+d1044.xbap.pg.assemble  - output from running "assemble d1044.xbap.pg"
+d1044.xbap.pg.contigs.seq - contigs.seq file from running "assemble d1044.xbap.pg"
+d1044.xbap.orig.showrel - show relationships from xbap after assembling in
+			all the original data (comparable to phils d1044.assemble)
+			so I can compare the number of contigs made...when I
+			ran xbap, I sorted the file alphabetically so as not
+			to give xbap the files in the same order as they were
+			in the showrelationships file.
+d1044.xbap.orig.con	- consensus from xbap after assembling in all
+			original data...see d1044.xbap.orig.showrel
+d1044.s1.fasta	- fasta formatted file of all of the s1's in the final xbap
+			database
+TIME TO ASSEMBLE:
+C05D11
+81.0u 0.0s 1:23 97% 0+0k 0+0io 0pf+0w
+T20B12
+79.0u 0.0s 1:21 96% 0+0k 0+0io 0pf+0w
+
+NUMBER OF READS IN EACH DATABASE
+b0280.fasta
+    1272    
+c05d11.fasta
+     934   
+c05d2.fasta (went into two contigs)
+    1413  
+d1044.fasta
+    1151 
+t20b12.fasta (went into two big contigs)
+     896
+
+
+USING XBAP TO ASSEMBLE ALL THE ORIGINAL DATA:
+C05D2:
+	xbap
+	5 major contigs:
+	28 kb
+	6.4 kb
+	10.5 kb
+	2.28 kb
+	1.53 kb
+
+	"assemble"
+	2 major contigs 40kb and 7 kb
+
+T20B12:
+	xbap
+	4 major contigs:
+	9.5 kb
+	13 kb
+	13.8 kb
+	1.3 kb
+
+	assemble"
+	2 major contigs 15 kb and 21 kb
+
+
+-------
+
+foreach file (b0280 c05d11
+ c05d2 d1044 t20b12)
+? \cp $file.fasta.contigs fff
+? echo " " >> fff
+? cat $file.con >> fff
+? mv fff $file.xbapfinal.pg.new
+? pgassemble $file.xbapfinal.pg.new > $file.xbapfinal.pg.assemble.new
+? \rm -f $file.xbapfinal.pg.new
+? \cp $file.s1.fasta.contigs fff
+? echo " " >> fff
+? cat $file.con >> fff
+? mv fff $file.xbapfinal.pg.s1.new
+? pgassemble $file.xbapfinal.pg.s1.new > $file.xbapfinal.pg.s1.assemble.new
+? \rm -f $file.xbapfinal.pg.s1.new
+
+
+MORE EXPLANATIONS OF FILENAMES
+d1044.fasta.assemble.new - assemble output from running d1044.fasta (which is
+		a fasta formatted file containing all the original data 
+		from d1044 (minus vector of course))`
+d1044.s1.fasta.assemble.new - assembly output from running d1044.s1.fasta
+		(which is all of the original s1 data from d1044, minus
+		vector)
+d1044.xbapfinal.pg.assemble.new - this is the ouptut from comparing "assemble"
+		run on d1044.fasta (all the original data)
+		with the FINAL contigs in xbap (the contigs when the database
+		was turned in as being finished)
+d1044.xbapfinal.pg.s1.assemble.new - this is the output from comparing
+		assemble run on d1044.s1.fasta (just s1 original data)
+		with the FINAL contigs in xbap (contigs when the database
+		was turned in as being finished)
+d1044.s1.xbap.con - contigs from xbap being run on only the s1 data
+d1044.s1.showrel - show relatoinships from xbap after being run on s1 data alone
+
+foreach file ( b0280 c05d11 c05d2 d1044 t20b12 )
+? cp $file.xbap.s1.con $file.xbap_s1.pg_s1
+? echo " " >> $file.xbap_s1.pg_s1
+? cat $file.s1.fasta.contigs >> $file.xbap_s1.pg_s1
+? pgassemble $file.xbap_s1.pg_s1 > $file.xbap_s1.pg_s1.assemble
+? cp $file.xbap.orig.con $file.xbap_orig.pg_orig
+? echo " " >> $file.xbap_orig.pg_orig
+? cat $file.fasta.contigs >> $file.xbap_orig.pg_orig
+? pgassemble $file.xbap_orig.pg_orig > $file.xbap_orig.pg_orig.assemble
+? end
+
+MORE FILENAME EXPLANATIONS
+d1044.xbap_orig.pg_orig - file containing contigs from xbap
+		after it assembled all the original reads, but no editing
+		and phil's assembly of all the original reads
+d1044.xbap_orig.pg_orig.assemble - output of "assemble" for
+	d1044.xbap_orig.pg_orig
+d1044.xbap_orig.pg_orig.contigs - contigs created during assemble run on
+	d1044.xbap_orig.pg_orig
+d1044.xbap_s1.pg_s1 - file containing contigs from xbap after just
+	assembling the s1 data and contigs from phil assembling just the
+	original s1 data
+d1044.xbap_s1.pg_s1.assemble - output from d1044.xbap_s1.pg_s1
+d1044.xbap_s1.pg_s1.contigs - contigs generated during run of assemble
+		on d1044.xbap_s1.pg_s1

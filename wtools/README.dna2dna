@@ -1,0 +1,36 @@
+# 2011_10_11
+# Author mieg@ncbi.nlm.nih.gov
+
+The program dna2dna may be used for several purposes
+
+- change format for DNA sequence files
+     raw, fasta, fastq, fastc, csfasta, csfastq, tc
+
+- produce letter and quality profiles in read coordinates
+
+- create a benchmark for sequence aligner and SNP callers
+
+Usage: Install the code (see below)
+       Try dna2dna -help (on line help)
+       Read to documentation (pdf files)
+       Mail    mieg@ncbi.nlm.nih.gov in case of difficulties
+
+##################################################
+## INSTALL
+
+setenv ACEDB_MACHINE LINUX_X86_64_4_OPT
+or choose any of the other known platforms listed in the directory wmake
+
+# run the make command as follows
+
+make libfree.a libtsfree.a libaccl.a libtcpfn.a libacedna.a
+cd wacext
+make dna2dna
+
+The executable will appear in the directory
+   bin.$ACEDB_MACHINE/dna2dna
+
+##################################################
+##################################################
+
+       

@@ -1,0 +1,123 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2011-10-11_22:38:51
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle gene 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition Deep AND av
+ 
+Colonne 2 
+Subtitle Column #2 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition IS Colon_ILMBodyMap_indiv
+ 
+Colonne 3 
+Subtitle index Colon BM 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 2 
+Tag  HERE 
+ 
+Colonne 4 
+Subtitle Column #4 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition Colon_indiv_A_C
+ 
+Colonne 5 
+Subtitle colon SIMT AC 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag  HERE 
+ 
+Colonne 6 
+Subtitle Column #6 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs309
+ 
+Colonne 7 
+Subtitle colon CAP 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 6 
+Tag  HERE 
+ 
+Colonne 8 
+Subtitle best group index 
+Width 12 
+Mandatory 
+Visible 
+Float 
+From 1 
+Tag Best_group_U
+Condition \%8 >5
+ 
+Colonne 9 
+Subtitle best group 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+Right_of 8 
+Tag  HERE 
+ 
+Colonne 10 
+Subtitle index in bodymap 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition 0.BodyMapRNA_Sep2011
+ 
+Colonne 11 
+Subtitle index in BodyMap Sept2011 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+ 
+
+// End of these definitions

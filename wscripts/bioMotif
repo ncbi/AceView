@@ -1,0 +1,63 @@
+#!/bin/csh -f
+#   $Id: bioMotif,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $ 
+# This is a call to Gerard Menessier's motif search program
+#echo calling motifAce $*
+#echo $*
+#echo ok
+#
+#echo $5
+#
+#cat $5
+#
+#
+#echo $7
+#
+#cat $7
+
+if (! $?BIOMOTIF_DIR) then
+ if (-d ~/bioMotif) then
+  setenv BIOMOTIF_DIR ~/bioMotif
+ else 
+  if (-e /usr/local/bioMotif) then
+    setenv BIOMOTIF_DIR /usr/local/bioMotif
+  else 
+    if (-e ./bioMotif) then
+      setenv BIOMOTIF_DIR  ./bioMotif
+    endif
+  endif
+ endif
+endif
+
+if ($?BIOMOTIF_DIR) then
+ if (-x $BIOMOTIF_DIR/bioMotif_bin/bioMotif ) then
+   #echo $BIOMOTIF_DIR/bioMotif_bin/bioMotif $*
+   $BIOMOTIF_DIR/bioMotif_bin/bioMotif $*
+   exit 0
+ endif
+endif
+
+ echo Sorry, i cannot Find bioMotif
+ echo May be you should setenv BIOMOTIF_DIR so that 
+ echo BIOMOTIF_DIR/bioMotif_bin/bioMotif is the executable
+ echo ' '
+ if ($?BIOMOTIF_DIR) then
+  echo now BIOMOTIF_DIR: $BIOMOTIF_DIR
+ else
+  echo now BIOMOTIF_DIR is not set
+ endif
+ echo ' '
+ echo Biomotif is a program by Gerard Menessier which
+ echo can search dna for mixed dna and amino motifs mixed
+ echo with hydrophobicity or other requirements in a very general way
+ echo ' '
+ echo You can import bioMotif from ftp://ftp.lpm.univ-montp2.fr/pub/BioMotif
+ pwd
+ exit 1
+
+
+
+
+
+
+
+

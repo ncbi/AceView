@@ -1,0 +1,27 @@
+#!/bin/tcsh
+
+setenv ici `pwd`
+#
+# rotate the server log files, as part of the log monitor system
+#
+echo 'hello from rotate'
+# first we collect all the aceserver log files from the distant machines
+# was usefull when we used several servers on different hardwares
+#pushd /home/mieg/ee/SERVER/bin
+#ssc  > /dev/null  # 2007_09_26: i no longer know who 'ssc' is
+#popd
+
+# now we actually rotate the logs when needed
+pushd /home/mieg/SERVER
+foreach dd (`ls -d *`)
+  if (-d $dd && -e $dd/server.log) then
+    pushd $dd
+    /home/mieg/ee/SERVER/bin/srotate > /dev/null
+    popd
+  endif
+end
+
+# finally we forces the servers to restart. 
+echo 'force restart'
+LOGS/START_SERVERS
+

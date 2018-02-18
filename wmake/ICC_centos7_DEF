@@ -1,0 +1,40 @@
+# @(#)LINUX_4_OPT_DEF	1.1    7/7/95 #
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### ported to Linux by Ken Letovski    ##############
+############### wmake/LINUX_DEF    Feb-2-1993      ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+###########    for the PC-386, running LINUX   ##################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = OPTERON
+COMPILER = icc -Ofast -O3 -O2 -xHost  -Wall -I/usr/X11/include  -DACEDB4
+LINKER = icc
+
+LIBS = -lm
+Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 -lXaw -lXt -lXmu -lXext -lX11 
+
+LEX_LIBS = -lfl
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX = flex
+LEX_OPTIONS = -l
+
+ALIGNMENT_64_BIT = 1
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS =
+
+RPCGEN_FLAGS = -b -I -K -1
+
+#################################################################
+#################################################################
+

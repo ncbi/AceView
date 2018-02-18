@@ -1,0 +1,337 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-10-06_20:22:35
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Column #1  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition pg && !G_Any_KT_pg_gene
+ 
+Colonne 2 
+Subtitle Column #2  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs506
+ 
+Colonne 3 
+Subtitle Rhs506, distinct reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 2 
+Tag HERE:1
+ 
+Colonne 4 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs507
+ 
+Colonne 5 
+Subtitle Rhs507 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag HERE:1
+ 
+Colonne 6 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs508
+ 
+Colonne 7 
+Subtitle Rhs508 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 6 
+Tag HERE:1
+ 
+Colonne 8 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs509
+ 
+Colonne 9 
+Subtitle Rhs509 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 8 
+Tag HERE:1
+ 
+Colonne 10 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs510
+ 
+Colonne 11 
+Subtitle Rhs510 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag HERE:1
+ 
+Colonne 12 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs511
+ 
+Colonne 13 
+Subtitle Rhs511 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 12 
+Tag HERE:1
+ 
+Colonne 14 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs512
+ 
+Colonne 15 
+Subtitle Rhs512 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 14 
+Tag HERE:1
+ 
+Colonne 16 
+Subtitle Column #4  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition Rhs513
+ 
+Colonne 17 
+Subtitle Rhs513  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 15 
+Tag HERE:1
+ 
+Colonne 18 
+Subtitle Rhs506, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag HERE:1
+ 
+Colonne 19 
+Subtitle Rhs507, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 5 
+Tag HERE:1 
+ 
+Colonne 20 
+Subtitle Rhs508, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 7 
+Tag HERE:1 
+ 
+Colonne 21 
+Subtitle Rhs509, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 9 
+Tag HERE:1 
+ 
+Colonne 22 
+Subtitle Rhs510, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 11 
+Tag HERE:1 
+ 
+Colonne 23 
+Subtitle Rhs511, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag HERE:1 
+ 
+Colonne 24 
+Subtitle Rhs512, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 15 
+Tag HERE:1 
+ 
+Colonne 25 
+Subtitle Rhs513, reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 17 
+Tag HERE:1 
+ 
+Colonne 26 
+Subtitle Rhs506, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 18 
+Tag HERE:1
+ 
+Colonne 27 
+Subtitle Rhs507, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 19 
+Tag HERE:1 
+ 
+Colonne 28 
+Subtitle Rhs508, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 20 
+Tag HERE:1
+ 
+Colonne 29 
+Subtitle Rhs509, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 21 
+Tag HERE:1 
+ 
+Colonne 30 
+Subtitle Rhs510, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 22 
+Tag HERE:1
+ 
+Colonne 31 
+Subtitle Rhs511, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 23 
+Tag HERE:1 
+ 
+Colonne 32 
+Subtitle Rhs512, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 24 
+Tag HERE:1
+ 
+Colonne 33 
+Subtitle Rhs513, kb  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 25 
+Tag HERE:1 
+ 
+Colonne 34 
+Subtitle Sum of reads 
+Width 12 
+Mandatory 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag \%18 + \%19 + \%20 + \%21 +\%22+\%23+\%24+\%25 
+Condition \%34 > 0
+ 
+ 
+
+// End of these definitions

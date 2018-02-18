@@ -1,0 +1,10 @@
+#!/bin/csh -f
+echo repeats $1
+
+printrepeats $1
+if (-e threshold30) then
+ ghostview  threshold30 &
+ lp threshold30
+endif
+\rm $1
+

@@ -1,0 +1,553 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2011-02-20_19:56:25
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title runs in the SEQC project
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle runs or groups           
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+Condition project = SEQC
+ 
+Colonne 2 
+Subtitle Title               
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 1 
+Tag Title
+ 
+Colonne 3 
+Subtitle runs in the group               
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+MultiData
+From 1 
+Tag Union_of
+ 
+Colonne 4 
+Subtitle Sample               
+Width 12 
+Optional 
+Visible 
+Class 
+Class Sample 
+From 1 
+Tag Sample
+ 
+Colonne 5 
+Subtitle Tissue               
+Width 12 
+Optional 
+Visible 
+Class 
+Class Tissue 
+From 4 
+Tag Tissue
+ 
+Colonne 6 
+Subtitle polyadenylated RNA (mRNA)               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag polyA
+ 
+Colonne 7 
+Subtitle total RNA, usually rRNA depleted               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Total
+ 
+Colonne 8 
+Subtitle Sequencing protocol: stranded +               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Forward
+ 
+Colonne 9 
+Subtitle stranded -, reverse strand               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Reverse
+ 
+Colonne 10 
+Subtitle non stranded               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag nonStranded
+ 
+Colonne 11 
+Subtitle DGE, digital gene expression               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag DGE
+ 
+Colonne 12 
+Subtitle Cap selection               
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Cap
+ 
+Colonne 13 
+Subtitle Normalized (by renaturation-dependent protocol)          
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Normalized
+ 
+Colonne 14 
+Subtitle Platform              
+Width 12 
+Optional 
+Visible 
+Class 
+Class Platform 
+From 1 
+Tag Platform
+ 
+Colonne 15 
+Subtitle Data providers              
+Width 12 
+Optional 
+Visible 
+Class 
+Class Author 
+MultiData
+From 1 
+Tag Author
+ 
+Colonne 16 
+Subtitle PubMed ID              
+Width 12 
+Optional 
+Visible 
+Class 
+Class Paper 
+From 1 
+Tag Reference
+ 
+Colonne 17 
+Subtitle Date received              
+Width 12 
+Optional 
+Visible 
+Date 
+From 1 
+Tag Date_received
+ 
+Colonne 18 
+Subtitle Ali         
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Ali 
+From 1 
+Tag Ali
+ 
+Colonne 19 
+Subtitle unique sequences to align, clipd&entropy_filter            
+Width 12 
+Optional 
+Visible 
+Float 
+From 18 
+Tag Accepted
+ 
+Colonne 20 
+Subtitle Column #17              
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 19 
+Tag HERE 
+ 
+Colonne 21 
+Subtitle reads to align, filtered              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 20 
+Tag HERE 
+ 
+Colonne 22 
+Subtitle Column #19              
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 21 
+Tag HERE 
+ 
+Colonne 23 
+Subtitle kb to align, filtered              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 22 
+Tag HERE 
+ 
+Colonne 24 
+Subtitle Column #24        
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 23 
+Tag HERE 
+ 
+Colonne 25 
+Subtitle average read length (nt)        
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 24 
+Tag HERE 
+ 
+Colonne 26 
+Subtitle sequences rejected (low entropy)              
+Width 12 
+Optional 
+Visible 
+Float 
+From 18 
+Tag Rejected
+ 
+Colonne 27 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 26 
+Tag HERE 
+ 
+Colonne 28 
+Subtitle reads rejected (low entropy)       
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 27 
+Tag HERE 
+ 
+Colonne 29 
+Subtitle Column #24              
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 28 
+Tag HERE 
+ 
+Colonne 30 
+Subtitle kb rejected (low entropy)              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 29 
+Tag HERE 
+ 
+Colonne 31 
+Subtitle reads where entry adaptor was clipped              
+Width 12 
+Optional 
+Visible 
+Float 
+From 18 
+Tag Entry_adaptor_clipping
+ 
+Colonne 32 
+Subtitle Column #28             
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 31 
+Tag HERE 
+ 
+Colonne 33 
+Subtitle kb of entry adaptors clipped             
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 32 
+Tag HERE 
+ 
+Colonne 34 
+Subtitle reads with exit adaptor clipped (short insert)             
+Width 12 
+Optional 
+Visible 
+Float 
+From 18 
+Tag Exit_adaptor_clipping
+ 
+Colonne 35 
+Subtitle Column #31            
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 34 
+Tag HERE 
+ 
+Colonne 36 
+Subtitle kb of exit adaptor clipped            
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 35 
+Tag HERE 
+ 
+Colonne 37 
+Subtitle %A x10 pre-alignment letter/transition profile            
+Width 12 
+Optional 
+Visible 
+Float 
+From 18 
+Tag ATGC_kb
+ 
+Colonne 38 
+Subtitle %T x10             
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 37 
+Tag HERE
+ 
+Colonne 39 
+Subtitle %G x10              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 38 
+Tag HERE
+ 
+Colonne 40 
+Subtitle %C x10              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 39 
+Tag HERE
+ 
+Colonne 41 
+Subtitle Column #33              
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 18 
+Tag stranding
+Condition IS B_rrNA
+ 
+Colonne 42 
+Subtitle Strandedness (% strand + =RNA) on ribosomal RNA            
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 41 
+Tag HERE 
+ 
+Colonne 43 
+Subtitle Column #35              
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 18 
+Tag h_Ali
+Condition IS any
+ 
+Colonne 44 
+Subtitle Unique sequences aligned              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 43 
+Tag HERE 
+ 
+Colonne 45 
+Subtitle Column #37              
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 44 
+Tag HERE 
+ 
+Colonne 46 
+Subtitle Reads aligned              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 45 
+Tag HERE 
+ 
+Colonne 47 
+Subtitle Column #39              
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 46 
+Tag HERE 
+ 
+Colonne 48 
+Subtitle kb effectively aligned              
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 47 
+Tag HERE 
+ 
+Colonne 49 
+Subtitle Column #49      
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 48 
+Tag HERE 
+ 
+Colonne 50 
+Subtitle average length aligned per read (nt)      
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 49 
+Tag HERE 
+ 
+Colonne 51 
+Subtitle Column #51   
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 18 
+Tag h_Ali
+Condition IS Z_genome
+ 
+Colonne 52 
+Subtitle sequences best on genome (new exons+ genome contamination) 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 51 
+Tag HERE 
+ 
+Colonne 53 
+Subtitle Column #53   
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 52 
+Tag HERE 
+ 
+Colonne 54 
+Subtitle reads best on genome   
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 53 
+Tag HERE 
+ 
+Colonne 55 
+Subtitle Column #55  
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 54 
+Tag HERE 
+ 
+Colonne 56 
+Subtitle kb aligned best on genome (contamination+new exons)  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 55 
+Tag HERE 
+ 
+Colonne 57 
+Subtitle Search de novo introns by left-right pair       
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag de_duo
+ 
+Colonne 58 
+Subtitle Compute Gene index           
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag Gene_index
+ 
+ 
+
+// End of these definitions

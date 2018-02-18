@@ -1,0 +1,406 @@
+<html>
+
+<HEAD>
+<title> ACEDB source code documentation: EMBL dumping </title>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+
+<body>
+
+ <H1> EMBL dumping documentation </H1>
+
+ EMBL dump now gets information from a Method object, which controls
+what is dumped where.  In fact, you can specify dump field information
+either in the Sequence object itself, or a method, or a method
+inherited from the method ..., i.e. you can have defaults that you
+override either in a specialised method or in the object itself.
+ <p>
+ You can now dump any sequence object for which DNA can be found,
+directly or indirectly (so you can dump links or subsequences).
+ <p>
+ You can also now dump from giface, including gifaceserver (see
+example below).
+ <p>
+ There is now code for dumping arbitrary features according to dump
+information in the feature method, plus possible #Feature_info data
+from the Feature lines.  This also works on Homol lines now.
+
+ <H3> Known bugs/incompletenesses: </H3>
+
+ <ol>
+ <li> I don't get arbitrary features from subsequences, and recurse on
+them. So in fact dumping links won't work. I realise.
+ <li> I should use methods on subsequences when dumping them
+(partially done now; 980815).
+ </ol>
+
+<H2> Using EMBL_dump_info and associated methods </H2>
+
+The order of processing the header information is:
+<ol>
+<li> Needs to be a sequence object.  Needs to find DNA.  
+<li> Complains if no object under _Clone [clone].  This will be used
+in the context of Clone_left_end information (see below).
+<li> The ID entry is derived from _Database "EMBL" [id] [ac].  If it
+exists then use [id].  Else use ID_template from the dump_info,
+replacing %s by the sequence object name.
+<li> AC lines are calculated from _Database "EMBL" [id] [ac].  If
+that does not exist, look under _Ac_number [ac].  Else nothing.
+<li> DE lines come from DE_format in dump_info.  %s is
+substituted by the clone name if one exists, else the sequence name.
+<li> KW lines come from _Keyword [keyword] entries.
+<li> OS line from OS_line in method.
+<li> OC lines from OC_lines in method.  It does not rewrap these so
+you have to get the lines right.
+<li> References.  Submission reference gets RA names from From_author
+in the object, then Previous_author in the object; both can be
+multiple. Fills RL line from RL_submission, relacing DD-MMM-YYYY with
+the date obtained from Submitted in the object if that exists, else
+the current date.  Then gets further references from the
+EMBL_reference in the method, parsing fields out of the standard
+Paper model.
+<li> Gets CC lines from CC_line in the method.  Replace %s in these by
+clone name, or object name if that does not exist.  Each CC_line text
+will be wrapped and appear as a separate paragraph separated by a
+blank XX line from the next paragraph.
+<li> Writes standard CC lines.  First set of these give left and right
+end information using Clone_left_end and Clone_right end info from the
+clone for this object, and for other clones with ends in this
+sequence.  The second set gives overlap information with neighbouring
+sequences.
+<li> Finally, write CC lines for explicit DB_remark entries from the
+object itself.  These are also wrapped and separated into paragraphs
+by XX lines.
+</ol>
+
+The feature table is written in the following order:
+<ol>
+<li> A source feature is written.  This uses source_organism from the
+method to fill in /organism.  The clone name is given in /clone if
+that exists.  The chromosome and map qualifiers are filled from
+EMBL_chromosome and EMBL_map fields in the #EMBL_dump_info of the
+sequence, if they are there.  If not, and there is a Map object for
+the sequence, then it looks inside that for a Text entry following the
+tag EMBL_chromosome, and if that is found, writes a /chromosome entry
+containing it.
+<li> Next it does the subsequences:
+<ol>
+<li>
+Prior to 980915 it looks for tags CDS, mRNA, and text following tRNA,
+snRNA, scRNA, misc_RNA and dumps accordingly.  For the latter ones
+with text it produces a note containing the text, followed by "-tRNA"
+or "-RNA".
+<li>
+From 980915, in order to be dumped, a subsequence must have a Method, and that
+method must have an EMBL_feature, which specifies the feature key
+used.  For pseudogenes use the key "CDS" (required by EMBL rules).
+The RNA notes are filled in as before.
+<li>
+For CDS checks if translatable without a stop codon, and if not then
+sets /pseudo qualifier and messerrors.  
+<li>
+Builds the location information, going across LINK boundaries.  Checks
+for Start_not_found and End_not_found tags and uses greater than and
+less than signs in these cases (but not /partial).  In these cases, it
+sets codon_start where necessary.
+<li>
+If CDS_predicted_by a method, then dumps out /note="predicted using
+%s".
+<li>
+If the name of the object ends in a lower case letter, then prints out
+/note="preliminary prediction".  EBI recognises this, and puts the
+resulting peptide into REM-TREMBL, not SP-TREMBL.
+<li>
+If a Locus attached then write /gene="{Locus}".  If gene_from_name was
+set in the model, then it will also write out /gene="{object name}".
+<li>
+If a DB_remark attached to the object, then dump that as a note.  Else
+if Brief_identification, dump /note="similar to {brief_id}".
+<li>
+For each sequence (normally an EST) attached via Matching_cDNA to the
+object, we print a line saying "cDNA EST EMBL:%s comes from this gene"
+or "cDNA EST %s comes from this gene" depending on whether we can find
+an accession number.  40 lines per /note qualifier.
+<li>
+If find TSL_site followed by an integer, then write a line 
+/note="Possible trans-spliced leader site at {position}".  Very worm
+specific.
+</ol>
+<li> Next, Features and Homols are dumped as described in the text
+below, if their methods have EMBL_dump information.
+<li> Finally, the sequence itself is dumped as an SQ line followed by
+sequence.
+</ol>
+
+<H3> Model Changes </H3>
+
+Create a new # (subobject) model:
+<pre>
+#EMBL_dump_info	EMBL_dump_method UNIQUE ?Method
+		ID_template UNIQUE Text	
+		ID_division UNIQUE Text
+		DE_format UNIQUE Text  
+		OS_line UNIQUE Text    
+		OC_line Text           
+		RL_submission Text     
+		EMBL_reference ?Paper  
+		CC_line Text           
+		source_organism UNIQUE Text   
+		gene_from_name
+		EMBL_chromosome UNIQUE Text
+		EMBL_map UNIQUE Text
+</pre>
+ This information is made accessible by adding to the Method model:
+ <pre>
+	EMBL_dump_info #EMBL_dump_info
+</pre>
+ Add similarly to Sequence model:
+ <pre>
+	  DB_info	...
+			EMBL_dump_info #EMBL_dump_info
+</pre>
+ The use of the shared subobject model makes things recursive.  When
+looking for OS_line, for example, the first one that is found gets
+used, starting with information in the Sequence object, then in its
+EMBL_dump_method, then in its EMBL_dump_method...  
+ <p>
+ Add to Map model:
+ <pre>
+	EMBL_chromosome UNIQUE Text
+</pre>
+ This determines how a Map object is transformed to a /chromosome="xx"
+line under the "source" feature key.
+
+<H3> Models for dumping Features and Homols </H3>
+
+<pre>
+?Sequence ...
+//	  Homol	<tag2> <object> ?Method Float Int UNIQUE Int Int UNIQUE Int #Homol_info
+		// <object> is target, Float is score, second pair of
+		// ints are y1, y2
+	  Feature ?Method Int Int UNIQUE Float UNIQUE Text #Feature_info
+		// Float is score, Text is note
+
+?Method ...
+	EMBL_dump EMBL_feature UNIQUE Text	// require this
+		  EMBL_threshold UNIQUE Float
+			// apply to score unless overridden
+		  EMBL_qualifier Text UNIQUE Text
+	  // if 1 Text, it is the entire qualifier including '/'
+	  // if 2 Texts, 1st is an sprintf format and 2nd is
+	  //   an argument.  If this is "score", "note", "y1", "y2" or "target"
+	  //   then use the corresponding field of the Feature or Homol line.
+	  // multiple formats will be concatenated until one starts with '/'.
+
+#Feature_info	EMBL_dump UNIQUE EMBL_dump_YES
+				 EMBL_dump_NO
+			// overrides for embl dump based on method
+		EMBL_qualifier Text
+			// additional to those in the method, includes '/'
+		...
+
+// #Homol_info can have all the same content as ?Feature_info
+</pre>
+
+ <H2> Example .ace file </H2>
+ <pre>
+Method worm_EMBL-dump
+EMBL_dump_info ID_template "CE%s"
+EMBL_dump_info ID_division INV
+EMBL_dump_info DE_format "Caenorhabditis elegans cosmid %s"
+EMBL_dump_info OS_line "Caenorhabditis elegans (nematode)"
+EMBL_dump_info OC_line "Eukaryota; Animalia; Metazoa; Nematoda; Secernentea; Rhabditia;"
+EMBL_dump_info OC_line "Rhabditida; Rhabditina; Rhabditoidea; Rhabditidae."
+EMBL_dump_info RL_submission "Submitted (DD-MMM-YYYY) to the EMBL Data Library by:"
+EMBL_dump_info RL_submission "Nematode Sequencing Project, Sanger Centre, Hinxton, Cambridge"
+EMBL_dump_info RL_submission "CB10 1RQ, England and Department of Genetics, Washington"
+EMBL_dump_info RL_submission "University, St. Louis, MO 63110, USA."
+EMBL_dump_info RL_submission "E-mail: jes@sanger.ac.uk or rw@nematode.wustl.edu"
+EMBL_dump_info EMBL_reference seq-paper-2
+EMBL_dump_info CC_line "Current sequence finishing criteria for the C. elegans genome"
+EMBL_dump_info CC_line "sequencing consortium are that all bases are either sequenced"
+EMBL_dump_info CC_line "unambiguously on both strands, or on a single strand with both"
+EMBL_dump_info CC_line "a dye primer and dye terminator reaction, from distinct"
+EMBL_dump_info CC_line "subclones.  Exceptions are indicated by an explicit note.\n"
+EMBL_dump_info CC_line "Coding sequences below are predicted from computer analysis,"
+EMBL_dump_info CC_line "using predictions from Genefinder (P. Green, U. Washington),"
+EMBL_dump_info CC_line "and other available information.\n"
+EMBL_dump_info CC_line "IMPORTANT:  This sequence is NOT necessarily the entire insert"
+EMBL_dump_info CC_line "of the specified clone.  It may be shorter because we only"
+EMBL_dump_info CC_line "sequence overlapping sections once, or longer because we"
+EMBL_dump_info CC_line "arrange for a small overlap between neighbouring submissions.\n"
+EMBL_dump_info source_organism "Caenorhabditis elegans"
+
+Paper seq-paper-2
+Title "2.2 Mb of contiguous nucleotide sequence from chromosome III of C. elegans"
+Journal Nature
+Volume 368
+Page 32 38
+Year 1994
+Author "Wilson R"
+Author "Ainscough R"
+
+Map Sequence-I
+EMBL_chromosome I
+
+Map Sequence-II
+EMBL_chromosome II
+
+Sequence AH6
+EMBL_dump_info EMBL_dump_method worm_EMBL-dump
+</pre>
+ Note the "\n" at the end of comment lines to have them followed by
+ blank lines.
+
+<H2> Example giface script </H2>
+<pre>
+giface <<EOF
+acedb> find sequence AH6
+acedb> gif
+acedb-gif> embl ah6
+acedb-gif> quit
+acedb> quit
+EOF
+</pre>
+<H2> Example Output </H2>
+<pre>
+ID   CEAH6      standard; DNA; INV; 37801 BP.
+XX
+AC   Z48009;
+XX
+KW   Zinc finger; Transposon; Guanylate cyclase.
+XX
+OS   Caenorhabditis elegans (nematode)
+OS   Eukaryota; Animalia; Metazoa; Nematoda; Secernentea; Rhabditia;
+XX
+RN   [1]
+RP   1-37801
+RA   Berks M.;
+RT   ;
+RL   Submitted (06-FEB-1995) to the EMBL Data Library by:
+RL   Nematode Sequencing Project, Sanger Centre, Hinxton, Cambridge
+RL   CB10 1RQ, England and Department of Genetics, Washington
+RL   University, St. Louis, MO 63110, USA.
+RL   E-mail: jes@sanger.ac.uk or rw@nematode.wustl.edu
+XX
+RN   [2]
+RA   Wilson R., Ainscough R., Anderson K., Baynes C., Berks M.,
+RA   Bonfield J., Burton J., Connell M., Copsey T., Cooper J.,
+RA   Coulson A., Craxton M., Dear S., Du Z., Durbin R., Favello A.,
+RA   Fulton L., Gardner A., Green P., Hawkins T., Hillier L., Jier M.,
+RA   Johnston L., Jones M., Kershaw J., Kirsten J., Laister N.,
+RA   Latreille P., Lightning J., Lloyd C., McMurray A., Mortimore B.,
+RA   O'Callaghan M., Parsons J., Percy C., Rifken L., Roopra A.,
+RA   Saunders D., Shownkeen R., Smaldon N., Smith A., Sonnhammer E.,
+RA   Staden R., Sulston J., Thierry-Mieg J., Thomas K., Vaudin M.,
+RA   Vaughan K., Waterston R., Watson A., Weinstock L.,
+RA   Wilkinson-Sproat J., Wohldman P.;
+RT   "2.2 Mb of contiguous nucleotide sequence from chromosome III of 
+RT   C. elegans";
+RL   Nature 368:32-38 (1994).
+XX
+CC   Current sequence finishing criteria for the C. elegans genome
+CC   sequencing consortium are that all bases are either sequenced
+CC   unambiguously on both strands, or on a single strand with both
+CC   a dye primer and dye terminator reaction, from distinct
+CC   subclones.  Exceptions are indicated by an explicit note.
+CC   
+CC   Coding sequences below are predicted from computer analysis,
+CC   using predictions from Genefinder (P. Green, U. Washington),
+CC   and other available information.
+CC   
+CC   IMPORTANT:  This sequence is NOT necessarily the entire insert
+CC   of the specified clone.  It may be shorter because we only
+CC   sequence overlapping sections once, or longer because we
+CC   arrange for a small overlap between neighbouring submissions.
+CC   
+CC   The true left end of clone AH6 is at 1 in this sequence.
+CC   The true right end of clone AH6 is at 3246 in
+CC   sequence Z36752.
+CC   The true left end of clone F35H8 is at 37686 in this sequence.
+CC   The true right end of clone R134 is at 30025 in this sequence.
+CC   The start of this sequence (1..101) overlaps with the end of 
+CC   sequence Z48007.
+CC   The end of this sequence (37686..37801) overlaps with the start of 
+CC   sequence Z36752.
+XX
+FH   Key             Location/Qualifiers
+FH
+FT   source          1..37801
+FT                   /organism="Caenorhabditis elegans"
+FT                   /clone="AH6"
+FT                   /chromosome="II"
+FT   CDS             complement(join(5054..5310,5380..5507,5551..5636,
+FT                   5683..5904,5960..6180,6233..6308))
+FT                   /product="AH6.2"
+FT   CDS             join(6579..6638,6872..7051,7096..7416,7464..7595)
+FT                   /product="AH6.3"
+FT   CDS             complement(join(7727..7885,7935..8121,8174..8446,
+FT                   8499..8644,8872..9102))
+FT                   /product="AH6.4"
+FT                   /gene="sra-1"
+FT   CDS             join(11523..11741,11789..12303,12357..12681,
+FT                   12731..12871,12923..13059,13109..13307)
+FT                   /product="AH6.5"
+FT                   /note="similar to zinc finger protein"
+FT                   /note="cDNA EST yk38b2.3 comes from this gene"
+FT                   /note="cDNA EST yk38b2.5 comes from this gene"
+FT                   /note="cDNA EST yk45f12.5 comes from this gene"
+FT   CDS             complement(join(29091..29243,29290..29476,29667..30316))
+FT                   /product="AH6.8"
+FT                   /gene="sra-4"
+FT   CDS             complement(join(33869..34021,34183..34375,34425..34816))
+FT                   /product="AH6.9"
+FT                   /gene="sra-5"
+FT   CDS             join(32117..32766,33253..33439,33487..33639)
+FT                   /product="AH6.11"
+FT                   /gene="sra-7"
+FT   CDS             join(17948..18189,18299..18441,18532..18617)
+FT                   /product="AH6.13"
+FT   CDS             join(19742..20391,20445..20637,21068..21220)
+FT                   /product="AH6.14"
+FT                   /gene="sra-9"
+FT   CDS             complement(join(36041..36193,36247..36433,36481..37130))
+FT                   /product="AH6.10"
+FT                   /gene="sra-6"
+FT   CDS             join(16211..16860,16906..17092,17141..17293)
+FT                   /product="AH6.6"
+FT                   /gene="sra-2"
+FT   CDS             join(25160..25809,26063..26249,26301..26453)
+FT                   /product="AH6.12"
+FT                   /gene="sra-8"
+FT   CDS             complement(join(26752..26904,26982..27168,27605..28254))
+FT                   /product="AH6.7"
+FT                   /gene="sra-3"
+FT   CDS             complement(21569..24025)
+FT                   /product="AH6.15"
+FT                   /pseudo
+FT                   /note="probably a transposon"
+FT   CDS             14448..15525
+FT                   /product="AH6.16"
+FT                   /pseudo
+FT   CDS             complement(join(Z48007:14051..Z48007:14230,102..337,
+FT                   397..500,544..951,1002..1179,1226..1526,1579..2235,
+FT                   2288..2418,2483..2621,2672..2797,2851..2948,2999..3151,
+FT                   3195..3424,3469..3711,3996..4126,4270..4368))
+FT                   /product="AH6.1"
+FT                   /note="similar to guanylate cyclase"
+XX
+SQ   Sequence  37801 BP;   12255 A; 6407 C; 6368 G; 12771 T; 0 other;
+     ccatgagagc ttgatggatt tggaatccat ctatcgttgg ttactggtgg tgttgaccga
+     ttactaatgc ttcttaactc ggttggttcc atttcaccaa atctgccgtg cacccaaaat
+     gtttccataa ctccttttcc ttttataatt acttctcctc gggaactcgt ttcgtattga
+</pre>
+
+<HR WIDTH=100%>
+
+<H4> Richard Durbin $Id: embl.doc.html,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $ </H4>
+
+</body>
+</html>
+ 

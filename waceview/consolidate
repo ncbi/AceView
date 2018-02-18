@@ -1,0 +1,65 @@
+#!/bin/tcsh -f
+
+set year=0
+set month=15
+set year=$1
+
+
+if ($year < 2015) then
+  echo "usage :  consolidate year"
+  echo "example : consolidate 2015 // will export all stats up of year 2015 up to novembre 2015"
+  echo "example : consolidate 2016  // used in august will export all stats from decembre 2015 up to July 2016
+  echo "example : consolidate 2016  // used in jan 2017 will export all stats from decembre 2015 up to Novembre 2016
+  echo "example : consolidate 2017  // used in jan 2017 will export Decembre 2016
+  exit 1
+endif
+
+setenv TMPDIR /tmp
+if (! -d sorted) mkdir sorted
+\rm sorted/*
+../bin/sort_all
+\mv sorted/* .
+cat server.log.* >! uu1
+perl ../bin/specialsort.pl < uu1 >! uus
+\rm  server.log.*
+
+\cp uus vv
+
+# set jj to the month for which we do not yet have a file LOGG.yyyy_$jj
+# set ii from jj+1 up to current month , 
+# say 06 if we are june 4
+# in january, set jj=12, set ii (01) and change the year
+
+foreach ii (01 02 03 04 05 06 07 08 09 10 11 12)
+  set jj=`echo $ii | gawk '{printf("%02d",$1-1);}'`
+  set n1=`egrep -n ^$year'-'$ii vv | head -1 | gawk -F ':' 'BEGIN{n=0}{n=$1-1;}END{print n}'`
+  echo $n1
+  if ($n1 > 0) then
+    head -$n1 vv >! vv$jj
+    set n2=`egrep -n ^$year'-'$ii vv | head -1 | gawk -F ':'  'BEGIN{n=1}{n=$1;}END{print n}'`
+    echo $n2
+    tail -n +$n2 vv >! vvtmp
+    mv vvtmp vv
+  endif
+end
+# vv contains the active month
+# uus should be same as vv??
+wc uus
+wc vv?? vv
+mv vv server.log.1
+#wc LOGS.2013*
+
+foreach ii (00 01 02 03 04 05 06 07 08 09 10 11 12)
+  if (! -e LOGS.$year'_'$ii && -e vv$ii) mv vv$ii  LOGS.$year'_'$ii
+end
+foreach yy (2015 2016 2017 2018 2019 2020)
+  set yy2=`echo $yy | gawk '{print $1 - 1}'`
+  if (-e LOGS.$yy'_00') mv   LOGS.$yy'_00' LOGS.$yy2'_12'
+end
+
+wc  LOGS.201*
+
+# \rm uu* vv*
+
+
+exit 0

@@ -1,0 +1,110 @@
+#!/bin/sh
+
+# for testing - put cgi in
+#       /net/graceland/web/private/htdocs/staff/mieg/AceView
+# and use logs in
+#       http://graceland:6224/staff/mieg
+
+# for production - put cgi in
+#        /net/graceland/web/public/htdocs/IEB/Research/Acembly
+#         touch rdist_me
+# and use logs in
+#       /net/{elvis|jesse}/web/public/logs
+
+
+case "$1"
+in
+t*)
+        dlist=/net/graceland/web/public/logs
+        access_pattern="GET /staff.*/av.cgi"
+        ;;
+
+p*)      dlist='/net/elvis/web/public/logs /net/jesse/web/public/logs'
+        access_pattern="/IEB/Research/Acembly"
+        #access_pattern="av.cgi"
+        ;;
+*)	
+	echo "use 'cgiwatch t usernames' to check test server"
+	echo "or  'cgiwatch p usernames' to check production server"
+	exit 1
+	;;
+esac
+
+shift
+usernames="$*"
+
+( for x in $dlist
+do
+        files=`ls -tr $x/error | tail -1`
+        for y in $files
+        do
+                grep $access_pattern < $y
+        done
+done ) | sort -k2 > errorfile
+
+errtypes="no_results external higher high unknown"
+
+
+n=`wc -l < errorfile`
+if [ "$n" -ne  0 ]
+then
+	(
+	[ -d cgi_error_dir ] || mkdir cgi_error_dir
+	cd cgi_error_dir
+	rm -f *
+	touch $errtypes
+	/usr/bin/awk -f ../filter_cgi_errors.awk < ../errorfile
+	)
+        (
+        echo 'Subject: cgi errors'
+        echo ''
+        echo 'cgi errors today: ( '`pwd`' )'
+
+	for x in $errtypes
+	do
+		a=`cat cgi_error_dir/$x | wc -l`
+		echo $a'	'$x
+
+	done
+
+	if [ -s cgi_error_dir/no_results ]
+	then
+		echo ''
+		echo 'no results:'
+		cat cgi_error_dir/no_results
+	else
+		echo ''
+		echo 'no results: none'
+	fi
+
+	if [ -s cgi_error_dir/higher ]
+	then
+		echo ''
+		echo 'higher priority:'
+		cat cgi_error_dir/higher
+	fi
+	
+
+	if [ -s cgi_error_dir/high ]
+	then
+		echo ''
+		echo 'high priority:'
+		cat cgi_error_dir/high
+	fi
+	
+        ) | mail $usernames
+fi
+
+cat errorfile >> cgi_errors
+
+rm -f errorfile
+
+( for x in $dlist
+do
+        files=`ls -tr $x/access | tail -1`
+        for y in $files
+        do
+                grep "$access_pattern" $y
+        done
+done ) >> accessfile
+

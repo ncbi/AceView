@@ -1,0 +1,36 @@
+# $Id: SOLARIS_4_PURE_DEF,v 1.7 2006/07/09 04:04:42 mieg Exp $
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+########### for the solaris@ncbi     using purify  ##############
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+# Note:
+# the native cc is recommended over gcc on Silicon Graphics
+#
+NAME = SOLARIS
+COMPILER = cc -g -DNO_LEFT_CASTING -DACEDB4 -I/usr/openwin/include
+#LINKER = /am/rational/bin/purify -cache-dir=/var/tmp/mieg/PURE -chain-length="100" -freeze-on-error=yes gcc -g
+LINKER = /am/rational/bin/purify  -chain-length="100" -freeze-on-error=yes cc -g
+
+LIBS = -lm  -lsocket -lnsl
+RANLIB_NEEDED = false
+RPCGEN_FLAGS = -b -I -K -1
+
+LEX_LIBS = -ll -lw
+TEST = /usr/bin/test
+
+.c.o:
+	$(CC) $*.c
+
+#################################################################
+#################################################################
+ 

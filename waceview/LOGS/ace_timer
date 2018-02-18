@@ -1,0 +1,10 @@
+#!/bin/tcsh -f
+echo -n `date` >> /home/mieg/SERVER/LOGS/time.log
+echo -n ' :: ' >> /home/mieg/SERVER/LOGS/time.log
+ (time GET 'http://www.ncbi.nlm.nih.gov/IEB/Research/Acembly/av.cgi?db=human&l=pten' > /dev/null)  >>& /home/mieg/ee/SERVER/36a_1/time.log
+
+set nn=`ps -elf | gawk '/tgifacemblyserver/{n++}END{printf("%d", 0+n)}'`
+if ($nn == 0) then
+  /home/mieg/SERVER/LOGS/START_SERVERS
+endif
+

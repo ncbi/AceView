@@ -1,0 +1,355 @@
+# The acedb query language
+
+Acedb is an object oriented database, which can manipulate complex objects defined as structured trees, with leaves composed of tags, numbers, object references, texts, together with DNA and protein sequences. This document defines and describes the latest version of the acedb query language. It unifies several previously competing methods, keeping the best aspects of each, resulting in a terse yet unambiguous syntax, a user friendly graphic interface helping write complex queries, and an improved faster implementation of the query engine.
+
+===========
+
+The syntax of a complex query is reminescent of SQL, it takes the form
+   select x, z from x in ..., y in ..., z in ... where .... order ...
+
+In SQL, the variables would iterate though tables. In an object oriented database like acedb, the first variable x should typically iterate accross all the members of a given class, then y would be derived from x, then z would be derived from x and/or y. The resulting (x, y, z) tuples would be filtered by the where condition. Finally, only the (x,z) columns specified in the select clause, with lines sorted according to the order clause, would be exported.
+
+We will explain below the full syntax, but we first start with simple examples, and the acceptable short cuts.
+
+- The purpose of the select ... from ... syntax is to export only some of the arguments that are needed to compute, or to order, the exported column in a specific way. If all columns should be exported the '.... from ' clause is no longer needed and one can simply write
+    select x in ... , y in ... where ... order ...
+
+- By default, all tables are ordered in alpha-numeric order. Numbers are sorted numerically : ( -5 -2.7 -2.6 0 3 7 11 11.1 12). Names are sorted alphabetically, but with the a grain of salt: integral numbers imbeded inside a name are sorted numerically : (a9 b7 b7.1a b11).  If this order is convenient, the order clause is not needed and one can write:
+    select x in ..., y in .... where ...
+
+- The most frequent frequent way to define the first variable is to iterate through a class. The full syntax
+    select x in class "sequence", ....
+which would list all sequences known in the database can be abbreviated into
+    select x in class sequence, ....
+That is, the doubles quotes around the class names are optional, since in acedb a class name is not allowed to contain spaces or non alphanumeric characters. One can then further simplify the syntax by replacing the reserved word class by a leading question mark
+    select x in ?sequence, ...
+
+- If the table involves a single variable, i.e. does not contain a coma, there is no need to name that variable, and one can simply write
+    select ?sequence ...
+and the ... part is interpreted as a where clause. For example, to find all authors named king something, the full syntax:
+    select a from a in class 'author" where a ~ "king*"
+can be reduced to
+    select ?author ~ "king*"
+    select ?author ~ king*
+
+- The double quotes are not always needed in a where clause. Indeed the comparison operators ( < <= == >= >  ~) expect a declared variable, a number or a string on the right hand side. We need to protect that string if it contains spaces or special characters. We must also protect strings matching the reserved word, i.e. "select", "from"  or strings  matching the name of the declared variables. Attention, variable names are case sensitive, X and x are distinct, but reserved word (select, Select, SELECT) are not. For example
+    select a in ?Person, b in a->Brother where b > a
+will select pairs (a, b) where the name of brother b if alphabetically behind the name of a, for example (Jim, Paul). Whereas
+    select a in ?Person, b in a->Brother where b > "a"
+would compare the name of brother b to the fix word "a", and could select (Jim, Adrian). Thus the following syntax is valid
+
+    select ?author ~ King  // select author object King if it is known in the database
+    select ?author #address  // select all authors with the tag address
+
+Finally, if there is nothing else in the query we can eliminate the ~
+    select ?author King   
+which is interpreted as 
+    select a in ?author where ( a#King  || a ~ "King" )
+And we can also write
+    select ?author B??   // selects B10 b23 Bxy
+    select ?author < b3  // selects abcd b b0 b1 b2
+
+The second most frequent way to derive the first variable of a query is to iterate through the active list. This concept was inspired by the Unix pipe. The active list is called @. It starts empty. It is then pospulated or modifed by each select statement. This allows to chain the queries like in:
+    select a from a in class "author"
+    select a from a in @ where a ~ "king"
+
+which can be simplified into:
+    select ?author
+    select @ ~ king
+
+If a query exports several column, the active list corresponds to the first column. For example
+    select ?paper, ?->journal
+which develops into 
+    select p, j from p in class paper, j in p->journal
+will export a list of (paper, journal) tuples and the active list contains papers. However
+    select j from p in class paper, j in p->journal
+will only export (journal) and the active list will contain journals, whereas
+    select j, p from p in class paper, j in p->journal
+will export (journal, paper) tuples and the active list will also contain journals.
+
+We can further chain several queries, using a semi-column to represent 'select @' and write
+    select ?author ; ~ "k*" 
+which is developped into
+    select a in class author ; select a in @ where a ~ "k*"
+
+Finally, in very short queries containing a single word, the like and the tag operators can be suppressed. As a result, in the short chained query
+    select ?author ; k* ; paper
+paper is recognized as a tag in the schema of class author, king is not, and the query is developped into
+    select a in class "author"      // select all authors
+    select a in @ where a ~ "k*"    // members of previous list called k*
+    select a in @ where a#paper     // limit to authors with a paper 
+As a result, this query chain may first select "king" and "kong", then only keep "king" assuming that "kong" is not known in the database as the author of a paper.
+
+Finally, for convenience, on the acedb command line, the keyword 'select' can be abbreviated as 'Q`.
+
+All these shortcuts allow to type quickly terse queries on the command line interface, which map in a well defined way into a full query. In practice these shortcut map the terse query language of the acedb graphic interface, firt released in 1990, into a (modification of) the full fledged AQL queries developped at the Sanger around year 2002. As a result, these 2 types of queries, and table constructed via the acedb graphic table maker interface, can all be expressed in this unified syntax and the database exploration can be executed using a single highly optimized query engine.
+
+===================
+===================
+
+Navigating though the acedb schema
+
+In acedb, each object belongs to a class, with a known schema defined in the file wspec/models.wrm. A simple schema for classes Paper and Author would be
+
+?Paper Author ?Author XREF Paper
+       Year UNIQUE Int
+       Pages Int UNIQUE Int
+
+?Author Paper ?Paper XREF Author
+        Affiliation  Text
+        PhD
+
+A few instances of these classes could be
+ 
+Author Jim
+  Paper p1
+  Affiliation London
+     
+Author Tom
+  PhD
+  Paper p1
+        p2
+  Affiliation Paris
+              Tokyo
+
+Paper p1
+  Author Jim
+         Tom
+  Year 2000
+  Pages 1 23
+        100 107
+
+Paper p2
+  Author Jim
+  Year 2004
+  Pages 17 19
+
+The XREF in the schema guarantees that the author/paper relation remains synchronized.
+As explained previously, one can list all existing papers in column 1 using
+   select ?Paper
+resulting in a 1 column table
+   p1
+   p2
+
+We can get to a tag using #, and get the value behind a tag using ->. For example the following query
+   select p in ?Paper, a in p->Author, dr in a#PhD, z in a->Affiliation
+will produce the 4 column table
+   p1  Jim  NULL London
+   p1  Tom  Dr   Paris
+   p1  Tom  Dr   Tokyo
+   p2  Jim  NULL London
+
+Reporting the pages creates a new challenge. According to the schema, tha page tag supports a 2 column table of integers. To access the 2 columns, one must use square brackets, meaning move right from this position.
+  select P in ?Paper, p1 in P->page, p2 in p1[1]
+or the equivalent query, in which p sits on the page tag of the object
+  select P, p1, p2 from P in ?Paper, p in P#page, p1 in p[1], p2 in p[2]
+or the equivalent query, in which the bracket is associated directly to the tag name
+  select P, p1, p2 from P in ?Paper, p1 in P->page[1], p2 in p->Page[2]
+
+In both cases one obtains
+  p1 1 23
+  p1 100 107
+  p2 17 19
+
+Several details in the second query should be noticed
+  - the the variable names are case sensitive, p and P are distinct. 
+  - in principle p[2] should iterate through each number in column 2 behind p
+   select P  in ?Paper, p in P#page, p2 in p[2]
+would give
+   p1 page 23
+   p1 page 107
+   p2 page 19
+but when we have 2 bracketing of the same variable, they remain synchronized so p[1] 
+and p[2] always refer to the same line of the table behind the page tag. 
+This synchronization is very important when a tag is multivalued. Cosisder a schema
+where each chromosome contains the position of all its genes
+
+Chomosome chr_18
+Gene A  1000 2000
+Gene B  4000 6000
+
+The 2 equivalent queries
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in g[1], a2 in g[2]
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in g[1], a2 in a1[1]
+gives the expected answer, with one lin per gene, with the correct coordinates
+    chr_18  A 1000 2000
+    chr_18  B 4000 6000
+But if we write the following more complex query where we reinitialize the definition 
+of teh 2 coordinates a1, a2 at the root of the object
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in c->Gene[2], a2 in c->Gene[3]
+g, a1, a2 are no longer synchronized to the gene and we obtain the silly combinatorial answer
+    chr_18  A 1000 2000
+    chr_18  A 1000 6000
+    chr_18  A 4000 2000
+    chr_18  A 4000 6000
+    chr_18  B 1000 2000
+    chr_18  B 1000 6000
+    chr_18  B 4000 2000
+    chr_18  B 4000 6000
+
+
+Finally, we can invoke the transitive closure x >> y of a tag, meaning that 
+the >> operator is used iterativelly. For example grand_ma -> child would
+ list all the direct children of grand_ma, but gran_ma >> child would give 
+her children, grand_children, grand_grand_children ... 
+For example, the whole familly of Eva would be
+   select ?woman Eva ; >>child
+which is a short form of the equivalent query
+   select c from w in class "woman" where w == "Eva", c in w >> child 
+
+==================
+==================
+
+Constants and numerical calculations
+
+A constant is declared using the equal symbol, the constant can be  a number of a string
+  select x = 2 , y = "hello", pi = 3.1416
+These cosntants can then be used in calculations and filters
+  select L in class line , pi = 3.14 where L->length > 2 * pi
+
+The numerical operators are (plus, minus, multiply, divide, modulo) denoted (+, -, *, /, %) with the usual precedence rules. In contradisticntion to the C language, our implementation of modulo follows the usual mathematical convention that the modulo of a negative number is positive. For example
+           7 % 3  == -2 % 3 == 1 
+Parenthesis can bu used freely
+     select x = (1 + 2) * (3 - ( 4 + 5)) 
+returns (3) * (-6) = -18
+All numerical calculations are performed using 64 bits float numbers.
+
+==================
+==================
+
+DNA and Proteins
+
+A specificity of acedb is that it understands the genetic code. If the database contains sequences, or mRNAs, or any object with a DNA tag. one can obtain its DNA using
+   select s in class sequence, d in DNA(s)
+would yield the full DNA of each sequence in the database. To obtain a specific part one could using
+   select x = 100, y = 200, s in ?sequence, d in DNA[s,x1,x2)
+The reserved word DNA must be written in upper case, this allows to use dna as a variable name or to access the DNA tag. If x > y, one obtains the reverse complement
+   select s, dna, adn, from s in @, dna in DNA(s,1,6), adn in DNA(s,6,1)
+could  give
+   my_sequence  atgttg    caacat
+PEPTIDE will translate the sequence 
+   select PEPTIDE (@,1,6)
+would give Met-Leu
+   ML
+Notice, that if the information is available, acedb will translate nuclear DNA using the standard genetic code, but human mitochondrial DNA using the (different) mitochondrial code, and so on for wierd species.
+
+==================
+==================
+
+Filtering with a where clause
+
+There where clause is used to filter the results. The simplest form is to search for the specific name of an object
+   select ?Person Jim
+which expands as
+   select p in class "Person" where p == "Jim"
+
+The usual comparators: (< <= == >= >) are recognized. 
+
+A numeric variable  is interpreted as a number (treated internally as a 64 bits double) and numerical comparisons can involve additions, subtractions, multiplications, divisions, modulo (denoted  3 % 2) and parenthesis in the usual way:
+     select p in ?Person, h in p->height, w in p->weight where 2 * (h - 100) < 11.3 * w
+
+In text comparisons, the value of a variable is its name, with the caveat that acedb interprets embebedded numbers as numbers, implying the ordering
+     a < a7b < a11c < b
+
+String matching comes in 2 flavors. Using the syntax 'a ~ b', one can invoke the simple system inherited from the acedb graphic interface with 2 kinds of jokers: question mark (?) to represent a single character or (*) to represent an arbitrary string. 
+     p ~ "T?m"    selects Tam, Tim and Tom, but not Attim which does not start with T
+     p ~ "T*m"    also selects Theotym, but not Thomas which does not end with m
+     p ~ "*T?m*"  also selects Attim"
+     p ~ "*T*m*"  selects Tam,  Tim, Tom, Theotym, Thomas and  Attim
+Alernatively , one may write 'a like b', which can be abbrevaited as 'a =~ b', and invoke the full C regular expression matching 
+     p =~ /t[io]m/   selects Tim, Tom and Attim but not Tam
+     p =~ /^t[io]m/  selects Tim and Tom, but not Attim which does not start with T
+     p =~ /t.*m/     selects Tam,  Tim, Tom, Theotym, Thomas and  Attim
+     p like /t.*m$/ rejects Thomas which does not ends with m
+
+
+Finally conditions can be combined using (OR, XOR, AND, NOT) which can also be written as (||, ^, &&, !) in that order of precedence. One could write
+     ... where (a <= x && x <= b) || (b < x && x < a)
+to specify that x is either in the segment [a,b] or in the segment ]b,a[.
+  
+==================
+==================
+
+Counting
+
+A very useful constraint is counting. For example, prolific authors could be found by
+   select a in ?author where count a->paper > 300
+One can eiter count the number of values of a tag, as shown in this example, or count the number of lines in an embeded virtual query delimited by {}. So, we would abtain the same reuslt by saying
+   select a in class author where count {select p in a->paper} > 300
+But in the latter case, we can become very specific  and only count papers published in a given journal
+   select a in class "author" where count {select p in a->paper where p->journal == "nature"} > 50
+
+==================
+==================
+
+Dates
+
+Dates are a bit special. A constant date is declared by enclosing the numbers using the backquote sign:
+  select d = `2016-01-30_22:47:15`
+The successive numbers represent Y:year, M:month (1 to 12), D:day (1 to 31), h:hour (0 to 24), m:minute (0 to 60) and s:seconds (0 to 60).
+
+In a user provided date, the leading zeroes may be dropped, they are reinstated in the answer:
+query::   select d = `2016-1-7_3:7`
+answer::  2016-01-07_03:07
+
+In a where clause containing equalities involving dates, each date is interpreted as an interval, corresponding to
+the least precise of the 2 dates. For example we have
+   `2016-2`  == `2016`       ---> true
+   `2016-2`  == `2016-2-17`  ---> true
+   `2016-2`  == `2016-3`     ---> false
+But in inequalities, we use the most precise date. This leads to some time paradoxes:
+   `2016-2`  ==  `2016`  ---> true
+   `2016-2`  <=  `2016`  ---> true
+   `2016-2`  >   `2016`  ---> false
+   `2016-2`  <   `2016`  ---> false
+But it gives the expected answer when we search for example for all papers published in 2015 or 2016
+  select p from p in class "paper" where p->publication_date >= `2015` && p->publication_date <= `2016`
+
+To specify a date, you must always use the backquote. This is obvious if you want to specify the month, 
+since the date `2016-3`, march 2016 is not the same as the substraction 2016-3 = 2013,
+but it is also needed even when you just give a year like `2013`. 
+
+Finally, no arithmetic operation is defined for dates, only the (< <= == >= >) comparisons are allowed.
+
+In all cases, be very careful when using dates and always check the validiaty of the query on a few known cases
+since it is very easy, when dates are involved, to mean something and write something else.
+
+==================
+==================
+
+To summarize, the full list of operators, in their order of precedence is
+
+    "from", "select", ",", "where"
+    "in" , "=" 
+    "||", "OR", "^", "XOR", "&&" , "AND", "!", "NOT"
+    "like", "=~", "~", "==", "!=", ">=", "<=", ">", "<"
+    "+", "-", "*", "/", "modulo"
+    "class", "@"
+    "DNA", "PEPTIDE"
+    "count", "min", "max", "average", "stdev"
+    ">>", "->", "#", "=>", ":"
+    "number", "$", "var", "key"
+    "object"
+    "()", "{}", "[]"
+    "QUOTE", "DOUBLEQUOTE" 
+
+with the restriction that the 3 kinds of parenthsis and also the quotes must be nested correctly  (["bb"]) is correct but (x[y)] is illegal.
+
+==================
+==================
+
+Historical perspective
+
+This new query engine is to become the universal query language of acedb. It should become the engine behind
+   - the original acedb query language, available in the 'query' box of the acedb graphic interface
+   - the table maker system, with its user friendly graphic interface 
+   - the AQL query language developped at the Sanger around 2002
+
+The general idea is to learn from the 3 existing systems, conserve the best aspects of each, fix their limitations and clean up the interface. For example, 
+
+-- The acedb query language is very terse and expressive, but it is limited to constructing set of objects and does not allow to display the content of selected fields.
+-- The table maker was ment to fix these limitations. Using its rich graphic interface, one can easilly construct a tables involving objects, numbers, texts and even DNA sequences. However, even a simple tables cannot be constructed on the command line. One need always to construct the table graphically, to save its definition in a definition file, and run the query using that file. 
+-- The AQL query language was ment to fix this limitation. AQL has a nice command line syntax, reminescent of SQL, but adapted to the idiosyncrasis of and object oriented database like acedb. It is now easy to compose a simple table from a the command line interface or using a libray call. Unfortunately, the syntax is slighthly too rich, encouraging the user to write convoluted queries, but since there is no graphic interface to help compose a valid query, and since the AQL compiler does not explain the eventual errors, it is hard to write a non-trivial valid query. Finally, AQL execution is slower than table-maker, and lacks access to DNA and protein sequences. 
+
+From the user point of view, the current interfaces are maintained, but the old style queries are translated internally and executed by the new query engine. In particular, the graphic table-maker interface remains valid and can be used to construct complex queries using the unified syntax.
+

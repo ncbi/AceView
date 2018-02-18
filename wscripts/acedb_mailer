@@ -1,0 +1,52 @@
+#! /bin/csh
+##########################################################################
+#################      A C.elegans database    ###########################
+#################   R.Durbin and J.Thierry-Mieg  #########################
+#################                                #########################
+#################   Mailer script,  Octobre 92   #########################
+##########################################################################
+# $Id: acedb_mailer,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $
+# This script is invoked when using mail in the menu
+# of a keySet or of an Tree display, or a longText.
+
+# The idea is simply to extract the mail address from within 
+# acedb of one or a keySet of people
+# Thus acedb acts as a general .aliases system
+
+# The script expects 2 parameters,
+# $1 is a list of email addresses, $2 a temp file name
+
+# A harmless header
+
+echo -n '// When you quit this editor,' >! /tmp/toto.mailer
+echo 'Acedb will mail this to' >> /tmp/toto.mailer
+echo $1 >> /tmp/toto.mailer
+
+# The text, so it can be edited
+
+cat $2 >> /tmp/toto.mailer
+\mv  /tmp/toto.mailer $2
+
+echo Editor: $EDITOR $2
+
+# your favorite editor 
+if ($?EDITOR) then
+  echo starting $EDITOR $2
+  /bin/env $EDITOR $2
+else
+ if (-x emacs) then
+  emacs $2
+ else 
+  vi $2
+ endif
+endif
+
+
+# when edited: mail and clean_up
+Mail -s acedb_mail $1 < $2
+\rm $2
+
+#echo 'done'
+
+
+ 

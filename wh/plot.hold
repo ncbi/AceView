@@ -1,0 +1,13 @@
+/*  Last edited: Dec 12 19:37 1994 (mieg) */
+
+/* $Id: plot.hold,v 1.1.1.1 2002/07/19 20:23:21 sienkiew Exp $ */
+
+void plotHisto (char *title, Array a) ;
+/* mhmp 10.03.99 float xmin*/
+void plotShiftedHisto (char *title, char *subtitle, Array a, float xmin, float xmax, float scale, int xfac) ;
+void plotHistoRemove (void) ;
+typedef struct { KEY k ; float x, y ;} POINT2D ;
+void plot2d (char *title, char *subtitleX, char *subtitleY, Array a) ;
+
+/**************/
+

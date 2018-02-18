@@ -1,0 +1,22 @@
+which=$1
+shift
+
+read f < $which/latest_week
+n=`grep -c '^-CRASH: 1:'  $which/$f`
+case "$n"
+in
+0)	:
+	;;
+*)
+	(
+	echo 'Subject: '$which' has '$n 'server crash'
+	echo ''
+	echo $which' has '$n' server crashes to date during reporting period '$f
+	echo see `pwd`/$which/$f for details
+	echo ''
+	echo 'Last 8 are:'
+	echo ''
+	grep '^-CRASH: 1:' $which/$f | grep -v shutdown | tail -8
+	) | mail $*
+	;;
+esac

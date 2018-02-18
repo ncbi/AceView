@@ -1,0 +1,74 @@
+
+if [ -d data ]
+then
+	data=data
+else
+	data=.
+fi
+
+b=`pwd`
+d=`pwd`
+
+for x in $*
+do
+	if [ -f $x ]
+	then
+		files=$x
+	fi
+
+	if [ -d $x ]
+	then
+		files="$files "`ls $x/week.* | tail $week_limit`
+	fi
+done
+
+if [ "$files" = "" ]
+then
+	echo no files found
+	exit 1
+fi
+
+
+# ips_file now contains start of week and the ip section of the output
+(
+
+	( echo '# queries'		# after # is a space
+	  echo '#	sessions'	# after # is a tab
+	  echo '#		weeks' 	# after # is two tabs
+	) 
+
+	cat $files | \
+	  ( sed -n -e '/^-IP/,/^+/p' -e '/^WEEK/p' | sed -e '/^-/d' -e '/^+/d' -e '/^$/d' ) \
+	  | gawk -f $b/iptot.gawk | sort -r -k 1 -n 
+
+) > $data/out.ip
+
+(
+	( 
+	  echo ''
+	  echo '# queries'
+	  echo '#	weeks'
+	  echo '#		query text'
+	) 
+
+	cat $files | \
+	  ( sed -n -e '/^-query/,/^$/p' -e '/^WEEK/p' | sed -e '/^-/d' -e '/^$/d' ) | \
+	  gawk -f $b/qtot.gawk | sort -n -r -k 1 
+
+) > $data/out.query
+
+(
+	cat $files | egrep '(^WEEK|^-CRASH)'
+) > $data/out.crash
+
+
+cat << FOO
+
+Output is in:
+	$data/out.ip
+		by ip number
+	$data/out.query
+		by query text
+	$data/out.crash
+		list of crashes
+FOO

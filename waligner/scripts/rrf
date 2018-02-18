@@ -1,0 +1,8 @@
+#!/bin/csh -f
+if (-e _r) \rm _r
+touch _r
+foreach ff (`ls *.ace *.ace.gs *.fasta *.fasta.gz`)
+echo "pparse $ff" >> _r
+end
+echo save >> _r
+echo quit >> _r

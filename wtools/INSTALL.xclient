@@ -1,0 +1,297 @@
+#!/bin/env tcsh -f
+# $Id: INSTALL.xclient,v 1.1.1.1 2002/07/19 20:23:37 sienkiew Exp $
+
+echo ACEDB, graphic client installation
+echo Jean Thierry-Mieg, nov 1997
+echo ' '
+echo The graphic acedb client is part of the acedb system
+echo It will import the data transparently 
+echo from the server, build progressivelly a database on 
+echo your local disk, and refresh the data when needed.
+echo ' '
+echo If you do not have it, you should first
+echo import the the acedb executable for your platform
+echo from say ftp://ncbi.nlm.nih.gov/pub/acedb
+echo and run the INSTALL script
+echo ' '
+echo -n " Should we proceed?  Please answer yes/no [yes]: "
+
+switch("$<")
+case "":
+case "yes":
+case "y":
+	breaksw
+default:
+	echo ' You did not answer yes, I quit'
+        exit
+        breaksw	
+endsw
+
+setenv ici `pwd`
+echo ' '
+
+chose_xclient_dir:
+echo Where do you want to install your client database
+echo I suggest the directory `pwd`/XCLIENT
+echo ' '
+echo -n " Please answer ok, or give a directory name [ok]: "
+
+setenv toto  $<
+setenv toto1 `echo $toto | nawk '{gsub (/ /,"",$1) ; print;}'`
+switch ("$toto1")
+case "":
+case "ok":
+case "o":
+	setenv xclient_dir `pwd`/XCLIENT
+	breaksw
+default:
+	setenv xclient_dir $toto1
+        breaksw	
+endsw
+if (-d $xclient_dir) then
+	echo $xclient_dir already exist and contains
+        ls $xclient_dir
+else
+ echo  $xclient_dir does not yet exists
+endif
+ 
+
+echo  "Do you confirm $xclient_dir ?"
+echo ' '
+echo -n " Please answer yes/no [yes]: "
+
+switch("$<")
+case "":
+case "yes":
+case "y":
+	breaksw
+default:
+	goto chose_xclient_dir
+        breaksw	
+endsw
+        
+if !(-d $xclient_dir) mkdir $xclient_dir
+if !(-d $xclient_dir) then
+ echo Sorry, i cannot create $xclient_dir
+ exit 1
+endif
+cd $xclient_dir
+setenv xclient_dir `pwd`   #absolute path
+
+unsetenv xcl_exe
+echo ' '
+echo  "Where is your ACEDB installation directory: "
+echo ' '
+chose_acedb_dir:
+cd $ici
+echo -n " Please give a directory name or quit [.]: "
+
+setenv toto  $<
+if ($toto == "") then
+ setenv toto `pwd`
+ endif
+
+if ($toto == "quit") then
+ exit 1 
+ endif
+
+if !(-d $toto) then
+	echo $toto does not exist
+	goto chose_acedb_dir
+ endif
+
+cd $toto
+setenv acedb_dir `pwd`
+cd $acedb_dir 
+
+
+if !(-x $xclient_dir/xcl) then
+  if (-e $acedb_dir/xcl) then
+   cp $acedb_dir/xcl $xclient_dir
+  else
+   if (-e $acedb_dir/wtools/xcl) then
+    cp $acedb_dir/wtools/xcl $xclient_dir
+   else
+    if !(-e $acedb_dir/bin/xcl) then
+     echo I cannot locate the script $acedb_dir/bin/xcl
+     echo "can you suggest another location ?"
+     goto chose_acedb_dir
+    else
+     cp $acedb_dir/bin/xcl $xclient_dir
+    endif
+   endif
+   chmod 755 $xclient_dir/xcl
+ endif
+endif
+
+cd $acedb_dir 
+if !(-l $xclient_dir/tace) then
+ if (-e $acedb_dir/tace) then
+  ln -s $acedb_dir/tace $xclient_dir/tace
+ else
+  if !(-e $acedb_dir/bin/tace) then
+   echo I cannot locate the executable tace in `pwd` or `pwd`/bin
+   echo "can you suggest another location ?"
+   goto chose_acedb_dir
+  else
+   ln -s $acedb_dir/bin/tace $xclient_dir/tace
+  endif
+ endif
+endif
+
+if !(-l $xclient_dir/aceclient) then
+ if (-e $acedb_dir/aceclient) then
+  ln -s $acedb_dir/aceclient $xclient_dir/aceclient
+ else
+  if !(-e $acedb_dir/bin/aceclient) then
+   echo I cannot locate the executable aceclient in `pwd` or `pwd`/bin
+   echo "can you suggest another location ?"
+   goto chose_acedb_dir
+  else
+   ln -s $acedb_dir/bin/aceclient $xclient_dir/aceclient
+  endif
+ endif
+endif
+
+if ( ! -l $xclient_dir/xaceclient) then
+ if (-e $acedb_dir/xaceclient) then
+  ln -s $acedb_dir/xaceclient $xclient_dir/xaceclient
+  echo hi1
+ else
+  if ( ! -e $acedb_dir/bin/xaceclient) then
+   echo I cannot locate the executable xaceclient in `pwd` or `pwd`/bin
+   echo "can you suggest another location ?"
+   goto chose_acedb_dir
+  else
+   ln -s $acedb_dir/bin/xaceclient $xclient_dir/xaceclient
+  endif
+ endif
+endif
+
+if !(-l $xclient_dir/xace) then
+ if (-e $acedb_dir/xace) then
+  ln -s $acedb_dir/xace $xclient_dir/xace
+ else
+  if !(-e $acedb_dir/bin/xace) then
+   echo I cannot locate the executable xace in `pwd` or `pwd`/bin
+   echo "can you suggest another location ?"
+   goto chose_acedb_dir
+  else
+   ln -s $acedb_dir/bin/xace $xclient_dir/xace
+  endif
+ endif
+endif
+
+if !(-l $xclient_dir/acediff) then
+ if (-e $acedb_dir/acediff) then
+  ln -s $acedb_dir/acediff $xclient_dir/acediff
+ else
+  if !(-e $acedb_dir/bin/acediff) then
+   echo I cannot locate the executable acediff in `pwd` or `pwd`/bin
+   echo "can you suggest another location ?"
+   goto chose_acedb_dir
+  else
+   ln -s $acedb_dir/bin/acediff $xclient_dir/acediff
+  endif
+ endif
+endif
+
+echo ' '
+echo 'Please specify the data server you will use'
+
+echo I suggest the C.elegans data server in Montpellier beta.crbm.cnrs-mop.fr
+echo ' '
+chose_server:
+echo -n " Please answer ok, or give a server name or ip number [ok]: "
+
+setenv toto  $<
+setenv toto1 `echo $toto | nawk '{gsub (/ /,"",$1) ; print;}'`
+switch ("$toto1")
+case "":
+case "ok":
+	setenv server_name beta.crbm.cnrs-mop.fr
+	goto server_ok
+        breaksw	
+default:
+	setenv server_name $toto1
+        breaksw	
+endsw
+
+echo  "Do you confirm $server_name ?"
+echo ' '
+echo -n " Please answer yes/no [yes]: "
+
+switch("$<")
+case "":
+case "yes":
+case "y":
+	breaksw
+default:
+	goto chose_server
+        breaksw	
+endsw
+     
+server_ok: 
+echo ' '
+echo 'Please specify the port server you will use'
+
+echo I suggest the C.elegans port server in Montpellier 20000100
+echo ' '
+chose_port:
+echo -n " Please answer ok, or give a port number [ok]: "
+
+
+setenv toto  $<
+setenv toto1 `echo $toto | nawk '{gsub (/ /,"",$1) ; print;}'`
+switch ("$toto1")
+case "":
+case "ok":
+	setenv port_name 20000100
+        goto port_ok
+        breaksw	        
+default:
+	setenv port_name $toto1
+        breaksw	
+endsw
+
+echo  "Do you confirm $server_name $port_name?"
+echo ' '
+echo -n " Please answer yes/no [yes]: "
+
+switch("$<")
+case "":
+case "yes":
+case "y":
+	breaksw
+default:
+	goto chose_port
+        breaksw	
+endsw
+   
+port_ok:
+
+cd $xclient_dir
+echo '#\!/bin/csh -f' >! go
+echo "cd  $xclient_dir" >> go
+echo 'set path = (. $path)'  >> go
+echo "./xcl $server_name $port_name"  >> go
+
+chmod 755 go
+
+echo Testing the connection to the aceserver: $server_name $port_name
+
+./aceclient $server_name -port $port_name << END >! ___getserver___ || goto noconnect
+status 
+END
+
+setenv SERVER_DIR `grep directory  ___getserver___ | awk '{dd=$4; i = length(dd); print substr(dd,1,i-2);}'`
+\rm -rf  ___getserver___
+echo Successful connection to aceserver $server_name $port_name
+
+echo "installation is complete, to run the client type the command $xclient_dir/go"
+exit 0
+
+noconnect:
+\rm -rf  ___getserver___
+echo Sorry, i cannot connect to the server, retry later or try a differnet address
+echo "To run the client type the command $xclient_dir/go"

@@ -1,0 +1,138 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2012-01-19_20:18:14
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle intron with RNA-Seq support  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Intron 
+Condition deep AND type
+ 
+Colonne 2 
+Subtitle Gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 3 
+Subtitle from RefSeq model  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Genefinder 
+From 1 
+Tag From_genefinder
+ 
+Colonne 4 
+Subtitle from AceView gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Transcribed_gene 
+From 1 
+Tag From_gene
+ 
+Colonne 5 
+Subtitle intron boundaries  
+Width 12 
+Optional 
+Visible 
+Next_Tag 
+From 1 
+Tag Type
+ 
+Colonne 6 
+Subtitle intron length (bp)  
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag Length
+ 
+Colonne 7 
+Subtitle Column #6  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition Any_BodyMap
+ 
+Colonne 8 
+Subtitle support index (unique)  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 9 
+Subtitle supporting reads  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 8 
+Tag HERE:2 
+ 
+Colonne 10 
+Subtitle Column #10 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_nU
+Condition Any_bodymap
+ 
+Colonne 11 
+Subtitle support index, non unique 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+Colonne 12 
+Subtitle supporting reads, non unique 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 11 
+Tag  HERE:2 
+ 
+Colonne 13 
+Subtitle unicity index for intron 
+Width 12 
+Optional 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag 100 * \%9/ \%12
+ 
+ 
+
+// End of these definitions

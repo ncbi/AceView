@@ -1,0 +1,191 @@
+<!--  @(#)Table_Maker.html	1.3  3/22/95  >
+<head>
+<title>Table_Maker</title>
+</head>
+
+<h2>TableMaker: Definition Window</h2>
+
+The TableMaker is used to construct relational tables of object names
+and field values and underlies the construction of <A
+HREF="Multi_Map.html">MultiMaps</a> (see below). It is closely related
+to the other query tools: <A HREF="Query.html">Query Commands</a>, <A
+HREF="Query_By_Example.html">Query by Example</a>, and the <A
+HREF="Query_Builder.html">Query Builder</a>.<p>
+
+The TableMaker differs from other query tools in that you can use it
+to display tags and values from within an object. The other tools
+return only the names of objects that satisfy the query. Any
+object names that appear will be clickable.<p>
+
+TableMaker uses three windows: the definition window, which allows you
+to define your table; the data window, which displays the table once
+it is calculated; and the MultiMap window, which is created by
+pressing the map button in the data window. This help document covers
+the definition window only. Seperate help is available for the <A
+HREF="Table_Maker_Data.html">data window</a> and <A
+HREF="Multi_Map.html">MultiMap</a>.<p>
+
+Once a table is constructed, its definition can be stored in the
+directory ./wquery as **.def. Although you can edit the def file by
+hand, we recommand that you edit it via the interface.<p>
+
+
+
+<h3>Menu items and Buttons in the Definition Window</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: destroys the window.
+
+<li><strong>Help</strong>: displays this help page.
+
+<li><strong>Print</strong>: prepares a Post Script file in $ACEDB/PS
+which you can print to your local laser printer.
+
+<li><strong>Save</strong>: Saves the present set of definitions into
+the file Directory/FileName.qry if you have write access to Directory.
+The ending .def is added automatically.
+
+<li><strong>Load</strong>: Loads the file Directory/FileName.def if it
+exists.
+
+<li><strong>Search Whole Class</strong>: If you have just changed the
+definitions, initiates a search of the whole database according to
+your definitions and display the results.  Else redisplays the same
+data. In particular, modifying the width of a column or its visible/hidden
+status does not initiate a new search.
+
+<li><strong>Search Active KeySet</strong>: Initiates a search of the
+objects enumerated in the active KeySet according to your definitions
+and displays the results. Using KeySets often speeds up information
+retrieval considerably--see <A HREF="KeySet.html">help on KeySets</a>
+for more details.
+
+<li><strong>Create definition</strong>: Creates space for a new
+column definition. See below.
+
+<li><strong>Suppress definition</strong>: Removes the active
+definition. You activate a definition by picking one of its boxes, for
+example the hidden/visible buttton. BUG: It may happen that the 
+From/Right_of value is not correctly modified in the columns 
+following the one you suppressed, please verify.
+
+</ul>
+
+<h3>Definition Window Features and Controls</h3>
+
+<ul>
+
+<li><strong>Number (left of "Title")</strong>: column number. Used
+in the "From/Right_of" field of the other definitions (explained
+below).
+
+<li><strong>Title box</strong>: Edit after picking it with left
+mouse button. Fill this in if you want a label to appear above the
+column in the data window. Press enter to validate.
+
+<li><strong>Width box</strong>: Edit after picking it with the left
+mouse button. Indicates the width of the column of data when
+displayed.  Press return to fix the value. You may have to adjust this
+value to display particularly wide columns.
+
+<li><strong>Visible/Hidden button</strong>: Toggle with the left mouse
+button by picking or directly with the right mouse button and a
+pull-down menu. Hiding a column's definition means the corresponding
+data will not show in the data window. This will reduce the number of
+columns of the data display, but most probably, also the number of
+lines. For example, if you show a paper in column 1, and its authors
+in column 2, you will get as many lines as authors. But by hiding
+author, you keep only one line.
+
+<li><strong>Optional/Mandatory button</strong>: Toggle with the left
+mouse button by picking or directly with the right mouse button and a
+pull-down menu. If a column's definition is mandatory, only the lines
+satisfying it will be kept. This restriction applies even if the
+corresponding definition is hidden.
+
+<li><strong>Class field</strong>: In column 1, Class is a pull-down
+menu which can be activated with the left or the right mouse button.
+It lists all the visible classes, but you should only select a
+B-class (i.e., one that can be displayed in a text window). When you
+then press the Search Whole Class button, only the corresponding
+class wil be explored. For subsequent columns, this box is usually
+filled in for you, except if you want to see the Next_Tag (see
+below).
+
+<li><strong>From</strong>/Right_of button: Tells the system from
+where it should recover the data for a particular column. By
+default, one is extracting the values from the objects listed in
+column one. But you may want to navigate further (join in
+reelational language). For exaple: Select class Paper in column 1.
+In column 2 select: From 1, Author. Then in column 3: From 2:
+e_mail. This will give the e_mail of the Authors of the Papers of
+column 1. 
+
+<li>From/<strong>Right_of button</strong>: Right_of 3 tells the system to look
+for a field right of the entry listed in column 3, extracted from
+the same object as column 3. For example. I can expand the above
+table by a column 4:  From 1: Page-Int (first page of paper), then 
+Right_of 4: Int to get the last page (assumming a model "Page Int Int")
+
+
+<li><strong>Tag button</strong>: Clicking brings up the <A
+HREF="Tag-Chooser.html">tag chooser window</a> showing the model of
+the class for the column you are defining. Double pick an entry
+there. Your active definition will change to reflect your choice.  The
+text box adjacent to the Tag button will show a query, and the Class
+box will show the kind of element you chose. 
+
+<blockquote>
+
+Note: there are six basic kinds of elements to pick from in the tag
+chooser. <strong>Integers</strong>, <strong>floats</strong>,
+<strong>text</strong>, and <strong>dates</strong> are all
+values. Links to other objects are <strong>classes</strong>. Finally,
+there are <strong>tags</strong>. Your choice determines what the
+Tablemaker data window will display for the object being defined in
+the corresponding column:<p>
+
+If you pick a <var>value</var>, the TableMaker data window will
+display that value, if field is filled in.<p>
+
+If you pick a <var>class</var>, the data window will display the name
+of that object, if field is filled in.<p>
+
+If you pick a <var>tag</var>, the data window will display that tag,
+if it is used.<p>
+
+Ordinarily you accept what the TableMaker fills in for the Tag text
+entry box and the Class box (unless you are familiar with the details
+of <A HREF="Query_syntax.html">query syntax</a>). However, if you
+picked a tag that is immediately to the left of a group of tags, you
+may want to pull down the Class box menu and select Next_Tag. This
+will direct the TableMaker to retrieve the adjacent tag or tags (if
+used) and display them in the table.<p>
+
+</blockquote>
+
+<li><strong>Condition field</strong>: is applied to objects for a
+particular column. For example, the condition A* for Locus objects
+would pass only loci whose names started with the character A.
+Inside the condition box, %number will refer to the value of a
+previous column. So the condition %4 > %3 will ensure that the
+number listed in columnt 4 is larger than the one in column 3.
+
+%%digit refer to external parameters substituted when reading the
+definition file. THis is useful in non-graphic mode since it allows
+you to call parametrisable tables.
+
+</ul>
+
+The query system is applied twice in every definition: first, for the
+tag field, to select the piece of data you want; second, for the
+condition field, applied to the picked object or value.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+to help for the <A HREF="Table_Maker_Data.html">data window</a> and <A
+HREF="Multi_Map.html">MultiMap</a>.<p>
+
+last edited: March 95<p>
+

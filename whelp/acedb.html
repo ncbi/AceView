@@ -1,0 +1,153 @@
+<!--  @(#)acedb.html	1.4  9/30/97  >
+<head>
+<title>Main_Window</title>
+</head>
+
+<h2>ACEDB Main Window</h2>
+
+
+
+Help is available for:<p>
+
+<ul>
+
+<li>the <a href="TOC.html">Index</a> for on-line help on given functions.
+
+<li>Mouse buttons and keyboard shortcuts  in the <A HREF="Interface.html">ACEDB user
+interface</a> 
+
+<li><A HREF="Copyright.html">distribution and copyright</a>
+information
+html
+<li><A HREF="http://probe.nalusda.gov:8000/acedocs/index.html"> Acedb
+documentation server</a> at Nalusda
+
+</ul>
+
+
+<h3>Main window </h3> 
+<strong>The ACeDB Main Window</strong> is used to search for the object you wish to study in the database.
+<ul>
+  <li>At the top of the window are <a href="#buttons">menu buttons</a> that give access to other functions of ACeDB.
+<li>Underneath you have the <b>Status/Progress Indicator</b> box. The green 'ready' box  turns to red and indicates what your database is doing when a process is less than instantaneous.
+<li>You then select your search pattern, or how deep you wish to dig in the database. You have the choice of <meta name="search">searching in a <i>single class,</i> the one you have <a href="#pref">selected</a> or of searching <i>all classes</i>. This sets the range of your scan. You must then select how deeply the data will be examined: you may limit yourself to looking at the <b>names</b> of objects(near instantaneous), or you can also examine the <b>contents</b> of the objects(slightly longer but this digs up cross references), or you can take a bit longer and actually look for your search string inside <b>abstracts</b>.
+<p>
+    <samp><i>Example:</i>the search string 'Sulston' <b>in all classes</b> gives 2 answers in <b>named</b>mode:JE and IA Sulston.In <b>named or containing</b> mode the same search gives 4 more  items containing references to Sulston*, in <b>named or containing even in abstract</b> mode we get 285 items: all the articles that mention Sulston in their abstract. </samp>
+
+<p>
+</ul>    
+
+
+<ul>
+
+   
+
+<li>The <a href="box.html">Search box</a> will look for your object in a given <a href="class.html">Class</a>. You select your class with the left mouse button and the black triangle gives access to other than everyday classes.  A double-click on a class calls up the <A HREF="KeySet.html">Main KeySet</a>, and displays the objects in that class for your selection: just double-click on the one you want and a new window which might contain  <A HREF="Tree.html">text</a> or be a special display, like a <A HREF="Genetic-map.html">genetic map</a> will open. Since you may have a lot of objects in a given class, you might want to use the yellow <a href="box.html">Search box</a> to restrict this list.
+
+
+
+
+<li> The <strong>Global Search box</strong>will find all the objects in the database
+that  <strong>contain</strong> the search string in their name, but also all those that  <strong> refer</strong> to it. You don't have to select a class, since this will search every class in the database.
+
+<li> The <strong>Long Search</strong> will find all the objects in the database
+that  <strong>contain</strong> the search string in their name, references, or body. It was developped to find for example all the abstracts containing a specific  word.
+
+
+
+</ul>
+
+
+<h3>Main window Buttons:</h3>
+
+<a name="buttons"></a> 
+Hold right mouse button to access this menu.
+<ul>
+
+<li><strong>Quit</strong>: Quits entire program.
+
+<li><strong>Help</strong>: Displays this help page.
+
+<li><strong>Clean up</strong>: Kills all ACEDB windows except Main.
+
+<li><strong>Program Status</strong>: <A HREF="Status.html">Info on
+memory/disk useage</a>.
+
+<li><strong>Add Update file</strong>: To read official data <A
+HREF="Update.html">Update</a>.
+
+<li><strong>Preferences</strong>: To configure your display <A
+HREF="Preferences.html">preferences</a>.
+
+<li><strong>Query</strong>: Opens <A HREF="Query.html">Query
+Commands</a> window.
+
+<li><strong>Query by Examples</strong>: Opens <A
+HREF="Query_By_Example.html">Query by Example</a> window.
+
+<li><strong>Query builder</strong>: Opens <A
+HREF="Query_Builder.html">Query Builder</a> window.
+
+<li><strong>Table Maker</strong>: Opens <A
+HREF="Table_Maker.html">TableMaker</a> window.
+
+<li><strong>DNA analysis</strong>: Opens <A HREF="DNA_analysis.html">DNA
+Analysis</a> window.
+
+
+
+<li><strong>Sequence Assembly and Mapping</strong>: Available with
+    the <A HREF="Acembly.html">Acembly</a> program.
+
+
+<li><strong>Comparative maps</strong>: A set of tools develloped
+    by John Edwards and Joe Dicks to compare chromosomes from
+    different species, also called <A HREF="Oxgrid.html">Oxgrids </a>.
+
+
+</ul>
+
+The following entries only exist if your username is in
+wspec/passwd.wrm:<p>
+
+<ul>
+
+<li><strong>Add/Alias/Rename</strong>: Opens window for <A
+HREF="Add_New_Objects.html"> adding and editing objects</a>.
+
+<li><strong>Read .ace files</strong>: Opens <A
+HREF="Read_files.html">.ace file parser</a> for reading in data.
+
+<li><strong>Align maps</strong>: Opens <A
+HREF="Make_maps.html">Align</a> window for building maps.
+
+<li><strong>Read Models</strong>: Run this after modifying
+wspec/models.wrm
+
+<li><strong>Dump</strong>: <A HREF="Dump.html">Dumps</A> entire
+database in ace format.
+
+<li><strong>Session control</strong>: To preserve or backtrack to an earlier
+    state of the database. This tool can also be used to recover the database
+    in the rare case of a fatal disk error (<A HREF="Session_control.html">more info</A>)
+
+<li><strong>Write Access</strong>: To get write access.Highlights the <strong>save</strong>  data to database button.
+
+<li><strong>Save :</strong> Saves session changes permanently and releases write access.
+<li><strong>Test Subroutine :</strong>(developers only) Calls w6/acdbtest.c:acetest()
+</ul>
+
+<p>
+
+<strong>To</strong> <a href="TOC.html">Index</a><p>
+
+last edited: Nov 1997<p>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,10 @@
+#!bin/tcsh -f
+
+set out_err="$1"
+set pgm="$2"
+
+# echo "schtroumpf start"
+   (eval "bin/time -p $pgm" > $out_err.out) >& $out_err.err
+# echo "schtroumpf end"
+
+##############################################

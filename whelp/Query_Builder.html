@@ -1,0 +1,199 @@
+<!--  @(#)Query_Builder.html	1.2  2/17/95  >
+<head>
+<title>Query_Builder</title>
+</head>
+
+<h2>Query_Builder</h2>
+
+The interface in this window is a little complex but offers great
+power. It is more difficult to use than <A
+HREF="Query_By_Example.html">Query By Example</a> but simpler than the
+<A HREF="Query.html">Query Commands window</a>. Help is also available
+for the <A HREF="Query_syntax.html">query language</a> itself. Query
+answers are always displayed in <A HREF="KeySet.html">KeySet
+windows</a>, which have special properties.<p>
+
+You can fill in the text entry boxes or use the pop-up menus
+associated with each box. Also, if you pick the black triangles, then
+you will get a BLOCKING, scrollable selector to choose from a long
+list of choices. BLOCKING means you must dismiss this window with the
+Cancel button or menu item, or by double-clicking to select a choice.<p>
+
+The first text entry box (next to "Find and select") specifies what
+class you are seaching WITHIN.<p>
+
+The condition (next to "where") is specified as follows, from left to
+right: the leftmost box is the attribute (item name, tags) that you
+are matching to.  The second box is the operator (less than, equals,
+text).  The third box is the value you are matching to the attribute.
+The rightmost box is a conjunction that allows you to specify
+additional conditions. These will appear below the original "where"
+line.<p>
+
+
+<h3>User Entry Box Details</h3>
+
+<ul>
+
+<li><strong>Class Box ("Find and select")</strong>: This box first
+appears with the default "ANY CLASS" showing.  Use this box to select
+the class you are searching within. This entry determines the list of
+possible attributes in the Attributes ("where") box.<p>
+
+<li><strong>Pre-Class Box</strong>: This box is hidden by default and
+appears next to the word "from" if you select the "Show More" option
+on the menu. Use this box for Secondary/indirect queries. This allows
+you to construct queries of the form "From the Clone class, find and
+select the related Loci, where the Genes meet the conditions
+such-and-such".<p>
+
+<li><strong>Attribute Box ("where")</strong>: Use this box to specify
+the attributes within a class that you wish to test for.  On both the
+Selector and the Popup menu for the Attribute Box, you may see the
+choice "USE TAG CHOOSER" which calls up a model-display for the
+current class. Double-click on a tag label to choose a tag within this
+context.
+
+<li><strong>Condition Box (second box on line beginning with
+"where")</strong>: This box presents a list of operators which will be
+applied to the attribute:
+
+<ul>
+
+<li>Some operators (exists, does not exist) do not take any arguments.
+In the top set of choices on the pop-up menu, "contains", "begins
+with", and "ends with" merely combine wildcards (such as "?" and "*")
+with the equality operator. 
+
+<li>Equality and inequality can be tested for using the middle set of
+choices on the pop-up menu.
+
+<li>The bottom set of choices allows you to query on the number of
+instances of data (a REPEAT list) associated with the current
+Attribute in the data objects.<p>
+
+</ul>
+
+<li><strong>Value Box (third box from right on "where" line)</strong>:
+Later, this may supply more hints as metadata becomes available.
+Currently, enter the arguments for the comparisons used in the
+Conditions box here.  "?"  (single character) and "*" (0 or more
+characters) are valid wildcards.  Quoted strings are accepted.<p>
+
+<li><strong>Conjunction Box: (last box, far right, on "where"
+line)</strong>: Use this box to form conjunctive query conditions, to
+use the "#" (and-submodel) function, and to demark the end of a query
+with the special word "END".<p>
+
+</ul>
+
+<h3>Buttons</h3>
+
+Most of the button and main menu commands are the same as the <A
+HREF="Query.html">Query Commands window</a>.<p>
+
+<ul>
+
+<li><strong>Quit</strong>: Quits this window with an option to save
+your current file of commands, provided you have given a file name.
+
+<li><strong>Help</strong>: Invokes this section of the help file.
+
+<li><strong>Print</strong>: Print this window to a postscript file and
+send to printer (ACEDB_LPR).
+
+<li><strong>Clear</strong>: Clears all the user-entry boxes on the
+window.
+
+<li><strong>New KeySet</strong>: Calls up a new, blank <A
+HREF="KeySet.html">KeySet window</a> ("Query Builder Answer").
+
+<li><strong>By Example</strong>: Call up the <A
+HREF="Query_By_Example.html">Query-by-example window</a>.
+
+<li><strong>Command Edit</strong>: Call up the <A
+HREF="Query.html">Query Commands window</a>.
+
+<li><strong>Search Locally</strong>: Execute the current query and put
+the found and selected objects in a <A HREF="KeySet.html">KeySet
+window</a> ("Query Builder Answer").
+
+<li><strong>Undo</strong>: Cancels the last command and redisplays the
+answer (if any) to the previous query in the <A
+HREF="KeySet.html">KeySet window</a> ("Query Builder Answer").
+
+</ul>
+
+<h3>Menu items:</h3>
+
+In addition to the commands above, the Menu have the following
+options:<p>
+
+<ul>
+
+<li><strong>Print Window</strong>: Same as Print button. Prepares a
+Post Script file in ./PS which you can then print on your local laser
+printer (specified by ACEDB_LPR).
+
+<li><strong>Refresh</strong>: Redraws the window.
+
+<li><strong>Clear Entries</strong>: Same as Clear Button: Clears all
+the user-entry boxes on the window.
+
+<li><strong>Show More [Less]</strong>: For more advanced users, this
+option will display (hide in case of Show Less) a box allowing the
+user to choose a different class from which to begin a query.  ALL
+DATA is default.  Otherwise, a query can begin from a class or
+subclass.  A subclass of a class consists of objects with a particular
+attribute. The subclass is named as a distinct class and may appear
+on the main menu.
+
+<li><strong>Query By Example</strong>: Same as By Example Button.
+Call up the <A HREF="Query_By_Example.html">Query-by-example
+window</a>.
+
+<li><strong>Query Command Edit</strong>: Same as Command Edit Button.
+Call up the <A HREF="Query.html">Query Commands window</a>.
+
+<li><strong>Search Locally</strong>: Same as Search Locally Button.
+Execute the current query and put the found and selected objects in
+the Keyset (selection list).
+
+<li><strong>Undo Search</strong>: Same as Undo Button: Cancels the
+last command and redisplays the previous Keyset (selection list).
+
+</ul>
+
+
+<h3>Other details</h3>
+
+<strong>Query Builder (User Entry Boxes)</strong>:
+You activate an entry box by picking it (click with the left
+mouse button).  It turns yellow (dark grey on monochrome) 
+and all keyboard-input will then enter into that box.<p>
+
+Use the right mouse button to bring up pop-up menus containing
+appropriate choices for each user-entry box.<p>
+
+Not all functionality of the query language is implemented in the
+query builder.<p>
+
+Adjacent to some boxes is a triangle that can be clicked on with the
+mouse.  This will activate a selector menu with a scroll bar. This is
+very useful in cases where the popup menu is too long fit on the
+screen.  "Cancel" must be pressed (button) or chosen (popup menu on
+selector window) or a selection must be made (double-click on an
+entry) to dismiss.<p>
+
+<strong>Scope</strong>: The query commands modify the active Keyset
+(selection list).  To select another key set, pick it once or use the
+New KeySet option on the menu.<p>
+
+<strong>Query Commands Display</strong>: If the <A
+HREF="Query.html">Query Commands window</a> is open, the syntax formed
+by the Query Builder will be shown on a command edit line there.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+</pre>
+
+last edited: July 1994<p>

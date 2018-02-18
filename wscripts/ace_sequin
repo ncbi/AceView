@@ -1,0 +1,3 @@
+#!/usr/local/bin/perl 
+
+print "ici perl  ace_sequin @ARGV \n";

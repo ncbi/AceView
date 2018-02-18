@@ -1,0 +1,61 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: the asubs package </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to asubs package</H1>
+
+<PRE>
+
+This package manages permanent Arrays and Stacks.  See the array.doc
+for information on the Array/Stack package.  ACEDB classes can be
+declared as A (array) classes, in place of B (tree) classes.  In that
+case the keys are associated with arrays or stacks stored in the
+database.   The calls in this case are:
+
+	void  arrayStore (KEY key, Array a, char *format)
+	Array arrayGet (KEY key, TYPE, char *format)
+
+arrayStore() saves the array a with key, which must already have been
+created using lexaddkey().  If there was something there already it is
+overwritten (you can test with iskey() first if you want - see lexsubs).
+The format defines what is to be stored.  An example is "kkfi" which
+means "two keys, float, integer".  Allowed format characters are:
+	c	single char
+	k	key
+	i	integer
+	f	float
+	v	pointer (void*)
+Note that the pointers are not recoverable, but it is useful to cast
+things to (void*)!
+
+arrayGet() gets the array stored with key.  You get a copy of the
+array.  You can edit it however you want, and it is your
+responsibility to destroy it when you are finished.
+
+	void  stackStore (KEY key, Stack s)
+	Stack stackGet (KEY key)
+
+are corresponding routines to store/get stacks.  In fact they are
+stored as arrays of chars, and can be recovered as such, though it
+makes sense to store/get consistently.
+
+	void arrayKill (KEY key)
+
+kills any array or stack attached to key.
+
+NB there are potential problems with word alignment on a machine with
+bizarre alignment rules.
+
+</PRE>
+
+</BODY>
+</HTML>

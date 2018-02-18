@@ -1,0 +1,664 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2010-12-04_22:54:56
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Element    
+Width 12 
+Optional 
+Visible 
+Class 
+Class Element 
+Condition av
+ 
+Colonne 2 
+Subtitle bestIndex     
+Width 12 
+Mandatory 
+Visible 
+Float 
+From 1 
+Tag BestIndex
+Condition \%2 > 10
+ 
+Colonne 3 
+Subtitle Tissue    
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Tissue 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle Column #3     
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS "any"
+ 
+Colonne 5 
+Subtitle experiment     
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Experiment 
+Right_of 4 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 6 
+Subtitle any     
+Width 12 
+Mandatory 
+Hidden 
+Float 
+Right_of 5 
+Tag HERE 
+Condition [\%2 - \%6] > -1.2
+ 
+Colonne 7 
+Subtitle GeneId    
+Width 12 
+Optional 
+Visible 
+Class 
+Class GeneId 
+MultiData
+From 1 
+Tag GeneId
+ 
+Colonne 8 
+Subtitle Gene    
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 9 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition adrn
+ 
+Colonne 10 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 9 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 11 
+Subtitle adrn    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag HERE 
+ 
+Colonne 12 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition adps
+ 
+Colonne 13 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 12 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 14 
+Subtitle adps  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag HERE 
+ 
+Colonne 15 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS brain
+ 
+Colonne 16 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 15 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 17 
+Subtitle brain  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 16 
+Tag HERE 
+ 
+Colonne 18 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition sexy_brain
+ 
+Colonne 19 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 18 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 20 
+Subtitle SEQC_brain  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 19 
+Tag HERE 
+ 
+Colonne 21 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS breast
+ 
+Colonne 22 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 21 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 23 
+Subtitle breast  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 22 
+Tag HERE 
+ 
+Colonne 24 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS colon
+ 
+Colonne 25 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 24 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 26 
+Subtitle colon  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 25 
+Tag HERE 
+ 
+Colonne 27 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS kidney
+ 
+Colonne 28 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 27 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 29 
+Subtitle kidney  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 28 
+Tag HERE 
+ 
+Colonne 30 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS heart
+ 
+Colonne 31 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 30 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 32 
+Subtitle heart  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 31 
+Tag HERE 
+ 
+Colonne 33 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS liver
+ 
+Colonne 34 
+Subtitle Column #34  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 33 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 35 
+Subtitle liver  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 34 
+Tag HERE 
+ 
+Colonne 36 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS lung
+ 
+Colonne 37 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 36 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 38 
+Subtitle lung  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 37 
+Tag HERE 
+ 
+Colonne 39 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS lymph
+ 
+Colonne 40 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 39 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 41 
+Subtitle lymph  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 40 
+Tag HERE 
+ 
+Colonne 42 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS ovary
+ 
+Colonne 43 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 42 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 44 
+Subtitle ovary  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 43 
+Tag HERE 
+ 
+Colonne 45 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS prostate
+ 
+Colonne 46 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 45 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 47 
+Subtitle prostate  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 46 
+Tag HERE 
+ 
+Colonne 48 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS skelet
+ 
+Colonne 49 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 48 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 50 
+Subtitle skelet  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 49 
+Tag HERE 
+ 
+Colonne 51 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS testes
+ 
+Colonne 52 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 51 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 53 
+Subtitle testes  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 52 
+Tag HERE 
+ 
+Colonne 54 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS thyrd
+ 
+Colonne 55 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 54 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 56 
+Subtitle thyroid  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 55 
+Tag HERE 
+ 
+Colonne 57 
+Subtitle Column #10    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS wbc
+ 
+Colonne 58 
+Subtitle Column #11    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 57 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 59 
+Subtitle wbc  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 58 
+Tag HERE 
+ 
+Colonne 60 
+Subtitle Title  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Tissue 
+From 1 
+Tag Deep
+Condition IS Sexy_UHR
+ 
+Colonne 61 
+Subtitle Column #61  
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Experiment 
+Right_of 60 
+Tag HERE 
+Condition pA.U
+ 
+Colonne 62 
+Subtitle SEQC_UHR  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 61 
+Tag HERE 
+ 
+Colonne 63 
+Subtitle Gene Title  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 1 
+Tag Title
+ 
+ 
+
+// End of these definitions

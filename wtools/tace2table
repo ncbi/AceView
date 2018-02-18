@@ -1,0 +1,34 @@
+#!/usr/local/bin/perl
+# 
+# tace2table
+#
+#  tace dumps tables with ; separating the fields.
+#
+#  Typically : "E77B4";;"95-06-08";;;;
+#
+# Convert ;; to ;""; so don't lose fields when split
+#
+# Gos - Tue Jul 18 15:54:27 1995
+# $Id: tace2table,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+while ( <> ) {
+        s/;;/;"";/g ;  # Have to do it twice...
+        s/;;/;"";/g ; 
+        tr /"//d ;
+        @lines[ $n++ ] = $_ ;  # Keep a copy for later.
+        @fields = split ( /;/ ) ;
+        for ( $i = 0 ; $i < @fields ; ++$i ) {
+                $length = "".split (//, $fields[ $i ] ) ;
+                $size[ $i ] = $length > $size[ $i ] ? $length : $size[ $i ] ;
+        }
+}
+
+foreach ( @lines ) { 
+        @fields = split ( /;/ ) ;
+        for ( $i = 0 ; $i < @fields ; ++$i ) {
+                $length = "".split (//, $fields[ $i ] ) ;
+                $pads = " " x ( $size[ $i ] - $length +2 ) ;
+        print $fields[ $i ], $pads ;
+        }
+        print "\n" ;
+}

@@ -1,0 +1,39 @@
+<!--  @(#)Histogram.html	1.2  2/17/95  >
+<head>
+<title>Histogram</title>
+</head>
+
+<h2>Histogram</h2>
+
+An embryonic graphical tool. The prototype is:<p>
+
+<pre>
+void plotHisto(char *title, Array a)  ;
+</pre>
+
+Plots the histogram of the array of integers a.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Print</strong>: prepares a Post Script file in ./PS
+(histo#.PS) which you can then print on your local laser printer.
+
+</ul>
+
+The histogram itself is plotted in blue.<p>
+
+In the top right corner, total indicates the cumulated sum, i.e. the
+integral of y(x); max y(xm) = ymax indicates the coordinates (xm,ymax)
+of the maximum; max x is the maximal x value.<p>
+
+In the top left corner, the pair of number indicates the coordinates
+of the center of the black reticule. Picking anywhere with the left
+mouse button, you can move the reticule and get its new coordinates.<p>
+
+Statistics just gives the average and  the variance of the plot.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

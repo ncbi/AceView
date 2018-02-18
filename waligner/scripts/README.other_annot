@@ -1,0 +1,307 @@
+#!/bin/tcsh -f
+
+# 20110_08_17
+# Preparation des targets
+
+cd Targets
+############################################################
+# Genome
+
+foreach chrom ($chromSetAll)
+  cp ~/37/tmp/CH$chrom/$species.chrom_$chrom.fasta.gz ../CHROMS
+  ln -s ../CHROMS/$species.chrom_$chrom.fasta.gz 
+end
+
+############################################################
+# mito rrna
+# import hs.mito.fasta hs.SpikeIn.fasta from previous release or Genbank
+# verify and copy hs.rrna.fasta.gz
+
+############################################################
+# av
+
+ln -s ../MRNAS/hs.av.fasta
+gunzip -c ~/37/ZH*/d8.mrna.fasta.gz | gzip > ../MRNAS/hs.av.fasta
+
+############################################################
+# rnaGene : we innovate and download rfam from Sanger
+
+
+############################################################
+# RefSeq (we need nm-nr--xm-xr)
+ftp ftp.ncbi.nih.giv
+
+  cd genomes/H_sapiens/RNA
+  bin
+  get rna.fa.gz
+  quit
+
+# mv rna.fa NCBI_2009_03_04.nm_xm_nr_xr.ftpsite.fasta
+mv rna.fa.gz  NCBI_2009_07_02.nm_xm_nr_xr.ftpsite.fasta.gz
+# we get 
+gunzip -c NCBI_2009_07_02.nm_xm_nr_xr.ftpsite.fasta.gz | grep '>' | grep NR_ | wc
+# 27467 NM, 2287 NR,   9911 XM , 2287 XR
+# these fasta files hopefully coincide with the NM-XM models downloaded from
+ Jul 31  2009 :  /am/ftp-mapview/Homo_sapiens/sequence/BUILD.37.1/initial_release/seq_gene.md.gz 
+
+# clean the titles and remove the ribosomal RNAs (rrna )
+gunzip -c NCBI_2009_07_02.nm_xm_nr_xr.ftpsite.fasta.gz | gawk '/^>/{s=$0;i=index(s,"|ref|");s=substr(s,i+5);i=index(s,"|");nm=substr(s,1,i-1);title=substr(s,i+2);if((index(title,"ribosomal")>0 && index(title,"5S")>0) || index(title,"S ribosomal RNA")>0) next ; printf("Sequence %s\nTitle \"%s\"\n\n",nm,title);}' > hs.refSeq2title.ace
+gunzip -c NCBI_2009_07_02.nm_xm_nr_xr.ftpsite.fasta.gz | gawk '/^>/{rrna=2;s=$0;i=index(s,"|ref|");s=substr(s,i+5);i=index(s,"|");nm=substr(s,1,i-1);;title=substr(s,i+2);if((index(title,"ribosomal")>1 && index(title,"5S")>1) || index(title,"S ribosomal RNA")>1) rrna=1;if(rrna==2)printf(">%s\n",nm);next;}{if(rrna==2)print}' > NCBI_2009_07_02.nm_xm_nr_xr.clean.fasta
+gunzip -c NCBI_2009_07_02.nm_xm_nr_xr.ftpsite.fasta.gz | grep -c '>'    
+      42753
+grep -c '>' NCBI_2009_07_02.nm_xm_nr_xr.clean.fasta 
+      42733
+gzip NCBI_2009_07_02.nm_xm_nr_xr.clean.fasta 
+ln -s NCBI_2009_07_02.nm_xm_nr_xr.clean.fasta.gz hs.RefSeq.fasta.gz
+
+cat ~/37/XmInfo/a6.ncbi_models.*.ace | gawk '/^Sequence/{gene="0";}/^GeneId_pg/{gene=$2;}/^NM_id/{if(gene!="0")printf("%s\tGeneId_%s\n",$2,gene);gene="0";}' | gzip >  hs.RefSeq.transcript2gene.txt.gz
+
+############################################################
+# HINV
+## HINV
+# FLFUNHinvClusters contains cluster names and introns
+
+cat << EOF > ../../bin/FLFUNHinvClusters2intron.awk
+/^CLUSTER_CLUSTER-ID:/ {gene=\$2;nx=0 ; next;}
+/^CLUSTER_CHROMOSOME-NUMBER/{chrom = \$2; next;}
+/^CLUSTER_STRAND/ {strand=\$2;next;}
+/^MAPPED_MEMBER_EXON-CDNA_START/{nx=0;next;}
+/^MAPPED_MEMBER_EXON-GENOME_START/{a1=\$2;
+   next;
+}
+/^MAPPED_MEMBER_EXON-GENOME_END/{a2=\$2;
+    if(nx++>0) {
+       if(strand=="+") { b1=olda2+1;b2=a1-1; }
+       if(strand=="-") { b1=olda1-1;b2=a2+1; }
+       if (1) printf("// nx=%d a1=%d a2=%d olda1=%d olda2=%d \n",nx, a1,a2,olda1,olda2);
+       printf("Element %s__%d_%d // %s \nIntron\nOtherSupport Hinv %s\n\n",chrom,b1,b2,gene, gene);
+        }
+    olda1 = a1 ;
+    olda2 = a2;
+    next;
+}
+EOF
+gawk -f ../../bin/FLFUNHinvClusters2intron.awk titi
+
+gawk -f ../../bin/FLFUNHinvClusters2intron.awk FLFUNHinvClusters.txt > FLFUNHinvClusters2intron.ace
+grep Element  FLFUNHinvClusters2intron.ace | sort -u >  FLFUNHinvClusters2intron.list
+
+############################################################
+# EBI
+# ftp://ftp.ensembl.org/pub/current_fasta/homo_sapiens/cdna/Homo_sapiens.GRCh37.59.cdna.all.fa.gz
+gunzip Homo_sapiens.GRCh37.59.cdna.all.fa.gz
+mv Homo_sapiens.GRCh37.59.cdna.all.fa   EBI_transcripts_2010_08_03__Homo_sapiens.GRCh37.59.cdna.all.fa
+ln -s EBI_transcripts_2010_08_03__Homo_sapiens.GRCh37.59.cdna.all.fa EBI.fasta
+mv Homo_sapiens.NCBI36.53.cdna.all.fa EBI_transcripts_2009_02_17__Homo_sapiens.NCBI36.53.cdna.all.fa
+mv Homo_sapiens.GRCh37.62.cdna.all.fa.gz EBI_transcripts_2012_06_07_Homo_sapiens.GRCh37.62.cdna.all.fa.gz
+ln -s EBI_transcripts_2012_06_07_Homo_sapiens.GRCh37.62.cdna.all.fa EBI.fasta
+
+# count the genes (sort -u) and transcripts
+grep '>' EBI.fasta | gawk '{if($2~/nove/)print $4}' | sort -u | wc
+#   12905 was 9587 was  84
+grep '>' EBI.fasta | gawk '{if($2~/nove/)print $4}' | wc
+#   28757 was 18580 was   84
+
+grep '>' EBI.fasta | gawk '{if($2~/known/)print $4}' | sort -u | wc
+#  26835 was 26849 (was 21600)
+grep '>' EBI.fasta | gawk '{if($2~/known/)print $4}' | wc
+#  115457 was 109733  was 47425
+
+grep '>' EBI.fasta | gawk '{if($2~/pseudo/)print $4}' | sort -u | wc
+#   12133 was 11079 was 7099    7099  149079
+grep '>' EBI.fasta | gawk '{if($2~/pseudo/)print $4}' | wc
+#  12832 was  12478 was 
+
+# clean up the titles
+cat EBI.fasta | gawk '/^>/{mrna=substr($1,2);gene=substr($4,6);printf("%s\t%s\n",mrna,gene);}' | gzip > hs.EBI.transcript2gene.txt.gz
+# cat EBI.fasta | gawk '/^>/{mrna=substr($1,2);printf(">%s\n",mrna);next;}{print}' | gzip > EBI_transcripts_2009_02_17__Homo_sapiens.NCBI36.53.cdna.all.clean.fa.gz
+cat EBI.fasta | gawk '/^>/{mrna=substr($1,2);printf(">%s\n",mrna);next;}{print}' | gzip > EBI_transcripts_2012_06_07_Homo_sapiens.GRCh37.62.cdna.all.clean.fa.gz
+\rm hs.EBI.fasta.gz
+ln -s EBI_transcripts_2012_06_07_Homo_sapiens.GRCh37.62.cdna.all.clean.fa.gz  hs.EBI.fasta.gz
+\rm EBI.fasta
+
+
+####################################################################################
+####################################################################################
+
+foreach chrom ($chromSetAll)
+  if (! -e  junction2intmap.$chrom.txt) then
+    $tacembly ../../ZH$chrom << EOF
+      query find sequence junction
+      bql -a -o JUNCTIONS/junction2intmap.$chrom.txt select s,c,a1,a2 from s in @,c in s->intmap, a1 in c[1], a2 in a1[1]
+      quit
+EOF
+  endif
+end
+
+
+
+# forward genes
+foreach chrom ($chromSetAll)
+  cat JUNCTIONS/junction2intmap.$chrom.txt | sed -e 's/\"//g' >! toto
+  echo ZZZZZ >> toto
+  cat VEGA/vega.txt | gawk -F '\t' '{gene=$1;mrna=$2;exon=$3;strand=$4;chrom=$5;if(chrom!=chr)next;a1=$6;a2=$7;if(strand=="-")next;if(mrna != oldmrna){if(m1>0)printf("IntMap %s %d %d %s\n\n", chrom,m1,m2,oldmrna);m1=a1;printf("Sequence Vega_%s\nMethod Vega\nCDS\nModel_of_gene Vega_%s\nIs_predicted_gene\n", mrna, gene);}oldmrna= mrna;m2=a2;chrom=$5;printf("Source_exons %d %d\n",a1 - m1 + 1, a2 - m1 + 1);}END{if(m1>0)printf("IntMap %s %d %d %s\n\n", chrom,m1,m2,oldmrna);}' chr=$chrom >> toto
+  cat toto | sed -e 's/Vega_\"/"Vega_/' | gawk '/ZZZZZ/{zz=1;next;}/^IntMap/{ch=$2;m1=$3;m2=$4;mrna=$5;gsub(/\"/,"",mrna);ok=0;source=ch;a1=m1;a2=m2;for(k in j1)if(ok==0 && jc[k]==ch && j1[k]<=m1 && j2[k]>=m2){source=k;a1=m1-j1[k]+1;a2=m2-j1[k]+1;ok=1;}printf("IntMap %s %d %d\n\nSequence %s\nSubsequence \"Vega_%s\" %d %d\n\n",ch,m1,m2,source,mrna,a1,a2);next;}{if(zz==0){gsub(/\"/,"",$2);jc[$1]=$2;j1[$1]=$3;j2[$1]=$4;next;}print}' >! VEGA/vega.$chrom.forward.ace
+end
+
+
+# reverse genes
+foreach chrom ($chromSetAll)
+  cat JUNCTIONS/junction2intmap.$chrom.txt | sed -e 's/\"//g' >! toto
+  echo ZZZZZ >> toto
+  cat VEGA/vega.txt | gawk -F '\t' '{gene=$1;mrna=$2;exon=$3;strand=$4;chrom=$5;if(chrom!=chr)next;a1=$7;a2=$6;if(strand=="+")next;if(mrna != oldmrna){if(m1>0)printf("IntMap %s %d %d %s\n\n", chrom,m1,m2,oldmrna);m1=a1;printf("Sequence Vega_%s\nMethod Vega\nCDS\nModel_of_gene Vega_%s\nIs_predicted_gene\n", mrna, gene);}oldmrna= mrna;m2=a2;chrom=$5;printf("Source_exons %d %d\n",m1 - a1 + 1, m1 - a2 + 1);}END{if(m1>0)printf("IntMap %s %d %d %s\n\n", chrom,m1,m2,oldmrna);}' chr=$chrom >> toto
+  cat toto | sed -e 's/Vega_\"/"Vega_/' | gawk '/ZZZZZ/{zz=1;next;}/^IntMap/{ch=$2;m1=$3;m2=$4;mrna=$5;gsub(/\"/,"",mrna);ok=0;source=ch;a1=m1;a2=m2;for(k in j1)if(ok==0 && jc[k]==ch && j1[k]<=m2 && j2[k]>=m1){source=k;a1= m1 - j1[k] +1;a2= m2 - j1[k] +1;if(0)printf("##j1=%d m1=%d m2-%d\n",j1[k],m1,m2);ok=1;}printf("IntMap %s %d %d\n\nSequence %s\nSubsequence \"Vega_%s\" %d %d\n\n",ch,m1,m2,source,mrna,a1,a2);next;}{if(zz==0){gsub(/\"/,"",$2);jc[$1]=$2;j1[$1]=$3;j2[$1]=$4;next;}print}' >! VEGA/vega.$chrom.reverse.ace
+end
+
+# parse the genes in acedb and rexexport the dna 
+foreach chrom ($chromSetAll)
+  if (! -e VEGA/vega.$chrom.fasta) then
+    $tacembly ../../ZH$chrom << EOF
+      pparse other.method.ace
+      pparse VEGA/vega.$chrom.reverse.ace
+      pparse VEGA/vega.$chrom.forward.ace
+      query find predicted_gene Vega_*
+      dna VEGA/vega.$chrom.fasta
+      save
+      quit
+EOF
+  endif
+end
+cat VEGA/*.fasta | gawk '/>/{n=length($1);g=substr($1,2,n-5);printf("%s|Gene=%s|\n",$1,g);next;}{print}' > VEGA/vega.2008_12_09__2009_03_28.fa
+pushd ../MRNAS ; ln -s ../OTHER_ANNOT/VEGA/vega.2008_12_09__2009_03_28.fa  vega.fasta ; popd
+
+####################################################################################
+####################################################################################
+############################################################
+# Vega : Obsolete
+
+# we imported Vega from Vega
+# Vega is treated first in a special way, then HINV all other are treated below
+
+ln -s vega_Dec9_2008_March28_2009_gtf_file vega.gtf
+
+# col 1 = chrom 1 2 3 X Y + c6_COX c6_QBL
+# col 2 = category: known/novel X pseudogene etc
+# col 3 = CDS/exon
+# col 4 5 6 7 8 :  a1 a2 . +/- .
+# col 9  gene_id "OTTHUMG00000154636"; transcript_id "OTTHUMT00000336422"; exon_number "4"; gene_name "WNT7B"; transcript_name "WNT7B-005";
+
+# reformat useful info
+cat VEGA/vega.gtf | gawk -F '\t' '{chrom=$1;a1=$4;a2=$5;strand=$7;if($3=="CDS")next;z=$9;i=index(z,"gene_name");z1=substr(z,i+10);i=index(z1,";");gene=substr(z1,1,i-1);i=index(z,"transcript_name");z1=substr(z,i+16);i=index(z1,";");mrna=substr(z1,1,i-1);i=index(z,"exon_number");z1=substr(z,i+13);i=index(z1,";");exon=substr(z1,1,i-2);printf("%s\t%s\t%05d\t%s\t%s\t%d\t%d\n",gene, mrna, exon, strand,chrom,a1,a2);}' | sort > VEGA/vega.txt
+
+
+####################################################################################
+####################################################################################
+## all tracks imported from UCSC (rnaGenes are constructed below)
+UCSCtrackCompare -aceExport -t TrackNames.txt > others.all.ace
+
+
+## create the introns
+cat << EOF > ../../bin/ucsc.mrna2intron.awk
+/^mRNA/{mrna=\$2;i=index(mrna,"_");manip=substr(mrna,2,i-2);gene="";next}
+/^Model_of_gene/ {gene=\$2;next;}
+/^IntMap/{c=\$2;m1=\$3;m2=\$4;gsub(/chr/,"",c);}
+/Intron/{a1=\$2;a2=\$3;if(m1<m2){b1=m1+a1-2;b2=m1+a2-1;}else{b1=m1-a1+1;b2=m1-a2;}printf("Element %s__%d_%d\nIntron\tIn_mrna %s\nOtherSupport %s %s\n\n" ,c,b1,b2,mrna,manip,gene);next;}
+EOF
+gawk -f ../../bin/ucsc.mrna2intron.awk  others.all.ace >  others.introns.ace
+grep Element others.introns.ace | sort -u > other.introns.list
+
+## construct the Vega introns
+cat << EOF >   ../../bin/vega2introns.awk
+/^Sequence/{nx=0;next;}
+/^Model_of_gene/{gene=\$2;next;}
+/^Source_exons/{a1[nx]=\$2;a2[nx]=\$3;nx++;next;}
+/^IntMap/{c=\$2;c1=\$3;c2=\$4;if(nx>1)for(i=1;i<nx;i++){b1=a2[i-1];b2=a1[i];if(c1<c2){u1=c1+b1;u2=c1+b2-2;}else{u1=c1-b1;u2=c1-b2+2;}printf("Element %s__%d_%d\nIntron\nOtherSupport Vega %s\n\n",c,u1,u2,gene);next;}}
+EOF
+cat ../VEGA/vega.*.forward.ace  ../VEGA/vega.*.reverse.ace | gawk -f ../../bin/vega2introns.awk >  ../VEGA/vega2introns.ace
+grep Element   ../VEGA/vega2introns.ace | sort -u >!  ../VEGA/vega2introns.list
+
+## parse all the introns in ZE, reexport the list of all introns
+$tacembly ../../ELEMENTS/ZE << EOF
+  read-models
+  pparse  ../VEGA/vega2introns.ace 
+  pparse  others.introns.ace
+  query find element intron
+  query ! left_motif || ! right_motif
+  list -a -f elementIntron.list
+  save
+  quit
+EOF
+
+
+## create intron pseudo-sequences
+cat << EOF > ../../bin/intron2seq.awk
+/^Element/{ee=\$2;gsub(/\"/,"",ee);ee0=ee;
+   i=index(ee,"__");if(i==0)next;c=substr(ee,1,i-1);ee=substr(ee,i+2);
+   i=index(ee,"_");a1=0+substr(ee,1,i-1);ee=substr(ee,i+1);
+   a2=0+ee;
+   if(a1<a2) {u1=a1-dx;u2=a2+dx;a1++;a2--;}
+   else {u1=a1+dx;u2=a2-dx;a1--;a2++;}
+   if (c==chrom)
+     {
+       printf("Sequence %s\nsubsequence ZZZ_A_%s %d %d\n",c,ee0,u1,a1) ;
+       printf("subsequence ZZZ_B_%s %d %d\n\n",ee0, a2,u2) ;
+     }
+  }
+EOF
+set dx=100
+foreach chrom ($chromSetAll)
+  cat  elementIntron.list intronCombineNew.$chrom.list | gawk -f ../../bin/intron2seq.awk chrom=$chrom  dx=$dx >! intron2seq.$chrom.ace
+end
+
+## export the pseudo sequence from the database without saving
+foreach chrom ($chromSetAll)
+  if(-e intron2seq.$chrom.ace) then
+    scripts/submit bbly/i2s.$chrom  "../bin/intron2seq.csh $chrom"
+  endif
+end
+
+## from the resulting dna file:  intron2seq.$chrom.dna
+## get the nature of the intron and create a fasta file
+## the first awk command ensures that the dna is on the single line
+foreach chrom ($chromSetAll)
+  echo Chromosome $chrom
+  cat  intron2seq.$chrom.dna | gawk '/^>/{printf("\n%s\n",$1);next;}{printf("%s",$1);}END{printf("\n");}' | gawk '/^>/{s=substr($1,8);A=substr($1,6,1);next;}{if(A=="B"){acc[s]=substr($1,1,2);seq2[s]=substr($1,3);}if(A=="A"){donor[s]=substr($1,length($1)-1,2);seq1[s]=substr($1,1,length($1)-2);}}END{for(s in acc)if(donor[s]!=0 && acc[s]!=0){foot = donor[s] "_" acc[s] ; if (foot == "gt_ag" || foot == "gc_ag" || foot == "ct_ac" ||foot == "at_ac") other = "" ; else other ="Other" ;printf("Element %s\n%s %s\n\n",s,other,foot);}}' >! intron2type.$chrom.ace
+    cat  intron2seq.$chrom.dna | gawk '/^>/{printf("\n%s\n",$1);next;}{printf("%s",$1);}END{printf("\n");}' | gawk '/^>/{s=substr($1,8);A=substr($1,6,1);next;}{if(A=="B"){acc[s]=substr($1,1,2);seq2[s]=substr($1,3);}if(A=="A"){donor[s]=substr($1,length($1)-1,2);seq1[s]=substr($1,1,length($1)-2);}}END{for(s in seq1)if(seq1[s] !=0 && seq2[s]!=0){printf(">%s\n",s);n=length(seq1[s]);if(n<dx){for(;n<=dx;n++)printf("N");}printf("%s%s\n",seq1[s],seq2[s]);}}' dx=$dx >! intron2seq.$chrom.fasta
+  cat intron2type.$chrom.ace | gawk '/Element/{next}{z[$1]++}END{for (k in z)printf("%s\t%d\n",k,z[k]);}' | sort -k 2n | tail -5 
+end
+
+# count all introns types, i should find 99% gt_ag, it works !
+cat intron2type.*.ace | gawk '/Element/{next}{z[$1]++}END{for (k in z)printf("%s\t%d\n",k,z[k]);}' | sort -k 2n | tail -14
+
+# export the list of introns for which we found the sequence
+cat intron2seq.*.dna | gawk '/^>ZZZ_A_/{printf ( "Element %s\nLeft_Motif\n\n",substr ( $1,8) ) ; }' > intronFoundLeftMotif.ace
+cat intron2seq.*.dna | gawk '/^>ZZZ_B_/{printf ( "Element %s\nRight_Motif\n\n",substr ( $1,8) ) ; }' > intronFoundRightMotif.ace
+
+# marche pas ? Y__110519_111604
+$tacembly ../../ELEMENTS/ZE << EOF
+  query find element intron && !left_motif 
+  list -c 12
+  query find element intron && !left_motif && (IS *random* || ! IS *__* || IS *Hs* || IS *hap* || IS Y__*)
+  kill
+  save
+  quit
+EOF
+
+\rm  introns.100.fasta
+cat *fasta* >! introns.100.fa
+mv  introns.100.fa >  introns.100.fasta
+
+
+
+####################################################################################
+## RNA genes
+foreach chrom ($chromSetAll)
+  cat rnaGeneOct07EddyMaybe.txt |gawk -F '\t' '{nn++;if($6=="-"){a1=$3;a2=$2;}else{a1=$2;a2=$3;}if(substr($1,4)==chrom) printf("Sequence %s\nSubsequence RNA_gene_%d %d %d\n\n",chrom,nn,a1,a2);}' chrom=$chrom > rnaGene.$chrom.ace
+end
+
+## export the pseudo sequence from the database without saving
+foreach chrom ($chromSetAll)
+    scripts/submit bbly/r2s.$chrom  "../../bin/rnaGene2seq.csh $chrom"
+end
+foreach chrom ($chromSetAll)
+    bsub -q unified50limit -o bbly/r2s.$chrom.out2 -e bbly/r2s.$chrom.err2  "../../bin/rnaGene2seq.csh $chrom"
+end
+
+# create a global rna file
+cat rnaGene2seq.*.dna2 > ../../rnaGene.fasta

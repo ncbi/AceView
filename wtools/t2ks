@@ -1,0 +1,20 @@
+#!/bin/tcsh -f
+
+if ($1 == "") goto usage
+
+cat << EOF >! /tmp/$$.awk
+BEGIN {printf("Keyset toto\n");}
+/\"/ {printf ("%s %s\n",cl,\$1);}
+EOF
+
+gawk -F '\t' -f  /tmp/$$.awk cl=$1 
+
+\rm  /tmp/$$.awk
+exit 0
+
+usage:
+ echo "t2ks class"
+ echo "  creates on stdout a keyset from the first col of an acedb table output table.txt given on stdin "
+ echo "  example: t2ks Transcribed_gene < tbl.txt >! tbl.list.ace"
+
+exit 1

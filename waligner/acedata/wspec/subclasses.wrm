@@ -1,0 +1,98 @@
+// @(#)subclasses.wrm	1.4    6/4/94
+// subclasses.wrm
+// this is in standard ace file format
+
+
+// Class History
+// Visible
+// Is_a_subclass_of LongText
+// Filter History
+
+//-D Class MRNA
+
+Class Assembly
+Visible
+Is_a_subclass_of Sequence
+Filter "Subsequence AND NOT ( IS Superlink*) AND NOT( IS *_*) AND NOT Vector"
+
+Class Contg
+Hidden
+Is_a_subclass_of Sequence
+Filter Assembled_from
+
+Class Read
+Visible
+Is_a_subclass_of Sequence
+Filter "Is_read OR SCF_File"
+
+Class Genomic_Sequence
+Visible
+Is_a_subclass_of Sequence
+Filter "Genomic"
+
+Class TG
+Visible
+Is_a_subclass_of Transcribed_gene
+
+Class Transcribed_genes
+Hidden
+Is_a_subclass_of Transcribed_gene
+Filter Splicing
+
+Class Est
+Visible
+Is_a_subclass_of Sequence
+Filter cDNA_clone
+
+Class New_Read
+Hidden
+Is_a_subclass_of Sequence
+Filter New_Read
+
+Class New_Scf
+Hidden
+Is_a_subclass_of Sequence
+Filter "(SCF_File OR CTF_File )AND (NOT DNA OR NOT Excellent_upto)"
+
+Class Predicted_gene
+Visible
+Is_a_subclass_of Sequence
+Filter "Is_predicted_gene"
+// was Source_Exons AND CDS AND !(Method = Coding_region_constructed_from_cDNAs)"
+
+Class Long5p
+Visible
+Is_a_subclass_of Transcript
+Filter "Length_5prime_UTR > 200"
+
+Class Long3p
+Visible
+Is_a_subclass_of Transcript
+Filter "Length_3prime_UTR > 700"
+
+Class Alternative
+Visible
+Is_a_subclass_of Transcribed_gene
+Filter "COUNT Transcript > 1"
+
+Class NC_Splice
+Visible
+Is_a_subclass_of Transcribed_gene
+Filter "Intron_boundaries != gt_ag AND HERE != gc_ag"
+
+Class Non_coding
+Visible
+Is_a_subclass_of Transcript
+Filter "ORF_length < 40"
+
+Class Region
+Visible
+Is_a_subclass_of Locus
+Filter Sequence
+
+Class Site
+Visible
+Is_a_subclass_of PBS
+Filter Peak
+
+

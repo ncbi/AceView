@@ -1,0 +1,62 @@
+:
+#
+# parse the server.log file into our local datafile.  The $x.datafile
+# file will contain duplicate data, but all the processing programs
+# understand about that, so it is ok.
+#
+
+#
+# b=location of binaries
+# d=location of data
+
+b=`pwd`
+d=`pwd`
+
+echo $b
+for x in $*
+do
+	#
+	# find the right directory to look for the server files
+	#
+	case "$x"
+	in
+	/*)	
+		# if they gave a full path, to the parent
+		# and then use the basename.  you only use this
+		# for testing
+		base_x=`basename $x`
+		;;
+	*)
+		# not a full path, so use the default directory.
+		# pick based on host name
+		case `uname -n`
+		in
+		vesta)	
+			cd /home/mieg/ee/SERVER
+			;;
+		*)
+			cd /home/mieg/ee/SERVER
+			;;
+		esac
+	esac
+
+	#
+	# hope it is there...
+
+	if [ -d $x ] 
+	then
+		(
+		# we want to cat all the existing logs in the right order.
+		# that is in descending numeric order, followed by server.log
+		# mieg:august 31 i add a sort because we now mixup several servers
+		cd $x
+		pwd
+		# sort server.log > sorted.server.log
+		cat `ls server.log.* | sort -t. -k3 -n -r` server.log | \
+			perl $b/specialsort.pl | \
+			gawk -f $b/b.gawk > $d/$base_x.datafile
+		)
+	else
+		echo no directory for server $x
+	fi
+done

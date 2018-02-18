@@ -1,0 +1,62 @@
+d=`pwd`
+b=$d/../bin.*
+
+case "$1"
+in
+"")	echo choose directory
+	exit 1	
+	;;
+*)	
+	if [ -d $1 ]
+	then
+		echo 'directory already exists - remove?'
+		read a
+		case "$a"
+		in
+		y)	rm -rf $1
+			mkdir $1
+			;;
+		*)
+			exit 1
+		esac
+	else
+		mkdir $1
+	fi
+	echo using $1
+	cd $1 
+	;;
+esac
+
+mkdir database wspec
+
+cp $d/options.wrm wspec
+cp $d/displays.wrm wspec
+
+echo $USER > wspec/passwd.wrm
+echo NOLOCK >> wspec/passwd.wrm
+
+mkdir whelp
+cp $d/../whelp/* whelp
+
+cp $d/models.wrm wspec
+
+$b/tace . << FOO
+y
+save
+quit
+FOO
+
+$b/tace . << FOO
+ parse $d/proteins	// some sample protiens extracted from another db
+ parse $d/genetic_code  // load the rna->protien translation
+ find sequence		// finds some objects
+ list			// see their name
+// show			// see the content (DNA seq1 83 (the length)
+// dna			// see the actual sequence of dna
+ find sequence		// select them all
+ edit CDS		// add the CDS attribute
+// peptide		// translate them as protiens
+ save			// save changes to database
+ quit
+FOO
+

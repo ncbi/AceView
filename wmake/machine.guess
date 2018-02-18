@@ -1,0 +1,112 @@
+#!/bin/sh
+#  $Id: machine.guess,v 1.1.1.1 2002/07/19 20:23:29 sienkiew Exp $
+# This script attempts to guess a canonical system name.
+#   Copyright (C) 1992, 1993 Free Software Foundation, Inc.
+#
+# This file is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
+
+#
+# This script attempts to guess a canonical system name similar to
+# config.sub. If it succeeds, it prints the system name on stdout, and
+# exits with 0.  Otherwise, it prints an error message on stderr, and
+# exits with 1.
+#
+# The plan is that this can be called by configure scripts if you
+# don't specify an explicit system type (host/target name).
+#
+# Only a few systems have been added to this list; please add others
+# (but try to keep the structure clean).
+#
+# This script was modified by fw@sanger.ac.uk to
+# recognise machines for compiling ACeDB and Image
+
+UNAME_MACHINE=`(uname -m) 2>/dev/null` || UNAME_MACHINE=unknown
+UNAME_RELEASE=`(uname -r) 2>/dev/null` || UNAME_RELEASE=unknown
+UNAME_SYSTEM=`(uname -s) 2>/dev/null` || UNAME_SYSTEM=unknown
+UNAME_VERSION=`(uname -v) 2>/dev/null` || UNAME_VERSION=unknown
+
+# Note: order is significant - the case branches are not exclusive.
+case "${UNAME_MACHINE}:${UNAME_SYSTEM}:${UNAME_RELEASE}:${UNAME_VERSION}" in
+    alpha:OSF1:*:*)
+	echo ALPHA
+        exit 0 ;;
+    sun4*:SunOS:5.*:*)
+	echo SOLARIS
+        exit 0 ;;
+    sun4*:SunOS:*:*)
+	echo SUN
+	exit 0 ;;
+    sun3*:SunOS:*:*)
+	echo SUN
+	exit 0 ;;
+    RISC*:ULTRIX:*:*)
+	echo DEC
+	exit 0 ;;
+    *:IRIX:4*:*)
+	echo SGI
+	exit 0 ;;
+    *:IRIX:5*:*)
+	echo SGI
+	exit 0 ;;
+    i[34]86:AIX:*:*)
+	echo IBM
+	exit 0 ;;
+    *:AIX:2:3)
+	echo IBM
+	exit 0 ;;
+    *:AIX:*:*)
+	echo IBM
+	exit 0 ;;
+    9000/31?:HP-UX:*:*)
+	echo HP
+	exit 0 ;;
+    9000/[34]??:HP-UX:*:*)
+	echo HP
+	exit 0 ;;
+    9000/[34]??:4.3bsd:1.*:*)
+	echo HP
+	exit 0 ;;
+    hp300:4.4BSD:*:* | 9000/[34]??:4.3bsd:2.*:*)
+	echo HP
+	exit 0 ;;
+    9000/7??:HP-UX:*:* | 9000/8?7:HP-UX:*:* )
+	echo HP
+	exit 0 ;;
+    9000/8??:HP-UX:*:*)
+	echo HP
+	exit 0 ;;
+    9000/7??:4.3bsd:*:* | 9000/8?7:4.3bsd:*:* )
+	echo HP
+	exit 0 ;;
+    9000/8??:4.3bsd:*:*)
+	echo HP
+	exit 0 ;;
+    C1*:ConvexOS:*:*)
+	echo CONVEX
+        exit 0 ;;
+    C2*:ConvexOS:*:*)
+	echo CONVEX
+        exit 0 ;;
+    hp3[0-9][05]:NetBSD:*:*)
+	echo HP
+	exit 0 ;;
+    i[3456]86:Linux:*:*)
+	echo LINUX
+	exit 0 ;;
+esac
+
+echo "UNKOWN"
+
+exit 1

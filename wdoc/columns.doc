@@ -1,0 +1,62 @@
+From rd@sanger.ac.uk Thu Feb  4 10:16:52 1999
+
+You need to give a Right_priority value to each method, with values
+differing by 0.01 or more in order for them to appear in different
+columns.  The Right_priority value is used to determine the order of
+columns.  e.g. an ace file such as:
+
+Method : maize_BlastN
+Right_priority 5.2
+
+Method: rye_BlastN
+Right_priority 5.21
+
+Method: wheat_BlastN
+Right_priority 5.22
+
+Method: barley_BlastN
+Right_priority 5.23
+
+should do for you.  Existing colunms have priorities as shown below.
+
+Richard
+
+PS Jean, this needs to be in the release notes for 4_7, also the fact that
+Show_text is needed in the Method to get information displayed in the text
+column, and the fact that methods can be attached to subsequence objects to
+determine which column they will be in.
+
+Right_priority, default_on, column name
+---------------------------------------
+
+-100.0, TRUE, "Locator"
+-90.0, TRUE, "Sequences & ends"
+-2.1, FALSE, "Up Gene Translation"
+-1.9,  TRUE, "-Confirmed introns"
+-0.1,  TRUE, "Restriction map"
+0.0,  TRUE, "Summary bar"
+0.1,  TRUE, "Scale"
+1.9,  TRUE, "Confirmed introns"
+3.0,  TRUE, "EMBL features"
+3.2, FALSE, "CDS Lines"
+3.25, FALSE, "CDS Boxes"
+3.3,  TRUE, "Alleles"
+3.4, FALSE, "cDNAs"
+3.5, FALSE, "Gene Names"
+3.7,  TRUE, "Assembly Tags"
+3.8, FALSE, "Oligos"
+3.82, FALSE, "Oligo_pairs"
+/* isFrame starts if either of next 2 are On */
+4.0, FALSE, "3 Frame Translation"
+4.05, FALSE, "ORF's"
+4.1, TRUE, "Coding Frame"
+4.2, FALSE, "ATG"
+/* frame dependent stuff ends */
+4.99, FALSE, "Gene Translation"
+4.99, FALSE, "Down Gene Translation"
+6.0, FALSE, "Coords"
+6.1, FALSE, "DNA Sequence"
+6.5, FALSE, "Brief Identifications"
+7.0, TRUE, "Text Features"
+
+

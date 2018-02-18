@@ -1,0 +1,106 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: giface </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to giface</H1>
+
+<PRE>
+
+Notes on giface
+===============
+
+From the user's point of view, giface is a version of tace with
+extensions to generate gif and map files corresponding for acedb
+displays.  (From the programmer's point of view, it links in all the
+application code, so in fact is more like xace, but with gif as its
+graphics output mode.)
+
+Currently it can only dump Map displays, but it is not hard to add
+others, and I expect at least Sequence to be added soon.
+
+You run giface just like tace, with the database directory as a
+command line argument, or set as the ACEDB environment variable.
+There is a new single new command added to the standard tace menu,
+"gif".  This opens up a separate menu, with prompt "acedb-gif> ".  In
+this menu you can issue the following commands:
+
+Commands
+========
+
+dimensions x y : in pixels
+--------------------------
+This sets the dimensions in pixels of the gif image you will create.
+
+map name map view [x1 x2] : writes to name.gif and name.boxes
+-------------------------------------------------------------
+This is the command that does the work.  You specify a Unix file path
+as "name", then the map object, the view object you want to use, and
+optionally a start and end point in the coordinates of the map object.
+It will draw a gif containing exactly what you would see on the screen
+(except perhaps for bizarre font choices), and also produce a file
+with ending .boxes that contains information on where all the
+clickable objects are, and what they contain.  The format of the boxes
+file is given below.
+
+quit
+----
+This returns to the standard tace menu.
+
+You can issue any series of dimension and map commands, creating many
+gifs from one session of giface.
+
+.boxes file format
+==================
+
+A set of lines:
+
+boxnum x1 y1 x2 y2 class:"name" < class:"name" | display_type
+
+The boxnum is probably irrelevant to external people.  x1,y1,x2,y2 are
+the bounding box coordinates.  The first 'class:"name"' specifies the
+object in the box.  The second specifies the object from which this is
+obtained, in most cases here the Map, and the display_type is a hint
+as to how to display it, probably normally 'TREE', i.e. the standard
+text display.  For external web use, the 'x1 y1 x2 y2 class:"name"'
+section is probably all that is relevant.
+
+Example
+=======
+
+Here is a sample session:
+
+unix-prompt: giface ~wormpub/acedb/ace4/cgc
+acedb> gif
+acedb-gif> dim 250 800
+acedb-gif> map /nfs/disk37/rd/tmp/III-1 Sequence-III MAP-default -40 -2
+acedb-gif> map /nfs/disk37/rd/tmp/III-2 Sequence-III MAP-default -5 5
+...
+acedb-gif> quit
+// 0 Active Objects 
+acedb> quit
+
+ A bientot 
+
+unix-prompt: 
+
+  The resulting .boxes file contains lines like
+
+12   61 83 69 121    Rearrangement:"sDp3" < Map:"III" | TREE
+13   69 83 77 785    Rearrangement:"mnDp37" < Map:"III" | TREE
+
+<PRE>
+
+
+
+</BODY>
+</HTML>
+

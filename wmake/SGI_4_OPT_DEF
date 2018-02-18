@@ -1,0 +1,32 @@
+# $Id: SGI_4_OPT_DEF,v 1.2 2004/09/03 02:23:30 mieg Exp $
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+########### for the SGI Silicon Graphics Generic ################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+# Note:
+# the native cc is recommended over gcc on Silicon Graphics
+#
+NAME = SGI 
+COMPILER = cc -O3 -mips4  -DNO_LEFT_CASTING -DACEDB4
+LINKER = cc 
+TEST = /usr/bin/test
+
+LIBS = -lm
+RANLIB_NEEDED = false
+
+.c.o:
+	$(CC) $*.c
+
+#################################################################
+#################################################################
+ 

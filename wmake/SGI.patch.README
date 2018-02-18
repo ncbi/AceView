@@ -1,0 +1,7 @@
+mkdir acedb
+cd acedb
+gunzip -c ../ACEDB-source.4_9f.tar.gz | tar -vxf -
+patch < ../ace49f-sgi.patch
+mv SGI_65_GCC_DEF acedb/wmake
+setenv ACEDB_MACHINE SGI_65_GCC
+gmake

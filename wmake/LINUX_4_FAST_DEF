@@ -1,0 +1,54 @@
+# @(#)LINUX_4_OPT_DEF	1.1    7/7/95 #
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### ported to Linux by Ken Letovski    ##############
+############### wmake/LINUX_DEF    Feb-2-1993      ##############
+############### last edited        Feb-2-2009      ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+###########    for the PC-386, running LINUX   ##################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = OPTERON
+COMPILER = gcc -Ofast -fno-strict-aliasing -DACEDB4 -mtune=native -march=native
+
+
+# List of possible interesting gcc flags
+# mtune-O2 -W -Wformat=2 -Wswitch -Wshadow -Wwrite-strings -Wuninitialized -Wall -pipe -mtune=native -march=native -fomit-frame-pointer -msse2 -msse -mmmx -mfpmath=sse -pedantic -D_FORTIFY_SOURCE=2 -Wpointer-arith -Wstrict-prototypes -fstack-protector -Wstack-protector -Wextra -Wbad-function-cast -Wcast-align -Wcast-qual -Wdisabled-optimization -Wendif-labels -Wfloat-equal -Wformat-nonliteral -Winline -Wmissing-declarations -Wmissing-prototypes -Wnested-externs -Wpointer-arith -Wundef -Wformat-security -ftree-vectorize -fdiagnostics-color=auto 
+
+LINKER = gcc
+LIBS = -lm
+
+# adapt these lines if the X11 libs are not in /usr/X11/lib
+Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 -lXaw -lXt -lXmu -lXext -lX11 
+
+# for example on machines that lack the development kit
+# try the command 
+#    rpm -qa | grep Xaw
+#  you should have libXaw-devel-...
+#  If you don't you can still try to compile
+#  by opening the X11 includes contained in wh
+#    cd wh ; gunzip -c x11.include.tar.gz.2005 | tar xf -
+# and then setting (chosing the exact version intslalled on your computer)
+#  Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 /usr/lib64/libXaw7.so.7.0.0  -lXt -lXmu -lXext -lX11 
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX_LIBS = -lfl
+LEX = flex
+LEX_OPTIONS = -l
+
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS = 
+
+RPCGEN_FLAGS = -b -I -K -1
+
+#################################################################
+#################################################################

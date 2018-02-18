@@ -1,0 +1,220 @@
+#!/bin/csh -f
+############################################################################
+############################################################################
+##  File: blast_search
+#  %W% %G%
+# This file is part of the ACEDB package
+#  Author: J Thierry-Mieg, (mieg@kaa.crbm.cnrs-mop.fr)
+#  Copyright (C) R.Durbin & J Thierry-Mieg, 1995
+#-------------------------------------------------------------------
+# Usage: Usage blast_search pid export_file_name fasta_file blast_pgm db 
+#  The order is crucial, because pid export_file_name are added
+#  by externalAsynchroneCommand()
+#-------------------------------------------------------------------
+# Description: 
+#   Calls blast on the vega server on the given fasta file
+#   Reformats the result in .ace using Erik Sonhamer MSPcrunch
+#   Exports the result in export_file_name.out
+#    be careful to the .out which is automatically added for
+#    compatibility with the acedb main code
+#   Sends a signal to pid
+#
+#-------------------------------------------------------------------
+# Configuration:
+#   For this system to run on your own server 
+#   you must duplicate the vega environment, contact us about that
+# To run the client, you need perl and the network
+#
+############################################################################
+############################################################################
+## Choose the blast server
+
+echo blast_search $1 $2 $3 $4 $5
+
+
+setenv server vega.igh.cnrs.fr
+setenv blastPort 20200
+
+############################################################################
+## Check for particular args and default paths
+
+if ($5 == "") goto usage 
+
+if (! -e $3) goto usage
+
+setenv ici `pwd`
+
+if ($?ACEDB) then
+ setenv s $ACEDB/wscripts
+else
+# echo ACEDB not defined
+ if (-d wscripts) then
+   setenv s $ici/wscripts
+  else
+   setenv s $ici
+  endif
+endif
+cd $s
+
+if ($?ACEDB_SRC) then
+ if (-d $?ACEDB_SRC) then
+  cd $?ACEDB_SRC
+  endif
+endif
+
+if ($?ACEDB_MACHINE) then
+ if (-d bin.$ACEDB_MACHINE) then
+  cd bin.$ACEDB_MACHINE
+ else
+  if ($?ACEMBLY) then
+   if ($?ACEDB_MACHINE) then
+    if (-d $ACEMBLY/bin.$ACEDB_MACHINE) then
+      cd $ACEMBLY/bin.$ACEDB_MACHINE
+    endif
+   endif
+  endif
+ endif
+endif
+
+if (-x  gnbkclient) then
+ setenv gnbkclient `pwd`/gnbkclient
+else if (-x  /usr/local/bin/gnbkclient) then
+ setenv gnbkclient /usr/local/bin/gnbkclient
+ else
+  echo Sorry Can t find /usr/local/bin/gnbkclient
+  goto usage
+ endif
+endif
+
+cd $ici
+
+
+############################################################################
+## Check for necessary software
+
+/bin/env perl < /dev/null || goto noperl
+
+if ( ! -x $gnbkclient) then
+	echo Sorry Can t find $gnbkclient
+	goto usage
+endif
+
+if ( ! -x $s/client.pl) then
+	echo Sorry Can t find client.pl in directory $s, from ici=$ici
+	goto usage
+endif
+
+############################################################################
+## Start blast search
+
+setenv blast_pgm $4
+setenv blast_db  $5
+setenv upper 70
+if ($6 != "") setenv upper $6
+
+setenv seq  `head -1 $3 | sed s'/>//'`
+echo 'pr='"$blast_pgm"'&db='"$blast_db"'&co='$seq >! $2.a
+echo '>'$seq >> $2.a
+# blast does not support - signs
+tail +2 $3 | sed s'/-/n/g' >> $2.a
+# cp $2.a ~/toto12   # debugging
+# exit               # debugging
+echo END >> $2.a
+echo MSPupper 40 >> $2.a
+
+# Actual execution of the search on the remote server
+# Segmentation fault is a bug on $server server. ignore it.
+echo // `date` >! $2.b
+$s/client.pl $server $blastPort <  $2.a |  grep -v '^Segmentation fault' >! $2.h
+echo // `date` >> $2.b
+
+# Extract the protein names in various nomenclatures
+echo // extract the proteins >> $2.b
+nawk '/^Protein/{print $2;}' $2.h | sort -u >! $2.prot
+#nawk '/gp\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $2.prot > ! $2.gp
+nawk '/sp\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s;\n",pq);}' $2.prot > ! $2.swiss
+nawk '/pir\|S\|/ {pp = substr($1,7) ; i = index(pp, "|") ; if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $2.prot > ! $2.pir
+
+
+# Extract the sequence  names in various nomenclatures
+echo // extract the sequences >> $2.b
+nawk '/^Sequence/{print $2;}' $2.h | sort -u >! $2.seq
+nawk '/gb\|/     {pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s;\n",pq);}' $2.seq > ! $2.gb
+nawk '/emb\|/ {pp = substr($1,5) ; i = index(pp, "|") ; if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n%s\n",pq);}' $2.seq > ! $2.emb
+
+#Prepare a .ace rename file
+
+# BUG: i should really use -R, but dec 18 96, i found a bug in the ace kernel
+# so i change to -Alias temporarilly
+
+
+echo // nawk to list the various database calls >> $2.b
+#nawk '/gp\|/ {old = $1 ; pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s GP:%s\n",old, pq);}' $2.prot > $2.r.ace
+nawk '/sp\|/ {old = $1 ; pp = substr($1,4) ; i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s SP:%s\n",old, pq);}' $2.prot >! $2.r.ace
+nawk '/pir\|S\|/ {old = $1 ; pp = substr($1,7) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Protein %s PIR:%s\n",old, pq);}' $2.prot >>  $2.r.ace
+
+nawk '/gb\|/ {old = $1 ; pp = substr($1,4) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Sequence %s GenBank:%s\n",old, pq);}' $2.seq >>  $2.r.ace
+
+nawk '/emb\|/ {old = $1 ; pp = substr($1,5) ;  i = index(pp, "|") ;  if (i) pq = substr(pp,1,i-1) ; else pq = substr(pp,1) ; printf("\n-A Sequence %s EMBL:%s\n",old, pq);}' $2.seq >>  $2.r.ace
+
+# arrange so that aliased objects are not empty when alias command is run
+echo '// Create a non empty entry for all proteins that should be aliased'  >! $2.R.ace
+echo ' ' >> $2.R.ace
+nawk '{if ($2 != "") printf("%s %s\nTitle\n\n%s %s\nTitle\n\n",$2,$3,$2,$4);}' $2.r.ace >> $2.R.ace
+echo ' ' >> $2.R.ace
+
+
+#Collect the protein sequences on the server
+echo // Import the proteins from $server >> $2.b
+$gnbkclient -host $server -port 20000111 < $2.swiss  | nawk -f $s/swiss.awk >! $2.swiss.out.ace 
+$gnbkclient -host $server -port 20000112 < $2.pir    | nawk -f $s/pir.awk   >! $2.pir.out.ace
+
+$gnbkclient -host $server -port 20000110 < $2.gb    | nawk -f $s/gb.awk    >! $2.gb.out.ace
+$gnbkclient -host $server -port 20000110 < $2.emb    | nawk -f $s/emb.awk    >! $2.emb.out.ace
+
+# I don t know how to parse pir.out
+#accumulate everything in $2.b in the correct order
+echo // Accumulate >> $2.b
+cat $2.R.ace $2.r.ace  $2.pir.out.ace  $2.swiss.out.ace  $2.gb.out.ace >> $2.b 
+cat $2.emb.out.ace $2.h  >> $2.b
+
+# Copy localy the input and the output file
+cp $2.a  /var/tmp/$seq.a  # if you want to keep a copy for debugging
+if (! -d blast_results) mkdir blast_results
+if (-d blast_results) then
+ cp $2.b ./blast_results/$seq.out.ace
+ echo blast_search done result saved as: ./blast_results/$seq.out.ace	
+else
+ cp $2.b ./$seq.out.ace
+ echo blast_search done result saved as: ./$seq.out.ace	
+endif
+echo parms $*
+
+# Finally, mv $2.b to $2.out and signal acedb
+mv $2.b $2.out
+if ($1 != "0") kill -USR1 $1
+
+# Clean up
+#\rm $2.gp  $2.gp.out.ace 
+rm $2.a $2.prot $2.swiss $2.pir $2.r.ace $2.R.ace $2.gb $2.emb $2.h $2.seq
+rm $2.swiss.out.ace  $2.pir.out.ace $2.gb.out.ace  $2.emb.out.ace
+exit 0
+
+
+############################################################################
+
+usage:
+ echo '-----------------blast_search error----------------------------'
+ echo Usage blast_search pid export_file_name fasta_file blast_pgm db
+ echo Example:  blast_search 3867 /var/tmp/bb.a /var/tmp/bb.fasta blast_x pir
+ echo You called:  blast_search "$*"
+ echo '---------------------------------------------------------------'
+ exit 1 
+
+noperl:
+ echo Sorry Can t find /usr/local/bin/perl
+ exit 1
+
+############################################################################
+############################################################################
+

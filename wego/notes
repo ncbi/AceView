@@ -1,0 +1,74 @@
+prototype wego library
+$Header: /home/mieg/aa/CVS_ACEVIEW/ace/wego/notes,v 1.1 2007/09/28 17:45:52 mieg Exp $
+
+There are 3 example programs:
+
+test_sleep
+	Each thread just sleeps for a time.  This is a suprisingly useful
+	test, especially for single processor machines.
+
+test_pi
+	Calculates PI by an inefficient, but parallel, algorithm.
+
+test_pi2
+	Like test_pi, but each parallel thread divides it's work
+	among a second level of parallel threads.  That is, if
+	the main program creates 10 threads, each of those threads
+	creates 10 more, for a total of 10*10+10+1 threads.
+
+BUGS:
+
+The test programs take a parameter indicating how many concurrent
+threads can run.  test_pi2 deadlocks if you only allow 1 running thread.
+This should not happen.  It indicates some bug in the sleep/wakeup
+handling in wego_fin().
+
+The ...free() functions do not do anything.
+
+NOTES:
+
+The library is very fragile.  Seemingly insignificant changes can
+break everything.
+
+
+
+test_pi run times
+---
+
+Intel Core, dual 1.66 ghz cpu
+Suse 10, linux 2.6 kernel
+
+10 tasks
+threads	user	wallclock
+1	16.937	:17.03
+2	17.189	:08.79
+3	17.181	:08.73
+4	17.001	:08.59
+8	16.973	:08.57
+12	17.141	:08.64
+12	17.205	:08.64
+2	17.125	:08.73
+2	17.097	:08.73
+
+20 tasks
+threads	user	wallclock
+1	17.013	:17.19
+2	17.181	:08.73
+4	17.061	:08.74
+10	17.153	:08.96
+20	17.069	:08.75
+2	16.973	:08.78
+
+---
+
+Pentium III Coppermine, 700 mhz
+Red Hat 9, linux 2.4 kernel
+
+10 tasks
+threads	user	wallclock
+1	0.000	1:12.01
+2	0.000	1:12.01
+4	0.010	1:12.00
+
+(obviously user time spent in a thread doesn't get counted correctly.)
+

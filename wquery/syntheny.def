@@ -1,0 +1,125 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 1999-02-09_14:39:57
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title Homology Map
+
+Sortcolumn 1
+
+Colonne 1 
+Width 15 
+Mandatory 
+Hidden 
+Class 
+Class Map 
+From 1 
+Condition Sequence-III
+ 
+Colonne 2 
+Width 8 
+Optional 
+Hidden 
+Class 
+Class Contig 
+From 1 
+Tag Contig  
+Condition *
+ 
+Colonne 3 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Map 
+From 2 
+Tag Map  
+Condition IS Sequence-III
+ 
+Colonne 4 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag HERE # Left  
+ 
+Colonne 5 
+Width 19 
+Optional 
+Hidden 
+Class 
+Class Clone 
+From 2 
+Tag Clone  
+ 
+Colonne 6 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Contig 
+From 5 
+Tag Pmap  
+Condition IS III
+ 
+Colonne 7 
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 6 
+Tag HERE  
+ 
+Colonne 8 
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Sequence 
+From 5 
+Tag Sequence  
+ 
+Colonne 9 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Sequence 
+From 8 
+Tag Subsequence  
+Condition Brief_identification
+ 
+Colonne 10 
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 9 
+Tag HERE  
+ 
+Colonne 11 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+From 8 
+Tag Subsequence  
+Condition IS \%9
+ 
+Colonne 12 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Text 
+From 9 
+Tag Brief_identification  
+ 
+ 
+
+// End of these definitions

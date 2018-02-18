@@ -1,0 +1,91 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2012-06-17_12:43:16
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Parameters 100
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Single exon transcribed_gene 
+Width 20 
+Optional 
+Visible 
+Class 
+Class Transcribed_gene 
+Condition ! (gt_ag || gc_ag)
+ 
+Colonne 2 
+Subtitle Pseudo-exon infered from the wiggle 
+Width 30 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+From 1 
+Tag Read
+Condition xe_*
+ 
+Colonne 3 
+Subtitle x1 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 2 
+Tag Composite
+ 
+Colonne 4 
+Subtitle x2 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 3 
+Tag HERE
+ 
+Colonne 5 
+Subtitle Local RNA-seq coverage 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 4 
+Tag HERE
+Condition \%5 > %1
+ 
+Colonne 6 
+Subtitle Chromosome 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Map 
+From 1 
+Tag IntMap
+ 
+Colonne 7 
+Subtitle a1 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 6 
+Tag  HERE 
+ 
+Colonne 8 
+Subtitle a2 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 7 
+Tag  HERE 
+ 
+ 
+
+// End of these definitions

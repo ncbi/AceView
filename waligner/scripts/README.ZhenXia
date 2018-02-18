@@ -1,0 +1,95 @@
+#!/bin/tcsh -f
+
+#  2016_05_25  
+# parsing the droso annot from ZhenXia
+# below: parsing data from FB voc
+
+set ff=~/ACEVIEWHELP/Droso/DATA/ZhenXia.quality_control.2016_05_25.txt 
+
+cat << EOF > ZhenXia.awk
+{ 
+    printf ("Run %s\n",\$1);
+    printf ("-D ZhenXia\n") ;
+    printf ("Z_center_name \"%s\"\n", \$25) ;
+    printf ("Z_sex \"%s\"\n", \$27) ;
+    printf ("Z_dev_stage \"%s\"\n", \$28) ;
+    printf ("Z_tissue \"%s\"\n", \$29) ;
+    printf ("Z_genotype \"%s\"\n", \$30) ;
+    printf ("Z_cell_type \"%s\"\n", \$31) ;
+    printf ("Z_sample_type \"%s\"\n", \$34) ;
+
+    printf ("Z_Total_reads %s\n", \$35) ;
+    printf ("Z_unmapped_reads  %s\n", \$36) ;
+    printf ("Z_non_unique %s\n", \$37) ;
+    printf ("Z_unique %s\n", \$38) ;
+    printf ("Z_unspliced %s\n", \$39) ;
+    printf ("Z_spliced  %s\n", \$40) ;
+
+    printf ("Z_sponge ambiguous %s\n", \$41) ;
+    printf ("Z_sponge no_feature %s\n", \$42) ;
+    printf ("Z_sponge genes %s\n", \$43) ;
+    printf ("Z_sponge intergenic %s\n", \$44) ;
+
+    printf ("Z_nh_Ali ERCC %s\n", \$45) ;
+    printf ("Z_nh_Ali mRNA %s\n", \$46) ; 
+    printf ("Z_nh_Ali ncRNA %s\n", \$47) ;
+    printf ("Z_nh_Ali pseudogenes %s\n", \$48) ;
+    printf ("Z_nh_Ali rRNA %s\n", \$49) ;
+    printf ("Z_nh_Ali snoRNA %s\n", \$50) ;
+    printf ("Z_nh_Ali snRNA %s\n", \$51) ;
+    printf ("Z_nh_Ali tRNA %s\n", \$52) ;
+
+
+    printf ("Z_expressed_genes %s\n", \$53) ;
+    if (\$56 + \$57 > 0) printf ("Z_strand %f\n", 100.0*\$56/(\$56 + \$57)) ;
+    if (\$58 + 0 > 0) printf ("Z_TIN %s\n", \$58) ;
+    if (\$64 + 0 > 0)printf ("Z_correl %s\n", \$64) ;
+    printf ("\n") ;
+ }
+EOF
+
+cat $ff | tail -n +2 | gawk -F '\t' -f ZhenXia.awk >  ZhenXia.ace
+
+exit 0
+
+###########
+## 2016_09_01 parsing FB onthology annot
+
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/FB_metadata_output_20160830.tsv
+cat $ff | sed -e 's/\r//' > $ff.1
+cat $ff.1 | head -3 | transpose
+
+cat $ff.1 | gawk -F '\t' '{for(i=2;i<=14;i+=2)printf("\"%s\"\t%s\n",$i,$(i+1));}' | sort -u > $ff.cv
+cat $ff.cv | gawk -F '\t' '{if(substr($2,1,2)=="FB")printf("FBvoc %s\nType %s\nTitle %s\n\n", $2,substr($2,1,4),$1);}' > $ff.cv.ace
+
+cat $ff.1 | gawk  -F '\t' '{for(i=2;i<=14;i+=2){f=$(i+1);if(substr(f,1,2)=="FB")printf("SRR %s\n%s %s\n\n",$1,substr(f,1,4),f);}}' > $ff.srr.ace
+
+
+######
+## 2016_09_13 parse the NLM		
+        NLM N_Stage UNIQUE Text
+                 N_CellType_Anat UNIQUE Text
+                 N_Strain_Treatment_Note UNIQUE Text
+
+
+N_Cell_line = $4
+N_CellType_Anat = $5 $6
+N_Stage = $11
+N_Sex = $12
+N_Strain_Treatment_Note = $13 $3 $10
+
+# they have no identifier, but probably they are SAMN , so we export the SAMN and try to identify
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/NLM_Sept1_CorrectedBiosampleAnnotations.txt 
+
+tace  SRX_DB <<EOF
+  bql select b from b in class biosample
+  list -a -f toto1.list
+EOF
+
+cat $ff | cut -f 1 > toto2.list
+cat toto1.list | sed -e 's/\"//g' | gawk '/SA/{print $2}' > toto1a.list
+cat toto1a.list ZZZZZ $ff | sed -e 's/\r//' | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){w=$1;x=substr(w,5)+0;nam[x]=w;next;}}/rosophila/{kk++;if(kk<2)next;u=nam[0+$1];if(length(u)>1)printf("%s\t%s\t%s %s\t%s\t%s\t%s %s %s\n",u,$4,$5,$6,$11,$12,$13,$3,$10);}' | sed -e 's/\"//g' | sed -e 's/ \n/\n/g' | sed -e 's/ \t/\t/g' | sed -e 's/ \t/\t/g' | sed -e 's/ \t/\t/g' | sed -e 's/ \t/\t/g' | sed -e 's/ \t/\t/g' | sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' |sed -e 's/\t /\t/g' | sed -e 's/\t /\t/g' | sed -e 's/\t /\t/g' | sed -e 's/\t /\t/g' | gawk -F '\t' '{printf("Biosample   %s\n",$1);if(length($2)>0)printf("N_CellLine    \"%s\"\n",$2);if(length($3)>0)printf("N_CellType_Anat    \"%s\"\n",$3);if(length($4)>0)printf("N_Stage    \"%s\"\n",$4);if(length($5)>0)printf("N_Sex    \"%s\"\n",$5);if($6 != "0 " && length($6)>0)printf("N_Strain_Treatment_Note    \"%s\"\n",$6);printf("\n");}' | sed -e 's/ \"/\"/' > totoNLM.ace
+
+
+
+  

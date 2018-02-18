@@ -1,0 +1,44 @@
+// $Id: client.report.example,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+// Hoping that my computer is running try the following
+// that i develloped with Danielle
+// ftp from ncbi my executable
+// sparc.aceclient.Z
+//
+// uncompres it and type on your commnad line
+// usage:
+// "usage : aceclient host  [-time_out nn_in_seconds] [-ace_out] [-f reportfile parameters]\n",
+// if filename is omitted, you run interactivelly
+//
+// for example try:
+// aceclient 193.49.111.71 -f thisfilename genename
+//
+// 193.49.111.71 is my dec alpha in montpellier
+//
+// you will get a developped form of the gene
+// embedded in the non // lines
+//
+// line starting with // are jumped in the output
+// %1 and so on announces command line parameter 1 and so on.
+// 
+// #(command text) invokes the ace_server
+// 
+#(Find Gene %1) 
+
+Consider gene %1 // %1 represente le nom du gene
+
+These are the known papers:#(Show Reference)
+
+$ls -ls
+
+Or in a more standard blibliographic format:
+#(Biblio)
+
+These are the alleles #(Show Allele)
+that's all, folks
+
+
+All I know on tata box:
+#(Grep tata) #(List)
+# Bonsoir
+
+// fin

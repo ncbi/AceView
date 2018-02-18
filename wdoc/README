@@ -1,0 +1,32 @@
+$Id: README,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+
+This is the acedb distribution directory.  The current release of the
+acedb code is version 4_7.  This directory should contain at least
+
+README		This file
+README.acembly  Further notes on the sequence acemble program.
+NOTES		Further notes - please get and read this file unless
+			you know exactly what you want to do.
+INSTALL		The installation script - get a new copy of this when 
+			getting updates or a new release
+ace4_7x/		Subdirectory with binaries and source files
+celegans/	Subdirectory with C. elegans data
+macace/		Macintosh version of acedb
+doc/		Some of the acedb documentation
+
+The subdirectory ACEMBLY contains the binaries and the scripts
+necessary to run the sequence assembly program acembly.
+
+There is a further README inside each subdirectory.
+
+Further information about acedb can be obtained via the bionet
+newsgroup bionet.software.acedb, and from the documentation archive at
+http://probe.nalusda.gov:8000/acedocs/index.html.
+
+**********************************************************************
+Acedb 4.7 is fully compatible with 4.1
+
+But when you install the new code, you should read-models
+from xace or from tace to benefit from indexing
+
+***********************************************************************

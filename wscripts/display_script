@@ -1,0 +1,6 @@
+# $Id: display_script,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $ 
+
+xv $ACEDB/pictures/$1 &
+
+# You may want to use the -8, -perfect, -rw -nolimits options
+ 

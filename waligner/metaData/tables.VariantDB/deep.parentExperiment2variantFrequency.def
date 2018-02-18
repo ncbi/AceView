@@ -1,0 +1,116 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-01-15_10:34:28
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Parameters Pool
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Variant      
+Width 50 
+Optional 
+Visible 
+Class 
+Class Variant 
+ 
+Colonne 2 
+Subtitle mRNA      
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class mRNA 
+From 1 
+Tag mRNA
+ 
+Colonne 3 
+Subtitle Position      
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle Type      
+Width 12 
+Mandatory 
+Visible 
+Text 
+From 1 
+Tag Typ
+ 
+Colonne 5 
+Subtitle Experiment      
+Width 30 
+Mandatory 
+Visible 
+Class 
+Class Experiment 
+From 1 
+Tag Counts
+Condition  ! IS dbsnp
+ 
+Colonne 6 
+Subtitle Strand    
+Width 12 
+Optional 
+Visible 
+Next_Tag 
+From 5 
+Tag Strand
+ 
+Colonne 7 
+Subtitle Mutant      
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 5 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle Cover      
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 9 
+Subtitle Frequency      
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 8 
+Tag HERE  # Frequency
+ 
+Colonne 10 
+Subtitle Lower bound 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 9 
+Tag  HERE 
+ 
+Colonne 11 
+Subtitle Higher bound 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+ 
+
+// End of these definitions

@@ -1,0 +1,91 @@
+#!/bin/tcsh -f
+
+# 2016_05_30
+# Flybase has gene groups, we import their recursive schema
+# Human gene groups are below
+# in TARGET/GENES
+
+## gene groups tiles 
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/gene_group_fb_HGNC_fb_2016_02.tsv
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/FlyBase.2016_03/gene_group_fb_HGNC_fb_2016_03.tsv.gz
+
+set ff=/home/mieg/ACEVIEWHELP/Droso_DATA/FlyBase_2017_2_R6.15/gene_group_data_fb_2017_02.tsv.gz
+zcat $ff | sed -e 's/\r//' | cut -f 1,2,3 | sort -u | gawk -F '\t' '/^#/{next}/^$/{next ; }{printf ( "Gene_group \"%s\"\nGroupId \"%s\"\nTitle \"%s\"\n\n",$2,$1,$3 ) ; }' > TARGET/GENES/Gene_groups.title.preace
+
+## group members
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/gene_group_data_fb_2016_02.tsv.gz
+set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/FlyBase.2016_03/gene_group_data_fb_2016_03.tsv.gz
+
+set ff=/home/mieg/ACEVIEWHELP/Droso_DATA/FlyBase_2017_2_R6.15/gene_group_data_fb_2017_02.tsv.gz
+zcat $ff | gawk -F '\t' '/^#/{next;}{if ($2 !=""){printf("Gene_group \"%s\"\n",$2);if($5 !="")printf("Parent \"%s\"\n",$5);if($6 !="")printf("Genes \"%s\"\n",$6);printf("\n");}}' > TARGET/GENES/Gene_groups.members.preace
+
+tbly MetaDB << EOF
+  read-models
+  parse TARGET/GENES/Gene_groups.title.preace
+  parse TARGET/GENES/Gene_groups.members.preace
+  find gene_group
+  show -a -f TARGET/GENES/Gene_groups.ace
+  save
+  quit
+EOF
+
+#########################################################################
+#########################################################################
+
+#Human Gene groups imported from Broad
+# those files are not tab delimited
+# /home/mieg/ACEVIEWHELP/Human_DATA/GeneGroups_GSEA_Broad_June5_2016/
+
+# first try with the 50 hallmark groups
+
+## group members
+set ff='/home/mieg/ACEVIEWHELP/Human_DATA/Gene_groups_GSEA_Broad_Jan18_2017/*.all.v5.1.symbols.gmt'
+set ff='/home/mieg/ACEVIEWHELP/Human_DATA/Gene_groups_GSEA_Broad_Jan18_2017/*.*.v5.2.symbols.gmt'
+
+cat $ff | gawk '/^#/{next;}{if ($2 !=""){printf("Gene_group \"%s\"\n",$1);for(i=3;i<=NF;i++)printf("Genes \"%s\"\n",$i);printf("\n");}}' > TARGET/GENES/Gene_groups.members.preace
+
+tbly MetaDB << EOF
+  read-models
+  parse TARGET/GENES/Gene_groups.members.preace
+  find gene_group
+  show -a -f TARGET/GENES/Gene_groups.ace
+  save
+  quit
+EOF
+
+#########################################################################
+#########################################################################
+## in all cases
+
+tbly MetaDB << EOF
+  read-models
+  query find gene Gene_group ; > gene_group
+  edit Group_level 1
+  follow parent
+  edit Group_level 2
+  follow parent
+  edit Group_level 3
+  follow parent
+  edit Group_level 4
+  follow parent
+  edit Group_level 5
+  follow parent
+  edit Group_level 6
+  follow parent
+  edit Group_level 7
+  follow parent
+  edit Group_level 8
+  follow parent
+  edit Group_level 9
+  follow parent
+  edit Group_level 10
+  follow parent
+  edit Group_level 11
+  follow parent
+  edit Group_level 12
+  find gene_group
+  show -a -f TARGET/GENES/Gene_groups.ace
+  save
+  quit
+EOF
+

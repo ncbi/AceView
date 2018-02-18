@@ -1,0 +1,328 @@
+#!/bin.tcsh -f
+# 2014_12_12
+# we have a table from fudan 4 colonnes : gene/p-value/Fold-change/Stade
+
+cd ACEVIEWHELP/NB.FUDAN_MAGIC_comparison.2014_12
+# ls 2014_12_15/Fudan_NB_Genelist_rnaseq_log2rpkm_ttestfc_20141212.txt
+
+#  cd ACEVIEWHELP/NB.FUDAN_MAGIC_comparison.2014_12
+
+########################################################
+########################################################
+## consruct 6 coherence consistency plots, limited to genes with probes
+##     stage.method.platform.direction.score.txt
+##        where stage = ST1, ST4, ST4S, MNA
+##              method = Fudan, Magic
+##              platform = RNA_seq, Agilent
+##              direction = up, down,  up means the gene is more expressed in stage x thnain the 3 others
+##     Each table is sorted by score for Magic and by XXX for Fudan
+##     Format : stage, gene, sign, score
+## Then, for each stage, compare the 6 pairs chosen in the 4 lists (Fudan, Magic) X (Agilent, RNA-seq)
+## The comparison is done on in a continuous way as the ratio (interscetion/union) among the top N genes of each list, for all N up to the the size of the longest list
+
+## The list of 21,011 genes with uniquely mapping probes is cosntructed by selecting the probes mapping uniquely to an AceView gene
+  cat MicroArray/Hits/AGLuK.av.probe2gene.unique.txt | cut -f 2 | sort -u  | wc
+
+## Construct the 4 Stage.Magic.RNA_seq lists, sorted by score
+foreach GM (GENE MRNAH)
+  set ff_ST1=/home/mieg/ACEVIEWHELP/RESULTS.NB_2013_09_22.RefSeq_av_EBI/DataFrozenForMS6.2/MOA.av.AGLuK.$GM/MOA.av.AGLuK.$GM.fused.Stg1_MYCN_not_amplified_117_Stg_AnyNot1noMNA_256.txt
+  set ff_ST4=/home/mieg/ACEVIEWHELP/RESULTS.NB_2013_09_22.RefSeq_av_EBI/DataFrozenForMS6.2/MOA.av.AGLuK.$GM/MOA.av.AGLuK.$GM.fused.Stg4_MYCN_not_amplified_116_Stg_AnyBut4noMNA_257.txt
+  set ff_ST4S=/home/mieg/ACEVIEWHELP/RESULTS.NB_2013_09_22.RefSeq_av_EBI/DataFrozenForMS6.2/MOA.av.AGLuK.$GM/MOA.av.AGLuK.$GM.fused.Stg4s_MYCN_not_amplified_48_Stg_AnyBut4SnoMNA_325.txt
+  set ff_MNA=/home/mieg/ACEVIEWHELP/RESULTS.NB_2013_09_22.RefSeq_av_EBI/DataFrozenForMS6.2/MOA.av.AGLuK.$GM/MOA.av.AGLuK.$GM.fused.StgAny_MYCN_amplified_92_Stg_AnyNotMNA_281.txt
+
+  
+
+  foreach nam (ST1 ST4 ST4S MNA)
+    if ($nam == ST1) set ff=$ff_ST1
+    if ($nam == ST4) set ff=$ff_ST4
+    if ($nam == ST4S) set ff=$ff_ST4S
+    if ($nam == MNA) set ff=$ff_MNA
+
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{n++;if(GM=="GENE"){g=$4;r=0+$17;}else{g=$5;r=0+$20;}if (gp[g]==1 && r > 0)printf("%s\t%s\t%.1f\n",nam,g,r);}' nam=$nam GM=$GM | sort -k 3nr | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}'  > $nam.Magic_$GM.RNA_seq.score.up.txt
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{n++;if(GM=="GENE"){g=$4;r=0+$17;}else{g=$5;r=0+$20;}if (gp[g]==1 && r < 0)printf("%s\t%s\t%.1f\n",nam,g,r);}' nam=$nam GM=$GM  | sort -k 3n  | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}' > $nam.Magic_$GM.RNA_seq.score.down.txt
+
+    if ($GM == MRNAH) continue
+
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{n++;if(GM=="GENE"){g=$4;r=0+$17;dx=0;}else{g=$5;r=0+$20;dx=3;}if (gp[g]==1){;px=0;for(i=18+dx;i<=23+dx;i++){if($i +0>px)px=0+$i;}if(px>0)printf("%s\t%s\t%.1f\n",nam,g,px);}}' nam=$nam   GM=$GM | sort -k 3nr  > $nam.Magic.Agilent.score.up.txt
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{n++;if(GM=="GENE"){g=$4;r=0+$17;dx=0;}else{g=$5;r=0+$20;dx=3;}if (gp[g]==1){;mx=0;for(i=18+dx;i<=23+dx;i++){if($i + 0<mx)mx=0+$i;}if(mx<0)printf("%s\t%s\t%.1f\n",nam,g,mx);}}' nam=$nam  GM=$GM | sort -k 3n  > $nam.Magic.Agilent.score.down.txt
+  end
+end 
+
+
+### new lists jan30, no NA/ threshold for the DEG lists and using renormalized Agilent more accurately centered on the probe number 8000
+
+foreach GM (GENE MRNAH)
+  set newff_ST1=/home/mieg/NB/RESULTS/Expression/unique/av/NB.AceView.$GM.u.DEG_NB.117Stg1noMNA-256not1.compare.txt
+  set newff_ST4=/home/mieg/NB/RESULTS/Expression/unique/av/NB.AceView.$GM.u.NB.116_Stg4-257_notStg4.compare.txt
+  set newff_ST4S=/home/mieg/NB/RESULTS/Expression/unique/av/NB.AceView.$GM.u.NB.48_Stg4S-325_non4S.compare.txt
+  set newff_MNA=/home/mieg/NB/RESULTS/Expression/unique/av/NB.AceView.$GM.u.NB.92_MNA-281_notMNA.compare.txt
+  set tt=giniXm1
+
+  foreach nam (ST1 ST4 ST4S MNA)
+    if ($nam == ST1) set ff=$newff_ST1
+    if ($nam == ST4) set ff=$newff_ST4
+    if ($nam == ST4S) set ff=$newff_ST4S
+    if ($nam == MNA) set ff=$newff_MNA
+
+    if ($GM == GENE) then
+      cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}/^human/{n++;g=$6;score=$7;gini=$8;pval=$9;if(index($4,"Stg_")==1)next;if (gp[g]==1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,g,score,gini,pval);}' nam=$nam GM=$GM | sort -k 3nr | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}'  > $nam.Magic_$tt$GM.RNA_seq.score.up.txt
+      cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}/^human/{n++;g=$6;score=$7;gini=$8;pval=$9;if(index($4,"Stg_") ==1 && gp[g]==1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,g,score,gini,pval);}' nam=$nam GM=$GM  | sort -k 3nr  | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}' > $nam.Magic_$tt$GM.RNA_seq.score.down.txt
+    endif
+    if ($GM == MRNAH) then
+      cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ ~/NB/tmp/METADATA/av.mrna_map_ln_gc_gene_geneid.txt  ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{if (zz<2){m2g[$1]=$5 ; next;}}/^human/{n++;g=m2g[$6];score=$7;gini=$8;pval=$9;if(index($4,"Stg_")==1)next;if (gp[g]==1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,g,score,gini,pval);}' nam=$nam GM=$GM | sort -k 3nr | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}'  > $nam.Magic_$tt$GM.RNA_seq.score.up.txt
+      cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ ~/NB/tmp/METADATA/av.mrna_map_ln_gc_gene_geneid.txt  ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{if (zz<2){m2g[$1]=$5 ; next;}}/^human/{n++;g=m2g[$6];score=$7;gini=$8;pval=$9;if(index($4,"Stg_") ==1 && gp[g]==1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,g,score,gini,pval);}' nam=$nam GM=$GM  | sort -k 3nr  | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}' > $nam.Magic_$tt$GM.RNA_seq.score.down.txt
+    endif
+
+  end
+end
+ 
+foreach GM (Agilent) 
+  set newA_ST1=/home/mieg/NB/RESULTS/Expression/unique/AGLuK/NB.AGLuK.MA.u.DEG_NB.117Stg1noMNA-256not1.compare.txt
+  set newA_ST4=/home/mieg/NB/RESULTS/Expression/unique/AGLuK/NB.AGLuK.MA.u.NB.116_Stg4-257_notStg4.compare.txt
+  set newA_ST4S=/home/mieg/NB/RESULTS/Expression/unique/AGLuK/NB.AGLuK.MA.u.NB.48_Stg4S-325_non4S.compare.txt
+  set newA_MNA=/home/mieg/NB/RESULTS/Expression/unique/AGLuK/NB.AGLuK.MA.u.NB.92_MNA-281_notMNA.compare.txt
+  set tt=oldNormGini
+
+  foreach nam (ST1 ST4 ST4S MNA)
+    if ($nam == ST1) set ff=$newA_ST1
+    if ($nam == ST4) set ff=$newA_ST4
+    if ($nam == ST4S) set ff=$newA_ST4S
+    if ($nam == MNA) set ff=$newA_MNA
+
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){p2g[$1] =$2 ; next;}}/^human/{n++;p=$6;score=$7;gini=$8;pval=$9;if(index($4,"Stg_")==1)next;if (length(p2g[p])>1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,p2g[p],score,gini,pval);}' nam=$nam GM=$GM | sort -k 3nr | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}'  > $nam.Magic_$tt$GM.score.up.txt
+    cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ff | gawk -F '\t'  '/^ZZZZZ/{zz++;next;}{if (zz<1){p2g[$1] =$2 ; next;}}/^human/{n++;p=$6;score=$7;gini=$8;pval=$9;if(index($4,"Stg_")==1 && length(p2g[p])>1)printf("%s\t%s\t%.1f\t%.1f\t%.1g\n",nam,p2g[p],score,gini,pval);}' nam=$nam GM=$GM  | sort -k 3nr  | gawk -F '\t' '{g=$2;gg[g]++;if(gg[g]==1)print}' > $nam.Magic_$tt$GM.score.down.txt
+  end
+end 
+
+## do not forget to do DOS2UNIX sed -e 's/\r//'
+## each file they sent had a different format
+foreach nam (ST1 ST4 ST4S MNA)
+  set ffFuA=Fudan_NB_Genelist_microarray_genes_ttestfc_20141212.txt
+  cat  ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ  $ffFuA | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($3,bb,";");p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $5==nam && $2 > 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}'  nam=$nam | sort -k 3,3n -k 4,4nr > $nam.Fudan.Agilent.score.up.txt
+  cat  ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ  $ffFuA | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($3,bb,";"); p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $5==nam && $2 < 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}'  nam=$nam | sort -k 3,3n -k 4,4n > $nam.Fudan.Agilent.score.down.txt
+end
+foreach nam (ST1 ST4 ST4S MNA)
+  set ffFuA=genelist_microarray_medianscaling_genes_minp_20150130.txt 
+  cat  ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ  $ffFuA | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($2,bb,";");p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $4==nam && $3 > 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}'  nam=$nam | sort -k 3,3n -k 4,4nr > $nam.Fudan.Agilent.score.up.txt
+  cat  ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ  $ffFuA | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($2,bb,";"); p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $4==nam && $3 < 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}'  nam=$nam | sort -k 3,3n -k 4,4n > $nam.Fudan.Agilent.score.down.txt
+end
+foreach nam (ST1 ST4 ST4S MNA)
+  set ffFuR=Fudan_NB_Genelist_rnaseq_log2rpkm_ttestfc_20141212.txt
+ cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ffFuR  | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($2,bb,";");p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $4==nam && $3 > 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}' nam=$nam | sort -k 3,3n -k 4,4nr > $nam.Fudan.RNA_seq.score.up.txt
+
+
+ cat ~/NB/MicroArray/Hits/AGLuK.av.probe2gene.unique.txt ZZZZZ $ffFuR   | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (zz<1){gp[$2] =1 ; next;}}{split($1,aa," ");g=aa[1];split($2,bb,";");p=log(bb[1])/log(10);if(p>0)next; if(gp[g]==1 && $4==nam && $3 < 0)printf("%s\t%s\t%f\t%f\n",nam,g,p,$3);}'  nam=$nam | sort -k 3,3n -k 4,4n > $nam.Fudan.RNA_seq.score.down.txt
+end
+
+## compare the lists: global percent overlap as we move simultaneously in both lists
+# Knowing uu ii = size of union and intersectio, add a new gene from each col, if known ii++, else uu++;
+
+if (-e toto) \rm toto
+foreach nam (ST1 ST4 ST4S MNA)
+  foreach ud (up down)
+    foreach tt ( Fudan.RNA_seq__Fudan.Agilent    Magic_MRNAH.RNA_seq__Magic.Agilent  Magic_MRNAH.RNA_seq__Magic.Agilent  Magic.Agilent__Fudan.Agilent)
+      set typ1=`echo $tt | gawk '{split($1,aa,"__");print aa[1];}'`
+      set typ2=`echo $tt | gawk '{split($1,aa,"__");print aa[2];}'`
+  
+        cat $nam.$typ1.score.$ud.txt ZZZZZ  $nam.$typ2.score.$ud.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{nn[zz+1]++;n=nn[zz+1];g=$2;gg[n,zz+1]=g;if(nMax<n)nMax = n}END{uu=o;ii=0;for(n=1;n<=nMax;n++){for(z=1;z<3;z++){if(n<nn[z]){g=gg[n,z];if(kk[g]<1)uu++;else ii++; kk[g]+=z;if(0)print "..",g,z,kk[g],uu,ii;}}printf("%s\t%s\t%s\t%s\t%d\t%d\t%d\t%f\n",nam,ud,typ1,typ2,n,ii,uu,100*ii/uu);}}' nam=$nam ud=$ud typ1=$typ1 typ2=$typ2 >> toto
+
+
+    end
+  end
+end
+   
+cat toto | gawk -F '\t' '{nam=$1 ":" $2 ":" $3 ":" $4;n=$5; if(nam != oldNam){nNam++;nams[nNam]=nam;oldNam=nam;}pp[n,nNam]=$8;}END{ for(iNam=1;iNam<=nNam;iNam++)printf("\t%s",nams[iNam]);for(n=0;n<=nMax;n++){printf("\n%d",n);for(iNam=1;iNam<=nNam;iNam++)printf("\t%f",pp[n,iNam]);}printf("\n");}' > Magic_Fudan.list_overlap.txt
+
+
+## compare the lists: VV plot: Venn Volcano,  plot as the socre goes down the percent of the genes present in the other list, and present it with the low scores in the center
+# Knowing uu ii = size of union and intersectio, add a new gene from each col, if known ii++, else uu++;
+# Fudan.RNA_seq Fudan.Agilent   Magic_GENE.RNA_seq Magic_MRNAH.RNA_seq Magic.Agilent
+if (-e toto) \rm toto
+foreach nam (ST1 ST4 ST4S MNA)
+  foreach ud (up down)
+    foreach tt (Fudan.RNA_seq__Magic_GENE.RNA_seq  Fudan.Agilent__Magic.Agilent      Fudan.RNA_seq__Fudan.Agilent   Magic_GENE.RNA_seq__Magic.Agilent)
+      set typ1=`echo $tt | gawk '{split($1,aa,"__");print aa[1];}'`
+      set typ2=`echo $tt | gawk '{split($1,aa,"__");print aa[2];}'`
+         cat $nam.$typ1.score.$ud.txt ZZZZZ  $nam.$typ2.score.$ud.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{nn[zz+1]++;n=nn[zz+1];g=$2;gg[n,zz+1]=g;kk[g]+=zz+1;}END{for(z=1;z<=2;z++){uu=0;ii=0;for(n=1;n<=nn[z];n++){g=gg[n,z];if(kk[g]==3)ii++; uu++;vv[n,z]=100*ii/uu;}}for(n=nn[1];n>=1;n--)printf("%s\t%s\t%s\t%s\t%d\t%f\n",nam,ud,typ1,typ2,n,vv[n,1]);printf("%s\t%s\t%s\t%s\t0\t0\n",nam,ud,typ1,typ2);for(n=1;n<=nn[2];n++)printf("%s\t%s\t%s\t%s\t%d\t%f\n",nam,ud,typ1,typ2,-n,vv[n,2]);}' nam=$nam ud=$ud typ1=$typ1 typ2=$typ2 >> toto
+
+    end
+  end
+end
+   
+cat toto | gawk -F '\t' '{if(0 && $3>=$4)next;nam=$1 ":" $2 ":" $3 ":" $4 ; if(nam != oldNam){nNam++;nams[nNam]=nam;oldNam=nam;} n=0+$5;vv[nNam,n]=0+$6;if(0+nMax[nNam]<n)nMax[nNam]=n;if(0+nMin[nNam]>0+n)nMin[nNam]=n;if(0 && n<0 && n > -5) print "...",n,nNam,vv[nNam,n]}END{for(iNam=1;iNam<=nNam;iNam++){if(nnMax+0<nMax[iNam])nnMax=nMax[iNam]; if(nnMin+0>nMin[iNam])nnMin=nMin[iNam];printf("\t%s",nams[iNam]);}for(n=nnMax;n>=1;n--){printf("\n%d",n);for(iNam=1;iNam<=nNam;iNam++)printf("\t%f",vv[iNam,n]);}printf("\n0");for(iNam=1;iNam<=nNam;iNam++)printf("\t0");for(n=-1;n>=nnMin;n--){printf("\n%d",-n);for(iNam=1;iNam<=nNam;iNam++)printf("\t%f",vv[iNam,-n]);};printf("\n");if(0)print nnMin,"#",nnMax,"##nNam=",nNam;}'  > Magic_Fudan.Venn_volcano_plot.txt
+
+#########################################
+## compute for all requeted pairs of method the up/down agreements and the contradictions 
+#  cd ACEVIEWHELP/NB.FUDAN_MAGIC_comparison.2014_12
+set toto3=DEG_counts.txt
+echo -n "## DEG_counts.txt " > $toto3
+date >> $toto3
+
+  foreach ud (up down)
+    foreach tt (Fudan.RNA_seq__Magic_GENE.RNA_seq  Fudan.Agilent__Magic.Agilent      Fudan.RNA_seq__Fudan.Agilent   Magic_GENE.RNA_seq__Magic.Agilent  Magic_GENE.RNA_seq__Fudan.Agilent Fudan.RNA_seq__Magic.Agilent  )
+      set typ1=`echo $tt | gawk '{split($1,aa,"__");print aa[1];}'`
+      set typ2=`echo $tt | gawk '{split($1,aa,"__");print aa[2];}'` 
+# draft code, not yet verified
+      cat *.$typ1.score.up.txt ZZZZZ  *.$typ2.score.up.txt ZZZZZ  *.$typ1.score.down.txt ZZZZZ  *.$typ2.score.down.txt | gawk -F '\t' 'BEGIN{zz=1;}/^ZZZZZ/{zz = 2 * zz; next;}{s=$1;ss[s]=1;g=$2;gg[g]=1;gs[g,s]+=zz;}END{for(s in ss)for(g in gg){k=gs[g,s];if(k<=3)sp[s,k]++;else if (k==4)sm[s,1]++;else if (k==8)sm[s,2]++;else if (k==12)sm[s,3]++;else if (k==9)sq1[s]++;else if (k==6)sq2[s]++;else cplx[s]++;}printf("Stade\tPlus %s\tPlus Both\tPlus %s\tMinus %s\tMinus Both\tMinus %s\tPlus %s Mnus %s\tMinus %s Plus %s\tComplex\n", typ1,typ2,typ1,typ2,typ1,typ2,typ1,typ2);for(s in ss) printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", s,sp[s,1],sp[s,3],sp[s,2],sm[s,1],sm[s,3],sm[s,2],sq1[s],sq2[s],cplx[s]);}' typ1=$typ1 typ2=$typ2 >> $toto3
+      cat *.$typ1.score.up.txt ZZZZZ  *.$typ2.score.up.txt ZZZZZ  *.$typ1.score.down.txt ZZZZZ  *.$typ2.score.down.txt | gawk -F '\t' 'BEGIN{zz=1;}/^ZZZZZ/{zz = 2 * zz; next;}{s="Any";ss[s]=1;g=$2;gg[g]=1;gs[g,s]+=zz;}END{for(s in ss)for(g in gg){k=gs[g,s];if(k<=3)sp[s,k]++;else if (k==4)sm[s,1]++;else if (k==8)sm[s,2]++;else if (k==12)sm[s,3]++;else if (k==9)sq1[s]++;else if (k==6)sq2[s]++;else cplx[s]++;}printf("Stade\tPlus %s\tPlus Both\tPlus %s\tMinus %s\tMinus Both\tMinus %s\tPlus %s Mnus %s\tMinus %s Plus %s\tComplex\n", typ1,typ2,typ1,typ2,typ1,typ2,typ1,typ2);for(s in ss) printf("%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n", s,sp[s,1],sp[s,3],sp[s,2],sm[s,1],sm[s,3],sm[s,2],sq1[s],sq2[s],cplx[s]);}' typ1=$typ1 typ2=$typ2 >> $toto3
+
+      echo "\n" >> $toto3
+   end
+  end
+
+##########################################
+## other idea, do a 1/4/6/4/1 Venn diagram in bar for each stage and each direction
+
+if (-e toto1) \rm toto1
+foreach nam (ST1 ST4 ST4S MNA)
+  foreach ud (up down )
+    \rm toto
+    set nt=1
+    foreach typ (Fudan.Agilent   Magic_newAgilent Fudan.RNA_seq  Magic_newGENE.RNA_seq  )
+       cat  $nam.$typ.score.$ud.txt | gawk '{printf ("%d\t%s\t",nt,typ);print}' nt=$nt typ=$typ >> toto  
+       @ nt = $nt * 2
+    end
+    cat toto | gawk -F '\t' '{t=$1; g=$4; gg[g] = gg[g] + t ;}END{for(g in gg) {ng[gg[g]]++;ng[0]++;} split("15,14,13,11,7,12,10,9,6,5,3,8,4,2,1,0",aa,",");for(ii=1;ii<=16;ii++){n=0;t=aa[ii];n=ng[t];printf("%s\t%s\t%d\t%d\n",nam,ud,t,n);}}' nam=$nam ud=$ud >> toto1
+  end
+end
+
+set toto3=MagicNew_Fudan.Venn_table.txt
+echo -n "## MagicNew_Fudan.Venn_table.txt  " > $toto3
+date >> $toto3
+echo "## Multi Venn diagram, counting the genes seen in the 4 methods, for each sage and each orientation  " >> $toto3
+cat toto1 | gawk -F '\t' '{nam= $1 ":" $2 ; if(nam != oldNam){nNam++;nams[nNam]=nam;oldNam=nam;} nt[nNam,$3]=$4;if(0)print "...",nNam,$3,$4;}END{split("15,14,13,11,7,10,5,9,6,12,3,8,4,2,1,0",aa,",");types=split("AF__AM__RF__RM",bb,"__"); for (i=1;i<=15;i++){if(i%2 == 1)title[i] = title[i] ", " bb[1];if(int(i/2)%2 == 1)title[i] = title[i] ", " bb[2];if(int(i/4)%2 == 1)title[i] = title[i] ", " bb[3];if(int(i/8)%2 == 1)title[i] = title[i] ", " bb[4];} title[0]=", Any";for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%d",t);}printf("\n");for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%s",substr(title[t],3));}for(iNam=1;iNam<=nNam;iNam++){printf("\n%s", nams[iNam]);for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%d",nt[iNam,t]);}}printf("\n");}' >> $toto3
+echo "\n## percentages" >> $toto3
+cat toto1 | gawk -F '\t' '{nam= $1 ":" $2 ; if(nam != oldNam){nNam++;nams[nNam]=nam;oldNam=nam;} nt[nNam,$3]=$4;if(0)print "...",nNam,$3,$4;}END{split("15,14,13,11,7,10,5,9,6,12,3,8,4,2,1,0",aa,",");types=split("AF__AM__RF__RM",bb,"__"); for (i=1;i<=15;i++){if(i%2 == 1)title[i] = title[i] ", " bb[1];if(int(i/2)%2 == 1)title[i] = title[i] ", " bb[2];if(int(i/4)%2 == 1)title[i] = title[i] ", " bb[3];if(int(i/8)%2 == 1)title[i] = title[i] ", " bb[4];} title[0]=", Any";for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%d",t);}printf("\n");for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%s",substr(title[t],3));}for(iNam=1;iNam<=nNam;iNam++){printf("\n%s", nams[iNam]);for(ii=1;ii<=16;ii++){t=aa[ii];printf("\t%.1f",100.0*nt[iNam,t]/nt[iNam,0]);}}printf("\n");}' >> $toto3
+
+
+### merged Venn, all lists restricted to genes with uniquely mapping probes, numbers mailed to falk dec 16, 2014
+# foreach mm (Fudan.Agilent Fudan.RNA_seq Magic_giniX0GENE.RNA_seq  Magic_newGiniAgilent  Magic_giniX0MRNAH.RNA_seq)
+foreach mm ( Magic_$tt'GENE.RNA_seq'  Magic_$tt'MRNAH.RNA_seq')
+    cat *.$mm.score.*.txt | cut -f 2 | sort -u > score.merged.$mm.txt
+end
+# size of merged lists, any direction, any stage
+wc  score.merg*
+12087  12087  89147 score.merged.Fudan.Agilent.txt
+  8366   8366  59835 score.merged.Fudan.RNA_seq.txt
+ 11688  11688  86992 score.merged.Magic.Agilent.txt
+  9389   9389  67630 score.merged.Magic_GENE.RNA_seq.txt
+ 14376  14376 105247 score.merged.Magic_MRNAH.RNA_seq.txt
+ 55906  55906 408851 total
+
+# size of union, deduce intersectio I = A + B - U, and % agreement 100*I/U
+cat score.merged.Fudan.Agilent.txt  score.merged.Magic.Agilent.txt | sort -u | wc
+  14483   14483  107089
+[mieg@ace ~/NB]$ cat score.merged.Fudan.RNA_seq.txt score.merged.Fudan.Agilent.txt | sort -u | wc
+  13675   13675  100674
+[mieg@ace ~/NB]$ cat score.merged.Magic_GENE.RNA_seq.txt score.merged.Fudan.RNA_seq.txt  | sort -u | wc
+  11027   11027   79282
+[mieg@ace ~/NB]$ cat score.merged.Magic_GENE.RNA_seq.txt  score.merged.Magic.Agilent.txt  | sort -u | wc
+  13250   13250   98274
+[mieg@ace ~/NB]$ cat score.merged.Fudan.RNA_seq.txt score.merged.Magic.Agilent.txt  | sort -u | wc
+  13297   13297   98553
+[mieg@ace ~/NB]$ cat score.merged.Fudan.Agilent.txt score.merged.Magic_GENE.RNA_seq.txt | sort -u | wc
+  14435   14435  106025
+[mieg@ace ~/NB]$ cat score.merged.Fudan.RNA_seq.txt score.merged.Magic_MRNAH.RNA_seq.txt  | sort -u | wc
+  15404   15404  112750
+[mieg@ace ~/NB]$ cat score.merged.Magic_MRNAH.RNA_seq.txt score.merged.Magic.Agilent.txt  | sort -u | wc
+
+
+########################################################################################################################################################################################################################
+########################################################################################################################################################################################################################
+## 2015_01_25
+## selecting ST4, we wish to look at the sets of genes seen by Fudan and not by Magic and vice-versa, up or down, hence 4 cases
+## we would like to display the signal histogram of the first 50 genes in each case
+## separatelly, we want to show the score histo of each of the 4 lists, and add it to the
+## FDR histo where we show the score of all genes and the score in the random resamplings
+
+## construct the 4 lists
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Fudan.RNA_seq.score.$uu.txt ZZZZZ  $nam.Magic_GENE.RNA_seq.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)next; print;}' > $nam.Magic_GENE__not_Fudan.score.$uu.txt
+    cat $nam.Fudan.RNA_seq.score.$uu.txt ZZZZZ  $nam.Magic_GENE.RNA_seq.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)print;}' > $nam.Magic_GENE__also_Fudan.score.$uu.txt
+    cat $nam.Magic_GENE.RNA_seq.score.$uu.txt ZZZZZ  $nam.Fudan.RNA_seq.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)next; print;}' > $nam.Fudan__not_Magic_GENE.score.$uu.txt
+    cat $nam.Magic_GENE.RNA_seq.score.$uu.txt ZZZZZ  $nam.Fudan.RNA_seq.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)print;}' > $nam.Fudan__also_Magic_GENE.score.$uu.txt
+    cat $nam.Magic.Agilent.score.$uu.txt ZZZZZ  $nam.Fudan.Agilent.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)next; print;}' > $nam.Fudan_Agilent__not_Magic_Agilent.score.$uu.txt
+    cat $nam.Magic.Agilent.score.$uu.txt ZZZZZ  $nam.Fudan.Agilent.score.$uu.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;next}}{if(ok[$2]==1)print;}' > $nam.Fudan_Agilent__also_Magic_Agilent.score.$uu.txt
+    
+  end
+end
+## histo des score des genes non vus par Fudan
+
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Magic_GENE__not_Fudan.score.$uu.txt | gawk '{x=-$3;if(x<0)x=-x;x=int((x+.5)/1);print x}END{print 100}' | bin/histo -plot -plain -w 50 -o  $nam.Magic_GENE__not_Fudan.$uu.histo -title $nam.Magic_GENE__not_Fudan.$uu
+    cat $nam.Magic_GENE__also_Fudan.score.$uu.txt | gawk '{x=-$3;if(x<0)x=-x;x=int((x+.5)/1);print x}END{print 100}' | bin/histo -plot -plain -w 50 -o  $nam.Magic_GENE__also_Fudan.$uu.histo -title $nam.Magic_GENE__also_Fudan.$uu
+  end
+end
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Fudan__not_Magic_GENE.score.$uu.txt | gawk '{x=-$3;if(x<0)x=-x;x=int(1*(x+.5)/1);print x}END{print 50}' | bin/histo -plot -plain -w 50 -o  $nam.Fudan__not_Magic.p_value.$uu.histo -title  $nam.Fudan__not_Magic.p_value.$uu
+    cat $nam.Fudan__also_Magic_GENE.score.$uu.txt | gawk '{x=-$3;if(x<0)x=-x;x=int(1*(x+.5)/1);print x}END{print 50}' | bin/histo -plot -plain -w 50 -o  $nam.Fudan__also_Magic.p_value.$uu.histo -title  $nam.Fudan__also_Magic.p_value.$uu
+  end
+end
+ 
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Fudan__not_Magic_GENE.score.$uu.txt | gawk '{x=-$4;if(x<0)x=-x;x=int(10*(x+.05));print x}END{print 50}' | bin/histo -plot -plain -w 50 -o  $nam.Fudan__not_Magic.FC.$uu.histo -title  $nam.Fudan__not_Magic.FC.$uu
+    cat $nam.Fudan__also_Magic_GENE.score.$uu.txt | gawk '{x=-$4;if(x<0)x=-x;x=int(10*(x+.05));print x}END{print 50}' | bin/histo -plot -plain -w 50 -o  $nam.Fudan__also_Magic.FC.$uu.histo -title  $nam.Fudan__also_Magic.FC.$uu
+  end
+end
+
+## compute the histos of the first 100 genes just in Fudan
+foreach nam (ST4)
+  foreach uu (up down)
+    cat  $nam.Fudan__not_Magic_GENE.score.$uu.txt | head -1000 | gzip >  $nam.Fudan__not_Magic_GENE.uu.list.gz
+    echo -n "# $nam.Fudan__not_Magic_GENE.$uu.index.txt " > $nam.Fudan__not_Magic_GENE.$uu.index.txt
+    date >>  $nam.Fudan__not_Magic_GENE.$uu.index.txt
+    zcat $nam.Fudan__not_Magic_GENE.uu.list.gz ZZZZZ.gz ~/NB/RESULTS_2013_09/Expression/unique/av/NB.av.GENE.u.expression_index.txt.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;FC[$2]=$4;pval[$2]=$3;next;}}/^#/{printf("Gene\tFudan FC\tFudan p-value\t");print;next;}{if(ok[$1]==1){printf("%s\t%s\t%s\t",$1,FC[$1],pval[$1]);print;}next;}' >>  $nam.Fudan__not_Magic_GENE.$uu.index.txt
+
+    cat  $nam.Fudan__also_Magic_GENE.score.$uu.txt | head -1000 | gzip >  $nam.Fudan__also_Magic_GENE.uu.list.gz
+    echo -n "#  $nam.Fudan__also_Magic_GENE.$uu.index.txt " >  $nam.Fudan__also_Magic_GENE.$uu.index.txt
+    date >>   $nam.Fudan__also_Magic_GENE.$uu.index.txt
+    zcat $nam.Fudan__also_Magic_GENE.uu.list.gz ZZZZZ.gz ~/NB/RESULTS_2013_09/Expression/unique/av/NB.av.GENE.u.expression_index.txt.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;FC[$2]=$4;pval[$2]=$3;next;}}/^#/{printf("Gene\tFudan FC\tFudan p-value\t");print;next;}{if(ok[$1]==1){printf("%s\t%s\t%s\t",$1,FC[$1],pval[$1]);print;}next;}' >>  $nam.Fudan__also_Magic_GENE.$uu.index.txt
+  end
+end
+foreach nam (ST4)
+  foreach uu (up down)
+    cat  $nam.Fudan__not_Magic_GENE.score.$uu.txt | head -1000 | gzip >  $nam.Fudan__not_Magic_GENE.uu.list.gz
+     echo -n "#  $nam.Fudan__not_Magic_GENE.$uu.reads_aligned_per_gene.txt" >  $nam.Fudan__not_Magic_GENE.$uu.reads_aligned_per_gene.txt
+     date >>  $nam.Fudan__not_Magic_GENE.$uu.reads_aligned_per_gene.txt
+    zcat $nam.Fudan__not_Magic_GENE.uu.list.gz ZZZZZ.gz ~/NB/RESULTS_2013_09/Expression/unique/av/NB.av.GENE.u.reads_aligned_per_gene.txt.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;FC[$2]=$4;pval[$2]=$3;next;}}/^#/{printf("Gene\tFudan FC\tFudan p-value\t");print;next;}{if(ok[$1]==1){printf("%s\t%s\t%s\t",$1,FC[$1],pval[$1]);print;}next;}' >>  $nam.Fudan__not_Magic_GENE.$uu.reads_aligned_per_gene.txt
+    cat  $nam.Fudan__also_Magic_GENE.score.$uu.txt | head -1000 | gzip >  $nam.Fudan__also_Magic_GENE.uu.list.gz
+    echo -n "#  $nam.Fudan__also_Magic_GENE.$uu.reads_aligned_per_gene.txt" >  $nam.Fudan__also_Magic_GENE.$uu.reads_aligned_per_gene.txt
+    date >>  $nam.Fudan__also_Magic_GENE.$uu.reads_aligned_per_gene.txt
+    zcat $nam.Fudan__also_Magic_GENE.uu.list.gz ZZZZZ.gz ~/NB/RESULTS_2013_09/Expression/unique/av/NB.av.GENE.u.reads_aligned_per_gene.txt.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$2]=1;FC[$2]=$4;pval[$2]=$3;next;}}/^#/{printf("Gene\tFudan FC\tFudan p-value\t");print;next;}{if(ok[$1]==1){printf("%s\t%s\t%s\t",$1,FC[$1],pval[$1]);print;}next;}' >>  $nam.Fudan__also_Magic_GENE.$uu.reads_aligned_per_gene.txt
+  end
+end
+
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Magic_GENE__not_Fudan.score.$uu.txt | head -1000  >  $nam.Magic_GENE__not_Fudan.uu.list
+      echo -n "#  $nam.Magic_GENE__not_Fudan.$uu.profiles.txt" >  $nam.Magic_GENE__not_Fudan.$uu.profiles.txt
+      date >>  $nam.Magic_GENE__not_Fudan.$uu.profiles.txt
+    set ff=NB_4stages.AceView.GENE.u.NB_4stages.allHistos.txt 
+    cat    $nam.Magic.Agilent.score.$uu.txt ZZZZZ $nam.Fudan.Agilent.score.$uu.txt  ZZZZZ $nam.Magic_GENE__not_Fudan.uu.list ZZZZZ  $ff | gawk -F '\t' '/^ZZZZZ/{zz++;kk=0;next;}{if(zz<1){Magl[$2]="Magic_agilent";next;}}{if(zz<2){Fagl[$2]="Fudan_agilent";next;}}{if(zz<3){kk++;ok[$2]=kk;next;}}/^Genes/{zz++;next;}/^#/{printf("Order\tMagic Agilent\tFudan Agilent\t");print;next;}{if(zz>=3 && ok[$1]>=1){printf("%d\t%s\t%s\t",ok[$1],Magl[$1],Fagl[$1]);print}}' | sort -k 1,1n -k 2,2 -k 3,3 >>  $nam.Magic_GENE__not_Fudan.$uu.profiles.txt
+  end
+end
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Magic_GENE__also_Fudan.score.$uu.txt | head -1000  >  $nam.Magic_GENE__also_Fudan.uu.list
+      echo -n "#  $nam.Magic_GENE__also_Fudan.$uu.profiles.txt" >  $nam.Magic_GENE__also_Fudan.$uu.profiles.txt
+      date >>  $nam.Magic_GENE__also_Fudan.$uu.profiles.txt
+    set ff=NB_4stages.AceView.GENE.u.NB_4stages.allHistos.txt 
+    cat    $nam.Magic.Agilent.score.$uu.txt ZZZZZ $nam.Fudan.Agilent.score.$uu.txt  ZZZZZ $nam.Magic_GENE__also_Fudan.uu.list ZZZZZ  $ff | gawk -F '\t' '/^ZZZZZ/{zz++;kk=0;next;}{if(zz<1){Magl[$2]="Magic_agilent";next;}}{if(zz<2){Fagl[$2]="Fudan_agilent";next;}}{if(zz<3){kk++;ok[$2]=kk;next;}}/^Genes/{zz++;next;}/^#/{printf("Order\tMagic Agilent\tFudan Agilent\t");print;next;}{if(zz>=3 && ok[$1]>=1){printf("%d\t%s\t%s\t",ok[$1],Magl[$1],Fagl[$1]);print}}'  | sort -k 1,1n -k 2,2 -k 3,3 >>  $nam.Magic_GENE__also_Fudan.$uu.profiles.txt
+  end
+end
+   
+foreach nam (ST4)
+  foreach uu (up down)
+    cat $nam.Fudan__not_Magic_GENE.score.$uu.txt | head -1000  >  $nam.Fudan__not_Magic_GENE.score.$uu.list
+      echo -n "#  $nam.Fudan__not_Magic_GENE.$uu.profiles.txt" > $nam.Fudan__not_Magic_GENE.$uu.profiles.txt
+      date >> $nam.Fudan__not_Magic_GENE.$uu.profiles.txt
+    set ff=NB_4stages.AceView.GENE.u.NB_4stages.allHistos.txt 
+    cat  $nam.Magic.Agilent.score.$uu.txt ZZZZZ $nam.Fudan.Agilent.score.$uu.txt ZZZZZ $nam.Fudan__not_Magic_GENE.score.$uu.list ZZZZZ  $ff | gawk -F '\t' '/^ZZZZZ/{zz++;kk=0;next;}{if(zz<1){Magl[$2]="Magic_agilent";next;}}{if(zz<2){Fagl[$2]="Fudan_agilent";next;}}{if(zz<3){kk++;ok[$2]=kk;next;}}/^Genes/{zz++;next;}/^#/{printf("Order\tMagic Agilent\tFudan Agilent\t");print;next;}{if(zz>=3 && ok[$1]>=1){printf("%d\t%s\t%s\t",ok[$1],Magl[$1],Fagl[$1]);print}}' | sort -k 1,1n -k 2,2 -k 3,3  >> $nam.Fudan__not_Magic_GENE.$uu.profiles.txt
+  end
+end
+
+

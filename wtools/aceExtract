@@ -1,0 +1,38 @@
+#!/usr/local/bin/perl
+#
+# perl script to extract objects from an ace file
+#
+# usage: aceExtract class:name acefile ...
+#
+# perl regexp allowed in name (but protect from shell globbing)
+#
+# $Id: aceExtract,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+$_ = shift(@ARGV) || die "usage: aceExtract class:name acefile ...\n" ;
+
+s/^'(.*)'$/$1/ ;
+(($class, $name) = /(\S+):(.*)/) || die "Can't parse class:name from arg 1 = $_\n" ;
+#print "Class = $class, Name = $name\n" ;
+
+while (<>) {
+    s/\/\/.*// ;		# ace file comments
+    s/(\S+)\s+:/$1 / ;		# horrid ':' separator
+    if ( /^(\S+)\s+(.*)\s*$/ ) {
+	$isPrint = ($1 eq $class && $2 =~ $name) ;
+	print if $isPrint ;
+	if ($class eq "LongText") {
+	    while (<>) {
+		s/\/\/.*// ;		# ace file comments
+		print if $isPrint ;
+		last if /^\*\*\*LongTextEnd\*\*\*\n$/ ;
+	    }
+	}
+	else {
+	    while (<>) {
+		s/\/\/.*// ;		# ace file comments
+		print if $isPrint ;
+		last if /^\S*$/ ;
+	    }
+	}
+    }
+}

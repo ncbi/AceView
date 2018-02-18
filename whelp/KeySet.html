@@ -1,0 +1,158 @@
+<!--  @(#)KeySet.html	1.3  9/30/97  >
+<head>
+<title>Keyset window</title>
+</head>
+<h2>Main Keyset Window</h2>
+
+ This is your central pool for data: in this window you collect the items <strong>Search</strong> has dredged up for you. From here you select, import, create keysets and compare data.
+
+	This window is divided in control panel and selection window.
+
+<h3>Selection Window</h3>   
+
+<ul>
+<li><strong>The scroll bar</strong> on the left is used to move in the set. The arrowheads move a page at a time, while left-dragging the green cursor scrolls continuously through the items. The middle button can also be used to center the green indicator of position directly on a spot.
+<li>The selection window also reminds the search argument that was used to create this keyset, as well as the size of it in objects.
+<li><b>The objects</b> themselves can be selected or deselected at will by left clicking on them. Dragging with the same button will select contiguous groups of items.To view an object double-click on it: depending on the format selected in the <a href="#showas">Show As..</a> menu.
+</ul>
+
+<h3>Keyset control panel</h3>
+
+The top of a keyset window gives access to functions that will be applied to the selected parts of your keyset. Some of the buttons are pull down menus (indicated by <b>..</b> at the end) which you open with the right mouse button. The buttons are:
+
+<a name="showas">
+<H4>Show As</H4></a> This button can be used either as a pulldown menu or
+simply by clicking it to toggle through its options. It controls how objects in the keyset will be displayed (i.e. gene position in numbers and on a map). The basic display options are <ul><li><a href="Tree.html">'Text'</a> to display as text 
+<li>'Graph' to produce the default graphical display set for this class in the options.wrm file
+</ul>
+<H4>Biblio</H4>
+Clicking this button brings up the <A href="Biblio.html">Biblio display</A> window for the keyset.
+<H4>More Info</H4>
+Clicking this button brings up the <A href="Forest.html">Forest display</A> for the keyset.
+<H4>Quit</H4>
+Clicking this button quits the keyset window.
+<H4>Query</H4>
+This button may be used either to produce a pulldown menu for the
+keyset (containing items related to querying the keyset) or can simply
+be clicked upon. In the latter case, a text box appears below the
+button allowing the user to perform a command line query on the
+keyset.<P>
+
+
+If used as a pulldown menu, there are currently options :-<P>
+
+
+<B>Query</B> - Lets the user perform a command line query as with
+clicking on the button.  <BR><B>Follow</B> - Brings up a tag chooser
+window for the keyset, allowing the user to perform the 'follow' query
+command on one of the tags (i.e. to produce a keyset containing all
+instances of that tag linked to by items in the keyset).  <BR><B>Find
+neighbours</B> - Finds all objects in the database referred to by
+items currently in the keyset.  <BR><B>Query by Example</B> - Allows
+the user to perform a 'Query by Example' on the keyset.
+<H4>Select/Modif</H4> This button allows the user to bring up a
+pulldown menu containing options related to editing and copying of the
+keyset. The menu options are as follows :-<P>
+
+
+<B>Add/remove items one by one</B> - Allows the user to add or remove
+items from the keyset one by one. Double clicking an item in the
+keyset removes it. Double clicking an item in another keyset adds it
+to the current keyset.
+<BR><B>New empty keyset</B> - Allows the user to create a new empty
+keyset window.  <BR><B>Copy whole keyset</B> - Copies the whole keyset
+into another keyset window.  <BR><B>Save current keyset as</B> - Only
+available if the user has write access. Allows the user to save the
+keyset as an item in the KeySet class of the database.  <BR><B>Select
+All</B> - Selects the whole keyset.  <BR><B>Clear selection</B> -
+Deselects all selected items.  <BR><B>Reverse selection</B> -
+Deselects all selected items and selects all previously unselected
+items.  <BR><B>Remove selected items</B> - Removes all selected items
+from the keyset.  <BR><B>Copy selected items</B> - Copies the selected
+items to a new keyset.
+
+<H4>Export</H4> This button allows the user to bring up a pulldown
+menu containing options for exporting and mailing the objects in the
+keyset in various formats. Choosing each option calls up a new window
+allowing the user to save the data into a file of the appropriate type
+or click a 'Mail' button to mail the file to an e-mail address. The
+various options are as follows :- <P>
+
+
+<B>ace file</B> - Exports the keyset data as a standard .ace file.
+<BR><B>ace file with timestamps</B> - Exports the data as a .ace file with timestamps included.
+<BR><B>list of names</B> - Exports the names of the data items in the keyset as an item of the Keyset class in .ace file format. 
+<BR><B>DNA in FASTA format</B> - Exports DNA from any sequence objects in the keyset in FASTA format.
+<BR><B>Protein in FASTA format</B> - Exports peptide sequence from any protein objects in the keyset in FASTA format.
+<BR><B>Protein alignment</B> - Exports protein sequence alignments for any sequences in the keyset.
+
+<H4>Other</H4>
+Clicking this button displays or hides three other buttons on the keyset window :-
+<P>
+
+<B>Combine</B> - produces a pulldown menu allowing logical operations
+to be performed on two keyset windows. The operators are as follows
+:-<P>
+
+
+OR - takes the union of the two sets<BR>
+AND - takes the intersection of the two sets<BR>
+MINUS - removes any item contained by the second keyset form the first<BR>
+XOR - results in the exclusive OR of the two sets (i.e items in one of the keysets but not in both).
+
+<P>
+ <B>Class Names</B> - Toggles displaying of the name of the class
+of each item in the keyset.  <P>
+
+
+<B>Edit/Kill</B> - produces a pulldown menu of items which may only be
+used if the user has Write Access. The menu options are :-<P>
+
+
+<B>Edit selected objects</B> - allows the user to edit all selected
+items from the keyset online. Particularly useful for adding identical
+data for the same tag to many objects.<BR>
+<B>Kill selected</B> - allows the user to delete any selected objects from the
+database.
+
+<H4>Help</H4>
+Clicking this button brings up the online help for the Keyset window.<P>
+
+
+
+In addition to the menus available from the buttons at the top of the
+window, the KeySet window has a main pulldown menu (reached by
+clicking anywhere on the window except on the buttons. Most of the
+options are duplicates of those available from the other pulldown
+menus but the following options are only available from the main menu
+:-<P>
+
+
+<B>Print</B> - calls up a window allowing the user to print the keyset, e-mail it or save it to a text or postscript file.<BR>
+<B>Import keyset</B> - allows a keyset to be read into the database form a file (requires Write Access to do so).
+<B>Mail</B> - allows mailing to e-mail addresses contained by the keyset.<BR>
+<B>Keyset Summary</B> - gives a brief summary of what the keyset contains (classes contained and the number of each class).<BR>
+<B> Show as Multimap</B> - displays items in the keyset on the Multimap display via Tablemaker.
+
+
+<p>
+to <a href="TOC.html">Index</a><p>
+to <a href="acedb.html">Main window help</a>
+<p>
+
+last edited:Nov 1997<p>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

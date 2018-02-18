@@ -1,0 +1,29 @@
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### wmake/NEC_DEF    Jan-12-1992       ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+########### for the NEC Corporation.           ##################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+## for NEC RISC EWS-4800 Release 10.1
+
+NAME = NEC
+COMPILER = /usr/abiccs/ucb/cc -Wf,-XNh2000 -g -I/usr/ucbinclude \
+	-DNO_LEFT_CASTING -DACEDB4 -DSOLARIS 
+LINKER = /usr/abiccs/ucb/cc -g
+
+LIBS = -lSM -lICE -lm -lgen 
+RANLIB_NEEDED = false
+
+.c.o:
+	$(CC) -c $*.c
+
+#################################################################
+#################################################################

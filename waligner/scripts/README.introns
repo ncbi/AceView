@@ -1,0 +1,609 @@
+#!/bin/tcsh -f
+
+cd $SX/INTRONS
+if ($1 == J1) goto phaseJ1
+if ($1 == J3) goto phaseJ3
+if ($1 == A1) goto phaseA1
+#setenv SX `pwd`
+######################################################################################
+## Exon-exon junction 
+
+## Import the introns from the public database 
+
+## Import the introns from the Jensen-454 database
+phaseJ1:
+$tacembly J1/ZZ << EOF
+  find tg
+  acem
+    Make_dna_cover -n 100 -justIntron -o J1.introns.200.txt
+    quit
+  quit
+EOF
+mv ~/J1/ZZ/J1.introns.200.txt .
+exit
+
+phaseJ3:
+$tacembly ~/J3/ZZ << EOF
+  find tg
+  acem
+    Make_dna_cover -n 100 -justIntron -o J3.introns.200.txt
+    quit
+  quit
+EOF
+mv ~/J3/ZZ/J3.introns.200.txt .
+exit
+
+
+
+## Import the introns from the public database
+phaseA1:
+$tacembly ~/36a/ZZ << EOF
+  find tg
+  acem
+    make_dna_cover -n 100 -justIntron -o av.introns.200.txt 
+    quit
+  quit
+EOF
+exit
+
+mv ~/36a/ZZ/av.introns.200.txt .
+
+cat av.introns.200.txt J1.introns.200.txt  |  gawk -F '\t' '{printf("%s__%s_%s\t%s\n",$3,$4,$5,$7);}'  | sort -u | gawk '{printf("%s\n%s\n",$1,$2);}' >! any.introns.200.fasta
+
+cat av.introns.200.txt | gawk -F '\t' '{printf ("Element %s__%s_%s\nIntron\nAV\nLeft_motif\nRight_motif\n\n", $3,$4,$5);}' > av.introns.200.ace
+cat J1.introns.200.txt | gawk -F '\t' '{printf ("Element %s__%s_%s\nIntron\nJJ\nLeft_motif\nRight_motif\n\n", $3,$4,$5);}' > J1.introns.200.ace
+cat J3.introns.200.txt | gawk -F '\t' '{printf ("Element %s__%s_%s\nIntron\nJJ\nLeft_motif\nRight_motif\n\n", $3,$4,$5);}' > J3.introns.200.ace
+
+
+foreach chrom ($chromSetAll)
+  $tacembly ~/36a/ZH$chrom <<EOF
+    find intron
+    //show -a -f canned_intron.$chrom.ace
+    //query find mrna geneid
+    //bql -a -o mrna2geneid.$chrom.txt select m,i from m in @, i in m->geneId
+    //query find gene geneid
+    //bql -a -o gene2geneid.$chrom.txt select g,i from g in @, i in g->geneId
+    table -o $ici/intron2support.$chrom.txt -f $ici/intron2support.def
+    quit
+EOF
+end
+
+
+cat canned_intron.*.ace >! all_canned_intron.ace
+cat mrna2geneid.*.txt | gawk -F '\t' '{printf("mRNA %s\nGeneId %s\n\n",$1,$2);}' >!  all_mrna2geneid.ace
+cat gene2geneid.*.txt | gawk -F '\t' '{printf("Gene %s\nGeneId %s\n\n",$1,$2);}'  >!  all_gene2geneid.ace
+
+foreach chrom ($chromSetAll)
+  $tacembly ~/J1/ZH$chrom <<EOF
+    query find intron Stratagene
+    show -a -f J1.A.$chrom.ace Stratagene
+    query find intron Brain
+    show -a -f J1.B.$chrom.ace Brain
+    quit
+EOF
+end
+# ATTENTION, there is a catastrophic mix up in the J1 database A and B tags are backwards (CF elavl1 on J1/ZH19)
+cat J1.A.*.ace | sed -e 's/Stratagene/Roche454_B/' >! all_J1_B.ace
+cat J1.B.*.ace | sed -e 's/Brain/Roche454_A/' >! all_J1_A.ace
+
+###########################################################################################################
+## Recent models are imported from ~J2, which was missing global coordinates
+## Reestablsih global coordinates in J2
+pushd ~/J2
+foreach chrom ($chromSetAll)
+  pushd ZH$chrom
+  cp ~/36a/ZH$chrom/d3.ybr2map.ace .
+  cp ~/36a/ZH$chrom/d3.g2c.gsi.ace .
+  $tacembly . <<EOF
+    parse d3.ybr2map.ace
+    parse d3.g2c.gsi.ace
+    save
+    quit
+EOF
+  gene2chrom -any -pg -i ~/J2/ZH$chrom > g2c.pgi.$chrom.ace
+  $tacembly . <<EOF
+    parse g2c.pgi.$chrom.ace
+    save
+    quit
+EOF
+  popd
+end
+popd
+
+foreach chrom ($chromSetAll)
+  $tacembly ~/J2/ZH$chrom <<EOF
+    table -o $ici/geneid2gene.$chrom.txt $ici/geneid2gene.def
+    quit
+EOF
+end
+
+cat geneid2gene.*.tx | gawk -F '\t' '{gsub(/X__/,"",$3);printf("GeneId %s\nGene %s\n\n",$2,$3);}' > geneid2gene.ace
+
+###########################################################################################################
+## Export the NCBI introns from J2
+
+foreach chrom ($chromSetAll)
+  ~/ace/bin.LINUX_X86_64_4/tacembly ~/J2/ZH$chrom <<EOF
+    query find predicted_gene NM_id = N*
+    acem
+      make_dna_cover -pg -justIntron -n 35 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.pgN.35.$chrom.txt
+      make_dna_cover -pg -justIntron -n 50 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.pgN.50.$chrom.txt
+      quit
+    query find predicted_gene NM_id = X*
+    acem
+      make_dna_cover -pg -justIntron -n 35 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.pgX.35.$chrom.txt
+      make_dna_cover -pg -justIntron -n 50 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.pgX.50.$chrom.txt
+      quit
+    quit
+EOF
+end
+
+# Combine
+cat intron.pgN.35.*.txt >! pgN.introns.35.txt
+cat intron.pgN.50.*.txt >! pgN.introns.50.txt
+cat intron.pgX.35.*.txt >! pgX.introns.35.txt
+cat intron.pgX.50.*.txt >! pgX.introns.50.txt
+
+
+###########################################################################################################
+## Export the Sasha introns
+
+foreach chrom ($chromSetAll)
+  $tacembly -noprompt ~/36a/ZH$chrom <<EOF
+    query find predicted_gene IS SS3*
+    acem
+      make_dna_cover -pg -justIntron -n 35 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.ss3.35.$chrom.txt
+      make_dna_cover -pg -justIntron -n 50 -o /home/mieg/36a/SeqcInfo/INTRONS/intron.ss3.50.$chrom.txt
+      quit
+    quit
+EOF
+end
+
+# Combine
+cat intron.ss3.35.*.txt >! SS3.introns.35.txt
+cat intron.ss3.50.*.txt >! SS3.introns.50.txt
+
+## Export the Sasha mRNAs
+cd $ici/MRNAS
+mkdir Sasha
+
+foreach chrom ($chromSetAll)
+  $tacembly -noprompt ~/36a/ZH$chrom <<EOF
+    query find predicted_gene IS SS3*
+    dna Sasha/Sasha.$chrom.dna
+    quit
+EOF
+end
+
+# Combine
+cat Sasha/Sasha.*.dna >! Sasha.fasta
+
+###########################################################################################################
+## Export the AceView introns
+
+# Remove from the Jensen list the introns already found in AceView
+cat  AceView.introns.35.txt  >! toto
+echo ZZZZZ >> toto
+cat Jensen_454.introns.35.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! J35.clean.txt
+ 
+cat  AceView.introns.50.txt  >! toto
+echo ZZZZZ >> toto
+cat Jensen_454.introns.50.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! J50.clean.txt
+ 
+# verify that the lists are complete
+cat J50.clean.txt >! toto
+echo ZZZZZ >> toto
+cat J35.clean.txt >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! J50_35.clean.txt
+
+cat J35.clean.txt >! toto
+echo ZZZZZ >> toto
+cat J50.clean.txt >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! J35_50.clean.txt
+
+cat  AceView.introns.35.txt  >! toto
+echo ZZZZZ >> toto
+cat  AceView.introns.50.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! AV.35_50.clean.txt
+
+cat  AceView.introns.50.txt  >! toto
+echo ZZZZZ >> toto
+cat  AceView.introns.35.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! AV.50_35.clean.txt
+
+# Add in the NM then the XM then the SS3
+cat  AceView.introns.35.txt  >! toto
+cat  Jensen.35.clean.txt >> toto
+echo ZZZZZ >> toto
+cat pgN.introns.35.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! pgN.35.clean.txt
+ 
+cat  AceView.introns.35.txt  >! toto
+cat  Jensen.35.clean.txt >> toto
+cat  pgN.35.clean.txt >> toto
+echo ZZZZZ >> toto
+cat pgX.introns.35.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! pgX.35.clean.txt
+ 
+
+cat  AceView.introns.35.txt  >! toto
+cat  Jensen.35.clean.txt >> toto
+cat  pgN.35.clean.txt >> toto
+cat  pgX.35.clean.txt >> toto
+echo ZZZZZ >> toto
+cat  SS3.introns.35.txt  >> toto
+gawk -F '\t' '/ZZZZZ/{s=1;next;}{ii= $3 "__" $4 "_" $5 ; if(s==0) {n[ii]=1; next;} if(n[ii]) next; print;}' toto >! SS3.35.clean.txt
+ 
+
+# Construct the combined 35 file
+cat  AceView.introns.35.txt  >! toto
+cat  Jensen.35.clean.txt >> toto
+cat  pgN.35.clean.txt >> toto
+cat  pgX.35.clean.txt >> toto
+cat  SS3.35.clean.txt >> toto
+cat toto | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;i[$3,$4,$5]++; if(i[$3,$4,$5]==1)print}' >!  Combined.introns.35.txt
+
+# Construct the combined 50 file
+cat  AceView.introns.50.txt  >! toto
+cat  Jensen.50.clean.txt >> toto
+cat  pgN.introns.50.txt >> toto
+cat  pgX.introns.50.txt >> toto
+cat  SS3.introns.50.txt >> toto
+cat toto | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;i[$3,$4,$5]++; if(i[$3,$4,$5]==1)print}' >!  Combined.introns.50.txt
+
+# Count the distinct introns in all the tables 
+# AceView:368825 Jensen:140842  NM:183496 XM:16501 Sasha:329758
+foreach manip (AceView Jensen_454 pgN pgX SS3)
+  gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;i[$3,$4,$5]++; if(i[$3,$4,$5]==1)n++;}END{printf("%s\t%d\n",manip, n)}' manip=$manip $manip.introns.35.txt
+end 
+# Count the new iterative introns Jensen:10502 NM:1561 XM:7412 ss3:47728
+foreach manip (Jensen pgN pgX SS3)
+  gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;i[$3,$4,$5]++; if(i[$3,$4,$5]==1)n++;}END{printf("%s\t%d\n",manip, n)}' manip=$manip $manip.35.clean.txt
+end 
+
+###########################################################################################################
+## Create a fasta file and a BowTie index
+
+# Create a fasta file
+cat  Combined.introns.35.txt | gawk -F '\t' '{printf(">%s__%s_%s|Gene:%s|t:%s|x:%d|m:%s|mRNAs:%s\n%s\n",$3,$4,$5,$1,$2,$6,$8,$9,$7);}' | solid_encoding -fa2fa -n2a -minEntropy 20 > Combined.introns.35.fasta
+cat  Combined.introns.50.txt | gawk -F '\t' '{printf(">%s__%s_%s|Gene:%s|t:%s|x:%d|m:%s|mRNAs:%s\n%s\n",$3,$4,$5,$1,$2,$6,$8,$9,$7);}'  | solid_encoding -fa2fa -n2a -minEntropy 35  >! Combined.introns.50.fasta
+# Create a bowtie index
+  pushd ../BT ; bowtie-build ../INTRONS/Combined.introns.35.fasta  hs.introns.35 ; popd
+# Create a colored bowtie index
+  solid_encoding -fa2ccfa -atgc -n2a < Combined.introns.35.fasta >  Combined.introns.35.ccfa
+  solid_encoding -fa2ccfar -atgc -n2a < Combined.introns.35.fasta >>  Combined.introns.35.ccfa
+  pushd ../BT ; bowtie-build ../INTRONS/Combined.introns.35.ccfa  hs.introns.35.ccfa ; popd
+###########################################################################################################
+## Create an ace file with the introns and just their  support
+
+cat  AceView.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Element %s__%s_%s\nIntron\nAV\n",$3,$4,$5);printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s\n",m) ; i= 100 ;}}m=$10;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > aceview.origin.ace
+
+cat  pgN.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Element %s__%s_%s\nIntron\nNM\n",$3,$4,$5);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}}m=$10;if(length(m)>0)printf("-D GeneId\n");for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > pgN.origin.ace
+
+cat  pgX.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Element %s__%s_%s\nIntron\nXM\n",$3,$4,$5);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}} m=$10;if(length(m)>0)printf("-D GeneId\n");for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > pgX.origin.ace
+
+cat  Jensen_454.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/)printf("Element %s__%s_%s\nIntron\n-D SS\nJJ\n\n",$3,$4,$5);}' > JJ.origin.ace
+
+cat  SS3.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/)printf("Element %s__%s_%s\nIntron\nSS\n\n",$3,$4,$5);}' > SS3.origin.ace
+
+###########################################################################################################
+## Create an ace file with the introns and their support
+cat  AceView.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\nAV\n",$3,$4,$5);if (length(t)>1)printf("%s\n",substr(t,2));printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s\n",m) ; i= 100 ;}}m=$10;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > aceview.introns.ace
+
+cat  pgN.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\nNM\n",$3,$4,$5);if (length(t)>1)printf("%s\n",substr(t,2));if(0)printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}}m=$10;if(length(m)>0)printf("-D GeneId\n");for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > pgN.introns.ace
+
+cat  pgX.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\nXM\n",$3,$4,$5);if (length(t)>1)printf("%s\n",substr(t,2));if(0)printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}} m=$10;if(length(m)>0)printf("-D GeneId\n");for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("GeneId %s\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("GeneId %s\n",m) ; i= 100 ;}} printf("\n");}}' > pgX.introns.ace
+
+cat  Jensen_454.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\nRoche454\n",$3,$4,$5);if (length(t)>1)printf("%s\n",substr(t,2));if(0)printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}} printf("\n");}}' > Jensen.introns.ace
+
+cat  SS3.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\nSS\n",$3,$4,$5);if (length(t)>1)printf("%s\n",substr(t,2));if(0)printf("From_gene %s\n", $1);m=$9;for (i=0; i<20;i++){j=index(m,",");if(j>0){printf("In_mRNA %s.pg\n",substr(m,1,j-1));m=substr(m,j+1);}else {printf("In_mRNA %s.pg\n",m) ; i= 100 ;}} printf("\n");}}' > SS3.introns.ace
+
+## Create an ace file with the left and the right motif
+cat *.introns.35.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\n",$3,$4,$5);p=$6;s=$7;if(p>1)printf("Left_motif %s\n",substr(s,1,p)); if(length(s) > p+2) printf("Right_motif %s\n", substr(s,p+1)); printf("\n");}}' >! intron2motif.35.ace
+cat *.introns.50.txt | gawk -F '\t' '{if($5==$4+1)next;if($5==$4-1)next;t=$2;if (t~/^I/){printf("Intron %s__%s_%s\n",$3,$4,$5);p=$6;s=$7;if(p>1)printf("Left_motif %s\n",substr(s,1,p)); if(length(s) > p+2) printf("Right_motif %s\n", substr(s,p+1)); printf("\n");}}' >! intron2motif.50.ace
+$tacembly ZI
+  parse all_canned_intron.ace
+  parse all_mrna2geneid.ace
+  parse all_gene2geneid.ace
+  parse aceview.introns.ace
+  parse pgN.introns.ace
+  parse pgX.introns.ace
+  parse SS3.introns.ace
+  parse Jensen.introns.ace
+  save
+  pparse introns_hits.ILM.Brain.ace
+  pparse introns_hits.ILM.UHR.ace
+  query find intron !support && ! Roche454
+  // kill
+  query find intron               // 436028
+  query ILM                      // 209470
+  query find intron  AV           // 368825
+  query ILM                      // 197176
+  query find intron  NM           // 183496
+  query ILM                      // 150149
+  query find intron  XM           // 16501
+  query ILM                      // 4375
+  query find intron  SS           // 329758
+  query ILM                      // 187460
+  query find intron  Roche454     // 140842
+  query ILM                      // 125953
+  query find intron AV &&  Roche454  // 130340
+  query ILM                      // 122470
+  query find intron AV &&  NM  // 130340
+  query ILM                      // 122470
+  query find intron AV &&  XM  // 8954
+  query ILM                      // 3480
+  query find intron AV &&  SS  // 278212
+  query ILM                      // 178487
+  query find intron !AV &&  NM  // 1789
+  query ILM                      // 734
+  query find intron !AV && SS  // 51546
+  query ILM                      // 8973
+  query find intron AV && !SS  // 90613
+  query ILM                      // 8973
+  query find intron !AV && Roche454  // 10502
+  query ILM                      // 3483
+  query find intron !AV && ! Roche454 && NM // 1561
+  query ILM                      // 541
+  query find intron !AV && ! Roche454 && !NM  && XM // 7412
+  query ILM                      // 806
+  query find intron !AV && ! Roche454 && !NM  && !XM && SS // 47728
+  query ILM                      // 7464
+
+  query find intron SS  // 329758
+  query ILM                      // 187460
+  query find intron !SS && Roche454  // 14157
+  query ILM                      // 5865
+  query find intron !SS && ! Roche454 && NM // 1258
+  query ILM                      // 430
+  query find intron !SS && ! Roche454 && !NM  && XM // 6786
+  query ILM                      // 637
+  query find intron !SS && ! Roche454 && !NM  && !XM && AV // 84069
+  query ILM                      // 15078
+
+
+  query find intron NM  // 183496
+  query ILM                      // 150149
+  query find intron !NM && XM // 16456
+  query ILM                      // 4340
+  query find intron !NM && AV // 187118
+  query ILM                      // 47761
+  query find intron !NM && Roche454  // 26370
+  query ILM                      // 15172
+  query find intron !NM && SS // 147849
+  query ILM                      // 38039
+  query find intron !NM && (Roche454 ||  AV) // 197392
+  query ILM                      // 51051
+  query find intron !NM          // 252532
+  query ILM                      // 59321
+  query find intron  (Roche454 ||  AV) // 379327
+  query ILM                      // 200659
+
+
+
+  quit
+EOF
+
+###########################################################################################################
+## Parse the HITS
+#
+#
+#        SEQC ILM ILM_A  UNIQUE Int   // SOLEXA
+#                 ILM_B  UNIQUE Int 
+#             LifeTech FosterCity FosterCity_A UNIQUE Int  // SOLID
+#                                 FosterCity_B UNIQUE Int 
+#                      Keil Keil_A UNIQUE Int 
+#                           Keil_B UNIQUE Int 
+#             Helicos Helicos_A UNIQUE Int 
+#                     Helicos_B UNIQUE Int 
+#             Roche454 Roche454_A UNIQUE Int  
+#                      Roche454_B UNIQUE Int 
+ 
+cat <<EOF >! hits2Introns.awk
+  { if(\$4<7 || \$4>26) next;
+     ii=\$3 ; j=index(ii,"|"); if(j>0) ii=substr(ii,1,j-1) ;
+     n[ii]++ ; 
+     p = \$1 ;
+     if (p!=oldp)
+       {
+         if(np==1 && oldii != 0) 
+           n1[oldii]++ ;
+         np=0;
+       }
+     oldii = ii ;
+     oldp = p ;
+     np++;
+   }
+END {
+      if(np==1 && oldii)
+        n1[oldii]++ ;
+      for (ii in n)
+        printf("Intron %s\n%s %d %d\n\n", ii, tag, n[ii], n1[ii]) ;
+}
+EOF
+
+
+cat ../HITS_introns/ILM.Brain.*.hits | gawk -F '\t' -f hits2Introns.awk tag=ILM_B >! introns_hits.ILM.Brain.ace
+cat ../HITS_introns/ILM.UHR.*.hits |  gawk -F '\t' -f hits2Introns.awk tag=ILM_A  >! introns_hits.ILM.UHR.ace
+
+cat ../HITS_introns/LifeTech_FosterCity.Brain.*.35.hits |  gawk -F '\t' -f hits2Introns.awk tag=FosterCity_B >! introns_hits.FosterCity.Brain.ace
+cat ../HITS_introns/LifeTech_FosterCity.UHR.*.35.hits |  gawk -F '\t' -f hits2Introns.awk tag=FosterCity_A >! introns_hits.FosterCity.UHR.ace
+
+cat ../HITS_introns/LifeTech_Keil.Brain.*.hits | gawk -F '\t' -f hits2Introns.awk tag=Keil_B >! introns_hits.Keil.Brain.ace
+cat ../HITS_introns/LifeTech_Keil.UHR.*.hits | gawk -F '\t' -f hits2Introns.awk tag=Keil_A  >! introns_hits.Keil.UHR.ace
+
+
+cat ../HITS_introns/Helicos.Brain.*.hits | gawk -F '\t' -f hits2Introns.awk tag=Helicos_B >! introns_hits.Helicos.Brain.ace
+cat ../HITS_introns/Helicos.UHR.*.hits | gawk -F '\t' -f hits2Introns.awk tag=Helicos_A >! introns_hits.Helicos.UHR.ace
+
+
+
+## Histo
+
+date >!  introns.tags.histo.txt
+echo "Number of Solexa tags supporting known introns" >>  introns.tags.histo.txt
+echo 'toto' | gawk 'END{printf("Stage");for(i=1;i<200;i++)printf("\t%d",i);printf("\n");}' >>  introns.tags.histo.txt
+foreach manip (L2 L3 L4 YA)
+  cat  introns.$manip.ace | gawk '/^Deep/{if($2==manip){n[$3]++;if($3>mx)mx=$3;}}END{printf("%s",manip);for (i=1;i<=mx;i++)printf("\t%d",n[i]);printf("\n");}' manip=$manip >>  introns.tags.histo.txt
+end
+cp   introns.tags.histo.txt ~/ACEVIEWHELP/worm.introns.tags.histo.txt
+
+###########################################################################################################
+## How many introns are targeted by the same probe
+cat ../HITS_introns/ILM.Brain.*.hits | gawk -F '\t' '{if($4>=7 && $4<=26){p=$1;if(p!=oldp){nn[n]++;if(n>mx)mx=n;n=0;}n++;oldp=p;}}END{for (i=1;i<=mx;i++)printf("%d\t%d\n",i,nn[i]);}' > ambiguoustags.Brain.histo.txt
+cat ../HITS_introns/ILM.UHR.*.hits | gawk -F '\t' '{if($4>=7 && $4<=26){p=$1;if(p!=oldp){nn[n]++;if(n>mx)mx=n;n=0;}n++;oldp=p;}}END{for (i=1;i<=mx;i++)printf("%d\t%d\n",i,nn[i]);}' > ambiguoustags.UHR.histo.txt
+
+
+cat ../HITS_main_aceview>/Helicos.Brain.main_aceview.hits | gawk -F '\t' '{p=$1;g=$3;i=index(g,"Apr07");g=substr(g,1,i-2);if(substr(g,i-2,1)!=".")next;if(p!=oldp){if(n==1)nn++;n=0;oldg=0;}if(g != oldg)n++; oldp=p;oldg=g;}END{print nn}'
+
+
+###########################################################################################################
+## Export a global table
+$tacembly ZI <<EOF
+  query find intron AV && ! nm && ! xm
+  list -a -f intron_not_nm.list
+  // query find intron AV && ! SS
+  // list -a -f intron_not_ss.list
+  // table -o $ici/intron2motif.txt -f $ici/intron2motif.def
+  // table -o $ici/intron2mrna.txt -f $ici/intron2mrna.def
+  quit
+EOF
+
+gawk -F '\t' '{gsub(/\"/,"",$0);ii=$1;gsub(/\.pg/,"",$2);if(ii!=oldii){if(oldii != 0)printf("\n");printf("%s\t%s",$1,$2);}else printf(";%s",$2);oldii=ii;}END{printf("\n");}' intron2mrna.txt > intron2mrna.multi.txt
+
+cat intron2mrna.multi.txt >! toto
+echo ZZZZZ >> toto
+gawk '/^\"/{gsub(/\"/,"",$0);print;}' intron2motif.txt >> toto
+gawk -F '\t' 'BEGIN {printf("#Junction\tGene\tGeneId\tIntron boundary\tChromosome\tFirst base of intron\tLast base of intron\tStrand\tJunction position\tSequence\tIn transcript\n");}/^ZZZZZ/{ss=1;next;}{if(ss==0){mm[$1]=$2;next;}gsub(/\\; /,";",$0);gsub(/NULL/,"NA",$0);gsub (/\"/,"",$0);if($4<$5)s="+";else s="-";printf("%s\t%s\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s%s\t%s\n",$1,$8,$9,$2,$3,$4,$5,s,length($6),$6,$7,mm[$1]);}'  toto > intron2motif.public.txt2
+mv intron2motif.public.txt AceView.ncbi_36.AceViewRefSeqExonsJunctions.txt
+cp  AceView.ncbi_36.AceViewRefSeqExonsJunctions.txt ~/ftp/human
+gzip ~/ftp/human/AceView.ncbi_36.AceViewRefSeqExonsJunctions.txt
+
+
+## create a table of support per intron
+cat intron2support.*.txt | gawk -F '\t' '{gsub(/\"/,"",$0);printf("%s\t%s\n",$2,$10);}' | sort -u > toto
+gawk -F '\t' '{ii=$1;if(ii != oldii){if(oldii!=0)printf("\n");printf("%s\t%s",$1,$2);}else printf(";%s",$2);oldii=$1;}END{printf("\n");}' toto > all_intron2support.multi.txt
+gawk -F '\t' '{ii=$1;if(1){if(oldii!=0)printf("\n");printf("%s\t%s",$1,$2);}else printf(";%s",$2);oldii=$1;}END{printf("\n");}' toto > all_intron2support.txt
+
+## export for sasha and David the support of the introns missed by sasha
+cat  intron_not_ss.list | gawk '/^Intron/{gsub(/\"/,"",$2);print $2}' >! toto
+echo ZZZZZ >> toto
+cat all_intron2support.multi.txt >> toto
+gawk -F '\t' '/^ZZZZZ/{ss=1;next;}{if(ss==0){mm[$1]=1;next;}if(mm[$1]==1)print}' toto >! intron2support_not_sasha.multi.txt
+
+cat  intron_not_ss.list | gawk '/^Intron/{gsub(/\"/,"",$2);print $2}' >! toto
+echo ZZZZZ >> toto
+cat all_intron2support.txt >> toto
+gawk -F '\t' '/^ZZZZZ/{ss=1;next;}{if(ss==0){mm[$1]=1;next;}if(mm[$1]==1)print}' toto >! intron2support_not_sasha.single.txt
+
+
+cat  intron_not_nm.list | gawk '/^Intron/{gsub(/\"/,"",$2);print $2}' >! toto
+echo ZZZZZ >> toto
+cat all_intron2support.txt >> toto
+gawk -F '\t' '/^ZZZZZ/{ss=1;next;}{if(ss==0){mm[$1]=1;next;}if(mm[$1]==1)print}' toto >! intron2support_not_nm.single.txt
+
+# add the accessions
+gawk -F '\t' '{printf("cdna_clone %s\n",$2);}' all_intron2support.txt > cloclo.list
+$tacembly ~/ee/SERVER/36a_1
+  key cloclo.list
+  bql -a -o cloclo2read.txt select c,r from c in @, r in c->read where r#from_gene
+  quit
+
+# merge the 2 files
+sed -e 's/\"//g'  cloclo2read.txt >! toto
+echo ZZZZZ >> toto
+cat all_intron2support.txt >> toto
+gawk -F '\t' '/ZZZZZ/{ss=1;next;}{if(ss==0){cl[$1]++;clr[$1,cl[$1]]=$2;next;}if(cl[$2]==0)cl[$2]=1;for(i=1;i<=cl[$2];i++)printf("%s\t%s\t%s\n",$1,$2,clr[$2,i]);}' toto > all_intron2support2accession.txt
+
+mv all_intron2support2accession.txt AceView.ncbi_36.AceViewExonsJunctionsSupport.txt
+gzip ~/ftp/human/AceView.ncbi_36.AceViewRefSeqExonsJunctions.txt
+
+
+########################################################################################
+########################################################################################
+## Ab Initio Intron search
+## start from the yet unaligned 100 mers
+## slide-align with seed at both ends
+## analyse the pairs
+## get the corresponding DNA
+## adjust the intron boundaries
+
+########################################################################################
+########################################################################################
+## Combinatorial Intron Search
+## start from the yet unaligned 100 mers
+## run table maker on mRNAs exploring cassettes, export the coordinates
+setenv II `pwd`
+foreach chrom ($chromSetAll)
+  echo -n "exporting combinatorics introns for chromosome $chrom : "
+  date
+  $tacembly ~/36a/ZH$chrom <<EOF
+    table -o $II/intronCombine.$chrom.txt -f $II/intronCombine.def
+    quit
+EOF
+end
+
+## create a pseudo ace file, so we can export the dna of the combinatorial introns
+# $chromSetAll
+$tacembly ../ELEMENTS/ZE <<EOF
+  query find element Intron AND AV
+  list -a -f intronAv.list
+  quit
+EOF
+
+foreach chrom ($chromSetAll)
+  cat intronCombine.$chrom.txt | gawk -F '\t' '{gsub(/\"/,"",$0);mrna=$1;chrom=$2;m1=$3;m2=$4;a1=$5;a2=$11;if(m1<m2){u1=m1+a1-1;u2=m1+a2-1;}else{u1=m1-a1+1;u2=m1-a2+1;}type=substr($9,1,3) substr($14,4,2);printf("Element %s__%d_%d\n%s\nCombined_from \"%s\"\n\n",chrom,u1,u2,type,mrna);}' > intronCombine.$chrom.ace
+  cat  intronAv.list | gawk '/^Element/{gsub(/\"/,"",$2);print $2}' | sort -u > toto
+  echo ZZZZZ >> toto
+  grep Element intronCombine.$chrom.ace |  sort -u >>  toto 
+  cat toto | gawk '/^ZZZZZ/{z=1;next;}{if(z==0){k[$1]=1;next;}if(k[$2]==1)next;print}' > intronCombineNew.$chrom.list
+  cat toto | gawk '/^ZZZZZ/{z=1;next;}{if(z==0){k[$1]=1;next;}if(k[$2]==1)print}' > intronCombineKnown.$chrom.list
+  \rm toto
+end
+
+## get the corresponding sequence from the genome using the scripts in README.others
+
+## create a single file
+cat intron2seq.*.fasta > intronCombine.all.fasta
+## align
+if (! -d PHITS_combi) mkdir PHITS_combi
+foreach manip (ILM_100)
+  foreach tissue (Brain UHR) 
+    foreach lane ($lanes)
+      if (-e ../COUNT/$manip.$tissue.$lane.unmapped.fasta && ! -e  PHITS_combi/$manip.$tissue.$lane.hits) then
+         scripts/submit ../bbly/phits.combi.$manip.$tissue.$lane.out  "../probealign -p ../COUNT/$manip.$tissue.$lane.unmapped.fasta -t intronCombine.all.fasta -maxHit 5 -errMax 2  -exactTargetStart 93 -exactTargetStop 108 -clipPolyA  -probeMinLength 70 -minEntropy 16  > PHITS_combi/$manip.$tissue.$lane.hits"
+      endif
+    end
+  end
+end
+
+if (! -d PHITS_other) mkdir PHITS_other
+# export list of sasha introns
+gawk '/^Ele/{print substr($2,2,length($2)-2);}' sasha.list > sasha.list2
+
+cat  ../OTHER_ANNOT/UCSC/introns.100.fasta > other_introns.100.fasta
+gawk '/^>/{printf("Element %s\n",substr($1,2));}' other_introns.100.fasta >  other_introns.100.list
+
+foreach manip (ILM_100)
+  foreach tissue (Brain UHR) 
+    foreach lane ($lanes)
+      if (-e ../COUNT/$manip.$tissue.$lane.unmapped.fasta && ! -e  PHITS_other/$manip.$tissue.$lane.hits) then
+         scripts/submit -o ../bbly/phits.other.$manip.$tissue.$lane "../probealign -p ../COUNT/$manip.$tissue.$lane.unmapped.fasta -t other_introns.100.fasta -maxHit 5 -errMax 2  -exactTargetStart 93 -exactTargetStop 108 -clipPolyA  -probeMinLength 70 -minEntropy 16  > PHITS_other/$manip.$tissue.$lane.hits"
+      endif
+    end
+  end
+end
+
+# extract the introns seen at least once quasi perfectly
+cat PHITS_combi/*hits | gawk '{print $1}' | sort -u > intronCombine.select.list
+# get the corresponding fasta file
+cat intronCombine.select.list >! toto
+echo ZZZZZ >> toto
+cat intronCombine.all.fasta >> toto
+gawk '/^ZZZZZ/{z=1;next;}/^>/{if(s[substr($1,2)]>0){print;ok=1;}next;}{if(z==0){s[$1]=1;next} if(ok>0)print;ok=0;}' toto >  intronCombine.select.fasta
+
+cat intronCombine.select.fasta | gawk '/^>/{printf ("Element %s\nIntron\nCombi\nLeft_motif\nRight_motif\n\n", substr($1,2));}' > combi.200.ace
+
+

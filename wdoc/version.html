@@ -1,0 +1,260 @@
+<HTML>
+
+<HEAD>
+<TITLE>ACEDB source code documentation:  version numbering</TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Programmers' guide to version numbering in ACEDB and its libraries</H1>
+
+The version package provides tools for providing version numbers
+for ACEDB itself and for the libraries that comprise an ACEDB application.
+This document describes the rationale for how this is done
+and shows how to use the version code/tools to get the ACEDB kernel version
+and how to provide version numbering in a library.
+
+<H3>Introduction</H3>
+At one time ACEDB had just one version number which was the kernel and
+database version rolled into one. This single number was used to represent the
+whole of acedb code and also the version of the databases. This number was
+also used in the production of public releases of the code as part of the
+file name of the tar file containing the code. In addition a single build date
+was kept for each ACEDB executable.
+<P>
+As ACEDB has been restructured into a
+set of stand alone libraries it has become necessary to introduce version
+numbers for the individual libraries as well as produce an overall version
+number for the benefit of the user.
+
+<H3>What version numbers are required ?</H3>
+The required versions are:
+<OL>
+  <LI>The ACEDB kernel/database version
+  <LI>The acedb library versions
+  <LI>The application version
+  <LI>The ACEDB public release version
+</OL>
+To take these in turn:
+
+<H5>The ACEDB kernel/database version</H5>
+ACEDB databases are backward compatible; new versions of database code can read current and
+older ACEDB databases,
+but old versions of database code <BOLD>cannot</BOLD> read newer ACEDB databases. This is usually
+because new basic tag types have been added to the database code and old code will not recognise
+these tags. This backwards compatibility is enforced by the use of version numbers that are held
+both in the database itself and in the database code. Each time a new database is created, it receives
+the version number of the database code that created it, the code can then check this number
+against its own internal number.
+
+<H5>The ACEDB library versions</H5>
+There are a number of libraries that make up the acedb code, each one needs to have a version which
+can be used for bug reporting and compatibility checking.
+
+<H5>The application version</H5>
+ACEDB applications are created from a number of ACEDB components and it's
+important to know when the application was built so that the level of the
+components can be identified.
+
+<H5>The ACEDB public release version</H5>
+When acedb is released publically the tar files containing
+fixed versions etc have a letter associated with them, this letter
+represents a global 'fix' level for the whole ACEDB package.
+<PRE>
+e.g.  
+	bin.hp.4_5c.tar.Z
+	bin.irix5.4_5e.tar.Z
+	bin.solaris.4_5e.tar.Z
+	bin.sunos.4_5d.tar.Z
+	bin.alpha.4_5e.tar.Z
+	bin.linux.4_5e.tar.Z    etc. etc.
+</PRE>
+
+<H3>How are these different version numbers organised ?</H3>
+It is very important that the user can see just one version number for the ACEDB package including
+database version, the ACEDB kernel and whatever application the user is executing. It is also
+important that the ACEDB kernel continues to use just one set of version numbers. The developer on
+the other hand requires more detail about the components that the application was built from. 
+<P>
+This has been achieved by using the ACEDB kernel version/update as the version number that the user sees
+and the version number for public updates and the ACEDB kernel. Thus the public version number is the
+version number of the ACEDB kernel. Individual libraries on the other hand have an internal version
+which is normally only seen by developers.
+
+<H3>How/what version numbers displayed ?</H3>
+The ACEDB version and build date appears in the banner text displayed when
+an ACEDB application starts. This information is also displayed in the title of the main acedb
+window of Windowing applications and is reported along with the build date of the
+application in help and program status windows.
+This shows the user exactly which version of ACEDB they are using.
+
+<P>
+Every executable also has embedded in it strings which show the ACEDB version/build date
+and also the version/build date of any ACEDB package libraries used in
+the application. This information can be seen on a unix system using the
+<KBD><B>what</B></KBD> command, e.g.
+<PRE>
+<KBD>
+griffin[edgrif]45: what xace
+xace:
+         ------------------------------------------------------------------------
+         ACEDB Version 4.6e,  compiled on: Dec 10 1998 10:32:47 
+         Copyright (c):  J Thierry-Mieg and R Durbin, 1998 
+         
+         This file contains the above Sanger Informatics Group library, 
+         written by   Richard Durbin (Sanger Centre, UK) rd@sanger.ac.uk 
+                      Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.crbm.cnrs-mop.fr 
+                      Ed Griffiths (Sanger Centre, UK) edgrif@sanger.ac.uk 
+                      Fred Wobus (Sanger Centre, UK) fw@sanger.ac.uk 
+         You may redistribute this software subject to the conditions in the 
+         accompanying copyright file. Anyone interested in obtaining an up to date 
+         version should contact one of the authors at the above email addresses. 
+         ------------------------------------------------------------------------
+         
+         
+         --------------------------------------------------------------------------
+         Title/Version:  Free library - 1.1.1
+              Compiled:  Dec  9 1998 10:47:26
+           Description:  Sanger Centre Informatics utilities library.
+         Copyright (c):  J Thierry-Mieg and R Durbin, 1998 
+         
+         This file contains the above Sanger Informatics Group library, 
+         written by   Richard Durbin (Sanger Centre, UK) rd@sanger.ac.uk 
+                      Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.crbm.cnrs-mop.fr 
+                      Ed Griffiths (Sanger Centre, UK) edgrif@sanger.ac.uk 
+                      Fred Wobus (Sanger Centre, UK) fw@sanger.ac.uk 
+         You may redistribute this software subject to the conditions in the 
+         accompanying copyright file. Anyone interested in obtaining an up to date 
+         version should contact one of the authors at the above email addresses. 
+         --------------------------------------------------------------------------
+         
+         
+         --------------------------------------------------------------------------
+         Title/Version:  Graph library - 1.1.1
+              Compiled:  Dec  9 1998 10:47:36
+           Description:  Sanger Centre Informatics graph library for window control
+         Copyright (c):  J Thierry-Mieg and R Durbin, 1998 
+         
+         This file contains the above Sanger Informatics Group library, 
+         written by   Richard Durbin (Sanger Centre, UK) rd@sanger.ac.uk 
+                      Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.crbm.cnrs-mop.fr 
+                      Ed Griffiths (Sanger Centre, UK) edgrif@sanger.ac.uk 
+                      Fred Wobus (Sanger Centre, UK) fw@sanger.ac.uk 
+         You may redistribute this software subject to the conditions in the 
+         accompanying copyright file. Anyone interested in obtaining an up to date 
+         version should contact one of the authors at the above email addresses. 
+         --------------------------------------------------------------------------
+</KBD>
+</PRE>
+Hence the user will see just one unified ACEDB version whereas the developer can get
+more detailed information about how the application was built.
+
+
+<H3>Interface to the ACEDB kernel version</H3>
+
+<H5>The interface</H5>
+The aceversion.c module holds the version of the ACEDB kernel, this includes:
+<DL>
+<DT>version:
+<DD>is an integer which will only be changed when
+a major, perhaps incompatible change is made to the database.
+<DT>release:
+<DD>is an integer which is changed each time a significant number of new
+functions are added, or there is a need to 'unify' bug fixes/new code.
+<DT>update:
+<DD>a single lower case letter which is changed each time a new update of acedb is released
+to the outside world.
+</DL>
+In addition aceversion.c contains the build date of the kernel, the date is recorded using
+the ANSI C macros __DATE__  and __TIME__. The makefile ensures that aceversion.c is recompiled
+each time the ACEDB kernel is rebuilt thus ensuring that aceversion.c contains the true build
+date of the kernel.
+
+<P>
+The interface, defined in aceversion.h allows each element of the version to be retrieved individually
+or provides compound strings:
+<DL>
+<DT>int aceGetVersion(void)
+<DD>Returns an integer which is the current version of acedb.
+<DT>int aceGetRelease(void)
+<DD>Returns an integer which is the current release of acedb.
+<DT>char *aceGetUpdate(void)
+<DD>Returns a single lower case letter which is the current update of acedb.
+<DT>char *aceGetLinkDate(void)
+<DD>Returns the link date of the executable in the form "Mon dd yyyy"
+<DT>char *aceGetVersionString(void)
+<DD>Returns a string of the form <CODE>"ACEDB Version  <version>_<release><update>"</CODE>
+     e.g.  <CODE>"ACEDB Version 4_6d"</CODE> which is the full version/release/update of
+     the ACEDB kernel and also the ACEDB package in general.
+<DT>char *aceGetLinkDateString(void)
+<DD>Returns a string of the form <CODE>"compiled on: __DATE__ __TIME__"</CODE>
+     e.g.  <CODE> "compiled on: Dec  3 1998 13:59:07"</CODE> which is the date the ACEDB kernel
+     was last built on.
+</DL>
+
+<H5>Changing the ACEDB release dates/numbers</H5>
+The module aceversion.c contains a section which defines the ACECB version:
+<PRE>
+<CODE>
+#define ACEDB_VERSION                      4
+#define ACEDB_RELEASE                      6
+#define ACEDB_UPDATE                      "e"
+</CODE>
+</PRE>
+changing the version simply requires editting the file and updating these
+<CODE>#define</CODE> values, the makefile will then rebuild the ACEDB library
+with the new version information.
+
+<H3>Interface to the ACEDB library version utilities</H3>
+The library utilities can be found in version.h and provide utilities to embed
+version, build date and copyright information into the library code and also
+a predefined function that allows an application to return its build date.
+
+<P>
+The following rules should be followed for ACEDB applications and libraries:
+<DL>
+  <DT>ACEDB applications
+  <DD>each ACEDB application should include the UT_MAKE_GETCOMPILEDATEROUTINE
+       macro in the same module as the main function, this module should be recompiled
+       every time the application is rebuilt, so that ACEDB library routines can then
+       query the routine defined by UT_MAKE_GETCOMPILEDATEROUTINE to find out the
+       build date of the application:
+       <PRE><CODE>
+       UT_MAKE_GETCOMPILEDATEROUTINE()
+
+       int main(int argc, char *argv[])
+         {
+         .....
+
+         }
+       </CODE></PRE>
+  <DT>ACEDB libraries
+  <DD>each ACEDB library should include the UT_COPYRIGHT_STRING
+       macro in one of its modules, this module should be recompiled
+       every time the library is rebuilt so that the build date of
+       the library is correctly updated, e.g.
+       <PRE><CODE>
+       /* free package version and copyright string.    */
+       /*                                               */
+       #define FREE_TITLE   "Free library"
+       #define FREE_DESC    "Sanger Centre Informatics utilities library."
+       #define FREE_VERSION 1
+       #define FREE_RELEASE 1
+       #define FREE_UPDATE  1
+       #define FREE_VERSION_NUMBER  UT_MAKE_VERSION_NUMBER(FREE_VERSION, FREE_RELEASE, FREE_UPDATE)
+
+       UT_COPYRIGHT_STRING(FREE_TITLE, FREE_VERSION, FREE_RELEASE, FREE_UPDATE, FREE_DESC)
+       </CODE></PRE>
+       Note that <CODE>UT_MAKE_VERSION_NUMBER</CODE> will make a single integer value out of
+       version, release and update that can be used to test library with a single comparison.
+</DL>
+
+</BODY>
+</HTML>
+ 
+

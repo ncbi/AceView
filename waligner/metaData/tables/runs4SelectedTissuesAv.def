@@ -1,0 +1,163 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2011-09-04_20:55:32
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title select stranded and non stranded runs in view of alignments
+
+Parameters col6 needs edition to select the stranded and non stranded piles
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle runs with strandedness information  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Runs 
+Condition RNA
+ 
+Colonne 2 
+Subtitle imposes the alignments have been done hence run is in proj 
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Ali 
+From 1 
+Tag Ali
+ 
+Colonne 3 
+Subtitle imposes ali have real results in ali      
+Width 12 
+Mandatory 
+Hidden 
+Show_Tag 
+From 2 
+Tag stranding
+ 
+Colonne 4 
+Subtitle Project: imposes project bodymap for aceview reconstr      
+Width 12 
+Optional 
+Visible 
+Class 
+Class Project 
+MultiData
+From 1 
+Tag Project
+Condition bodymap
+ 
+Colonne 5 
+Subtitle sample  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Sample 
+From 1 
+Tag Sample
+ 
+Colonne 6 
+Subtitle tissue  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Tissue 
+From 5 
+Tag Tissue
+ 
+Colonne 7 
+Subtitle tissue 2  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Tissue 
+Right_of 6 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle more tissue description  
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 9 
+Subtitle single individual  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 5 
+Tag Single_individual
+ 
+Colonne 10 
+Subtitle pool of n individuals  
+Width 12 
+Optional 
+Hidden 
+Integer 
+From 5 
+Tag Pool
+ 
+Colonne 11 
+Subtitle Sequencing platform    
+Width 12 
+Optional 
+Visible 
+Class 
+Class Platform 
+From 1 
+Tag Platform
+ 
+Colonne 12 
+Subtitle sample    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Sample 
+From 1 
+Tag Sample
+ 
+Colonne 13 
+Subtitle run description    
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Text 
+From 1 
+Tag Title
+ 
+Colonne 14 
+Subtitle polyA selected RNA    
+Width 12 
+Optional 
+Hidden 
+Show_Tag 
+From 1 
+Tag polyA
+ 
+Colonne 15 
+Subtitle Total RNA no polyA selection    
+Width 12 
+Optional 
+Hidden 
+Show_Tag 
+From 1 
+Tag Total
+ 
+ 
+
+// End of these definitions

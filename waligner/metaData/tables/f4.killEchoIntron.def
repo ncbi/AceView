@@ -1,0 +1,153 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2016-08-04_21:35:29
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1
+Subtitle Column #1
+Width 24
+Optional
+Visible
+Class
+Class Transcribed_gene
+Condition (other OR ct_ac) && Antisens_to
+
+Colonne 2
+Subtitle Column #2
+Width 24
+Mandatory
+Visible
+Class
+Class Transcribed_gene
+From 1
+Tag Antisens_to
+
+Colonne 3
+Subtitle Column #3
+Width 32
+Mandatory
+Visible
+Class
+Class Sequence
+From 1
+Tag Read
+Condition composite && intron
+
+Colonne 4
+Subtitle support
+Width 12
+Mandatory
+Visible
+Integer
+From 3
+Tag Composite
+
+Colonne 5
+Subtitle Intron
+Width 12
+Mandatory
+Hidden
+Class
+Class Intron
+From 3
+Tag Intron
+
+Colonne 6
+Subtitle Column #6
+Width 12
+Mandatory
+Visible
+Class
+Class Map
+From 5
+Tag IntMap
+
+Colonne 7
+Subtitle Column #6
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 6
+Tag HERE
+
+Colonne 8
+Subtitle Column #7
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 7
+Tag HERE
+
+Colonne 9
+Subtitle Column #8
+Width 32
+Mandatory
+Visible
+Class
+Class Sequence
+From 2
+Tag Read
+Condition Composite && intron
+
+Colonne 10
+Subtitle Support 2
+Width 12
+Mandatory
+Visible
+Integer
+From 9
+Tag Composite
+Condition [\%10 - 20 * \%4] > 0
+
+Colonne 11
+Subtitle Column #10
+Width 12
+Mandatory
+Hidden
+Class
+Class Intron
+From 9
+Tag Intron
+Condition gt_ag || gc_ag
+
+Colonne 12
+Subtitle Column #12
+Width 12
+Mandatory
+Visible
+Class
+Class Map
+From 11
+Tag IntMap
+
+Colonne 13
+Subtitle Column #13
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 12
+Tag HERE
+Condition \%3 > [\%8 - 12] && \%13 < [\%8 + 12]
+
+Colonne 14
+Subtitle Column #14
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 13
+Tag HERE
+Condition \%14 > [\%7 - 12] && \%14 < [\%7 + 12]
+
+ 
+
+// End of these definitions

@@ -1,0 +1,26 @@
+# 2010_11_24
+# cd ~/aa/zoo/human/NCBI_37_2/
+cat ~/37/ZH*/x2.all_peptides_for_mass_spec.fasta > aceview.37.all_peptides_for_mass_spec.2010_08_10.fasta2
+
+cat ~/37/ZH*/x2.all_peptides_dna.txt > toto
+echo ZZZZZ >> toto
+cat aceview.37.all_peptides_for_mass_spec.2010_08_10.fasta2 >> toto
+
+cat toto | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{gsub(/\"/,"",$0);}/NH2/{if(zz==0)mm[$2]=1;}/COOH/{if(zz==0)ss[$2]=1;next;}/^>/{if(s==1)printf("\n");if(s==2)printf("*\n");m=1+mm[substr($1,2)];s=1+ss[substr($1,2)];printf("%s",$1);next;}{if(zz==1){uu="";if(m==2)uu="*";printf("\n%s%s",uu,$1);m=0;}}END{if(s==1)printf("\n");if(s==2)printf("*\n");}' > toto2
+
+dnamotif -pepSplit 3 -f1 toto2 -f2 hs.RefSeq.proteins.37_2.2010_11_22.fasta | sort > aceview.peptides_not_in_RefSeq_2010_11_22.raw
+cat aceview.peptides_not_in_RefSeq_2010_11_22.raw | gawk 'BEGIN{if(0)print 0}{n=length($1);if(n>100)n=100;print n;}' | histo -w 100 -plain -plot -o tutu 
+
+cat aceview.peptides_not_in_RefSeq_2010_11_22.raw | gawk '{print ; printf("\n");}' | gzip >  AceView.draft.2010_11_27.peptides_not_in_RefSeq_2010_11_22.fasta.gz 
+mv aceview.peptides_not_in_RefSeq_2010_11_22.fasta.gz AceView.draft.2010_11_27.peptides_not_in_RefSeq_2010_11_22.fasta.gz
+
+
+# also export all the transcribed dna, without looking at translation
+cat ~/37/ZH*/x2.all_mrnas_dna.fasta | gzip > AceView.draft.2010_11_22.mrnas.fasta.gz  
+cat ~/37/ZH*/x2.good_mrnas_dna.fasta | gzip > AceView.draft.2010_11_22.good_mrnas.fasta.gz
+
+## copy to the ftp site
+ls -ls AceView.draft*
+cp AceView.draft.2010_11_27.peptides_not_in_RefSeq_2010_11_22.fasta.gz   ~/ftp/human
+cp AceView.draft.2010_11_22.mrnas.fasta.gz                               ~/ftp/human
+

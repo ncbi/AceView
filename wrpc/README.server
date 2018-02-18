@@ -1,0 +1,115 @@
+Using the database server
+--
+
+The database servers available are:
+
+	RPC - the original database server
+
+		This server used RPC as the transport.  Access control 
+		is through files shared via NFS.  (I don't really understand
+		how it works.)
+
+		The server can run stand-alone or be started from inetd,
+		though I have never seen inetd start it due to local policy.
+
+		variants available are:
+
+			aceserver
+			gifaceserver
+			gifacemblyserver
+
+		See "RPC variant" below for details.
+
+	"socket server" - the tcp based database server in acedb 4.9
+
+		Sanger has a socket based server.  There have been
+		attempts to port it from acedb 4.9 to this code base,
+		but none have been completed.  If you want to use this
+		server, get the Sanger code base.
+
+		Access control is through username/password.  There is
+		a lot of MD5 involved, but I'm not quite sure why.  It
+		does not appear to implement conventional md5 shared
+		secret authentication.
+
+	acetcp - Mark S tcp based protocol
+
+		This is a TCP based protocol.  I wrote it because it was
+		easier to just write a protocol than to either 1) port
+		the 4.9 socket server code into the 4.7+ code base, or
+		2) figure out the on-the-wire protocol implemented by the
+		socket server.
+
+		Access control is by source IP of the connection.
+		There is provision in the protocol for authentication
+		of messages passed, but it is not yet implemented.  If
+		implemented, I intend to use MD5 shared secret, but
+		it could just as well be SHA1 or even some sort of
+		encrypting protocol.
+
+		Some testing shows this server to be faster than the RPC
+		server.  In various tests, elapsed time for particular
+		transaction sequences is 50% to 80% of the time for the
+		same transactions handled by the RPC server.  The one
+		odd result is that when running the server on Linux, this
+		server was slower than RPC, but I can't prove whether
+		that is because of Linux or because of loading on the test
+		machine.
+
+		variants available are:
+
+			tgifacemblyserver
+
+The intent is that the library in wac and the new aceclient will be able
+to talk to any of these servers.  As of this writing, support for the
+"socket server" is not complete.
+
+- Mark S 3/2003
+
+--------------------------------------------------------------------------------
+
+Acetcp variant
+--
+
+tgifacemblyserver requires these additional files in the database directory:
+
+wspec/acetcp_access.wrm
+
+	Note: If you do not have this file, access is still granted to
+	localhost on 127.0.0.1
+
+	Each line contains an IPV4 network number and a corresponding
+	default access for clients connecting from that machine.  Access
+	is written as a single token containing "rwu", for "read", "write",
+	and "shutdown".  You can also use "x" for "no access".
+
+	The network number may contain "*" for any octet of the address,
+	so you can write "130.14.24.*", but it does not recognize things
+	like "130.14.24.1*"
+
+	"#" begins a comment.
+
+	Here is a file for most machines at NCBI:
+
+		130.14.24.*     r
+		130.14.25.*     r
+		130.14.22.*	r
+		127.0.0.1       rw
+
+	The incoming connection is tested in the order that the lines appear
+	in the file.  So, for example
+		10.1.2.3	x
+		10.1.*.*	r
+
+	gives read to all machines in 10.1 except 10.1.2.3
+
+
+Currently, you can access this server through the library in wac, with
+accmd (which will someday become the new aceclient), and with other programs 
+that use wac (such as acviewmain.c).
+
+
+RPC variant
+--
+
+nothing written yet - original server still in use

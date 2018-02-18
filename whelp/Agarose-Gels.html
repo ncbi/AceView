@@ -1,0 +1,99 @@
+<!--  @(#)Agarose-Gels.html	1.2  2/17/95  >
+<head>
+<title>Agarose-Gels</title>
+</head>
+
+<h2>Agarose Gels Display</h2>
+
+When a sequence is available in acedb, this display will compute the
+restriction pattern that you would obtain by cutting the sequence with
+restriction enzymes. The result is shown as a simulated gel. A related
+display (<A HREF="Gel-Patterns.html">Gel-Pattern</a>) compares and
+displays restriction patterns entered as band lengths or migration
+distances even if the sequence itself is not known.<p>
+
+To use the Agarose Gel Display, type in the name of a restriction
+enzyme or a short sequence.  Ambiguous bases like n, w, s etc are
+reconised (see help on <A
+HREF="DNA_and_amino_acids_nomenclature.html">DNA_nomenclature</a>). The
+sequence being analyzed will correspond to the one in the active DNA
+window. If you click a band, you light the corresponding part of the
+sequence and the overlapping bands in the other lanes of the same gel.
+The distance is a log funtion of the lenght of the dna-segment as
+given in:<p>
+
+<blockquote>
+
+Sambrook, Fritsch, and Maniatis. "Molecular Cloning, a Laboratory
+Manual". Second ed., Cold Spring Harbor laboratory Press, 1989. Figure
+6.1, page 65
+
+</blockquote>
+
+where<p>
+
+<pre>
+      distance  = 3.5 * ( 4 - log10(length) )
+</pre>
+
+<h3>Menu items:</h3>
+
+<ul>
+<li><strong>Quit</strong>: destroys the window.
+
+<li><strong>Help</strong>: displays this help page.
+
+<li><strong>Print</strong>: prepares a Post Script file xxx.PS in ./PS.
+You can then print it on your local laser printer.
+</ul>
+
+<h3>Zooming</h3>
+
+Zooming buttons works as in the genetic map. <strong>Whole</strong>
+shows the whole gel, i.e. all the bands; <strong>zoom in, zoom
+out</strong> change magnification. The <strong>middle mouse
+button</strong> recentres display (if pointer is right of scale
+bar). The same button is used to recenter quickly and zoom
+continuously by dragging (starting with pointer left of the scale
+bar).<p>
+
+<h3>Other Buttons</h3>
+The coordinate button is a toggle that prints its length directly
+above each band, in base pairs.<p>
+
+We hope to introduce soon other commands to add or remove a site
+at a given place.<p>
+
+<h3>Picking a Band</h3>
+
+If you click once on a band, its exact length is shown in the left
+top yellow 'Position' box.<p>
+
+If you click again, you will color the corresponding region on the
+sequence display. If the sequence is no longer the one used to produce
+the gel band, the program is suppose to realise it, but we have not
+tested all possible cases.  At the same time, you will color the
+matching bands in the other lanes. To restore normal colors,
+select the same digestion box and type Enter.<p>
+
+<h3>More on Digestions</h3>
+
+To perform a digestion, select a sequence window, select the origin
+and length of the bit of sequence you wish to digest. Then pick one of
+the text boxes top right in the Gel display. It turns yellow.  Type in
+your restriction enzyme names or short sequences. Separate multiple
+enzymes or sequences by semicolons to create multienzyme digests. Then
+type return. Typographical errors will display the help page on the
+genetic code.<p>
+
+As many lanes as you wish can be displayed. The window resizes
+properly. Different lanes may correspond to different sequences, but
+then we are not to sure that the recoloring trick is bug free. So you
+may have to clear the display from time to time.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+
+last edited: July 1994<p>
+
+

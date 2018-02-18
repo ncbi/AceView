@@ -1,0 +1,25 @@
+#!/bin/csh -f
+##########################################################################
+#################      A C.elegans database    ###########################
+#################   R.Durbin and J.Thierry-Mieg  #########################
+#################                                #########################
+#################   Editor script,  Octobre 92   #########################
+##########################################################################
+
+
+### Give here the full path of your favorite text editor
+### $1 is the file name, i.e. /tmp/acedb_editor.nn
+
+#vi $1
+emacs $1
+
+### After you leave the editor, the file name is changed
+### This is used as a signal by acedb that it is time to
+### recover the result of this edition
+
+mv $1 $1.done
+
+##########################################################################
+##############  end of this script #######################################
+##########################################################################
+

@@ -1,0 +1,56 @@
+From matthews@greengenes.cit.cornell.edu Wed Sep 22 13:19:41 1993
+Return-Path: <matthews@greengenes.cit.cornell.edu>
+Received: from router.mail.cornell.edu ([132.236.56.6]) by kaa.cnrs-mop.fr (4.1/SMI-4.1)
+	id AA27375; Wed, 22 Sep 93 13:19:38 +0100
+Received: from greengenes.cit.cornell.edu ([132.236.142.73]) by router.mail.cornell.edu with SMTP id <576688-1>; Wed, 22 Sep 1993 07:27:02 -0400
+Date: Wed, 22 Sep 1993 07:35:14 -0400
+From: "Dave Matthews" <matthews@greengenes.cit.cornell.edu>
+Received: by greengenes.cit.cornell.edu (4.1/2.0)
+	id AA16344; Wed, 22 Sep 93 07:35:14 EDT
+Message-Id: <9309221135.AA16344@greengenes.cit.cornell.edu>
+To: bks@s27w007.pswfs.gov
+Subject: Re:  Prior practice
+Cc: mieg@kaa.cnrs-mop.fr
+Status: R
+
+Oops, sorry, I don't know whether we moved on after I sent you that, or I
+accidentally sent you the wrong one.  Here's the one we (mainly Jean) made
+that works.  It's pretty close to being able to cache the transferred file in
+the local externalFiles directory, though I didn't test that feature and
+looking at it now I think it may have a small bug.
+- Dave
+
+:::::::::
+#!/bin/csh -f
+
+# $ACEDB/externalFiles/weedsimage
+# Dave Matthews, 3 May 93; and Jean Thierry-Mieg 4 May 93
+# Transfer the named file ($1) from weeds.mgh.harvard.edu by anonymous ftp,
+# and display it with xv.
+
+# exampe
+#Image : "Arabidopsis"
+#Pick_me_to_call "weedsimage" "images/cs-20.gif"
+
+#ftp -vn weeds << FTP_DONE
+# 132.183.190.21 weeds.mgh.harvard.edu
+
+if (! -f $1) then
+ ftp -vn 132.183.190.21 << FTP_DONE
+ user anonymous acedb@
+ binary
+ get $1 remoteimage.tmp
+ quit
+FTP_DONE
+endif
+
+if (-f remoteimage.tmp) then
+  \mv remoteimage.tmp $1:t
+endif
+
+if (-f $1:t) then
+ xv $1:t
+else
+ xv remoteimage.tmp
+endif
+

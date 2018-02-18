@@ -1,0 +1,137 @@
+<html>
+<META NAME="AUTHOR" VALUE="AceView" />
+<head><title>BLAST search all AceView transcripts</title></head>
+<body bgcolor='white'>
+<font face='verdana'>
+<A name=top href='https://www.ncbi.nlm.nih.gov' target='_top'><IMG src='images/ncbi_logo.gif' width=130 border=2></A><br>
+<a href='arf.html' target='_top' onclick='link_right_place(this);'><IMG src='images/aceview.gif' width=140 border=2' ></a><br>
+
+<form name='theform' method='post' action='blast.cgi'>
+
+<h2>BLAST Search all AceView transcripts
+</h2>
+<a href='HelpQuery.ZZZZZ.html#Blast'>Help</a>
+
+<input type=hidden name=fromdb value='?'></input>
+
+<p>Select all species to search: 
+<table>
+<tr>
+
+<td>
+	<table width="100"><tr><td>
+		<input type=checkbox name=db_human value=true >Human</input>
+	</td></tr></table>
+</td>
+
+<td>
+	<table width="100"><tr><td>
+		<input type=checkbox name=db_mouse value=false >Mouse</input>
+	</td></tr></table>
+</td>
+
+<td>
+	<table width="100"><tr><td>
+		<input type=checkbox name=db_rat value=false >Rat</input>
+	</td></tr></table>
+</td>
+
+<td>
+	<table width="100"><tr><td>
+		<input type=checkbox name=db_worm value=false >Worm</input>
+	</td></tr></table>
+</td>
+
+<td>
+	<table width="130"><tr><td>
+		<input type=checkbox name=db_ara value=false >Arabidopsis</input>
+	</td></tr></table>
+</td>
+
+</tr>
+</table>
+
+Maximum E-value: <input type=text name=evalue width=6 value="1">
+
+<p>
+Enter a DNA or Protein sequence (no title lines or numbers please):
+<br>
+<textarea name=sequence rows=10 cols=60 wrap=virtual>
+</textarea>
+
+<br>
+<input type=submit name=search value='Search'>
+<input type=reset value='Reset' onclick="figure_form_values(); return false;" >
+</form>
+<script language='javascript'>
+
+	function figure_form_values()
+	{
+	var pos = window.location.href.indexOf('?') ;
+	var db;
+	window.document.forms.theform.db_human.checked = true;
+	window.document.forms.theform.db_mouse.checked = false;
+	window.document.forms.theform.db_rat.checked = false;
+	window.document.forms.theform.db_worm.checked = false;
+	window.document.forms.theform.db_ara.checked = false;
+	window.document.forms.theform.sequence.value = "";
+
+	if(pos != -1)
+		{
+		args = window.location.href.substr(pos+1) ;
+		args = args.split(",");
+		db = args[0];
+		evalue = args[1];
+		fromdb = args[2];
+ 		}
+
+	if (db == void 0 ) 
+		db = 'human';
+	if (db == '36a') 
+		db='human';
+	if (db == '37a') 
+		db='human';
+	if (evalue == void 0 )
+		evalue = '1';
+	if (fromdb == void 0 )
+		fromdb = db;
+
+	if (db.substr(0,1) == '+')
+		{
+		while (db.substr(0,1) != '')
+			{
+			var x;
+			x = db.substr(0,1);
+			if (x == 'h')
+				window.document.forms.theform.db_human.checked = true;	
+			if (x == 'w')
+				window.document.forms.theform.db_worm.checked = true;
+			if (x == 'm')
+				window.document.forms.theform.db_mouse.checked = true;
+			if (x == 'r')
+				window.document.forms.theform.db_rat.checked = true;
+			if (x == 'a')
+				window.document.forms.theform.db_ara.checked = true;
+		        db = db.substr(1);
+			}
+		}
+	else
+		{
+		if ( ! window.document.forms.theform.db_human.checked )
+			window.document.forms.theform.db_human.click();
+		
+		}
+	window.document.forms.theform.fromdb.value = fromdb;
+	window.document.forms.theform.evalue.value = evalue;
+	}
+
+	function link_right_place(where)
+	{
+	where.href="index.html?" + fromdb;
+	return false;
+	}
+
+	figure_form_values();
+
+</script>
+</body></html>

@@ -1,0 +1,257 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation:  the acedb/graph interface </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1> Programmers' guide to the acedb - graph interface </H1>
+
+<H2>Overview</H2>
+This document describes the changes made to the graph package
+(i.e. code in the 'w2' source directory) as part of a restructuring
+of acedb code to introduce independent packages or libraries of code.
+In the case of graph this meant removing acedb-specific
+code (e.g. lexNNN functions etc) from the package so that an independent
+graph library could be compiled. This has been achieved by allowing the
+registering of callback functions with the graph package that allow the
+acedb specific routines to be called from the graph code without introducing
+link-time dependencies. The rest of this document describes how graph was
+restructured to do this.
+
+
+<H2>Then and now.</H2>
+<H4>How things used to be....</H4>
+Until now the graph package was included in an application by compiling in the
+graph source code. If the application was an acedb application the macro ACEDB
+was defined for the compilation to make sure that acedb specific code in the
+graph source code was included. This meant no single graph library could be
+built which could be used by both acedb and non-acedb applications, it also
+meant that the source code was 'polymorhpic' in a number of ways: some
+functions had different signatures according to whether ACEDB was defined, some
+routines had different logic flows, some data structures had different members
+and so on.
+
+<H4>How things are now....</H4>
+For many reasons it was seen as important to remove this 'polymorphism'
+and produce a single coherent graph package/library which could be used by acedb
+and non-acedb applications. This single graph package is built into a single
+library which can be used by all applications. All acedb specific code has
+been moved to a single module separate from the graph package which contains
+all the routines and function calls required by acedb to interface
+to the standard graph library.
+
+<H2>How the restructuring was done</H2>
+The new graph library has no acedb-specific code in it, it provides the
+'bare bones' graphical routines with no acedb database element. acedb
+applications are then allowed to alter the behaviour of the graph
+package to allow calling of database routines to set specific types
+of windows/boxes etc.
+<P>
+The underlying mechanism allowing removal of the ACEDB defined sections of
+code is the definition of a number of function pointers in the graph library
+which can be used by an acedb application to register its acedb-specific
+routines. The graph code initialises these pointers to NULL and so can later
+test them to see if an acedb function has been registered and call it if
+it has.
+<P>
+The following fictious example shows the replacement of some ACEDB defined code
+with such a function call, the original code:
+<PRE>
+
+for (i = 0 ; i < limit ; i++)
+  {
+  some_code ;
+<font color=red>
+#ifdef ACEDB
+  lexNNNN(i, key, something) ;
+#endif  
+</font>
+  some_more_code 
+  }
+
+</PRE>
+is replaced with:
+<PRE>
+
+for (i = 0 ; i < limit ; i++)
+  {
+  some_code ;
+<font color=red>
+  if (getACEDBLexFunction() != NULL) (getACEDBLexFunction())(i, key, something) ;
+</font>
+  some_more_code ;
+  }
+
+</PRE>
+Hence some 'hard-coded' acedb specific code has been replaced with a dynamic
+function call thus removing the dependency of the graph code on the acedb code.
+
+<P>
+<B>NOTE that, because this was a fairly large change, all alterations to the code
+have been marked with C comments with the following format:</B>
+<PRE>
+/* ACEDB-GRAPH INTERFACE: ....description of change made....               */
+</PRE>
+Hence the source tree can easily be searched to find all the changes made.
+
+
+<H2>Design decisions</H2>
+In an ideal world a generalised callback interface could have been introduced into the
+graph package which would support programs other than acedb. In practice there is not
+really any justification for this, the only
+requirement for this interface is that it supports existing acedb functions.
+<P>
+A new module was introduced into the graph package called graphAcedbInterface.c which
+contains all of the function pointers and code required to support the graph interface
+for acedb code. The exported functions of this interface are declared in a new header,
+graphAcedbInterface.h, the internal non-static functions are declared in graphs internal
+header, graph_.h.
+<P>
+All of the acedb specific code from graph was collected together in one module, acedbgraph.c,
+and placed in the w4 directory which contains the main module initialisation code for
+acedb applications. A function was provided in this module that can be called from an acedb
+application to intialise graph and the graph-acedb interface. This avoids the need for extensive
+recoding of existing graphical acedb applications. This function which provides the acedb-graph
+interface is declared in the header acedbgraph.h.
+<P>
+This crude diagram summarises this new interface:
+<PRE>
+                             ACEDB    *   GRAPH
+                                      *
+                                      *
+        (acedbgraph.h)                *                         (graph_.h)
+             |                        *                            |
+             V                        *                            V  
+acedb_app.c ---> acedbgraph.c --------*--> graphAcedbInterface.c <--- rest of
+   |                            A     *                               graph
+   |                            |     *                               package
+   |         (graphAcedbInterface.h)  *                                 A
+   |                                  *                                 |
+   |                                  *                                 |
+   |                                  *                                 |
+   |                       (graph.h)  *                                 |
+   |                            |     *                                 |
+   |                            V     *                                 |
+    ----------------------------------*---------------------------------
+                                      *
+                                      *
+                                      *
+
+
+</PRE>
+
+<P>
+The major design decisions were:
+<OL>
+  <LI>to use a function callback mechanism to replace the ACEDB defines allowing
+       the new code to execute the acedb specific code in the same way as it
+       was executed when included by #define.
+  <LI>to provide an acedb specific set of functions in a single graph package
+       module (graphAcedbInterface.c) to allow the registering of data and the
+       callback functions.
+  <LI>to collect all the acedb specific code from the graph package into
+       a single module (acedbgraph.c) outside of the graph package.
+</OL>
+
+
+<H2>Future changes</H2>
+There should now be no need to include acedb specific code in the graph package
+with #defines. All new code should follow this model of function callback interface.
+Ideally, new acedb requirements for the graph package should be dealt with by
+introducing more generalised 'callback' functions into the graph package rather than
+by expanding this interface. The intention is to limit this interface to its current
+size, it is simply an expedient bit of coding to produce a stand-alone graph package
+and more importantly stand-alone graph library.
+
+<H2>Source/Interface/Functions</H2>
+
+<H3>Source files:</H3>
+Reflecting the division of function into <I>'acedb'</I> or <I>'graph'</I> code, the
+source files are divided into two sets: 
+
+<H4>Graph package:</H3>
+<DL>
+  <DT>graph.h
+  <DD>does not contain <B>any</B> of this interface
+  <DT>graphAcedbInterface.h
+  <DD>declares all public functions of the interface
+  <DT>graph_.h
+  <DD>declares all non-static private functions used internally in graph to support the
+       interface.
+  <DT>graphAcedbInterface.c
+  <DD>contains all graph package code to support the interface
+</DL>
+
+<H4>Acedb code:</H3>
+<DL>
+  <DT>acedbgraph.h
+  <DD>declares all public functions for acedb to initialise its interface to the graph
+       graph package.
+  <DT>acedbgraph.c
+  <DD>contains all functions of the interface
+</DL>
+
+Note that non-acedb applications can simply include graph.h while acedb applications
+include just graphAcedbInterface.h (which include graph.h).
+
+
+<H3>Interface:</H3>
+The public interface comprises the following elements:
+<UL>
+  <LI>in acedbgraph.c:
+       <DL>
+	 <DT>acedbAppGraphInit
+	 <DD>this function is called once from an acedb application soon after it
+	      starts up, it initialises both the graph package and the graph/acedb
+	      interface. For most acedb applications this is the only function call required
+	      to intialise the interface.
+	 <DT>acedbGraphInit
+	 <DD>this function initialises the graph/acedb interface and would normally be called
+	      by acedbAppGraphInit, applications that required more control can initialise the
+	      graph package and the graph/acedb interface separately using graphInit and this
+	      call.
+       </DL>
+       See acedbGraph.h for the complete prototypes.
+  <LI>in graphAcedbInterface.c:
+       <DL>
+	 <DT>setGraphAcedb<B>NNNN</B>
+	 <DD>this set of functions can be called to initialise the function pointers and
+	      any data required by the graph interface code. There is approximately one
+	      setGraphAcedbNNNN routine for each component of the graph package that contained
+	      acedb specific code (e.g. graphps.c has one, graphprint.c has one etc.).
+       </DL>
+       See graphAcedbInterface.h for a complete list and full prototypes.
+</UL>
+
+The private interface used only within the graph package comprises:
+<UL>
+  <LI>in graphAcedbInterface.c:
+       <DL>
+	 <DT>getGraphAcedb<B>NNNN</B>
+	 <DD>this set of functions can be called to find out if a function has been
+	      registered by acedb and then to get the pointer to that function
+	      if one has. Since all function pointers for each graph package component
+	      are registered with a single setGraphAcedbNNNN, there are many more
+	      getGraphAcedbNNNN functions than setGraphAcedbNNNN routines, one for each
+	      function registered.
+       </DL>
+       See the acedb/graph interface section of graph_.h for a complete list and full prototypes.
+</UL>
+
+
+<H3>Global variables</H3>
+
+none
+
+
+</BODY>
+</HTML>
+ 
+

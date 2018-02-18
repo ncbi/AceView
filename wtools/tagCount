@@ -1,0 +1,18 @@
+#!/usr/local/bin/gawk -f
+#
+# $Id: tagCount,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+(NF == 0) { outside = 1 }
+
+(outside && NF > 0 && $1 != "//") { \
+	outside = 0 ; 
+	if ($1 == "DNA") { dna = 1 ; } else { dna = 0 ; }
+	next }
+
+(!outside && !dna && !skip && $1 != "//") { tag[$1]++ }
+
+{ skip = 0 }
+
+($NF == "\\") { skip = 1 }
+
+END { for (i in tag) print i, tag[i] }

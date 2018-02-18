@@ -1,0 +1,1406 @@
+/*  File: ctftrace.c
+    %W% %G%
+*/
+
+#include "regular.h"
+#include "keyset.h"
+#include "dna.h"
+#include "Read.h"
+
+#define MAGIC 523747
+#define PREDICTIONMODE 3  /* predictor degree */
+#define COMPRESSIONMODE 3 /* compressor version */
+
+/**********************************************************/
+/**********************************************************/
+
+static int ctfTracePeakValue ( Read *seq)
+{
+  int i, ii, max = 0 ;
+  TRACE *bp[4], *u ;
+  
+  bp[0] = seq->traceA ;
+  bp[1] = seq->traceC ;
+  bp[2] = seq->traceG ;
+  bp[3] = seq->traceT ;
+  
+  ii = 4 ; 
+  while (ii--)
+    {
+      u = bp[ii] ;
+      i = seqMax(seq) ;
+      while (u++, i--)
+	if (*u > max) max = *u ;
+    }
+  
+  seq->maxTraceVal = max ;
+  return max ;
+}
+
+/**********************************************************/
+/* get/store in sex independant way */
+static int ctfGetInt (unsigned char *cp)
+{
+  int n = 0, i = 4 ;
+  
+  while (i--) 
+    { n <<= 8 ; n |= *cp++ ; }
+  return n ;
+}
+
+/**********/
+
+static void ctfStoreInt (unsigned char *cp, int n)
+{
+  int i = 4 ;
+  
+  cp += 4 ;
+  while (cp--, i--) 
+    { *cp = n & 0xff ; n >>= 8 ; }
+}
+
+/**********************************************************/
+/**********************************************************/
+/* Method zero
+   store the shorts as a pair of char
+*/
+static Array ctfCompress0 (Array a)
+{ 
+  int i = arrayMax (a) ;
+  Array b = arrayCreate (2 * i, unsigned char) ; /* always true */
+  unsigned char *cp, *cp0 ;
+  short *sp, z ;
+
+  array (b, 2*i - 1 , unsigned char) = 0 ;  /* make room */
+  cp = cp0 = arrp (b , 0, unsigned char) ;
+  sp = arrp (a, 0, short) ;
+
+  while (i--)
+    {
+      z = *sp++ ;
+      *cp++ = (z >> 8) & 0xff ;
+      *cp++ = z &  0xff ;
+    }
+  arrayMax(b) = cp - cp0 ;
+  return b ;
+}
+
+/**********************************************************/
+
+static Array ctfDecompress0 (int dataMax, int shMax,
+			     unsigned char *cp)
+{ 
+  int i = shMax ;
+  Array b = 0 ;
+  short *sp ;
+
+  if (dataMax != 2 * shMax)
+    return 0 ;
+
+  b = arrayCreate (shMax, short) ;
+  array (b, shMax - 1, short) = 0 ;  /* make room */
+  sp = arrp (b, 0, short) ;
+
+  while (i--)
+    {
+      *sp++ = ((*cp)<< 8) | (*(cp + 1)) ;
+      cp += 2 ;
+    }
+  return b ;
+}
+
+/**********************************************************/
+/**********************************************************/
+/* Method one
+   converts short s to unsigned char cc:
+   if s in range -126, +126, cc = s + 128
+   else transmit 0xFF then value on 2 bytes 
+*/
+static Array ctfCompress1 (Array a)
+{
+  int i = arrayMax (a), j ;
+  Array b = arrayCreate (3 *i, char) ; /* unreliable size, use arrayp */
+  short *sp, z ;
+
+  array (b, 3*i - 1 , unsigned char) = 0 ;  /* make room */
+  j = 0 ;
+  sp = arrp (a, 0, short) ;
+
+  while (i--)
+    {
+      z = *sp++ + 128 ;
+      while (z >= 254) { z -= 252 ; array (b , j++, unsigned char) = 254 ;}
+      while (z <= 1) { z += 252 ; array (b , j++, unsigned char) = 1 ; }
+      array (b , j++, unsigned char) = z ;
+    }
+  arrayMax (b) = j ;
+  return b ;
+}
+
+/**********************************************************/
+
+static Array ctfDecompress1 (int dataMax, int shMax,
+			    unsigned char *cp)
+{
+  int i = dataMax, dz = 0 ;
+  short *sp, *spMax ;
+  Array b = arrayCreate (shMax, short) ;
+
+  array (b, shMax  - 1, short) = 0 ;  /* make room */
+  sp = arrp (b, 0, short) ;
+  spMax = sp + shMax ;
+
+  cp-- ;
+  while (cp++, i-- && sp < spMax)
+    switch (*cp)
+      {
+      case 1: dz -= 252 ; break ;
+      case 254: dz += 252 ; break ;
+      default: *sp++ = dz + *cp - 128 ; dz = 0 ; break ;
+      }
+  if (i != -1 || sp != spMax)
+    arrayDestroy (b) ;
+  return b ;
+}
+
+/**********************************************************/
+/**********************************************************/
+/* Method two
+   convert strings of zeroes as single chars
+   small values as 7 bit codes
+   rest as shorts in next 2 bytes
+*/
+
+static Array ctfCompress2 (Array a)
+{
+  int n0, n1, n2, n3, n4 ;
+  int i = arrayMax (a), j = 0 ;
+  Array b = arrayCreate (3 *i, char) ; /* worst case */
+  unsigned char *cp, *cp0 ;
+  short *sp, z ;
+
+  array (b, 3*i - 1 , unsigned char) = 0 ;  /* make room */
+  cp = cp0 = arrp (b , 0, unsigned char) ;
+  sp = arrp (a, 0, short) ;
+
+  n0 = n1 = n2 = n3 = n4 = 0 ;
+  while (i--)
+    {
+      z = *sp++ ;
+      if (!z)  /* string of zeroes */
+	{
+	  j =1 ;
+	  while (i > 0 && j < 126 && !(*sp)) { j++ ; sp++; i-- ; } ;
+	  *cp++ =  (j & 0x7f) ; /* bit 1 = 0 */
+	  n0 += j ; n1++ ;
+	}
+      else if ( z < 63 && z > - 63)
+	{
+	  j = z + 63 ; /* range 1 ... 125 */
+	  *cp++ = 0x80 | (j & 0x7f) ;
+	  n2++ ;
+	}
+      else if ( z < 128 && z > -129)
+	{
+	  j = z + 128 ; /* range 0 ... 255 */
+	  *cp++ = 0x80 | 126 ;
+	  *cp++ = j & 0xff ;
+	  n3++ ;
+	}
+      else
+	{
+	  j = z ; 
+	  *cp++ = 0x80 | 127 ;
+	  *cp++ = (j >> 8) & 0xff ;
+	  *cp++ = j & 0xff ;	
+	  n4++ ;
+	}
+    }
+  arrayMax(b) = cp - cp0 ;
+  printf ("compress2 : %d zeros in %d bytes, %d < 7 , %d byte, %d short total %d char for %d shrt\n",
+	  n0, n1, n2, n3, n4, arrayMax(b), arrayMax(a)) ;
+  return b ;
+}
+/*
+compress2 : 
+  12338 zeros in 3328 bytes, 14616 < 7 , 23 byte, 3 short 
+          total 17999 char for 26980 shrt
+*/
+
+/**********************************************************/
+
+static Array ctfDecompress2 (int dataMax, int shMax,
+			    unsigned char *cp)
+{
+  int i = dataMax, mode, arg ;
+  unsigned char cc, cc1, cc2 ;
+  short *sp, *spMax ;
+  Array b = arrayCreate (shMax, short) ;
+
+  array (b, shMax  - 1, short) = 0 ;  /* make room */
+  sp = arrp (b, 0, short) ;
+  spMax = sp + shMax ;
+
+  while (i-- && sp < spMax)
+    {
+      cc = *cp++ ;
+      mode = cc & 0x80 ; arg = cc & 0x7f ;
+      switch (mode)
+	{
+	case 0: /* initial zero = string of zero */
+	  while (arg-- && sp < spMax) *sp++ = 0 ; 
+	  break ;
+	case 0x80:
+	  switch (arg)
+	    {
+	    case 127:   /* next 2 bytes is a short */
+	      i -= 2 ;
+	      cc1 = *cp++ ; cc2 = *cp++ ;
+	      *sp++ = (cc1 << 8) | cc2 ;
+	      break ;
+	    case 126:   /* next byte is a byte */
+	      i-- ;
+	      cc1 = *cp++ ;
+	      *sp++ = cc1 - 128 ;
+	      break ;
+	    default:   /* 7 bytes is sufficient */
+	      *sp++ = arg - 63 ;
+	      break ;
+	    }
+	}
+    }
+  if (i != -1 || sp != spMax)
+    arrayDestroy (b) ;
+  return b ;
+}
+
+/**********************************************************/
+/**********************************************************/
+/* Method two
+   convert strings of zeroes as single chars
+   small values as 7 bit codes
+   rest as shorts in next 2 bytes
+*/
+
+/**********************************************************/
+/* create a code for the 125 most frequent words */
+static void ctfCompress3Init (Array *aap, int **lp, int **mp, int *maxCodep)
+{
+  short *sp ; int  i, j, k, n ;
+  static int lng[128], mark[128], maxCode = 0 ;
+  static Array aa = 0 ; 
+
+
+  *aap = aa ; *lp = lng ; *mp = mark ; *maxCodep = maxCode ;
+  if (aa) return ;
+  *aap = aa = arrayCreate (512, short) ;
+  array (aa, 511, short) = 0 ; /* make room */
+  sp = arrp (aa, 0, short) ;
+  j = 0 ;
+
+  i = 0 ;  /* empty word */
+  mark[i] = j ; n  = 0 ; j += lng[i] ; 
+  
+  /* single values up to +- 8 */
+  for (k = 1 ; i < 126 && k < 12 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = k ;
+      lng [i] = 1 ; j++ ;
+      i++ ; 
+      mark[i] = j ; *sp++ = -k ;
+      lng [i] = 1 ; j++ ;
+    }
+  /* double values up to 50 */
+  for (k = 1 ; i < 126 && k < 6 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = k ; *sp++ = 0 ;
+      lng [i] = 2 ; j += 2 ;
+      i++ ; 
+      mark[i] = j ; *sp++ = -k ; *sp++ = 0 ;
+      lng [i] = 2 ; j += 2 ;
+    }
+  /* double values up to 51 */
+  for (k = 1 ; i < 126 && k < 6 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = k ; *sp++ = 1 ;
+      lng [i] = 2 ; j += 2 ;
+      i++ ; 
+      mark[i] = j ; *sp++ = -k ; *sp++ = 1 ;
+      lng [i] = 2 ; j += 2 ;
+    }
+  /* double values up to 5-1 */
+  for (k = 1 ; i < 126 && k < 6 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = k ; *sp++ = -1 ;
+      lng [i] = 2 ; j += 2 ;
+      i++ ; 
+      mark[i] = j ; *sp++ = -k ; *sp++ = -1 ;
+      lng [i] = 2 ; j += 2 ;
+    }
+  /* double values up to 15 */
+  for (k = 1 ; i < 126 && k < 6 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = 1 ; *sp++ = k ;
+      lng [i] = 2 ; j += 2 ;
+      i++ ; 
+      mark[i] = j ; *sp++ = 1 ; *sp++ = -k ;
+      lng [i] = 2 ; j += 2 ;
+    }
+  /* double values up to -15 */
+  for (k = 1 ; i < 126 && k < 6 ; k++)
+    { 
+      i++ ; 
+      mark[i] = j ; *sp++ = -1 ; *sp++ = k ;
+      lng [i] = 2 ; j += 2 ;
+      i++ ; 
+      mark[i] = j ; *sp++ = -1 ; *sp++ = -k ;
+      lng [i] = 2 ; j += 2 ;
+    }
+  /* triple values up to 111 */
+
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = -1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = -1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = -1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = -1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 3 ; j += 3 ;
+
+  /* quadruple values up to 1111 */
+
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 1 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = -1 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = -1 ; *sp++ =- 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = -1 ;
+  lng [i] = 4 ; j += 4 ;
+
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ;
+  lng [i] = 4 ; j += 4 ;
+
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = -1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 0 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = 1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 1 ; *sp++ = -1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 0 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = 1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = -1 ; *sp++ = -1 ; *sp++  = -1 ;
+  lng [i] = 4 ; j += 4 ;
+
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 0 ; *sp++  = 1 ;
+  lng [i] = 5 ; j += 5 ;
+  i++ ; mark[i] = j ; *sp++ = 1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 0 ; *sp++  = -1 ;
+  lng [i] = 5 ; j += 5 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 0 ; *sp++  = 1 ;
+  lng [i] = 5 ; j += 5 ;
+  i++ ; mark[i] = j ; *sp++ = -1 ; *sp++ = 0 ; *sp++ = 0 ; *sp++ = 0 ; *sp++  = -1 ;
+  lng [i] = 5 ; j += 5 ;
+
+  if (i >= 126) messcrash ("you greedy pig") ;
+  if (j > 511) messcrash ("you stupid ass") ;
+  *maxCodep = maxCode = i ;
+}
+
+/**********************************************************/
+
+static Array ctfCompress3 (Array a)
+{
+  int n0, n1, n10, n2, n3, n4 ;
+  int i = arrayMax (a), j = 0, n ;
+  Array b = arrayCreate (3 *i, char) ; /* worst case */
+  unsigned char *cp, *cp0 ;
+  short *sp, *sp1, *wp, z ;
+  int w, *lng, *mark, maxCode ;
+  Array aa = 0 ; 
+  BOOL debug = FALSE ;
+
+  ctfCompress3Init (&aa, &lng, &mark, &maxCode) ;
+
+  array (b, 3*i - 1 , unsigned char) = 0 ;  /* make room */
+  cp = cp0 = arrp (b , 0, unsigned char) ;
+  sp = arrp (a, 0, short) ;
+
+  n0 = n1 = n10 = n2 = n3 = n4 = 0 ;
+  while (i--)
+    {
+      z = *sp++ ;
+      if (!z)  /* string of zeroes */
+	{
+	  j =1 ;
+	  while (i > 0 && j < 126 && !(*sp)) { j++ ; sp++; i-- ; } ;
+	  *cp++ =  j & 0x7f ;  /* bit 1 = 0 */
+	  n0 += j ; n1++ ;
+	  continue ;
+	}
+       /* search for code word */
+      for (w = maxCode ; w > 1 ; w--)  /* w-- favors long code words */
+	{
+	  n = lng[w] ; wp = arrp (aa, mark[w], short) ; sp1 = sp - 1 ;
+	  while (n-- && *wp++ == *sp1++) ;
+	  if (n == -1) break ;
+	}
+      if (w > 1 && lng[w] < i) /* code word found */
+	{
+	  n2++ ; n10 += lng[w] ;  *cp++ = 0x80 | (w & 0x7f) ;
+	  sp += lng[w] - 1 ; i -= lng[w] - 1 ;
+	  if (lng[w] <= 0) messcrash ("bad coding in compress3") ;
+	}
+      else if ( z < 128 && z > -129) /* transmit byte */
+	{
+	  j = z + 128 ; /* range 0 ... 255 */
+	  *cp++ = 0x80 | 126 ;
+	  *cp++ = j & 0xff ;
+	  n3++ ;
+	}
+      else     /* transmit short */
+	{
+	  j = z ; 
+	  *cp++ = 0x80 | 127 ;
+	  *cp++ = (j >> 8) & 0xff ;
+	  *cp++ = j & 0xff ;	
+	  n4++ ;
+	}
+    }
+  arrayMax(b) = cp - cp0 ;
+  if (debug) 
+    printf (" // compress3:\n//  %d zeros in %d bytes, %d values coded in %d byte, %d bytes, %d short. \n// Total %d char for %d shrt\n",
+	  n0, n1, n10, n2, n3, n4, arrayMax(b), arrayMax(a)) ;
+  if (arrayMax(a) != n0 + n10 + n3 + n4)
+    messcrash ("codind error in compress 3") ;
+  return b ;
+}
+/*
+compress3 : 
+//found   10829 zeros in 1865 bytes, 16524 values coded in 9114 byte, 183 bytes, 0 short. 
+// Total 11162 char for 27536 shrt
+*/
+
+/**********************************************************/
+
+static Array ctfDecompress3 (int dataMax, int shMax,
+			    unsigned char *cp)
+{
+  int i = dataMax, mode, arg, n ;
+  unsigned char cc, cc1, cc2 ;
+  short *sp, *spMax, *wp ;
+  Array b = arrayCreate (shMax, short) ;
+  int *lng, *mark, maxCode ;
+  Array aa = 0 ; 
+  int n0, n1, n10, n2, n3, n4 ;
+  BOOL debug = FALSE ;
+
+  ctfCompress3Init (&aa, &lng, &mark, &maxCode) ;
+
+  array (b, shMax - 1, short) = 0 ;  /* make room */
+  sp = arrp (b, 0, short) ;
+  spMax = sp + shMax ;
+  n0 = n1 = n10 = n2 = n3 = n4 = 0 ;
+
+  while (i-- && sp < spMax)
+    {
+      cc = *cp++ ;
+      mode = cc & 0x80 ; arg = cc & 0x7f ;
+      switch (mode)
+	{
+	case 0: /* initial zero = string of zero */
+	  if (arg <= 0) { messerror ("bad decompress3") ; goto abort ; }  /* should not happen */
+	  n1++ ; n0 += arg ;
+	  while (arg-- && sp < spMax) *sp++ = 0 ; 
+	  break ;
+	case 0x80:
+	  switch (arg)
+	    {
+	    case 127:   /* next 2 bytes is a short */
+	      i -= 2 ;  /* I need 3 bytes to code a short */
+	      cc1 = *cp++ ; cc2 = *cp++ ;
+	      *sp++ = (cc1 << 8) | cc2 ;
+	      n4++ ;
+	      break ;
+	    case 126:   /* next byte is a byte */
+	      i-- ;     /* I need 2 bytes to code a char */
+	      cc1 = *cp++ ;
+	      *sp++ = cc1 - 128 ;
+	      n3++ ;
+	      break ;
+	    default:   /* 7 bytes is a code */
+	      n = lng[arg] ; 
+	      n2++ ; n10 += n ;
+	      wp = arrp (aa, mark[arg], short) ;
+	      while (n-- && sp < spMax) *sp++ = *wp++ ;
+	      break ;
+	    }
+	}
+    }
+  if (debug)
+    printf (" // compress3:\n//found   %d zeros in %d bytes, %d values coded in %d byte, %d bytes, %d short. \n// Total %d char for %d shrt\n",
+	    n0, n1, n10, n2, n3, n4, n1 + n2 + n3 + n4, n0 + n10 + n3 + n4) ;
+  
+  if (i != -1 || sp != spMax)
+    goto abort ;
+  return b ;
+
+abort:
+  arrayDestroy (b) ;
+  return 0 ;
+}
+
+/**********************************************************/
+/**********************************************************/
+
+static Array ctfDecompress (int compressionMode, 
+			    int dataMax, int traceMax, 
+			    unsigned char **cpp)
+{ 
+  Array a = 0 ;
+
+  switch (compressionMode)
+    {
+    case 0:
+      a = ctfDecompress0 (dataMax, 4*traceMax, *cpp) ;
+      break ;
+    case 1:
+      a = ctfDecompress1 (dataMax, 4*traceMax, *cpp) ;
+      break ;
+    case 2:
+      a = ctfDecompress2 (dataMax, 4*traceMax, *cpp) ;
+      break ;
+    case 3:
+      a = ctfDecompress3 (dataMax, 4*traceMax, *cpp) ;
+      break ;
+    default:  /* unknown compression mode */
+      break ;
+    }
+
+  *cpp += dataMax ;
+  return a ;
+}
+
+/**********************************************************/
+
+static Array ctfCompress (int compressionMode, Array a)
+{
+  switch (compressionMode)
+    {
+    case 0:
+      return ctfCompress0 (a) ;
+    case 1:
+      return ctfCompress1 (a) ;
+    case 2:
+      return ctfCompress2 (a) ;
+    case 3:
+      return ctfCompress3 (a) ;
+    default:
+      messcrash ("Non existing ctf compression mode") ;
+      return 0 ; /* for compiler happiness */
+    }
+}
+
+/**********************************************************/
+/**********************************************************/
+/* called by saucisse fill, a system to test the efficiency of the system */
+
+Array ctfDecorrelate (Read *read, int predictionMode)
+{
+  int j, j1, u1, u2, u3, u4 ;
+  short *zp, z = 0 ;
+  TRACE *tt[4], *sp ;
+  int traceMax = read->NPoints ;
+  Array a = arrayCreate (4 * traceMax, short) ;
+
+  if (predictionMode == -1)
+    predictionMode = PREDICTIONMODE ;
+
+  tt[0] = read->traceA ;
+  tt[1] = read->traceG ;
+  tt[2] = read->traceC ;
+  tt[3] = read->traceT ;
+
+  array (a, 4 * traceMax - 1 , short) = 0 ;  /* make room */
+  zp = arrp (a, 0, short) ;
+  for (j1 = 0 ; j1 < 4 ; j1++)
+    { 
+      sp = tt[j1] ;
+
+      u1 = u2 = u3 = u4 = 0 ;
+      for (j=0 ; j < traceMax ; zp++, sp++, j++)
+	{ 
+	  switch (predictionMode)
+	    {
+	    case 1: z = u1 ; break ; /* predict flat, transmit derivative */
+	    case 2: z = 2*u1 - u2 ; break ; /* predict line trans dd2 */
+	    case 3: z = 3*u1 - 3*u2 + u3 ; break ; /* predict parabole */
+	    case 4: z = 4*u1 - 6*u2 + 4*u3 - u4; break ; /* overpredict ! */
+	    case 0: 
+	    default: z = 0 ; break ; /* predict zero, transmit value */
+	    }
+	  u4 = u3  ; u3 = u2 ; u2 = u1 ; u1 = *sp ;
+	  *zp = u1 - z ;
+	}
+    }
+  return a ;
+}
+
+/**********************************************************/
+
+static BOOL ctfRecorrelate (Read *read, int predictionMode, Array a)
+{ 
+  int j, j1, u1, u2, u3, u4, z = 0 ;
+  short *zp ;
+  TRACE *sp, *tt[4] ;
+  int traceMax = read->NPoints ;
+
+  if (!a || arrayMax(a) != 4 * traceMax)
+    return FALSE ;
+
+  for (j1 = 0 ; j1 < 4 ; j1++) tt[j1] = 0 ; /* to allow harmless abort */
+  zp = arrp (a, 0, short) ;
+  for (j1 = 0 ; j1 < 4 ; j1++)
+    { 
+      /* staden's allocation system */
+      sp = tt[j1] = (TRACE *) malloc(traceMax * sizeof (TRACE)) ;
+      memset (sp, 0, traceMax * sizeof (TRACE)) ;
+      u1 = u2 = u3 = u4 = 0 ;
+      for (j=0 ; j < traceMax ; zp++, sp++, j++)
+	{ 
+	  switch (predictionMode)
+	    {
+	    case 1: z = u1 ; break ; /* predict flat, transmit derivative */
+	    case 2: z = 2*u1 - u2 ; break ; /* predict line trans dd2 */
+	    case 3: z = 3*u1 - 3*u2 + u3 ; break ; /* predict parabole */
+	    case 4: z = 4*u1 - 6*u2 + 4*u3 - u4; break ; /* overpredict ! */
+	    case 0: 
+	    default: z = 0 ; break ; /* predict zero, transmit value */
+	    }
+	  u4 = u3  ; u3 = u2 ; u2 = u1 ; u1 = *sp = z + *zp ;
+	}
+    }
+  read->traceA  = tt[0];
+  read->traceG  = tt[1];
+  read->traceC  = tt[2];
+  read->traceT  = tt[3];
+
+  return TRUE ;
+}
+
+/**********************************************************/
+/**********************************************************/
+
+/*
+199708133/ = 1272 sequences
+format abi: 201367 kb
+format scf: 101712 kb
+format ctf: 
+comprime  :
+(gdb) p *read
+$1 = {format = 0, trace_name = 0x0, NPoints = 7586, NBases = 625, 
+  traceA = 0x809f2b0, traceC = 0x80a6940, traceG = 0x80a2df8, 
+  traceT = 0x80aa488, maxTraceVal = 0, 
+  base = 0x808fe28 "\004\002\037\004\001\037\002\b\002\001\004\001\004\004\002\0
+02\b\b\b\b\004\001\001\001\b\004\002\002\004\001\002\b\004\001\001\001\001\b\004
+\b\004\b\002\004\001\001\001\001\001\b\004\b\002\004\b\002\004\001\001\002\004\0
+02\037\b\004\004\b\004\037\002\004\004\001\002\004\002\037\001\b\001\001\001\004
+\b\001\001\001\002\004\004\b\001\004\b\001\004\001\b\001\001\004\001\001\001\004
+\b\037\001\002\004\004\001\002\004\001\037\b\002\004\004\b\002\002\b\b\002\001\0
+02\004\002\b\b\004\b\001\b\004\004\b\b\001\002\b\001\002\004\001\002\004\004\001
+\001\002\004\002\002\002\b\b\b\b\004\004\002\004\004\002\004\002\002\001\002\b\0
+02\004\004\b\001\004\b\001\004\002\004\b\004\002\b\037\001\002\001\004\002\001\0
+02\004\b\001\001"..., basePos = 0x80900a0, leftCutoff = 0, rightCutoff = 0, 
+  info = 0x0, prob_A = 0x0, prob_C = 0x0, prob_G = 0x0, prob_T = 0x0, 
+  orig_trace_format = 0, orig_trace = 0x0}
+
+
+(gdb) p *rr
+$3 = {format = 1, trace_name = 0x808f480 "stdin", NPoints = 7586, 
+  NBases = 625, traceA = 0x809d6b8, traceC = 0x8099b70, traceG = 0x80a1200, 
+  traceT = 0x80a4d48, maxTraceVal = 255, 
+  base = 0x8098a30 "GT-GA-TCTAGAGGTTCCCCGAAACGTTGATCGAAAACGCGCTGAAAAACGCTGCTGAATGT-CGGCG-TGGATGT-ACAAAGCAAATGGCAGCAGACAAGAAAGC-ATGGATGA-CTGGCTTCCTATGTCCGCACGGCCATCATGATGGAATGTTTCCCCGGTGGTGTTATCTGGCAGCAGTGCGTC-ATAGTATGCAA"..., 
+  basePos = 0x8098ca8, leftCutoff = 0, rightCutoff = 626, 
+  info = 0x80a8890 "avg_signal_strength = C:125 A:75 G:91 T:59\navg_spacing =   9.94\nprimer_position = 966\nmachine_name = ABI 373A DNA Sequencer: 509 M1\ndye_primer = Sanger34cm{RP1}\n\nconversion_program = makeSCF 2.01\nsour"..., 
+  prob_A = 0x8099190 "", prob_C = 0x8099408 "", prob_G = 0x8099680 "", 
+  prob_T = 0x80998f8 "", orig_trace_format = 0, orig_trace = 0x0}
+*/
+
+
+      /* needed
+	 additional new sections of the ctf read = comments and proba
+	 */
+
+static Array  ctfPackTraces (Read *read)
+{ 
+  TRACE *tt[4] ;
+  int x, dx, section, sectionLength ;
+  int i, n, dataMax, probInfoLevel, 
+    traceMax = read->NPoints, baseMax = read->NBases,
+    safe0 = 0, safe = 50 ;
+  Array a = 0 , a1 = 0, a2 = 0 ;
+  unsigned char *cp, *b ;
+  unsigned short *bp ;
+  char * mixProb = 0 ; 
+  unsigned char *cq ;
+  Array bb = 0 ;
+  TRACE *ap, *bbp ;
+  
+  ctfTracePeakValue (read) ; /* sets read-> maxTraceVal */
+
+  tt[0] = read->traceA ;
+  tt[1] = read->traceG ;
+  tt[2] = read->traceC ;
+  tt[3] = read->traceT ;
+  
+lao:  /* the idea is that i will never have to loop */
+  safe = 12 * traceMax + 2 * baseMax + safe0 * traceMax + 64 ;
+  a = arrayReCreate (a, safe, unsigned char) ;
+  array (a, safe + 150, unsigned char) = 0 ; /* make room */
+  cp = arrp (a, 0, unsigned char) ;
+  
+
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+
+  /* SECTION 1 bases  and positions */
+  section = 1 ;
+  sectionLength = 2 * baseMax + 8 ;
+  ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+  
+  ctfStoreInt (cp, baseMax) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+  
+  n = baseMax ; safe -= 2 * n ;
+  x = 0 ;
+  b = read->base ; 
+  bp = read->basePos ;
+  
+  while (n--)
+    { dx = *bp++ - x ;
+    /* these will smoothe away after a few steps */
+    if (dx <= 0) dx = 1 ;
+    if (dx > 254) dx = 254 ;
+      *cp++ = dx ;
+      x += dx ; 
+      *cp++ = *b++ ;
+    }
+  
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+
+  /* SECTION 2 the traces */
+  
+  a1 = ctfDecorrelate (read, PREDICTIONMODE) ;
+  a2 = ctfCompress (COMPRESSIONMODE, a1) ;
+  dataMax = arrayMax (a2) ;
+  
+  if (1)  /* debugging */
+    {
+      cq = arrp (a2, 0, unsigned char) ;
+      bb = ctfDecompress (COMPRESSIONMODE, dataMax, traceMax, &cq) ;
+      i = 4*traceMax ;
+      
+      ap = arrp (a1, 0, TRACE) ;
+      bbp = arrp (bb, 0, TRACE) ;
+      while (i--)
+	if (*ap++ != *bbp++)
+	  messcrash ("bad compress decompress at i = %d\n", i) ;
+      arrayDestroy (bb) ;
+    }
+  
+  section = 2 ;
+  sectionLength = 16 + dataMax ;
+  ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+  
+  ctfStoreInt (cp, PREDICTIONMODE) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, COMPRESSIONMODE) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, traceMax) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, dataMax) ; cp += 4 ; safe -= 4 ;
+
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+  
+  if (safe > dataMax)
+    memcpy (cp, arrp(a2, 0, unsigned char), (mysize_t) dataMax) ;
+  cp += dataMax ; safe -= dataMax ;
+  arrayDestroy (a1) ;
+  arrayDestroy (a2) ;
+  if (safe < 0)
+    { safe0++ ; goto lao ; }
+  
+  /* end section */
+  if (safe < 12)
+    { safe0++ ; goto lao ; }
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+
+  /* SECTION 3 miscelaneous info */
+  section = 3 ;
+
+  if (read->info)
+    n = strlen(read->info) ;
+  else
+    n = 0 ;
+  if (!read->rightCutoff)
+    read->rightCutoff = read->NBases + 1 ;
+
+  sectionLength = 20 + n ;
+  ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+
+  ctfStoreInt (cp, read->leftCutoff) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, read->rightCutoff) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, read->orig_trace_format) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, read->maxTraceVal) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, n) ; cp += 4 ; safe -= 4 ;
+  if (n > 0 && safe > n) 
+    { strncpy (cp, read->info, n) ; cp += n ; } ; 
+  safe -= n ;
+  /* end section */
+  if (safe < 12)
+    { safe0++ ; goto lao ; }
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+
+  /* SECTION 4 Probability information */  
+  n = baseMax ; probInfoLevel = 0 ; i = 0 ;	  
+  mixProb = messalloc (n) ;
+  if (read->prob_A && read->prob_C && read->prob_G && read->prob_T)
+    while (n--)
+      {
+	i = 0 ;
+	if (read->prob_A [n]) { mixProb[n] = read->prob_A [n] ; i++ ; }
+	if (read->prob_C [n]) { mixProb[n] = read->prob_C [n] ; i++ ; }
+	if (read->prob_G [n]) { mixProb[n] = read->prob_G [n] ; i++ ; }
+	if (read->prob_T [n]) { mixProb[n] = read->prob_T [n] ; i++ ; }
+	
+	if (i > 1) { probInfoLevel = 2 ; break ; }
+	if (i == 1) probInfoLevel = 1 ;
+      }
+
+  switch (probInfoLevel)
+    {
+    case 2:
+      section = 4 ;
+      sectionLength = 4 * baseMax + 4 ; n = baseMax ;
+      ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+      ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+      
+      ctfStoreInt (cp, baseMax) ; cp += 4 ; safe -= 4 ;
+      if (safe > n) { strncpy (cp, read->prob_A, n) ; cp += n ; safe -= n ; }
+      if (safe > n) { strncpy (cp, read->prob_C, n) ; cp += n ; safe -= n ; }
+      if (safe > n) { strncpy (cp, read->prob_G, n) ; cp += n ; safe -= n ; }
+      if (safe > n) { strncpy (cp, read->prob_T, n) ; cp += n ; safe -= n ; }
+      if (safe < 12)
+	{ safe0++ ; goto lao ; }
+      
+      ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+      break ;
+    case 1:
+      section = 5 ;
+      sectionLength = baseMax + 4 ; n = baseMax ;
+      ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+      ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+      
+      ctfStoreInt (cp, baseMax) ; cp += 4 ; safe -= 4 ;
+      if (safe > n) { strncpy (cp, mixProb, n) ; cp += n ; safe -= n ; }
+      if (safe < 12)
+	{ safe0++ ; goto lao ; }
+      
+      ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+      break ;
+    }
+  messfree (mixProb) ;
+
+  /* SECTION 999 the end */
+  section = 999 ;
+  sectionLength = 0 ;
+  ctfStoreInt (cp, section) ; cp += 4 ; safe -= 4 ;
+  ctfStoreInt (cp, sectionLength) ; cp += 4 ; safe -= 4 ;
+
+  ctfStoreInt (cp, MAGIC) ; cp += 4 ; safe -= 4 ;
+  
+  if (safe < 0)
+    { safe0++ ; goto lao ; }
+  arrayMax (a) = cp - arrp (a, 0, unsigned char) ;
+  return a ;  
+}
+
+/**********************************************************/
+
+static void ctfUnmixProb (Read *read, int n, char *mixProb) 
+{
+  char *cp, *cq, *ca, *cg, *ct, *cc ;
+
+  ca = read->prob_A = (char *) malloc (n) ;
+  cc = read->prob_C = (char *) malloc (n) ;
+  cg = read->prob_G = (char *) malloc (n) ;
+  ct = read->prob_T = (char *) malloc (n) ;
+  cp = read->base ;
+  cq = mixProb ;
+  while (n--)
+    switch ((*cp++) & 0xf)
+      {
+      case 'A': case 'a':
+	*ca++ = *cq++ ; cc++ ; cg++; ct++ ;
+	break ;
+      case 'C': case 'c':
+	ca++ ; *cc++ = *cq++ ; cg++; ct++ ;
+	break ;
+      case 'G': case 'g':
+	ca++ ; cc++ ; *cg++= *cq++ ; ct++ ;
+	break ;
+      case 'T': case 't':
+	ca++ ; cc++ ; cg++; *ct++ = *cq++ ;
+	break ;
+      default:
+	*ca++ = *cc++ = *cg++ = *ct++ = *cq++ ;
+	break ;
+      }
+}
+
+/**********************************************************/
+
+#define CHECKMAGIC   \
+magic = ctfGetInt (cp) ; \
+cp += 4 ; nn -= 4 ; \
+if (magic != MAGIC) \
+{ \
+  messout ("Error reading compressed trace file, sorry\n") ;  \
+  goto abort ; \
+}
+
+
+static BOOL ctfUnPackTraces (Read *read, Array a)
+{ 
+  int compressionMode, predictionMode, magic ;
+  int section, sectionLength ;
+  int n, nn, traceMax, baseMax, dataMax, x, nMixProb = 0 ;
+  Array  base = 0, basePos = 0, decompressedData = 0 ;
+  unsigned char *cp, *b ;
+  unsigned short *bp ;
+  char *mixProb = 0 ;
+
+  if (!arrayExists (a))
+    return FALSE ;
+
+  cp = arrp (a, 0, unsigned char) ; nn = arrayMax (a) ;
+
+  while (TRUE)
+    {
+      CHECKMAGIC ; 
+      section = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+      sectionLength = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+      switch (section)
+	{
+	case 999:  /* end of record */
+	  goto done ;
+	case 1:  /* read the bases  and positions */
+	  baseMax = read->NBases = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  CHECKMAGIC ;
+
+	  n = baseMax ; nn -= 2 * n ;
+	  base = arrayCreate (n, unsigned char) ;
+	  array (base, n - 1, unsigned char) = 0 ;
+	  basePos = arrayCreate (n,  unsigned short) ;
+	  array (basePos, n - 1,  unsigned short) = 0 ;
+	  x = 0 ;
+	  b = arrp (base, 0, unsigned char) ;
+	  bp = arrp (basePos, 0,  unsigned short) ;
+	  
+	  while (n--)
+	    { x += *cp++ ;
+	    *bp++ = x ;
+	    *b++ = *cp++ ;
+	    }
+	  /*
+	    i do not reestablish seq->base, seq->base pos
+	    for bases, one must convert to upper lower case a
+	    and from unsigned short to short for basePosition
+	  */
+	  
+	  read->base = malloc (baseMax) ; /* staden's alloc */
+	  read->basePos = (unsigned short *) malloc (baseMax * sizeof (unsigned short)) ;
+	  
+	  memcpy (read->base, arrp (base, 0, char), baseMax) ;
+	  memcpy (read->basePos, arrp (basePos, 0, unsigned short), baseMax * sizeof (unsigned short)) ;
+	  
+	  arrayDestroy (base) ;
+	  arrayDestroy (basePos) ;
+
+	  break ;
+	  
+	case 2:  /* read the traces */
+	  predictionMode = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  compressionMode = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  traceMax = read->NPoints = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  dataMax = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  CHECKMAGIC ;
+	  decompressedData = ctfDecompress (compressionMode, dataMax, traceMax, &cp) ;
+	  if (!ctfRecorrelate (read, predictionMode, decompressedData))
+	    goto abort ;	  
+	  arrayDestroy (decompressedData) ;
+	  break ;
+	  
+	case 3:  /* read miscelaneous info */
+	  read->leftCutoff = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  read->rightCutoff = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  read->orig_trace_format = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ; 
+	  read->maxTraceVal = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  n = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  if (n > 0)
+	    {
+	      read->info = (char *) malloc (n) ; cp += n ; nn -= n ;
+	      strncpy (read->info, cp, n) ;
+	    }
+	  break ;
+
+	case 4:  /*  Probability information */  
+	  n = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  read->prob_A = (char *) malloc (n) ;
+	  read->prob_C = (char *) malloc (n) ;
+	  read->prob_G = (char *) malloc (n) ;
+	  read->prob_T = (char *) malloc (n) ;
+	  strncpy (read->prob_A, cp, n) ; cp += n ; nn -= n ;
+	  strncpy (read->prob_C, cp, n) ; cp += n ; nn -= n ;
+	  strncpy (read->prob_G, cp, n) ; cp += n ; nn -= n ;
+	  strncpy (read->prob_T, cp, n) ; cp += n ; nn -= n ; 
+	  break ;
+
+	case 5:  /*  Mixed Probability information */  
+	  n = ctfGetInt (cp) ; cp += 4 ; nn -= 4 ;
+	  mixProb = messalloc (n) ; nMixProb = n ;
+	  strncpy (mixProb, cp, n) ; cp += n ; nn -= n ; 
+	  break ;
+
+	case 6:
+	  /* The original input format data, used in staden's
+	     int orig_trace_format;
+	     void *orig_trace;
+	     
+	     i do not yet support that because i am not sure it is used
+	     so i
+	     */
+
+	  /*   fallthru  to default */
+
+	default: /* not yet defined stuff */
+	  cp += sectionLength ; 
+	  break ;
+	}
+    }
+  if (mixProb && read->NBases == nMixProb)
+    { 
+      if (read && read->base && read->NBases == nMixProb)
+	ctfUnmixProb (read, nMixProb, mixProb) ; 
+      messfree (mixProb) ;
+    }
+  if (!read->rightCutoff)
+    read->rightCutoff = read->NBases + 1 ;
+  
+ done:
+  CHECKMAGIC ;   /* terminal CHECK */
+  return TRUE ;
+
+ abort:
+  arrayDestroy (base) ;
+  arrayDestroy (basePos) ;
+  arrayDestroy (decompressedData) ;
+
+
+  freeSeq (read) ;
+  return FALSE ;
+}
+
+/**********************************************************/
+#ifdef JUNK
+static BOOL ctfCheckPack (KEY key, Read *read, Array a)
+{ 
+  int i, j, max = read->NPoints ;
+
+  TRACE *ntt [4], *tt[4], *sp, *nsp ;
+
+  i = 4 ;
+  while (i--)
+    tt[i] = messalloc (max * sizeof (TRACE)) ;
+  
+  memcpy (tt[0], read->traceA, max * sizeof (TRACE)) ; 
+  memcpy (tt[1], read->traceG, max * sizeof (TRACE)) ; 
+  memcpy (tt[2], read->traceC, max * sizeof (TRACE)) ; 
+  memcpy (tt[3], read->traceT, max * sizeof (TRACE)) ; 
+
+  ctfUnPackTraces (read, a) ;
+
+  ntt[0] = read->traceA ;
+  ntt[1] = read->traceG ;
+  ntt[2] = read->traceC ;
+  ntt[3] = read->traceT ;
+
+  i = 4 ; 
+  while (i--)
+    {
+      j = max ; sp = tt[i] ; nsp = ntt[i] ;
+      while (j--)
+	if (*sp++ != *nsp++)
+	  {
+	    messerror ("error in %s i = %d j = %d\n",
+		     name(key), i, j) ;
+	    return FALSE ;
+	  }
+    }
+
+  i = 4  ;
+  while (i--)
+    messfree (tt[i]) ;
+
+  return TRUE ;
+} 
+#endif
+/**********************************************************/
+/**********************************************************/
+
+static BOOL ctfWriteTrace (FILE *ff, Array a)
+{
+  int n ; char *cp ;
+
+  n = arrayMax (a) ;  cp = arrp (a, 0, char) ;
+  fwrite (cp, n, 1, ff) ;
+  return TRUE ;
+} 
+
+/**********************************************************/
+
+static Array ctfReadTrace (FILE *fil)
+{
+  unsigned int i = 0, nr, nb = 100000, size = 1 ; 
+  unsigned char *cp ;
+  Array a = arrayCreate (nb, unsigned char) ;
+
+  do
+    {
+      array(a,(++i)*nb,unsigned char) = 0 ; /* to create space */
+      cp = arrp(a,nb*(i-1),unsigned char) ; /* possible relocation */
+    }
+  while ((nr = fread (cp, size, nb, fil)) == nb) ;
+  
+  arrayMax(a) -= nb - nr; /* artificial space removed */
+ 
+  if(!arrayMax(a))
+    arrayDestroy(a) ;
+
+  return a ;
+} 
+
+/**********************************************************/
+/**********************************************************/
+/*****   interaction with staden 's makeSCF ***************/
+/**********************************************************/
+
+int ctfFWrite (FILE *ff, Read *read) 
+{
+  int result = -1 ; /* assume error */
+
+  if (read &&  read->NBases && read->NPoints && ff)
+    {
+      Array a = ctfPackTraces (read);
+      
+      ctfWriteTrace (ff, a) ;
+      arrayDestroy (a) ;
+  
+      result = 0 ; /* success */
+    }
+
+  return result ;
+} /* ctfFWrite */
+
+/**********************************************************/
+
+Read *ctfFRead (FILE *ff)
+{
+  Read * read = 0 ;
+  int NBases = 0 ;
+  Array a = 0 ;
+
+  if ((a = ctfReadTrace (ff)) &&
+      (read =  (Read *) malloc (sizeof(Read))))
+    {
+      memset (read, 0, sizeof(Read)) ;
+      if (ctfUnPackTraces (read, a))
+	{
+	  read->format = TT_CTF ;
+	  NBases = read->NBases ;
+	  
+	  if (!read->prob_A) 
+	    {
+	      read->prob_A = (char *) malloc (NBases) ;
+	      if (!read->prob_C) read->prob_C = (char *) malloc (NBases) ;
+	      if (!read->prob_G) read->prob_G = (char *) malloc (NBases) ;
+	      if (!read->prob_T) read->prob_T = (char *) malloc (NBases) ;
+	      memset (read->prob_A, 0, NBases) ;
+	      memset (read->prob_C, 0, NBases) ;
+	      memset (read->prob_G, 0, NBases) ;
+	      memset (read->prob_T, 0, NBases) ;
+	    }
+	  
+	  read->orig_trace = 0x0 ;
+	}
+      else
+	read = 0 ;
+    }
+
+ arrayDestroy (a) ;
+ return read ;
+}  /* ctfFRead */
+
+/* run -s -any /users/mieg/CTFtest/tt/a.scf.ctf -output a.scf.ctf.scf*/
+
+/**********************************************************/
+/**********************************************************/
+/*********************************************************/
+#ifdef JUNK
+static BOOL baseCallSimpleGet (LANE *lane)
+{
+  Array 
+    base = 0, basePos = 0 ;
+  int n ; unsigned short x , *bp, *bp2 ;
+  char *b, *b1, c, *cp, *cq ;
+
+  n = seqMaxBase(lane->seq) ;
+  
+  base = arrayCreate (n, char) ;
+  array (base, n - 1, char) = 0 ;
+  basePos = arrayCreate (n, short) ;
+  array (basePos, n - 1, short) = 0 ;
+  b = arrp (base, 0, char) ;
+  bp = arrp (basePos, 0,  unsigned short) ;
+  b1 = lane->seq->base ;
+  bp2 = lane->seq->basePos ;
+  x = - 10002 ;
+  while (n--)
+    { if (x < *bp2)
+      x = *bp2++ ;
+    else
+      { x++ ; bp2++ ; }
+    *bp++ = x ;
+    
+    c = *b1++ ;
+    switch (c)
+      {
+      case 'A': c = A_ ; break ;
+      case 'T': c = T_ ; break ;
+      case 'G': c = G_ ; break ;
+      case 'C': c = C_ ; break ;
+      case 'a': c = BC_LOW | A_ ; break ;
+      case 't': c = BC_LOW | T_ ; break ;
+      case 'g': c = BC_LOW | G_ ; break ;
+      case 'c': c = BC_LOW | C_ ; break ;
+      default : c = BC_LOW | N_ ; break ;
+      }
+    *b++ = c ;
+    }
+  
+  lane->basePos = basePos ;
+  lane->base = base ;
+  lane->maxPos = seqMax(lane->seq) = x ;
+
+  n = seqMaxBase(lane->seq) ;
+  free (read->base) ;
+  cp = read->base = (char *) malloc (NBases) ;
+  cq = arrp (lane->base, 0, char) ;
+  while (n--)
+    {
+      switch ((*cq) & 0xf)
+	{
+	case A_: *cp = 'A' ; break ;
+	case T_: *cp = 'T' ; break ;
+	case G_: *cp = 'G' ; break ;
+	case C_: *cp = 'C' ; break ;
+	default: *cp = 'N' ; break ;
+	}
+      if ((*cq) & BC_LOW)
+	*cp = freelower (*cp) ;
+      cp++ ; cq++ ;
+    }
+
+  i = NBases ;
+  bp = arrp (lane->basePos, 0, unsigned short) ;
+  free (read->basePos) ;
+  bp2 = read->basePos = (uint_2 *) malloc (NBases * sizeof (uint_2)) ;
+  while (i--) *bp2++ = *bp++ ;
+
+  return TRUE ;
+}
+#endif
+/**********************************************************/

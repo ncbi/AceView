@@ -1,0 +1,136 @@
+a.scf june 8
+ // compress3:
+//  2151 zeros in 1375 bytes, 22955 values coded in 16393 byte, 3610 bytes, 188 short. 
+// Total 25552 char for 28904 shrt
+
+now i fix the bug word = 1 accepted
+ // compress3:
+//  2151 zeros in 1375 bytes, 23103 values coded in 16541 byte, 3462 bytes, 188 short. 
+// Total 25404 char for 28904 shrt
+
+now i try correlate 23
+  -8,  1071 28904 636 
+  -7,   183 28904 167 
+  -6,   260 28904 220 
+  -5,   367 28904 288 
+  -4,   648 28904 443 
+  -3,  1074 28904 637 
+  -2,  2090 28904 990 
+  -1,  4585 28904 1522 
+   0,  8851 28904 1888 
+   1,  3962 28904 1419 
+   2,  1955 28904 949 
+   3,   993 28904 603 
+   4,   606 28904 422 
+   5,   410 28904 314 
+   6,   291 28904 241 
+   7,   239 28904 206 
+   8,  1319 28904 734 
+ztotal = 11679
+ // compress3:
+//  5386 zeros in 2807 bytes, 22056 values coded in 12752 byte, 1411 bytes, 51 short. 
+// Total 18534 char for 28904 shrt
+
+ 54 -rw-r--r--   1 mieg     ncbi       27249 Jun 12 15:29 a.ctf
+  42 -rw-r--r--   1 mieg     ncbi       20512 Jun 12 15:31 a.ctf.gz
+ 130 -rw-r--r--   1 mieg     ncbi       65654 Jun 12 15:30 a.ctf.scf
+ 130 -rw-r--r--   1 mieg     ncbi       65654 Jun 12 15:28 a.scf
+  38 -rw-r--r--   1 mieg     ncbi       18970 Jun 12 15:29 a.ttff
+  38 -rw-r--r--   1 mieg     ncbi       18972 Jun 12 15:32 a.ttff.gz
+ 130 -rw-r--r--   1 mieg     ncbi       65654 Jun 12 15:29 a.ttff.scf
+makeSCF v3.02
+Copyright (c) MRC Laboratory of Molecular Biology, 1998. All rights reserved.
+ // compress3:
+//  2327 zeros in 1325 bytes, 22723 values coded in 16711 byte, 3666 bytes, 188 short. 
+// Total 25932 char for 28904 shrt
+  -8,  2951 28904 1214 
+  -7,   412 28904 315 
+  -6,   544 28904 389 
+  -5,   799 28904 517 
+  -4,  1148 28904 667 
+  -3,  1593 28904 832 
+  -2,  2160 28904 1010 
+  -1,  2651 28904 1142 
+   0,  4061 28904 1437 
+   1,  2880 28904 1197 
+   2,  2171 28904 1013 
+   3,  1596 28904 833 
+   4,  1149 28904 668 
+   5,   800 28904 517 
+   6,   587 28904 412 
+   7,   439 28904 331 
+   8,  2963 28904 1217
+ztotal = 13711
+ // compress3:
+//  2327 zeros in 1325 bytes, 22723 values coded in 16711 byte, 3666 bytes, 188 short. 
+// Total 25932 char for 28904 shrt
+  -8,  2821 28904 1183 
+  -7,   393 28904 304 
+  -6,   548 28904 391 
+  -5,   766 28904 501 
+  -4,  1054 28904 629 
+  -3,  1565 28904 823 
+  -2,  2301 28904 1050 
+  -1,  3054 28904 1237 
+   0,  3987 28904 1424 
+   1,  3058 28904 1238 
+   2,  2281 28904 1044 
+   3,  1564 28904 822 
+   4,  1023 28904 616 
+   5,   759 28904 498 
+   6,   510 28904 371 
+   7,   400 28904 308 
+   8,  2820 28904 1183 
+ztotal = 13622
+ // compress3:
+//  2151 zeros in 1375 bytes, 23103 values coded in 16541 byte, 3462 bytes, 188 short. 
+// Total 25404 char for 28904 shrt
+fichier 3700 pas tres bon
+  -8,  1216 57732 846 
+  -7,   465 57732 404 
+  -6,   752 57732 588 
+  -5,  1219 57732 848 
+  -4,  1844 57732 1145 
+  -3,  3163 57732 1656 
+  -2,  4680 57732 2120 
+  -1,  6080 57732 2467 
+   0, 18897 57732 3805 
+   1,  6103 57732 2473 
+   2,  4588 57732 2095 
+   3,  3255 57732 1687 
+   4,  1865 57732 1154 
+   5,  1156 57732 815 
+   6,   745 57732 584 
+   7,   512 57732 436 
+   8,  1192 57732 834 
+ztotal = 23957 z00 = 12571 z01 = 1215 z11 = 925 
+ // compress3:
+//  14682 zeros in 3122 bytes, 42223 values coded in 28322 byte, 827 bytes, 0 short. 
+// Total 33098 char for 57732 shrt
+  74 -rw-r--r--   1 mieg     ncbi       37052 Jun 12 20:03 toto/ba.ctf
+  52 -rw-r--r--   1 mieg     ncbi       25746 Jun 12 20:04 toto/ba.ctf.gz
+jove> 
+  -8,   113 44368 121 
+  -7,   129 44368 135 
+  -6,   210 44368 202 
+  -5,   340 44368 298 
+  -4,   538 44368 428 
+  -3,  1171 44368 767 
+  -2,  2863 44368 1415 
+  -1,  4991 44368 1966 
+   0, 23742 44368 2677 
+   1,  4877 44368 1941 
+   2,  2918 44368 1432 
+   3,  1150 44368 757 
+   4,   523 44368 418 
+   5,   334 44368 294 
+   6,   215 44368 206 
+   7,   122 44368 129 
+   8,   132 44368 138 
+ztotal = 13324 z00 = 19336 z01 = 1612 z11 = 569 
+ // compress3:
+//  20991 zeros in 2506 bytes, 23361 values coded in 13345 byte, 16 bytes, 0 short. 
+// Total 15883 char for 44368 shrt
+
+method 323 = compression 3 , prediction variable 23
+methode 423a13 compression 4 de -11 a 11, prediction23

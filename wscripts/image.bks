@@ -1,0 +1,75 @@
+From bks@s27w007.pswfs.gov Wed Sep 22 01:26:06 1993
+Return-Path: <bks@s27w007.pswfs.gov>
+Received: from s27w007.pswfs.gov ([192.131.1.21]) by kaa.cnrs-mop.fr (4.1/SMI-4.1)
+	id AA22764; Wed, 22 Sep 93 01:26:01 +0100
+Received: by s27w007.pswfs.gov (4.1/1.39)
+	id AA26937; Tue, 21 Sep 93 16:33:01 PDT
+Date: Tue, 21 Sep 93 16:33:01 PDT
+From: bks@s27w007.pswfs.gov (Bradley K. Sherman)
+Message-Id: <9309212333.AA26937@s27w007.pswfs.gov>
+To: sysadmin@locus.nalusda.gov
+Subject: TreeGenes now using anonymous ftp for image retrieval
+Cc: mieg@kaa.cnrs-mop.fr
+Status: R
+
+
+The public version of TreeGenes now uses a script to fetch images
+via anonymous ftp.  The implication is that one need only distribute
+the script rather than the voluminous image files.
+
+This script is based on (a non-working) one composed by David Matthews
+& Jean Thierry-Mieg:
+
+--------------------------8< Cut here for tgxv >8------------------
+#!/bin/csh
+#
+#	tgxv --fetch and display image using anonymous ftp
+#
+#	This script is called by TreeGenes (Dendrome ACEDB).
+#
+#	A typical invocation would be:
+#		tgxv bas0001.gif
+#
+#	Eventually it will examine its argument in more detail
+#	to determine machine and path.  There should probably
+#	be a cooperating process on the repository machine.
+#
+#	We could leave the file lying around in, say, 
+#	$ACEDB/externalFiles and then check to see if the file
+#	is available locally before fetching it on subsequent
+#	invocations.
+#
+#	Bradley K. Sherman, Dendrome Project
+#	Institute of Forest Genetics, USDA Forest Service
+#	September 21, 1993
+#	(Based on a script by David Matthews and Jean Thierry-Mieg)
+
+
+# In this section determine machine and file to fetch
+# based on arguments to the script.  This is a stub.
+set machine = 192.131.1.21
+set rfile   = IFGBAS/$1
+set tmpfile = /tmp/$$
+set viewer  = /usr/local/bin/xv
+set user    = $USER@`hostname`
+
+onintr quit
+
+# Conduct a session with anonymous ftp
+ftp -n $machine <<endFTP
+binary
+user anonymous ${user}
+get  ${rfile}  ${tmpfile} 
+bye
+endFTP
+
+# Show the file
+${viewer} ${tmpfile}
+
+#cleanup
+quit:
+	rm -f ${tmpfile}
+--------------------------8< Cut here for tgxv >8------------------
+
+    --bks
+

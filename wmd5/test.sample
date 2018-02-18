@@ -1,0 +1,82 @@
+MD5 results:
+============
+
+From the docs....
+
+MD5 test suite:
+MD5 ("") = d41d8cd98f00b204e9800998ecf8427e
+MD5 ("a") = 0cc175b9c0f1b6a831c399e269772661
+MD5 ("abc") = 900150983cd24fb0d6963f7d28e17f72
+MD5 ("message digest") = f96b697d7cb7938d525a2f31aaf161d0
+MD5 ("abcdefghijklmnopqrstuvwxyz") = c3fcd3d76192e4007dfb496cca67e13b
+MD5 ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") =d174ab98d277d9f5a5611c2c9f419d9f
+MD5 ("12345678901234567890123456789012345678901234567890123456789012345678901234567890") = 57edf4a22be3c955ac49da2e2107b67a
+
+
+
+
+On Linux:
+
+MD5 test suite:
+MD5 ("") = d41d8cd98f00b204e9800998ecf8427e
+MD5 ("a") = 0cc175b9c0f1b6a831c399e269772661
+MD5 ("abc") = 900150983cd24fb0d6963f7d28e17f72
+MD5 ("message digest") = f96b697d7cb7938d525a2f31aaf161d0
+MD5 ("abcdefghijklmnopqrstuvwxyz") = c3fcd3d76192e4007dfb496cca67e13b
+MD5 ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") = d174ab98d277d9f5a5611c2c9f419d9f
+MD5 ("12345678901234567890123456789012345678901234567890123456789012345678901234567890") = 57edf4a22be3c955ac49da2e2107b67a
+
+
+
+
+On alpha:
+
+MD5 test suite:
+MD5 ("") = e4c23762ed2823a27e62a64b95c024e7
+MD5 ("a") = 793a9bc07e209b286fa416d6ee29a85d
+MD5 ("abc") = 7999dc75e8da648c6727e137c5b77803
+MD5 ("message digest") = 840793371ec58a6cc84896a5153095de
+MD5 ("abcdefghijklmnopqrstuvwxyz") = 98ef94f1f01ac7b91918c6747fdebd96
+MD5 ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") = dabcd637cde443764c4f8aa099cf23be
+MD5 ("12345678901234567890123456789012345678901234567890123456789012345678901234567890") = e29c01a1e2a663c26b4a68bf7ec42df7
+
+
+Yikes, we have a 64-bit processor problem here...uuggghhh....
+
+problem was in the global.h header, tried to declare a 4 byte word as "unsigned long int", this is
+8 bytes on an alpha...
+
+
+MD5 test suite:
+MD5 ("") = d41d8cd98f00b204e9800998ecf8427e
+MD5 ("a") = 0cc175b9c0f1b6a831c399e269772661
+MD5 ("abc") = 900150983cd24fb0d6963f7d28e17f72
+MD5 ("message digest") = f96b697d7cb7938d525a2f31aaf161d0
+MD5 ("abcdefghijklmnopqrstuvwxyz") = c3fcd3d76192e4007dfb496cca67e13b
+MD5 ("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789") = d174ab98d277d9f5a5611c2c9f419d9f
+MD5 ("12345678901234567890123456789012345678901234567890123456789012345678901234567890") = 57edf4a22be3c955ac49da2e2107b67a
+
+
+
+
+
+DIGEST results:
+===============
+
+docs don't seem to say what the result should be....sigh....
+
+
+
+On Linux:
+
+Response = 6629fae49393a05397450978507c4ef1
+
+
+
+On Alpha:
+
+Response = c7fd5d9020dab3360725c9155d914314
+
+and after correction:
+
+Response = 6629fae49393a05397450978507c4ef1

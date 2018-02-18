@@ -1,0 +1,269 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: the graph library </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to the messubs utilities</H1>
+
+<PRE>
+
+There are several ancient and/or basic utility packages bundled into
+regular.h.
+
+---------------------------------------------------------------------------
+
+
+
+                Message system
+		--------------
+
+messubs contains basic routines for message handling, crash control,
+memory management.  One aim was to localise all the *printf() type
+functions in messubs.  The more general form is in w1/messubs.c.  In a
+small application without the graph package use messclean.c, which
+#define's MESSCLEAN and then includes messubs.c.
+
+	void messout (char *format,...)
+
+displays a blocking message on the screen using graphOut().  If there
+is no graph package it prints to stderr.  If the dump file is already
+open it also writes the message to the dump file via messdump().
+
+	void messdump (char *format,...)
+
+appends the message to the dump file, which is by default "logbook.wrm".
+
+
+	void messerror (char *format,...)
+	& void messSysError (char *format,...)
+
+related to perror().  Forces a crash via messcrash() after 50 calls.
+Use messerror when there has been an acedb error unrelated to any system
+call, use messSysError when a system call failed and errno will be
+used to return information about the reason for the system call failure.
+
+	void messcrash (char *format,...)
+	& void messSysCrash (char *format,...)
+
+writes out the user supplied message, then calls
+invokedebugger(), then tries to call any cleanup routine that has been
+registered via crashroutine().  This process is not reentrant.  Any
+subsequent call to messcrash() leads to an immediate exit().
+Use messcrash if there was an acedb error unrelated to any system call,
+use messSysCrash when a system call failed and errno will be
+used to return information about the reason for the system call failure.
+
+
+	VoidRoutine crashroutine (VoidRoutine cleanup)
+
+registers cleanup() to be called during a crash by messcrash().
+
+	char *messprintf (char *format,...)
+
+sprintf into (static!) buffer - returns the buffer.
+
+	void messdumpset (char *cp)
+
+sets the dumpfile name if called before the first call to messdump().
+
+	void messbeep (void) 	- issues a beep
+
+---------------------------------------------------------------------------
+
+
+
+
+                Free Store system
+		-----------------
+
+All dynamic memory allocation should be done via this package.  Note
+that it is not permissable to call messfree() in the result of a call
+to malloc(), or free() on the results of a messalloc().
+
+	char *messalloc (int size)
+
+is analogous to malloc() with a messcrash() if it fails.  However
+there is some extra overhead in both memory and time, so repeated
+messalloc/messfree calls on many small items should be avoided.
+
+	BOOL messfree (char *cp)
+
+is a macro which does the equivalent of free() on cp if non-null,
+followed by setting cp = 0 and returning TRUE, else if cp == 0,
+returns FALSE.  If the block pointed to by cp has a finalisation
+routine, it is called just before the memory is deallocated. (See
+below.)
+
+There is a handle-based free store package which allows easy and painless
+de-allocation of complex structures.
+
+
+	STORE_HANDLE handleCreate (void)
+
+returns a new store handle, which can be passed to halloc() to
+register store on that handle.
+
+
+	char *halloc (int size, STORE_HANDLE handle)
+
+Gets size bytes, as malloc, but registers the memory block on handle,
+The store can be deallocated by calling messfree(), as usual, or by
+calling handleDestroy() with its handle.  Handle can be zero, in which
+case this call is identical to calling messfree.
+
+
+	void handleDestroy (STORE_HANDLE handle)
+
+deallocates all the store registered on handle, calling all the
+finalisation routines for the blocks, if they exist. The order of
+deallocation is not specified. The handle stucture is also
+deallocated, and handle becomes invalid.
+
+
+	void blockSetFinalise(char *block, void (*final)(char *)
+
+Registers a finalisation a finalisation routine on block, which must
+have been allocated by either messalloc or halloc. When the block gets
+freed, either by messfree or handleDestroy, the finalisation routine
+is called with the address of the block, just before it is freed. It
+is acceptable to call blockSetFinalize multiple times on the same
+block, later finalisation routines overwrite earlier ones. Zero is an
+acceptable argument and cancels finalisation.
+
+
+	Void handleSetFinalise(STORE_HANDLE handle, 
+			       void (*final)(char *),
+			       char *arg)
+
+Registers a finalisation routine on a handle, it gets called when
+handleDestroy is called, with argument arg, before any of the blocks
+on the handle are freed, or their finalisation routines are called.
+Again, may be called multiply, and with zero for final.
+ 
+
+Note that there are analogous stackHandleCreate and arrayHandleCreate
+routines which register the Arrays and Stacks they create on a handle,
+to be automatically destroyed by a call to handleDestroy(). It is
+permissable to mix memory blocks, Arrays, and Stacks on the same
+handle.
+
+
+	void handleInfo (STORE_HANDLE handle, int *number, int *size) ;
+
+Will return (in number) the number of memory blocks allocated on a
+handle and (in size) their total size in bytes.  Note that
+Arrays and Stacks allocated on a handle do not allocate all their
+memory on the handle, so the information returned by this function on
+handles which have Arrays and Stacks on them may be misleading.
+
+
+	STORE_HANDLE handleHandleCreate(STORE_HANDLE parent_handle) ;
+
+ADVANCED USERS ONLY. handleHandleCreate does the same as handleCreate,
+except that the handle returned is itself registered on the handle 
+passed as argument. All store allocated on the new handle can be 
+freed as usual by calling handleDestroy on it; but in addition if 
+parent_handle is freed by a call to handleDestroy, all the store
+registered on the new handle will be freed as a consequence of the freeing 
+of the new handle. This facility is useful for grouping a set of data
+structures which may be deallocated either as a group, or as a consequence of
+the deallocation of their parent. Note that so far as calling handleInfo 
+on parent_handle is concerned, the new handle represents a single object of
+a few tens of bytes. Any memory held on the new handle is not reported.
+
+
+	char *strnew(char *old, STORE_HANDLE handle)
+
+Is a useful utility function, It allocates a suitably sized block on
+the handle, and copies the string pointed to by old into it, reurning
+the address of the copy.
+
+
+	void handleAlloc(STORE_HANDLE handle, 
+			 void (*final)(char *),
+			 int size)
+
+Is deprecated, (it was the original interface) simply calls halloc,
+followed by blockSetFinalize. 
+-------------------------------------------------------------------
+
+filsubs
+-------
+
+	char *filsetdir (char *s)
+
+Sets *s as the standard root path for all subsequent file commands.
+Used once in ACEDB to set $ACEDB.  Returns the old value.  If s == 0
+then doesn't change the path, and returns the current value (the most
+common use of the function). 
+
+	FILE *filopen (char *name, char *ending, char *spec)
+
+Opens the file with given name.  If the name does not start with '/'
+or '.' then the standard root path set in filsetdir() is prepended.
+If ending and *ending then '.' ending is postpended.  Calls
+messerror() if the file can not be opened.
+
+	FILE *filmail (char *address)
+
+Can be used in place of filopen() to open a file that will be mailed
+to the given address when it is closed (using filclose()).
+
+	void filclose (FILE* fil)
+
+Closes a file.  Mails it if it was opened with filmail().  Always use
+filclose(), since a file may have been opened using filmail().
+
+	FILE *filqueryopen (char *dirname, char *filname,
+			    char *ending, char *spec, char *title) ;
+
+This presents an interactive file chooser for the user to open a file.
+The user can always cancel, so you must check the return value.  Only
+directories and files with the given "ending" will be presented to the
+user.  title is the title of the file chooser window, which can help
+suggest what the file is for.  dirname and filname should either be 0,
+in which case defaults are used, or static character arrays of 48 and
+24 characters respectively.  In this case, the directory and name of
+the opened file will be left in the arrays, first allowing the
+programmer to get at the file names, and second establishing a default
+for the next time that the function is called.  If spec is "w" one of
+the options from the chooser is allow the user to specify a mail
+address and open the file using filmail(), so you must be sure to
+close files opened by filqueryopen() with filclose().
+
+	BOOL filexists (char *name, char *ending)
+
+Tests for existence of a file, using the same rules for root and
+ending as filopen().
+
+	BOOL filremove (char *name, char *ending)
+
+Deletes a file from the operating system, using the same rules for
+root and ending as filopen().
+
+	FILE *filtmpopen (char **nameptr, char *spec)
+	BOOL filtmpremove (char *name)
+	void filtmpcleanup (void)
+
+filtmpopen() opens a temporary file.  The name is returned to you in
+*nameptr.  You can reopen the same file by leaving *nameptr and
+setting spec to "r".  Use filtmpremove(*nameptr) to delete the file
+when finished.  This will free memory for the file name -- DO NOT
+messfree (*nameptr).  If you do not free explicitly filtmpremove() the
+temporary file, it will be removed automatically at the end of your
+ACEDB session (by filtmpcleanup()), unless of course you crash.
+
+<PRE>
+
+
+
+</BODY>
+</HTML>

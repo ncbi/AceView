@@ -1,0 +1,18 @@
+list="$*"
+if [ "$list" = "" ]
+then
+	list="accessfile cgi_errors cgi_error_dir"
+fi
+
+[ -d old ] || mkdir old
+day=`date +%Y%m%d`
+
+for x in $list
+do
+	y=0
+	while [ -f old/$x.$day.$y ]
+	do
+		y=`expr $y + 1 `
+	done
+	mv $x old/$x.$day.$y
+done

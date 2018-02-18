@@ -1,0 +1,32 @@
+#!/usr/local/bin/gawk -f
+#
+# lists tags and classes used in a model
+#
+# $Id: tagsInModel,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+
+
+BEGIN {	systags["UNIQUE"] = 1
+	systags["REPEAT"] = 1
+	systags["XREF"] = 1
+	systags["Int"] = 1
+	systags["Float"] = 1
+	systags["Text"] = 1
+	systags["Centre"] = 1
+	systags["Date"] = 1
+	systags["Image"] = 1
+	systags["Non_graphic"] = 1
+}
+
+{ for (i = 1 ; i <= NF ; ++i)
+    { if ($i == "//") next
+      if (substr($i, 1, 1) == "?" || substr($i, 1, 1) == "#")
+	++class[substr($i,2)]
+      else if (! ($i in systags))
+	++tag[$i]
+    }
+}
+
+END {
+#	for (i in class) print i
+	for (i in tag) print i
+}

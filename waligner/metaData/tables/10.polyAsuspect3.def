@@ -1,0 +1,45 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2007-02-17_14:49:01
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle product 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Product 
+Condition best_product && ! cooh_complete
+ 
+Colonne 2 
+Subtitle mrna 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class MRNA 
+From 1 
+Tag mRNA 
+Condition polya_primed_clone
+ 
+Colonne 3 
+Subtitle clone 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class cdna_clone 
+From 2 
+Tag cDNA_clone 
+Condition ! internal_priming && Primed_on_polyA
+ 
+ 
+
+// End of these definitions

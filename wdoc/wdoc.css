@@ -1,0 +1,16 @@
+/* Style guide for ACEDB development guides to the code.      */
+
+/* we want the background to be white for legibility.         */
+BODY {background-color: white}
+
+
+/* All headers are a different colour, but we don't use red   */
+/* or blue because they are the default hyper link colours.   */
+/*                                                            */
+/* Sadly, none of the overlining/underlining seems to work.   */
+/*                                                            */
+H1 {text-decoration: overline underline; color: purple; align: center}    
+
+H2 {text-decoration: overline; color: purple}
+
+H3, H4, H5, H6  {color: purple}

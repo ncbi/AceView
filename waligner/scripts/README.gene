@@ -1,0 +1,122 @@
+#!/bin/tcsh -f
+
+# Try to construct all the tags in a section containing AANAT
+
+cd GENES
+set chrom=17
+$tacembly ../../ZH$chrom << EOF
+  query find clone strategy
+  show -a -f strategy.ace
+  find gene aanat
+  follow Genomic_sequence
+  show -a -f cosmid2intmap.ace IntMap
+  dna cosmid.dna
+  spush
+  follow transcribed_gene
+  follow gene
+  sor
+  undo
+  follow mrna
+  list -a -f mrna.list
+  undo
+  follow read
+  sor
+  follow dna
+  sor
+  undo
+  follow cdna_clone
+  sor
+  spop
+  show -a -f av.data.preace
+  quit
+EOF
+sed -e 's/Best/\!Best/'  av.data.preace >  av.data.ace
+
+mkdir AANAT
+cd AANAT
+
+set a1=`gawk '/IntMap/{printf("%d",$3);}'  ../cosmid2intmap.ace `
+set a2=`gawk '/IntMap/{printf("%d",$4);}'  ../cosmid2intmap.ace `
+
+foreach manip (ILM_100)
+  foreach tissue (Brain UHR)
+    foreach lane ($lanes)
+      if (-e  ../../HITS_genome/$manip.$tissue.$lane.genome.hits && ! -e $manip.$tissue.$lane.genome.list) then
+        gawk '{if($3==chrom && $4>a1 && $4<a2)print $1}' chrom=$chrom a1=$a1 a2=$a2 ../../HITS_genome/$manip.$tissue.$lane.genome.hits | sort -u > $manip.$tissue.$lane.genome.list
+      endif
+    end
+  end
+end
+
+
+
+mkdir database
+        ln -s ../../../MetaDB/wspec
+echo y | $tacembly .
+# grep the 100 bp tags hitting our mrnas
+cat ../mrna.list | gawk '/MRNA/{m=$2;gsub(/\"/,"",m);printf("%s\n",m);}' > mrna.list2
+foreach manip (ILM_100)
+  foreach tissue (Brain UHR)
+    foreach lane ($lanes)
+      if (-e  ../../PHITS_main_aceview.u/$manip.$tissue.$lane.main_aceview.u.hits && ! -e $manip.$tissue.$lane.list) then
+        cat mrna.list2 >! totom
+        echo ZZZZZ >> totom
+        cat ../../PHITS_main_aceview.u/$manip.$tissue.$lane.main_aceview.u.hits >> totom
+        cat totom | gawk -F '\t' '/^ZZZZZ/{s=1;next;}{if(s<1){mm[$1]=1;next;}m=substr($4,6);if(mm[m]==1)print $1;}' | sort -u > $manip.$tissue.$lane.list
+        \rm totom
+      endif
+    end
+  end
+end
+foreach manip (ILM_100)
+  foreach tissue (Brain UHR)
+    foreach lane ($lanes)
+      if (-e $manip.$tissue.$lane.list && ! -e $manip.$tissue.$lane.list.fa3) then
+        cat $manip.$tissue.$lane.list >! totom
+        cat $manip.$tissue.$lane.genome.list >> totom
+        echo ZZZZZ >> totom
+        cat ../../Fasta/$manip/$tissue.$lane.fa >> totom
+        cat totom | gawk -F '\t' '/^ZZZZZ/{s=1;next;}{if(s==0){pp[$1]=1;next;}if(z==1)print;z=0;}/^>/{if(pp[substr($1,2)]==1){z=1;print};next;}' >!  $manip.$tissue.$lane.list.fa
+        \rm totom
+        cat $manip.$tissue.$lane.list.fa | gawk '/^>/{p=substr($1,2);printf("Sequence \"%s\"\nIs_read\nColour Green4\nForward\nmForward\ncDNA_clone \"%s\"\n\n",p,p);}' > $manip.$tissue.$lane.list.ace      
+       endif
+     end
+  end
+end
+
+foreach tissue (Brain UHR)
+  cat $manip.$tissue.?.list $manip.$tissue.??.list | sort -u | gawk '{printf("Sequence \"%s\"\n",$1);}' > $manip.$tissue.mrna.acelist
+  cat $manip.$tissue.*.genome.list | sort -u | gawk '{printf("Sequence \"%s\"\n",$1);}' >  $manip.$tissue.genome.acelist
+end
+
+cat *.list.ace > deep_reads.ace
+cat *.list.fa > deep_reads.fa
+
+$tacembly . << EOF
+  parse ../strategy.ace
+  parse ../av.data.ace
+  parse ../cosmid.dna
+  query find sequence t17_Hs17_10798_36_14
+  edit -D in_junction
+  edit genomic
+  query  Find sequence Genomic 
+  edit -D Overlap_left
+  pparse deep_reads.ace
+  pparse deep_reads.fa
+  key ILM_100.Brain.genome.acelist
+  edit colour BLUE2
+  key ILM_100.Brain.mrna.acelist
+  edit colour BLUE4
+  key ILM_100.UHR.genome.acelist
+  edit colour GREEN2
+  key ILM_100.UHR.mrna.acelist
+  edit colour GREEN4
+  save
+  acem
+    cdna_1
+    cdna_31
+  quit
+  save
+  quit
+EOF
+

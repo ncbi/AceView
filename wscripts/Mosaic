@@ -1,0 +1,15 @@
+#!/bin/csh
+
+# $Id: Mosaic,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $
+
+set noglob
+
+if (-x /usr/local/bin/Mosaic) then
+  exec /usr/local/bin/Mosaic $*
+else if (-x /usr/local/bin/xmosaic) then
+  exec /usr/local/bin/xmosaic $*
+else if (-x /usr/local/bin/netscape) then
+  exec /usr/local/bin/netscape $*
+else
+  exit 1
+endif

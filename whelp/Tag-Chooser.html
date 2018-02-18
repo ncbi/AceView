@@ -1,0 +1,77 @@
+<!--  @(#)Tag-Chooser.html	1.1  2/17/95  >
+<head>
+<title>Tag Chooser</title>
+</head>
+
+<h2>Tag Chooser</h2>
+
+The tag chooser appears in several contexts: after invoking <A
+HREF="Attach.html">Attach</a> in a <A HREF="Tree.html">text
+window</a>, constructing a table in the <A
+HREF="Table_Maker.html">TableMaker</a>, and defining a query in the <A
+HREF="Query_Builder.html">Query Builder</a>.  The purpose in each case
+is to display the structure of a class and allow you to select some
+part of it.<p>
+
+The layout of the tag-chooser closely resembles that in a text window
+with an important difference: the tag chooser shows all the
+<var>potential</var> tags and fields an object can have, not just the
+ones that have been used. By default ACEDB hides unused tags and
+fields when it displays an object; this allows objects to be
+arbitrarily complex yet keeps the display compact.<p>
+
+Note that the tag chooser is a blocking window. You must either pick
+an element or CANCEL/QUIT in order to continue using ACEDB.<p>
+
+<h3>Menu items</h3>
+
+<ul>
+
+<li><strong>Cancel</strong>: cancels operation and dismisses
+the tag chooser window.
+<li><strong>Help</strong>: brings up this help.
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+</ul>
+
+<h3>Buttons</h3>
+
+<ul>
+
+<li><strong>Attach...</strong>: this button doesn't do anything
+in the context of a tag chooser window.
+
+<li><strong>Quit</strong>: cancels operation and closes the
+tag-chooser.
+
+<li><strong>Tables...</strong>: shows only if tables are
+defined in wspec/table.menu.wrm for this class.
+
+<li><strong>Cancel</strong>: same as quit.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+</ul>
+
+<h3>Using the tag chooser</h3>
+
+Any tag or field highlighted in color in the tag chooser window can be
+picked. The first click selects the element and the second click
+actually picks it with respect to Attach, the TableMaker, or the Query
+Builder. If an element is shown in green (a "subtype") it can be
+double-clicked to reveal additional tags and fields.<p>
+
+Picking an element will close the tag chooser.<p>
+
+There are 3 kinds of elements to choose from in the tag chooser: tags,
+objects, or values. See the help for <A HREF="Attach.html">Attach</a>,
+the <A HREF="Query_Builder.html">Query Builder</a>, and the <A
+HREF="Table_Maker.html">TableMaker</a> for information about how these
+tools interpret the choice you make in the tag chooser window.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

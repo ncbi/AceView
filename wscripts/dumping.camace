@@ -1,0 +1,9 @@
+tx << END
+Find Method
+Write method.ace
+Find Sequence
+Wrire sequence.ace
+Fine DNA
+write dna.ace
+END
+compress *.ace

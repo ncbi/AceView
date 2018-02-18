@@ -1,0 +1,87 @@
+# synchronize this file with bestali.c:main and baExportAliProfile() and scripts/alignAndSelectBest.tcsh
+# source this file in the active csh script
+
+
+    if ($target == SpikeIn) set target_class=0_SpikeIn
+    if ($target == DNASpikeIn) set target_class=1_DNASpikeIn
+    if ($target == mito) set target_class=A_mito
+    if ($target == rrna) set target_class=B_rrna
+    if ($target == chloro) set target_class=C_chloro
+    if ($target == transposon) set target_class=D_transposon
+
+
+# Transcriptome starts at DT_magic and is named ?T_   
+# SYNCHRONIZE with lnAliErr.awk and with bestali.c:main() c5.h_Ali.awk and other places
+# aceview of different kinds
+    # if ($target == magic) set target_class=DT_magic
+
+    if ($target == av) set target_class=ET_av
+    if ($target == mRNA2Wiggle) set target_class=ET_av
+    if ($target == av2008) set target_class=FT_av2008
+    if ($target == extra) set target_class=FT_extra
+
+    if ($target == cloud) set target_class=FT_cloud 
+
+# pg is wormbase, or official mapview, i.e. RefSeq at freeze date
+    if ($target == pg) set target_class=KT_RefSeq
+    if ($target == RefSeq) set target_class=KT_RefSeq
+# RefSeq is current RefSeq
+
+    if ($target == seqc) set target_class=LT_seqc
+    if ($target == magic) set target_class=LT_magic
+
+    if ($target == UCSC) set target_class=LT_UCSC
+    if ($target == RefSeqCurrent) set target_class=LT_RefSeqCurrent
+    if ($target == EBI) set target_class=MT_EBI
+    if ($target == miRNA) set target_class=NT_miRNA
+    if ($target == Gaj) set target_class=MT_Gaj
+    if ($target == HINV) set target_class=NT_HINV
+    if ($target == FBK) set target_class=NT_FBK
+    if ($target == MiT) set target_class=NT_MiT
+    if ($target == FlyBase) set target_class=NT_FlyBase
+
+    if ($target == rnaGene) set target_class=OT_rnaGene
+    if ($target == tRNA) set target_class=PT_tRNA
+# rnaGene and tRNA are deprecated,  they are both integrated in smallRNA
+# constructed from Lowe tRNA database and Encode miRNA, snRNA, snoRNA and misc_RNA
+    if ($target == smallRNA) set target_class=QT_smallRNA
+
+
+# Transcriptome ends at RT_   
+
+    if ($target == est) set target_class=S_est
+    if ($target == introns)  set target_class=U_introns
+    if ($target == Line) set target_class=W_Line
+
+    if ($target == Bamy) set target_class=X_Bamy
+    if ($target == Pfluo) set target_class=Y_Pfluo
+    if ($target == genome) set target_class=Z_genome
+
+    if ($target == bacteria) set target_class=b_bacteria
+    if ($target == virus) set target_class=v_virus
+
+    if ($target == gdecoy) set target_class=z_gdecoy
+
+####
+# z*_ and Z*_ are recognized as genome in wiggle->ventilate
+####
+
+# E.coli
+if ($target == K12_MG1655_Ref_Wisconsin_4600kb_4498_genes) set target_class=mz_K12_MG1655_Ref_Wisconsin_4600kb_4498_genes
+if ($target == O104H4_HemolyticUremicSynd_NoEndospores_mobil_LosAlamos_5270kb_5092_genes_3plsm) set target_class=nz_O104H4_HemolyticUremicSynd_NoEndospores_mobil_LosAlamos_5270kb_5092_genes_3plsm
+if ($target == IAI39_UrinaryTractInfect_noMobil_Genosc_5100kb_5092_genes) set target_class=oz_IAI39_UrinaryTractInfect_noMobil_Genosc_5100kb_5092_genes
+if ($target == Sakai_O157H7_hemorragicColitis_5500kb_5360_genes_2plasmd) set target_class=pz_Sakai_O157H7_hemorragicColitis_5500kb_5360_genes_2plasmd
+if ($target == UMN026_UrinaryTractInfect_Genoscope_5200kb_5089_genes_2plsm) set target_class=qz_UMN026_UrinaryTractInfect_Genoscope_5200kb_5089_genes_2plsm
+if ($target == O104H4_HemolyticUremicSynd_NoEndospores_mobil_LosAlamos_5270kb_5092_genes_3plsm) set target_class=rz_O104H4_HemolyticUremicSynd_NoEndospores_mobil_LosAlamos_5270kb_5092_genes_3plsm
+if ($target == O83H1_pathogen_noMobil_CanadaZoonose_4750kb_4536_genes_1plsm) set target_class=sz_O83H1_pathogen_noMobil_CanadaZoonose_4750kb_4536_genes_1plsm
+
+if ($target == p1ESCUM_UMN026_UrinaryTractInfect_Genoscope_122kb_156_genes) set target_class=x1_p1ESCUM_UMN026_UrinaryTractInfect_Genoscope_122kb_156_genes
+if ($target == p2ESCUM_UMN026_UrinaryTractInfect_Genoscope_34kb_49_genes) set target_class=x2_p2ESCUM_UMN026_UrinaryTractInfect_Genoscope_34kb_49_genes
+if ($target == pAAEA11_O104H4_HemolyticUremicSynd_LosAlamos_74kb_82genes) set target_class=x3_pAAEA11_O104H4_HemolyticUremicSynd_LosAlamos_74kb_82genes
+if ($target == pESBLEA11_O104H4_HemolyticUremicSynd_LosAlamos_88kb_94genes) set target_class=x4_pESBLEA11_O104H4_HemolyticUremicSynd_LosAlamos_88kb_94genes
+if ($target == pGEA11_O104H4_HemolyticUremicSynd_LosAlamos_1500kb_1gene) set target_class=x5_pGEA11_O104H4_HemolyticUremicSynd_LosAlamos_1500kb_1gene
+if ($target == pO157_Sakai_O157H7_hemorragicColitis_93kbPlsm_85_genes) set target_class=x6_pO157_Sakai_O157H7_hemorragicColitis_93kbPlsm_85_genes
+if ($target == pO83_CORR_pathogen_noMobil_CanadaZoonose_147kb_154_genes) set target_class=x7_pO83_CORR_pathogen_noMobil_CanadaZoonose_147kb_154_genes
+if ($target == pOSAK1_Sakai_O157H7_hemorragicColitis_3kb_3_genes) set target_class=x8_pOSAK1_Sakai_O157H7_hemorragicColitis_3kb_3_genes
+
+

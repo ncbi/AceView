@@ -1,0 +1,86 @@
+MD5 Message-Digest Code
+=======================
+
+This is the code being used to implement encoding (and hence security) for the acedb
+password system.
+
+
+This directory contains:
+------------------------
+
+README		this file (sic).
+
+rfc1321.txt	description of the MD5 algorithm and code (do _not_ alter this document,
+		it is the original rfc).
+
+rfc2617.txt	description of the use of digests/MD5 for http (useful background info.).
+
+global.h	header to define various basic types for the MD5 code and test programs.
+
+md5.h		the MD5 interface header.
+
+md5c.c		the MD5 implementation.
+
+mddriver.c	a standalone MD5 test program.
+
+test.sample	an example of the output of mddriver.c run on Linux and Alpha.
+
+
+digcalc.h	header for code to implement password/nonce digests as in http.
+
+digcalc.c	routines to implement password/nonce code as in http.
+
+digtest.c	a standalone password/nonce test program.
+
+
+About the code:
+---------------
+This code was produced by others for public domain use where data must be encrypted with
+reasonable security. The md5 code was extracted from rfc1321.txt and the digest code
+was extracted from rfc2617.txt which are available (along with many other documents
+about the internet/security etc) at ftp://ftp.isi.edu
+
+The code is digest code where "digest" is a term used to mean the mangling of some data,
+usually a password, in a system where the data is passed between client & server only
+in encrypted form.
+
+The code has intentionally been left in the form in which it was extracted from the
+rfc texts at the ftp site, it's not pretty but it is the original code.
+
+The test programs mddriver.c and digtest.c have been included so that the code can be
+tested if any alterations have to be made to the code.
+
+
+=======================================================================================
+Here are some comments on what I needed to do to get it to compile/run correctly:
+
+
+General changes
+---------------
+Had to change include paths a bit to <wmd5/nnnn.h> to ensure the includes were found
+correctly.
+
+The digXXX code had a number of problems including C++ style "//" comments and extraneous
+semicolons at the end of functions (!?*), I just fixed these willy nilly.
+
+global.h
+--------
+
+1) Had a problem with code not working correctly on a 64-bit processor, the following
+   typedef in this header is clearly wrong...
+
+/* UINT4 defines a four byte word */
+typedef unsigned long int UINT4;
+
+this will be an 8 byte word on alphas and most other 64-bit machines. Once this was
+corrected to produce 4 byte 'words' by removing the 'long' keyword the code compiled
+and the test programs produced the correct output.
+
+2) Made PROTOTYPES the default as we always want ANSI C behaviour.
+
+digcalc.c
+---------
+
+1) contained a reference to a function called stricmp(), I assumed that this was
+   the same as strcmp and this seems to be true. This is not an important problem.
+

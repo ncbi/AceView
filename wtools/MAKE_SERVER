@@ -1,0 +1,66 @@
+#!/bin/csh -f
+
+echo MAKE_SERVER
+if ($#argv < 3) then
+   echo 'usage: makeServer version my_mach [target_my_mach]'
+   echo 'example MAKE_SERVER 4_6e LINUX_4 LINUX_libc6'
+   exit 1
+endif
+
+setenv my_version $1
+setenv my_mach $2
+
+if ($3 != "") then
+ setenv target $3
+else
+ setenv target $my_mach
+endif
+
+if ! ( -d bin."$my_mach") then
+ echo no directory bin.$my_mach
+ exit 1
+endif
+
+
+setenv bb bin."$my_mach"
+setenv toto acedb_server_"$my_version"_$target
+
+if (-d ~/distrib/"$toto") \rm -rf ~/distrib/"$toto"
+mkdir ~/distrib/"$toto"
+mkdir ~/distrib/"$toto"/wh
+mkdir ~/distrib/"$toto"/bin
+
+foreach ff (wh/aceclient.h)
+if ! (-e  $ff) then
+ echo "   $ff missing"
+ \rm -rf ~/distrib/"$toto"
+ exit 1
+else 
+ echo "   $ff"
+ cp $ff ~/distrib/"$toto"/$ff
+endif
+end
+
+foreach ff (libfree.a libacecl.a giface gifaceserver)
+if ! (-e  $bb/$ff) then
+ echo "   $bb/$ff missing"
+ \rm -rf ~/distrib/"$toto"
+ exit 1
+else 
+ echo "   $bb/$ff"
+ cp $bb/$ff ~/distrib/"$toto"/bin
+endif
+end
+
+echo all necessary files found
+
+cd ~/distrib
+
+echo preparing ~/distrib/"$toto".tar.gz
+tar cf - "$toto" | gzip >! "$toto".tar.gz
+\rm -rf ~/distrib/"$toto"
+
+echo done
+
+
+

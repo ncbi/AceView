@@ -1,0 +1,30 @@
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+###############   wmake/FUJITSU_4_DEF    Jan-98    ##############
+#################################################################
+# @(#)FUJITSU_4_DEF  %W% %G%
+#################################################################
+########## Machine dependant compiler modification ##############
+############     for the FUJITSU at ddbj       ##################
+############  contributed by Jean Thierry-Mieg ##################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = FUJITSU
+RANLIB_NEEDED = true
+AR_OPTIONS = ru  # option -l missing on fujitsu
+COMPILER = cc -D_INCLUDE_POSIX_SOURCE -DSYSV -DPOSIX -DNO_LEFT_CASTING
+LINKER = cc
+
+LIBS = -lm -lnsl
+
+.c.o:
+	$(CC) -c $*.c
+
+#################################################################
+#################################################################
+
+

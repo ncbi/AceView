@@ -1,0 +1,2 @@
+rm -rf database wspec whelp gendata.big server.log passwd.wrm
+

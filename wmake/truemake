@@ -1,0 +1,1596 @@
+#$Id: truemake,v 1.180 2017/03/18 15:31:31 mieg Exp $
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+#################################################################
+#
+# ATTENTION:
+#   If you are recompiling the distribution code on your own
+#  machine, you should NOT edit the present file. All the machine
+#  specific options should be given in your personal *_DEF file
+#  in the same directory.
+#   If you think you have to touch this file, contact the authors
+#        mieg@crbm.cnrs-mop.fr, rd@sanger.ac.uk
+#
+#   If you add a display module, edit this file, not *_DEF
+#
+#
+#   If you wish to specify one off compiler options such as
+#   setting the debug flag (-g) or a preprocessor macro
+#   value (-DMY_OWN_COMPILE_FLAG) then rather than editting
+#   this file use the USEROPTS make macro like this:
+#
+#   make USEROPTS='-g -DMY_OWN_COMPILE_FLAG -xge -y'
+#
+#   these will then be included in the flags used to compile
+#   the .o files.
+#
+#
+#################################################################
+# Before running the make command
+# setenv ACEDB_MACHINE to indicate one of the predefined
+# Machine dependant option files, or write your own.
+# These files are called  $(ACEDB_SRC)/wmake/$(ACEDB_MACHINE)_DEF
+#
+# They define 4 (possibly 5) names:
+# NAME, COMPILER, LINKER, LIBS, RANLIB_NEEDED, AR_OPTIONS
+# COMPILER sets the compiler and its specific flags (cc, gcc ...)
+# LINKER sets the linker and its specific flags (cc, gcc ...)
+# LIBS the corresponding libraries (-lm gcc-gnulib ...)
+# RANLIB_NEEDED should be set to false if ranlib is not needed, 
+# it defaults to true for backward compatibility.
+# AR_OPTIONS defaults to rlu for backward compatibility.
+# NAME must be selected as follows
+#################################################################
+
+### pick NAME from among this list.
+### NAME is used in the source code to conform to the
+### target machine. It is used mostly in wh/mystdlib.h,
+### wh/mydirent.h but also in a few awkward places, for example
+### wh/array.h redefines the stack Macros in a particular way to
+### please the xlc compiler of the IBM.
+### If you port to a new machine, please let us know.
+
+# ALPHA  Daily development platform using OSF1 V4.0    (1998)
+# SUN    Tested for Sun Sparc 1, 2, 10 and on SUN3/80  (1997)
+# NEXT   Tested on a several Next                      (1994)
+# SGI    Used daily, but the sgi OS is very unsatble   (1997)
+# ALLIANT  Alliant multiprocessor at MRC-LMB.          (1991)
+
+# CONVEX Contributed by Jukka Ukkonen (ukkonen@csc.fi)
+#       For make command to work
+#	it does not help to
+#		setenv ACEDB_MACHINE CONVEX
+#	as adviced in the installation document. The
+#	make command on Convex does not look in the
+#	environment variables to fill in it's internal
+#	variables when ACEDB_MACHINE is not defined as
+#	a make's internal variable. To circumvent this
+#	inconvenience do the make as follows
+#		make ACEDB_MACHINE=CONVEX
+#	and everything should work nice and easy.
+
+# IBM   IBM-risc 6000,
+#       We sometime  have difficulties to compile the graph package
+#       with xlc -O2
+
+# LINUX IBM-PC 386 and compatible, running gcc and the freeware
+#       LINUX operating system. This platform is extremely cheap 
+#       around 2000$ hardware + disk + sofware and remarkably fast
+
+#	We use either gnu-compiler gcc or the native cc compilers
+#       This choice is made by the $(ACEDB_MACHINE)_DEF file.
+# 
+#       On Alliant our 2 steps make does not properly works,
+#       so on those ACEDB_MACHINEs:
+#       do the following by hand:
+#	setenv ACEDB_MACHINE SGI or ALLIANT
+#       mkdir database ; mkdir bin
+#       cp wmake/truemake bin/makefile
+#       cd bin ; make all
+
+#### The following machine-dependent options are recognized
+#### by the code
+
+# -DNO_LEFT_CASTING For compilers which refuse (int*)p++ syntax
+
+#################################################################
+
+#################################################################
+################## Graphic Libraries ############################
+#################################################################
+# In principle the following X libraries can be found using:
+
+Xt_LIBS = -lXaw -lXt -lXmu -lXext -lX11 
+
+# On badly configurated machines, you may redefine these libraries
+# in a more precise way in your $(ACEDB_MACHINE)_DEF file
+
+#################################################################
+###################### Lex Libraries ############################
+#################################################################
+# most versions of lex require you to use -ll
+# but not Linux - reset LEX_LIBS in $(ACEDB_MACHINE)_DEF file
+
+LEX_LIBS = -ll
+
+#################################################################
+################## Source code directory, #######################
+###### can be changed in $(ACEDB_MACHINE)_DEF if need be ########
+#################################################################
+
+W1 = w1      # General tools, useful in any C program
+W2 = w2      # Graphic library: X11, Post-script ...
+
+W4 = w4      # Acedb-kernel: session control etc
+W5 = w5      # Acedb-kernel: database manager
+W6 = w6      # Acedb-kernel: object handler and query language
+W7 = w7      # Graphic Applications: gmaps, pmaps etc
+W8 = w8      # Non graphic applications
+W9 = w9      # Miscellaneous applications
+WACE = wace  # Parsers
+WBQL = wbql  # Bql reimplementation of table-maker + AQL query language
+WAC = wac  # Mark's C-interface to acedb
+WEGO = wego # Mark's multi-threading interface
+WCHANNELS = wchannels  # remote channels : a way to synchronize multitasking
+
+LINK_ACC_RPC=$(RPC_CLIENT_OBJS)
+#LINK_ACC_RPC=
+
+LINK_ACC=libaccl.a libfree.a  libtsfree.a libacedna.a libtcpfn.a $(LINK_ACC_RPC)
+# LINK_ACC is the set of object files needed if you use
+# the client version of the new Ace C library
+
+LINK_ACS=libace.a libfree.a libtsfree.a
+# LINK_ACS is what to use if you want a standalone Ace C program
+
+LINK_ACI= 
+# LINK_ACI is what to use if you have Ace C inside tace, xace, etc
+
+WACEC = wacec  # Vahan's C-interface to acedb
+WNQ  = wnq   # New code: bindex etc
+# WAQL  = waql   # New Ace Query language
+WABI = wabi  # code for acembly
+WFICHE = wfiche  # code for fiches, annottion of the genes
+WHOOKS = whooks # links between modules 
+WJO = wjo     # Jo's comparative mapping display tools
+
+true = 1
+false = 0
+RANLIB_NEEDED = true	# default overridable in $(ACEDB_MACHINE)_DEF
+AR_OPTIONS = rlu	# default overridable in $(ACEDB_MACHINE)_DEF
+LEX         = lex
+LEX_OPTIONS = 
+YACC        = yacc
+###YACC_OPTIONS = -dvt
+YACC_OPTIONS =
+
+
+# defaults overridable in $(ACEDB_MACHINE)_DEF
+# e.g. different compiler when using purify
+CCC = g++
+CCCLINK = g++
+CCCFLAGS = -O2 -g3 -Wall
+
+TEST = test
+
+# suppress auto SCCS extraction
+.SCCS_GET:
+
+
+#
+# some of the programs can run setuid and enforce the database
+# permissions themselves, but in fact you don't need to do that.
+# You can if you want, but the Solaris version of gdb cannot
+# debug the program when it is setuid.
+#
+
+#MODE_P = 4755
+MODE_P  = 755
+MODE_NP = 755
+
+#################################################################
+########## Machine dependent compiler modification ##############
+############# Are included from an external file ################
+#### This is equivalent to, but more portable than $($(CC)) #####
+### Edit these rules to adapt the makefile to a new machine #####
+# Note that you can keep different DEF files for the same machine
+# setting  various compiler  options
+#################################################################
+include deffile
+
+
+
+#################################################################
+#################################################################
+# In principle you should not have to edit the rest of this file
+#################################################################
+#################################################################
+
+FREE_OBJS = freesubs.o  freeout.o messubs.o \
+	ulines.o call.o \
+	filsubs.o
+
+TS_FREE_OBJS = acein.o aceout.o utils.o vtxt.o strsubs.o msort.o vcgi.o cgi.o \
+	dict.o heap.o liste.o keyset.o memsubs.o bump.o \
+	randsubs.o timesubs.o channel.o \
+	arraysub.o bigarraysub.o dnacode.o topology.o wigglelib.o
+
+GRAPH_OBJS = graphcon.o graphsub.o graphps.o graphswf.o graphselect.o \
+	graphascii.o graphprint.o filquery.o graphgd.o graphcolour.o graphramp.o \
+	colcontrol.o viewedit.o chronodisp.o graphhelp.o \
+	graphAcedbInterface.o menu.o
+
+Xt_OBJS =  graphxt.o graphxlib.o xtsubs.o graphxwww.o xnetscape_remote.o
+
+GIF_OBJS = libgd.o gdfont6x9.o gdfont8x13.o gdfont8x13bold.o
+
+WJAVA_OBJS = wz.o
+
+#####################################################################
+
+JO_OBJS = oxgriddisp.o pairmapdisp.o o2m.o oxhomlist.o specg.o
+
+######################################################################
+
+# AQL_OBJS = aql.o aqlparse.o aqlcheck.o aqlrun.o aqlerror.o aqldebug.o
+# NOT aqlmain.o compiled extra for stand-alone aql app
+
+BASE_OBJS = keysetdump.o lexsubs4.o lexalpha.o \
+	disknew.o blocksub.o objcache.o  
+
+B_OBJS  = bsubs.o bstree.o bstools.o \
+	bsdumps.o nicedump.o asubs.o bssubs.o check.o \
+	dnasubs.o  \
+	basepad.o orepeats.o
+
+ACEDNA_OBJS = acedna.o peptide.o
+
+NQ_OBJS = bindex.o acelib.o table.o 
+
+BASE_5_OBJS = keysetdump.o lexsubs4.o lexalpha.o \
+	adisk.ng5.o acache.ng5.o bs2block.ng5.o objcache.ng5.o 
+
+B_5_OBJS  = bstools.o  \
+	bsdumps.o nicedump.o asubs.ng5.o bssubs.o check.o \
+	dnasubs.o \
+	basepad.o orepeats.o
+
+#########################################
+
+## objects for every acedb build, whether graphical or not.
+GENERIC_ACE_OBJS = command.o session.o queryexe.o querydna.o banner.o \
+	bql.o sprdop.o  sprddef.o flag.o alignment.o saucisse.o \
+	$(BASE_OBJS) $(B_OBJS)  $(ACEDNA_OBJS) $(NQ_OBJS) \
+	class.o sysclass.o tags.o model.o cdnainit.o \
+	acinside.o actable.o \
+	chronoexe.o \
+	helpsubs.o texthelp.o \
+	$(WVSIM_OBJS) acein.o aceout.o 
+
+GENERIC_ACE_5_OBJS = command.o session.ng5.o queryexe.o querydna.o banner.o \
+	bql.o sprdop.o  sprddef.o flag.o alignment.o saucisse.o \
+	$(BASE_5_OBJS) $(B_5_OBJS)  $(ACEDNA_OBJS) $(NQ_OBJS) \
+	class.o sysclass.o tags.o model.o cdnainit.o  \
+	acinside.o actable.o \
+	chronoexe.o \
+	$(WVSIM_OBJS) acein.o aceout.o
+
+## same as GENERIC_ACE_OBJS, but these are used in -DACEMBLY builds
+GENERIC_ACEMBLY_OBJS = command.acm.o session.o queryexe.o querydna.o banner.o \
+	bql.o sprdop.o  sprddef.o flag.o alignment.o saucisse.o \
+	$(BASE_OBJS) $(B_OBJS)  $(ACEDNA_OBJS) $(NQ_OBJS) \
+	class.acm.o sysclass.acm.o tags.acm.o  model.o cdnainit.o  \
+	sworm.o kantorbly.o fichelogic.o fichegold.o fichetxbl.o ficheasn.o \
+	webquery.o gtitle.o titlegen.o  mrnacompare.o acein.o aceout.o
+
+GENERIC_ACEMBLY_5_OBJS = command.acm.o session.ng5.o queryexe.o querydna.o banner.o \
+	bql.o sprdop.o  sprddef.o flag.o alignment.o saucisse.o \
+	$(BASE_5_OBJS) $(B_5_OBJS) $(NQ_OBJS) \
+	class.acm.o sysclass.acm.o tags.acm.o  model.o cdnainit.o  \
+	sworm.o kantorbly.o fichelogic.o fichegold.o fichetxbl.o ficheasn.o \
+	helpsubs.o texthelp.o chronoexe.o webquery.o gtitle.o titlegen.o  mrnacompare.o acein.o aceout.o
+
+## The GENERIC_ACE_(NON)GRAPH_OBJS files still have #ifdef NON_GRAPHIC
+## sections which need to be resolved. These objects can then
+## move to the GENERIC_ACE_OBJS group.
+GENERIC_ACE_GRAPH_OBJS = picksubs.o parse.o \
+	dump.o longtext.o quovadis.o prefsubs.o biblio.o palette.o
+
+GENERIC_GIFACE_GRAPH_OBJS = picksubs.o parse.ng.o \
+	dump.o longtext.o quovadis.o prefsubs.o biblio.o palette.o
+
+GENERIC_ACEMBLY_GRAPH_OBJS = picksubs.o parse.o \
+	dump.o longtext.o quovadis.acm.o prefsubs.o biblio.o palette.o
+
+#########################################
+
+GENERIC_ACE_NONGRAPH_OBJS = picksubs.ng.o \
+	parse.ng.o dump.ng.o longtext.ng.o \
+	quovadis.ng.o prefsubs.ng.o biblio.ng.o
+
+GENERIC_ACEMBLY_NONGRAPH_OBJS = picksubs.ng.o \
+	parse.ng.o dump.ng.o longtext.ng.o \
+	quovadis.acmng.o prefsubs.ng.o biblio.ng.o
+
+#####################################
+
+## included in graphical builds
+GRAPHICAL_ACE_OBJS = mainpick.o display.o update.o \
+	newkey.o status.o treedisp.o forest.o bundle.o ksetdisp.o \
+	plot.o plot2d.o sessiondisp.o \
+	querydisp.o qbedisp.o querybuild.o  bqldisplay.o \
+	sprddata.o sprdctrl.o sprdmap.o sprddisplay.o \
+	alignmentdisp.o objcachedisp.o action.o \
+	acedbgraph.o acdbtest.o gmleditor.o
+
+## included in graphical builds
+GRAPHICAL_ACEMBLY_OBJS = mainpick.acm.o display.acm.o update.o \
+	newkey.acm.o status.o treedisp.o forest.o ksetdisp.o \
+	plot.o plot2d.o sessiondisp.o \
+	querydisp.o qbedisp.o querybuild.o   bqldisplay.o \
+	sprddata.o sprdctrl.o sprdmap.o sprddisplay.o \
+	alignmentdisp.o objcachedisp.o action.o \
+	acedbgraph.o acdbtest.o gmleditor.o bundle.o
+
+
+### linked in by graphical acembly builds
+MAPPING_GRAPH_OBJS = aligntools.o \
+	defcpt.o intrinsictree.o \
+	dnaalign.o basecallstat.o
+
+
+### linked in by non-graphical acembly builds 
+MAPPING_NONGRAPH_OBJS = aligntools.o \
+	defcpt.ng.o \
+	intrinsictree.ng.o \
+	dnaalign.ng.o basecallstat.ng.o
+
+### linked in by graphical acembly builds
+ABI_GRAPH_OBJS = trace.acedb.o annot.acedb.o  fmaptrace.acm.o glocdisp.o hseqdisp.o htiledisp.o mhmpdisp.o blyctrl.o  geneannot.o geneexpdisp.o
+
+####notneeded####ABI_NONGRAPH_OBJS = trace.acedbng.o annot.acedb.o fmaptrace.acm.o blyctrl.o 
+
+### linked in by graphical acembly builds
+BASECALL_GRAPH_OBJS = basecall.acedb.o abifix.acedb.o \
+	nnbasecall.acedb.o  \
+	myNetwork.o acemblyhook.o cdnaalign.o cdnapath.o cdna2transcript.o \
+	fichegraph.o \
+	cdnatr.o diamino.o makemrna.o compositedesign.o giw.o cdnaflipgenes.o cdnarename.o chromorepeats.acm.o \
+	genezone.o percolate.o webmagic.o
+
+### linked in by non-graphical acembly builds
+BASECALL_NONGRAPH_OBJS = basecall.acedbng.o abifix.acedbng.o \
+	nnbasecall.acedb.o  \
+	myNetwork.o acemblyhook.o cdnaalign.o cdnapath.o  cdna2transcript.o \
+	cdnatr.o diamino.o makemrna.o compositedesign.o giw.o cdnaflipgenes.o cdnarename.o chromorepeats.acm.o \
+	genezone.o percolate.o webmagic.o
+
+#############################
+
+ALL_DISP_OBJS = griddisp.o geldisp.o \
+	cmapdisp.o pmapdisp.o pmapconvert.o \
+	gmapdisp.o vmapdisp.o vmapdrag.o \
+	mapcontrol.o pepactivezonecol.o \
+	dnacpt.o fpdisp.o pepdisp.o pephomolcol.o pepseqcol.o \
+	pepfeaturecol.o pepgraphcol.o metab.o \
+        gmapconvert.o gmapmarkercol.o gmapintervalcol.o \
+        gmaplocuscol.o gmapremarkcol.o drawdisp.o \
+	gmapposnegcol.o method.o gmapsubmapcol.o \
+        dendrogram.o
+
+FMAP_ACE_OBJS = fmapsequence.o fmapfeatures.o fmapgene.o \
+	fmaposp.o fmapblast.o fmapstatus.o \
+	fmapcontrol.o fmapcdna.o fmaporepeats.o
+
+FMAP_ACEMBLY_OBJS = fmapsequence.o fmapfeatures.acm.o fmapgene.o \
+	fmaposp.o fmapblast.o fmapstatus.o \
+	fmapcontrol.acm.o fmapcdna.acm.o fmaporepeats.o
+
+OTHER_OBJS = embl.o translate.o \
+	dotter.o dotterKarlin.o \
+	gmapdata.o gmapdatacol.o vmapdata2.o \
+	align.o gmapphys.o vmapphys.o \
+	gfcode.acedb.o hexcode.acedb.o blxview.acedb.o
+
+WORM_DISP_ACE_OBJS = $(ALL_DISP_OBJS) $(FMAP_ACE_OBJS) $(OTHER_OBJS)
+WORM_DISP_ACEMBLY_OBJS = $(ALL_DISP_OBJS) $(FMAP_ACEMBLY_OBJS) $(OTHER_OBJS)
+
+#####################################################################
+# Socket based ace server/client objects.
+#
+
+# MD5 encryption package is used by socket server code.
+# MD5 - package for encryption using the MD5 algorithm.
+LIBMD5 = wmd5
+
+LIBMD5_HDR            = ../$(LIBMD5)/global.h ../$(LIBMD5)/md5.h
+LIBMD5_OBJ            = md5c.o
+LIBMD5_TEST_HDR       = ../$(LIBMD5)/digcalc.h
+LIBMD5_TEST_OBJ       = mddriver.o digcalc.o digtest.o
+
+# Sockets based Client/server code.
+ACESOCK  = wsocket7
+
+ACESOCK_SOCKET_HDR    = ../$(ACESOCK)/acesocket_.h
+ACESOCK_TRANSPORT_HDR = ../$(ACESOCK)/servertransport.h
+ACESOCK_SERVER_HDR    = ../$(ACESOCK)/serverace_.h
+ACESOCK_CLIENT_HDR    = ../$(ACESOCK)/saceclient_.h
+ACESOCK_CLIENTLIB_HDR = ../$(ACESOCK)/sclientlib.h
+ACESOCK_UTILS_HDR     = ../$(ACESOCK)/serverclientutils.h
+
+ACESOCK_SOCKET_OBJ    = acesocket.o acesocketlib.o
+ACESOCK_SERVER_OBJ    = serverace.o serveracepasswd.o
+ACESOCK_CLIENT_OBJ    = saceclient.o sclient.o
+ACESOCK_CLIENTLIB_OBJ = sclientlib.o
+ACESOCK_UTILS_OBJ     = serverclientutils.o
+ACESOCK_XCLIENT_OBJ   = sxclient.o
+
+###########################################################
+## Compile Time Variants
+## A single source code will produce several object modules
+## Rules are given below
+###########################################################
+
+# add any new special suffix here - do not have multiple .SUFFIXES lines 
+.SUFFIXES: .o .c .ng.o .acedb.o .acedbng.o .acm.o .acmng.o .ng5.o .a5.o .cc .d_o
+
+
+
+###########################################################
+## Source code location
+##
+## 
+W1_SOURCES = $(FREE_OBJS:.o=.c) $(TS_FREE_OBJS:.o=.c) pseudoword.c pseudoword_test.c
+
+#WTS1_SOURCES = $(TS_FREE_OBJS:.o=.c)
+
+W2_SOURCES = $(GRAPH_OBJS:.o=.c)  $(Xt_OBJS:.o=.c) \
+	graphtest.c gifsubs.c
+W4_SOURCES =    command.c banner.c dump.c model.c queryexe.c querydna.c parse.c session.c \
+		prefsubs.c palette.c longtext.c picksubs.c mainpick.c metadata.c newkey.c \
+		status.c update.c alignment.c \
+		sprdop.c sprddef.c chronoexe.c helpsubs.c texthelp.c \
+		tacemain.c xacemain.c xclientmain.c gifacemain.c
+W5_SOURCES = $(BASE_OBJS:.o=.c) adisk.c bs2block.c acache.c
+W6_SOURCES = $(B_OBJS:.o=.c) $(ACEDNA_OBJS:.o=.c) \
+		display.c treedisp.c forest.c bundle.c ksetdisp.c \
+		querydisp.c qbedisp.c querybuild.c   bqldisplay.c \
+		sprddata.c sprdctrl.c sprdmap.c sprddisplay.c \
+		alignmentdisp.c objcachedisp.c sessiondisp.c \
+		action.c plot.c plot2d.c \
+		acedbgraph.c acdbtest.c 
+W7_SOURCES = $(ALL_DISP_OBJS:.o=.c) biblio.c $(PMAP_OBJS:.o=.c) \
+	$(FMAP_ACE_OBJS:.o=.c) coltest.c
+WBQL_SOURCES = bql.c
+
+## MAPPING_OBJS
+W8_SOURCES = defcpt.c intrinsictree.c dnaalign.c \
+	aligntools.c basecallstat.c
+
+W9_SOURCES = gfcode.c embl.c  \
+	dotter.c dotterKarlin.c \
+	translate.c blxview.c \
+	gmapdata.c  gmapdatacol.c vmapdata2.c \
+	align.c gmapphys.c vmapphys.c hexcode.c \
+	blxmain.c blxselect.c blxparser.c \
+	diskdump.c diskfix.c \
+	dotterMain.c colormap.c \
+	efetch.c dbidx.c
+
+WRPC_SOURCES = rpcace.x xclient.c jade2ace.c aceclient.c aceclientlib.c aceserver.c jadeserver.c rpcace_sp.c jade2sybase.c aceshow.c
+
+LIBMD5_SOURCES =  $(LIBMD5_OBJ:.o=.c) $(LIBMD5_TEST_OBJ:.o=.c)
+ACESOCK_SOURCES = $(ACESOCK_SOCKET_OBJ:.o=.c) $(ACESOCK_SERVER_OBJ:.o=.c) \
+                  $(ACESOCK_CLIENT_OBJ:.o=.c) $(ACESOCK_CLIENTLIB_OBJ:.o=.c) \
+                  $(ACESOCK_UTILS_OBJ:.o=.c) $(ACESOCK_XCLIENT_OBJ:.o=.c)
+
+
+WNQ_SOURCES = $(NQ_OBJS:.o=.c)  flag.c tagcount.c aceversion.c saucisse.c
+# WAQL_SOURCES = $(AQL_OBJS:.o=.c) aqlparse.y aqlparse.l aqlmain.c
+WACE_SOURCES = pmapace2.c homonym.c acediff.c acediffsorted.c acesplit.c
+WABI_SOURCES = trace.c fmaptrace.c geneexpdisp.c glocdisp.c hseqdisp.c htiledisp.c mhmpdisp.c blyctrl.c annot.c geneannot.c \
+	basecall.c abifix.c myNetwork.c nnbasecall.c acemblyhook.c \
+	cdnaalign.c  cdnapath.c cdna2transcript.c \
+	mrnacompare.c genezone.c percolate.c \
+	cdnatr.c diamino.c makemrna.c compositedesign.c giw.c cdnaflipgenes.c \
+	gffdump.c gffread.c cdnarename.c chromorepeats.c webquery.c webmagic.c
+WHOOK_SOURCES = sysclass.c class.c tags.c quovadis.c cdnainit.c
+GIF_SOURCES = $(GIF_OBJS:.o=.c)
+WJAVA_SOURCES = $(WJAVA_OBJS:.o=.c)
+WJO_SOURCES = $(JO_OBJS:.o=.c)
+
+CHANNEL_OBJS =  remote_channel.o
+WCHANNELS_SOURCES = $(CHANNEL_OBJS:.o=.c) 
+
+WAC_SOURCES = acclient.c actable.c acinside.c
+WACEC_SOURCES = gmleditor.c 
+WEGO_SOURCES = wego.c wego_test.c
+WFICHE_SOURCES = fichegraph.c kantorbly.c sworm.c fichelogic.c fichegold.c fichetxbl.c ficheasn.c gtitle.c \
+	locuslinkgo.c cl2acc.c acekog2ace.c kantormegaparse.c \
+	titlegen.c expasy.c
+
+WVSIM_OBJS = vmem.o vsort.o vstr.o vtext.o
+WVSIM_SOURCES =  $(WVSIM_OBJS:.o=.c)
+
+###########################################################
+##  Compiler and library options
+## CC, LIBS, NAME are defined in $(ACEDB_MACHINE)_DEF
+##
+ 
+IDIR = -I. -I.. -I../wh -I../wac -I../wego -I../whooks -I../wstaden -I../wacec -I../wmd5 -I../wvsim
+# Do not use -I/usr/include
+# it prevents gcc from picking up its own includes
+# (cc goes to /usr/include anyway)
+
+## to undefine any rubbish
+CCFLAGS =
+GCFLAGS =
+
+## Different platforms use CC or COMPILE.c
+#  (USEROPTS - see comments at top of file)
+#
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c
+COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c
+
+
+###########################################################
+## make targets.
+##
+##
+.KEEP_STATE: 
+
+# "all" should always be the first target so that it is the default make action.
+all : xace tace  \
+	aceserver xaceclient \
+	giface gifaceserver \
+	acediff acediffsorted acesplit \
+	acembly other findExternals
+
+
+acembly : tacembly xacembly \
+	makeSCF \
+	gifacembly gifacemblyserver\
+	gnbk gnbkclient \
+        gffdump gffread \
+	expasy kantormegaparse
+
+other : blixem dotter efetch \
+	pmapace tagcount diskdump diskfix \
+	xtest coltest
+
+libs : libfree.a libtsfree.a libgraph.a libace.a libace5.a libwego.a libxace.a libstaden.a libvsim.a libaccl.a libtcpfn.a libchannels.a
+
+TPLIBS= libace.a libfree.a libtsfree.a
+testprog: testprog.c $(TPLIBS)
+	$(CC) testprog.c
+	$(LINKER) -o testprog testprog.o $(TPLIBS) $(LIBS)
+
+findExternals : 
+	test -x tcsh || (cp `which tcsh`    ./tcsh) 
+	test -x rsync || (cp `which rsync`  ./rsync) 
+	test -x time || (cp /usr/bin/time   ./time)
+
+
+
+# any target that depends on this will always be made, we use this to get the
+# modules containing the 'main' functions for applications to be rebuilt so
+# that their time/date stamps will be up to date.
+
+$(W1_SOURCES):
+	$(TEST) -L $@ || ln -s ../w1/$@ . 
+$(WTS1_SOURCES):
+	$(TEST) -L $@ || ln -s ../wts1/$@ . 
+$(W2_SOURCES): 
+	$(TEST) -L $@ || ln -s ../w2/$@ .
+$(W4_SOURCES): 
+	$(TEST) -L $@ || ln -s ../w4/$@ .
+$(W5_SOURCES): 
+	$(TEST) -L $@ || ln -s ../w5/$@ .
+$(W6_SOURCES): 
+	$(TEST) -L $@ || ln -s ../w6/$@ .
+$(W7_SOURCES):
+	$(TEST) -L $@ || ln -s ../w7/$@ . 
+$(W8_SOURCES): 
+	$(TEST) -L $@ || ln -s ../w8/$@ . 
+$(W9_SOURCES):
+	$(TEST) -L $@ || ln -s ../w9/$@ .
+$(WBQL_SOURCES):
+	$(TEST) -L $@ || ln -s ../wbql/$@ .
+$(WNQ_SOURCES):
+	$(TEST) -L $@ || ln -s ../wnq/$@ .
+$(WRPC_SOURCES): 
+	$(TEST) -L $@ || ln -s ../wrpc/$@ .
+$(WACE_SOURCES):
+	$(TEST) -L $@ || ln -s ../wace/$@ .
+$(WEGO_SOURCES):
+	$(TEST) -L $@ || ln -s ../wego/$@ .
+$(WCHANNELS_SOURCES):
+	$(TEST) -L $@ || ln -s ../wchannels/$@ .
+$(ACESOCK_SOURCES): 
+	$(TEST) -L $@ || ln -s ../$(ACESOCK)/$@ .
+$(LIBMD5_SOURCES): 
+	$(TEST) -L $@ || ln -s ../$(LIBMD5)/$@ .
+$(WAC_SOURCES):
+	$(TEST) -L $@ || ln -s ../wac/$@ .
+$(WACEC_SOURCES):
+	$(TEST) -L $@ || ln -s ../wacec/$@ .
+$(WABI_SOURCES):
+	$(TEST) -L $@ || ln -s ../wabi/$@ .
+$(WFICHE_SOURCES):
+	$(TEST) -L $@ || ln -s ../wfiche/$@ .
+$(WHOOK_SOURCES):
+	$(TEST) -L $@ || ln -s ../whooks/$@ .
+$(GIF_SOURCES): 
+	$(TEST) -L $@ || ln -s ../wgd/$@ .
+$(WJAVA_SOURCES): 
+	$(TEST) -L $@ || ln -s ../wjava/$@ .
+$(WJO_SOURCES): 
+	$(TEST) -L $@ || ln -s ../wjo/$@ .
+$(WVSIM_SOURCES): 
+	$(TEST) -L $@ || ln -s ../wvsim/$@ .
+
+testprog.c:
+	$(TEST) -L $@ || ln -s ../w6/testprog.c .
+
+#### Compilation of variants ###############
+
+.c.acedb.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DACEDB -c $< -o $@
+
+.c.acedbng.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DNON_GRAPHIC -DACEDB -c $< -o $@
+
+.c.ng.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DNON_GRAPHIC -c $< -o $@
+
+.c.ng5.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DNON_GRAPHIC -DACEDB5 -c $< -o $@
+
+.c.acm.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DACEMBLY -c $< -o $@
+
+.c.acmng.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DNON_GRAPHIC -DACEMBLY -c $< -o $@
+
+.c.a5.o: $<
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DACEDB5 -c $< -o $@
+
+########### AQL objects ######################
+
+# AQL source-files - link them to the bin-dir, then make aqlparse.c with lex/yacc
+#aql.c aqlcheck.c aqlrun.c aqlerror.c aqldebug.c aqlmain.c aqlparse.l aqlparse.y:
+#	$(TEST) -L $@ || ln -s ../waql/$@ .
+
+# aql.h aql_.h:
+#	$(TEST) -L $@ || ln -s ../wh/$@ .
+
+# lex.yy.c: aqlparse.l aql_.h
+#	$(LEX) $(LEX_OPTIONS)  aqlparse.l
+
+# aqlparse.c: lex.yy.c aqlparse.y
+# 	$(YACC) $(YACC_OPTIONS) -o aqlparse.c aqlparse.y
+
+#compile the AQL objects
+# aql.o: aql.c aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aql.c -o aql.o
+# aqlrun.o: aqlrun.c aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlrun.c -o aqlrun.o
+# aqlcheck.o: aqlcheck.c aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlcheck.c -o aqlcheck.o
+# aqldebug.o: aqldebug.c aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqldebug.c -o aqldebug.o
+# aqlparse.o: aqlparse.c
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlparse.c -o aqlparse.o
+# aqlerror.o: aqlerror.c aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlerror.c -o aqlerror.o
+# $(AQL_OBJS): $< aql_.h
+# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c $< -o $@
+
+
+################## libraries #########################
+
+libfree.a : $(FREE_OBJS)
+	ar $(AR_OPTIONS) libfree.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libfree.a; fi
+
+libtsfree.a : $(TS_FREE_OBJS)
+	ar $(AR_OPTIONS) libtsfree.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libtsfree.a; fi
+
+libacedna.a : $(ACEDNA_OBJS)
+	ar $(AR_OPTIONS) libacedna.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libacedna.a; fi
+
+libfree_clean : 
+	rm -f $(FREE_OBJS) libfree.a
+
+libgraph.a : $(GRAPH_OBJS) $(GIF_OBJS) $(WJAVA_OBJS) $(Xt_OBJS)
+	ar $(AR_OPTIONS) libgraph.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libgraph.a; fi
+
+libgraph_clean : 
+	rm -f $(GRAPH_OBJS) $(GIF_OBJS) $(WJAVA_OBJS)  $(Xt_OBJS) libgraph.a
+
+libgif.a : $(GRAPH_OBJS) $(GIF_OBJS) gifsubs.o $(WJAVA_OBJS) 
+	ar $(AR_OPTIONS) libgif.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libgif.a; fi
+
+libvsim.a : $(WVSIM_OBJS)
+	ar $(AR_OPTIONS) libvsim.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libvsim.a; fi
+
+libchannels.a :  $(CHANNEL_OBJS)
+	ar $(AR_OPTIONS) libchannels.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libchannels.a; fi
+		
+########### MD5 encryption libraries ################
+
+# MD5 library
+$(LIBMD5_OBJ): $(LIBMD5_HDR)
+
+libmd5.a : $(LIBMD5_OBJ)
+	ar $(AR_OPTIONS) $@ $?
+	if ( $(RANLIB_NEEDED) ) then ranlib $@ ; fi
+
+# MD5 test programs
+$(LIBMD5_TEST_OBJ) : $(LIBMD5_HDR) $(LIBMD5_TEST_HDR)
+
+md5test : libmd5.a $(LIBMD5_TEST_OBJ) mddriver digtest
+	$(LINKER) -o mddriver mddriver.o -L. -lmd5
+	$(LINKER) -o digtest digcalc.o digtest.o -L. -lmd5
+
+#########################################
+#### public C interface: libace #########
+#########################################
+
+# 
+# aceversion.c is recompiled & rearchived every time one of the
+# other libace objects is recompiled. Hence aceversion.c enables
+# us to record the link date of the library along with the ACEDB
+# version.
+# (this is not quite true at the moment because of the graphic/
+# non-graphic split in libace, but this will go away)
+#
+aceversion.o: $(GENERIC_ACE_OBJS) $(GENERIC_ACE_NONGRAPH_OBJS) $(GENERIC_ACE_GRAPH_OBJS)
+
+# rpcace_xdr.o rpcace_clnt.o aceclientlib.o 
+LIBACE_OBJS = $(GENERIC_ACE_OBJS) $(GENERIC_ACE_NONGRAPH_OBJS) aceversion.o \
+	pseudoword.o
+
+libace.a :  $(LIBACE_OBJS) $(ACEDNA_OBJS)
+	ar $(AR_OPTIONS) libace.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libace.a; fi
+
+libace_clean : 
+	rm -f $(LIBACE_OBJS) libace.a
+
+LIBACE_5_OBJS = $(GENERIC_ACE_5_OBJS) $(GENERIC_ACE_NONGRAPH_OBJS) aceversion.ng5.o \
+	pseudoword.o
+
+libace5.a :  $(LIBACE_5_OBJS)
+	ar $(AR_OPTIONS) libace5.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libace5.a; fi
+
+libace5_clean : 
+	rm -f $(LIBACE_5_OBJS) libace5.a
+
+######## libxace.a is the variant of libace.a that is
+######## compiled without the -DNON_GRAPH compiler flag
+######## it is used instead of libace.a in graphical builds
+######## it will become obsolete once the code groups
+######## GENERIC_ACE_OBJS and GENERIC_ACE_(NON)GRAPH_OBJS have merged
+
+LIBXACE_OBJS = $(GENERIC_ACE_OBJS) $(GENERIC_ACE_GRAPH_OBJS) aceversion.o
+LIBGIFACE_OBJS = $(GENERIC_ACE_OBJS) $(GENERIC_GIFACE_GRAPH_OBJS) aceversion.o
+
+libxace.a :  $(LIBXACE_OBJS)
+	ar $(AR_OPTIONS) libxace.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libxace.a; fi
+
+  
+libgiface.a :  $(LIBGIFACE_OBJS)
+	ar $(AR_OPTIONS) libgiface.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libgiface.a; fi
+
+libxace_clean : 
+	rm -f $(LIBXACE_OBJS) libxace.a
+
+################################################################
+############## graphical ACEDB programs ########################
+################################################################
+
+# Xace - acedb version 4:
+# New build for xace, xacemain.c gets recompiled every time xace is built,
+# this allows to include the build date in xacemain.
+#
+XACE_OBJS = $(GRAPHICAL_ACE_OBJS) $(WORM_DISP_ACE_OBJS) $(JO_OBJS)
+
+xace : libfree.a libtsfree.a libgraph.a libace.a libxace.a xacemain.c $(XACE_OBJS) 
+	$(CC) xacemain.c
+	$(LINKER) -o xace xacemain.o $(XACE_OBJS) -L. -lxace -lfree -ltsfree  -lgraph  -lace  $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+
+xace_clean :
+	rm -f $(XACE_OBJS) xace
+
+
+# giface:
+GIFACE_OBJS = $(GRAPHICAL_ACE_OBJS) $(WORM_DISP_ACE_OBJS) $(JO_OBJS) acein.o aceout.o
+
+giface : libfree.a libtsfree.a libgif.a libxace.a gifacemain.c $(GIFACE_OBJS)  libgraph.a
+	$(CC) gifacemain.c
+	$(LINKER) -o giface gifacemain.o $(GIFACE_OBJS) -L. -lxace -lfree -ltsfree -lgif  -lgraph  $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_P) giface
+
+# gifacembly:
+GIFACEMBLY_OBJS = $(GRAPHICAL_ACEMBLY_OBJS)  \
+	$(GENERIC_ACEMBLY_OBJS) $(GENERIC_ACEMBLY_GRAPH_OBJS) aceversion.o  \
+	$(WORM_DISP_ACEMBLY_OBJS) \
+	$(ABI_GRAPH_OBJS) $(BASECALL_GRAPH_OBJS) $(MAPPING_GRAPH_OBJS) \
+	$(JO_OBJS)
+
+gifacembly : libfree.a libtsfree.a libgif.a libstaden.a libace.a libxace.a gifacemain.c $(GIFACEMBLY_OBJS) libgraph.a
+	$(CC) -o gifacemblymain.o  -DACEMBLY gifacemain.c
+	$(LINKER) -o gifacembly gifacemblymain.o $(GIFACEMBLY_OBJS) -L. -lace -lxace -lfree -ltsfree -lstaden -lgif  -lgraph  $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_P) gifacembly
+
+#####################################
+
+# Xace - acedb version 5:
+XACE_5_OBJS = xacemain.o $(NON_ACEMBLY_OBJS) $(X_KERNEL_5_OBJS) \
+	$(WORM_DISP_OBJS) \
+	$(JO_OBJS)
+
+xace5 : libfree.a libtsfree.a $(XACE_5_OBJS) 
+	$(LINKER) -o xace5 $(XACE_5_BJS) -L. -lfree -ltsfree $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) xace
+
+# Xacembly version 4 build:
+XACEMBLY_OBJS =  \
+	$(GENERIC_ACEMBLY_OBJS) $(GENERIC_ACEMBLY_GRAPH_OBJS) aceversion.o \
+	$(GRAPHICAL_ACEMBLY_OBJS) \
+	$(WORM_DISP_ACEMBLY_OBJS) \
+	$(JO_OBJS) \
+	$(ABI_GRAPH_OBJS) $(BASECALL_GRAPH_OBJS) $(MAPPING_GRAPH_OBJS)
+
+xacembly : $(LINK_ACI) libfree.a libtsfree.a libgraph.a libstaden.a xacemain.c libace.a $(XACEMBLY_OBJS)  $(LINK_ACI)
+	$(CC) -DACEMBLY -c xacemain.c -o xacemblymain.o
+	$(LINKER) -o xacembly $(XACEMBLY_OBJS) xacemblymain.o -L. -lfree -ltsfree -lgraph -lstaden -lace  $(LINK_ACI) $(Xt_LIBS) $(LIBS) $(LEX_LIBS) 
+	chmod $(MODE_NP) xacembly
+
+# Xacembly version 5 build:
+ALL_ACEMBLY_5_OBJS =  xacemain.acm.o $(ACEMBLY_OBJS) $(X_KERNEL_5_OBJS) \
+	$(WORM_DISP_OBJS) \
+	$(ABI_GRAPH_OBJS) $(BASECALL_OBJS) $(MAPPING_OBJS)
+
+xacembly5 : libfree.a libtsfree.a libgraph.a libstaden.a $(ALL_ACEMBLY_5_OBJS)
+	$(LINKER) -o xacembly5 $(ALL_ACEMBLY_5_OBJS) -L. -lfree -ltsfree -lgraph -lstaden $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+
+
+################################################################
+############## non-graphical ACEDB programs ####################
+################################################################
+
+# tace
+tace :  $(LINK_ACI) libfree.a libtsfree.a libace.a tacemain.c
+	$(CC) tacemain.c
+	$(LINKER) -o tace tacemain.o -L. -lace $(LINK_ACI) -lfree -ltsfree -ltsfree $(LIBS) $(LEX_LIBS) 
+	chmod $(MODE_P) tace
+
+tace_clean :
+	rm -f tacemain.o tace
+
+# tacembly - version 4
+TACEMBLY_OBJS =  \
+	$(GENERIC_ACEMBLY_OBJS) $(GENERIC_ACEMBLY_NONGRAPH_OBJS) aceversion.o \
+	$(BASECALL_NONGRAPH_OBJS) $(MAPPING_NONGRAPH_OBJS)
+
+tacembly : $(LINK_ACI) libfree.a libtsfree.a libstaden.a libace.a tacemain.c $(TACEMBLY_OBJS)
+	$(CC) -DACEMBLY -c tacemain.c -o tacemblymain.o
+	$(LINKER) -o tacembly $(TACEMBLY_OBJS) tacemblymain.o -L. -lfree -ltsfree -lstaden -lace  $(LINK_ACI) $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_P) tacembly
+
+# tacembly - version 5
+TACEMBLY_5_OBJS = tacemain.acm.o \
+	$(GENERIC_ACEMBLY_5_OBJS) $(GENERIC_ACEMBLY_NONGRAPH_OBJS) \
+	$(BASECALL_NONGRAPH_OBJS) $(MAPPING_NONGRAPH_OBJS)
+
+tacembly5 : $(LINK_ACI) libfree.a libtsfree.a libstaden.a libace.a $(TACEMBLY_5_OBJS)
+	$(LINKER) -o tacembly5 $(TACEMBLY_5_OBJS) -L.  -lace5 $(LINK_ACI)  -lfree -ltsfree -lstaden $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) tacembly5
+
+######### the AQL test-platform #################
+
+# aqlmain.o:  aqlmain.c aql.h aql_.h
+# 	$(CC) aqlmain.c
+# 
+# taql :  libfree.a libtsfree.a libace.a aqlmain.o aqlmain.o 
+# 	$(LINKER) -o taql aqlmain.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS) 
+
+##############################################
+
+tagcount : libfree.a libtsfree.a libace.a tagcount.c
+	$(CC) tagcount.c
+	$(LINKER) -o tagcount tagcount.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+
+
+#### ACEDB 5 test programs ################
+##
+TACE_5_OBJS = tacemain.o command.o banner.o \
+	$(NON_GRAPHIC_OBJS) $(KERNEL_5_OBJS) \
+	$(ACE_5_OBJS) session.ng5.o \
+	acelib.o
+
+tace5 : $(LINK_ACI) libfree.a libtsfree.a $(TACE_5_OBJS)
+	$(CC) tacemain.c
+	$(LINKER) -o tace5 $(TACE_5_OBJS) -L. -lace5 $(LINK_ACI) -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+
+###############################################################################
+################## Sockets server/client ACEDB programs #######################
+###############################################################################
+
+
+##################### saceserver, the socket server ###########################
+$(ACESOCK_SOCKET_OBJ): $(ACESOCK_TRANSPORT_HDR) $(ACESOCK_SOCKET_HDR)
+
+$(ACESOCK_SERVER_OBJ): $(ACESOCK_TRANSPORT_HDR) $(ACESOCK_SERVER_HDR)
+
+$(ACESOCK_UTILS_OBJ):  $(ACESOCK_UTILS_HDR)
+
+saceserver:  libfree.a libtsfree.a libace.a libmd5.a $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) \
+             $(ACESOCK_SERVER_OBJ)
+	$(LINKER) -o $@  $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_SERVER_OBJ) \
+	 -L. -lace -lfree -ltsfree -ltsfree -lmd5 -lm $(LIBS) $(LEX_LIBS) 
+	chmod $(MODE_NP) $@
+
+##################### sgifaceserver, graphical - via gifs ###################
+SGIFACESERVER_OBJS = \
+	$(GRAPHICAL_ACE_OBJS) \
+	$(ALL_DISP_OBJS) \
+	$(MAPCONT_ACE_OBJS) $(FMAP_ACE_OBJS) $(GRID_ACE_OBJS) \
+        $(OTHER_OBJS) $(JO_OBJS)
+
+
+sgifaceserver:  libfree.a libtsfree.a  libgraph.a libgif.a libgiface.a libace.a libmd5.a serverace.c $(SGIFACESERVER_OBJS) $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) \
+             $(ACESOCK_SERVER_OBJ)
+	$(CC) -DGIFACESERVER -c serverace.c -o sgifaceserver.o 
+	$(LINKER) -o $@ sgifaceserver.o  $(SGIFACESERVER_OBJS) \
+	$(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) serveracepasswd.o \
+	 -L.  -lgiface -lgraph -lgif -lace -lfree -ltsfree -lmd5 -lm $(LIBS) $(LEX_LIBS) 
+	chmod $(MODE_NP) $@
+
+##################### saceclient, client version of tace ####################
+$(ACESOCK_CLIENT_OBJ): $(ACESOCK_UTILS_HDR) $(ACESOCK_CLIENTLIB_HDR) $(ACESOCK_CLIENT_HDR)
+
+# aceversion included because we don't use basic ace objects in client but want a version string.
+saceclient:  libfree.a libtsfree.a aceversion.o libmd5.a  $(ACESOCK_SOCKET_OBJ) libacedna.a\
+             $(ACESOCK_UTILS_OBJ) $(ACESOCK_CLIENTLIB_OBJ) $(ACESOCK_CLIENT_OBJ) $(TS_FREE_OBJS)
+	$(LINKER) -o $@  $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_CLIENTLIB_OBJ) \
+	 $(ACESOCK_CLIENT_OBJ) aceversion.o -L. -lfree -ltsfree -lacedna -lmd5 -lm $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) $@
+
+##################### sxaceclient, client version of xace ###################
+SXACECLIENT_OBJS =  $(ACESOCK_XCLIENT_OBJ) $(ACESOCK_CLIENTLIB_OBJ) \
+	$(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) \
+	$(GRAPHICAL_ACE_OBJS) \
+	$(GRAPHICAL_BIO_ACE_OBJS)
+
+sxaceclient : libfree.a libtsfree.a libmd5.a $(GRAPHXWIN_DEPEND) libace.a libxace.a xclientmain.c $(SXACECLIENT_OBJS)
+	$(CC) xclientmain.c
+	$(LINKER) -o sxaceclient xclientmain.o $(SXACECLIENT_OBJS) \
+	 -L. -lace -lxace $(GRAPHXWIN_LIBS) -lfree -ltsfree -lmd5 $(XWIN_LIBS) $(LIBS) $(LEX_LIBS)  
+	chmod $(MODE_NP) sxaceclient
+
+######################### clean all socket code. ############################
+sace_build : saceserver sgifaceserver saceclient sxaceclient
+
+sace_clean :
+	rm -f $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_SERVER_OBJ)
+	rm -f saceclient $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_CLIENT_OBJ)
+	rm -f $(SXACECLIENT_OBJS) sxaceclient
+
+######################################################
+#### RPC server/client ACEDB programs ################
+######################################################
+
+RPCGEN_PRODUCTS = rpcace.h rpcace_xdr.c rpcace_clnt.c rpcace_svc.c
+
+$(RPCGEN_PRODUCTS): rpcace.x
+	rpcgen $(RPCGEN_FLAGS) rpcace.x
+
+rpcace_sp.o: rpcace_sp.c rpcace_svc.c
+
+aceclientlib.o: aceclientlib.c rpcace.h
+	$(CC) -c $<
+
+RPC_CLIENT_OBJS = aceclientlib.o rpcace_clnt.o rpcace_xdr.o
+RPC_SERVER_OBJS = rpcace_sp.o  rpcace_xdr.o 
+#NET_CLIENT_OBJS = aceclientlib.o rpcace_clnt.o rpcace_xdr.o
+#RPC_X_CLIENT_OBJS = xclient.o aceclientlib.o rpcace_clnt.o rpcace_xdr.o
+
+####################################################
+############# ACEDB server programs ################
+####################################################
+
+################ aceserver #################
+
+ACESERVER_OBJS = $(RPC_SERVER_OBJS) 
+
+aceserver : libfree.a libtsfree.a libace.a aceserver.c $(ACESERVER_OBJS) rpcace.x rpcace.h
+	$(CC) aceserver.c
+	$(LINKER)  -o aceserver aceserver.o $(ACESERVER_OBJS) -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_P) aceserver
+	\rm -f rpc.acedbd
+
+#aceserver_clean :
+#	rm -f $(ACESERVER_OBJS) aceserver
+
+############# gifaceserver ################
+
+gifservercontrol.o: gifacemain.c 
+	$(CC) -DGIFACESERVER -c gifacemain.c -o gifservercontrol.o
+
+#GIFACESERVER_OBJS = gifservercontrol.o \
+#	$(RPC_SERVER_OBJS) \
+#	$(GRAPHICAL_ACE_OBJS) \
+#	$(WORM_DISP_ACE_OBJS) \
+#	$(JO_OBJS)
+
+
+#gifaceserver : libfree.a libtsfree.a libgif.a libgiface.a aceserver.c $(GIFACESERVER_OBJS) rpcace.x rpcace.h  \
+#	libacecl.a
+##	$(CC) -DGIFACESERVER -c aceserver.c -o gifaceserver.o 
+#	$(LINKER)  -o gifaceserver gifaceserver.o $(GIFACESERVER_OBJS) -L. -lgiface -lfree -ltsfree -lgif  $(LIBS) $(LEX_LIBS)
+#	chmod $(MODE_P) gifaceserver
+#	\rm -f rpc.gifacedbd
+#	ln -s gifaceserver rpc.gifacedbd
+
+
+############ gifacemblyserver ##########################
+#GIFACEMBLYSERVER_OBJS = gifservercontrol.o \
+#	$(RPC_SERVER_OBJS) \
+#	$(GENERIC_ACEMBLY_OBJS) $(GENERIC_ACEMBLY_GRAPH_OBJS) aceversion.o  \
+#	$(GRAPHICAL_ACEMBLY_OBJS) $(WORM_DISP_ACEMBLY_OBJS) \
+#	$(ABI_GRAPH_OBJS) $(BASECALL_GRAPH_OBJS) $(MAPPING_GRAPH_OBJS)
+
+
+#gifacemblyserver : libfree.a libtsfree.a libgif.a libstaden.a libace.a libacecl.a aceserver.c $(GIFACEMBLYSERVER_OBJS) rpcace.x rpcace.h 
+#	$(CC) -DGIFACESERVER -DACEMBLY -c aceserver.c -o gifacemblyserver.o 
+#	$(LINKER)  -o gifacemblyserver gifacemblyserver.o $(GIFACEMBLYSERVER_OBJS) -L. -lfree -ltsfree -lgif -lstaden  -lace   $(LIBS) $(LEX_LIBS)
+#	chmod $(MODE_NP) gifacemblyserver
+
+#gifacemblyserver_clean : 
+#	rm -f $(GIFACEMBLYSERVER_OBJS) gifacemblyserver
+
+
+############ tgifacemblyserver ##########################
+
+acetcp_server.c tcp_server_hooks.c: 
+	$(TEST) -L $@ || ln -s ../wtcp/$@ .
+
+tcp_server_hooks.o: ../wtcp/tcp_transactions.c
+
+TCP_SERVER_OBJS= tcp_server_hooks.o connect_socket.o daemon.o listen_socket.o tcp_transactions.o
+
+TACESERVER_OBJS =  \
+	$(TCP_SERVER_OBJS) \
+	aceversion.o bump.o helpsubs.o dict.o liste.o chronoexe.o vtxt.o keyset.o
+
+taceserver : $(LINK_ACI) libfree.a libtsfree.a libgif.a libstaden.a libace.a acetcp_server.c $(TACESERVER_OBJS)  libtcpfn.a
+	$(CC) -DACESERVER -DACEMBLY -c acetcp_server.c -o taceserver.o 
+	$(LINKER)  -o taceserver taceserver.o $(TACESERVER_OBJS) $(LINK_ACI) -L. -lace -ltcpfn  $(LIBS) $(LEX_LIBS) -lfree -ltsfree
+	chmod $(MODE_NP) taceserver
+
+TGIFACEMBLYSERVER_OBJS = gifservercontrol.o \
+	$(TCP_SERVER_OBJS) \
+	$(GENERIC_ACEMBLY_OBJS) $(GENERIC_ACEMBLY_GRAPH_OBJS) aceversion.o  \
+	$(GRAPHICAL_ACEMBLY_OBJS) $(WORM_DISP_ACEMBLY_OBJS) \
+	$(ABI_GRAPH_OBJS) $(BASECALL_GRAPH_OBJS) $(MAPPING_GRAPH_OBJS)
+
+tgifacemblyserver : $(LINK_ACI) libfree.a libtsfree.a libgif.a libstaden.a libace.a acetcp_server.c $(TGIFACEMBLYSERVER_OBJS)  libtcpfn.a
+	$(CC) -DGIFACESERVER -DACEMBLY -c acetcp_server.c -o tgifacemblyserver.o 
+	$(LINKER)  -o tgifacemblyserver tgifacemblyserver.o $(TGIFACEMBLYSERVER_OBJS) $(LINK_ACI) -L. -lfree -ltsfree -lgif -lstaden  -lace  -ltcpfn $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) tgifacemblyserver
+
+tgifacemblyserver_clean : 
+	rm -f $(TGIFACEMBLYSERVER_OBJS) tgifacemblyserver
+
+
+####################################################
+#
+# tcp client library
+#
+
+connect_socket.c daemon.c listen_socket.c  tcp_transactions.c get_url.c:
+	 $(TEST) -L $@ || ln -s ../wtcp/$@ .
+
+TCPFN_OBJS=connect_socket.o daemon.o listen_socket.o tcp_transactions.o get_url.o
+
+libtcpfn.a: $(TCPFN_OBJS)
+	ar $(AR_OPTIONS) libtcpfn.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libtcpfn.a; fi
+
+####################################################
+############# utilities by VAHAN ###################
+####################################################
+
+####### standalone fiche generator #############
+
+SWORM_STD_OBJS = sworm.std.o fichelogic.o fichegold.o fichetxbl.o ficheasn.o gtitle.o
+
+SWORM_OBJS = sworm.o fichelogic.o fichegold.o fichetxbl.o ficheasn.o
+
+sworm.std.o: sworm.c
+	$(CC) -DSTANDALONE -c sworm.c -o sworm.std.o
+sworm: $(SWORM_STD_OBJS) libace.a   libfree.a libtsfree.a 
+	$(LINKER) $(SWORM_STD_OBJS) -L. -lace -lfree -ltsfree  $(LIBS) $(LEX_LIBS) -o sworm
+
+####### kantorizer #############
+
+# cuts resulting kantor megafiles into pieces
+
+KANTORMEGAPARSE_OBJS = kantormegaparse.o 
+
+kantormegaparse: $(KANTORMEGAPARSE_OBJS) libace.a libfree.a libtsfree.a 
+	$(LINKER) $(KANTORMEGAPARSE_OBJS)   -L. -lace -lfree -ltsfree   $(LIBS) $(LEX_LIBS) -o kantormegaparse
+
+# calls expasy and exports an ace file
+
+expasy: expasy.o  libfree.a libtsfree.a  libtcpfn.a $(WVSIM_OBJS)
+	$(LINKER) expasy.o  $(WVSIM_OBJS) -L. -lfree -ltsfree -ltcpfn $(LIBS) -o expasy
+
+####### locuslinkgo #############
+# reaarnge the gene ontology info in the locuslink
+
+LOCUSLINKGO_OBJS = locuslinkgo.o 
+
+locuslinkgo: $(LOCUSLINKGO_OBJS) $(LINK_ACS) libace.a
+	$(LINKER) -o locuslinkgo $(LOCUSLINKGO_OBJS)  -L. -lace $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+
+####### cl2acc #############
+# collects est accessions from Genbank fetch file
+
+CL2ACC_OBJS = cl2acc.o  
+
+cl2acc: $(CL2ACC_OBJS) $(LINK_ACS)
+	$(LINKER) $(CL2ACC_OBJS)   -L.    $(LINK_ACS)  $(LIBS) $(LEX_LIBS) -o cl2acc
+
+####### acekog2ace #############
+# collects ACEKOG information and prepares ACE file 
+
+ACEKOG2ACE_OBJS = acekog2ace.o 
+
+acekog2ace: $(ACEKOG2ACE_OBJS)
+	$(LINKER) $(ACEKOG2ACE_OBJS)   -L. -lfree -ltsfree   $(LIBS)  -o acekog2ace
+
+####################################################
+############# ACEDB client programs ################
+####################################################
+
+
+####### text-based client #############
+
+aceclient : libfree.a libtsfree.a aceclient.c $(RPC_CLIENT_OBJS) rpcace.x rpcace.h
+	$(CC) aceclient.c
+	$(LINKER) -o aceclient aceclient.o $(RPC_CLIENT_OBJS) -L. -lfree -ltsfree $(LIBS)
+	chmod $(MODE_NP) aceclient
+
+####### gff dumper #############
+
+gffdump : gffdump.o $(LINK_ACS)
+	$(LINKER) -o $@ gffdump.o $(LINK_ACS) -L. -lfree -ltsfree $(LIBS) $(LEX_LIBS) 
+	chmod $(MODE_NP) $@
+
+####### gff reader #############
+
+gffread : libfree.a libtsfree.a gffread.c libace.a $(RPC_CLIENT_OBJS) rpcace.x rpcace.h
+	$(CC) gffread.c
+	$(LINKER) -o gffread gffread.o $(RPC_CLIENT_OBJS) -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) gffread
+
+####### graphical client ###############
+
+XACECLIENT_OBJS =  $(RPC_X_CLIENT_OBJS) \
+	$(GRAPHICAL_ACE_OBJS) \
+	$(WORM_DISP_ACE_OBJS) \
+	$(JO_OBJS) $(WVSIM_OBJS)
+
+xaceclient : libfree.a libtsfree.a libgraph.a libxace.a xclientmain.c $(XACECLIENT_OBJS) 
+	$(CC) xclientmain.c
+	$(LINKER) -o xaceclient xclientmain.o $(XACECLIENT_OBJS) -L. -lxace -lgraph -lfree -ltsfree  $(Xt_LIBS) $(LIBS) $(LEX_LIBS)  
+	chmod $(MODE_NP) xaceclient
+
+xaceclient_clean :
+	rm -f $(XACECLIENT_OBJS) xaceclient
+
+############################################
+#### ACEDB-to-JADE programs ################
+############################################
+
+jade2ace : libfree.a libtsfree.a jade2ace.c $(NET_CLIENT_OBJS) rpcace.x rpcace.h
+	$(CC) jade2ace.c
+	$(LINKER) -o jade2ace jade2ace.o $(NET_CLIENT_OBJS) -L. -lfree -ltsfree $(LIBS)
+	chmod $(MODE_NP) jade2ace
+	\rm -f netclient	
+	$(TEST) -L netclient || ln -s jade2ace netclient
+
+jade2sybase : libfree.a libtsfree.a jade2sybase.o
+	$(LINKER) -o jade2sybase jade2sybase.o -L. -lfree -ltsfree $(LIBS)
+	chmod $(MODE_NP) jade2sybase
+
+jadeserver : libfree.a libtsfree.a libace.a jadeserver.c
+	$(CC) jadeserver.c
+	$(LINKER) -o jadeserver jadeserver.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	chmod $(MODE_NP) jadeserver
+
+###################################################
+############## test programs ######################
+###################################################
+
+xtest : libfree.a libtsfree.a libgraph.a graphtest.o 
+	$(LINKER) -o xtest graphtest.o -L. -lgraph -lfree -ltsfree $(Xt_LIBS) $(LIBS)
+
+boxtest : libfree.a libtsfree.a libgraph.a graphboxtest.o 
+	$(LINKER) -o boxtest graphboxtest.o -L. -lgraph -lfree -ltsfree $(Xt_LIBS) $(LIBS)
+
+giftest : libgif.a graphtest.o 
+	$(LINKER) -o giftest graphtest.o -L. -lgif -lfree -ltsfree $(LIBS)
+
+coltest : coltest.o libgraph.a
+	$(LINKER) -o coltest coltest.o -L. -lgraph -lfree -ltsfree $(Xt_LIBS) $(LIBS)
+
+#### other programs #########################
+##
+diskdump : libfree.a libtsfree.a diskdump.o
+	$(LINKER) -o diskdump diskdump.o -L. -lfree -ltsfree $(LIBS)
+
+diskfix : libfree.a libtsfree.a diskfix.o
+	$(LINKER) -o diskfix diskfix.o -L. -lfree -ltsfree $(LIBS)
+
+blixelect : blxselect.o blxparser.o blixem.o translate.o dotter.o dotterKarlin.o libgraph.a 
+	$(LINKER) -o blixelect blxselect.o blxparser.o blixem.o dotter.o dotterKarlin.o \
+	translate.o -L. -lgraph -lfree -ltsfree $(Xt_LIBS) $(LIBS)
+
+blixem : libgraph.a libfree.a libtsfree.a libace.a blixem.o blxmain.o blxparser.o translate.o dotter.o dotterKarlin.o 
+	$(LINKER) -o blixem blixem.o blxmain.o blxparser.o dotter.o dotterKarlin.o \
+	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS) $(LEX_LIBS) 
+
+blixem.o : blxview.c
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c -o $@ blxview.c
+
+dotter : libgraph.a libfree.a libtsfree.a libace.a dotter.o dotterMain.o dotterKarlin.o colormap.o translate.o 
+	$(LINKER) -o dotter dotter.o dotterKarlin.o dotterMain.o colormap.o \
+	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS)  $(LEX_LIBS) 
+
+dotter.o: dotter.c
+	$(COMPILER) $(USEROPTS) -O2 -g3 $(IDIR) -D$(NAME) -c -o $@ dotter.c
+
+efetch : efetch.o dbidx.o
+	$(LINKER) -o efetch efetch.o dbidx.o
+
+efetch.o: efetch.c
+	$(CC) -DMIXDB efetch.c
+
+pseudoword_test: libace.a pseudoword_test.c libfree.a libtsfree.a
+	$(CC) -c pseudoword_test.c
+	$(LINKER) -o pseudoword_test pseudoword_test.o libace.a libfree.a libtsfree.a $(LIBS)
+
+#### conversion programs ###################
+##
+PMAPACE_OBJS  =  pmapace2.o
+pmapace : libfree.a libtsfree.a $(PMAPACE_OBJS)
+	$(LINKER) -o pmapace $(PMAPACE_OBJS) -L. -lfree -ltsfree $(LIBS)
+ 
+HOMONYM_OBJS  =  homonym.o 
+homonym :  $(HOMONYM_OBJS)
+	$(LINKER) -o homonym $(HOMONYM_OBJS) -L. -lfree -ltsfree $(LIBS)
+
+acesplit : acesplit.c
+	$(CC) acesplit.c
+	$(LINKER) -o acesplit acesplit.o $(LIBS)
+
+acediff : libfree.a libtsfree.a acediff.c
+	$(CC) acediff.c
+	$(LINKER) -o acediff acediff.o -L. -lfree -ltsfree $(LIBS)
+
+# contributed by detlef: acediffs tace outputs
+# using the fact that they are naturally sorted
+
+acediffsorted : libfree.a libtsfree.a acediffsorted.c
+	$(CC) acediffsorted.c
+	$(LINKER) -o acediffsorted acediffsorted.o -L. -lfree -ltsfree $(LIBS)
+
+
+###### genbank indexing program #########################
+##
+WGNBK = wgnbk # links between modules 
+
+GNBK_OBJS = gnbk.o gnbkserver.o  rpcgnbk_sp.o
+GNBK_CLIENT_OBJS = gnbkclient.o gnbkclientlib.o rpcgnbk_clnt.o rpcgnbk_xdr.o
+
+GNBK_SOURCES = rpcgnbk.x gnbk.c gnbkserver.c  rpcgnbk_sp.c \
+	 gnbkclient.c gnbkclientlib.c 
+
+$(GNBK_SOURCES) :
+	$(TEST) -L $@ || ln -s ../wgnbk/$@ .
+
+RPCGNBK_PRODUCTS = rpcgnbk.h rpcgnbk_xdr.c  rpcgnbk_clnt.c rpcgnbk_svc.c
+
+$(RPCGNBK_PRODUCTS): rpcgnbk.x
+	rpcgen  $(RPCGEN_FLAGS) rpcgnbk.x
+
+rpcgnbk_sp.o: rpcgnbk_sp.c  rpcgnbk_svc.c
+
+gnbkserver.o: gnbkserver.c rpcgnbk.h 
+	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME)  -c $< 
+
+gnbk :  libfree.a libtsfree.a gnbkserver.o $(GNBK_OBJS) rpcgnbk_xdr.o 
+	$(LINKER)  -o gnbk $(GNBK_OBJS) rpcgnbk_xdr.o -L. -lfree -ltsfree $(LIBS)
+
+gnbkclient : libfree.a libtsfree.a  gnbkserver.o $(GNBK_CLIENT_OBJS) rpcgnbk_xdr.o 
+	$(LINKER)  -o gnbkclient $(GNBK_CLIENT_OBJS) -L. -lfree -ltsfree $(LIBS)
+
+###########################################################
+###### Staden library #####################################
+## These modules were copied form Roger Staden distribution
+## io_lib-1.7.tar.gz
+## with just a modifications to support CTF format
+## for example between staden's array.h and acedb array.h
+
+libstaden.a makeSCF scf2ctf ctf2scf : libfree.a libtsfree.a  ../wstaden/makefile.staden 
+	if test -r makefile.staden ; then \rm makefile.staden ; fi
+	cp  ../wstaden/makefile.staden .
+	chmod 644 makefile.staden
+	$(MAKE) -f ./makefile.staden  $@
+
+
+###########################################################
+# ASN.1 beautifier
+#
+
+asnbeautifier: ../wtools/asnbeautifier.c
+	$(CC) ../wtools/asnbeautifier.c
+	$(LINKER) -o asnbeautifier asnbeautifier.o
+
+###########################################################
+# C beautifier
+#
+
+cbeautifier: ../wtools/cbeautifier.c
+	$(CC) ../wtools/cbeautifier.c
+	$(LINKER) -o cbeautifier cbeautifier.o 
+
+###########################################################
+#
+# ace client test for new ace C
+#
+
+acctest.c: ../wac/acctest.c
+	$(TEST) -L $@ || ln -s ../wac/acctest.c .
+
+acctest.o:	acctest.c
+	$(CC) -I.. -c acctest.c
+
+acctest: acctest.o $(LINK_ACC)
+	$(LINKER) -o acctest acctest.o $(LINK_ACC) $(LIBS)
+
+acstest: acctest.o $(LINK_ACS)
+	$(LINKER) -o acstest acctest.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+
+
+###########################################################
+#
+# kantorcount - used by pipeline/megaRun
+#
+
+
+kantorcount.c: ../wfiche/kantorcount.c
+	$(TEST) -L $@ || ln -s ../wfiche/kantorcount.c .
+
+kantorcount.o:	kantorcount.c
+	$(CC) -I.. -c kantorcount.c
+
+kantorcount: kantorcount.o $(LINK_ACC)
+	$(LINKER) -o $@ kantorcount.o $(LINK_ACC) $(LIBS)
+
+ckantorcount: kantorcount.o $(LINK_ACS)
+	$(LINKER) -o $@ kantorcount.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+
+
+###########################################################
+# New AceC interface
+#   Mark Sienkiewicz, Jean Thierry-Mieg, august 2003
+#libacecl.a : aceclientlib.o rpcace_clnt.o rpcace_xdr.o
+#	ar $(AR_OPTIONS) libacecl.a $?
+#	if ( $(RANLIB_NEEDED) ) then ranlib libacecl.a; fi
+
+acclient.o:	acclient.c ../wac/acclient_acetcp.c ../wac/acclient_rpc.c \
+	../wac/acclient_socket.c 
+
+#LIBACCL_RPC_SUPPORT= aceclientlib.o rpcace_clnt.o rpcace_xdr.o
+LIBACCL_SOCKET_SUPPORT=md5c.o
+libaccl.a: acclient.o actable.o $(LIBACCL_SOCKET_SUPPORT) #$(LIBACCL_RPC_SUPPORT)
+	ar $(AR_OPTIONS) libaccl.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libaccl.a; fi
+
+libacs.a: acinside.o actable.o  
+	ar $(AR_OPTIONS) libacs.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libacs.a; fi
+
+libwego.a: wego.o 
+	ar $(AR_OPTIONS) libwego.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libwego.a; fi
+
+wego_test: wego_test.o  libwego.a
+	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS)  libwego.a -lpthread
+	
+#
+# ace command interface, using new Ace C
+#	will replace aceclient, works with any Ace C transport
+#
+
+taceclient.c: ../wac/taceclient.c
+	$(TEST) -L $@ || ln -s ../wac/taceclient.c .
+
+taceclient.o:	taceclient.c
+	$(CC) -I.. -c taceclient.c
+
+# The "t" in taceclient stands for "TCP".  This client actually speaks
+# any transport protocol known by Ace C.  
+# Note that taceclient is NOT a drop-in replacement for aceclient.
+
+taceclient: taceclient.o $(LINK_ACC) 
+	$(LINKER) -o taceclient taceclient.o $(LINK_ACC) $(LIBS)
+
+staceclient: taceclient.o $(LINK_ACS)
+	$(LINKER) -o $@ taceclient.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+
+
+###########################################################
+#
+# pubid - try to use the pubmed citation matcher
+#
+
+
+pubid.c: ../wfiche/pubid.c
+	$(TEST) -L $@ || ln -s ../wfiche/pubid.c .
+
+PUBID_OBJS = pubid.o
+
+pubid: $(PUBID_OBJS)
+	$(LINKER) -o pubid $(PUBID_OBJS)   $(LINK_ACC) $(LIBS)
+
+
+###########################################################
+################## distribution ###########################
+###########################################################
+
+
+dist:
+	cd ..; rm w*/*~; \
+	tar cvf - w* --exclude CVS --exclude .cvsignore --exclude *~ | gzip -c > ace.tar.gz
+
+
+###########################################################
+##################    AceView      ########################
+###########################################################
+
+###########################################################
+#
+# cgi library code
+#
+
+avlib.c:
+	$(TEST) -L $@ || ln -s ../waceview/avlib.c .
+
+avlib.o: avlib.c
+
+
+###########################################################
+#
+# blast web pages
+#
+
+blastcgi.c blastct.c blastd.c blastd_convert_table.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+allblast: blastd blast.cgi blastd_convert_table
+
+blast.cgi:	blastcgi.o libtcpfn.a  cgi.o
+	$(LINKER) -o blast.cgi blastcgi.o libtcpfn.a cgi.o $(LIBS) 
+
+# blastct is a test program that operates the interface with blastd
+blastct:      blastct.o libtcpfn.a 
+	$(LINKER) -o blastct blastct.o libtcpfn.a $(LIBS) 
+
+blastd:	blastd.o libtcpfn.a 
+	$(LINKER) -o blastd blastd.o libtcpfn.a $(LIBS) 
+
+blastd_convert_table: blastd_convert_table.o
+	$(LINKER) -o blastd_convert_table blastd_convert_table.o $(LIBS)
+
+###########################################################
+#
+# pfam web pages
+#
+
+pfamcgi.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+pfam.cgi: pfamcgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
+	$(LINKER) -o pfam.cgi pfamcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+
+###########################################################
+#
+# zone web pages
+#
+
+zonecgi.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+zone.cgi: zonecgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
+	$(LINKER) -o zone.cgi zonecgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+
+###########################################################
+#
+# genehunt web pages
+#
+
+genehuntcgi.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+genehunt.cgi: genehuntcgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
+	$(LINKER) -o genehunt.cgi genehuntcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+
+###########################################################
+#
+# main aceview cgi
+#
+
+aceviewmain.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+aceviewlib.c:
+	$(TEST) -L $@ || ln -s ../waceview/$@ .
+
+av.cgi: aceviewmain.o $(LINK_ACC)
+	$(LINKER)  -o av.cgi aceviewmain.o dict.o  $(LINK_ACC) $(LIBS)
+
+libaceview.a: aceviewlib.o 
+	ar $(AR_OPTIONS) libaceview.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libaceview.a; fi
+
+###########################################################
+#
+# ALL aceview web pages
+#
+
+aceview: av.cgi blast.cgi pfam.cgi zone.cgi genehunt.cgi libaceview.a
+
+
+###########################################################
+#
+# regexp.a regular expression package
+#  Copyright (c) 1986, 1993, 1995 by University of Toronto.
+#  Written by Henry Spencer.  Not derived from licensed software.
+#  downloaded from ftp://ftp.zoo.toronto.edu/pub/
+#  The copyright, notice and source code are copied
+#  in unaltered form in the directory wregexp
+#
+#  regexp are used in acedb to expand the ~ symbol
+#  in queries
+#       a ~ b
+#  is interpreted as 'a' matches the Henry-Spencer regexp 'b'
+
+#WREGEXP_OBJS = regexp.o regsub.o regerror.o
+#WREGEXP_SOURCES =  $(WREGEXP_OBJS:.o=.c)
+#
+#$(WREGEXP_SOURCES):
+#	$(TEST) -L $@ || ln -s ../wregexp/$@ . 
+#
+#mylibregexp.a: $(WREGEXP_OBJS)
+#	ar cr mylibregexp.a $(WREGEXP_OBJS)
+
+###########################################################
+########### end of the acedb truemake file ################
+###########################################################
+

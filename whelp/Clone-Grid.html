@@ -1,0 +1,131 @@
+<!--  @(#)Clone-Grid.html	1.2  2/17/95  >
+<head>
+<title>Clone-Grid</title>
+</head>
+
+<h2>Clone-Grid</h2>
+
+This display is designed to display hybridisation data from the YAC
+polytene filters (and other gridded filters), and provide a tool for
+people to go between such data and the map, even when they don't have
+write access to the database.<p>
+
+You see a set of squares layed out in the same pattern as the clones
+on the filter.  To help orient you, the rectangle at left containing
+<strong>LABEL</strong> corresponds to where the numerical label is
+written on the filter.<p>
+
+The current active box (after you have clicked once in a box) has a
+cross in it and is outlined in red.  The name of the corresponding YAC
+is shown in the <strong>Gridded Clone</strong> text entry box at the
+top.  If you click on this to make it yellow, and type in the name of
+a YAC on the grid, that will be indicated with a cross/outlined in
+red.  You can also click on the <strong>Gridded Clone</strong>
+button, in which case you can pick on YAC's elsewhere, such as in a
+physical map window.  This is useful for finding where neighbouring
+YAC's on the map are on the grid.<p>
+
+There are two modes: <strong>Edit Mode</strong> and <strong>Map
+Mode</strong>.  The mode with the coloured box is current.  You can
+switch by picking the other box.<p>
+
+<h3>Map Mode</h3>
+
+When you click twice on a box you go to the physical map.  If it is an
+empty box, then you will go to the corresponding YAC.  If it is filled
+then it, and all the other filled boxes representing YACs that
+overlap, are highlighted in red, and you go to the average position on
+the map that they define.  i.e. if a number of boxes are filled
+(positive) then map mode splits them into groups, each of which
+corresponds to one potential map locus.<p>
+
+The grouping is done by taking all YAC's within some range into a
+cluster.  This range is 20 by default.  It can be changed with the
+menu entry <strong>Set Cluster Range</strong>.<p>
+
+<h3>Edit mode</h3> 
+
+This lets you define a pattern.  Click with the left mouse.  One click
+in a box gives a dark blue fill, a second makes it pale blue
+(signifying a weak signal), and a third will clear it.<p>
+
+<h3>Probes</h3>
+
+We now recognize two sorts of probes: simple clones and pools.  Pools
+can contain collections of clone probes and subpools.  The
+hybridisation pattern for a pool is the union of the patterns for all
+its clones and subpools, together with any data attached specifically
+to itself.  You can type the name of a probe into the text entry box
+(after activating it to yellow by clicking on it) or you can press the
+<strong>Probe</strong> button and pick your probe from another window
+(e.g. a <href="Physical-map.html">physical map window</a>).<p>
+
+The <strong>Clear</strong> button clears any current pattern, deletes
+a clone name if ones is present, puts you in edit mode, and prepares
+the "Pattern for clone" entry box for you to type in a clone name.
+This does not affect any pattern stored as a "surround" for comparison
+(see below).<p>
+
+The arrow keys also work to let you move the active box (outlined in
+red) around the grid.  Hitting the return key corresponds to clicking
+on the current active box.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+
+<li><strong>Preserve</strong>: as in the phsyical map display.  If you select POLY1 again
+after choosing this option then you get a new window, rather than
+reusing this one.
+
+<li><strong>Center &lt;-&gt; Surround</strong>: this places the current
+pattern in a surround to each highlighted box.  You can then load a
+new pattern and compare it to the one stored in the surround.  The
+clear function only affects the central pattern, not the surround, so
+to clear the surround select Center &lt;-&gt; Surround then Clear.
+
+<li><strong>Names</strong>: shows YAC names at all locations, rather
+than square boxes.  To see the ones at the right you will have to
+stretch the box very wide (sorry no scrolling yet).  If you print when
+stretched out you get an index sheet for the filter like the one sent
+out with it.
+
+<li><strong>Display probe as tree</strong>: shows the current probe in
+a separate window in tree (plain text) form.
+
+<li><strong>Save data with probe</strong>: only valid if you have
+write access and are entering hybridisation data for probes.  This
+lets you save the current pattern with the probe whose name is in the
+Probe text entry box.  Data that is set as weak (light blue) will be
+saved with "Weak" following the YAC name.  When reading in data, if
+any text is found following the clone name the box will be displayed
+in light blue, so you could edit this text in a tree update window to
+be more informative if you wanted.
+
+<li><strong>Set cluster range</strong>: This value is used to cluster
+individual hybridizing YAC's into groups that are supposed to
+correspond to individual loci.  The current algorithm essentially
+tries to find loci such that the centres of all the positive YAC's are
+within the defined range.  This is not strictly correct.  The units
+are physical map bands.  Larger values allow more spread out clusters.
+
+<li><strong>Stats on KeySet</strong>: Applies to current keyset, which
+should contain probes with hybridisation data.  It returns stats on
+how many clusters of various sorts there are, as a line on the
+terminal.
+
+<li><strong>Change Gridded Clone</strong>: doesn't do anything yet.
+</ul>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>
+

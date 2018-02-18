@@ -1,0 +1,31 @@
+server commands used by acclient
+--
+
+system_list
+
+query find <class> IS <name>
+aql -C [ -active ] <aql_query_text>
+table <name> -C =<table_name> [ <parameters> ]
+
+show -C
+show -C -b %d -c %d
+list -C -b %d -c %d
+
+dna
+peptide
+
+query <query_text>
+
+keyset-read <filename>
+list -a -f <filename>
+
+kstore <name>
+kget <name>
+
+spush
+spop
+sor
+sminus
+sand
+sxor
+

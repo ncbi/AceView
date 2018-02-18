@@ -1,0 +1,343 @@
+<HTML>
+
+<HEAD>
+
+<TITLE> ACEDB source code documentation: the graph library </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Application programmers' guide to the arraysubs package</H1>
+
+<PRE>
+
+The arraysubs package contains a number of widely used utility
+packages.  The code is in arraysub.c.  The public interface is in
+array.h.  The code relies on the messubs package for error handling
+(messubs.c, regular.h).
+
+Array package
+-------------
+
+This is pervasisve in ACEDB.  It gives arbitrary length extendable
+arrays, called Arrays (with a capital initial 'A').  They are
+accessed via macros for efficiency when you are sure that they are
+not being extended.  Many other functions are in fact macros to
+give a cleaner programmer's interface (see the header file array.h
+for details).
+
+Basic operations:
+	Array arrayCreate (int n, TYPE)
+
+n is the initial size.  TYPE is a legitimate type.  sizeof(TYPE) is
+taken (in a macro) to determine what size objects to have in the
+array. 
+
+	Array arrayHandleCreate(int n, TYPE, STORE_HANDLE handle)
+
+is analogous, but registers the resulting array to be destroyed by an call
+to handleFree(). See messubs.doc for details.
+
+	Array arrayReCreate (Array a, int n, TYPE)
+
+If a exists already it is cleared and extended if necessary to
+length n.  In this case the size of TYPE must correspond to the
+previous type size (they ought to be the same type if you have any
+sense!), else you messcrash().  If a does not exist then it is
+created as with arrayCreate.  arrayReCreate() never deallocates
+memory, so repeated recreation of a static work array is more
+efficient than create/destruction.
+
+	BOOL  arrayDestroy (Array a)
+
+This is a macro that returns destroys a (releasing all its memory)
+and returns TRUE if a is non-zero, and returns FALSE if a == 0.
+
+	int arrayMax (Array a)
+
+Returns the largest index addressed so far plus one.  i.e. the
+number of elements.  A (very) common use is as an upper bound to a
+loop, e.g.: 
+
+	for (i = 0 ; i < arrayMax(a) ; ++i)
+	  x += arr(a,i,float) ;
+
+arrayMax() is a macro that can in principle be assigned to.
+Unfortunately we do this quite a lot to clear arrays (e.g.
+arrayMax(a) = 0).  This is considered very bad form.  If you want
+to clear the array then call arrayRecreate().  Any other explicit
+manipulation of arrayMax is completely beyond the pale!
+
+	TYPE  array (Array a, int i, TYPE)
+	TYPE* arrayp (Array a, int i, TYPE)
+	TYPE  arr (Array a, int i, TYPE)
+	TYPE* arrp (Array a, int i, TYPE)
+
+These are the basic functions to access members of an Array.  They
+can all be used as lvalues as well as rvalues, i.e. you can assign
+to them.  arrayp() and arrp() give a pointer to the i'th element of
+a, while array() and arr() give the element itself.  array() and
+arrayp() make subroutine calls that check whether i >= arrayMax(a),
+and if so extend the array if necessary and update arrayMax(a).
+arr() and arrp() are pure macros that do not check arrayMax(a) and
+should therefore only be used for accessing existing entries, not
+for creating new ones that might go beyond the previous limits.
+
+	int arrayExists (Array a)
+
+This returns 0 if a is not an array, or a unique id if it is.  If
+you really want to be sure that you have the same array now as some
+other time you should keep the id, and check it against the new
+value.  The reason for this is that sometimes an array is destroyed
+and another created using the same memory, so there is a valid
+Array with pointer value "a", even though the one that you thought
+it was has been destroyed.  This can lead to VERY subtle bugs.  The
+most watertight solution would have been to use unique integers as
+the Array values; this was done for the Graph handle, but it has
+too high an efficiency cost for the Array package.
+
+	int arrayStatus (int *memAlloc, int *memUsed)
+
+This returns the number of active arrays, and fills the arguments with
+the total amount of memory allocated, and the total amount of memory
+being used (i.e. the sum of the sizes of the memory blocks up to the
+current maximal entry in each array), both in bytes.
+
+	int arrayReportMark (void)
+	void arrayReport (int j)
+
+This allows more detailed monitoring.  arrayReportMark gives the
+number of the most recently allocated array. arrayReport write out a
+line to stderr on each array created since j (the result of a previous
+call to arrayReportMark, or 0 for all arrays).
+
+Minor Array routines:
+  Array arrayCopy (Array a)	- gives a copy, including contents
+  void  arrayExtend (Array a, int n)
+			- extends a to length at least n.  Should
+			  not be used - use array() or arrayp()
+
+arrayForceFeed() is in array.h but considered too abusive by
+Richard, who is writing this.
+
+Sorted Array package
+--------------------
+
+A number of additional routines are very useful for maintaining
+sorted arrays.  Many of them make use of an order() function passed
+by the user, exactly as with Unix sort().  
+	order(TYPE *x, TYPE *y)
+  should return negative if x < y, 0 if x == y, positive if x > y.
+All the equality matches in these functions are byte-wise matches.
+ 
+void arraySort (Array a, int (*order)())
+		- Sorts a in ascending order of order(). 
+		  Uses qsort().  Does not remove duplicates.
+BOOL arrayIsEntry (Array a, int i, void *s)
+		- returns TRUE if arr(a,i,) matches *s, else FALSE
+BOOL arrayFind (Array a, void *s, int *ip, int (*order)())
+		- if *s matches any arr(a,i,) sets *ip = i and 
+		  returns TRUE, else FALSE
+BOOL arrayInsert (Array a, void * s, int (*order)())
+		- s is a pointer to a potential entry.  
+		  Returns FALSE if arrayFind (a, s, &junk, order)
+		  else inserts *s in order.
+BOOL arrayRemove (Array a, void * s, int (*order)())
+		- if arrayFind (a, s, &junk, order) removes it and
+		  returns TRUE, else returns FALSE
+void arrayCompress (Array a)
+		- removes bytewise duplicate entries - assumes
+		  already sorted.
+
+Stack package
+-------------
+
+This gives standard stack functions on an arbitrary-size stack.
+There are also some extensions to handle arbitrary length text.  It
+makes priveleged use of Arrays (i.e. uses internal non-documented
+properties of their implementation).
+
+Stacks can be used for pushing/popping.  They also hold a cursor
+that can be used to step through the stack forwards.  They can hold
+heterogeneous data types, since the package works in bytes.  This
+is used in the graph package, and elsewhere.
+
+Creation/Destruction:
+
+	Stack stackCreate (int n)
+	Stack stackHandleCreate(int n, STORE_HANDLE handle)
+	Stack stackReCreate (Stack s, int n)
+
+stackCreate() creates stack of n bytes initial size (n is just a
+guideline - it can be exceeded without error).  stackReCreate()
+behaves analagously to arrayReCreate().
+
+	BOOL stackDestroy (Stack s)
+
+analagous to arrayDestroy().
+
+	BOOL stackExists (Stack s)
+
+Unlike for the arrayExists() this is just a BOOL.  Oh well, I guess
+we never had any problems with this one.
+
+Basic operations:
+	void push (Stack s, DATA x, TYPE)
+	TYPE pop (Stack s, TYPE)
+	BOOL stackEmpty (Stack s)
+
+These are all complex macros, that may call functions if necessary
+to extend the stack.  In push() x must be of type TYPE.  push()
+only refers to x once, but they all refer to s many times, so avoid
+side-effects in your instantiation of s. stackEmpty() is a macro that
+can be used when popping to check if there is anything left on the
+stack to pop.  It is a fatal error to pop off an empty stack.
+
+For Efficiency Reasons, it is not permissable to push or pop
+a type double. Instead use;
+
+	void pushDouble(Stack s, double x)
+        double popDouble(Stack s)
+
+Text operations:
+	void  pushText (Stack s, char *text)
+	char* popText (Stack s)
+	void  catText (Stack s, char *text)
+ 	char* stackText (Stack s, int mark)
+
+pushText() pushes text onto a stack, and popText() takes it off.  They
+correctly handle arbitrarily long text.  catText() must follow
+pushText(), or another catText().  It concatenates the text like
+strcat(), but you don't have to worry about buffer overflow.  The top
+of the stack is always left on a word boundary, to avoid alignment
+problems.  stackText() gives a way to access the text in a stack if
+you do not want to destroy it using popText().  Normally mark is set
+to 0, starting from the start of the stack, but it could also be a
+return value from stackMark() (see below).  stackTextMax() gives the
+byte length of text, assuming there is a single text object on the
+stack. 
+
+There is an additional function
+	void catBinary (Stack s, char* data, int size)
+analogous to catText that uses memcpy to add any type and amount of
+data.
+
+Functions to use the cursor:
+	int    stackMark (Stack s)
+	void   stackCursor (Stack s, int mark)
+	TYPE   stackNext (Stack s, TYPE)
+	double stackDoubleNext(Stack s)
+	char*  stackNextText (Stack s) 
+	BOOL   stackAtEnd (Stack s)
+
+stackMark() returns a cursor value.  stackCursor() repositions the
+cursor to a previously determined mark.  0 is a valid cursor value for
+the start of the stack, i.e. it is valid to stackCursor (s, 0).
+stackNext() delivers the item at the current cursor location and
+increments the cursor.  stackDoubleNext is the equivalent for doubles, which
+are not permissable with stackNext. stackNextText() delivers text put onto the
+stack using pushText(), and moves the cursor to the next item past it.
+stackAtEnd (Stack s) is a macro that returns TRUE if the cursor is at
+the end of the stack.  It is a fatal error to go past the end of the
+stack.
+
+NB stackMark() gives the number of bytes from the base of the stack to
+its current top, so can be used as a stackMax() call to give the
+current size of the stack.
+
+Tokeniser:
+	void stackTokeniseTextOn (Stack s, char *text, char *delimiters)
+
+This is potentially a nice tokeniser for text, but we don't use it
+much and it probably needs more work.  Look at the code if you are
+interested. 
+
+Minor stack routines:
+  void stackClear (Stack s)	- empties the stack
+  void stackExtend (Stack s, int n) - see arrayExtend()
+
+stackTextForceFeed() is an ugly unsanctioned call.
+ 
+Associator package
+------------------
+
+This is a package that implements hash tables to allow arbitrary
+pointers or integers to be associated with each other.  The
+implementation keeps the hash table between 1/4 and 1/2 full.  The
+hash function used is exceedingly simple:   
+	hash = ((unsigned int)xin >> 2) & a->mask ;
+The division by four (>> 2) is to make hashing pointers more
+efficient, but it means that consecutive integers hash badly.  There
+is no text hashing capability yet.
+
+NB You can not associate anything to xin == 0.  This is used as the
+marker for an empty bin.
+
+The basic routines to create/destroy etc. mimic those for Array/Stack:
+	Associator assCreate (void)
+	Associator assBigCreate (int n)	-- lets you set the initial size
+	Associator assReCreate (Associator a)
+	BOOL       assDestroy (Associator a)
+	BOOL	   assExists (Associator a)
+
+The routines to add/find/subtract entries are:
+	BOOL    assInsert (Associator a, void* xin, void* xout)
+	void 	assMultipleInsert(Associator a, void* xin, void* xout)
+	BOOL    assFind (Associator a, void* xin, void* *pout)
+	BOOL    assRemove (Associator a, void* xin)
+	BOOL	assPairRemove(Associator a, void *xin, void *xout)
+	BOOL    assFindNext (Associator a, void *xin, void* *pout)
+
+assInsert() fails if something has already been associated to xin.
+assMultipleInsert allows more than one association with xin.
+assPairRemove only removes an association with xin of it is to xout.
+assFindNext is used to get multiple associations to the same key.
+Start by calling assFind to initialise things, then call assfindNext until
+it returns FALSE. Note that the first call to AssFindNext gives the same result
+as the call to assFind.
+The other calls are self-explanatory.
+
+Utility routines are:
+	void    assDump (Associator a)
+	void    assClear (Associator a)
+	BOOL    assNext (Associator a, void* *pin, void* *pout)
+
+assDump() uses printf and is only for debugging.  assClear() empties
+the associator.  assNext() allows you to step through all the entries.
+Start with *pin == 0.  Each call that returns TRUE gives a new in/out
+pair, until the end of the table is reached, when it returns FALSE.
+
+You can read a->n, which is the number of stored items, but do not set
+it!  This should be a function call.
+
+Line breaking package
+---------------------
+
+This is a package to break lines.  Lines are broken at spaces if
+possible, else at width exactly if there are no spaces.  Of course any
+'\n's contained in the text are respected as line breaks.
+
+There are several variants.  One possibility is to first call 
+	int uLinesText (char *text, int width)
+then successively one of 
+	char *uNextLine (char *text)
+	char *uPopLine (char *text)
+which get the lines in forward or reverse order, ending with a 0.
+
+Alternatively
+	char **uBrokenLines (char *text, int width)
+gives a zero terminated array of lines, while
+	char *uBrokenText (char *text, int width)
+gives a single string into which '\n's have been intercalated.
+
+<PRE>
+
+
+
+</BODY>
+</HTML>

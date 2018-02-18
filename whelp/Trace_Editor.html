@@ -1,0 +1,147 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Trace Editor</title>
+</head>
+<link href="scroom">
+<body>
+ <h1>Trace Editor for cDNA</h1>
+ The trace display has been substantially improved in relation with the Y.Kohara cDNA mapping  project in Japan, which has for aim to integrate previously unreleased data on almost 10000 genes of C.Elegans. The goal was to align 100000 reads on the genomic allowing for intron splicing  and edit them in comparison with the genomic sequence(75 meg  out of 100 already published) to maximize the  readable length  of a read. Optimized as it is a gene can be completely edited (ie to the end of each read) in a few minutes.
+<p>
+
+<h5>Left button to accept, middle button to move, right mouse button for details<P>
+Use 'up arrow' and 'down arrow' to move to next problem, and 'enter' or 'space' to edit as suggested</h5>
+<p>
+
+
+
+<h2>Tools</h2>
+
+<h3>Control Bar</h3>
+<ul>
+  <li><b>Quit:</b>quits
+  <li><b>Help:</b>displays this page.
+  <li><b>Zoom in/out:</b>you can also zoom by middle-dragging the mouse left of the scale bar
+  <li><b>Print:</b>prints or creates a postscript file for storing.
+  <li><b>Fix:</b>recalculates splicing according to your editions.<p><strong>FIX EARLY, FIX OFTEN, FIX ANYTIME something WEIRD IS  HAPPENING.</strong>
+  <li><b>Tag:</b>
+  <li><b>Show...</b>This pull-down menu controls what traces will be displayed. Options are
+      <ul>
+	<li><u>All traces:</u>shows all
+	<li><u>Hide up:</u>only shows 5prime reads.
+	<li><u>Hide down:</u>only shows 3prime reads.
+	<li><u>Best+error:</u>this is the default mode it displays the best trace as reference and any and all traces with errors.
+	<li><u>Best:</u> only the best for you.  
+      </ul>
+     <bodytext> Note that <b>hide up/down</b> are filters independent of other options, and that <b>best</b> refers to <b>best up+best down</b> where available.It's a good idea to <strong>edit your reads from the beginning to end</strong> to minimize the risk of editing to match the genomic a misassembled read, and because the program will fix the coordinates better if the origin is correctly set. One good way is to edit top to bottom in hide up mode, then bottom to top in hide down, then whatever errors are left once all the reads are correctly aligned.Click on the trace you want to display/hide in the display map on the left for finer selection of your traces.Depressing <b>right shift</b> while you select your traces retards  redrawing and allows multiple choices.
+     </bodytext> 
+</ul>
+
+<h3>Display map</h3>
+
+    The display map is in the left section of the window and  is limited on the right by  <b>the scale bar</b>.<p>
+
+It shows the genomic sequence on the left, then the reads as compared to genomic sequence.They appear as  vertical rows of dots when there is no difference with the genomic, the letters  correspond to differences with the genomic <b>a letter for a punctual error,a capital for deletion,a star for insertion, an X/# for multiple inserts/deletes, and a dot for same as genomic</b>.<p>
+The reads are displayed in the same order (left to right) as in the <b>trace display</b>, up reads on the left and down reads on the right, separated by a white space if they cross.<p>
+The traces that are currently displayed are highlighted in green, you can select the traces you want to display by clicking on them. Holding <b>shift</b> while you do this will retard the redrawing.<p>
+ Note that usually there are more bases shown in this map display than in the trace display, you  can therefore foresee clips, errors or jumps.<p>
+    <b>Clips</b> are shown in <b>blue for start insert, orange for end of insert, yellow for quality clip</b>(these can be opened with the double arrow in the trace display)<b>pink for jump to other position, yellow for transplice to motif(SL1, SL2)</b>. It is useful to often refer to this display in jump zones, as the relative positions  of the splice site on the different clones is more readily visible.  Note also that a trace won't be displayed if the clip extends beyond the base you are centered on.
+<p>
+
+<h3>Scale bar</h3>
+
+ This is the black line+green rectangle just right of the display map. The green rectangle is the exact position of the traces displayed on the right. Left clicking on this rectangle recalculates and brings to the forefront the <a HREF="cDNA_Gene_map.html">cDNA Gene map</a>.<b>This is not a <u>fix</u></b>, it's a way of knowing where you are on the gene.<p>
+Select the exact position and zoom of the <b>trace display</b> by middle dragging on the display map:<b>left zooms in, right zooms out, up and down choose the base you center on.</b><p>
+The black line represents the length of sequence visible in the <b>display map</b>.
+<p>
+ 
+      
+<h2>The Trace Display</h2>
+
+  This is the section of the window where the traces are graphically displayed. The traces  are displayed according to the <b>display map</b> and <b>show...</b> options, and in the same order as in the display map.Errors are represented by the suggestion of the error tracker.<P>
+At the top of each trace is written the coordinate of the base at the top of the screen in the sequence. Just below is a triangular indicator of direction up or down. <b>This is also a button and a pull-down menu:</b>clicking on it brings the EST for this sequence, right-clicking offers the menu:
+<ul>
+  <li><b>Who am i:</b>opens a more info display on the sequence.
+  <li><b>Search Vector:</b>tries to to find a vector signal in this read. (ggaattcggcacgag)
+  <li><b>Discard from here:</b>use this if the read seems not to fit in this gene.
+</ul>
+      The circle with the <b>e</b> means <b>edit this sequence</B>, it will edit the visible part of this sequence according to suggestion.<p>
+      
+The traces themselves are displayed vertically, the bases called are aligned along the trace by a transparent internal zoom algorithm. The colored bars represent the Ace base call, their length gives an idea of the certainty evaluated by the program. Differences with the genomic are displayed in colored boxes. A purple X means multiple inserts, a # multiple deletes. Clicking on a suggestion causes it to be accepted.<p>
+
+      <h3>Edit as suggested</h3>
+
+      
+      In this version of the trace editor you have access to very powerful tools for accepting suggestions.
+<ul>
+  <li> <b>Edit as suggested='e' or 'space' or 'enter'</b> This accepts all the suggestions on screen, save for the top and bottom edge to insure there isn't a clip a few bases further along.
+  <li><b>The Magic Square:</b>By dragging with the left mouse button you create a square over the traces; <b>any errors inside the square</b> when you release the mouse button will be edited as suggested.
+  <li>Left-click: as said earlier left clicking accepts a change.    
+</ul>
+Note that as errors disappear, in best+error mode the traces won't be displayed anymore. You can still display them by picking  them in the  <b>display map</b>, or by changing the <b>Show...</b> option to SHOW ALL.
+<p>
+
+<h3>Edit as IS NOT suggested</h3>
+
+When you feel the suggestion is false, or is based on the wrong genomic sequence(ie splice site), you edit 'by hand'. <b>Each base is a pull-down menu, and between any two bases  there is a pull-down menu.</b>
+<ul>
+  <li><b>Base menu options:</b>
+      <ul>
+	<li>you can change the letter to any other. <b>a, t, g, c, or n</B>, or <b>delete</b> it from this menu.
+	<li>The various <b>CLIPS</b> available are also accessed through this menu. See associated paragraph.
+      </ul>
+  <li><b>Insert menu options:</b> Between two bases is a button for inserts. You can insert <b>a, t, c, g, or n. </b> <i> NB: it's sometimes difficult to touch when the bases are very near each other, you should zoom in if such is the case.</i>
+</ul>
+
+<h3>Clips, jumps, transplice sites</h3>
+
+These sites are specific of cDNA sequencing and should be tagged as they are found in the traces.These tags all start on the base you select and extend either
+<b>forward</b> or<b> to end of trace</b> or <b>back</b> or<b> from start to here</b>.
+
+<ul>
+  <li><b>forward clips:</b>
+    <ul>
+      <li><b>clip end insert:</b>tag the end of a read  that exits the insert.Two cases here, either you clip a quality too low for enhancing(3 or 5prime), or you tag the <b>g</b> of <b>gagcacggcttaag</b> on an ascending 5 prime read that reaches the start vector of the clone.
+     
+      <li><b>clip end quality:</b>ah try <b>end insert</b>.
+      <li><b>polyA:</b>Place on the first <b>A</b> of a polyadenylation site on the end of a 3 prime read.
+    </ul>
+  <li><b>from start clips:</b>
+      <ul>
+	<li><b>clip start insert:</b>Place this on the first base of the <b>insert</b>. ie the first base after <B>ggaattcggcacgag</b>.
+	<li><b>Motif:</b>placed on 3 prime side(top) after the vector
+	    <ul>
+	      <li>SL1:<B>GAG TTT GAA CCCA</b>
+	      <li>SL2:<B>GAA CTC ATT GACC</b>
+	      <li><b>gcc gtg ctc</b>:this nine base motif has been found so oftenwe made a button to tag it.
+	      <li><b>other motif:</b>tag any other motif that seems to be transpliced. One of the motifs found often was <b>GAA CCA AAT Tg</B>.    
+	    </ul>
+	    
+      </ul><p>
+     Note that you should be very careful whether you're clipping a 3 or 5 prime as you
+      <b>always clip in the same direction as the trace.</b>
+      <p>
+      If your clip seems exaggerated a confirm message will ask
+       <i>Do you really want to clip -67 Bases</i> meaning unclip 67 bases, or
+       <i>Do you really want to clip 580 Bases</i> meaning  you' re clipping the wrong end.
+      <p>
+      <h6>If despite this you clipped wrong the right button menu offers the option  <b>undo last vector clipping</B></h6>
+
+</ul>
+      <h3>SCROOMING: scrolling and zooming</h3>
+      
+
+
+
+<hr>
+
+
+</body> </html>
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,14 @@
+#!/bin/csh
+
+#usage finish cosmid relationfile texfile.out datefile.out
+echo "hello world"
+
+echo finish $1 $2
+echo /home1/crick/gmarth/finish/perl/finish_jean $1 $2 $2.a $2.b
+/home1/crick/gmarth/finish/perl/finish_jean $1 $2 $2.a $2.b
+# /home1/watson/bin/newfinish 
+\rm -f $2.c
+echo `pwd`
+awk -f /home1/crick/mieg/ace/wscripts/ace2finish.awk $2.a >! $2.c
+\rm -f $2.b
+

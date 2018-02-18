@@ -1,0 +1,41 @@
+# $Id: LINUX_LIBC5_4_DEF,v 1.4 2016/02/21 03:36:28 mieg Exp $ #
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### ported to Linux by Ken Letovski    ##############
+############### wmake/LINUX_DEF    Feb-2-1993      ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+###########    for the PC-386, running LINUX   ##################
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = LINUX
+COMPILER = gcc -g  -DACEDB4 -I.
+LINKER = g++ -g
+
+LIBS = -lm
+Xt_LIBS = -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXext -lX11
+LEX_LIBS = -lfl
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX = flex
+LEX_OPTIONS = -l
+
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS =
+
+RPCGEN_FLAGS = -b -I -K -1
+
+#################################################################
+#################################################################
+ 
+ 
+ 
+ 

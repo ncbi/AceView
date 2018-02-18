@@ -1,0 +1,20 @@
+#!/bin/tcsh -f
+set dd=$1
+set run=$2
+
+  if (! -d tmp/$dd/$run) then
+
+    set t=tmp
+    if ($?projectDir) set t=$projectDir
+    if (! -d tmp/$dd) mkdir tmp/$dd
+    if ($t == tmp) then
+      mkdir tmp/$dd/$run
+    else
+      if (! -d $t/$dd) mkdir $t/$dd
+      if (! -d $t/$dd/$run) mkdir  $t/$dd/$run
+      ln -s ../../$t/$dd/$run tmp/$dd/$run
+    endif
+
+  endif
+
+exit 0

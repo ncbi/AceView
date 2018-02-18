@@ -1,0 +1,107 @@
+$Id: WRITE_ACCESS,v 1.1.1.1 2002/07/19 20:23:15 sienkiew Exp $
+
+Write Access for ACEDB
+======================
+
+There are a number of tests that must be passed before ACEDB will give
+write access to a user. 
+
+
+The first requirement is that the process must have Unix write access
+to the database files in database/ (in detail the files ACEDB.wrm and
+log.wrm are checked up front, and the particular blocks file when
+needed).  The next section describes ways to arrange for this.
+
+Second, your user name must be in the file wspec/passwd.wrm.  The user
+name is obtained via the system call getlogin(), which gets the login
+user id, not the effective user if.  This means that you can not "su"
+to a user name that has write access -- you must log in as them.  If
+getlogin() fails for some reason on your machine (rare), then the name
+"getLoginFailed" will be matched, i.e. in this case you can add
+getLoginFailed to passwd.wrm to allow user access (to everyone).
+
+Third, acedb checks the lock status of the database.  It must be able
+to open/create the file database/lock.wrm with read/write permissions.
+Next, by default, it must be able to establish a non-blocking lock on
+this file, using lockf(), which is supposed to work across NFS.
+Unfortunately problems do occur with this locking system.  Some Unix
+implementations are bugged or incompatible across NFS, and sometimes
+the lock daemon has been disabled or is not running.  In these cases,
+you can bypass the lock checking process by adding "NOLOCK" as a 
+pseudo user name in wspec/passwd.wrm.
+
+Finally, an internal check is made on the database that somebody else
+has not changed the database since you started acedb.  This can not
+reliably replace the locking process, because NFS caches files, so
+that two people on different machines can be looking at different
+versions of the same file.  If you want to do serious multi-user
+editing, get lockf() working, or look at the server/client version.
+
+Previous versions of acedb used to look at an environment variable
+called "ACEDB_SU", and refuse to give write access unless it was set.
+This is no longer the case, the presence or absence of an environment
+variable of that name is of supreme indifference to acedb 4.
+
+Muti user write access
+----------------------
+
+Notice that an edition done by one user and committed to the disk
+by the Save option of the menu of the main window is not propagated
+to other users of acedb who started their code prior to this Save.
+They have to quit and restart to see it. 
+
+To keep the database consistent despite this limitation, acedb will
+prevent user X to get write access either if another user already has
+write access, or if an other user has edited the database since
+user X has started his session.
+
+In other words, acedb has an irreversible global write lock that let only
+a single user have write access after the time the session was started.
+
+Multi users can edit simmultaneously the database only via the client/server
+setting. However, as of jan 97 we do not have a correct graphic xace client.
+The server is therefore used in the following way. Automatic programs
+read and write to the server to accumulate data from data acquisition
+machines in the form of ace files, while simmultaneously other scripts
+prepare data for visualisation through the web.
+
+To gain graphic access, a special script was wriiten at the Sanger which
+starts a new ace databse, import relevant data, let the user edit what he
+want in xace and then commit the edited data to the server.
+Possibly, this system will be improved and be part of our distribution
+next summer. 
+
+Using setuid
+------------
+
+In order to give communal write access to an acedb database under
+unix, the following procedure should be adopted.
+
+1) create (or have created) as pseudo-user called (eg) acedb.
+
+2) make the acedb database and ensure that the following files
+permissions are set.
+
+	i) directory wspec and the files it contains are world readable
+	ii) database and the files it contains are world readable.
+        iii) database and the files it contains are owned by user acedb
+             and owner-writeable
+
+3) make executables (xace and tace) owned by user acedb, and
+   with file permissions 4755.
+
+4) Users who are to have write access to the database should appear in
+   the file wspec/passwd.wrm
+
+This uses the unix setuid mechanism to give the xace or tace processes
+the access priviledges of user acedb. They swap between the persona of
+acedb and the user who actually invoked them, so that all file
+accesses apart from to the databse directory are in the persona of the
+real user, and not affected. One can thus write dump files in personal
+directories OK. (this used to be a problem.)
+
+
+A final word of caution. Never, NEVER make xace or tace setuid root.
+There are certainly security holes in acedb which would allow intruders
+to get a super-user shell if you did, and there is no reason to do so.
+

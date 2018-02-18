@@ -1,0 +1,31 @@
+# 2009_01_17
+# mieg@ncbi.nlm.nih.gov
+
+# The idea is to use the NCBI fast-cgi and app C++ class
+# and link in the aceview code so we can use fast-cgi and register in applog
+
+# to create a stubb cgi/fastcgi application
+  $NCBI/c++/scripts/common/new_project.sh AceView app/cgi
+# The automatically generated file is not needed
+  \rm AceView.html
+
+# Substitute the edited file AceView.cpp 
+  \cp ../AceView.cpp  .
+# Add in Makefile.fAceView_app the definition of the needed C modules
+# and add them in LIBS (LIB is not modified) as follows:
+
+## Add in Makefile.fAceView_app the object modules an libraries for the legacy C code, after PRE_LIBS
+LEGACY_LIBS = ../../bin.$(ACEDB_MACHINE)/vtxt.o  ../../bin.$(ACEDB_MACHINE)/cgi.o  ../../bin.$(ACEDB_MACHINE)/dict.o ../../bin.$(ACEDB_MACHINE)/aceviewlib.o -L ../../bin.$(ACEDB_MACHINE) -lfree -ltsfree -laccl -lacedna -ltcpfn 
+## Use these two lines for normal CGI.
+LIB = xcgi xhtml xconnect xutil xncbi
+LIBS = $(NETWORK_LIBS) $(ORIG_LIBS) $(LEGACY_LIBS)
+
+
+# Make, export the executable to flexo as 'av.cgi' and test
+make -f Makefile.AceView_app
+\cp AceView ~/AceView/pub/av.cgi
+
+# To see the logs
+ln -s /panfs/pan1.be-md.ncbi.nlm.nih.gov/applog_archive/bin/applog_client
+applog_client -query 'date=today AND app=AceView'
+

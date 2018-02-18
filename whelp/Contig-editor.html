@@ -1,0 +1,306 @@
+<!--  @(#)Contig-editor.html	1.2  2/17/95  >
+<head>
+<title>Contig-editor</title>
+</head>
+
+
+
+<h2>Contig-editor</h2>
+
+Picking on displayed entities follows the paradigms of the physical
+map.<p>
+
+In addition there is a control bar at the top of the graph, containing
+menu- buttons, and a cue.  The editor has four menus, which can be
+selected by picking on the menu buttons.<p>
+
+The control bar has a yellow window displaying the latest-visited
+position of the scrolling cursor (middle mouse button) in band
+coordinates.<p>
+
+Cues and information messages are displayed on the right of the
+control bar.<p>
+
+The map has a scale calibrated in band units.<p>
+
+<h3>Setting and Using Marks</h3>
+
+A mark is a labelled position on the contig. It is represented by a
+vertical line through the map, labelled with a band position.  The
+current mark is highlit (yellow).<p>
+
+Most editing operations are carried out relative to a mark.  Marks can
+be set anywhere in the contig, and used to snap to a given part of the
+contig, which may be off-screen.  The simplest way of setting a mark
+is to line up the scrolling cursor with a feature on the map, and
+select "Set Mark At Cursor Position".<p>
+
+<h3>Marks menu</h3>
+
+<ul>
+
+<li><strong>Set Mark At Cursor Position</strong>: set a mark at the
+current cursor position
+
+<li><strong>Mark Centre</strong>: set a mark at the current centre of
+graph
+
+<li><strong>Mark Centre Of Cosmid</strong>: set a mark at the centre
+of the current cosmid
+
+<li><strong>Set Mark</strong>: set a mark at a specified band
+coordinate
+
+<li><strong>Zero Scale To Mark</strong>: recalibrate the scale with
+current mark=0 - this does not change the model
+
+<li><strong>Set Scale At Mark</strong>: recalibrate the scale with
+current mark= specified band coordinate - this does not change the
+model
+
+<li><strong>Reset Scale</strong>: restore original calibration of the
+scale
+
+<li><strong>Snap To Mark</strong>: display graph centred on current
+mark
+
+<li><strong>Snap To Previous Mark</strong>: display graph centred on
+previous mark: this allows toggling repeatedly between the latest two
+marks set
+
+<li><strong>Visit Mark</strong>: display graph centred on each mark
+set, in turn, in reverse order
+
+<li><strong>Delete Mark</strong>: delete current mark (this will occur
+even if it is off-screen)
+
+<li><strong>Delete All Marks</strong>: you guessed it
+
+</ul>
+
+<h3>Utilities menu</h3>
+
+<ul>
+
+<li><strong>Overview Physical Map</strong>: peek at the default
+physical map display, preserving the state of the editor - useful for
+fast scrolling using the physical map's mini-contig
+
+<li><strong>Finished Edit</strong>: finish editing session, and revert
+to the default physical map
+
+<li><strong>Quit</strong>: quit this physical map - like Quit on the
+default map
+
+<li><strong>Help</strong>: what you are reading
+
+<li><strong>Print</strong>: PostScript dump of the edit panel
+
+<li><strong>Preserve</strong>: as elsewhere
+
+<li><strong>Redraw</strong>: as elsewhere
+
+<li><strong>Remarks</strong>: vary the density of remarks displayed in
+the edit panel: this is a switch with three states
+
+<li><strong>Recalculate</strong>: as elsewhere
+
+<li><strong>Unhighlight, Revert</strong>: clean the edit panel -
+remove all highlighting, editing marks, etc and restore the default
+level of remarks
+
+</ul>
+
+<h3>Editing Clones menu</h3>
+
+<ul>
+
+<li><strong>Left End Of Clone To Mark</strong>: move the
+currently-selected clone so that its left end abuts the current mark
+
+<li><strong>Right End Of Clone To Mark</strong>: move the
+currently-selected clone so that its right end abuts the current mark
+
+<li><strong>Extend Left End Of Clone To Mark</strong>: extend the
+currently-selected clone so that its left end abuts the current mark
+
+<li><strong>Extend Right End Of Clone To Mark</strong>: extend the
+currently-selected clone so that its right end abuts the current mark
+
+<li><strong>Show Buried Clones Of Clone</strong>: show buried clones
+of currently-selected clone - they are not automatically positioned at
+present
+
+<li><strong>Show All Buried Clones</strong>: show all buried clones of
+the contig - they are not automatically positioned at present
+
+<li><strong>Attach Clone</strong>: introduce a YAC or cosmid into the
+contig
+
+<li><strong>Detach Clone</strong>: detach the currently-selected YAC
+or cosmid from the contig
+
+</ul>
+
+<h3>Contig-Wide Operations menu</h3>
+
+<ul>
+
+<li><strong>Open Contig</strong>: The contig is cut at the current
+mark, and one side positioned relative to the other by dragging it
+left or right with the left mouse button down, to compress or extend
+the contig at the mark.  A crosshair marks the current cursor
+position. The current position of the moving side of the cut is
+displayed in the cue, and the current position of the cross-hair
+cursor is displayed in the yellow position box in the control
+bar. When the contig is recalculated, a new mark is placed
+automatically at the final position of the moving side of the cut, and
+the position of all affected marks is updated.  F4 has the function of
+an UNDO key for this operation: you can interrupt and back off this
+operation.
+</ul>
+
+<h3>Autopositioning</h3>
+
+Operates on two <A HREF="KeySet.html">keysets</a>: one specifying the
+domain of interest for matching, the other the new clones. Generates a
+report of results which has operations defined on it for surveying and
+editing positioned clones. After running the autoposition function,
+the internal cache representing the domain set, and the data of the
+results of the autoposition function can be saved in separate files
+for future use. The default domain is the entire database of clones -
+this does not have to be specified explicitly; and its internal
+representation can be saved for future use.  Generating the internal
+representation of the domain is a slow operation for large keysets.<p>
+
+The results are displayed on a pad with sensitive areas. This allows
+picking clones of interest. A pick on a matched clone in the context
+of the pad causes the clone of interest (the "subject") to be
+positioned against the match on its contig.  The result of this
+operation can be Edited, Accepted, Rejected, or Bury-ed beneath its
+match.<p>
+
+Use of accelerators: the following have been defined on the pad, and
+on the edit panel when autopositioning is in progress.<p>
+
+<ul>
+
+<li><strong>UP, DOWN arrow keys</strong>: previous, next match for the current subject
+
+<li><strong>LEFT, RIGHT arrow keys</strong>: skip to results for
+previous, next subject
+
+<li><strong>'a'</strong>: accept this match (adds subject to the
+contig)
+
+<li><strong>'r'</strong>: reject this match
+
+<li><strong>'e'</strong>: add the subject to the contig as displayed,
+for manual edit
+
+<li><strong>'b'</strong>: bury the clone under its match
+
+</ul>
+
+Fingerprints can be displayed on a separate window, which acts as a
+scrollable log file.<p>
+
+<h3>autopositioning - auto menu on edit panel</h3>
+
+<ul>
+
+<li><strong>Autoposition Clones from Keyset</strong>: use current
+keyset
+
+<li><strong>Set Autoposition Domain</strong>: use current keyset to
+define domain of Autoposition operation
+
+<li><strong>Load Domain</strong>: load internal representation of
+domain from named file
+
+<li><strong>Use Whole Database</strong>: implicit argument
+
+<li><strong>Save Domain</strong>: in a named file
+
+<li><strong>Load Results</strong>: load data of previous Autoposition
+from named file A results file cannot be loaded without loading an
+appropriate domain file.
+
+<li><strong>Save Results</strong>: in a named file
+
+<li><strong>Fingerprint</strong>: show fingerprint of the
+currently-selected clone
+
+</ul>
+
+<h3>autopositioning - report pad menu</h3>
+
+<ul>
+
+<li><strong>Quit</strong>:
+
+<li><strong>Help</strong>:
+
+<li><strong>Print</strong>:
+
+<li><strong>Preserve</strong>:
+
+<li><strong>Save Results</strong>:
+
+<li><strong>Save Domain</strong>:
+
+<li><strong>Tree</strong>: </ul> 
+
+</ul>
+
+Switches<p>
+
+<ul>
+
+<li><strong>Set to Edit</strong>: the default behaviour of the
+accelerator keys is to advance to the next match (or next subject's
+first match) and position against that: when this switch is set, the
+latest match is displayed on the edit panel after using the
+accelerators, instead
+
+<li><strong>Show Fingerprints</strong>: when this switch is set, clone
+fingerprints are displayed automatically in the Fingerprint window
+whenever a clone on the report is selected, or the accelerators are
+used
+
+</ul>
+
+Edit operations<p>
+
+<ul>
+
+<li><strong>Accept</strong>:
+
+<li><strong>Reject</strong>:
+
+<li><strong>Edit</strong>:
+
+<li><strong>Bury Clone</strong>:
+
+<li><strong>Fingerprint</strong>: show fingerprint of the
+currently-selected clone
+
+</ul>
+
+<h3>fingerprint window menu</h3>
+
+<ul>
+
+<li><strong>Quit</strong>:
+
+<li><strong>Help</strong>:
+
+<li><strong>Print</strong>: as default
+
+</ul>
+
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>
+

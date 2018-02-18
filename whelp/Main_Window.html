@@ -1,0 +1,72 @@
+<!--  @(#)Main_Window.html	1.2  9/20/95  >
+<head>
+<title>Main_Window</title>
+</head>
+
+<pre>
+
+**Main_Window
+
+  For general information about the program, how to get on line
+help, how to use the mouse, how to print windows, authorship,
+distribution, copyright etc, press the page_up button.
+
+ ** To exit the program choose Quit from the menu in the main window. **
+
+The main window lets you find objects in the database in two
+different ways:
+
+(1) You can pick a class by clicking with the left mouse button.
+Clicking again will give a list of all objects in that class in the
+Selection Window.  You can restrict this list by typing a template
+in the Template box.  When you press the Return key you activate the
+search.  Name recognition is not case sensitive.  A '*' in the
+template will match anything; e.g. "S*" will match all names
+beginning with 'S', "*S*" will match all names containing an 'S',
+"*a*b" all names containing an 'A' and ending with a 'B'.  To
+actually display the object you must pick its names twice in the
+Selection Window (see help for Selection Window).
+
+(2) You can type a text string in the Text Search box (first click
+on it with the left button to make it yellow).  This will find all
+the objects in the database which contain the search text.  More
+precisely, we find all objects whose name contains the search
+string, all objects they refer to, and all containing Text (or other
+X class data) containing the search string.
+
+In addition the Main Window menu allows access to many other
+applications and functions of acedb.
+
+Menu entries:
+Quit	              Quits entire program
+Help                  Gets the on line Help
+Program Status        Info on the database
+Clean up              Kills all acedb windows except main
+Add update file       To read the official data updates 
+Query                 Starts a window which has its own  help.    
+Deficiencies          Primitive tool to analyse deficiency data.
+Genetics              Run the get buttons to preprocess Mapping data
+DNA                   Starts a window which has its own  help.    
+Wild Worms            Starts an OPEN-WINDOWS screen saver if available
+
+  Toggle entry (you only see one of these at a time)
+Write Access          Select this to get write access to the
+                      database. If you are not registered
+                      in wspec/passwd, you will not be offered this option.
+Save                  Saves all changes permanently and releases write access.
+   
+  The following entries only exist if you have Super-User access
+Add/Alias/Rename      Starts a window which has its own  help.    
+Read .ace files       Starts a window which has its own  help.    
+Align maps            Starts a window which has its own  help.    
+Read Models           Run this after modifying wspec/models.wrm
+Dump asn models       Produces an asn definition file.
+Dump                  Dumps the whole databse in ace format. Slow.
+Debugger              Calls the function "invokeDebugger()", set a
+                      break on this function in your favorite debugger.
+Test subroutine       Calls acedbtest(), for use to test new code.
+
+
+
+<a href="Index.html">Back to Index</a>
+</pre>

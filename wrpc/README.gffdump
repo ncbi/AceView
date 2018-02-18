@@ -1,0 +1,30 @@
+###################################
+Adam Lowe, aug 20 2001
+
+
+GFF dump/read
+
+wrpc/gffdump.c
+wrpc/gffread.c
+
+Usage and other features are documented in code. Simple examples:
+
+gffdump vesta 2315002 1a* > test.gff
+
+Creates a file, test.gff, containing the gtf specification of mrnas matching the filter 1a* (ommission of filter
+acts same as *).
+
+gffread test.gff > test.ace
+
+Will create an ace file from same gff (gtf) file. This fills the following tags in the mrna objects:
+
+From_gene
+Genomic_sequence
+Covers
+Splicing
+Coding
+
+It also adds the 'mRNAs' cross-reference into the contig in the Covers tag.
+
+###################################
+

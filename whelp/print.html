@@ -1,0 +1,8 @@
+<h2>Setting up a print buffer</h2>
+
+ The<strong>F2 or F9 key</strong> creates a post-script
+file in the subdirectory PS of $ACEDB.  It will then try to print it
+using "lpr".  If the environment variable ACEDB_LPR is set (e.g.
+setenv ACEDB_LPR "lpr -Pmyprinter"), then that print command is used
+instead.  Setting it to an empty string will prevent automatic
+printing.

@@ -1,0 +1,187 @@
+#!bin/tcsh -f
+
+set XYH=$1
+set chrom=$2
+
+set target=magic
+source scripts/target2target_class.txt
+set ici=`pwd`
+if (! -d  tmp/$XYH$chrom) exit 1
+
+
+
+echo -n 'Start of phase f5 create the gene boxes '
+date
+
+printf "Clone Main_clone\nAceview_release_suffix May7\nname_by_gene\n\n" >  tmp/XH$chrom/f5.main_clone.ace
+
+bin/tacembly tmp/XH$chrom <<EOF
+      parse tmp/XH$chrom/f5.main_clone.ace 
+      find tg
+      acem 
+        gene_intron
+        quit
+      save
+      quit
+EOF
+
+
+bin/tacembly tmp/XH$chrom <<EOF
+     query find tg to_be_fused_with
+      edit -D to_be_fused_with
+      query find tg Antisens_to
+      edit -D Antisens_to
+      query find tg Overlaps
+      edit -D Overlaps
+      query find tg Shedded_from
+      edit -D Shedded_from
+      query find sequence Matching_transcribed_gene
+      edit -D Matching_transcribed_gene
+      query find sequence Matching_mRNA  
+      edit -D  Matching_mRNA  
+      save
+      quit
+EOF
+
+bin/tacembly tmp/XH$chrom <<EOF
+  acembly
+    cdna_21  // it seems we did not create identical_to tags
+    cdna_50
+    quit
+  save
+  quit
+EOF
+
+
+# find the relevant geneid and export the coords of the future genebox
+
+bin/tacembly tmp/XH$chrom <<EOF
+      table -o tmp/XH$chrom/f5.tg2genebox.txt -f tables/f5.tg2genebox.def // exclude shedded tg
+      save
+      quit
+EOF
+
+# construct the geneboxes
+  cat tmp/XH$chrom/f5.tg2genebox.txt | gawk -F '\t' '/^\"/{ printf ("Sequence %s\nGenes %s %s %s\n\nGene %s\nTranscribed_gene %s\n\n", $4, $1, $2, $3, $1, $1) ;}'  >  tmp/XH$chrom/f5.tg2genebox.ace
+
+# parse the genebox and the geneid objects
+# flag the shedded genes 
+# and reexport the product <->genebox assiociation
+bin/tacembly tmp/XH$chrom <<EOF
+      read-models
+      pparse tmp/XH$chrom/f5.tg2genebox.ace
+      table -o tmp/XH$chrom/f5.tgshedded2tg2gg.txt  -f tables/f5.tgshedded2tg2gg.def
+      save
+      quit
+EOF
+
+# hook the shedded tg to the parent genebox
+touch  tmp/XH$chrom/f5.tgshedded2tg2gg.txt
+cat tmp/XH$chrom/f5.tgshedded2tg2gg.txt | gawk -F '\t' '/^\"/{printf("Gene %s\nTranscribed_gene %s\n\n", $3, $1);}' d8.tgshedded2tg2gg.txt >!  tmp/XH$chrom/f5.tgshedded2tg2gg.ace
+
+# table export the read/tg/mrna/product tags that should appear in the genebox
+bin/tacembly tmp/XH$chrom <<EOF
+      query find tg intron ; > intron
+      list -a -f  tmp/XH$chrom/f5.tg2intron.list
+      pparse tmp/XH$chrom/f5.tgshedded2tg2gg.ace // hook shedded tg to parent genebox
+      table -o tmp/XH$chrom/f5.gene2shedtg2coords.txt -f tables/f5.gene2shedtg2coords.def
+      table -o tmp/XH$chrom/f5.geneid2seq2tg2gg.txt   -f tables/f5.geneid2seq2tg2gg.def 
+      table -o tmp/XH$chrom/f5.tg2genebox2product.txt -f tables/f5.tg2genebox2product.def
+      table -o tmp/XH$chrom/f5.pg2tg2gg.txt           -f tables/f5.pg2tg2gg.def
+      save
+      quit
+EOF
+ 
+cat  tmp/XH$chrom/f5.tg2intron.list | gawk '/^Intron/{gsub(/\"/,"",$2);split($2,aa,"_");printf("%s\t%09d\t%09d\n",aa[1],aa[3],aa[4]);}' >  tmp/XH$chrom/f5.tg2intron
+cat  tmp/XH$chrom/f5.gene2shedtg2coords.txt |   gawk -F '\t' '/^\"/{g=$1;c=$3;a1=$4;a2=$5;if(g!=old){if(old) printf (" %d %d\n\n", b1,b2);printf("Sequence %s\nGenes %s ",c,g);old=g;b1=a1;b2=a2;}if(a1<a2){if(a1<b1)b1=a1;if(a2>b2)b2=a2;}else{if(a1>b1)b1=a1;if(a2<b2)b2=a2;}}END{if(g) printf (" %d %d\n\n", b1,b2);}'  >! tmp/XH$chrom/f5.gene2shedtg2coords.ace
+
+echo "pparse  tmp/XH$chrom/f5.gene2shedtg2coords.ace" | bin/tacembly tmp/XH$chrom -no_prompt
+
+# Usual coordinate assignments
+    echo "gene2chrom"
+    bin/gene2chrom2 -any -gg -i  tmp/XH$chrom  >!  tmp/XH$chrom/f5.g2c.ggi.ace
+
+# create the geneId and product and genefinder tags tag in the relevant geneboxes
+
+cat  tmp/XH$chrom/f5.geneid2seq2tg2gg.txt | gawk -F '\t' '/\"/{printf ("GeneId %s\nGene %s\nOther_gene %s\n\n", $1, $2, $2);}' >! tmp/XH$chrom/f5.geneid2seq2tg2gg.ace
+cat tmp/XH$chrom/f5.tg2genebox2product.txt | gawk  -F '\t' '/\"/ {printf("Gene %s\nProduct %s\n\n", $2, $3); }' >  tmp/XH$chrom/f5.tg2genebox2product.ace
+cat  tmp/XH$chrom/f5.pg2tg2gg.txt | gawk  -F '\t' '/\"/ {printf("Gene %s\nGeneId %s\nGeneFinder %s\n\n", $4, $3, $1); }' >  tmp/XH$chrom/f5.pg2tg2gg.ace
+
+bin/tacembly tmp/XH$chrom <<EOF
+      read-models
+      query find gene geneid
+      edit -D geneid
+      pparse tmp/XH$chrom/f5.pg2tg2gg.ace // parse the contact geneid 
+      query find gene geneid
+      kstore contacts
+      pparse  tmp/XH$chrom/f5.tg2genebox2product.ace
+      pparse  tmp/XH$chrom/f5.g2c.ggi.ace
+      pparse  tmp/XH$chrom/f5.geneid2seq2tg2gg.ace
+      kget contacts
+      edit -D geneid // remove the gid from aligned sequence, they survive in Other_geneId
+      pparse tmp/XH$chrom/f5.pg2tg2gg.ace // restore the contact geneid 
+      query find geneid IntMap  // should not have been created
+      edit -D IntMap
+      save
+      quit
+EOF
+ 
+## try to rename using the geneboxes 
+## recompute since we now have the geneboxes
+bin/tacembly tmp/XH$chrom <<EOF
+  query find clone strategy
+  edit -D NoKantorInfo
+  edit -D name_by_section
+  edit name_by_gene
+  find tg
+  acembly 
+    // cdna_71 -locally
+    quit
+  save
+  query find clone strategy
+  list -a -f  tmp/XH$chrom/f5.rename.done
+   quit
+EOF
+
+## dump : export all including the cloud
+
+if (-e tmp/XH$chrom/f5.rename.done) then
+  bin/gffdump tmp/XH$chrom >  tmp/XH$chrom/f5.genes.gtf
+  bin/tacembly tmp/XH$chrom <<EOF
+     find mrna
+     dna  -noClassName tmp/XH$chrom/f5.mrnas.fasta
+EOF
+gzip tmp/XH$chrom/f5.mrnas.fasta tmp/XH$chrom/f5.genes.gtf
+
+endif
+
+
+
+##################################################
+
+
+if (0 && ! -e  tmp/XH$chrom/f5.dump.done) then
+  pushd  tmp/XH$chrom
+  if (! -d f5.dumpdir) mkdir  f5.dumpdir
+  \rm -rf f5.dumpdir
+  mkdir  f5.dumpdir f5.dumpdir/wspec
+  cp wspec/* f5.dumpdir/wspec
+  $ici/bin/tacembly . <<EOF
+      dump -s f5.dumpdir
+EOF
+
+  popd
+endif 
+
+##################################################
+## done
+
+done:
+
+touch tmp/XH$chrom/f5.dump.done
+
+echo f5.done
+exit 0
+
+bin/clipalign -i Fastc/SRR077419/f.17.fastc.gz -gzo    -t TARGET/Targets/Dmelanogaster.DNASpikeIn.fasta.gz  -maxHit 10 -clipPolyA  -clipPolyT -minEntropy 16 -seedLength 16 -probeMinLength 24  -clipN 2 -minAli 24 -splice         -targetBonus 0     -seedOffset 1 -seedShift 5 -intronMaxLength  100000 -o toto  -showTargetPrefix -target_class 1_DNASpikeIn  -exitAdaptor ACACGCAAACTTCTCAACAGGCCGTACCAATATCCGCAGCTGGTCTCCAAGGTGA,AGGGCAGAGGATGGATGCAAGGATAAGT,AGGTTTGGTCCTAGCCTTTGTATTAGCT,AGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCTAGCT     -showOverhang -strategy RNA_seq
+

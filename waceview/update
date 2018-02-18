@@ -1,0 +1,5 @@
+ #!/bin/tcsh -f
+servermonitor $1 stop
+\cp ~/ace/bin.LINUX_X86_64_4_OPT/tgifacemblyserver bin/tgifacemblyserver.$1
+servermonitor $1 start
+

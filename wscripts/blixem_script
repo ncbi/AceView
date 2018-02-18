@@ -1,0 +1,5 @@
+#!/bin/csh -f
+
+# SCCS: $Id: blixem_script,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $
+
+blixem - -

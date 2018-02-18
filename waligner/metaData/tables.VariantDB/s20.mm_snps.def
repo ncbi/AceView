@@ -1,0 +1,134 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2014-09-29_23:51:54
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1
+Subtitle Column #1
+Width 12
+Optional
+Visible
+Class
+Class Variant
+
+Colonne 2
+Subtitle Column #2
+Width 12
+Mandatory
+Visible
+Class
+Class Run
+From 1
+Tag mm
+Condition IS ???
+
+Colonne 3
+Subtitle Column #3
+Width 12
+Mandatory
+Visible
+Float
+Right_of 2
+Tag HERE 
+
+Colonne 4
+Subtitle Column #4
+Width 12
+Mandatory
+Visible
+Class
+Class Map
+From 1
+Tag IntMap
+Condition IS ? OR IS ??
+
+Colonne 5
+Subtitle Column #5
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 4
+Tag HERE 
+
+Colonne 6
+Subtitle Column #6
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 5
+Tag HERE 
+
+Colonne 7
+Subtitle Column #7
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag Synonymous
+Condition IS *ion
+
+Colonne 8
+Subtitle Column #8
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag AA_substitution
+
+Colonne 9
+Subtitle Column #9
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag Length_variation
+
+Colonne 10
+Subtitle Column #10
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag Frameshift
+
+Colonne 11
+Subtitle Column #11
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag UTR_5prime
+
+Colonne 12
+Subtitle Column #12
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag UTR_3prime
+
+Colonne 13
+Subtitle Column #13
+Width 12
+Optional
+Visible
+Show_Tag
+From 1
+Tag Non_coding_transcript
+
+ 
+
+// End of these definitions

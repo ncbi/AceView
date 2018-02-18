@@ -1,0 +1,330 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2012-09-01_21:36:10
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title SIMT results available Aug 2012
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle RNA sample 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Sample 
+ 
+Colonne 2 
+Subtitle run 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+From 1 
+Tag Run
+Condition is_run
+ 
+Colonne 3 
+Subtitle description 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 2 
+Tag Title
+ 
+Colonne 4 
+Subtitle protocol 
+Width 12 
+Optional 
+Visible 
+Next_Tag 
+From 2 
+Tag RNA
+Condition ! IS ribosomal_depletion
+ 
+Colonne 5 
+Subtitle Column #5 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Ali 
+From 2 
+Tag Ali
+ 
+Colonne 6 
+Subtitle reads aligned in any target 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag h_Ali
+Condition IS any
+ 
+Colonne 7 
+Subtitle sequences aligned in any target 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 6 
+Tag  HERE 
+ 
+Colonne 8 
+Subtitle Column #8 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 7 
+Tag  HERE 
+ 
+Colonne 9 
+Subtitle reads aligned on any target 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 8 
+Tag  HERE 
+ 
+Colonne 10 
+Subtitle reads 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 9 
+Tag  HERE 
+ 
+Colonne 11 
+Subtitle kb aligned on any 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 10 
+Tag  HERE 
+ 
+Colonne 12 
+Subtitle Column #12 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 11 
+Tag  HERE 
+ 
+Colonne 13 
+Subtitle Column #13 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag h_Ali
+Condition IS ET_av
+ 
+Colonne 14 
+Subtitle seq aligned in AceView2010 genes 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag  HERE 
+ 
+Colonne 15 
+Subtitle Column #15 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 14 
+Tag  HERE 
+ 
+Colonne 16 
+Subtitle reads in genes 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 15 
+Tag  HERE 
+ 
+Colonne 17 
+Subtitle reads in new exons, introns, intergene 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag h_Ali
+Condition IS Z_genome
+ 
+Colonne 18 
+Subtitle sequences in new exons, introns, interge 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 17 
+Tag  HERE 
+ 
+Colonne 19 
+Subtitle Column #19 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 18 
+Tag  HERE 
+ 
+Colonne 20 
+Subtitle reads in new exons, introns, intergene 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 19 
+Tag  HERE 
+ 
+Colonne 21 
+Subtitle Column #21 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag h_Ali
+Condition IS 0_SpikeIn
+ 
+Colonne 22 
+Subtitle sequences in ERCC 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 21 
+Tag  HERE 
+ 
+Colonne 23 
+Subtitle Column #23 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 22 
+Tag  HERE 
+ 
+Colonne 24 
+Subtitle reads in ERCC 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 23 
+Tag  HERE 
+ 
+Colonne 25 
+Subtitle Column #25 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag h_Ali
+Condition IS A_mito
+ 
+Colonne 26 
+Subtitle sequences in mitochondrial genes 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 25 
+Tag  HERE 
+ 
+Colonne 27 
+Subtitle Column #27 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 26 
+Tag  HERE 
+ 
+Colonne 28 
+Subtitle Reads in mitochondrial genes 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 27 
+Tag  HERE 
+ 
+Colonne 29 
+Subtitle Column #29 
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Target 
+From 5 
+Tag nh_Ali
+Condition IS B_rrna
+ 
+Colonne 30 
+Subtitle rRNA sequences 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 29 
+Tag  HERE 
+ 
+Colonne 31 
+Subtitle Column #31 
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 30 
+Tag  HERE 
+ 
+Colonne 32 
+Subtitle reads in ribosomal RNA 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 31 
+Tag  HERE 
+ 
+Colonne 33 
+Subtitle RunID 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 2 
+Tag RunId
+ 
+ 
+
+// End of these definitions

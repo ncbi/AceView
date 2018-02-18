@@ -1,0 +1,11 @@
+#!/bin/csh -f
+cd /home/mieg/SERVER
+./servermonitor worm_1 stop
+./servermonitor ara_1 stop
+./servermonitor blast stop
+#./servermonitor gold stop
+./servermonitor worm_1 start 
+./servermonitor ara_1 start 
+./servermonitor blast start
+#./servermonitor gold start
+

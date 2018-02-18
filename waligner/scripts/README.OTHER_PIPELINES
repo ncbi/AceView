@@ -1,0 +1,129 @@
+
+# establish a correspondance between the HHong identifiers and the Rhs
+cat ../MetaDB/$MAGIC/Run2RunId.ace | gawk '{gsub(/\"/,"",$0);}/^RunId/{printf("SEQC_%s\t%s\n",$2,r);next;}/^Run/{r=$2;}'  > runid2run.txt 
+
+# verify that all identifier in the table are recognized as known Rhs
+cat runid2run.txt ZZZZZ SEQC_NB_RefSeqCounts_HHong.txt | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){rid2r[$1]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++)if (!rid2r[$i])print $i;exit;}
+
+# parse the table into an acedb gene count file
+cat runid2run.txt ZZZZZ SEQC_NB_RefSeqCounts_HHong.txt | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){rid2r[$1]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++)i2r[i]=rid2r[$i];next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > HHong.counts.ace
+
+
+#### Micro array: probe identifier used in the mapping of AGLuK is in column 503
+
+cat runid2run.txt ZZZZZ MicroArray/SEQC_NB_AG1_allInOne.txt | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}p=$503;if(index(p,"(+)E1A_r")>0)next;if(index(p,"BrightCorner")>0)next;if(index(p,"DarkCorner")>0)next;printf("Gene %s\n",p);for(i=2;i<=NF;i++){x=$i;if(x<1)x=1;z=log(x)/log(2.0);if(i2r[i])printf("Run_U %s %.2f %d seq %d tag %d bp\n",i2r[i],z,$i,$i,60*$i);}printf("\n");}' > MicroArray/Agilent.original_scale.ace
+# construct the index and plot the histAgilent.ace
+
+cat runid2run.txt ZZZZZ MicroArray/SEQC_NB_AG1_allInOne.txt | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}p=$503;if(index(p,"(+)E1A_r")>0)next;if(index(p,"BrightCorner")>0)next;if(index(p,"DarkCorner")>0)next;for(i=2;i<=NF;i++){x=$i;if(x<1)x=1;z=log(x)/log(2.0);nni[i,5*int((z+.24)/.5)]++;}}END{printf("10*Log2(k+1)");for(i=2;i<=NF;i++)if(i2r[i])printf("\t%s",i2r[i]);for(k=0;k<=200;k+=5){printf("\n%.1f",k/10.0);for(i=2;i<=NF;i++)if(i2r[i])printf("\t%d",nni[i,k]);}printf("\n");}' |  ../scripts/transpose | sort | ../scripts/transpose>  MicroArray/Agilent.original_multi_histo.txt
+
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z+=2;z=15.0+1.00*(z-15.0);if(n%3==10)next;print 5*int(2*z);}' | bin/histo -plot -w 80 -plain -o MicroArray/Agilent.original.histo
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z-=0;z=15.0+.66*(z-15.0);if(n%3==10)next;print 5*int(2*z);}' | bin/histo -plot -w 80 -plain -o MicroArray/Agilent.rescaled66.histo
+cat MicroArray/Agilent.original_scale.ace  | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z+=2;z=15.0+.80*(z-15.0);if(n%3==10)next;print 5*int(2*z);}' | bin/histo -plot -w 80 -plain -o MicroArray/Agilent.rescaled80.histo
+\cp MicroArray/Agilent.rescaled80.histo.txt ~/NB/RESULTS/Expression
+\cp MicroArray/Agilent.original.histo.txt ~/NB/RESULTS/Expression
+
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z-=0;z=15+.66*(z-15.0);printf("Run_U %s %.2f %d seq %d tag %d bp\n",$2,z,x,x,100*x);next;}/^Gene/{printf("\nGene %s\n",$2);}' > MicroArray/Agilent.rescaled66.ace
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z+=2;z=15+.80*(z-15.0);printf("Run_U %s %.2f %d seq %d tag %d bp\n",$2,z,x,x,100*x);next;}/^Gene/{printf("\nGene %s\n",$2);}' > MicroArray/Agilent.rescaled80.ace
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z-=0;z=15+1.00*(z-15.0);printf("Run_U %s %.2f %d seq %d tag %d bp\n",$2,z,x,x,100*x);next;}/^Gene/{printf("\nGene %s\n",$2);}' > MicroArray/Agilent.rescaled100.ace
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;z=log(x+1)/log(2.0);z-=0;z=15+1.00*(z-15.0);printf("Run_U %s %.2f %d seq %d tag %d bp\n",$2,z,x,x,100*x);next;}/^Gene/{printf("\nGene %s\n",$2);}' > MicroArray/Agilent.rescaled100_damper15.ace
+cat MicroArray/Agilent.original_scale.ace | gawk 'BEGIN{print "0\n400";}/^Run_U/{n++;x=$4;if(x<1)x=1;z=log(x)/log(2.0);z+=2;z=15+1.00*(z-15.0);printf("Run_U %s %.2f %d seq %d tag %d bp\n",$2,z,x,x,100*x);next;}/^Gene/{printf("\nGene %s\n",$2);}' > MicroArray/Agilent.rescaled100_shifted2.ace
+# construct the index and plot the histogram: we conclude that Agilent should be shifted down by -malus -.5
+# geneindex -deepGene MicroArray/Agilent.ace -export a -o tyty -nu -pA
+
+############################################################################
+# link the one you want to noD then fix a silly issue with the Rhs*D
+pushd MicroArray
+\rm Agilent.rescaled.ace_noD  
+ln -s Agilent.rescaled100_shifted2.ace Agilent.rescaled.ace_noD  
+cat Agilent.rescaled.ace_noD | sed -e 's/Rhs964/Rhs963D/g'  -e 's/Rhs968/Rhs967D/g'   -e 's/Rhs970/Rhs969D/g'   -e 's/Rhs972/Rhs971D/g'   -e 's/Rhs974/Rhs973D/g'   -e 's/Rhs976/Rhs975D/g'   -e 's/Rhs978/Rhs977D/g'   -e 's/Rhs980/Rhs979D/g'   -e 's/Rhs982/Rhs981D/g'   -e 's/Rhs1218/Rhs1217D/g'   -e 's/Rhs1220/Rhs1219D/g'   -e 's/Rhs1222/Rhs1221D/g'   -e 's/Rhs1224/Rhs1223D/g'   -e 's/Rhs1226/Rhs1225D/g'   -e 's/Rhs1228/Rhs1227D/g' > Agilent.rescaled.ace1
+
+########### quantile centering on spot 8000
+# shift each run index by dz[r] so that at index 14.5 the cumul is 8000
+#### Innacurate Method used nov 13 2013, and exported in feb 2014 for the NB paper stage comparison
+#  cat  Agilent.rescaled.ace1 |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;z=$3;rr[r]=1;rrz[r,int(10*z)]++;next;}END{for(r in rr){c=0;for(i=400;i>=0;i--){c+=rrz[r,i];if(c>=N){dz[r]=i-145+(N-oldc)/(c-oldc);printf("%s\t%f\n", r,dz[r]);i=-1}oldc=c;}}}' N=8000 >  Agilent.rescaled.dz
+#  cat  Agilent.rescaled.dz ZZZZZ  Agilent.rescaled.ace1 |  gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){dz[$1]=$2/10;next;}}/^Run/{gsub(/\"/,"",$2);printf("%s %s %.3f ",$1,$2,$3-dz[$2]); printf(" %s %s %s %s %s %s ",$4,$5,$6,$7,$8,$9);ok="ok";if($3-dz[$2]<8)ok="NA";printf(" %s\n",ok);next;}{print}' >  Agilent.rescaled.ace
+
+### 2015_01_27 I noticed that the code above is not correct because if we recompute  Agilent.rescaled.ace (supposedly centered) -> Agilent.rescaled.dz_iterated, the dz iterated has dz = -.99 to +.99, so we have a problem
+# to fix this issue, i reprogram it with finer scale and a sign correction
+cat  Agilent.rescaled.ace1 |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;z=$3;rr[r]=1;rrz[r,int(1000*z)]++;next;}END{for(r in rr){c=0;for(i=40000;i>=0;i--){c+=rrz[r,i];if(c>=N){dz[r]=i-14500+(N-c)/(c-oldc);printf("%s\t%f\n", r,dz[r]);i=-1}oldc=c;}}}' N=8000 >  Agilent.rescaled.dz_aaa
+cat  Agilent.rescaled.dz_aaa ZZZZZ  Agilent.rescaled.ace1 |  gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){dz[$1]=$2/1000;next;}}/^Run/{gsub(/\"/,"",$2);printf("%s %s %.3f ",$1,$2,$3-dz[$2]); printf(" %s %s %s %s %s %s ",$4,$5,$6,$7,$8,$9);ok="ok";if($3-dz[$2]<8)ok="NA";printf(" %s\n",ok);next;}{print}' >  Agilent.rescaled.ace
+# verify
+cat  Agilent.rescaled.ace_aaa |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;z=$3;rr[r]=1;rrz[r,int(1000*z)]++;next;}END{for(r in rr){c=0;for(i=40000;i>=0;i--){c+=rrz[r,i];if(c>=N){dz[r]=i-14500+(N-c)/(c-oldc);printf("%s\t%f\n", r,dz[r]);i=-1}oldc=c;}}}' N=8000 >  Agilent.rescaled.dz_aaa2
+# the finer grain rescaling worked, therefore on  Jan 27 2015 we replace the file of nov 2013 by the file of january 2015
+
+#####
+## show the rescaled Agilent, the Gene and the MRNA histos
+
+cat Agilent.rescaled.ace |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;rr[r]=1;z=$3;rrz[r,5*int((z+.24)/.5)]++;next;}END{printf("Index");for(r in rr)printf("\t%s",r);for(k=0;k<=300;k+=5){printf("\n%.1f",k/10);for(r in rr)printf("\t%d",rrz[r,k]);}printf("\n");}' | ../scripts/transpose | sort | ../scripts/transpose > ~/NB/RESULTS/Expression/unique/AGLuK/NB.Agilent.rescaled.histo.txt
+
+gunzip -c /home/mieg/NB/RESULTS/Expression/unique/av/NB.av.GENE.u.ace.gz  |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;rr[r]=1;z=$3;rrz[r,5*int((z+.24)/.5)]++;next;}END{printf("Index");for(r in rr)printf("\t%s",r);for(k=0;k<=300;k+=5){printf("\n%.1f",k/10);for(r in rr)printf("\t%d",rrz[r,k]);}printf("\n");}' | ../scripts/transpose | sort | ../scripts/transpose > ~/NB/RESULTS/Expression/unique/av/NB.av.GENE.index.histo.txt
+
+gunzip -c /home/mieg/NB/RESULTS/Expression/unique/av/NB.av.MRNAH.u.ace.gz  |  gawk '/Run_/{gsub(/\"/,"",$2);r=$2;rr[r]=1;z=$3;rrz[r,5*int((z+.24)/.5)]++;next;}END{printf("Index");for(r in rr)printf("\t%s",r);for(k=0;k<=300;k+=5){printf("\n%.1f",k/10);for(r in rr)printf("\t%d",rrz[r,k]);}printf("\n");}' | ../scripts/transpose | sort | ../scripts/transpose > ~/NB/RESULTS/Expression/unique/av/NB.av.MRNAH.index.histo.txt
+
+#### Fudan
+cat runid2run.txt ZZZZZ NB_Fudan/SEQC_NB_AceView_Bowtie2_GeneCounts_FudanUniv_YYu_20120607.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=3;i<=NF;i++){split($i,aa,"_");print $i,aa[1],rid2r[aa[1]];}}}'
+
+cat runid2run.txt ZZZZZ NB_Fudan/SEQC_NB_AceView_Bowtie2_GeneCounts_FudanUniv_YYu_20120607.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=3;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=3;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_Fudan/Fudan.ace
+
+cat runid2run.txt ZZZZZ NB_Fudan/SEQC_NB_AceView_Bowtie2_TranscriptCounts_FudanUniv_YYu_20120607.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=3;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=3;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_Fudan/Fudan_tr.ace
+
+#### Su
+cat runid2run.txt ZZZZZ NB_Su/SEQC_NB_GeneCounts_ZSU.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=3;i<=NF;i++){split($i,aa,"_");print $i,aa[1],rid2r[aa[1]];}}}'
+
+cat runid2run.txt ZZZZZ NB_Su/SEQC_NB_GeneCounts_ZSU.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=1;i<=NF;i++){split($i,aa,"_");i2r[i+1]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_Su/Su_gene.ace
+
+cat runid2run.txt ZZZZZ NB_Su/SEQC_NB_TranscriptCounts_ZSU.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=1;i<=NF;i++){split($i,aa,"_");i2r[i+1]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_Su/Su_tr.ace
+
+cat runid2run.txt ZZZZZ NB_Su/SEQC_NB_ExonCounts_ZSU.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=1;i<=NF;i++){split($i,aa,"_");i2r[i+1]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_Su/Su_exon.ace
+
+#### BGI
+cat runid2run.txt ZZZZZ NB_BGI/SEQC_NBproject_BGI_rpkm_RefSeq.xls | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],180*$i,180*$i,18000*$i);printf("\n");}' > NB_BGI/BGI_RS.ace &
+
+cat runid2run.txt ZZZZZ NB_BGI/SEQC_NBproject_BGI_rpkm_UCSC.xls | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],180*$i,180*$i,18000*$i);printf("\n");}' > NB_BGI/BGI_UCSC.ace &
+
+#### FBK
+
+cat runid2run.txt ZZZZZ NB_FBK/SEQC_NB_FBK_pipeline_rawCounts.transposed.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' > NB_FBK/FBK_count.ace &
+
+cat runid2run.txt ZZZZZ NB_FBK/SEQC_NB_FBK_pipeline_FPKM.transposed.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s %s seq %d tag %d bp\n",i2r[i],$i,1000*$i,1000*$i,1000*$i);printf("\n");}' > NB_FBK/FBK_FPKM.ace &
+
+#### FBK2
+# spet 27, newe data set posted on sept 21 at SAS by cesare and co
+cat runid2run.txt ZZZZZ   NB_FBK2/FBK_rawCounts_genes_tr.transposed.txt  | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' >  NB_FBK2/FBK2_count.ace 
+
+cat runid2run.txt ZZZZZ   NB_FBK2/FBK_rawCounts_genes_ts.transposed.txt  | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=2;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[2]];}next;}printf("Gene %s\n",$1);for(i=2;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}' >>  NB_FBK2/FBK2_count.ace 
+
+
+#### Lilly
+
+cat runid2run.txt ZZZZZ NB_Lilly/seqc_nb_exon_refseq_all_rpkm.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=9;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=9;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],64*$i,64*$i,100*64*$i);printf("\n");}' > NB_Lilly/Lilly_refseq.ace &
+
+cat runid2run.txt ZZZZZ NB_Lilly/seqc_nb_exon_ucscknown_all_rpkm.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=9;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=9;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],64*$i,64*$i,100*64*$i);printf("\n");}' > NB_Lilly/Lilly_ucsc.ace &
+
+cat runid2run.txt ZZZZZ NB_Lilly/seqc_nb_exon_vegagene_all_rpkm.txt | gawk -F '\t' '{gsub(/\"/,"",$0);}/^ZZZZZ/{zz=1;next;}{if(zz<1){split($1,aa,"_");rid2r[aa[2]]=$2;next;}}{nn++;if(nn==1){for(i=9;i<=NF;i++){split($i,aa,"_");i2r[i]=rid2r[aa[1]];}next;}printf("Gene %s\n",$1);for(i=9;i<=NF;i++)printf("Run_nU %s 0 %d seq %d tag %d bp\n",i2r[i],64*$i,64*$i,100*64*$i);printf("\n");}' > NB_Lilly/Lilly_vega.ace &
+
+#### AceView introns
+
+cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 10) {printf("Intron %s__%s_%s:",$1,$2,$3,$7);for (i = 1 ; i <= NF ; i++)if ($i > 0 && i2r[i])printf("Run_U %s  0 %s Seq %d Tags %d bp\n",i2r[i],$i,$i,100*$i);printf("\n");}}' > AceView_introns_magic.ace
+
+## list of 512219 seen at least 100 times, 469185 gt_ag
+ cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 1) {printf("%s\t%09d\t%09d\t%s\n",$1,$2,$3,$5);}}' > NB_introns_100_supports.txt
+ cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 1) {if (0+$9>0)printf("%s\t%09d\t%09d\t%s\n",$1,$2,$3,$5);}}' > NB_av_introns_100_supports.txt
+ cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 1) {if (0+$9==0)printf("%s\t%09d\t%09d\t%s\n",$1,$2,$3,$5);}}' > NB_noav_introns_100_supports.txt
+
+## extract the fasta file
+cat NB_introns_100_supports.txt | gawk '{printf("Intron \"%s__%d_%d\"\n",$1,$2,$3);}' > NB_introns_100_supports.intron.list
+
+cat NB_introns_100_supports.txt | gawk '{printf("ZI_%s__%d_%d\n",$1,$2,$3);}' > NB_introns_100_supports.ZI_sequence.list
+dna2dna -select NB_introns_100_supports.ZI_sequence.list -i  ../TARGET/Targets/hs.introns.fasta.gz -o NB_introns_100_supports.ZI_sequence -I fasta -O fasta -gzo
+
+cat NB_noav_introns_100_supports.txt | gawk '{printf("ZI_%s__%d_%d\n",$1,$2,$3);}' > NB_noav_introns_100_supports.ZI_sequence.list
+dna2dna -select NB_noav_introns_100_supports.ZI_sequence.list -i  ../TARGET/Targets/hs.introns.fasta.gz -o NB_noav_introns_100_supports.ZI_sequence -I fasta -O fasta -gzo
+
+
+## nb of support for ACEVIEW introns: 259747 introns, 102157632 support
+  cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 10) {if (0+$9>0){n1++;n += $12}}}END{print n1,n}'
+## nb of support for aceview introns: 252189 67121487
+  cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 10) {if (0+$9>0)next;{n1++;n += $12}}}END{print n1,n}'
+## nb of support for RefSeq introns: 175277 77535758
+  cat ../tmp/PHITS_introns/d8.introns_with_support.txt | gawk -F '\t' '/^# Chromosome/{for (i = 1 ; i <= NF ; i++)if(substr($i,1,3)=="Rhs")i2r[i]=$i;next;}/^#/{next;}{if($11 >= 100 && $12 >= 10) {if (0+$8>0){n1++;n += $12}}}END{print n1,n}'

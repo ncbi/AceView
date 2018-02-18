@@ -1,0 +1,4 @@
+#!/bin/csh
+echo phrap $1
+/home/watson/bin/phrap2 $1 -ace > $1.pg
+

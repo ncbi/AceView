@@ -1,0 +1,48 @@
+From bks@s27w007.pswfs.gov Tue Sep 21 21:44:11 1993
+Return-Path: <bks@s27w007.pswfs.gov>
+Received: from s27w007.pswfs.gov ([192.131.1.21]) by kaa.cnrs-mop.fr (4.1/SMI-4.1)
+	id AA22295; Tue, 21 Sep 93 21:44:08 +0100
+Received: by s27w007.pswfs.gov (4.1/1.39)
+	id AA25911; Tue, 21 Sep 93 12:51:11 PDT
+Date: Tue, 21 Sep 93 12:51:11 PDT
+From: bks@s27w007.pswfs.gov (Bradley K. Sherman)
+Message-Id: <9309211951.AA25911@s27w007.pswfs.gov>
+To: mieg@kaa.cnrs-mop.fr
+Subject: Re:  tgxv
+Status: R
+
+>From: mieg@kaa.cnrs-mop.fr (Danielle et Jean Thierry-Mieg)
+>Message-Id: <9309211042.AA18066@kaa.cnrs-mop.fr>
+>To: bks@s27w007.pswfs.gov
+>Subject: tgxv
+> ...
+>please send me a copy
+>
+>did you have a look in 1-10 at
+>wscripts/weeds_image that i developped with Dave Matthews
+
+The script is trivial:
+#!/bin/csh
+#
+#  This script is called by ACEDB to show an image (or ?) 
+#  It currently is a dummy, as all the images are in one
+#  directory on the Dendrome Gopher server. 
+# 
+#  Bradley K. Sherman 9/93 
+# 
+set GOPHER_DIR = /home/psw/data4/Dendrome/Public/Gopher/Data/.Forest_Tree_Genomes/Images/APtDB/IFGBAS
+#
+#  XXX fetch image here 
+#
+xv ${GOPHER_DIR}/$1
+
+
+I will have a look at wscripts/weeds_image.
+
+    --bks
+
+Bradley K. Sherman               P.O. Box 245                    
+Computer Scientist               Berkeley, CA, 94701
+Dendrome Project                 510-559-6437 FAX: 510-559-6440  
+Institute of Forest Genetics     Internet: bks@s27w007.pswfs.gov
+

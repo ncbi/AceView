@@ -1,0 +1,29 @@
+#!/bin/csh
+#
+# script to make distribution tar files - edit as needed each time.
+#
+#   $Id: MAKE_TAR_FILES,v 1.1.1.1 2002/07/19 20:23:37 sienkiew Exp $
+
+if ($#argv != 0) then
+  echo 'This script needs no parameters, just type:   MAKE_TAR_FILES'
+  exit 1
+  endif
+
+cd ~/distrib   # test exitence 
+
+cd $ACEDB_SRC
+
+set version = `$ACEDB_SRC/wtools/aceGetVersion.pl $ACEDB_SRC/wnq`
+
+echo 'I will prepare the distribution in ~/distrib'
+
+tar chf ~/distrib/source.$version.tar w*
+
+cd ~/distrib
+compress *
+cp $ACEDB_SRC/wtools/INSTALL .
+cp $ACEDB_SRC/wdoc/README .
+cp $ACEDB_SRC/wdoc/NOTES .
+chmod 755 INSTALL
+
+

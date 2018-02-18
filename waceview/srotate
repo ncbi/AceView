@@ -1,0 +1,16 @@
+#!/bin/csh -f
+set i=0
+set j=0
+foreach i1 (9 8 7 6 5 4 3 2 1 0)
+  foreach i2 (9 8 7 6 5 4 3 2 1 0)
+    foreach i3 (9 8 7 6 5 4 3 2 1 0)
+      @ i= 100 * $i1 + 10 * $i2 + $i3  
+      @ j= 100 * $i1 + 10 * $i2 + $i3 + 1 
+ #echo $i $j
+      if ( -e server.log.$i) mv server.log.$i server.log.$j
+    end
+  end
+end
+mv server.log server.log.0
+
+

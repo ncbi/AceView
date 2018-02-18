@@ -1,0 +1,57 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2012-01-13_20:48:10
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Column #1    
+Width 24 
+Optional 
+Visible 
+Class 
+Class Ali 
+ 
+Colonne 2 
+Subtitle Column #2    
+Width 12 
+Optional 
+Visible 
+Text 
+From 1 
+Tag Error_profile
+ 
+Colonne 3 
+Subtitle Column #3    
+Width 12 
+Optional 
+Visible 
+Text 
+Right_of 2 
+Tag  HERE 
+ 
+Colonne 4 
+Subtitle Column #4    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 3 
+Tag HERE 
+ 
+Colonne 5 
+Subtitle Column #5    
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 4 
+Tag HERE 
+ 
+ 
+
+// End of these definitions

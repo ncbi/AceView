@@ -1,0 +1,193 @@
+#!/usr/local/bin/perl
+# $Id: fmap2_4,v 1.1.1.1 2002/07/19 20:23:38 sienkiew Exp $
+#
+# Richard Durbin 950312
+#
+# Script to convert Sanger ace files containing Sequence/DNA
+#   objects to ACEDB4 models.
+# May assume sometimes layout of .ace file dumped from acedb.
+
+%month2fig = (
+    "JAN", "01",
+    "FEB", "02",
+    "MAR", "03",
+    "APR", "04",
+    "MAY", "05",
+    "JUN", "06",
+    "JUL", "07",
+    "AUG", "08",
+    "SEP", "09",
+    "OCT", "10",
+    "NOV", "11",
+    "DEC", "12" ) ;
+
+while (<>) {
+reparse:
+    if (/JZJ/) {		# catch St Louis Text bug in B0303.8
+	warn "JZJ bad line $.\n" ;
+	next ;
+    }
+
+    undef $isD ;
+    s/^-D // && ($isD = 1) ;
+				# non-DNA Sequences change class
+    if ( /^Sequence/ ) {
+	s/Sequence :/Sequence/ ; s/\"//g ; 
+	/Sequence\s+(\S+)/ ;
+	if ($1 =~ /^WP:/ ||
+	    $1 =~ /^SP:/ ||
+	    $1 =~ /^SW:/ ||
+	    $1 =~ /^PIR:/) {
+	    s/^Sequence/Protein/ ;
+	}
+	elsif ($1 =~ /^PS:/ ||
+	       $1 =~ /^REP-/) {
+	    s/^Sequence/Motif/ ;
+	}
+    }
+    			# split Homols by sequence class and type
+    if ( /^Homol/ ) {
+	s/\"//g ; /Homol\s+(\S+)/ ;
+	if ($1 =~ /^WP:/ ||
+	    $1 =~ /^SP:/ ||
+	    $1 =~ /^SW:/ ||
+	    $1 =~ /^PIR:/) {
+	    s/^Homol/Pep_homol/ ;
+            s/BlastX/BLASTX/ ;
+	}
+	elsif ($1 =~ /^PS:/ ||
+	       $1 =~ /^REP-/) {
+	    s/^Homol/Motif_homol/ ;
+	    s/Prosite/PSsearch/ ;
+	}
+	else {
+	    if ($1 =~ /^yk/ || $1 =~ /^cm/ || $1 =~ /^CE/) {
+                s/BlastN/BLASTN_EST_elegans/ ;
+            }
+	    else { 
+		s/BlastN/BLASTN/ ; 
+	    }
+	    s/^Homol/DNA_homol/ ;
+	    s/TBlastX/TBLASTX_EST/ ;
+	    s/BlastX/BLASTX/ ;
+	}
+    }
+				# Dates must conform to DateType
+    if ((/^Date\s/ || /^Received/ || /^Library_construction/ || 
+	 	/^Shotgun/ || /^Shotgun_complete/ || /^Contiguous/ ||
+	 	/^Finished/ || /^Submitted/ || /^Archived/) &&
+		(($tag, $date, $rest) = /(\S+)\s+(\S+)\s+(.*)/) &&
+		$date !~ /\d\d-\d\d-\d\d/) {
+	$date =~ tr/a-z/A-Z/ ;
+	$isQuote = 0 ;
+	($date  =~ s/^\"//) && ($isQuote = 1) ;
+	if ((($day, $month, $year) = 
+	    	$date =~ /(\d\d)-([A-Z][A-Z][A-Z])-(\d\d\d\d)/) &&
+	    $year > 1970 && ($month = $month2fig{$month})) {
+	    $year -= 1900 ;
+	    $date = $year . $month . $day ;
+	}
+	if ($date !~ /(\d\d)(\d\d)(\d\d)/) {
+	    warn "bad Date $_ line $. translates to $date\n" ;
+	    next ;
+	}
+	$_ = "$tag $1-$2-$3" ;
+	if ($rest) {
+            $_ .= " " ;
+	    if ($isQuote) { $_ .= "\"" ; }
+            $_ .= $rest ;
+	}
+	$_ .= "\n" ;
+    }
+				# delete Length
+    /^Length/ && next ;
+				# TSL -> Feature
+    if ( /^TSL/ ) {
+	s/TSL/Feature TSL/ ;
+	s/"SL/0 "SL/ ;		# need dummy score
+    }
+				# Inverted repeat -> Features
+				# specific to Sanger script-generated data
+    if ( /^Repeats\s+Inverted/ ) {
+	($s1, $s2, $perc) = /(\d+) (\d+) Percent_Identity (\d+)/ ;
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	s/\"//g ; ($score) = /Score \+3-4-12 (\d+)/ ;
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	($ngaps) = /N_gaps (\d+)/ ;
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	($loop) = /Loop (\d+)/ ;
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	($unit) = /$s1 $s2 Unit_Length (\d+)/ ;
+	if (!defined($s1) || !defined($s2) || 
+	    !defined($perc) || !defined($score) || !defined($ngaps) ||
+	    !defined(!loop) || !defined($unit)) {
+#	    warn "s1,s2,perc,score,unit are $s1,$s2,$perc,$score,$unit\n" ;
+	    warn "Non-standard Inverted repeat around line $.\n" ;
+	    next ;
+	}
+	$text = "loop $loop" ;
+	if ($ngaps == 1) { $text .= ", 1 gap" ; }
+	if ($ngaps > 1)  { $text .= ", $ngaps gaps" ; }
+	$x = $s1 + $unit - 1 ;
+	print "-D " if $isD ;
+	print "Feature inverted $s1 $x $perc \"$text\"\n" ;
+	$x += $loop + 1 ;
+	print "-D " if $isD ;
+	print "Feature inverted $s2 $x $perc \"$text\"\n" ;
+	next ;
+    }
+				# Tandem repeat -> Feature
+				# specific to Sanger script-generated data
+    if ( /^Repeats\s+Tandem/ ) {
+	($s1, $s2, $perc) = /(\d+) (\d+) Percent_Identity (\d+)/ ;
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	s/\"//g ; ($score) = /Score \+1-1 (\d+)/ ;
+	if (!defined($s1) || !defined($s2) || 
+	    !defined($perc) || !defined($score)) {
+	    warn "Non-standard Tandem repeat around line $.\n" ;
+	    next ;
+	}
+	($_ = <>) || die "End of file line $. during a repeat\n" ;
+	($unit) = /$s1 $s2 Unit_Length (\d+)/ ;
+	if (defined($unit)) { 
+	    $text = sprintf ("%d copies %dmer", ($s2-$s1+1)/$unit, $unit) ;
+	    print "-D " if $isD ;
+	    print "Feature tandem $s1 $s2 $perc \"$text\"\n" ;
+	    next ;
+	}
+	else {
+	    print "-D " if $isD ;
+	    print "Feature tandem $s1 $s2 $perc\n" ;
+	    goto reparse ;
+	}	    
+    }
+				# Library -> Database
+    s/^Library/Database/ ;
+    s/^From_Library/From_Database/ ;
+				# delete Repeat_consensus
+    /^Repeat_consensus/ && next ;
+				# delete General
+    /^General/ && next ;
+				# Genomic_canonical - delete number
+    /^Genomic_Canonical/ && ($_ = "Genomic_Canonical\n") ;
+				# Related_Sequence -> Related_DNA
+    s/^Related_Sequence/Related_DNA/ ;
+				# fix endcoding screwup
+    s/endcoding/encoding/ ;
+				# peptide -> protein
+    s/^Corresponding_peptide/Corresponding_protein/ ;
+				# Possible_exon -> a feature
+    /^Possible_exon\s+(\d+)\s+(\d+)/ && 
+	($_ = "Feature Possible_exon $1 $2\n") ;
+
+    print "-D " if $isD ;
+    print ;
+    if (eof) { last ; }
+}
+
+############ end of file ############
+
+
+
+
+

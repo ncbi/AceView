@@ -1,0 +1,63 @@
+<!--  @(#)Physical-map.html	1.2  2/17/95  >
+<head>
+<title>Physical-map</title>
+</head>
+
+<h2>Physical-map</h2>
+
+This display represent the alignement of clones into contigs.  (If you
+are using the C. elegans database, see help page on <A
+HREF="Clone-types.html">clone types</a>).<p>
+
+Picking in the Yellow bar (when present) moves you to the sequence.<p>
+
+Picking in the lower Green bar moves you to the genetic map by local
+linear interpolation btween the nearest localised clones.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in ./PS
+(pmapxxx.PS) which you can then print on your local laser printer.
+
+<li><strong>Preserve</strong>: insure that the next pmap will be
+displayed in a different window, otherwise the present one will be
+reused.
+
+<li><strong>Redraw</strong>: useful from time to time if the window
+gets clogged accidentally after moving the window or following arrows.
+
+<li><strong>Recalculate</strong>: recomputes the display from the map
+data.  Otherwise, the same display is shown again and again. We could
+make the recalculation automatic after any update of the clone tress
+but it would slow the program if you alter some data which do not
+actually influence the drawing.
+
+<li><strong>Show All Remarks</strong>: there are three categories of
+comments: General_, PCR_ and Y_.  Typically, PCR_ and Y_ comments were
+used by John and Alan to help build the map (as are many General_
+ones) and are not very useful to the rest of us.  This switch is a
+toggle - turning on and off showing the extra comments.
+
+<li><strong>To Genetic Map</strong>: Moved to the real or estimated
+genetic position of the selected item.
+
+</ul>
+
+Apart from the menu options, you can pick any clone and obtain it in
+text form, or pick the comments and the genes that may appear under
+the map.  Using the arrow keys, you will move from one clone, comment
+or gene to the next.<p>
+
+The mid button recenter the display, slowly in the upper part of the
+window, faster in the lower part where a back bone of the physical map
+is shown.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

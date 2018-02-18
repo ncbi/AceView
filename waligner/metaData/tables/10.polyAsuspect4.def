@@ -1,0 +1,132 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2006-10-24_17:55:20
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title removes polyA of forward read if a reverse read assembles f
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Column #1   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Transcribed_gene 
+ 
+Colonne 2 
+Subtitle Column #2   
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 1 
+Tag Assembled_from   
+ 
+Colonne 3 
+Subtitle Column #3   
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 2 
+Tag HERE    
+ 
+Colonne 4 
+Subtitle read   
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+Right_of 3 
+Tag HERE    
+Condition forward && polyA_after_base
+ 
+Colonne 5 
+Subtitle Column #5   
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 4 
+Tag HERE    
+ 
+Colonne 6 
+Subtitle Column #6   
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 5 
+Tag HERE    
+ 
+Colonne 7 
+Subtitle Column #7   
+Legend fully aligned 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 4 
+Tag PolyA_after_base   
+Condition \%7 < [\%6 + 12]
+ 
+Colonne 8 
+Subtitle Column #8   
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class cdna_clone 
+From 4 
+Tag cDNA_clone   
+ 
+Colonne 9 
+Subtitle Column #9   
+Width 12 
+Mandatory 
+Hidden 
+Integer 
+From 1 
+Tag Assembled_from   
+Condition \%9 > [\%3 + 50]
+ 
+Colonne 10 
+Subtitle Column #10   
+Width 12 
+Mandatory 
+Hidden 
+Integer 
+Right_of 9 
+Tag HERE    
+ 
+Colonne 11 
+Subtitle Column #11   
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+Right_of 10 
+Tag HERE    
+Condition reverse
+ 
+Colonne 12 
+Subtitle Column #12   
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class cdna_clone 
+From 11 
+Tag cDNA_clone   
+Condition IS "\%8"
+ 
+ 
+
+// End of these definitions

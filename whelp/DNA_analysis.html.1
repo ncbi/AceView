@@ -1,0 +1,91 @@
+<!--  @(#)DNA_analysis.html	1.2  2/17/95  >
+<head>
+<title>DNA_analysis</title>
+</head>
+
+
+
+<h2>DNA_analysis</h2>
+
+Click here for the <A
+HREF="DNA_and_amino_acids_nomenclature.html">genetic code</a>.<p>
+
+This window is a command tool. It acts on either:<p>
+<ul>
+
+<li>the active sequence window
+
+<li>all the sequences listed in the currently active <A
+HREF="KeySet.html">keyset</a> if you press the <strong>Search
+active Keyset</strong> button. That button is a toggle and turns RED
+when activated.
+
+</ul>
+
+Searches on the dna result in coloration of the sequence, which shows
+on the bases and amino acids (if visible) and on the yellow strip.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+
+<li><strong>Finger print</strong>: Restricts with the enzymes used for
+the C.e. physical map hindIII and sau3aI. You get prompted for the
+name of a file where the result of the search may be exported.  The
+sites are shown in 2 colors in the feature window.
+
+<li><strong>Restriction Key_Set</strong>: Will import a list of
+restriction enzymes that can then be searched for in the active
+sequence or KeySet of sequences.
+
+<li><strong>Restrict Site Text-editor</strong>: Searches for AA motifs
+or Bases restriction sites.  You can give the sequence you search for
+or the name of a set of known restriction enzymes, (list the class
+Restrict to see them).  The sites are shown in the sequnce window, and
+recorded at the end of the Dnacpt window.  The use of ambiguous
+letters such as R is allowed To activate the search type return. Try
+also the Show Gel Button.
+
+<li><strong>Dump Sequence</strong>: If UseKeySet is set, dumps in
+fasta format all sequences of the active keyset (or selection list).
+Else, dumps in fasta format the active region of the active sequence
+window, e.g. you can fasta dumps bases 3800 to 7000 of a given
+sequence.
+
+<li><strong>poly R/ poly Y</strong>: looks for 12 or more contiguous
+AG or TC segments, and prints out the result of the search. This is
+equivalent to search for a restriction of 12 R or 12 Y (r is a-g, y:
+t-c), but the print out is more precise.
+
+<li><strong>Splice Concensus</strong>: Gives the 5' and 3' splice
+concensus sequences around the introns exons boundaries in the
+sequences of the active keyset. The result is shown in the Dnacpt
+window itself.  Resize the window to see it.
+
+<li><strong>Codon Usage</strong>: Gives the codon usage in the
+sequences of the active keyset. The result is shown in a new
+window. Note that the genetic code is recalled in the next page of
+this help.
+
+<li><strong>Lengths</strong>: Gives the histogram of the lengths of
+the individual sequences in the active KeySet.
+
+<li><strong>Show Gel</strong>: Pops a Gel Tool with its own help page.
+
+<li><strong>Clear</strong>: Clears the Dnacpt window, useful before
+using Splice concensus or restrict buttons.
+
+</ul>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>
+

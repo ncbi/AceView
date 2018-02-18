@@ -1,0 +1,24 @@
+#!/bin/tcsh
+
+set v=$1
+
+set dd=channels.$v.source
+mkdir $dd $dd/src $dd/src/wh
+
+pushd wh
+ \cp ac.h regular.h *chan*.h mystdlib.h aceiotypes.h aceio.h array.h bigarray.h bitset*.h utils.h mytime.h keyset.h dict.h vtxt.h acedna.h peptide.h dna.h wego*.h remote_task*.h freeout.h version.h  call.h ../$dd/src/wh
+popd
+pushd w1
+  \cp channel.c arraysub.c bigarraysub.c memsubs.c dict.c keyset.c messubs.c timesubs.c vtxt.c utils.c msort.c   ../$dd/src
+popd
+\cp wchannels/remote_channel.c $dd/src
+\cp wacext/chan*.c $dd/src
+
+
+exit 0
+
+
+gcc -o chantest1 chantest1.c channel.o memsubs.o utils.o messubs.o -lm -lpthread timesubs.o -I wh
+
+we need array just because of ACFORMAT macro in messubs.c. this should be a function
+ mesage = strnew  and free message everywhere

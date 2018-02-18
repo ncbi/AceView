@@ -1,0 +1,236 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2012-01-18_18:30:08
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Gene  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition bestindex AND av
+ 
+Colonne 2 
+Subtitle best index   
+Width 12 
+Optional 
+Visible 
+Float 
+From 1 
+Tag Best_run_U
+ 
+Colonne 3 
+Subtitle best run   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+Right_of 2 
+Tag HERE 
+ 
+Colonne 4 
+Subtitle title   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 3 
+Tag Title
+ 
+Colonne 5 
+Subtitle sample best run   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Sample 
+From 3 
+Tag Sample
+ 
+Colonne 6 
+Subtitle best group index   
+Width 12 
+Mandatory 
+Visible 
+Float 
+From 1 
+Tag Best_group_U
+ 
+Colonne 7 
+Subtitle best group   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+Right_of 6 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle Column #8   
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition 0.BodyMapRNA_Sep2011
+ 
+Colonne 9 
+Subtitle index in 0.BodyMapRNA_sept2011   
+Legend pick >16 for marker genes 
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 8 
+Tag HERE 
+Condition \%9 > 17.5
+ 
+Colonne 10 
+Subtitle sequences  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 9 
+Tag HERE 
+ 
+Colonne 11 
+Subtitle Column #11  
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 10 
+Tag HERE 
+ 
+Colonne 12 
+Subtitle Reads in bodymap  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 11 
+Tag HERE 
+ 
+Colonne 13 
+Subtitle Column #13  
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 12 
+Tag HERE 
+ 
+Colonne 14 
+Subtitle kb aligned  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 13 
+Tag HERE 
+ 
+Colonne 15 
+Subtitle Column #15  
+Width 12 
+Optional 
+Hidden 
+Text 
+Right_of 14 
+Tag HERE 
+ 
+Colonne 16 
+Subtitle Variance in index  
+Legend 2 is a max for ubiquitous 
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 15 
+Tag HERE 
+Condition \%16 < 1.5
+ 
+Colonne 17 
+Subtitle gene title   
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 1 
+Tag Title
+ 
+Colonne 18 
+Subtitle gene nominal length (bp)   
+Legend select the needs 
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag Length
+ 
+Colonne 19 
+Subtitle gene %GC   
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag GC_percent
+ 
+Colonne 20 
+Subtitle Gene unicity index (in deep seq)  
+Width 12 
+Mandatory 
+Visible 
+Float 
+From 1 
+Tag Unicity_index
+Condition \%20= 100
+ 
+Colonne 21 
+Subtitle tissue group *any 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Run 
+From 1 
+Tag Group_U
+Condition *any
+ 
+Colonne 22 
+Subtitle index in group 
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 21 
+Tag  HERE 
+ 
+Colonne 23 
+Subtitle chromosome 
+Width 12 
+Optional 
+Visible 
+Class 
+Class Map 
+From 1 
+Tag IntMap
+ 
+ 
+
+// End of these definitions

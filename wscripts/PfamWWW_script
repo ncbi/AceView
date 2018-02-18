@@ -1,0 +1,9 @@
+#!/bin/csh -f
+
+# SCCS: $Id: PfamWWW_script,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $
+
+if ("$1" == "") then
+  echo Empty URL - aborting
+else
+  netscape "http://www.sanger.ac.uk/Pfam-bin/family?fam="$1 &
+endif

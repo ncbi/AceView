@@ -1,0 +1,88 @@
+<HTML>
+
+<HEAD>
+<TITLE> ACEDB source code documentation: dynamic function calling </TITLE>
+
+<LINK rel=stylesheet type="text/css"
+href="http://www.sanger.ac.uk/Software/Acedb/Development/wdoc/wdoc.css"
+title="Style sheet for wdoc developer documents">
+
+</HEAD>
+
+<BODY>
+
+<H1>Dynamic function calls without linktime errors</H1>
+
+<H2><FONT color=red>*** THIS IS A SPEC, CODE ONLY EXISTS AS A PROTOTYPE ***</FONT></H1>
+
+<PRE>
+
+The messsage system allows attempts to call C functions which may
+not exist, without getting an error at link-time.
+
+Declare such functions as follows:
+
+#include "message.h"
+
+MESSAGERETURN myfunc(va_list args)
+{ 
+
+  return 0;
+}
+
+and call like this:
+
+if (call("myfunc", arg1, arg2))
+  printf("call to myfunc succeeded");
+else
+  printf("myfunc doesn't exist");
+
+
+Notes:
+
+1) call returns a BOOL, true for success, FALSE if function is non-existant.
+2) the return value from the called func is a dummy, and thrown away.
+   If you want a return value pass in an address.
+3) This stuff is all done using smoke and mirrors in the makefile,
+   it's pretty robust (I hope!) but the special function declarations are
+   parsed by a sed script, not a general purpose parser, so don't mess with 
+   the form too much. In particular: 
+	put MESSAGERETURN at the start of a line,
+	keep MESSAGERETURN and the function name on the same line, not
+
+MESSAGERETURN
+myfunc(va_list args)
+
+	don't make function prototypes.
+
+MESSAGERETURN myfunc(va_list arg);
+   
+	or declare variables.
+
+MESSAGERETURN my_var;
+  
+   both of which are useless amd will confuse the system.
+
+4) Source files are pre-processed before looking for the MESSAGERETURN
+   lines, so use of commenting out, macros, include files, and #ifdef around 
+   code is fine. 
+
+5) See man stdarg for how to get at the arguments of the called function.
+
+6) There is an additional function, 
+
+BOOL callExists(char *func)
+
+  which returns true if call(func) would, but doesn't make the call.
+
+7) MESSAGERETURN functions whose name begins with "init" are
+   called automatically just after the rest of acedb initialisation.
+   This allows optional subssystems to be initialised without insertions
+   into xacemain. If more than one such init function exists, the order
+   in which they are called is undefined. init functions must still take
+   a va_list argument, but its value will be junk.
+
+</PRE>
+
+</BODY>
+</HTML>

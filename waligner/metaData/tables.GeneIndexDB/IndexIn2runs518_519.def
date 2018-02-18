@@ -1,0 +1,272 @@
+// Spread sheet definition for the ACeDB software 
+// User: mieg
+// Date: 2011-11-07_21:30:04
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Target    
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+Condition spikein && ! IS G_Any_* && Deep
+ 
+Colonne 2 
+Subtitle Column #2       
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition IS Rhs518
+ 
+Colonne 3 
+Subtitle Column #2       
+Width 12 
+Mandatory 
+Hidden 
+Class 
+Class Run 
+From 1 
+Tag Run_U
+Condition IS Rhs519
+ 
+Colonne 4 
+Subtitle i518 = Rhs518 index       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 2 
+Tag HERE 
+Condition \%4 > -1
+ 
+Colonne 5 
+Subtitle i519 = Rhs519 index    
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 3 
+Tag HERE 
+Condition \%5 > -1
+ 
+Colonne 6 
+Subtitle s518 = Rhs518 sequences       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 4 
+Tag HERE 
+ 
+Colonne 7 
+Subtitle s519 = Rhs519 sequences       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 5 
+Tag HERE 
+ 
+Colonne 8 
+Subtitle r518 = Rhs518, reads       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 6 
+Tag HERE:1 
+ 
+Colonne 9 
+Subtitle r519 = Rhs519, reads       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 7 
+Tag HERE:1 
+ 
+Colonne 10 
+Subtitle kb518 = Rhs518, kb        
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 8 
+Tag HERE:1
+ 
+Colonne 11 
+Subtitle kb519 = Rhs519, kb       
+Width 12 
+Optional 
+Hidden 
+Float 
+Right_of 9 
+Tag HERE:1 
+ 
+Colonne 12 
+Subtitle dr=100*(r519 -r518)    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag 100 * \%5 - 100 * \%4
+ 
+Colonne 13 
+Subtitle gc = GC percent in targets    
+Width 12 
+Optional 
+Visible 
+Integer 
+From 1 
+Tag GC_percent
+ 
+Colonne 14 
+Subtitle dr2 = dr + 7*gc    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag \%12 + 7*\%13
+ 
+Colonne 15 
+Subtitle a518 = amplification Rhs518 = 100 * (r518/s518 - 1)    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag -100 + 100 * \%8 / \%6
+ 
+Colonne 16 
+Subtitle a519 = amplification Rhs519 = 100 * (r519/s519 - 1)    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag -100 + 100 * \%9 / \%7
+ 
+Colonne 17 
+Subtitle da = a519 - a518    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag \%16 - \%15
+ 
+Colonne 18 
+Subtitle di = i519 - i518    
+Width 12 
+Optional 
+Hidden 
+Float 
+Compute
+Compute 1 
+Tag 100 * (\%5 - \%4)
+ 
+Colonne 19 
+Subtitle Mix2   
+Width 12 
+Optional 
+Hidden 
+Float 
+From 1 
+Tag Mix2:1
+Condition \%19 > 4
+ 
+Colonne 20 
+Subtitle 100*(i518 - mix2)   
+Width 12 
+Mandatory 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag \%13 * 5 + 100 * (\%4 - \%19)
+ 
+Colonne 21 
+Subtitle Column #21  
+Width 12 
+Optional 
+Visible 
+Float 
+From 1 
+Tag Folding
+ 
+Colonne 22 
+Subtitle Column #22  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 21 
+Tag HERE 
+ 
+Colonne 23 
+Subtitle Column #23  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 22 
+Tag HERE 
+ 
+Colonne 24 
+Subtitle Column #24  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 23 
+Tag HERE 
+ 
+Colonne 25 
+Subtitle Column #25  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 24 
+Tag HERE 
+ 
+Colonne 26 
+Subtitle Column #26  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 25 
+Tag HERE 
+ 
+Colonne 27 
+Subtitle Column #27 
+Width 12 
+Optional 
+Visible 
+Float 
+Compute
+Compute 1 
+Tag \%20 + \%21
+ 
+ 
+
+// End of these definitions

@@ -1,0 +1,72 @@
+
+$Id: XCLIENT.INSTALLATION.README,v 1.1.1.1 2002/07/19 20:23:32 sienkiew Exp $
+
+The xclient is a new acedb application presented
+during the 1997 worm meeting in Madison.
+
+Running the client on a Unix machine, you construct
+on your local machine an acedb database which gets its
+data transparently from some acedb server. Once the
+database is constructed, and if the network breaks, you
+can keep running in local mode.
+
+The system is very fast once the data is loaded, because 
+it runs locally. The performances are far superior to those
+of webace. 
+It appears equivalent to a local installation of the full acedb
+but you do not need much disk space and you do not have
+to download the update files.
+You stay always in contact with the most recent data.
+
+------------------
+
+The installation is very simple, you must download the 
+package 
+  bin.yyy.xclient.tar.gz
+where yyy is your machine (solaris, dec etc)
+install it by:
+  gunzip -c  bin.yyy.xclient.tar.gz | tar xf -
+
+and then configure your client to connect to the relevant
+server by the command:
+
+  bin/INSTALL.xclient
+
+if you type return to get the default answer on every question
+you will connect to the Montpelleir C.elegans server
+
+-------------------
+
+Note to system managers:
+  the script dace_remote is an example of a wrapper used in
+SaintLouis. This script runs INSTALL.xclient without asking
+any question to the user and install his client in a subdirectory
+of /tmp
+
+ This script presuppose that the exact path to all executables is
+known and that the correct server is known. 
+You should edit it to your needs.
+
+-------------------
+
+General warning:
+  Acedb is a disk intensive program. It is of utmost importance to run
+the executable off a local disk, A disk which appears as a /dev/r..
+when you run the Unix command df (the simplest command to learn what
+actual hardware disk you are connected to).
+
+  In fact, despite the network traffic, it is faster in a given building,
+to run the server on a local disk of a server machine and to run the client
+on a local disk of the user machine, than to run directly from the final
+user machine on the nfs-mounted distant server disk.
+  This is why the dace_remote script tries to use /tmp as the client disk
+since, independently of how the home directories of the people are configured
+/tmp is always local to the machine you are actually working with.
+
+  But do not forget to install the acedb server as a daemon using a local
+disk of the server machine.
+
+J.T-M, dec 97
+
+
+

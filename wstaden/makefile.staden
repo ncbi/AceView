@@ -1,0 +1,135 @@
+#  %W% %G%
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+######### wstaden/makefile.staden  Feb 2000        ##############
+#################################################################
+#
+# ATTENTION:
+#   Define in this file machine independant directives
+#   to compile staden codes linked against acelib
+#
+#   The makefile is decomposed into 2 parts
+#     makefile: which selects the machine and creates ./bin.*
+#     then copies the present file into ../bin.*
+#     and the present file which gives details on the linking
+#  
+#   Machine specific choices, like linker and compiler
+#     are specified in ../wmake/*_DEF
+#
+#   Object modules and exe are created in ../bin.*
+#     to keep the present directory clean and allow
+#     multiple architectures
+#
+###########################################################
+## Compile Time Variants
+## A single source code will produce several object modules
+## Rules are given below
+###########################################################
+
+# add any new special suffix here - do not have multiple .SUFFIXES lines 
+.SUFFIXES: .o .c .o 
+
+#################################################################
+# Before running the make command
+# setenv ACEDB_MACHINE to indicate one of the predefined
+# Machine dependant option files, or write your own.
+# These files are called  $(ACEDB_SRC)/wmake/$(ACEDB_MACHINE)_DEF
+#
+# See the explanation at the top of ../wmake/truemake
+#################################################################
+
+COMPI = $(COMPILER)  -DACEDB -D$(NAME)  -I../wh -I../wac -I../wstaden  -I.
+ACELIBS =   $(LIBS) -L. -lfree -ltsfree -lace -lm
+
+.KEEP_STATE: 
+## Different platforms use CC or COMPILE.c
+CC =        $(COMPI)  -c
+COMPILE.c = $(COMPI)  -c
+
+
+# suppress auto SCCS extraction
+.SCCS_GET:
+
+#define defaults  overridable in $(ACEDB_MACHINE)_DEF
+RANLIB_NEEDED = true	
+AR_OPTIONS = rlu
+
+LINKER = cc
+COMPILER = cc
+TEST = test
+
+CCFLAGS =  ## to undefine any rubbish
+GCFLAGS =  ## to undefine any rubbish
+
+#################################################################
+########## Machine dependent compiler modification ##############
+############# Are included from an external file ################
+#### This is equivalent to, but more portable than $($(CC)) #####
+### Edit these rules to adapt the makefile to a new machine #####
+# Note that you can keep different DEF files for the same machine
+# setting  various compiler  options
+#################################################################
+include deffile
+
+# Note that you can keep different DEF files for the same machine
+# setting  various compiler  options
+
+#################################################################
+#################################################################
+# Add here your definitions
+#################################################################
+#################################################################
+
+all: libstaden.a makeSCF scf2ctf ctf2scf
+
+# Rodger Staden's code to read his scf files
+LIBSTADEN = wstaden
+
+## acedb specific build for libstaden.a compiled with -DACEDB
+
+LIBSTADEN_OBJS = read_alloc.o Read.o filecompress.o \
+		st_translate.o read_scf.o \
+		find.o mach-io.o dummy.o \
+		traceType.o misc_scf.o \
+		xalloc.o error.o files.o \
+		stadenarray.o fpoint.o \
+		write_scf.o  \
+		seqIOALF.o seqIOABI.o seqIOCTF.o \
+		seqIOPlain.o expFileIO.o ctfCompress.o 
+
+MAKESCF_OBJS = makeSCF.o dnaacecode.o
+
+SCF2CTF_OBJS = scf2ctf.o dnaacecode.o
+
+CTF2SCF_OBJS = ctf2scf.o dnaacecode.o
+
+STADEN_SOURCES =  $(LIBSTADEN_OBJS:.o=.c)  \
+	makeSCF.c dnaacecode.c scf2ctf.c ctf2scf.c
+
+$(STADEN_SOURCES): 
+	$(TEST) -L $@ || ln -s ../$(LIBSTADEN)/$@ .
+
+###########################################################
+###### Staden library #####################################
+## all modules here were copied form Roger Staden distribution
+## io_lib-1.7.tar.gz
+## with just a few modifications of file names to prevent name conflicts
+## for example between staden's array.h and acedb array.h
+
+libstaden.a: $(LIBSTADEN_OBJS)
+	ar $(AR_OPTIONS) libstaden.a $?
+	if ( $(RANLIB_NEEDED) ) then ranlib libstaden.a; fi
+
+makeSCF: libstaden.a $(MAKESCF_OBJS)
+	$(LINKER)  -o makeSCF $(MAKESCF_OBJS) -L. -lstaden messubs.o  $(ACELIBS)
+
+scf2ctf: libstaden.a $(SCF2CTF_OBJS)
+	$(LINKER)  -o scf2ctf $(SCF2CTF_OBJS) -L. -lstaden  messubs.o  $(ACELIBS)
+
+ctf2scf: libstaden.a $(CTF2SCF_OBJS)
+	$(LINKER)  -o ctf2scf $(CTF2SCF_OBJS) -L. -lstaden  messubs.o  $(ACELIBS)
+
+###########################################################
+######## end of     acedb makefile.staden  ################
+###########################################################
+ 

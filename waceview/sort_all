@@ -1,0 +1,8 @@
+#!/bin/tcsh -f
+mv server.log  _s
+touch server.log
+cat _s >> server.log.0
+\rm _s
+foreach ff (`ls server.log.*`)
+perl ../bin/specialsort.pl $ff >! sorted/$ff
+end

@@ -1,0 +1,62 @@
+<!--  @(#)Multi_Map.html	1.2  2/17/95  >
+<head>
+<title>Multi_Map</title>
+</head>
+
+<h2>Multi_Map</h2>
+
+This utility is invoked by the Map button of the <A
+HREF="Table_Maker_Data.html">data window</a> for the <A
+HREF="Table_Maker.html">TableMaker</a>.<p>
+
+The interface is modelled on the genetic map display.  Each numerical
+column of the table corresponds to a map. Each entry is shown as a
+yellow square which you may pick. Squares in neighbouring columns
+corresponding to a single line of the table are linked together, if
+ending on the name of the object in column 1 of the definition of the
+table. Note that by switching the columns in the table, you switch the
+maps but you cannot change the name shown.  This is because only the
+name in column 1 is garanteed to be unique.<p>
+
+When you pick a name or a square, the corresponding line in the Table
+is highlighted. Furthermore, you display the first object upwards from
+where the number was gotten from. Concretely, in a multimap, you move
+to that map you are looking at, centered on the locus, which I hope is
+what you want.<p>
+
+<h3>Menu items:</h3>
+
+<ul>
+
+<li><strong>Quit</strong>: quits the window.
+
+<li><strong>Help</strong>: brings up this help.
+
+<li><strong>Print</strong>: prepares a Post Script file in
+./PS which you can then print on your local laser printer.
+
+<li><strong>Zoom all/Zoom active</strong>: The Whole, zoom-in,
+zoom-out button and the usual mid-mouse zoom and drag (x-y mouse
+motion started on left edge of the graph) apply either all the columns
+or to the active one only.
+
+</ul>
+
+With these functions it is easy to realign a given region of the
+mutimap.<p>
+
+The active map is indicated because its name shows in a green
+background. Note that the left green box always shows the extent of
+the display of the active map.<p>
+
+<strong>Flip</strong> causes a vertical flip of the active map. This
+is useful if the coordinates in that map run in the opposite direction
+with respect to another one.<p>
+
+<strong>Switch</strong> moves the active map one column to the
+right. This can be useful because only the links between direct
+neighbours is materialised.<p>
+
+to <a href="TOC.html">Table of Contents</a><p>
+
+last edited: July 1994<p>

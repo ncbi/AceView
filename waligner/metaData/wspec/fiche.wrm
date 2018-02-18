@@ -1,0 +1,48 @@
+
+
+-= ================================= =-
+General_Info
+-= ================================= =-
+	
+	Default_Rawdir      /net/vesta/a/mieg/extern
+	GbDir		        /net/vesta/a/mieg/YkGenBank
+    RsDir		        /net/vesta/a/mieg/YkRefSeq
+   	SavedFicheDir       /net/vesta/a/mieg/YkFiches
+
+-= ================================= =-
+Executables
+-= ================================= =-
+
+    Blast			/netopt/ncbi_tools.master/ver0.0/ncbi/bin/blastall     -d nr -p blastp  -a 20 -e .001 -J T -T 
+	Taxblast		/net/vesta/a/mieg/MEGA/bin/txblast.vesta
+    pfamURL         	http://pfam.wustl.edu/cgi-bin/nph-hmmsearch
+    psortURL		http://psort.nibb.ac.jp/cgi-bin/runpsort.pl
+	expasyURL		http://ca.expasy.org/cgi-bin/pi_tool
+
+-= ================================= =-
+Genbank_Mail Template
+-= ================================= =-
+Subject: WTP submission %DATE% %TIME% 
+From:    mieg@ncbi.nlm.nih.gov
+To:      mieg@ncbi.nlm.nih.gov
+CC:      simonyan@ncbi.nlm.nih.gov
+Sent:	 %DATE%
+
+Dear Linda,
+
+In the directory %DIRECTORY% there are %COUNT% ASN files ready 
+for GenBank submission. Please, tell us about systematic corrections
+and we can fix them at our end.
+
+Files are:
+%FILES%
+
+
+Thank you very much.
+
+-= ================================= =-
+End
+-= ================================= =-
+
+
+yankie@ncbi.nlm.nih.gov

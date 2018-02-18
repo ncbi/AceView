@@ -1,0 +1,13 @@
+Code downloaded sep 4 2004
+interfaced very easly into acedb
+
+unfortunatelly the elemantary
+drawLine function is much too slow
+in javascriot because it is really
+a colored <div> 
+
+with obliques, forget it, 10 minutes per graph
+with staight line a very very simple worm gene
+takes 12 s to draw
+
+i could optimise the js script in case h or v lines

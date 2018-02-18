@@ -1,0 +1,64 @@
+#!bin/tcsh -f
+
+# 2013_05_15
+# Construct a cumulated histogram from a distribution
+# author mieg@ncbi.nlm.nih.gov
+# no warranty, no copyright !
+
+set f1=$1
+set qq=$2
+
+if ($2 == "") then
+  echo "Usage cumulator file_name integer"
+  echo "  Given a table with single title line and 2 columns of data: date value"
+  echo "  returns the cumulated distributions quantized 10 days"
+  echo "    Example:\n    cumulator my_file 10"
+  echo "       returns my_file.cumul.quantized_10.forward.txt"
+  echo "               my_file.cumul.quantized_10.reverse.txt"
+
+  exit 1
+endif 
+
+# create a private tmp directory
+mkdir tmp.$$
+set g=tmp.$$/g
+
+# grab the title line
+cat $f1 | head -1 | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\n",$1,$2,"Cumul","Cumulated percentage");}' > $g.title
+
+# grab the remaining lines 
+cat $f1 | tail -n +2 > $g.data
+
+# quantize the distributions
+
+cat $g.data | gawk -F '\t' '{x=$1;a=$2;x=qq*int((x + qq - 1)/qq);xx[x]+=a;}END{for(x in xx)printf("%d\t%s\n",x,xx[x]);}' qq=$qq | sort -k 1n > $g.data.q
+
+
+# sort in forward and reverse order
+cat  $g.data.q | sort -k 1n >  $g.data.q.f
+cat  $g.data.q | sort -k 1nr >  $g.data.q.r
+
+# construct the cumulated distribs
+cat $g.data.q.f | gawk -F '\t' '{n += $2 ; printf("%d\t%d\t%d\n", $1, $2, n);}' max=1>   $g.data.q.f.cumul
+set nmax=`tail -1  $g.data.q.f.cumul | cut -f 3`
+set dmax=`tail -1  $g.data.q.f.cumul | cut -f 1`
+echo "dmax=$dmax nmax=$nmax"
+cat $g.data.q.f | gawk -F '\t' '{d=$1;x=$2; c += x; xx[d]=x ; cc[d]=c;}END{for(d=0;d<=dmax;d+=qq){if (xx[d] == 0){cc[d]=c0;}c0=cc[d]+0;if(d==0 || qq == 1)printf("%d",d);else printf("%d:%d", d-qq+1,d);printf("\t%d\t%d\t%.1f\n",xx[d],cc[d],100.0*cc[d]/nmax);}}' dmax=$dmax nmax=$nmax qq=$qq >   $g.data.q.f.cumul
+
+cat $g.data.q.r | gawk -F '\t' '{d=$1;x=$2; c += x; xx[d]=x ; cc[d]=c;if(0)printf("##d=%d x=%d c=%d\n",d,x,c);}END{printf("0\t0\t%d\t100.0\n",nmax); cc[0]=0;for(d=dmax;d>=0;d-=qq){if(cc[d]==0)cc[d]=c0;c0=cc[d];}for(d=qq;d<=dmax;d+=qq){if (xx[d] == 0){cc[d]=c0;}c0=cc[d]+0;if(d==0 || qq == 1)printf("%d",d);else printf("%d:%d", d-qq+1,d);printf("\t%d\t%d\t%.1f\n", xx[d],cc[d+qq],100.0*(cc[d+qq])/nmax);}}' dmax=$dmax nmax=$nmax qq=$qq >   $g.data.q.r.cumul
+
+# Add back the caption
+
+cat $g.title  $g.data.q.f.cumul > $f1.cumul.quantized_$qq.forward.txt
+cat $g.title  $g.data.q.r.cumul > $f1.cumul.quantized_$qq.reverse.txt
+
+# Clean up
+\rm -rf tmp.$$
+
+echo "done : see the results in"
+ls $f1.*
+
+exit 0
+
+
+

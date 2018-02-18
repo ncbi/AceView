@@ -1,0 +1,229 @@
+This is the AC library - a C interface to acedb
+Authors: Mark Sienkiewicz, Jean Thierry-Mieg (2003)
+--
+
+There are two implementations here:  
+
+acclient is a client library.  It is known to work with RPC servers
+(e.g. gifacemblyserver) and AceTCP servers (tgifacemblyserver).  It has
+code to support Sanger Acedb 4.9, but that support is incomplete.
+[3/2003]
+
+acinside provides the same interface, but it runs inside the database
+(either in tace or a server) and takes advantage of direct access to
+database functions to improve performance.  It is fully tested [11/2003]
+
+If you limit yourself to using only AC calls, your code can run equally
+correctly either inside or outside the database.
+
+Note that you might expect acinside to always be significantly faster,
+but in fact many applications use a pattern of transactions where the time
+spent transmitting data between the client and server is dwarfed by the
+time spent performing the actual query.
+
+
+Compiling with AC
+--
+
+Your program should
+	#include <wac/ac.h>
+
+wac/acctest.c contains test code that exercizes the library.  It can also
+serve as sample code for some of the features.
+
+To compile your application as a client:
+
+	in the AceDB makefile:
+		include $(LINK_ACC) in your dependencies
+		include $(LINK_ACC) in the list of object files to include
+
+	outside the AceDB makefile
+		get the value of LINK_ACC from wmake/truemake and link
+		with those object files
+
+
+To compile your application as a stand alone code:
+
+	in the AceDB makefile:
+		include $(LINK_ACS) in your dependencies
+		include $(LINK_ACS) in the list of object files to include
+
+	outside the AceDB makefile
+		get the value of LINK_ACS from wmake/truemake and link
+		with those object files
+
+
+Compiling the actual library
+--
+
+You can compile the library by the command
+make libaccl.a libacs.a
+or, relying on dependencies, by compiling a program that uses it, e.g.
+make accmd
+
+The supported transport mechanisms are selected by defines in
+wac/acclient_.h; you can add/remove transports as you wish.  The
+dependencies are correct for this library, so it is sufficient to
+change the include file and re-compile.
+
+
+Test code
+--
+
+acctest is the "ac client test" program.  
+acstest is the "ac autonamous test" program.  
+
+0) add the executables in your file
+   in csh the command would be
+   set path = $path `pwd`/../bin.$ACEDB_MACHINE
+1) initialize the database:
+
+	pushd wac/testdb
+	sh init
+	popd 
+
+2) test the autonomous ac code type
+
+   bin*/acstest wac/testdb all | tee acstest.out
+
+3) test the client ac code type
+  a) Start a server
+    
+    bin*/taceserver wac/testdb -port 65432
+
+  b) run the client code
+
+    bin*/acctest a:localhost:65432:: all | tee acctest.out
+	
+4) verify the outputs, they may differ from the standard out put by dates and machine names
+
+   diff  wac/testdb/acstest_correct_output acstest.out 
+   diff  wac/testdb/acctest_correct_output acctest.out 
+
+The last paramenter (here all) is a list of tests to run in order.  
+Test "all" performs a test of much of the library, and the expected output is available.
+
+If you change the test program or library, you must update that file.
+
+5) clean up
+
+   pushd wac/testdb ; sh ./clean_up ; popd
+
+
+Test the access to Wormbase maintained at Cold Spring Harbor Laboratory
+
+   bin.*/taceclient s:aceserver.cshl.org:2005:anonymous:mieg@ncbi.nlm.nih.gov
+
+
+Protocols
+--
+
+The acedb@ncbi distribution includes 2 server protocols
+    make aceserver gifacemblyserver   :: (r) rpc protocol
+    make taceserver tgifacemblyserver :: (a) socket protocol
+
+The acedb from www.acedb.org includes by default 
+    make saceserver :: (s) sanger protocol
+
+The AcePerl code knows the (r) and (s) protocols
+
+The 'taceclient' knows all 3 protocols
+
+Recommended config:
+  To use only AceC: run the (a) tgifacemblyserver
+  configure ther privacy in wpec/acetcp_access.wrm (autodocumented)
+  connect using: my_acec_prog a:host:port
+
+However
+  To use both AceC and AcePerl: run an (r) rpc server
+  configure ther privacy in wpec/server.log (autodocumented)
+  allow the rpc protocol in wac/acclient_.h and recompile
+  connect using: my_acec_prog r:host:port
+
+To connect to the wormbase server of Lincoln Stein
+  this saceserver uses the (s) sanger protocol
+  connect using: my_acec_prog s:host:port
+
+
+
+Files here
+--
+
+	Common code
+	--
+
+	ac.h
+		common include file.  clients only need this file
+
+	ac_.h
+		internals common to both library implementations.  If you are
+		adding something, chances are that it does not really belong
+		here.
+
+	actable_.h
+	actable.c
+		AC_TABLE section of the code - used in both libraries
+
+
+	Client library
+	--
+
+	acclient_.h
+	acclient.c
+		the AC client code.
+
+	acclient_acetcp.c
+	acclient_rpc.c 
+	acclient_socket.c
+		Ace network protocol implementations.  all of these files are
+		included in acclient.c, but each file is mostly ifdefed out
+		if it's protocol is not wanted
+                edit the file acclient_.h to add remove a protocol
+                choose the lines LINK_ACC_RPC=$(RPC_CLIENT_OBJS)
+                                 #LINK_ACC_RPC=
+                in wmake/truemake to compile or not the RPC client library
+
+
+	ace-conn-hacked.c
+		code for acclient_socket.c to talk to the socket server - copied
+		from Sanger's Ace-Conn and hacked extensively to work in our system.
+
+	acctest.c
+		a test program for testing the database client code.  uses the
+		database in testdb
+
+	accmd.c
+		sends commands to the database using ac_command().  This is much
+		like aceclient, and will replace aceclient eventually.
+
+
+	Internal library
+	--
+
+	acinside_.h
+	acinside.c
+		the AC inside-the-database implementation
+
+
+
+	Documentation
+	--
+
+	README
+		this file
+
+	list
+		checklist of which features are present in each implementation
+		NOT CURRENT
+
+	show-c
+		description of the "show -C" format used by the client library
+
+	implementation
+		some notes on database commands that an alternate
+		implementation of the client library might use
+
+	testdb
+		scripts to initialize a test database.  The database contains
+		exact data that acctest expects to find.
+

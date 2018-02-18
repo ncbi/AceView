@@ -1,0 +1,10 @@
+#!/bin/csh -f
+
+# clean up the ctx directory every hour
+cd /home/mieg/ee/SERVER/QUERY_TMP
+touch _cron_run
+if (-e _to_be_removed) then
+  source  _to_be_removed
+  \rm _to_be_removed
+endif
+ls | /usr/bin/awk '/ctx/{printf("\\rm %s\n",$1);}' >! _to_be_removed

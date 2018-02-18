@@ -1,0 +1,29 @@
+Copy-on-write databases
+---
+
+A copy-on-write database looks just like a regular acedb database,
+but it uses read-only data files from some older database.  When
+it needs to write to a data file, it copies that file into it's own
+space and then writes to the new copy.
+
+w5/cowdb is a script that helps you set up a copy-on-write database.
+
+The set of files needed is nearly identical.  The significant changes
+are
+
+- you need a COW line in wspec/database.wrm that specifies the name
+of the directory where the old data files are found.  For example,
+	COW /net/annie/export/home/mieg/worm/database
+The database will look in this directory for old data files.
+
+- you do not initialize the database.  The data files are copied
+from the old database as needed.
+
+The assumption is that the old database is static.  If someone is
+making updates in the old database, their changes may eventually
+result in inconsistencies that make your new database malfunction.
+
+You cannot have a copy-on-write database refer to another copy-on-write
+database for it's data, but you can make a single directory and
+fill it with symlinks that point at the right data files.
+

@@ -1,0 +1,3 @@
+select g, gm[Position] from g in object("Map","III")->Contains[2],      gm in g->Map where gm->Map = "III"
+ 
+select g, gm, gm[Position]  from g in object("Locus","unc-32"),  gm in g->Map

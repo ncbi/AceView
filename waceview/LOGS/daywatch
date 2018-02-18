@@ -1,0 +1,111 @@
+#!/bin/sh
+# cron does not gift us with a good path
+
+PATH=/home/mieg/bin:/home/mieg/SERVER/LOGS:/home/mieg/SERVER/bin:/opt/local/bin:/usr/dt/bin:/usr/openwin/bin:/usr/bin:/usr/ccs/bin:/netopt/irx/bin:/usr/ncbi/bin:/netopt/ncbi_tools/ver0.0/ncbi/bin:/netopt/MolBio/bin:/netopt/lsf/bin:/netopt/geninfo/bin:/netopt/blast/bin:/netopt/fasta/bin:/am/ncbiapdata/scripts:/usr/ncbi/OL/bin:/usr/ncbi/X11/bin:/netopt/mysql/current/bin:/netopt/netpbm/7dec93/bin:/netopt/forte6u2/bin:/netopt/gcc/bin:/am/rational/bin:/netopt/rcs/bin:/netopt/GNU/bin:/usr/ucb:/usr/sbin:/sbin:/bin
+export PATH
+
+case "$0"
+in
+/*)	cd `dirname $0`
+esac
+
+ici=`pwd`
+export ici
+
+#
+# who to send mail to
+users="mieg"
+
+# do the work
+for x in $*
+do
+	case "$x"
+	in
+	plot |	crash)
+
+# human servers
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/31
+	#sh /home/mieg/SERVER/LOGS/split-weeks 31
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/33
+	#sh /home/mieg/SERVER/LOGS/split-weeks 33
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/34
+	#sh /home/mieg/SERVER/LOGS/split-weeks 34
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/35g_1
+ 	#sh /home/mieg/SERVER/LOGS/split-weeks 35g_1
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/35f
+ 	#sh /home/mieg/SERVER/LOGS/split-weeks 35f
+
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/36a_1
+ 	sh /home/mieg/SERVER/LOGS/split-weeks 36a_1
+
+	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/36a_2
+ 	#sh /home/mieg/SERVER/LOGS/split-weeks 36a_2
+
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/mm_37_1
+ 	sh /home/mieg/SERVER/LOGS/split-weeks mm_37_1
+
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/rat_1
+ 	sh /home/mieg/SERVER/LOGS/split-weeks rat_1
+
+# new worm server
+
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/worm_1
+	sh /home/mieg/SERVER/LOGS/split-weeks worm_1
+
+# arabidopsis server
+
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/ara_1
+	sh /home/mieg/SERVER/LOGS/split-weeks ara_1
+
+	;;
+        esac
+done
+
+for x in $*
+do
+	case "$x"
+	in
+	plot)
+		# the dash is where the holidays appear - yellow on the 
+		# postscript plot  (for mysterious reasons, gnuplot does
+		# not let you choose the colors of the plot)
+
+		# colors up to june 2003
+                # sh make-plot 28 29 30 31 w85 - worm ara 33
+                # for 33 I shift the color range
+                # for 34 i replace 30 by 34
+                # for 35 i replace 31 by 35
+                # for 35g i alias 35 into 35f		
+                # for 35g i replace 33 by 35g
+                sh /home/mieg/SERVER/LOGS/make-plot 37a_1 36a_1 ara_1 worm_1 mm_37_1
+		#lp -d color8a -t "AceView Server Activity" plot.ps
+		;;
+	cgi)
+		sh /home/mieg/SERVER/LOGS/cgiwatch p $users
+		csh /home/mieg/SERVER/LOGS/acelogwatch $users
+		;;
+	crash)
+		sh /home/mieg/SERVER/LOGS/crashwatch 36a_1 $users
+		sh /home/mieg/SERVER/LOGS/crashwatch 37a_1 $users
+		sh /home/mieg/SERVER/LOGS/crashwatch mm_37_1 $users
+		sh /home/mieg/SERVER/LOGS/crashwatch worm_1 $users
+		sh /home/mieg/SERVER/LOGS/crashwatch ara_1 $users
+		sh /home/mieg/SERVER/LOGS/crashwatch rat_1 $users
+		;;
+	rotate)
+		# collect the data using ssc
+		# rotate the log files
+		# restart the servers
+		/home/mieg/SERVER/LOGS/rotate
+		;;
+	*)
+		echo unknown option $x to log/daywatch
+		;;
+	esac
+done
+

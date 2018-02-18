@@ -1,0 +1,277 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2011-03-16_21:41:03
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle Variant identifier                       
+Width 50 
+Optional 
+Visible 
+Class 
+Class Variant 
+ 
+Colonne 2 
+Subtitle dbSNP identifier if available   
+Width 12 
+Optional 
+Visible 
+Class 
+Class dbSNP 
+MultiData
+From 1 
+Tag dbSNP
+ 
+Colonne 3 
+Subtitle Chromosome            
+Width 12 
+Optional 
+Visible 
+Class 
+Class Map 
+From 1 
+Tag IntMap
+ 
+Colonne 4 
+Subtitle position       
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 3 
+Tag HERE 
+ 
+Colonne 5 
+Subtitle to (gives the strand)       
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 4 
+Tag HERE 
+ 
+Colonne 6 
+Subtitle Gene            
+Width 12 
+Optional 
+Hidden 
+Class 
+Class Gene 
+From 1 
+Tag Gene
+ 
+Colonne 7 
+Subtitle Target mRNA            
+Width 12 
+Optional 
+Hidden 
+Class 
+Class mRNA 
+From 1 
+Tag mRNA
+ 
+Colonne 8 
+Subtitle Target, model of NM in build 37.1            
+Width 12 
+Optional 
+Visible 
+Class 
+Class Gene 
+From 7 
+Tag Gene
+ 
+Colonne 9 
+Subtitle Position                       
+Width 12 
+Optional 
+Visible 
+Integer 
+Right_of 7 
+Tag HERE 
+ 
+Colonne 10 
+Subtitle Type                       
+Width 12 
+Optional 
+Visible 
+Text 
+From 1 
+Tag Typ
+ 
+Colonne 11 
+Subtitle Orientation          
+Width 30 
+Optional 
+Visible 
+Next_Tag 
+From 1 
+Tag Counts
+ 
+Colonne 12 
+Subtitle Experiment          
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Run 
+Right_of 11 
+Tag HERE
+Condition SNP
+ 
+Colonne 13 
+Subtitle Mutation count           
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 12 
+Tag HERE 
+Condition \%13 >= 0
+ 
+Colonne 14 
+Subtitle Coverage           
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 13 
+Tag HERE 
+Condition \%14>=0
+ 
+Colonne 15 
+Subtitle Frequency                       
+Width 12 
+Mandatory 
+Visible 
+Float 
+Right_of 14 
+Tag HERE  # Frequency
+Condition \%15 >= 0
+ 
+Colonne 16 
+Subtitle Lower bound at risk 1/1000                  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 15 
+Tag HERE 
+ 
+Colonne 17 
+Subtitle Upper bound at risk 1/1000                  
+Width 12 
+Optional 
+Visible 
+Float 
+Right_of 16 
+Tag HERE 
+ 
+Colonne 18 
+Subtitle Same letter as neighbour, applies only to indels           
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 1 
+Tag In_repeat
+ 
+Colonne 19 
+Subtitle Probably above 10/100         
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_low
+ 
+Colonne 20 
+Subtitle Probably below 10/100 or above 80/100           
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_mid
+ 
+Colonne 21 
+Subtitle Probably below 80/100          
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Not_high
+ 
+Colonne 22 
+Subtitle Probably below 10/100   
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Low
+ 
+Colonne 23 
+Subtitle Probably between 10/100 and 80/100          
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # Mid
+ 
+Colonne 24 
+Subtitle Probably over 80/100          
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+Right_of 14 
+Tag HERE  # High
+ 
+Colonne 25 
+Subtitle Sample  
+Width 12 
+Optional 
+Visible 
+Class 
+Class Sample 
+From 12 
+Tag Sample
+ 
+Colonne 26 
+Subtitle Number of individuals if pool   
+Width 12 
+Optional 
+Visible 
+Integer 
+From 25 
+Tag Pool
+ 
+Colonne 27 
+Subtitle Single  
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 25 
+Tag Single_individual
+ 
+Colonne 28 
+Subtitle Title of experiment    
+Width 12 
+Optional 
+Visible 
+Class 
+Class Text 
+From 12 
+Tag Title
+ 
+ 
+
+// End of these definitions

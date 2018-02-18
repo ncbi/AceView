@@ -1,0 +1,126 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2006-11-02_19:57:19
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Title search 5' polya read open to the end
+
+Sortcolumn 1
+
+Colonne 1 
+Subtitle mrna          
+Width 12 
+Optional 
+Visible 
+Class 
+Class MRNA 
+ 
+Colonne 2 
+Subtitle product          
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Product 
+From 1 
+Tag Product              
+Condition best_product && good_product
+ 
+Colonne 3 
+Subtitle Column #3   
+Width 12 
+Optional 
+Visible 
+Show_Tag 
+From 2 
+Tag Down_stop   
+ 
+Colonne 4 
+Subtitle p1          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 2 
+Tag HERE               
+ 
+Colonne 5 
+Subtitle p2          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 4 
+Tag HERE               
+ 
+Colonne 6 
+Subtitle a1          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 1 
+Tag Constructed_from              
+ 
+Colonne 7 
+Subtitle a2          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 6 
+Tag HERE               
+Condition \%7 < [\%5 + 4] || "\%3" != "Down_stop"
+ 
+Colonne 8 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class Sequence 
+Right_of 7 
+Tag HERE               
+Condition polyA_after_base && forward
+ 
+Colonne 9 
+Width 12 
+Mandatory 
+Visible 
+Class 
+Class cdna_clone 
+From 8 
+Tag cDNA_clone              
+Condition ! internal_priming && ! internal_priming_on_a_rich
+ 
+Colonne 10 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 8 
+Tag HERE               
+ 
+Colonne 11 
+Width 12 
+Mandatory 
+Visible 
+Integer 
+Right_of 10 
+Tag HERE               
+ 
+Colonne 12 
+Subtitle polyA          
+Width 12 
+Mandatory 
+Visible 
+Integer 
+From 8 
+Tag PolyA_after_base            
+Condition \%12 == \%11
+ 
+ 
+
+// End of these definitions

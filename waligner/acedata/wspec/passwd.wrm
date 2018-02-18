@@ -1,0 +1,39 @@
+// @(#)passwd.wrm	1.2    3/2/94
+//
+//  wspec/passwd.wrm
+//
+//  password file to the ACeDB system
+//
+//  //comments out the line
+//
+//  the names of user with write access must be listed here
+//  each one on a new line
+//
+//  This file should belong to the acedb administrator
+//  and have permission 644 or possibly 600
+//
+
+mieg
+
+
+
+
+// On some platforms, the unix command getLogin fails,
+// In this case, anyone will have write access if you
+//  uncomment the next line by removing the leading //
+
+// getLoginFailed  
+
+
+// end of file
+ 
+// Login name of the administrator installing acedb 
+ 
+
+ 
+// This database belongs to 
+
+NOLOCK
+
+
+whoami

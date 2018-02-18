@@ -1,0 +1,33 @@
+All modules in this directory where copied from 
+Staden Package's ftp site:
+  ftp://ftp.mrc-lmb.cam.ac.uk/pub/staden/io_lib-1.7.tar.gz
+
+They contain the following copyrigth
+
+/*
+ * Copyright (c) Medical Research Council 1994-1998. All rights reserved.
+ *
+ * Permission to use, copy, modify and distribute this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * this copyright and notice appears in all copies.
+ *
+ * This file was written by James Bonfield, Simon Dear, Rodger Staden,
+ * as part of the Staden Package at the MRC Laboratory of Molecular
+ * Biology, Hills Road, Cambridge, CB2 2QH, United Kingdom.
+ *
+ * MRC disclaims all warranties with regard to this software.
+ */
+
+The modifications i have done are:
+
+1) i wrote my own makefile as a section inside the acedb makefile
+2) i modified a few file names to prevent conflicts with acedb file names
+3) i added a few () to please the compiler 
+4) i modified a little os.h (under #ifdef ACEDB) to simplify portability
+
+All these modifications are trivialities which do not alter the original code
+The modules are compiled by the acedb makefile in a static library: libstaden
+which is then used in acedb applications like acembly by linking -lstaden
+
+Jean Thierry-Mieg, octobre 1998
+

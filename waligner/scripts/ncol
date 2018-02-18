@@ -1,0 +1,9 @@
+#!/bin/tcsh
+
+if ($1 != "") then
+  set f = "$*"
+else
+  set f = '-'
+endif
+
+cat $f | gawk -F '\t' '{print NF}' | gawk '{n[$1]++;}END{for(k in n) print k,n[k];}' | sort -k 1nr

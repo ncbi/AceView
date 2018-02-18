@@ -1,0 +1,201 @@
+// %W% %G%
+// File metamodel.wrm
+// created mieg, aug 3 1999
+// Version 1
+///////////////////////////////////////////////////////////////////////////////
+// This model file captures the syntax of all the configuration
+// files existing in wspec
+
+///////////////////////////////////////////////////////////////////////////////
+
+
+?ACEDB Name UNIQUE  Text  // displayed in the title bar
+       Layout Text // Each line contains class names, i.e. "Class Display"
+                   // the layout is used as is to compose the main window
+       Fonts PsFonts Text // The code expects 5 fonts corresponding to:
+	                  // normal, italic, bold, fixed pitch and title_font
+             xfonts  Text // The code expects 24 fonts 
+       Security Users_with_write_access Text // login names of authorized users
+               NO_LOCK // do not NFS lock the database using lockd
+                        // Avoid: needed when Unix does not support lockd
+                getLoginFailed // grant write access to anyone
+                               // Avoid: only needed if all attempts to find user name fail
+       Server_security READ_ACCESS_DIRECTORY  UNIQUE Text // PUBLIC or absolute path
+                       WRITE_ACCESS_DIRECTORY  UNIQUE Text // absolute path
+                       DATA_VERSION UNIQUE Int  // ZERO for continuous refresh mode
+       Kernel_parameters Cachesize Cache1 UNIQUE Int  // in kb range [1000, 10000]
+                         Cache2 UNIQUE Int  // in kb range [2000, 20000]
+                         Disk   UNIQUE Int  // in kb range [2000, 8000]
+                         SESSION_KEEP_ALIVE UNIQUE Int // range [2,5]
+
+?Class Visibility UNIQUE Visible  // Visible in the various class choosers
+                         Hidden   // Hidden from the various class choosers
+                         Buried   // Default state of non user defined classes
+       Storage_type UNIQUE Btree // Standard class with a model
+                           Array // Do not use, reserved for system classes
+                           Auto_XREF  // Do not use, reserved for system classes
+       Display ?Display  // Prefered display types for this class
+       Naming Title UNIQUE Text // Text must be a Tag of this class, used in Tree display
+              Symbol UNIQUE Text // Text must be a Tag of this class, used in Map display
+              Rename UNIQUE Text // Alias for a class, please avoid using this
+       Properties  CaseSensitive // if set, object names are case sensitive
+                                 // never undo once set!
+                   Known // if set, objects in this class can not be created by XREF
+                   Constraints Text  // the Text should be a valid query local to this object
+       Subclass_definition Subclass ?Class XREF  Is_a_subclass_of   
+                           Is_a_subclass_of ?Class XREF Subclass
+                           Filter Text  // Text must be a valid query local to the object
+
+
+
+?Display Graph_Type UNIQUE  PLAIN  // See the default, no modif allowed
+                            TEXT_SCROLL
+                            TEXT_FULL_SCROLL
+                            TEXT_FIT
+                            MAP_SCROLL 
+                            PIXEL_SCROLL
+         Title UNIQUE Text
+         Geometry Width UNIQUE Float // Range [0.1, 1.3]  1.3 == full screen width
+                  Height UNIQUE Float // Range [0.1, 1.0] 1 == full screen size
+                  x UNIQUE Float // Range [0.1, 1.3] 
+                  y UNIQUE Float // Range [0.1, 1.0] 
+         Help UNIQUE Text // File  Text.html should exist in dir whelp
+         Menu Text  // Name under which this display is listed in display chooser
+             
+///////////////////////////////////////////////////////////////////////////////
+/////////////////////  Explanations ///////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// GraphPackage
+//    resources for the X version of the Graph package
+//    used in acedb, see X11 documentation
+
+///////////////////////////////////////////////////////////////////////////////
+// cachesize.wrm
+// cache1 is, in kb the size of the of first cache,
+//   A good choice is 2000
+// cache2 is, in kb the size of the of second cache,
+//   A good choice is 4000 but you may expand that a lot
+// Disk is a default for the first disk extension
+            
+
+///////////////////////////////////////////////////////////////////////////////
+// constraints.wrm
+// This model is part of the Class class model defined in whooks/sysclass.c
+
+
+///////////////////////////////////////////////////////////////////////////////
+// database.wrm
+// Do not edit the top of this file, only the distributed default is valid
+// it corresponds to an aborted attempt to use raw devices
+// the interesting entries are
+//   NAME and SESSION_KEEP_ALIVE 
+// which i added in the ?ACEDB model above
+//   NAME is displayed in the main acedb graphic window title bar
+//   SESSION_KEEP_ALIVE facilitates crash recovery via the menu: admin/sessionControl
+
+///////////////////////////////////////////////////////////////////////////////
+// displays.wrm
+// This files asscociates to the Displays a number of properties
+//   Title is seen in the title bar
+//   GraphType should NOT be configured by the user but by the source code
+//        it is an unfortunate legacy that this parameter exists
+//        unfortunatelly, the code crashes if this parameter is wrong
+//        this MUST be fixed in a future version
+//        for the moment you must hard code the corect values
+
+///////////////////////////////////////////////////////////////////////////////
+// layout.wrm
+// This file is used as is to layout the main window
+// All words in it should be class names, otherwise they are simply ignored
+
+///////////////////////////////////////////////////////////////////////////////
+// models.wrm
+// It is impossible to read a model as an ace file
+// the real model for a model is simply
+//    ?Model ANY
+// a BNF definition of the models is given in the doc
+// we could try here to give an acedb definition , but i never tried
+
+///////////////////////////////////////////////////////////////////////////////
+// options.wrm
+// This files asscociates to the Classes a number of properties
+// Visibility: Hidden Visible, used in class choosers
+//             Buried, the default, is used by classes known only to the kernel
+//  TypeBtree BTree Standard class with a model
+//            Array // Do not use
+//                  // This class has no model, it is handled 
+//                  // by the kernel or the application code 
+//                  // Users cannot define a new A class
+//            XREF  // Do not use
+//                  // Auto cross referencing system class.
+//  Title  Tag : Tag must be a tag name listed in wspec/tags.wrm (or systags)
+//               If present in some object of that class, the text following it
+//               will be used preferentially when referring to that object.
+//  Symbol Tag : Tag must be a tag name listed in wspec/tags.wrm (or systags)
+//               If present in some object of that class, the text
+//               or key following it will be used preferentially
+//               when referring to that object in Maps.
+//  Rename otherName : Other name will show in lists, old and new
+//                     name will be recognized in ace files and queries, old
+//                     is used in the code. In case some newName
+//                      matches some old name, the new name takes precedence.
+//          The whole idea is clumsy and should be avoided
+//  CaseSensitive : The names in this class will be case sensitive.
+//                  Never undo this option once it has been used.
+//  Known : Prevents indirect creation of new object in ace files
+//          You can't enter a new object in this class directly
+//          but not by quoting it in another object.
+
+///////////////////////////////////////////////////////////////////////////////
+// passwd.wrm
+// You must list login names of the users with write access
+// in addition we have 2 paramaters to save the system when runing
+// on badly configured Unix platforms:
+//   getloginfailed is needed is the code cannot recover the user name from UNIX
+//   NOLOCK is needed if Unix cannot decently handle nfs-locking
+//          this happens in particular on Linux machines accessed NFS by dec alpha
+
+
+///////////////////////////////////////////////////////////////////////////////
+// psfonts.wrm
+// post-script fonts used when printing or exporting postscript files
+// The format is free, 
+// Just put the font names in "" if they contain special characters.
+// The code expects 5 fonts corresponding to:
+// normal, italic, bold, fixed pitch and title_font
+// By default the system uses:
+
+// Helvetica                    // normal
+// Helvetica-Oblique            // italic
+// Helvetica-Bold               // bold
+// Courier                      // fixed
+// Helvetica-Oblique            // title
+// Times-Roman
+
+// COLOUR
+
+///////////////////////////////////////////////////////////////////////////////
+// xfonts.wrm
+// xfonts used by the graphic xace acedb program
+// You MUST list 24 fonts since the code expects them.
+// These 24 fonts are referred internally as:
+
+// enum FONTTYPE { F8x13,  F5x8,  F6x9,  F6x10,  F6x12,  F9x15,
+//		   F8x13I, F5x8I, F6x9I, F6x10I, F6x12I, F9x15I, 
+//		   F8x13B, F5x8B, F6x9B, F6x10B, F6x12B, F9x15B, 
+//                 G13,    G6,    G8,    G10,    G12,    G15 }
+
+// see a good set of defaults in wspec/xfonts.wrm
+
+///////////////////////////////////////////////////////////////////////////////
+// server.wrm
+// see the explanation in server.wrm
+// a good default is
+//    DATA_VERSION 0 // unless change the data on the server very rarely
+//    READ_ACCESS_DIRECTORY PUBLIC // available to all machines inside your firewall
+//    WRITE_ACCESS_DIRECTORY /a/b/lock // a dir writable by the server
+//                                     // readable by the user with write access
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+

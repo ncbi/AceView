@@ -1,0 +1,99 @@
+// /* @(#)database.wrm	1.1    7/11/94  */
+
+// on the line in interpreted according to the keyword.
+// Current Keywords : PART
+// 
+// note :
+// - lines beginning by // are comments
+// - a line don't exeed 512 characters.
+//
+// partition definition :
+// partition types :
+// UNIX_FILE_SYSTEM  = 1
+// RAW_FILE_SYSTEM   = 2
+// hostname :
+// partition_name : full path or "ACEDB" if relative to ACEDB variable.
+// file_name : only for unix file system : name of the partition file.
+// for other types, "NONE"
+//
+//Keyword : type hostname partition_name file_name          max_size offset
+PART :       1   local    ACEDB          block1.wrm  500000 0
+PART :       1   local    ACEDB          block2.wrm  500000 0
+PART :       1   local    ACEDB          block3.wrm  500000 0
+PART :       1   local    ACEDB          block4.wrm  500000 0
+PART :       1   local    ACEDB          block5.wrm  500000 0
+PART :       1   local    ACEDB          block6.wrm  500000 0
+PART :       1   local    ACEDB          block7.wrm  500000 0
+PART :       1   local    ACEDB          block8.wrm  500000 0
+PART :       1   local    ACEDB          block9.wrm  500000 0
+PART :       1   local    ACEDB          block10.wrm  500000 0
+PART :       1   local    ACEDB          block11.wrm  500000 0
+PART :       1   local    ACEDB          block12.wrm  500000 0
+PART :       1   local    ACEDB          block13.wrm  500000 0
+PART :       1   local    ACEDB          block14.wrm  500000 0
+PART :       1   local    ACEDB          block15.wrm  500000 0
+PART :       1   local    ACEDB          block16.wrm  500000 0
+PART :       1   local    ACEDB          block17.wrm  500000 0
+PART :       1   local    ACEDB          block18.wrm  500000 0
+PART :       1   local    ACEDB          block19.wrm  500000 0
+PART :       1   local    ACEDB          block20.wrm  500000 0
+PART :       1   local    ACEDB          block21.wrm  500000     0
+PART :       1   local    ACEDB          block22.wrm  500000     0
+PART :       1   local    ACEDB          block23.wrm  500000     0
+PART :       1   local    ACEDB          block24.wrm  500000     0
+PART :       1   local    ACEDB          block25.wrm  500000     0
+PART :       1   local    ACEDB          block26.wrm  1000000     0
+PART :       1   local    ACEDB          block27.wrm  1000000     0
+PART :       1   local    ACEDB          block28.wrm  1000000     0
+PART :       1   local    ACEDB          block29.wrm  1000000     0
+PART :       1   local    ACEDB          block30.wrm  1000000     0
+PART :       1   local    ACEDB          block31.wrm  1000000     0
+PART :       1   local    ACEDB          block32.wrm  1000000     0
+PART :       1   local    ACEDB          block33.wrm  1000000     0
+PART :       1   local    ACEDB          block34.wrm  1000000     0
+PART :       1   local    ACEDB          block35.wrm  1000000     0
+PART :       1   local    ACEDB          block36.wrm  1000000     0
+PART :       1   local    ACEDB          block37.wrm  1000000     0
+PART :       1   local    ACEDB          block38.wrm  1000000     0
+PART :       1   local    ACEDB          block39.wrm  1000000     0
+PART :       1   local    ACEDB          block40.wrm  1000000     0
+PART :       1   local    ACEDB          block41.wrm  1000000     0
+PART :       1   local    ACEDB          block42.wrm  1000000     0
+PART :       1   local    ACEDB          block43.wrm  1000000     0
+PART :       1   local    ACEDB          block44.wrm  1000000     0
+PART :       1   local    ACEDB          block45.wrm  1000000     0
+PART :       1   local    ACEDB          block46.wrm  1000000     0
+PART :       1   local    ACEDB          block47.wrm  1000000     0
+PART :       1   local    ACEDB          block48.wrm  1000000     0
+PART :       1   local    ACEDB          block49.wrm  1000000     0
+PART :       1   local    ACEDB          block50.wrm  1000000     0
+PART :       1   local    ACEDB          block51.wrm  1000000     0
+PART :       1   local    ACEDB          block52.wrm  1000000     0
+PART :       1   local    ACEDB          block53.wrm  1000000     0
+PART :       1   local    ACEDB          block54.wrm  1000000     0
+PART :       1   local    ACEDB          block55.wrm  1000000     0
+PART :       1   local    ACEDB          block56.wrm  1000000     0
+PART :       1   local    ACEDB          block57.wrm  1000000     0
+PART :       1   local    ACEDB          block58.wrm  1000000     0
+PART :       1   local    ACEDB          block59.wrm  1000000     0
+PART :       1   local    ACEDB          block60.wrm  1000000     0
+PART :       1   local    ACEDB          block61.wrm  1000000     0
+PART :       1   local    ACEDB          block62.wrm  1000000     0
+PART :       1   local    ACEDB          block63.wrm  1000000     0
+PART :       1   local    ACEDB          block64.wrm  1000000     0
+PART :       1   local    ACEDB          block65.wrm  1000000     0
+PART :       1   local    ACEDB          block66.wrm  1000000     0
+PART :       1   local    ACEDB          block67.wrm  1000000     0
+PART :       1   local    ACEDB          block68.wrm  1000000     0
+PART :       1   local    ACEDB          block69.wrm  1000000     0
+PART :       1   local    ACEDB          block70.wrm  1000000     0
+PART :       1   local    ACEDB          block71.wrm  1000000     0
+PART :       1   local    ACEDB          block72.wrm  1000000     0
+PART :       1   local    ACEDB          block73.wrm  1000000     0
+PART :       1   local    ACEDB          block74.wrm  1000000     0
+PART :       1   local    ACEDB          block75.wrm  1000000     0
+PART :       1   local    ACEDB          block76.wrm  1000000     0
+PART :       1   local    ACEDB          block77.wrm  1000000     0
+PART :       1   local    ACEDB          block78.wrm  1000000     0
+PART :       1   local    ACEDB          block79.wrm  1000000     0
+//

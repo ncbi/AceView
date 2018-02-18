@@ -1,0 +1,40 @@
+	 # $Id: MAC_X_DEF,v 1.7 2016/02/21 03:36:28 mieg Exp $
+
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### ported to Mac Unix by Mieg         ##############
+############### wmake/MAC_X_DEF    ?               ##############
+#################################################################
+
+#################################################################
+########## Machine dependant compiler modification ##############
+###########    for the MAC 32 bits, running LINUX ###############
+#################################################################
+########### This file is included by wmake/truemake #############
+######  Edit this file to adapt the ACeDB to a new machine ######
+#####   following the explanations given in wmake/truemake  #####
+#################################################################
+
+NAME = MAC_X
+#COMPILER = cc -g -DACEDB4 -I/usr/X11R6/include
+COMPILER = cc -g -DACEDB4 -I/usr/X11R6/include -DDARWIN  -Wno-unused-value
+LINKER = cc -L/usr/X11R6/lib
+
+LIBS = -lm 
+#LEX_LIBS = -lfl
+
+### flex -l emulates AT&T lex as accurately as possible
+LEX = flex
+LEX_OPTIONS = -l
+
+### linux may use bison with flag -y if yacc doesn't exist
+YACC = bison
+YACC_OPTIONS =
+
+
+#################################################################
+#################################################################
+ 
+ 
+ 
+ 

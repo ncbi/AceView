@@ -1,0 +1,229 @@
+
+Illumina solexa adaptors 2010_10_01, from http://seqanswers.com/forums/showthread.php?t=198
+ (N) denotes the insert
+Small RNA or DpnII gene expression
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACGATC (N) TCGTATGCCGTCTTCTGCTTG 3'
+                            modified as      CCGACATG [ in NlaIII gene expression]
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGCTAG (N) AGCATACGGCAGAAGACGAAC 5'
+
+paired end DNA
+5' AATGATACGGCGACCACCGA GATCT// ACACTCTTTCCCTAC ACGACGCTCTTCCGATCT (N) AGATCGGAAGAGC // GGTTCAG CAGGAATGCCGAGACCG // ATC TCGTATGCCGTCTTCTGCTT G 3'
+                                   variant exit for genomic dna:       AGATCGGAAGAGC // TCGTATG CCGTCTTCTGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT CTAGATGTGAGAAAGGGATG TGCTGCGAGAAGGCTAGA (N) TCTAGCCTTCTCGCCAAGTC GTCCTTACGGCTCTGGCTAG AGCATACGGCAGAAGACGAA C 5'
+
+New adaptors for the stranded RNA protocol
+P means phosphate, blocking the sequence
+UidT means we do not know what, may be a blocking U ?
+
+5' RNA Adapter
+5' GUUCAGAGUUCUACAGUCCGACGAUC
+
+3' RNA Adapter
+5' P-UCGUAUGCCGUCUUCUGCUUGUidT
+
+-----------------------------
+details:
+
+http://seqanswers.com/forums/showthread.php?t=198
+
+Genomic DNA
+
+Adapter:
+5' -------------------- -----ACACTCTTTCCCTAC ACGACGCTCTTCCGATCT (-) -------------------- -------------- 3'
+3' -------------------- -----TGTGAGAAAGGGATG TGCTGCGAGAAGGCTAGp (-) -------------------- -------------- 5'
+Adapter:
+5' -------------------- -------------------- ------------------ (-) pGATCGGAAGAGCTCGTATG CCGTCTTCTGCTTG 3'
+3' -------------------- -------------------- ------------------ (-) TCTAGCCTTCTCGAGCATAC GGCAGAAGACGAAC 5'
+PCR Primer:                                                       
+5' AATGATACGGCGACCACCGA GATCTACACTCTTTCCCTAC ACGACGCTCTTCCGATCT (-) -------------------- -------------- 3' 
+3' -------------------- -------------------- ------------------ (-) -------------------- -------------- 5'
+PCR Primer:
+5' -------------------- -------------------- ------------------ (-) -------------------- -------------- 3'
+3' -------------------- -------------------- ------------------ (-) TCTAGCCTTCTCGAGCATAC GGCAGAAGACGAAC 5'
+Result Library:
+5' AATGATACGGCGACCACCGA GATCTACACTCTTTCCCTAC ACGACGCTCTTCCGATCT (N) AGATCGGAAGAGCTCGTATG CCGTCTTCTGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT CTAGATGTGAGAAAGGGATG TGCTGCGAGAAGGCTAGA (N) TCTAGCCTTCTCGAGCATAC GGCAGAAGACGAAC 5'
+Genomic DNA Sequencing Primer:
+5' -------------------- -----ACACTCTTTCCCTAC ACGACGCTCTTCCGATCT (-) -------------------- -------------- 3'
+3' -------------------- -------------------- ------------------ (-) -------------------- -------------- 5'
+
+DpnII gene expression
+Result Library:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACGATCNNNNNNNNNNN NNNNNTCGTATGCCGTCTTC TGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGCTAGNNNNNNNNNNN NNNNNAGCATACGGCAGAAG ACGAAC 5'
+
+
+Gex Adapter 1:
+5' -------------------A CAGGTTCAGAGTTCTACAGT CCGAC--------------- -------------------- ------ 3'
+3' -------------------- ---CAAGTCTCAAGATGTCA GGCTGCTAGp---------- -------------------- ------ 5'
+Gex Adapter 2:
+5' -------------------- -------------------- -------------------- ----pTCGTATGCCGTCTTC TGCTTG 3'
+3' -------------------- -------------------- -------------------- ---NNAGCATACGGCAGAAG ACGAAC 5'
+Gex PCR Primer 1:
+5' -------------------- -------------------- ----------------------------------------- ------ 3'
+3' -------------------- -------------------- -------------------- -----AGCATACGGCAGAAG ACGAAC 5'
+Gex PCR Primer 2:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGA---------------- -------------------- ------ 3'
+3' -------------------- -------------------- -------------------- -------------------- ------ 5'
+Result Library:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACGATCNNNNNNNNNNN NNNNNTCGTATGCCGTCTTC TGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGCTAGNNNNNNNNNNN NNNNNAGCATACGGCAGAAG ACGAAC 5'
+Gex Sequencing Primer:
+5' -----------------CGA CAGGTTCAGAGTTCTACAGT CCGACGATC----------- -------------------- ------ 3'
+3'--------------------- -------------------- -------------------- -------------------- ------ 5'
+
+NlaIII gene expression
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACATGNNNNNNNNNNNN NNNNNTCGTATGCCGTCTTC TGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGTACNNNNNNNNNNNN NNNNNAGCATACGGCAGAAG ACGAAC 5'
+
+Gex Adapter 1:
+5' -------------------A CAGGTTCAGAGTTCTACAGT CCGACATG------------ -------------------- ------ 3'
+3' -------------------- ---CAAGTCTCAAGATGTCA GGCTp--------------- -------------------- ------ 5'
+Gex Adapter 2:
+5' -------------------- -------------------- -------------------- ----pTCGTATGCCGTCTTC TGCTTG 3'
+3' -------------------- -------------------- -------------------- ---NNAGCATACGGCAGAAG ACGAAC 5'
+Gex PCR Primer 1:
+5' -------------------- -------------------- -------------------- -------------------- ------ 3'
+3' -------------------- -------------------- -------------------- -----AGCATACGGCAGAAG ACGAAC 5'
+Gex PCR Primer 2:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGA---------------- -------------------- ------ 3'
+3' -------------------- -------------------- -------------------- -------------------- ------ 5'
+Result Library:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACATGNNNNNNNNNNNN NNNNNTCGTATGCCGTCTTC TGCTTG 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGTACNNNNNNNNNNNN NNNNNAGCATACGGCAGAAG ACGAAC 5'
+Gex Sequencing Primer:
+5' ----------------CCGA CAGGTTCAGAGTTCTACAGT CCGACATG------------ -------------------- ------ 3'
+3' -------------------- -------------------- -------------------- -------------------- ------ 5'
+
+Small RNA
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACGATC (N) TCGTATGCCGTCTTCTGCTT G 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGCTAG (N) AGCATACGGCAGAAGACGAA C 5'
+5' RNA Adapter:
+5' -------------------- ---GUUCAGAGUUCUACAGU CCGACGAUC (-) -------------------- - 3'
+3' -------------------- -------------------- --------- (-) -------------------- - 5'
+3' RNA Adapter:
+5' -------------------- -------------------- --------- (-)pUCGUAUGCCGUCUUCUGCUU GUidT 3'
+3' -------------------- -------------------- --------- (-) -------------------- - 5'
+RT Primer:
+5' -------------------- -------------------- --------- (-) -------------------- - 3'
+3' -------------------- -------------------- --------- (-) AGCATACGGCAGAAGACGAA C 5'
+Small RNA PCR Primer 1:
+5' -------------------- -------------------- --------- (-) -------------------- - 3'
+3' -------------------- -------------------- --------- (-) AGCATACGGCAGAAGACGAA C 5'
+Small RNA PCR Primer 2:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGA----- (-) -------------------- - 3'
+3' -------------------- -------------------- --------- (-) -------------------- - 5'
+Result Library:
+5' AATGATACGGCGACCACCGA CAGGTTCAGAGTTCTACAGT CCGACGATC (N) TCGTATGCCGTCTTCTGCTT G 3'
+3' TTACTATGCCGCTGGTGGCT GTCCAAGTCTCAAGATGTCA GGCTGCTAG (N) AGCATACGGCAGAAGACGAA C 5'
+Small RNA Sequencing Primer:
+5' -----------------CGA CAGGTTCAGAGTTCTACAGT CCGACGATC (-) -------------------- - 3'
+3' -------------------- -------------------- --------- (-) -------------------- - 5'
+
+Two errors have been corrected. (Genomic DNA Adapter & Small RNA Result Library)
+I'm sorry for that and other potential errors.
+
+
+-----------
+http://intron.ccam.uchc.edu/groups/tgcore/wiki/013c0/Solexa_Library_Primer_Sequences.html
+
+Illumina Library Primer Sequences
+Sequences for Illumina Library Preparations: 
+Oligonucleotide sequences © 2006-2010 Illumina, Inc. All rights reserved.
+
+
+
+Genomic DNA/ChIP-Seq oligonucleotide sequences 
+Adapters1 
+5' P-GATCGGAAGAGCTCGTATGCCGTCTTCTGCTTG
+
+5' ACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+PCR Primers1 
+5' AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+5' CAAGCAGAAGACGGCATACGAGCTCTTCCGATCT
+
+Genomic DNA Sequencing Primer 
+5' ACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+
+
+Paired End DNA oligonucleotide sequences 
+PE Adapters1
+5' P-GATCGGAAGAGCGGTTCAGCAGGAATGCCGAG
+
+5' ACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+PE PCR Primers1
+5' AATGATACGGCGACCACCGAGATCTACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+5' CAAGCAGAAGACGGCATACGAGATCGGTCTCGGCATTCCTGCTGAACCGCTCTTCCGATCT
+
+PE Sequencing Primer
+
+5' ACACTCTTTCCCTACACGACGCTCTTCCGATCT
+
+5' CGGTCTCGGCATTCCTGCTGAACCGCTCTTCCGATCT
+
+
+DpnII gene expression oligonucleotide sequences 
+Gex Adapter 1 
+5' P-GATCGTCGGACTGTAGAACTCTGAAC
+
+5’ ACAGGTTCAGAGTTCTACAGTCCGAC
+
+Gex Adapter 2 
+5' CAAGCAGAAGACGGCATACGANN
+
+5' P-TCGTATGCCGTCTTCTGCTTG
+
+Gex PCR Primer 1 
+5' CAAGCAGAAGACGGCATACGA
+
+Gex PCR Primer 2 
+5' AATGATACGGCGACCACCGACAGGTTCAGAGTTCTACAGTCCGA
+
+Gex Sequencing Primer 
+5' CGACAGGTTCAGAGTTCTACAGTCCGACGATC
+
+NlaIII gene expression oligonucleotide sequences 
+Gex Adapter 1 
+5' P-TCGGACTGTAGAACTCTGAAC
+
+5' ACAGGTTCAGAGTTCTACAGTCCGACATG
+
+Gex Adapter 2 
+5' CAAGCAGAAGACGGCATACGANN
+
+5' P-TCGTATGCCGTCTTCTGCTTG
+
+Gex PCR Primer 1 
+5' CAAGCAGAAGACGGCATACGA
+
+Gex PCR Primer 2 
+5' AATGATACGGCGACCACCGACAGGTTCAGAGTTCTACAGTCCGA
+
+Gex Sequencing Primer 
+5' CCGACAGGTTCAGAGTTCTACAGTCCGACATG
+
+
+
+Small RNA oligonucleotide sequences 
+RT Primer 
+5' CAAGCAGAAGACGGCATACGA
+
+5' RNA Adapter 
+5' GUUCAGAGUUCUACAGUCCGACGAUC
+
+3' RNA Adapter 
+5' P-UCGUAUGCCGUCUUCUGCUUGUidT
+
+Small RNA PCR Primer 1 
+5' CAAGCAGAAGACGGCATACGA
+
+Small RNA PCR Primer 2 
+5' AATGATACGGCGACCACCGACAGGTTCAGAGTTCTACAGTCCGA
+
+Small RNA Sequencing Primer 
+5' CGACAGGTTCAGAGTTCTACAGTCCGACGATC

@@ -1,0 +1,25 @@
+
+ssh ftarchive01
+cd ARCHIVES
+ls -ls PROJECTS/EXOME/human/Ovary_2011/Fastc/tmp.Fastc/Ghs*/*.gz > ~/Exome/toto.ls.archived.txt
+
+cd Exome
+ls -ls Fastc/Ghs*/*.gz > toto.ls.live.txt         
+
+# clean the file names
+
+cat toto.ls.live.txt | gawk '{a=$6;t=$9;f=$10;gsub(/Fastc\//,"",f);printf("%s\t%s %s %s\t%s\n",a,$7,$8,t,f);}' > toto3.live
+
+cat toto.ls.archived.txt | gawk '{a=$6;t=$9;f=$10;gsub(/PROJECTS\/EXOME\/human\/Ovary_2011\/Fastc\/tmp.Fastc\//,"",f);printf("%s\t%s %s %s\t%s\n",a,$7,$8,t,f);}' > toto3.archived
+
+# wc are very different but file content is very similar
+wc toto3.archived toto3.live
+  39416  197080 1630979 toto3.archived
+  45645  228225 1881356 toto3.live
+  85061  425305 3512335 total
+
+# synchronize again on ftarchive
+  rsync -r ~/Exome/Fastc/*  PROJECTS/EXOME/human/Ovary_2011/Fastc/tmp.Fastc
+
+## iterate until  toto3.archived == toto3.live
+

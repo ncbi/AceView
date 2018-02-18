@@ -1,0 +1,10 @@
+#!/bin/csh
+
+/* $Id: efetch.gcg,v 1.1.1.1 2002/07/19 20:23:33 sienkiew Exp $ */
+
+echo "Using GCG's" $GCGUTILDIR/fetch
+
+set noglob
+$GCGUTILDIR/fetch -ref -out=fetch.tmp $1
+cat fetch.tmp
+\rm fetch.tmp

@@ -1,0 +1,76 @@
+
+arf : a
+arbitrary_tag
+ivalue	1
+fvalue	1.5
+tvalue	"this is text"
+dvalue	2003-12-31
+ovalue	b
+nest1	name	"one"
+nest1	value	"1"
+nest2	name	"two"
+nest2	value	"2"
+name	"dude"
+
+arf : b
+tvalue "Welcome to arf b"
+
+wide : w
+tags	1 2 3 a
+things
+arfs	a a a a
+arfs	b b b b b
+arfs 	c c
+arfs	a b c d e
+
+wide : w1
+tags	1 2 3 a
+
+wide : w2
+arfs
+
+wide : w3
+arfs	a
+
+aql1 : a1
+ivalue	1
+fvalue	1.5
+tvalue	"text"
+dvalue	2003-12-31
+ovalue	a
+
+aql1 : a2
+fvalue	2.0
+tvalue	"t2"
+dvalue	2003-12-30
+ovalue	b
+
+aql1 : a3
+ivalue	3
+tvalue	"more text"
+dvalue	2003-12-29
+ovalue	c
+
+aql1 : a4
+ivalue	4
+fvalue	5.5
+dvalue	2003-12-28
+ovalue	d
+
+aql1 : a5
+ivalue	5
+fvalue	5.001
+tvalue	"lipton"
+ovalue	e
+
+aql1 : a6
+ivalue	6
+fvalue	6
+tvalue	"lambda point"
+dvalue	2003-12-27
+
+
+arf : self_ref
+tvalue "self referencing object"
+ovalue self_ref
+

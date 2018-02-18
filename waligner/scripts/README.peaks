@@ -1,0 +1,29 @@
+      /* 1 tag name
+	 2 run
+	 3 run igg
+	 4 effective clone length
+	 5 area threshold
+	 6 nb tags
+	 7 ys
+	 8 color
+	 9 type
+	 10 olf tag name
+	 11 titre
+	 12-31 les positifs
+	 32-37 les negatis
+      */
+
+# Make a SolexaNames file
+echo "All.UHR.f\tAll.UHR.f\t-\t5\t50\t3000000\tys\tCYAN\t0\t0\tAll UHR f" >! toto
+echo "All.UHR.r\tAll.UHR.r\t-\t5\t50\t3000000\tys\tCYAN\t0\t0\tAll UHR r" >> toto
+echo "All.Brain.f\tAll.Brain.f\t-\t5\t50\t3000000\tys\tCYAN\t0\t0\tAll Brain f" >> toto
+echo "All.Brain.r\tAll.Brain.r\t-\t5\t50\t3000000\tys\tCYAN\t0\t0\tAll Brain r" >> toto
+cp toto SolexaNames.txt
+
+cd PEAKS
+foreach chrom (17)
+  boubou -db ../../ZH17 -getSolexaPeaks > s3.peaks.$chrom.preace
+    grep '//' $dd/s3.peaks.preace | sed -e 's/^\/\/\t//' | sort -u >! $dd/s3.peaks.txt
+    grep -v '//' s3.peaks.$chrom.preace | grep -v '#' >! s3.peaks.$chrom.ace
+end
+
