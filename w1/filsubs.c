@@ -41,8 +41,9 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: filsubs.c,v 1.23 2017/03/02 22:07:53 mieg Exp $	 */
+/* $Id: filsubs.c,v 1.27 2020/05/30 16:50:30 mieg Exp $	 */
 
+#include <stdio.h>
 #include "regular.h"
 #include "mytime.h"
 #include "call.h"		/* for callScript (to mail stuff) */
@@ -66,8 +67,9 @@ void filAddDir (const char *s)	/* add to dirPath */
   char *home ;
 
   if (!dirPath)
-    dirPath = stackCreate (128) ;
-
+    {
+      dirPath = stackCreate (128) ;
+    }
   /* if the user directory is specified */
   if (*s == '~' &&
 		(home = getenv (HOME_DIR_ENVP))) /* substitute */
@@ -301,7 +303,8 @@ static char *filDoName (const char *name, const char *ending, const char *spec, 
   * we create these two buffer areas the first time we come through here
   */
   if (!part)
-    { part = stackCreate (128) ;
+    { 
+      part = stackCreate (128) ;
       full = stackCreate (MAXPATHLEN) ;
     }
 
@@ -425,10 +428,22 @@ FILE *filopen (const char *name, const char *ending, const char *spec)
 	messcrash ("filopen() received invalid filespec %s",
 		   spec ? spec : "(null)");
     }
-  else if (!(result = fopen (s, spec)))
+  else 
     {
-      messerror ("Failed to open %s (%s)",
-		 s, messSysErrorText()) ;
+      int pass = 6 ; /* up to 1 minute wait */
+      int delay = 1 ;
+      result = 0 ;
+      while (! result && pass--)
+	{
+	  result = fopen (s, spec) ;
+	   if (! result)
+	     sleep (delay) ;
+	   delay *= 2 ;
+	}
+
+      if (!result)
+	messerror ("Failed to open %s (%s)",
+		   s, messSysErrorText()) ;
     }
   return result ;
 } /* filopen */

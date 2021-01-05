@@ -34,7 +34,7 @@
  * * Nov 27 12:30 1995 (mieg): freecard no longer stips \, freeword does
  *    also i added freeunprotect
  * Created: Sun Oct 27 18:16:01 1991 (rd)
- * CVS info:   $Id: freesubs.c,v 1.44 2017/03/21 02:45:00 mieg Exp $
+ * CVS info:   $Id: freesubs.c,v 1.48 2020/05/30 16:50:30 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -45,6 +45,7 @@
 #include <ctype.h>
 #include "mytime.h" 
 #include "call.h" 
+#include "ac.h" 
 #include "chrono.h" 
 /* free package version and copyright string.    */
 /*                                               */
@@ -103,9 +104,10 @@ static int bufPos = 0 ;
 static char bufRead (void)
 {
   static int isEscape = 0 ;
-  fgets (buff, 4096, currfil) ;
 
-  if (feof(currfil))
+  if (! fgets (buff, 4096, currfil)
+      || feof(currfil)
+      )
     {
       bufPos = 0 ;
       isEscape = 0 ;
@@ -479,7 +481,9 @@ BOOL freeread (FILE *fil)
 	  goto got_line ;
 	case '/' :		/* // means start of comment */
 	  if ((ch = getc (fil)) == '/')
-	    { while (getc(fil) != '\n' && !feof(fil)) ;
+	    { 
+	      while (getc(fil) != '\n' && !feof(fil)) 
+		{} ;
 	      ++*line ;
 	      if (in > card)	/* // at start of line ignores line */
 		goto got_line ;
@@ -1220,7 +1224,9 @@ char* freeunprotect (const char *text)
   return cp0 ;
 }
 
-char* freeprotect (const char* text)	/* freeword will read result back as text */
+/*************/
+
+char* freeprotect_old (const char* text)	/* freeword will read result back as text */
 {
   static Array a = 0 ;
   const char *ccp ;
@@ -1244,9 +1250,12 @@ char* freeprotect (const char* text)	/* freeword will read result back as text *
   cq = arrp (a, base, char) ;
   *cq++ = '"' ;
   for (ccp = text ; *ccp ; )
-    { if (*ccp == '\\'  || *ccp == '"' || 		       /* protect these */
+    { 
+      if (*ccp == '\\'  || *ccp == '"' || 		       /* protect these */
 	  *ccp == '/' || *ccp == '%' || *ccp == ';' ||
-	  *ccp == '\t' || *ccp == '\n')
+	  *ccp == '\t' 
+	  /* || *ccp == '\n' NO this is done on next line mieg:2017-11-21 */
+	  )
 	*cq++ = '\\' ;
       if (*ccp == '\n') 
 	{*cq++ = '\\' ; *cq++ = 'n' ; ccp++ ; } /* do not acedump a \n, bad for other scripts */
@@ -1257,6 +1266,21 @@ char* freeprotect (const char* text)	/* freeword will read result back as text *
   *cq = 0 ;
   return arrp (a, base, char) ;
 }
+
+/**********/
+
+char* freeprotect (const char* text)	/* freeword will read result back as text */
+{
+  static char *result = 0 ;
+
+  if (result)
+    messfree (result) ;
+
+  result = ac_protect (text, 0) ;
+  return result ;
+}
+
+/*************/
 
 char* freejavaprotect (char* text)	/* freeword will read result back as text */
 {
@@ -1280,33 +1304,6 @@ char* freejavaprotect (char* text)	/* freeword will read result back as text */
 
   cq = arrp (a, base, char) ;
   cp = text;
-#ifdef JUNK
-  while (*cp) {
-    if (*cp == '\t' || *cp == '\n' || *cp == '\r') {
-      *cq++ = '\\' ;
-      switch (*cp) {
-      case '\t':
-	*cq++ = 't';
-	break;
-      case '\n':
-	*cq++ = '\\';
-	*cq++ = 'n';
-	cp++;
-	break;
-      case '\r':
-	*cq++ = 'r';
-	break;
-      default:
-	;
-      }
-      cp++; /* skip this character */
-    } 
-    else {
-      if (*cp == '?') *cq++ = '\\';
-      *cq++ = *cp++;
-    }
-  }
-#endif
   while (*cp) 
     switch (*cp)
       {

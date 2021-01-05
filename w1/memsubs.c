@@ -15,7 +15,7 @@
  */
 
 /* define MALLOC_CHECK here to check mallocs - also in regular.h */
-/* #define MALLOC_CHECK */
+#define MALLOC_CHECK 
 #include "regular.h"
 
 #if defined(NEXT) || defined(HP)
@@ -44,6 +44,7 @@ typedef struct _AC_HANDLE_STRUCT {
 /*********************************************************************/
 /********** memory allocation - messalloc() and handles  *************/
 
+static long nMessAlloc = 0 ;
 static long numMessAlloc = 0 ;
 static long totMessAlloc = 0 ;
 static long maxMessAlloc = 0 ;
@@ -77,9 +78,9 @@ static Array handles = 0 ;
 #define check2(unit)  *(int*)(((char*)toMemPtr(unit)) + (unit)->size)
 
 static void checkUnit (AC_HANDLE unit) ;
-static int handleOrder (void *a, void  *b)
-{ return (*((AC_HANDLE *)a) == *((AC_HANDLE *)b)) ? 0 : 
-	  (*((AC_HANDLE *)a) > *((AC_HANDLE *)b)) ? 1 : -1 ;
+static int handleOrder (const void *a, const void  *b)
+{ return (*((const AC_HANDLE *)a) == *((const AC_HANDLE *)b)) ? 0 : 
+	  (*((const AC_HANDLE *)a) > *((const AC_HANDLE *)b)) ? 1 : -1 ;
 }
 #endif
 #if defined(MALLOC_CHECK) || defined(MEM_DEBUG)
@@ -87,7 +88,11 @@ AC_HANDLE_STRUCT handle0 ;
 #endif
 
 /************** halloc(): key function - messalloc() calls this ****************/
-
+static BOOL isThreadSafe = FALSE ;
+void memSetIsMultiThreaded (void)
+{
+  isThreadSafe = TRUE ;
+}
 #ifdef MEM_DEBUG
 void *halloc_dbg(mysize_t size, AC_HANDLE handle,const char *hfname, int hlineno) 
 #else
@@ -115,11 +120,11 @@ void *halloc(mysize_t size, AC_HANDLE handle)
   if (!unit)			/* out of memory -> messcrash */
     {
       messcrash (
- "Memory allocation failure when requesting %u bytes, %u Mb already allocated (max %d Mb)", 
+ "Memory allocation failure when requesting %u bytes, %ld Mb already allocated (max %ld Mb)", 
   size, totMessAlloc/(1024*1024), maxMessAlloc/(1024*1024)) ;
     }
 #if defined(MALLOC_CHECK) || defined(MEM_DEBUG)
-  if (!handle)
+  if (! isThreadSafe && !handle)
     handle = &handle0 ;
 #endif
   if (handle) 
@@ -139,11 +144,11 @@ void *halloc(mysize_t size, AC_HANDLE handle)
 #endif
 
   ++numMessAlloc ;
+  ++nMessAlloc ;
   totMessAlloc += size ;
   totMessServed += size ;
   if (totMessAlloc > maxMessAlloc)
     maxMessAlloc = totMessAlloc ;
-
   return toMemPtr(unit) ;
 }
 
@@ -211,12 +216,12 @@ void umessfree (void *cp)
       if (unit->next) (unit->next)->back = unit->back;
     }
   
+  --numMessAlloc ;
+  totMessAlloc -= unit->size ;
 #ifdef MALLOC_CHECK
   memset(cp, 0xaa, unit->size);
   memset(unit, 0xaa, sizeof(struct _AC_HANDLE_STRUCT));
 #endif
-  --numMessAlloc ;
-  totMessAlloc -= unit->size ;
   myFree (unit) ;
 }
 

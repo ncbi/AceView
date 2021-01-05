@@ -75,7 +75,6 @@ vTXT vtxtHandleCreate (AC_HANDLE h)
   vTXT blkp = (vTXT) halloc (sizeof (struct vTXT_struct), h) ;
   
   blkp->s = stackHandleCreate (1024, h) ;
-  stackTextOnly (blkp->s) ;
   if (! h) blockSetFinalise (blkp, vtxtFinalise) ;
   
   return blkp ;
@@ -322,6 +321,66 @@ int vtxtPrint (vTXT s, const char *txt)
 
   return nn ;
 } /* vtxtPrint */
+
+/*************************************************************************************/
+/* export a percentage z, always with at least 4 significant digits, so we can see 99.999993 */
+void vtxtPercent (vTXT s, float z)
+{
+  if (z == 0)
+    vtxtPrintf (s, "0") ;
+  else if (z == 100)
+    vtxtPrintf (s, "100") ;
+  else  if (z < 0)
+    vtxtPrintf (s, "%.2f", z) ;
+  else if (z > 100)
+    vtxtPrintf (s, "%.2f", z) ;
+  else if (z == 50)
+    vtxtPrintf (s, "50") ;
+  else if (z < 50 && z > 40)
+    {
+      float z1  = 50 - z ;
+      int n = 0 ;
+      char *f ;
+
+      while (z1 < 100) { n++ ; z1 *= 10 ; }
+      if (n < 2) n = 2 ;
+      f = messprintf ("%%.%df", n) ;
+      vtxtPrintf (s, f, z) ;
+    }
+  else if (z > 50 && z < 60)
+    {
+      float z1  = z - 50 ;
+      int n = 0 ;
+      char *f ;
+
+      while (z1 < 100) { n++ ; z1 *= 10 ; }
+      if (n < 2) n = 2 ;
+      f = messprintf ("%%.%df", n) ;
+      vtxtPrintf (s, f, z) ;
+    }
+  else if (z < 41)
+    {
+      float z1  = z ;
+      int n = 0 ;
+      char *f ;
+
+      while (z1 < 100) { n++ ; z1 *= 10 ; } 
+      if (n < 2) n = 2 ;
+      f = messprintf ("%%.%df", n) ;
+      vtxtPrintf (s, f, z) ; 
+    }
+  else 
+    {
+      float z1  = 100 - z ;
+      int n = 0 ;
+      char *f ;
+
+      while (z1 < 100) { n++ ; z1 *= 10 ; }
+      if (n < 2) n = 2 ;
+      f = messprintf ("%%.%df", n) ;
+      vtxtPrintf (s, f, z) ;
+    }
+} /* vtxtPercent */
 
 /*********************************************************************/
 /* General formatted printf, appends to what is already there */

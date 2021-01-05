@@ -41,6 +41,7 @@
  *    channelDestroy, or equivalently ac_free(channel) or ac_free(h), closes the channel and releases memory
  *    BOOL channelPut (channel, void *vp, type, BOOL wait) : put a record into the channel, [wait] if channel is full 
  *    BOOL channelGet (channel, void *vp, type, BOOL wait) : get a record from the channel, [wait] if channel is emtpty
+ *   (TYPE) channelGive (channel, void *vp, type, BOOL wait) : get a record from the channel, [wait] if channel is emtpty
 */
 
 #include "ac.h"
@@ -72,7 +73,7 @@ void channelClose (CHAN *c)
 	{
 	  c->c.isClosed = TRUE ;
 	  if (c->c.debug)
-	    fprintf (stderr, " - Closing channel %s\n", c->c.title ? c->c.title : "no-name") ;
+	    fprintf (stderr, " - Closing channel %s\n", c->c.title[0] ? c->c.title : "no-name") ;
 	  pthread_cond_signal(&(c->c.notEmpty)) ;
 	}
       pthread_mutex_unlock (&(c->c.mutex)) ;
@@ -128,9 +129,9 @@ int uChannelMultiGet (CHAN *c, void *vp, int size, int max, BOOL wait)
   int nn = 0, rc = 0 ;
 
   if (! c || c->c.magic != uChannelDestroy)
-    messcrash ("Invalid channel passed to uChannelGet") ;
+    messcrash ("Invalid channel passed to uChannelMultiGet") ;
   if (c->c.size != size)
-    messcrash ("Invalid type passed to uChannelGet, received size=%d expected size=%d", size, c->c.size) ;
+    messcrash ("Invalid type passed to uChannelMutiGet, received size=%d expected size=%d", size, c->c.size) ;
 
   if (! wait) /* non blocking */
     {
@@ -175,11 +176,11 @@ int uChannelMultiGet (CHAN *c, void *vp, int size, int max, BOOL wait)
     }
   c->c.nGet += nn ;  /* global counter */
   if (c->c.debug) 
-    fprintf (stderr, " ---  uChannelGet %s %ld  now %d in cache int:%d float:%f double:%g \n"
+    fprintf (stderr, " ---  uChannelMultiGet %s %ld  now %d in cache int:%d float:%f double:%g void:%p \n"
 	     , c->c.title 
 	     , (char *)c - (char *)0
 	     , (c->c.in - c->c.out + 3* c->c.cMax) % c->c.cMax
-	     , *(int*)vp, *(float*)vp, *(double*)vp
+	     , *(int*)vp, *(float*)vp, *(double*)vp, vp
 	     ) ; 
  
   if (! 
@@ -243,7 +244,7 @@ BOOL channelSelect (CHAN **ccc)
 	  if (c0)
 	    messcrash ("More than CHANNEL_SELECT_MAX = %d channelSelec calls using different sets of channels all starting on channel %s\nPlease devise a less greedy algorithm or increase CHANNEL_SELECT_MAX in wh/channel_.h and recompile\n"
 		       , CHANNEL_SELECT_MAX
-		       , c0->c.title ?  c0->c.title : "unknown"
+		       , c0->c.title[0] ?  c0->c.title : "unknown"
 		       ) ;
 	}
       pthread_mutex_unlock (&(c->c.mutex)) ;
@@ -317,11 +318,11 @@ int uChannelMultiPut (CHAN *c, void *vp, int size, int max, BOOL wait)
      }
   c->c.nPut2 += nn ; /* global counter */
   if (c->c.debug) 
-    fprintf (stderr, " ---  uChannelPut %s %ld now %d in cache int:%d float:%f double:%g \n"
+    fprintf (stderr, " ---  uChannelPut %s %ld now %d in cache int:%d float:%f double:%g  void*:%p\n"
 	     , c->c.title 
 	     , (char *)c - (char *)0
 	     , (c->c.in - c->c.out + 3* c->c.cMax) % c->c.cMax 
-	     , *(int*)vp, *(float*)vp, *(double*)vp
+	     , *(int*)vp, *(float*)vp, *(double*)vp, vp
 	     ) ; 
    
   if (c->c.in != c->c.out)  

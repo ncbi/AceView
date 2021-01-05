@@ -30,7 +30,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: arraysub.c,v 1.71 2017/02/26 22:03:32 mieg Exp $	 */
+/* $Id: arraysub.c,v 1.74 2020/05/30 15:03:10 mieg Exp $	 */
 
    /* Warning : if you modify Array or Stack structures or 
       procedures in this file or array.h, you may need to modify 
@@ -316,8 +316,12 @@ char *uArray (Array a, int i)
 
 /***************/
 
-char *uArrayCheck (Array a, int i)
+ char *uArrayCheck (Array a, int i, int size)
 {
+  if (! a)
+    messcrash ("dereferecning a null Array") ;
+  if (size != a->size)
+    messcrash ("Array size mismatch accessing array of size %d with pointer if typse-size %d", a->size, size) ;
   if (i < 0)
     messcrash ("referencing array element %d < 0", i) ;
 
@@ -326,8 +330,12 @@ char *uArrayCheck (Array a, int i)
 
 /***************/
 
-char *uArrCheck (Array a, int i)
+ char *uArrCheck (Array a, int i, int size)
 {
+  if (! a)
+    messcrash ("dereferecning a null Array") ;
+  if (size != a->size)
+    messcrash ("Array size mismatch accessing array of size %d with pointer if typse-size %d", a->size, size) ;
   if (i >= a->max || i < 0)
     messcrash ("array index %d out of bounds [0,%d]",
 	       i, a->max - 1) ;
@@ -337,18 +345,18 @@ char *uArrCheck (Array a, int i)
 /**************/
 
 #ifndef MEM_DEBUG
-  Array arrayHandleCopy (Array a, AC_HANDLE handle)
+ Array arrayHandleCopyExtend (Array a, int extendBy, AC_HANDLE handle)
 #else
-  Array arrayHandleCopy_dbg(Array a, const char *hfname,int hlineno, AC_HANDLE handle) 
+   Array arrayHandleCopyExtend_dbg(Array a,  const char *hfname,int hlineno, int extendBy, AC_HANDLE handle) 
 #endif
 { Array b ;
   
   if (arrayExists (a) && a->size)
     {
 #ifndef MEM_DEBUG
-      b = uArrayCreate (a->max, a->size, handle) ;
+      b = uArrayCreate (a->max+ extendBy, a->size, handle) ;
 #else
-	  b = uArrayCreate_dbg (a->max, a->size, handle,
+	  b = uArrayCreate_dbg (a->max+extendBy, a->size, handle,
 				dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
 #endif
       memcpy(b->base, a->base, a->max * a->size);
@@ -358,17 +366,7 @@ char *uArrCheck (Array a, int i)
   else
     return 0 ;
 }
-#ifndef MEM_DEBUG
-Array arrayCopy (Array a)
-{
-  return arrayHandleCopy (a, 0) ;
-}
-#else
-Array arrayCopy_dbg(Array a, const char *hfname,int hlineno) 
-{
-  return arrayHandleCopy_dbg (a, hfname, hlineno, 0) ;
-}
-#endif 
+
 /**************/
 
 Array arrayTruncatedCopy (Array a, int x1, int x2)
@@ -586,15 +584,8 @@ Stack stackHandleCreate_dbg (int n, AC_HANDLE handle,  /* n is initial size */
   s->a = arrayCreate (n,char) ;
   s->pos = s->ptr = s->a->base ;
   s->safe = s->a->base + s->a->dim - 16 ; /* safe to store objs up to size 8 */
-  s->textOnly = FALSE;
+  s->pushPop = s->textOnly = FALSE ;  /* clean slate */
   return s ;
-}
-
-void stackTextOnly(Stack s)
-{ if (!stackExists(s))
-    messcrash("StackTextOnly given non-exisant stack.");
-
-  s->textOnly = TRUE;
 }
 
 Stack stackReCreate (Stack s, int n)               /* n is initial size */
@@ -605,6 +596,7 @@ Stack stackReCreate (Stack s, int n)               /* n is initial size */
   s->a = arrayReCreate (s->a,n,char) ;
   s->pos = s->ptr = s->a->base ;
   s->safe = s->a->base + s->a->dim - 16 ; /* safe to store objs up to size 8 */
+  s->pushPop = s->textOnly = FALSE ; /* clean slate */
   return s ;
 }
 
@@ -619,6 +611,7 @@ Stack stackCopy (Stack old, AC_HANDLE handle)
       neuf->ptr = neuf->a->base + (old->ptr - old->a->base) ;
       neuf->pos = neuf->a->base + (old->pos - old->a->base) ;
       neuf->textOnly = old->textOnly ;
+      neuf->pushPop = old->pushPop ;
     }
   return neuf ;
 }
@@ -691,6 +684,10 @@ union mangle { double d;
 void ustackDoublePush(Stack stk, double x)
 { union mangle m;
 
+  stk->pushPop = TRUE ;
+  if (stk->textOnly)
+    messcrash("pushDouble called on textOnly stack\n");
+
   m.i.i1 = m.i.i2 = 0 ; /* for compiler happiness */
   m.d = x;
   push(stk, m.i.i1, int);
@@ -699,6 +696,10 @@ void ustackDoublePush(Stack stk, double x)
 
 double ustackDoublePop(Stack stk)
 { union mangle m;
+
+  stk->pushPop = TRUE ;
+  if (stk->textOnly)
+    messcrash("popDouble called on textOnly stack\n");
 
   m.i.i2 = pop(stk, int);
   m.i.i1 = pop(stk, int);
@@ -709,6 +710,10 @@ double ustackDoublePop(Stack stk)
 double ustackDoubleNext(Stack stk)
 { union mangle m;
 
+  stk->pushPop = TRUE ;
+  if (stk->textOnly)
+    messcrash("nextDouble called on textOnly stack\n");
+
   m.i.i1 = stackNext(stk, int);
   m.i.i2 = stackNext(stk, int);
 
@@ -718,6 +723,11 @@ double ustackDoubleNext(Stack stk)
 int pushText (Stack s, const char* text)
 {
   int n = stackMark (s) ;
+
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("pushText called on pushPop stack\n");
+
   while (s->ptr + strlen(text)  > s->safe) 
     stackExtend (s,strlen(text)+1) ;
   while ((*(s->ptr)++ = *text++)) ;
@@ -736,10 +746,10 @@ int pushText (Stack s, const char* text)
 char* popText (Stack s)
 {
   char *base = s->a->base ;
-#ifdef MEM_DEBUG
-  if (!s->textOnly)
-    messcrash("popText on non-text stack\n");
-#endif
+
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("popText called on pushPop stack\n");
 
   while (s->ptr > base && !*--(s->ptr)) ;
   while (s->ptr >= base && *--(s->ptr)) ;
@@ -748,6 +758,9 @@ char* popText (Stack s)
 
 void catText (Stack s, const char* text)
 {
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("catText on pushPop stack\n");
   while (s->ptr + strlen(text) > s->safe)
     stackExtend (s,strlen(text)+1) ;
   *s->ptr = 0 ;
@@ -755,15 +768,10 @@ void catText (Stack s, const char* text)
     s->ptr -- ;
   s->ptr ++ ;
   while ((*(s->ptr)++ = *text++)) ;
-#ifdef MEM_DEBUG
-  if (!s->textOnly)
-    messcrash("catText on non-text stack\n");
-#else
   /* old code preserved in case something depends on it */
   if (!s->textOnly)
     while ((long)s->ptr % STACK_ALIGNMENT)
       *(s->ptr)++ = 0 ;   
-#endif
 }
 
 void catBinary (Stack s, const void *data, int size)
@@ -771,9 +779,9 @@ void catBinary (Stack s, const void *data, int size)
   int total;
   total = size + 1;
 
-  if (!s->textOnly)
-    messcrash("catBinary on non-text stack\n");
-
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("catBinary on pushPop stack\n");
   while (s->ptr + total > s->safe)
     stackExtend (s,size+1) ;
   memcpy(s->ptr,data,size);
@@ -781,19 +789,20 @@ void catBinary (Stack s, const void *data, int size)
 }
 
 char* stackNextText (Stack s)
-{ char *text = s->pos ;
+{ 
+  char *text = s->pos ;
+
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("stackNextText called on pushPop stack\n");
+
   if (text>= s->ptr)
     return 0 ;  /* JTM, so while stackNextText makes sense */
   while (*s->pos++) ;
-#ifdef MEM_DEBUG
-  if (!s->textOnly)
-    messcrash("stackNextText on non-text stack\n");
-#else
   /* old code preserved in case something depends on it */
   if (!s->textOnly)
     while ((long)s->pos % STACK_ALIGNMENT)
       ++s->pos ;
-#endif
   return text ;
 }
 
@@ -809,6 +818,10 @@ void  stackTokeniseTextOn(Stack s, char *text, char *delimiters)
 
   if(!stackExists(s) || !text || !delimiters)
     messcrash("stackTextOn received some null parameter") ;
+
+  s->textOnly = TRUE ;
+  if (s->pushPop)
+    messcrash("stackTokenizeTextOn called on pushPop stack\n");
 
   n = strlen(delimiters) ;
   cp = cq  = text ;
@@ -847,7 +860,8 @@ void  stackTokeniseTextOn(Stack s, char *text, char *delimiters)
 void stackClear(Stack s)
 { if (stackExists(s))
     { s->pos = s->ptr = s->a->base;
-      s->a->max = 0;
+      s->a->max = 0 ;
+      s->pushPop = s->textOnly = FALSE ; /* clean slate */
     }
 }
 

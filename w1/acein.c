@@ -35,7 +35,7 @@
  * * Oct  6 13:34 1999 (fw): tidy up memory handling of AceInStruct
  *              add assertions
  * Created: Sun Aug 30 1999 (mieg)
- * CVS info:   $Id: acein.c,v 1.40 2016/08/04 19:41:21 mieg Exp $
+ * CVS info:   $Id: acein.c,v 1.54 2020/06/12 20:20:11 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -90,6 +90,7 @@ struct AceInStruct		/* complete the opaque type locally */
   STREAM stream[MAXSTREAM + 1] ;
   int maxcard ;
   unsigned char special[256] ;
+  const char *label ;
   char *card;
   char *pos;
   char *cardEnd;
@@ -165,27 +166,64 @@ static char *doUnprotect(ACEIN fi, const char *text, BOOL just_quotes) ;
  ************************* public functions ***********************
  ******************************************************************/
 
+int aceInWaitAndRetry (int retry)
+{
+  static int state = 0 ;
+  switch (retry)
+    {
+    case 1: /* set retry */
+      state = 1 ;
+      break ;
+    case 0: /* unset retry, very rare */
+      state = 0 ;
+      break ;
+    }
+  return state ;
+}  /* aceInWaitAndRetry */
+
 ACEIN aceInCreateFromFile (const char *filename, const char *spec, const char *params,
 			   AC_HANDLE handle)
 {
-  FILE *fil;
+  FILE *fil = 0 ;
   ACEIN fi = NULL;
 
   if (!filename) messcrash("aceInCreateFromFile() - NULL filename");
   if (!spec) messcrash("aceInCreateFromFile() - NULL spec");
   if (spec[0] != 'r') messcrash("aceInCreateFromFile() - non-'r' spec");
 
-  fi = aceInCreateFromCompressedFile (filename, params, handle);
-  if (fi)
-    ;
-  else
+  if (1)
+    {
+      int type = 0, n = strlen(filename);
+      
+      if (n > 4 && strcmp(filename+n-4, ".zip") == 0) type = 'z' ;
+      if (n > 3 && strcmp(filename+n-3, ".gz") == 0) type = 'g' ;
+      else if (n > 2 && strcmp(filename+n-2, ".Z") == 0) type = 'Z' ;
+      
+      if  (type)
+       return aceInCreateFromCompressedFile (filename, params, handle);
+    }
+  if (1)
     /* uncompressed file */
     {
-      fil = fopen (filename, (char*)spec);
-      if (!fil) fil = filopen (filename, "", (char*)spec);
-      
+      int pass = aceInWaitAndRetry (-1) ?  6 : 2 ; /* up to 1 minute wait */
+      int delay = 1 ;
+      int failed = 0 ;
+
+      while (! fil && pass--)
+	{  /* loop in case of NFS delays */
+	  fil = fopen (filename, (char*)spec);
+	  if (!fil) fil = filopen (filename, "", (char*)spec);
+	  if (fil)
+	    break ;
+	  sleep (delay) ;
+	  delay *= 2 ; 
+	  failed++ ;
+	}
+
       if (fil)
 	{
+	  if (failed)
+	    fprintf (stderr, "WARNING it took %d tries to open %s\n", failed + 1, filename) ;
 	  fi = aceInDoCreate (handle);
 	  
 	  aceInSetFile (fi, fil, filename, params);	/* cannot fail */
@@ -213,19 +251,19 @@ ACEIN aceInCreateFromURL (char *url, const char *spec, const char *params,
     {
       fi = aceInCreateFromStdin (TRUE, params, handle);
     }
-  else if (strcmp (url, "text://") == 0)
+  else if (strncmp (url, "text://",7) == 0)
     {
       messerror ("Cannot re-open an input that was "
 		 "reading from a text-buffer");
     }
-  else if (strcmp (url, "pipe://") == 0)
+  else if (strncmp (url, "pipe://",7) == 0)
     {
       char *command;
 
-      command = url + 8;
+      command = url + 7;
       fi = aceInCreateFromPipe (command, spec, params, handle);
     }
-  else if (strcmp (url, "script://") == 0)
+  else if (strncmp (url, "script://",9) == 0)
     {
       char *url_copy = strnew (url, 0);
       char *script;
@@ -296,25 +334,36 @@ ACEIN aceInCreateFromChooser (const char *prompt,
 ACEIN aceInCreateFromPipe (char *command, const char *spec, const char *params,
 			   AC_HANDLE handle)
 {
-  FILE *fil;
+  FILE *fil = 0 ;
   ACEIN fi = NULL;
+      int pass = aceInWaitAndRetry (-1) ?  6 : 2 ; /* up to 1 minute wait */
+  int delay = 1 ;
+  int failed = 0 ;
 
   if (!command) messcrash("aceInCreateFromPipe() - NULL command");
   if (!spec) messcrash("aceInCreateFromPipe() - NULL spec");
 
-  fil = popen((const char*)command, spec); /* will be closed in 
-					    * aceInFinalise() */
+     while (! fil && pass--)
+    {
+      fil = popen((const char*)command, spec); /* will be closed in 
+						* aceInFinalise() */
+      if (fil)
+	break ;  
+      sleep (delay) ;
+      delay *= 2 ; 
+      failed++ ;
+    }
 
   if (fil)
     {
-
+      if (failed)
+	fprintf (stderr, "WARNING it took %d tries to open %s\n", failed + 1, command) ;
       fi = aceInDoCreate (handle);
       aceInSetPipe (fi, fil, params); /* cannot fail */
 
       {
 	/* assemble url */
 	Stack s = stackCreate(100); 
-
 	pushText(s, "pipe://");
 	catText(s, command);
 	
@@ -354,7 +403,6 @@ ACEIN aceInCreateFromScriptPipe (char *script, const char *args, const char *par
       {
 	/* assemble url */
 	Stack s = stackCreate(100);
-
 	pushText(s, "script://");
 	catText(s, script);
 	catText(s, "#");
@@ -887,6 +935,16 @@ const char * aceInFileName (ACEIN fi)
     messcrash("aceInStreamFileName() - received invalid fi pointer");
 
   return fi->stream[fi->streamlevel].fname ;
+}
+
+/************************************************/
+ 
+const char * aceInLabel (ACEIN fi)
+{ 
+  if (!aceInExists(fi))
+    messcrash("aceInLabel() - received invalid fi pointer");
+
+  return fi->label ;
 }
 
 /************************************************/
@@ -2047,6 +2105,37 @@ static ACEIN aceInCreateFromCompressedFile (const char *filename, const char *pa
 
   if (!filename) messcrash("aceInCreateFromCompressedFile() - NULL filename");
 
+  /* try to open close the file, to vanquish tcp delays */
+  if (1)
+    {
+      FILE *fil = 0 ;
+      int pass = aceInWaitAndRetry (-1) ?  6 : 2 ; /* up to 1 minute wait */ 
+      int delay = 1 ;
+      int failed = 0 ;
+
+      
+      while (! fil && pass--)
+	{  /* loop in case of NFS delays */
+	  fil = fopen (filename, "rb") ;
+	  if (!fil) fil = filopen (filename, "", "rb") ;
+	  if (!fil)
+	    break ;  
+	  sleep (delay) ;
+	  delay *= 2 ; 
+	  failed++ ;
+	}
+
+      if (fil)
+	{
+	  if (failed)
+	    fprintf (stderr, "WARNING it took %d tries to open %s\n", failed + 1, filename) ;
+ 	  fclose (fil) ;
+	}
+      else
+	return NULL ;
+    }
+
+
   n = strlen(filename);
 
   if (n > 4 && strcmp(filename+n-4, ".zip") == 0) type = 'z' ;
@@ -2102,11 +2191,29 @@ static ACEIN aceInCreateFromCompressedFile (const char *filename, const char *pa
 ACEIN aceInCreate (const char *inFileName, BOOL gzi, AC_HANDLE h)
 {
   ACEIN ai = 0 ;
+  char *label = 0, *cr = 0 ;
 
+  cr = (inFileName ?  strchr (inFileName, ':') : 0) ;
+
+  if (cr)
+    {
+      label = strnew (inFileName, h) ;
+      cr = strchr (label, ':') ;
+      *cr++ = 0 ;
+      inFileName = cr ;
+    }
+  if (inFileName && inFileName[0] == '<')
+    {
+      ai = aceInCreateFromURL (hprintf(h,"pipe://%s",inFileName+1), "r", 0, h) ;
+      if (ai)
+	ai->label = label ;
+      return ai ; 
+    }
   if (inFileName && strcmp (inFileName, "-"))
     {
       char *rtype = "r" ;
       const char *ccp ;
+      BOOL isBam = FALSE ;
 
       if (!gzi &&
 	  (ccp = strstr (inFileName, ".gz")) &&
@@ -2114,7 +2221,15 @@ ACEIN aceInCreate (const char *inFileName, BOOL gzi, AC_HANDLE h)
 	  )
 	gzi = TRUE ;
 
-      if (gzi)
+      if (!gzi &&
+	  (ccp = strstr (inFileName, ".bam")) &&
+	  ! strcmp (ccp, ".bam")
+	  )
+	isBam = TRUE ;
+
+      if (isBam)
+	ai = aceInCreateFromPipe (hprintf (h, "samtools view %s", inFileName), rtype, 0, h) ;
+      else if (gzi)
 	ai = aceInCreateFromPipe (hprintf (h, "gzip -dc %s", inFileName), rtype, 0, h) ;
       else
 	ai = aceInCreateFromFile (inFileName, rtype, 0, h) ;
@@ -2132,12 +2247,122 @@ ACEIN aceInCreate (const char *inFileName, BOOL gzi, AC_HANDLE h)
       inFileName = "stdin" ;
     }
   if (ai)
-    aceInSpecial (ai, "\n\\\"") ;
+    {
+      ai->label = label ;
+      aceInSpecial (ai, "\n\\\"") ;
+    }
 
   return ai ;
-} /* baOpenInput */
+} /* aceInCreate */
 
 /*************************************************************************************/
+/* expects a valid comma delimited fileList : f1,f2,...
+ * returns TRUE if all files can be opened
+ * FALSE if not, and with a message in *error
+ * Please ac_free(h) when done
+ */
+BOOL aceInCheckList (const char *fileList, const char **error, AC_HANDLE handle)
+{
+  BOOL ok = TRUE ;
+  AC_HANDLE h = ac_new_handle () ;   
+  char *cp, *cq, *cr, *list = strnew (fileList, h) ;
+  int nn = 0 ;
+
+  cp = cq = list ;
+  while (ok && cp)
+    {
+      nn++ ;
+      cq = strchr (cp, ',') ;
+      if (cq) *cq++ = 0 ;
+
+      if (0)
+	{
+	  cr = strchr (cp, ':') ;
+	  if (cr)
+	    {
+	      *cr++ = 0 ;
+	      cp = cr ;
+	    }
+	}
+      if (! filCheckName (cp, 0, "r"))
+	{
+	  *error = hprintf (handle, "ERROR cannot open file %d : %s in list\n %s\n", nn, cp, fileList) ;
+	  ok = FALSE ;
+	  break ;
+	}
+      cp = cq ;
+    }
+
+  ac_free (h) ;
+  return ok ;
+} /* aceInCheckList */
+
+/*************************************************************************************/
+/* Loop on a file list
+ * ACEIN ai = 0 ;
+ * int nn = 0 ;
+ * while (aceInCreateFromList (ai, &nn, "f1,f2,...", gzi, h) )
+ *  { parse ai ; }
+ * ac_free (h) ;
+ *
+ * expects a valid comma delimited fileList : f1,f2,...
+ * ai MUST BE initialised to NULL
+ * it is freed inside aceInCreateFromList
+ * or a file cannot be opened.
+ * Please ac_free(h) when done
+ * but DO NOT edit nn, DO NOT ac_free the returned ai. 
+ * returns ai
+ */
+ACEIN aceInCreateFromList (ACEIN ai, int *np, const char *fileList, BOOL gzi, AC_HANDLE handle)
+{ 
+  AC_HANDLE h = ac_new_handle () ;   
+  char *cp, *cq, *cr, *label, *list = strnew (fileList, h) ;
+  int nn = 0 ;
+  
+  if (! np)
+    messcrash ("aceInCreateFromList received invalid &nn, fileList=%s, &nn must exist", fileList) ;
+  if (ai)
+    {
+      if (ai->magic != &ACEIN_MAGIC)
+	messcrash ("aceInCreateFromList received invalid ai (nn == %d), fileList=%s, please initialise ai=0 before first call and do not edit nn or ai", *np, fileList) ;
+      ac_free (ai) ;
+    }
+  else
+    *np = 0 ;
+  
+  cp = cq = list ;
+  while (cp)
+    {
+      cq = strchr (cp, ',') ;
+      if (cq) *cq++ = 0 ;
+
+      if (0)
+	{
+	  cr = strchr (cp, ':') ;
+	  if (cr)
+	    {
+	      *cr++ = 0 ;
+	      label = strnew (cp, handle) ;
+	      cp = cr ;
+	    }
+	}
+
+      if (*np == nn)
+	{
+	  *np = nn + 1 ; /* for next call */
+	  if (! (ai = aceInCreate (cp, gzi, handle)))
+	    messcrash ("ERROR cannot open file %d : %s in list %s\n", nn, cp, fileList) ;
+	  if (0) ai->label = label ;
+	  ac_free (h) ;
+	  return ai ;
+	}
+      nn++ ;
+      cp = cq ;
+    }
+  ac_free (h) ;
+  return 0 ;
+} /* aceInCreateFromList */
+
 /*************************************************************************************/
 /*************************************************************************************/
 

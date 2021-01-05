@@ -28,7 +28,7 @@
  *              dynamic resizing one, needed because sometimes we
  *              have to output single huge strings (e.g. dna object).
  * Created: Sun Aug 30 1999 (mieg)
- * CVS info:   $Id: aceout.c,v 1.33 2016/09/29 21:20:38 mieg Exp $
+ * CVS info:   $Id: aceout.c,v 1.37 2020/06/07 14:37:56 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -93,14 +93,21 @@ static void increaseBuffer(ACEOUT fo, int bytes_needed) ;
 ACEOUT aceOutCreateToFile (const char *filename, const char *spec, AC_HANDLE handle)
      /* spec is one of "w", "wb", "a" or "ab" */
 { 
-  FILE *fil;
+  FILE *fil = 0 ;
+  int pass = 4, delay = 1 ;  /* up to 1 minute wait */
   ACEOUT fo = NULL;
 
   if (!filename) messcrash("aceOutCreateToFile() - NULL filename");
   if (!spec) messcrash("aceOutCreateToFile() - NULL spec");
   if (!(spec[0] == 'w' || spec[0] == 'a')) messcrash("aceOutCreateToFile() - non-'w' or 'a' spec");
 
-  fil = fopen (filename, (char*)spec); 
+  while (! fil && pass--)
+    {
+      fil = fopen (filename, (char*)spec); 
+      if (! fil)
+	sleep (delay) ;
+      delay *= 2 ;
+    }
   /* NOTE, will messerror on failure */
 
   if (fil)
@@ -122,7 +129,6 @@ ACEOUT aceOutCreateToPipe (const char *command, AC_HANDLE handle)
     {
       s = stackHandleCreate (10000000, handle) ;
       
-      stackTextOnly (s) ;
       ao = aceOutCreateToStack (s, handle) ;
       ao->pipeCommand = strnew (command, handle) ;
       ao->pipeStack = s ;
@@ -133,10 +139,11 @@ ACEOUT aceOutCreateToPipe (const char *command, AC_HANDLE handle)
       
       if (! pipe)  /* maybe the computer was lazy opening that command */
 	{
-	  int n = 5 ;
-	  while (! pipe && n--)
+	  int pass = 8, delay = 1 ;  /* up to 4 minute wait */
+	  while (! pipe && pass--)
 	    {
-	      sleep (1) ;
+	      sleep (delay) ;
+	      delay *= 2 ;
 	      pipe = popen (command, "w") ; 
 	    }
 	}
@@ -1073,12 +1080,15 @@ ACEOUT aceOutCreate (const char *outFileName, const char *suffix, BOOL gzo, AC_H
 {
   ACEOUT ao = 0 ;
   const char *suffix2 = "", *ccp ;
+  int ln = outFileName ? strlen(outFileName)  : 0 ;
+  int lnS = suffix ? strlen(suffix)  : 0 ;
 
-  if (! suffix || (outFileName && ((ccp = strstr (outFileName, suffix)) && ccp == outFileName + strlen(outFileName) - strlen(suffix))))
+  if (! suffix || (ln > lnS && ((ccp = strstr (outFileName, suffix)) && ccp == outFileName + ln - lnS)))
     suffix = "" ;
-  if (gzo && 
-      (suffix || ((ccp = strstr (outFileName, ".gz")) && ccp != outFileName + strlen(outFileName) - 3))
-      )
+
+  if (ln > 3 && !strcmp (outFileName + ln - 3, ".gz"))
+    gzo = TRUE ; 
+  else if (gzo)
     suffix2 = ".gz" ;
 
   if (outFileName && strcmp (outFileName, "stdout") && strcmp (outFileName, "-"))

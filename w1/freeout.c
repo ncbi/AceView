@@ -16,7 +16,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: freeout.c,v 1.8 2017/02/27 14:57:39 mieg Exp $ */
+/* $Id: freeout.c,v 1.10 2020/05/30 16:50:30 mieg Exp $ */
 
 #include "freeout.h"
 #include <ctype.h>
@@ -76,7 +76,6 @@ static int freeOutSetFileStack (FILE *fil, Stack s)
 
   freeOutInit () ;
   while (array (outArray, i, OUT).magic) i++ ;
-  
   outLevel++ ;
   outCurr = arrayp (outArray, i, OUT) ;
   if (fil) outCurr->fil = fil ;
@@ -93,7 +92,8 @@ int freeOutSetFile (FILE *fil)
 }
 
 int freeOutSetStack (Stack s)
-{ return freeOutSetFileStack (0, s) ;
+{ 
+  return freeOutSetFileStack (0, s) ;
 }
 
 /************************************************/

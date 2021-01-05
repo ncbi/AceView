@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: call.c,v 1.12 2014/11/30 03:20:30 mieg Exp $ */
+/* $Id: call.c,v 1.13 2017/06/19 20:54:32 mieg Exp $ */
 
 /* #include "acedb.h" */
 #include "call.h"
@@ -238,7 +238,7 @@ int callPipe (const char *command, const char *inBuf, unsigned int inSize
   int child2parent[2] ;
   pid_t pid ;
   int status, inFl, outFl ;
-  unsigned int nn = 1, nByteRead = 0 ;
+  unsigned int nn = 1, nByteRead = 0, nByteWritten = 0 ;
   
   /* create pipes */
   if (pipe (parent2child) != 0 || pipe (child2parent) != 0)
@@ -270,29 +270,32 @@ int callPipe (const char *command, const char *inBuf, unsigned int inSize
   inFl = child2parent[READ]   ; /* child writes where I read */
   
   /* transmit data to the child */
-  write (outFl, inBuf, inSize) ;
+  if (inSize)
+    nByteWritten = write (outFl, inBuf, inSize) ;
   close (outFl) ; /* we close here so the child doesn't wait for more input */
  
   /* read the results */
 
+  if (inSize ==  nByteWritten)
+    {
 #ifdef OUTSIDE_ACEDB
-  *outBuf = 0 ;
-  nn = read (inFl, outBuf, outSize) ;
-  outBuf[nn] = 0 ;
-  nByteRead += nn ;
+      *outBuf = 0 ;
+      nn = read (inFl, outBuf, outSize) ;
+      outBuf[nn] = 0 ;
+      nByteRead += nn ;
 #else
-  {
-    char outBuf[100000] ;
-    int outSize = 100000 ;
-    while (nn)
       {
-	nn = read (inFl, outBuf, outSize) ;
-	aceOutBinary (fo, outBuf, nn) ; 
-	nByteRead += nn ;
+	char outBuf[100000] ;
+	int outSize = 100000 ;
+	while (nn)
+	  {
+	    nn = read (inFl, outBuf, outSize) ;
+	    aceOutBinary (fo, outBuf, nn) ; 
+	    nByteRead += nn ;
+	  }
       }
-  }
 #endif
-
+    }
   /* final clean up */
   close (parent2child[WRITE]) ;
   close (child2parent[READ]) ;

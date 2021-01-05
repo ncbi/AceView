@@ -35,7 +35,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: dict.c,v 1.28 2015/06/16 23:11:41 mieg Exp $ */
+/* $Id: dict.c,v 1.29 2020/06/12 01:58:42 mieg Exp $ */
 #include "regular.h"
                              /* every thing here is private */
 
@@ -377,7 +377,10 @@ BOOL dictAdd (_DICT *dict, const char *s, int *ip)
   DVOC *dVoc  ;
   char *buf ;
 
-  if (!dict || !s || ! *s)
+  if (! dict || dict->magic != DICT_MAGIC)
+    messcrash ("Wrong call to dictAdd, the dict is non existent") ;
+
+  if (!s || ! *s)
     return FALSE ;
 
   if (dictFind (dict, s, &ii))	/* word already known */

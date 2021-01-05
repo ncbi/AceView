@@ -44,9 +44,9 @@ static void uBigArrayFinalise (void *cp) ;
 BigArray   uBigArrayCreate_dbg (long int n, int size, AC_HANDLE handle,
 					      const char *hfname,int hlineno) 
 { mysize_t id = bigTotalNumberCreated++ ;  
-  BigArray neuf = (BigArray) handleAlloc_dbg (uArrayFinalise, 
+  BigArray neuf = (BigArray) handleAlloc_dbg (uBigArrayFinalise, 
 				   handle,
-				   sizeof (struct ArrayStruct),
+				   sizeof (struct BigArrayStruct),
 				   dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
 #endif
 
@@ -276,7 +276,7 @@ void bigArrayExtend (BigArray a, long int n)
 char *uBigArray (BigArray a, long int i)
 {
   if (i < 0)
-    messcrash ("referencing bigArray element %ld < 0", i) ;
+    messcrash ("referencing BigArray element %ld < 0", i) ;
   if (!a)
     messcrash ("uBigArray called with NULL Array struc");
 
@@ -290,20 +290,28 @@ char *uBigArray (BigArray a, long int i)
 
 /***************/
 
-char *uBigArrayCheck (BigArray a, long int i)
+ char *uBigArrayCheck (BigArray a, long int i, int size)
 {
+  if (! a)
+    messcrash ("dereferecning a null BigArray") ;
+  if (size != a->size)
+    messcrash ("BigArray size mismatch accessing array of size %d with pointer if typse-size %d", a->size, size) ;
   if (i < 0)
-    messcrash ("referencing array element %ld < 0", i) ;
+    messcrash ("referencing BigArray element %ld < 0", i) ;
 
   return uBigArray(a, i) ;
 }
 
 /***************/
 
-char *uBigArrCheck (BigArray a, long int i)
+ char *uBigArrCheck (BigArray a, long int i, int size)
 {
+  if (! a)
+    messcrash ("dereferecning a null BigArray") ;
+  if (size != a->size)
+    messcrash ("BigArray size mismatch accessing array of size %d with pointer if typse-size %d", a->size, size) ;
   if (i >= a->max || i < 0)
-    messcrash ("array index %ld out of bounds [0,%ld]",
+    messcrash ("BigArray index %ld out of bounds [0,%ld]",
 	       i, a->max - 1) ;
   return a->base + i*a->size ;
 }
@@ -368,7 +376,7 @@ BigArray bigArrayTruncatedCopy (BigArray a, long int x1, long int x2)
 
 void bigArrayCompress(BigArray a)
 {
-  long int i, j, k , as ;
+  long int i, j , as ;
   char *x, *y, *ab  ;
   
   if (!a || !a->size || bigArrayMax(a) < 2 )
@@ -378,16 +386,22 @@ void bigArrayCompress(BigArray a)
   as = a->size ;
   for (i = 1, j = 0 ; i < bigArrayMax(a) ; i++)
     { x = ab + i * as ; y = ab + j * as ;
-      for (k = a->size ; k-- ;)		
+      /*
+	for (k = a->size ; k-- ;)		
 	if (*x++ != *y++) 
-	  goto different ;
-      continue ;
+	goto different ;
+      */
+      if (! memcmp (x, y, as))
+	continue ;
       
-    different:
+      /*     different: */
       if (i != ++j)
 	{ x = ab + i * as ; y = ab + j * as ;
-	  for (k = a->size ; k-- ;)	 
-	    *y++ = *x++ ;
+	  /* 
+	     for (k = a->size ; k-- ;)	 
+	     *y++ = *x++ ;
+	     */
+	  memcpy (y , x, as) ;
 	}
     }
   bigArrayMax(a) = j + 1 ;
@@ -980,7 +994,7 @@ void uAssDestroy (Associator a)
 #ifndef MEM_DEBUG
   static Associator assDoCreate (int nbits, BOOL inOnly, AC_HANDLE handle)
 #else
-  static Associator assDoCreate (int nbits, BOOL inOnly, AC_HANDLE handle
+    static Associator assDoCreate_dbg (int nbits, BOOL inOnly, AC_HANDLE handle,
 				 const char *hfname, int hlineno)
 #endif
 {
@@ -1016,10 +1030,10 @@ void uAssDestroy (Associator a)
 				   handle, 
 				   sizeof (struct AssStruct),
 				   dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
-  a->in = (void**) messalloc_dbg(vsize,dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
+  a->in = (const void**) messalloc_dbg(vsize,dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
   if (! inOnly)
     {
-      a->out = (void**) messalloc_dbg(vsize,dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
+      a->out = (const void**) messalloc_dbg(vsize,dbgPos(hfname, hlineno, __FILE__), __LINE__) ;
     }
 #endif
   a->magic = ASS_MAGIC ;
@@ -1060,11 +1074,15 @@ Associator assBigHandleCreate (long int size, AC_HANDLE h)
 #ifndef MEM_DEBUG
   return assDoCreate(n, FALSE, h) ;
 #else
-  return assDoCreate(n, FALSE, h, hfname, hlineno) ;
+  return assDoCreate_dbg(n, FALSE, h, hfname, hlineno) ;
 #endif
 }
 
-Associator assInOnlyHandleCreate (long int size, AC_HANDLE handle)
+#ifndef MEM_DEBUG
+Associator assInOnlyHandleCreate (long int size, AC_HANDLE h)
+#else
+  Associator assInOnlyHandleCreate_dbg(long int size, AC_HANDLE h, const char *hfname, int hlineno)
+#endif
 {
   int n = 2 ; /* make room, be twice as big as needed */
 
@@ -1073,7 +1091,11 @@ Associator assInOnlyHandleCreate (long int size, AC_HANDLE handle)
 
   --size ;
   while (size >>= 1) n++ ; /* number of left most bit + 1 */
-  return assDoCreate(n, TRUE, 0) ;
+#ifndef MEM_DEBUG
+  return assDoCreate(n, TRUE, h) ;
+#else
+  return assDoCreate_dbg(n, TRUE, h, hfname, hlineno) ;
+#endif
 }
 
 /*******************/
@@ -1082,7 +1104,7 @@ Associator assInOnlyHandleCreate (long int size, AC_HANDLE handle)
   Associator assHandleCreate(AC_HANDLE handle) { return assDoCreate(5, FALSE, handle) ;}
 #else
   Associator assHandleCreate_dbg(AC_HANDLE handle, const char *hfname,int hlineno)
-  { return assDoCreate(5, FALSE, handle, dbgPos(hfname, hlineno, __FILE__), __LINE__) ; }
+  { return assDoCreate_dbg(5, FALSE, handle, dbgPos(hfname, hlineno, __FILE__), __LINE__) ; }
 #endif
 
 /*******************/
@@ -1120,7 +1142,7 @@ void assClear (Associator a)
 
 Associator assReCreate (Associator a)
 { if (!assExists(a))
-    return assCreate() ;
+    return assHandleCreate(0) ;
   else
     {
       if (a->readOnly)
@@ -1345,7 +1367,7 @@ BOOL uAssFind (Associator ass, const void* xin, const void** pout, unsigned long
 
 void  bucketAssTest (void)
 {
-  Associator a = assCreate () ;
+  Associator a = assHandleCreate(0) ;
   Array bucket = 0 ;
   int x , y, iBucket ; 
   const void *vp, *wp ;

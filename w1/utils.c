@@ -29,7 +29,7 @@
  * * Mar 22 14:42 1999 (edgrif): Added getSystemName().
  * * Jan 25 16:05 1999 (edgrif): Add getLogin from session.c
  * Created: Thu Jan 21 15:46:49 1999 (edgrif)
- * CVS info:   $Id: utils.c,v 1.48 2017/02/27 14:57:39 mieg Exp $
+ * CVS info:   $Id: utils.c,v 1.53 2020/06/07 14:37:57 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -1114,22 +1114,30 @@ char* ac_protect (const char* text, AC_HANDLE h)
   if (!*ccp)
     return  strnew("\"\"", h) ; /* emptyprotected  string */
   
-  result = halloc ( 2*(1+strlen(text)), h) ; /* ensure long enough */
+  result = halloc ( 64 + 2*(1+strlen(text)), h) ; /* ensure long enough: 2020_05_31, was 2*() before, but failed an AQUILA test.escape */
   
   cq = result ;
   *cq++ = '"' ;
-  for (cp = text ; *cp ; *cq++ = *cp++)
-    { if (*cp == '\\' || *cp == '"' || 		       /* protect these */
+  for (cp = text ; *cp ; )
+    { 
+      if (*cp == '\\' || *cp == '"' || 		       /* protect these */
 	  *cp == '/' || *cp == '%' || *cp == ';' ||
-	  *cp == '\t' || *cp == '\n')
+	  *cp == '\t'
+	  /* || *cp == '\n' NO this is done on next line mieg:2017-11-21 */
+	  )
 	*cq++ = '\\' ;
-      if (*cp == '\n') {*cq++ = 'n' ; *cq++ = '\\' ; } /* -> /n/n (text then real) */
+      if (*cp == '\n') 
+	{ /* do not acedump a \n, bad for other scripts */
+	  *cq++ = '\\' ; *cq++ = 'n' ; cp++ ;
+	} 
+      else
+	*cq++ = *cp++ ;
     }
   *cq++ = '"' ;
   *cq = 0 ;
 
   return result ;
-}  /* aceInProtect */
+}  /* ac_protect */
 
 /***************************************************************/
 /* Wrapper for lexstrcmp to allow it to be used with arraySort */
@@ -1472,6 +1480,40 @@ int pickMatch (const char *cp, const char *tp)
 { return doPickMatch (cp,tp,FALSE) ; }
 int pickMatchCaseSensitive (const  char *cp,const char *tp, BOOL caseSensitive)
 { return doPickMatch (cp,tp,caseSensitive) ; }
+
+/*************************************************************************************/
+/* exchangle lower/upper case */
+void bufferSwitchCase (char *buf)
+{
+  register  char *cp ;
+  for (cp = buf ; *cp ; cp++)
+    {
+      if (*cp == ace_upper(*cp))
+	*cp= ace_lower(*cp) ;
+      else
+	*cp = ace_upper(*cp) ;
+    }
+}  /* bufferSwitchCase */
+
+/*************************************************************************************/
+
+void bufferToUpper (char *buf)
+{
+  register  char *cp ;
+  for (cp = buf ; *cp ; cp++)
+    *cp = ace_upper(*cp) ;
+  return ;
+}  /*  bufferToUpper */
+
+/*************************************************************************************/
+
+void bufferToLower (char *buf)
+{
+  register  char *cp ;
+  for (cp = buf ; *cp ; cp++)
+    *cp = ace_lower(*cp) ;
+  return ;
+}  /*  bufferToLower */
 
 /*************************************************************************************/
 

@@ -748,7 +748,7 @@ void sxWiggleParse (WIGGLE *sx, int z1, int z2)
 		      aap = arrayp (sx->aaa, remap, Array) ;
 		      if (! *aap)
 			{
-			  *aap = arrayHandleCreate (100000, WIGGLEPOINT, sx->h) ;
+			  *aap = arrayHandleCreate (1000, WIGGLEPOINT, sx->h) ;
 			  if (0 && sx->forceUnique)
 			    { /* the idea is to set a poit at the origin to align the files, but it does not work */
 			      wp = arrayp (*aap, x, WIGGLEPOINT) ;
@@ -1035,7 +1035,7 @@ static void sxWiggleExportMultiPeaks (WIGGLE *sx, Array aa0, Array bb, int remap
  *  try to locate the transcript ends inthe ELF, ELR, ERF, ERR wiggles
  *  defined as region of high E[L/F]x contrast and adequate minimal cover\n"
  */
-static void sxWiggleExportTranscriptsEnds (WIGGLE *sx, Array aa0, Array bb, int remap, BOOL isDown)
+static void sxWiggleExportTranscriptsEnds (WIGGLE *sx, Array aa0, Array bb, int remap)
 {
   WIGGLEPOINT *wp, *wq ;
   int ii, jj, nn ;
@@ -1123,7 +1123,7 @@ static void sxWiggleExportTranscriptsEnds (WIGGLE *sx, Array aa0, Array bb, int 
 
   if (debug)
     {
-      aceOutf (ao, "\nEnds %s strand\n", isDown ? "top" : "bottom") ;
+      aceOutf (ao, "\nEnds  stranded\n") ;
       for (ii = 0, mp = arrp (mmm, ii, MPK) ; ii < imm ; mp++, ii++)
 	aceOutf (ao, "%s\t%d\t%d\t%d\t%d\t%.1f\t%d\t%d\t%d\n"
 		 , dictName (sx->remapDict, remap)
@@ -1171,8 +1171,7 @@ static void sxWiggleExportPeaks (WIGGLE *sx, Array aa, Array bb, int remap)
     return sxWiggleExportMultiPeaks (sx, aa, bb, remap) ;
   if (sx->transcriptsEndsFileName)
     {
-      sxWiggleExportTranscriptsEnds (sx, aa, bb, remap, TRUE) ;
-      sxWiggleExportTranscriptsEnds (sx, aa, bb, remap, FALSE) ;
+      sxWiggleExportTranscriptsEnds (sx, aa, bb, remap) ;
       return ;
     }
 
@@ -1301,8 +1300,16 @@ static int sxWiggleGaussOne (WIGGLE *sx, Array aa, Array bb)
     if (wp->y > 0) break ;
   iiMin = ii - nn ;
   if (iiMin < 0) iiMin = 0 ;
-  for (ii = iiMin, wp = arrp (aa, ii, WIGGLEPOINT) ; ii < arrayMax (aa) ; ii++, wp++) 
-    wp->y = 0 ;
+  wp = arrp (aa, iiMin, WIGGLEPOINT) ;
+  ii = arrayMax (aa) - iiMin ;
+  if (ii > 0)
+    {
+      memset (wp, 0, ii * sizeof (WIGGLEPOINT))  ;
+      /* equivalent of
+       *  for (ii = iiMin, wp = arrp (aa, ii, WIGGLEPOINT) ; ii < arrayMax (aa) ; ii++, wp++) 
+       *    wp->y = 0 ;
+       */
+    }
 
   for (ii = 0, wp = arrp (aa, 0, WIGGLEPOINT), zp = arrp (bb, 0, WIGGLEPOINT) ; ii < arrayMax (aa) ; ii++, zp++, wp++) 
     {
@@ -1349,22 +1356,19 @@ int sxWiggleGauss (WIGGLE *sx)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void sxWiggleExportOne (WIGGLE *sx, int remap, Array aa)
+static void sxWiggleExportOne (WIGGLE *sx, int remap, Array aa, int *limits, long int *cumul, long int *pos_covered)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = sx->ao ;
   WIGGLEPOINT *wp ;
   int ii, stepOut, spanOut, x, oldx = 0, x1, iy, jBuf = 0, nn = 0 ;
   int i, *limitp ;
-  int limits[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000, 10000000, -1} ;
-  long int cumul[128], pos_covered[128] ;
+
   float y, dy ;
   int bufferSize = 32*1024 ;
   char buffer[bufferSize] ;
   int *ip, *jp, iBuffer[7] ;
 
-  memset (cumul, 0, sizeof(cumul)) ;
-  memset (pos_covered, 0, sizeof(pos_covered)) ;
 
   stepOut = (sx->out_step  ? sx->out_step : 1) ;
   spanOut = (sx->out_span  ? sx->out_span : 1) ;
@@ -1385,12 +1389,6 @@ static void sxWiggleExportOne (WIGGLE *sx, int remap, Array aa)
   switch (sx->out)
     {
     case COUNT:
-      for (i = 0, limitp = limits ; *limitp > -1 ; i++, limitp++)
-	if (cumul[i])
-	  aceOutf (ao, "Cumul_at_level_%d\t%ld\tcovering\t%ld\tpositions_average_cover\t%ld\n"
-		   , *limitp
-		   , cumul[i], pos_covered[i], cumul[i]/pos_covered[i]
-		   ) ;
       goto done ;
       break ;
     case AF:
@@ -1562,20 +1560,6 @@ static void sxWiggleExportOne (WIGGLE *sx, int remap, Array aa)
       break ;
     }
  done:
-  if (sx->cumul)
-    {
-      ACEOUT ao = aceOutCreate (sx->outFileName, ".cumul", sx->gzo, h) ;
-      if (ao)
-	{
-	  fprintf (stderr, "// Cumuls are in file %s\n", sx->outFileName) ;   
-	  for (i = 0, limitp = limits ; *limitp > -1 ; i++, limitp++)
-	    if (sx->cumul && cumul[i])
-	      aceOutf (ao, "Cumul_at_level_%d\t%ld\tcovering\t%ld\tpositions_average_cover\t%ld\n"
-		       , *limitp
-		       , cumul[i], pos_covered[i], cumul[i]/pos_covered[i]
-		       ) ;
-	}
-    }
   if (sx->peaks && ! sx->gauss)
     sxWiggleExportPeaks (sx, aa, 0, remap) ;
   ac_free (h) ;
@@ -1587,13 +1571,37 @@ void sxWiggleExport (WIGGLE *sx)
 {
   Array aa ;
   int remap ;
-  
+  long int cumul[128], pos_covered[128] ;
+  int limits[] = {1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000, 10000000, 10000000, -1} ;
+
+  memset (cumul, 0, sizeof(cumul)) ;
+  memset (pos_covered, 0, sizeof(pos_covered)) ;
+
   for (remap = 0 ; remap < arrayMax (sx->aaa) ; remap++)
     {
       aa =  arr (sx->aaa, remap, Array) ;
       if (arrayExists (aa) && arrayMax (aa))
-	sxWiggleExportOne (sx, remap, aa) ;
+	sxWiggleExportOne (sx, remap, aa, limits, cumul, pos_covered) ;
     }
+
+  if (sx->cumul)
+    {
+      AC_HANDLE h = ac_new_handle () ;
+      ACEOUT ao = aceOutCreate (sx->outFileName, ".cumul", sx->gzo, h) ;
+      if (ao)
+	{
+	  int i, *limitp ;
+	  fprintf (stderr, "// Cumuls are in file %s\n", sx->outFileName) ;   
+	  for (i = 0, limitp = limits ; *limitp > -1 ; i++, limitp++)
+	    if (sx->cumul && cumul[i])
+	      aceOutf (ao, "Cumul_at_level_%d\t%ld\tcovering\t%ld\tpositions_average_cover\t%ld\n"
+		       , *limitp
+		       , cumul[i], pos_covered[i], cumul[i]/pos_covered[i]
+		       ) ;
+	}
+      ac_free (h) ;
+    }
+
 } /* sxWiggleExport */
 
 /*************************************************************************************/
@@ -1692,7 +1700,9 @@ void sxWiggleFloor (WIGGLE *sx, float mini)
 
 /*************************************************************************************/
 /*************************************************************************************/
-
+/* the 'ratio' is between 0 and 200, a value above 100 indicates
+ * less than 1% r/f and if r = 0 then f is at least 20
+ */
 static void sxWiggleRatioOne (WIGGLE *sx, Array aa, Array bb)
 { 
   int ii, iiMax = aa ? arrayMax (aa) : 0 ;
@@ -1703,7 +1713,30 @@ static void sxWiggleRatioOne (WIGGLE *sx, Array aa, Array bb)
   if (aa)
     {
       for (ii = 0, wp = arrp (aa, ii, WIGGLEPOINT), zp = arrp (bb, ii, WIGGLEPOINT) ; ii < iiMax ; ii++, wp++, zp++) 
-	wp->y /= (zp->y + .01) ;
+	{
+	  /* compute the contrast, normalize the saturation at 350 
+	   * so that we will retain 1/5 of the saturation as our threshold of 100
+	   */
+	  float u = wp->y / (100.0 * zp->y + wp->y + 20) ;
+	  wp->y = 500 * u * u ; /* the squares crushes the low values */
+	}
+      /* take the 50 bp median */
+      if (1)
+	{
+	  int i, NN = 2 ;
+	  Array cc = arrayCopy (aa) ; /* because we update aa */
+	  Array zz = arrayCreate (2*NN + 1, float) ; 
+	   
+	  array (zz, 2*NN, float) = 0 ; /* make room */
+	  for (ii = NN, wp = arrp (aa, ii, WIGGLEPOINT), zp = arrp (cc, ii, WIGGLEPOINT) ; ii < iiMax - NN ; ii++, wp++, zp++) 
+	    {
+	      for (i = -NN ; i <= NN ; i++)
+		arr (zz, NN + i, float) = (zp - i)->y ;
+	      arraySort (zz, floatOrder) ;
+	      wp->y = arr (zz, 2, float) ;
+	    }
+	  arrayDestroy (cc) ;
+	}
     }
   return ;
 } /* sxWiggleRatioOne */
@@ -1729,10 +1762,98 @@ void sxWiggleRatio (WIGGLE *sx)
 
 /*************************************************************************************/
 /*************************************************************************************/
+/* get a, b  = stranded wiggles, if damper == 10 
+ * compute alpha = a + 10 / a + b + 20
+ *          beta = b + 10 / a + b + 20
+ *    => alpha + beta = 1, so we only need to compute alpha
+ */
+Array sxWiggleStrandedRatio (WIGGLE *sx, Array aaa, Array bbb, int damper, AC_HANDLE h)
+{
+  Array aa, bb, cc ; 
+  Array alpha ;
+  int map, i, j, iMax, jMax, delta ;
+  WIGGLEPOINT *wap, *wbp, *wcp ;
+
+  if (damper <= 0)
+    messcrash ("Damper = %d, must be strictly positive", damper) ;
+  map = arrayMax (aaa) < arrayMax (aaa) ? arrayMax (aaa) : arrayMax (bbb) ;
+  alpha = arrayHandleCreate (map+1, Array, h) ;
+
+  for (map = 0 ; map < arrayMax (aaa) ; map++)
+    {
+      aa =  arr (aaa, map, Array) ;
+      iMax = aa ? arrayMax (aa) : 0 ;
+      if (! iMax)
+	continue ;
+      bb = map < arrayMax (bbb) ?  arr (bbb, map, Array) : 0 ;
+      jMax = bb ? arrayMax (bb) : 0 ;
+      cc =  arrayHandleCreate (arrayMax (aa), WIGGLEPOINT, h) ;
+      array (alpha, map, Array) = cc ;
+      wcp = arrayp (cc, iMax -1, WIGGLEPOINT) ; /* make room */
+      wap = arrp (aa, 0, WIGGLEPOINT) ;
+      wbp = bb ? arrp (bb, 0, WIGGLEPOINT) : 0 ;
+      delta = (wbp ? wap->x - wbp->x : 0) / sx->out_step ;
+      
+      for (i = 0, wap = arrp (aa, 0, WIGGLEPOINT), wcp = arrp (cc, 0, WIGGLEPOINT) ; 
+	   i < iMax ; i++, wap++, wcp++)
+	{
+	  float a, b = 0 ;
+	  wcp->x = wap->x ;
+	  j = i + delta ;
+	  wbp = bb && j >= 0 && j < jMax ? arrp (bb, j, WIGGLEPOINT) : 0 ;
+	  a = wap->y  + damper ;
+	  b = (wbp ? wbp->y : 0)  + damper ;
+	  wcp->y = a / (a+b) ;
+	}
+    }
+
+  return alpha ;
+} /* sxWiggleStrandedRatio */
+
+/*************************************************************************************/
+/*************************************************************************************/
+/* At each point of sx->aaa, which contains z = sum of the non stranded wiggle
+ * get the corresponding bbb value rho = ratio of the stranded wiggle
+ * compute wap->y = rho * z giving the restranded wiggle
+ */
+void sxWiggleMultiplyLocally (WIGGLE *sx, Array bbb)
+{
+  Array aaa = sx->aaa, aa, bb ;
+  int map, i, j, iMax, jMax, delta ;
+  WIGGLEPOINT *wap, *wbp ;
+
+  for (map = 0 ; map < arrayMax (aaa) ; map++)
+    {
+      aa =  arr (aaa, map, Array) ;
+      iMax = aa ? arrayMax (aa) : 0 ;
+      if (! iMax)
+	continue ;
+      bb = map < arrayMax (bbb) ?  arr (bbb, map, Array) : 0 ;
+      jMax = bb ? arrayMax (bb) : 0 ;
+      wap = arrp (aa, 0, WIGGLEPOINT) ;
+      wbp = bb ? arrp (bb, 0, WIGGLEPOINT) : 0 ;
+      delta = (wbp ? wap->x - wbp->x : 0) / sx->out_step ;
+      
+      for (i = 0, wap = arrp (aa, 0, WIGGLEPOINT) ; i < iMax ; i++, wap++)
+	{
+	  j = i + delta ;
+	  wbp = bb && j >= 0 && j < jMax ? arrp (bb, j, WIGGLEPOINT) : 0 ;
+	  if (wbp)
+	    wap->y = wap->y * wbp->y ; 
+	  else
+	    wap->y = 0 ;
+	}
+    }
+
+  return ;
+} /* sxWiggleMultiplyLocally */
+
+/*************************************************************************************/
+/*************************************************************************************/
 
 void sxWiggleCopy (WIGGLE *sx)
 {
-  sx->aaaCopy = sx->aaa ; 
+  sx->aaaCopy = sx->aaa ; sx->aaa = 0 ;
 } /* sxWiggleCopy */
 
 /*************************************************************************************/
@@ -1760,12 +1881,11 @@ BOOL sxCheckFormat (const char *io, WFORMAT *ip, const char *ccp, char *ftype)
 /***************************** Public interface **************************************/
 /*************************************************************************************/
 
-Array sxGetWiggleZone (const char *fNam, char *type, int step, const char *chrom, int z1, int z2, AC_HANDLE h0)
+Array sxGetWiggleZone (Array aa, const char *fNam, char *type, int step, const char *chrom, int z1, int z2, AC_HANDLE h0)
 {
   AC_HANDLE h = 0 ;
   WIGGLE *sx = 0 ;
   char *rtype = 0 ;
-  Array aa = 0 ;
   const char *ccp, *ch ; 
 
   ccp = filName (fNam, 0, rtype) ;
@@ -1799,7 +1919,8 @@ Array sxGetWiggleZone (const char *fNam, char *type, int step, const char *chrom
 
   sx->noRemap = TRUE ;
   sx->aaa = arrayHandleCreate (12, Array, h) ;	
-  aa = arrayHandleCreate (100000, WIGGLEPOINT, h0) ;
+  if (! aa)
+    aa = arrayHandleCreate (100000, WIGGLEPOINT, h0) ;
   array (sx->aaa, 0, Array) = aa ; 
   sxWiggleParse (sx, z1, z2) ;
 

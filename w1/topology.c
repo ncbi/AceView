@@ -15,7 +15,7 @@
  *-------------------------------------------------------------------
  */
 
-/*  $Id: topology.c,v 1.3 2014/05/28 22:29:56 mieg Exp $ */
+/*  $Id: topology.c,v 1.6 2020/05/25 00:59:21 mieg Exp $ */
  
 #include "ac.h"
 #include "topology.h"
@@ -181,3 +181,270 @@ int topoConnectedComponents(Array links, Array vx)
 
 /**************************************************************/
 /**************************************************************/
+/* chonoSort a 2D matrix */
+
+typedef struct wiStruct { float w ; int i ; } WI ;
+
+static int wiOrder (const void *a, const void *b) 
+{
+  const WI *up = (const WI *)a, *vp = (const WI *)b ;
+  
+  if (up->w < vp->w) return 1 ; /* heawy wins */
+  if (up->w > vp->w) return -1 ;
+  return up->i - vp->i ;
+} /* wiOrder */
+
+/**********************************************************************/
+
+static BOOL topoChronoSortLines (Array aa, int xy, int iMax, int jMax, KEYSET lines, Array ww, int pass)
+{
+  BOOL moved = FALSE ;
+  BOOL debug = FALSE ;
+  WI *wi ;
+  int i, j, k, k1, dx, dy ;
+  double *zf = arrp (aa, 0, double) ;
+  double z, z1, zMin, zMax , buf[iMax * jMax] ;
+  int lnBuf [xy == 0 ? iMax : jMax] ;
+
+  switch (xy)
+    {
+    case 0: 
+      dx = jMax ;
+      dy = 1 ;
+      break ;
+    case 1:
+      dx = 1 ;
+      dy = jMax ;
+      i = iMax ; iMax = jMax ; jMax = i ;
+      break ;
+    }
+      
+  z = 0 ;
+  arrayMax (ww) = iMax ;
+  wi = arrp (ww, 0, WI) ;
+  for (i = 0 ; i < iMax ; i++)
+    {
+      wi[i].i = -1 ;  
+      wi[i].w = 0 ;
+    }
+
+  zMin = 30 ; zMax = 100 ;
+  if (pass < 0)
+    {zMin = 50 ; zMax = 90 ; }
+  if (pass < 0)
+    { zMin = 50 ; zMax = 70 ; }
+  if (pass < 0)
+    { zMin = 50 ; zMax = 70 ; }
+  if (pass < 0)
+    { zMin = 50 ; zMax = 80 ; }
+
+  for (i = k = 0 ; i < iMax ; i++, k += dx)
+    {
+      int j0 = 0 ;
+      z = 0 ;
+      for (j = k1 = 0 ; j < jMax ; j++, k1 += dy)
+	{
+	  z1 = zf[k+k1] ;
+	  if (z1 > zMax) z1 = zMax + (z1-zMax)/10 ;
+	  if (z1 >= zMin)
+	    z1 = 1 + (pass > 100 ? z1/30000 : 0) ;
+	  else
+	    z1 = 0 ; 
+	  if (z1 && ! z)
+	    { j0 = j + 10 ; z += 10*(exp (1.0*log(jMax - j))) * z1 ;  }
+	  else
+	    z += (j0 - j) * z1 ; 
+	} 
+      wi = arrp (ww, i, WI) ;
+      wi->w = z ;
+      wi->i = i ;
+    }
+  if (debug)
+    {
+      int kk = 0 ;
+      fprintf (stderr, "#A pass %d xy=%d ", pass, xy) ; 
+      for (i = k = 0 ; i < iMax ; i++, k += dx)
+	{
+	  wi = arrp (ww, i, WI) ;
+	  fprintf (stderr, " %d", (int) wi->w) ;
+	  if (wi->w > 1) kk++ ;
+	}
+      fprintf (stderr, " kk=%d\n" ,kk) ;
+    }
+
+  arraySort (ww, wiOrder) ;
+ if (debug)
+   {
+     int kk = 0 ;
+     fprintf (stderr, "#B pass %d xy=%d ", pass, xy) ; 
+     for (i = k = 0 ; i < iMax ; i++, k += dx)
+       {
+	 wi = arrp (ww, i, WI) ;
+	 fprintf (stderr, " %d", (int) wi->w) ;
+	 if (wi->w > 1) kk++ ;
+       }
+     fprintf (stderr, " kk=%d\n" ,kk) ;
+   }
+  wi = arrp (ww, 0, WI) ;
+  for (i = 0 ; i < iMax ; wi++, i++)
+    {
+      k = wi->i ;  
+      if (k > iMax - 1)
+	messcrash ("bad value") ;
+    }
+
+#ifdef JUNK
+  /* allow this block to give the system a chance to
+   * escape false minima
+   * 2020_03_11
+   * works but does not seem really useful on the example of crn who_is_who
+   */ 
+  if (0)
+    {
+      wi = arrp (ww, 0, WI) ;
+      if (iMax > 1 && (pass % 3) == 0)
+	{
+	  for (i = 0 ; i < iMax - 1 ; wi++, i++)
+	    {
+	      int k1 = wi->i ;
+	      
+	      if (k1 >=0)
+		{
+		  extern double randdouble (void) ;
+		  double z = randdouble () ;
+		  if (z < .1)
+		    {
+		      int j = iMax * 5 * z ;
+		      if (j < iMax && j != i)
+			{
+			  int k2 = k1 + 1 ;
+			  if (k2 > 0)
+			    {
+			      moved = TRUE ;
+			      if (k1 > iMax - 1)
+				messcrash ("bad value") ;
+			      if (k2 > iMax - 1)
+				messcrash ("bad value") ;
+			      wi->i= k2 ;
+			      arrp (ww, j, WI)->i = k1 ;
+			      i++ ;
+			    }
+			}
+		    }
+		}
+	    }
+	  
+	  if (debug)
+	    {
+	      int kk = 0 ;
+	      fprintf (stderr, "#C pass %d xy=%d ", pass, xy) ; 
+	      for (i = k = 0 ; i < iMax ; i++, k += dx)
+		{
+		  wi = arrp (ww, i, WI) ;
+		  fprintf (stderr, " %d", (int) wi->w) ;
+		  if (wi->w > 1) kk++ ;
+		}
+	      fprintf (stderr, " kk=%d\n" ,kk) ;
+	    }
+	}
+    }
+#endif
+
+  wi = arrp (ww, 0, WI) ;
+  for (i = 0 ; i < iMax ; wi++, i++)
+    {
+      k = wi->i ;  
+      if (k > iMax - 1)
+	messcrash ("bad value") ;
+    }
+
+  memcpy (buf, zf, iMax * jMax * sizeof(double)) ;
+  memcpy (lnBuf, arrp (lines, 0, KEY), iMax * sizeof(KEY)) ;
+
+  wi = arrp (ww, 0, WI) ;
+  for (i = k = 0 ; i < iMax ; i++,wi++, k += dx)
+    {
+      int i2 = wi->i ;
+      if (i2 >= 0)
+	{
+	  keySet (lines, i) = lnBuf[i2] ; 
+	  if (i2 != i)
+	    {
+	      int k2 = i2 * dx ;
+	      moved = TRUE ;
+	      for (j = k1 = 0 ; j < jMax ; j++, k1 += dy)
+		zf[k+k1] = buf[k2+k1] ;
+	    }
+	}
+    }
+
+  return moved ;
+} /* topoChronoSortLines */
+
+/**********************************************************************/
+/* sort a 2D matrix recursivelly by the total weights of its lines and columns
+ * the order is retured as 'lines' and 'cols'
+ */
+BOOL topoChronoOrder (Array aa, KEYSET lines, KEYSET cols)
+{
+  AC_HANDLE h = ac_new_handle() ;
+  int i, j, iMax, jMax ;
+  BOOL moved = TRUE ;
+  Array ww = 0 ;
+  BOOL isSym =TRUE ;
+
+  if (! aa)
+    messcrash ("topoChronoOrder received a null array") ;
+  if (! lines)
+    messcrash ("topoChronoOrder received a null lines keyset") ;
+  if (! cols)
+    messcrash ("topoChronoOrder received a null cols keyset") ;
+  if  (aa->size != sizeof(double))
+    messcrash ("topoChronoOrder did not receive an array of double: size=%d != sizeof(double) = %d", aa->size, sizeof(double)) ;
+  if (arrayMax (aa) != keySetMax (lines) * keySetMax(cols))
+    messcrash ("topoChronoOrder received non matching sizes (max(aa)=%d) != (max(lines=%d) * max(cols)=%d)", arrayMax(aa), keySetMax (cols), keySetMax(lines)) ;
+
+
+  i = iMax = keySetMax (lines) ;
+  j = jMax = keySetMax (cols) ;
+
+  for (i = 0 ; i < iMax ; i++)
+    {
+      int run1 = keySet (lines, i) ;
+      for (j = 0 ; j < jMax ; j++)
+	{
+	  int run2 = keySet (cols, j) ;
+	  if (run1 != run2)
+	    isSym = FALSE ;
+	}
+    }
+
+  /* original order */
+  while (i--)  keySet (lines, i) = i ;
+  while (j--)  keySet (cols, j) = j ;
+  /* after sorting lines[2]=7 means that lines 2 was called 7 in lines0
+   * so the correct metadata of line i =  title[lines[i]]
+   */
+  i = iMax >  jMax ? iMax : jMax ;
+  ww = arrayHandleCreate (i, WI, h) ;
+  array (ww, i - 1, WI).w = 0 ; /* make room */
+    
+  for (i = 0 ; moved && i < 1000 ; i++)
+    {
+      moved = topoChronoSortLines (aa, 0, iMax, jMax, lines, ww, i) ;
+      if (isSym)
+	for (j = 0 ; j < jMax ; j++)
+	  keySet (cols, j) = keySet (lines, j) ;
+      else
+	moved |= topoChronoSortLines (aa, 1, iMax, jMax, cols, ww, i) ;
+ 
+      if (! moved && i < 3) { moved = TRUE ; }
+      if (! moved && i < 100) { i = 100 ; moved = TRUE ; }
+    }
+  fprintf (stderr, "topo stop at i=%d\n", i) ;
+  ac_free (h) ;
+  return TRUE ;
+} /* topoChronoOrder */
+
+/**********************************************************************/
+/**********************************************************************/
