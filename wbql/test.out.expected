@@ -1,0 +1,1304 @@
+acedb> // Comment "Select from where first examples"
+// 0 Active Objects
+acedb> Tom	p1
+Tom	p2
+Tom	p3
+Tom	p4
+Tom	p5
+// 5 lines
+// 1 Active Objects
+acedb> Tim	100	1.6
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Short forms, acting on the active list"
+// 1 Active Objects
+acedb> 
+// Found 22 objects in this class
+// 22 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> 
+// Found 1 objects
+// 1 Active Objects
+acedb> 
+KeySet : Answer_1
+Paper:
+ p2
+// 1 object listed
+// 1 Active Objects
+acedb> p2
+// 1 lines
+// 1 Active Objects
+acedb> p1
+p2
+p3
+p4
+p5
+p6
+p7
+// 7 lines
+// 7 Active Objects
+acedb> 
+KeySet : Answer_1
+Paper:
+ p1
+ p2
+ p3
+ p4
+ p5
+ p6
+ p7
+// 7 object listed
+// 7 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 7 Active Objects
+acedb> // Comment "Dealing with constants"
+// 7 Active Objects
+acedb> 2	hello	10
+// 1 lines
+// 0 Active Objects
+acedb> L3
+// 1 lines
+// 1 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "TITLE"
+// 0 Active Objects
+acedb> #vv
+2
+// 1 lines
+// 0 Active Objects
+acedb> #vv	ww
+2	3
+// 1 lines
+// 0 Active Objects
+acedb> #ww	vv
+3	2
+// 1 lines
+// 0 Active Objects
+acedb> #uu
+1
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "arithmetics"
+// 0 Active Objects
+acedb> -18
+// 1 lines
+// 0 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> 2
+// 1 lines
+// 0 Active Objects
+acedb> 1
+// 1 lines
+// 0 Active Objects
+acedb> 81
+// 1 lines
+// 0 Active Objects
+acedb> 3
+// 1 lines
+// 0 Active Objects
+acedb> 1	NULL
+// 1 lines
+// 0 Active Objects
+acedb> 6	3
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "DNA and Proteins"
+// 0 Active Objects
+acedb> atgataagagtataa
+atgcgtgtacgat
+atgttgagagtataa
+cttggatgatctatagtc
+// 4 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Navigating through the acedb schema"
+// 0 Active Objects
+acedb> p1	Jim	NULL	London
+p1	Tom	Professor	Paris
+p1	Tom	Professor	Tokyo
+p2	Kim	NULL	NULL
+p2	Tom	Professor	Paris
+p2	Tom	Professor	Tokyo
+p3	Tom	Professor	Paris
+p3	Tom	Professor	Tokyo
+p3	Xavier	NULL	NULL
+p4	Tom	Professor	Paris
+p4	Tom	Professor	Tokyo
+p5	Tom	Professor	Paris
+p5	Tom	Professor	Tokyo
+p6	Jack	NULL	NULL
+p7	NULL	NULL	NULL
+// 15 lines
+// 7 Active Objects
+acedb> p1	100	107
+p2	17	19
+p3	23	42
+// 3 lines
+// 3 Active Objects
+acedb> p1	100	107
+p2	17	19
+p3	23	42
+// 3 lines
+// 3 Active Objects
+acedb> p1	100	107
+p2	17	19
+p3	23	42
+// 3 lines
+// 3 Active Objects
+acedb> p1	Pages	107
+p2	Pages	19
+p3	Pages	42
+p4	NULL	NULL
+p5	NULL	NULL
+p6	NULL	NULL
+p7	NULL	NULL
+// 7 lines
+// 7 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 2 lines
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 2 lines
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 2 lines
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	A	1000	6000
+chr_18	A	4000	2000
+chr_18	A	4000	6000
+chr_18	B	1000	2000
+chr_18	B	1000	6000
+chr_18	B	4000	2000
+chr_18	B	4000	6000
+// 8 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Transitive closure and multivalued data cell"
+// 1 Active Objects
+acedb> Enosh	Baraki
+Enosh	Keman
+Eva	Abel
+Eva	Cain
+Eva	Seth
+Seth	Enosh
+// 6 lines
+// 3 Active Objects
+acedb> Cain; Abel; Seth
+// 2 lines
+// 0 Active Objects
+acedb> Cain; Abel; Seth
+// 2 lines
+// 0 Active Objects
+acedb> Abel
+Baraki
+Cain
+Enosh
+Keman
+Seth
+// 6 lines
+// 6 Active Objects
+acedb> Jim; Tom
+// 2 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Simplification rules"
+// 0 Active Objects
+acedb> sequence_1
+sequence_2
+sequence_3
+sequence_4
+// 4 lines
+// 4 Active Objects
+acedb> sequence_1
+sequence_2
+sequence_3
+sequence_4
+// 4 lines
+// 4 Active Objects
+acedb> sequence_1
+sequence_2
+sequence_3
+sequence_4
+// 4 lines
+// 4 Active Objects
+acedb> sequence_1
+sequence_2
+sequence_3
+sequence_4
+// 4 lines
+// 4 Active Objects
+acedb> sequence_1
+sequence_2
+sequence_3
+sequence_4
+// 4 lines
+// 4 Active Objects
+acedb> 
+// Found 4 objects in this class
+// 4 Active Objects
+acedb> 
+KeySet : Answer_1
+Sequence:
+ sequence_1
+ sequence_2
+ sequence_3
+ sequence_4
+// 4 object listed
+// 4 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 4 Active Objects
+acedb> // Comment "Name recognition"
+// 4 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> 
+// Found 1 objects in this class
+// 1 Active Objects
+acedb> 
+KeySet : Answer_1
+Person:
+ King
+// 1 object listed
+// 1 Active Objects
+acedb> King
+Kong
+// 2 lines
+// 2 Active Objects
+acedb> Karl Maning
+King
+Kong
+Kuong
+// 4 lines
+// 4 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+// 12 lines
+// 12 Active Objects
+acedb> Karl Maning
+King
+Kong
+Kuong
+// 4 lines
+// 4 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 4 Active Objects
+acedb> // Comment "protecting named variables and reserved words"
+// 4 Active Objects
+acedb> Abel	Cain
+Cain	Seth
+Xavier	Zachary
+// 3 lines
+// 3 Active Objects
+acedb> Xavier	Zachary
+Zachary	Xavier
+// 2 lines
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Comment "Chaining queries"
+// 2 Active Objects
+acedb> // 22 lines
+// 22 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> 
+// Found 22 objects in this class
+// 22 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Active list is populated by the first selected variable"
+// 1 Active Objects
+acedb> p1	Nature
+p2	Nature
+p3	Science
+p4	NULL
+p5	NULL
+p6	IEEE
+p7	Physical Review
+// 7 lines
+// 7 Active Objects
+acedb> IEEE	p6
+Nature	p1
+Nature	p2
+Physical Review	p7
+Science	p3
+NULL	p4
+NULL	p5
+// 7 lines
+// 4 Active Objects
+acedb> IEEE
+Nature
+Physical Review
+Science
+// 5 lines
+// 4 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 6 Active Objects
+acedb> // Comment "Filtering with a where clause"
+// 6 Active Objects
+acedb> Jim
+// 1 lines
+// 1 Active Objects
+acedb> Jim
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Filter on Text"
+// 1 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+Seth
+Tam
+Theotym
+Thomas
+Tim
+Tom
+Xavier
+Zachary
+// 22 lines
+// 22 Active Objects
+acedb> Jim
+Tam
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Jim
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> Jim	Affiliation
+Tam	Affiliation
+Tom	Affiliation
+// 3 lines
+// 3 Active Objects
+acedb> Jim	London
+Tom	Paris
+Tom	Tokyo
+// 3 lines
+// 2 Active Objects
+acedb> London
+Paris
+Tokyo
+// 3 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Filter on ?Text"
+// 0 Active Objects
+acedb> Tam
+Tim
+// 2 lines
+// 2 Active Objects
+acedb> Tim
+// 1 lines
+// 1 Active Objects
+acedb> Tam	NickName
+Tim	NickName
+// 2 lines
+// 2 Active Objects
+acedb> Tim	Fire
+// 1 lines
+// 1 Active Objects
+acedb> Fire
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Filter on Int"
+// 1 Active Objects
+acedb> Tam
+Tim
+Tom
+Xavier
+// 4 lines
+// 4 Active Objects
+acedb> Tim
+Tom
+Xavier
+// 3 lines
+// 3 Active Objects
+acedb> Tam	Size
+Tim	Size
+Tom	Size
+Xavier	Size
+// 4 lines
+// 4 Active Objects
+acedb> Tim	39
+Tom	43
+Xavier	0
+// 3 lines
+// 3 Active Objects
+acedb> Tim	39
+Tom	43
+// 2 lines
+// 2 Active Objects
+acedb> Xavier	0
+// 1 lines
+// 1 Active Objects
+acedb> 0
+39
+43
+// 3 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Filter on Float"
+// 0 Active Objects
+acedb> Tam
+Tim
+Tom
+Xavier
+// 4 lines
+// 4 Active Objects
+acedb> Tim
+Tom
+Xavier
+// 3 lines
+// 3 Active Objects
+acedb> Tam	Weight
+Tim	Weight
+Tom	Weight
+Xavier	Weight
+// 4 lines
+// 4 Active Objects
+acedb> Tim	100
+Tom	70
+Xavier	0
+// 3 lines
+// 3 Active Objects
+acedb> Tim	100
+Tom	70
+// 2 lines
+// 2 Active Objects
+acedb> Xavier	0
+// 1 lines
+// 1 Active Objects
+acedb> 0
+70
+100
+// 3 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Filter on DateType"
+// 0 Active Objects
+acedb> Tam
+Tim
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Tim
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> Tam	Birth
+Tim	Birth
+Tom	Birth
+// 3 lines
+// 3 Active Objects
+acedb> Tim	2001-03-17
+Tom	2001-03
+// 2 lines
+// 2 Active Objects
+acedb> Tim	2001-03-17
+Tom	2001-03
+// 2 lines
+// 2 Active Objects
+acedb> Tim	2001-03-17
+// 1 lines
+// 1 Active Objects
+acedb> Tim	2001-03-17
+// 1 lines
+// 1 Active Objects
+acedb> Tim	2001-03-17
+Tom	2001-03
+// 2 lines
+// 2 Active Objects
+acedb> 2001-03
+2001-03-17
+// 2 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Dumpy persons"
+// 0 Active Objects
+acedb> Tim	1.6	100
+Tom	1.8	70
+Xavier	0	0
+// 3 lines
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Comment "Jokers in text patterns"
+// 3 Active Objects
+acedb> Tam
+Tim
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Tam
+Theotym
+Tim
+Tom
+// 4 lines
+// 4 Active Objects
+acedb> Attim
+Tam
+Theotym
+Tim
+Tom
+// 5 lines
+// 5 Active Objects
+acedb> Attim
+Tam
+Theotym
+Thomas
+Tim
+Tom
+// 6 lines
+// 6 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 6 Active Objects
+acedb> // Comment "UNIX regular expressions (equal tilde)"
+// 6 Active Objects
+acedb> Attim
+Tim
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Tim
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> Attim
+Tam
+Theotym
+Thomas
+Tim
+Tom
+// 6 lines
+// 6 Active Objects
+acedb> Attim
+Tam
+Theotym
+Tim
+Tom
+// 5 lines
+// 5 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 5 Active Objects
+acedb> // Comment "Spotting missing or out of range data"
+// 5 Active Objects
+acedb> Abel	NULL
+Attim	NULL
+Baraki	NULL
+Cain	NULL
+Enosh	NULL
+Eva	NULL
+Jack	NULL
+Jim	NULL
+Karl Maning	NULL
+Keman	NULL
+Kim	NULL
+King	NULL
+Kong	NULL
+Kuong	NULL
+Seth	NULL
+Tam	0
+Theotym	NULL
+Thomas	NULL
+Xavier	0
+Zachary	NULL
+// 20 lines
+// 20 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 20 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Jim
+Kim
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Jack
+Jim
+Kim
+Tom
+Xavier
+// 5 lines
+// 5 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select p from p in ?person where COUNT {select q from q in p->papers_junk } > 0  
+
+// ... WARNING: tag papers_junk unknown
+
+// 0 Active Objects
+acedb> Abel	0
+Attim	0
+Baraki	0
+Cain	0
+Enosh	0
+Eva	0
+Jack	0
+Jim	1
+Karl Maning	0
+Keman	0
+Kim	1
+King	0
+Kong	0
+Kuong	0
+Seth	0
+Tam	0
+Theotym	0
+Thomas	0
+Tim	0
+Tom	2
+Xavier	0
+Zachary	0
+// 22 lines
+// 22 Active Objects
+acedb> Abel	0
+Attim	0
+Baraki	0
+Cain	0
+Enosh	0
+Eva	0
+Jack	1
+Jim	1
+Karl Maning	0
+Keman	0
+Kim	1
+King	0
+Kong	0
+Kuong	0
+Seth	0
+Tam	0
+Theotym	0
+Thomas	0
+Tim	0
+Tom	5
+Xavier	1
+Zachary	0
+// 22 lines
+// 22 Active Objects
+acedb> Abel	0
+Attim	0
+Baraki	0
+Cain	0
+Enosh	0
+Eva	0
+Jack	0
+Jim	0
+Karl Maning	0
+Keman	0
+Kim	0
+King	0
+Kong	0
+Kuong	0
+Seth	0
+Tam	0
+Theotym	0
+Thomas	0
+Tim	0
+Tom	0
+Xavier	0
+Zachary	0
+// 22 lines
+// 22 Active Objects
+acedb> Abel	0
+Attim	0
+Baraki	0
+Cain	0
+Enosh	0
+Eva	0
+Jack	1
+Jim	1
+Karl Maning	0
+Keman	0
+Kim	1
+King	0
+Kong	0
+Kuong	0
+Seth	0
+Tam	0
+Theotym	0
+Thomas	0
+Tim	0
+Tom	5
+Xavier	1
+Zachary	0
+// 22 lines
+// 22 Active Objects
+acedb> Jack	1
+Jim	1
+Kim	1
+Tom	5
+Xavier	1
+// 5 lines
+// 5 Active Objects
+acedb> Abel	0
+Attim	0
+Baraki	0
+Cain	0
+Enosh	0
+Eva	0
+Jack	0
+Jim	0
+Karl Maning	0
+Keman	0
+Kim	0
+King	0
+Kong	0
+Kuong	0
+Seth	0
+Tam	0
+Theotym	0
+Thomas	0
+Tim	0
+Tom	0
+Xavier	0
+Zachary	0
+// 22 lines
+// 22 Active Objects
+acedb> Tom	5
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "acedb dynamic subclasses"
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment logical operators
+// 1 Active Objects
+acedb> 3
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Counting and embedded virtual queries"
+// 0 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> Tom
+// 1 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment "Dates: The successive numbers represent Y:year, M:month (1 to 12), D:day (1 to 31), h:hour (0 to 24), m:minute (0 to 60) and s:seconds (0 to 60)"
+// 1 Active Objects
+acedb> 2016-01-30_22:47:15
+// 1 lines
+// 0 Active Objects
+acedb> 2016-01-07_03:07
+// 1 lines
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  == `2016`       
+
+
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  <= `2016`       
+
+
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  == `2016-2-17`  
+
+
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  == `2016-3`     
+
+
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  == `2016`       
+
+
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> // bql empty table
+// ... BQL query : 
+// ...  select x from x="ok" where   `2016-2`  =~ `2016-3`     
+
+
+// 0 Active Objects
+acedb> ok
+// 1 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "DNA and Proteins"
+// 0 Active Objects
+acedb> sequence_1	atgcgtgtacgat
+sequence_2	atgataagagtataa
+sequence_3	atgttgagagtataa
+sequence_4	cttggatgatctatagtc
+// 4 lines
+// 4 Active Objects
+acedb> 3	8	sequence_1	gcgtgt
+3	8	sequence_2	gataag
+3	8	sequence_3	gttgag
+3	8	sequence_4	tggatg
+// 4 lines
+// 0 Active Objects
+acedb> sequence_1	atgcgt	acgcat	CDS
+sequence_2	atgata	tatcat	CDS
+sequence_3	atgttg	caacat	CDS
+sequence_4	cttgga	tccaag	NULL
+// 4 lines
+// 4 Active Objects
+acedb> LG
+MI
+ML
+MR
+// 4 lines
+// 0 Active Objects
+acedb> MIRV
+MLRV
+MRVRX
+// 3 lines
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Comment "Ordering"
+// 0 Active Objects
+acedb> Eva	Abel	Cain
+Eva	Cain	Abel
+Eva	Cain	Seth
+Eva	Seth	Cain
+// 4 lines
+// 1 Active Objects
+acedb> Eva	Seth	Cain
+Eva	Cain	Abel
+Eva	Cain	Seth
+Eva	Abel	Cain
+// 4 lines
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Comment Shortcuts"
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> Abel	Cain
+Cain	Seth
+Xavier	Zachary
+// 3 lines
+// 3 Active Objects
+acedb> Cain	Seth
+Xavier	Zachary
+Zachary	Xavier
+// 3 lines
+// 3 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> Tam
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> Tam
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> Tam
+Tom
+// 2 lines
+// 2 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> Tam
+Tim
+Tom
+// 3 lines
+// 3 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+Seth
+Tam
+// 16 lines
+// 16 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+Seth
+Tam
+Theotym
+Thomas
+Tim
+Tom
+Xavier
+Zachary
+// 22 lines
+// 22 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+Seth
+Tam
+Theotym
+Thomas
+Tim
+Tom
+Xavier
+Zachary
+// 22 lines
+// 22 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> p1	Nature
+p2	Nature
+p3	Science
+p4	NULL
+p5	NULL
+p6	IEEE
+p7	Physical Review
+// 7 lines
+// 7 Active Objects
+acedb> p1	Nature
+p2	Nature
+p3	Science
+p4	NULL
+p5	NULL
+p6	IEEE
+p7	Physical Review
+// 7 lines
+// 7 Active Objects
+acedb> IEEE
+Nature
+Physical Review
+Science
+// 5 lines
+// 4 Active Objects
+acedb> IEEE	p6
+Nature	p1
+Nature	p2
+Physical Review	p7
+Science	p3
+NULL	p4
+NULL	p5
+// 7 lines
+// 4 Active Objects
+acedb> IEEE	p6
+Nature	p1
+Nature	p2
+Physical Review	p7
+Science	p3
+// 5 lines
+// 4 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> King
+// 1 lines
+// 1 Active Objects
+acedb> Kim
+// 1 lines
+// 1 Active Objects
+acedb> Abel
+Attim
+Baraki
+Cain
+Enosh
+Eva
+Jack
+Jim
+Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+Seth
+Tam
+Theotym
+Thomas
+Tim
+Tom
+Xavier
+Zachary
+// 22 lines
+// 22 Active Objects
+acedb> Karl Maning
+Keman
+Kim
+King
+Kong
+Kuong
+// 6 lines
+// 6 Active Objects
+acedb> Kim
+// 1 lines
+// 1 Active Objects
+acedb> // 22 lines
+// 22 Active Objects
+acedb> Zachary
+Xavier
+Tom
+Tim
+Thomas
+Theotym
+Tam
+Seth
+Kuong
+Kong
+King
+Kim
+Keman
+Karl Maning
+Jim
+Jack
+Eva
+Enosh
+Cain
+Baraki
+Attim
+Abel
+// 22 lines
+// 22 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 22 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 22 Active Objects
+acedb> 
+
+// 22 Active Objects
+
+// A bientot 
+

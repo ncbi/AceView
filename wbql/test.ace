@@ -1,0 +1,166 @@
+
+Person Jim
+Papers p1
+Affiliation London
+     
+Person  Tam
+Professor
+Affiliation
+
+Person Tom
+Professor
+Papers p1  // Tom has published several papers
+Papers p2
+Papers p3
+Papers p4
+Papers p5
+Affiliation Paris
+Affiliation Tokyo
+
+Paper p1
+Author Jim
+Author Tom
+Journal Nature
+Title "Quantum computers"
+Published 2001-04
+Submitted 2000-11
+Pages 100 107
+
+Paper p2
+Author Tom
+Author Kim
+Journal Nature
+Published 2004-9-17
+Pages 17 19
+
+Paper p3
+Author Tom
+Author Xavier
+Journal Science
+Published 2001
+Pages 23 42
+
+Paper p6
+Author Jack
+Journal IEEE
+Submitted 2008-2-27
+Published 2008-3-2
+
+Paper p7
+Author 
+Journal "Physical Review"
+Submitted 2007-2-27
+Published 2007-3-2
+
+Person Xavier
+Weight 0
+Height 0
+Size 0
+
+>sequence_1
+atgcgtgtacgat
+>sequence_2
+atgataagagtataa
+>sequence_3
+atgttgagagtataa
+>sequence_4
+cttggatgatctatagtc
+
+Sequence sequence_1
+CDS
+
+Sequence sequence_2
+CDS
+
+Sequence sequence_3
+CDS
+
+
+Chromosome chr_18
+Gene A  1000 2000
+Gene B  4000 6000
+
+Person Eva
+Child Cain
+Child Abel
+Child Seth
+
+Person Cain
+Brother Abel
+Brother Seth
+
+Person Xavier
+Brother Zachary
+
+Person Seth
+Child Enosh
+
+Person Enosh
+Child Baraki
+Child Keman
+
+Person Jim
+
+Person King
+Height 1.95
+
+Person Kong
+
+Person Kuong
+
+Person "Karl Maning"
+
+Person Tam
+Weight
+Height
+Birth
+Size
+Nickname
+
+Person Tim
+Weight 100
+Height 1.60
+Size 39
+Birth 2001-03-17
+Nickname Fire
+
+Person Tom
+Weight 70
+Height 1.80
+Size 43
+Birth 2001-03
+
+Person Attim
+
+Person Thomas
+
+Person Theotym
+
+Person  Tam
+
+Person Tom
+
+Line L1
+Length 1
+
+Line L2
+Length 2
+
+Line L3
+Length 3
+
+
+
+
+PersonCS TIM
+
+PersonCS Tim
+
+PersonCS tim
+
+
+PersonCS TAM
+
+PersonCS Tom
+
+
