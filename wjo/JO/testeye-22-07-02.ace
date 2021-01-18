@@ -1,0 +1,471 @@
+// test data for the new oxgriddisp.c 
+// (with fish data, eye phenotypes and links to OMIA, OMIM and RetNet)
+// Griffin-Snark new format 22nd July 2002
+
+// Species data 
+
+Map_set Griffin
+Map Gri1 
+Map Gri2 
+Map Gri3  
+
+Map_set Snark
+Map Sna1 
+Map Sna2 
+
+Map_set Dodo
+Map Dod1
+Map Dod2
+Map Dod3
+Map Dod4
+
+// Chromosome data   
+Map Gri1
+Extent 0 250            // i.e. chromosome is 250 units in length
+Fish Gri1-Sna1
+Fish Gri1-Sna2
+
+Map Gri2
+Extent 0 100
+Fish Gri2-Sna1
+Fish Gri2-Sna2
+
+Map Gri3
+Extent 0 70
+Fish Gri3-Sna1
+Fish Gri3-Sna2
+
+Map Sna1
+Extent 0 100
+Fish Gri1-Sna1
+Fish Gri2-Sna1
+Fish Gri3-Sna1
+
+Map Sna2
+Extent 0 30
+Fish Gri1-Sna2
+Fish Gri2-Sna2
+Fish Gri3-Sna2
+
+Map Dod1
+Extent 0 170
+
+Map Dod2
+Extent 0 120
+
+Map Dod3
+Extent 0 99
+
+Map Dod4
+Extent 0 68
+
+//Fish data
+Fish Gri1-Sna1
+Map Gri1 Left 0.000    // now proportions of the chromosome length to 3 decimal places
+Map Gri1 Right 0.700
+Map Sna1 Left 0.000
+Map Sna1 Right 0.650
+
+Fish Gri1-Sna2
+Map Gri1 Left 0.780
+Map Gri1 Right 1.000
+Map Sna2 Left 0.667
+Map Sna2 Right 0.900
+
+Fish Gri2-Sna1
+Map Gri2 Left 0.450
+Map Gri2 Right 0.700
+Map Sna1 Left 0.700
+Map Sna1 Right 0.800
+
+Fish Gri2-Sna2
+Map Gri2 Left 0.720
+Map Gri2 Right 0.970
+Map Sna2 Left 0.000
+Map Sna2 Right 0.500
+
+Fish Gri3-Sna1
+Map Gri3 Left 0.357
+Map Gri3 Right 0.900
+Map Sna1 Left 0.850
+Map Sna1 Right 1.000
+
+Fish Gri3-Sna2
+Map Gri3 Left 0.000
+Map Gri3 Right 0.000
+Map Sna2 Left 0.000
+Map Sna2 Right 0.000
+
+
+//Locus data
+Locus Gri-aa
+Map Gri1 Position 125
+Eye_phenotype Lens
+Link_to_OMIA 000070
+Link_to_OMIM 116200
+Link_to_OMIM 212600
+Link_to_OMIM 212700
+Link_to_RetNet RetNet
+
+//The links need the data below to work properly
+OMIA 000070
+Pick_me_to_call callomia 000070
+
+OMIM 116200
+Pick_me_to_call callomim 116200
+
+OMIM 212600
+Pick_me_to_call callomim 212600
+
+OMIM 212700
+Pick_me_to_call callomim 212700
+
+RetNet RetNet
+Pick_me_to_call callretnet 
+
+// back to the Locus data
+Locus Sna-aa
+Map Sna1 Position 45
+Eye_phenotype Lens
+
+Locus Dod-aa
+Map Dod1 Position 138
+Eye_phenotype Lens
+
+
+Locus Gri-bb
+Map Gri2 Position 63
+Eye_phenotype Coloboma
+
+Locus Sna-bb
+Map Sna2 Position 8
+Eye_phenotype Coloboma
+
+Locus Dod-bb
+Map Dod2 Position 56
+Eye_phenotype Eye
+//outside fish
+
+
+Locus Gri-cc
+Map Gri3 Position 42
+Eye_phenotype Retina
+
+Locus Sna-cc
+Map Sna1 Position 88
+Eye_phenotype Global_malformation
+
+Locus Dod-cc
+Map Dod3 Position 17
+
+
+Locus Gri-dd
+Map Gri1 Position 34
+Eye_phenotype Localised_to_eye
+
+Locus Sna-dd
+Map Sna1 Position 21
+
+Locus Dod-dd
+Map Dod4 Position 22
+
+
+Locus Gri-ee
+Map Gri2 Position 78
+
+Locus Sna-ee
+Map Sna2 Position 11
+
+
+Locus Gri-ff
+Map Gri3 Position 28
+
+Locus Sna-ff
+Map Sna1 Position 36
+//outside fish
+
+Locus Gri-gg
+Map Gri1 Position 203
+
+Locus Sna-gg
+Map Sna2 Position 25
+
+
+Locus Gri-hh
+Map Gri1 Position 116
+
+Locus Sna-hh
+Map Sna1 Position 45
+
+
+Locus Gri-ii
+Map Gri1 Position 83
+
+Locus Sna-ii
+Map Sna1 Position 32
+
+
+Locus Gri-jj
+Map Gri1 Position 95
+
+Locus Sna-jj
+Map Sna1 Position 41
+
+
+Locus Gri-kk
+Map Gri1 Position 243
+
+Locus Sna-kk
+Map Sna2 Position 26
+
+
+Locus Gri-ll
+Map Gri1 Position 170
+
+Locus Sna-ll
+Map Sna2 Position 23
+//outside fish
+
+
+Locus Gri-mm
+Map Gri3 Position 35
+
+Locus Sna-mm
+Map Sna1 Position 90
+
+
+Locus Gri-nn
+Map Gri3 Position 57
+
+Locus Sna-nn
+Map Sna1 Position 98
+
+
+Locus Gri-oo
+Map Gri2 Position 49
+
+Locus Sna-oo
+Map Sna1 Position 73
+
+
+Locus Gri-pp
+Map Gri2 Position 68
+
+Locus Sna-pp
+Map Sna1 Position 72
+
+
+Locus Gri-qq
+Map Gri1 Position 4
+
+Locus Sna-qq
+Map Sna1 Position 10
+
+
+Locus Gri-rr
+Map Gri1 Position 24
+
+Locus Sna-rr
+Map Sna1 Position 22
+
+
+Locus Gri-ss
+Map Gri1 Position 21
+
+Locus Sna-ss
+Map Sna1 Position 29
+
+
+Locus Gri-tt
+Map Gri1 Position 198
+
+Locus Sna-tt
+Map Sna2 Position 21
+
+
+Locus Gri-uu
+Map Gri2 Position 76
+
+Locus Sna-uu
+Map Sna2 Position 7
+
+
+Locus Gri-vv
+Map Gri2 Position 81
+
+Locus Sna-vv
+Map Sna2 Position 9
+
+
+Locus Gri-ww
+Map Gri3 Position 61
+
+Locus Sna-ww
+Map Sna1 Position 90
+
+
+Locus Gri-xx
+Map Gri2 Position 80
+
+Locus Sna-xx
+Map Sna3 Position 14
+
+
+Locus Gri-yy
+Map Gri3 Position 27
+
+Locus Sna-yy
+Map Sna1 Position 86
+
+
+Locus Gri-zz
+Map Gri1 Position 52
+
+Locus Sna-zz
+Map Sna1 Position 38
+
+
+Locus Gri-aa2
+Map Gri3 Position 42
+
+Locus Sna-aa2
+Map Sna2 Position 19
+
+
+//Homology data 
+Homology_group aa
+Pairwise Gri-aa Sna-aa
+Pairwise Gri-aa Dod-aa
+Pairwise Sna-aa Dod-aa
+
+Homology_group bb
+Pairwise Gri-bb Sna-bb
+Pairwise Gri-bb Dod-bb
+Pairwise Sna-bb Dod-bb
+
+Homology_group cc
+Pairwise Gri-cc Sna-cc
+Pairwise Gri-cc Dod-cc
+Pairwise Sna-cc Dod-cc
+
+Homology_group dd
+Pairwise Gri-dd Sna-dd
+Pairwise Gri-dd Dod-dd
+Pairwise Sna-dd Dod-dd
+
+Homology_group ee
+Pairwise Gri-ee Sna-ee
+//Pairwise Gri-ee Dod-ee
+//Pairwise Sna-ee Dod-ee
+
+Homology_group ff
+Pairwise Gri-ff Sna-ff
+//Pairwise Gri-ff Dod-ff
+//Pairwise Sna-ff Dod-ff
+
+Homology_group gg
+Pairwise Gri-gg Sna-gg
+//Pairwise Gri-gg Dod-gg
+//Pairwise Sna-gg Dod-gg
+
+Homology_group hh
+Pairwise Gri-hh Sna-hh
+//Pairwise Gri-hh Dod-hh
+//Pairwise Sna-hh Dod-hh
+
+Homology_group ii
+Pairwise Gri-ii Sna-ii
+//Pairwise Gri-ii Dod-ii
+//Pairwise Sna-ii Dod-ii
+
+Homology_group jj
+Pairwise Gri-jj Sna-jj
+//Pairwise Gri-jj Dod-jj
+//Pairwise Sna-jj Dod-jj
+
+Homology_group kk
+Pairwise Gri-kk Sna-kk
+//Pairwise Gri-kk Dod-kk
+//Pairwise Sna-kk Dod-kk
+
+Homology_group ll
+Pairwise Gri-ll Sna-ll
+//Pairwise Gri-ll Dod-ll
+//Pairwise Sna-ll Dod-ll
+
+Homology_group mm
+Pairwise Gri-mm Sna-mm
+//Pairwise Gri-mm Dod-mm
+//Pairwise Sna-mm Dod-mm
+
+Homology_group nn
+Pairwise Gri-nn Sna-nn
+//Pairwise Gri-nn Dod-nn
+//Pairwise Sna-nn Dod-nn
+
+Homology_group oo
+Pairwise Gri-oo Sna-oo
+//Pairwise Gri-oo Dod-oo
+//Pairwise Sna-oo Dod-oo
+
+Homology_group pp
+Pairwise Gri-pp Sna-pp
+//Pairwise Gri-pp Dod-pp
+//Pairwise Sna-pp Dod-pp
+
+Homology_group qq
+Pairwise Gri-qq Sna-qq
+//Pairwise Gri-qq Dod-qq
+//Pairwise Sna-qq Dod-qq
+
+Homology_group rr
+Pairwise Gri-rr Sna-rr
+//Pairwise Gri-rr Dod-rr
+//Pairwise Sna-rr Dod-rr
+
+Homology_group ss
+Pairwise Gri-ss Sna-ss
+//Pairwise Gri-ss Dod-ss
+//Pairwise Sna-ss Dod-ss
+
+Homology_group tt
+Pairwise Gri-tt Sna-tt
+//Pairwise Gri-tt Dod-tt
+//Pairwise Sna-tt Dod-tt
+
+Homology_group uu
+Pairwise Gri-uu Sna-uu
+//Pairwise Gri-uu Dod-uu
+//Pairwise Sna-uu Dod-uu
+
+Homology_group vv
+Pairwise Gri-vv Sna-vv
+//Pairwise Gri-vv Dod-vv
+//Pairwise Sna-vv Dod-vv
+
+Homology_group ww
+Pairwise Gri-ww Sna-ww
+//Pairwise Gri-ww Dod-ww
+//Pairwise Snaww- Dod-ww
+
+Homology_group xx
+Pairwise Gri-xx Sna-xx
+//Pairwise Gri-xx Dod-xx
+//Pairwise Sna-xx Dod-xx
+
+Homology_group yy
+Pairwise Gri-yy Sna-yy
+//Pairwise Gri-yy Dod-yy
+//Pairwise Sna-yy Dod-yy
+
+Homology_group zz
+Pairwise Gri-zz Sna-zz
+//Pairwise Gri-zz Dod-zz
+//Pairwise Sna-zz Dod-zz
+
+Homology_group aa2
+Pairwise Gri-aa2 Sna-aa2
+
+
+
+

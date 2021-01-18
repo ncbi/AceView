@@ -1,0 +1,136 @@
+#  %W% %G%
+#################################################################
+############### acedb: R.Durbin and J.Thierry-Mieg ##############
+############### wext/makefile.ext  Feb 1998        ##############
+#################################################################
+#
+# ATTENTION:
+#   Define in this file machine independant directives
+#   to compile external codes linked against acelib
+#
+#   The makefile is decomposed into 2 parts
+#     makefile: which selects the machine and creates ./bin.*
+#     then copies the present file into ../bin.*
+#     and the present file which gives details on the linking
+#  
+#   Machine specific choices, like linker and compiler
+#     are specified in ../wmake/*_DEF
+#
+#   Object modules and exe are created in ../bin.*
+#     to keep the present directory clean and allow
+#     multiple architectures
+#
+#################################################################
+# Before running the make command
+# setenv ACEDB_MACHINE to indicate one of the predefined
+# Machine dependant option files, or write your own.
+# These files are called  $(ACEDB_SRC)/wmake/$(ACEDB_MACHINE)_DEF
+#
+# See the explanation at the top of ../wmake/truemake
+#################################################################
+
+# LINK_ACC is the set of object files needed if you use
+# the client version of the new Ace C library
+LINK_ACC= libacedna.a libtcpfn.a $(LINK_ACC_RPC) libaccl.a  libfree.a  libtsfree.a
+LINK_LIGHT=libacedna.a  libchannels.a libwego.a libfree.a  libtsfree.a -lpthread 
+
+# LINK_ACS is the set of object files needed if you use
+# the standalone acinside version of the new Ace C library
+LINK_ACS=libace.a libfree.a libtsfree.a libchannels.a libwego.a
+
+.KEEP_STATE: 
+
+# suppress auto SCCS extraction
+.SCCS_GET:
+
+#define defaults  overridable in $(ACEDB_MACHINE)_DEF
+RANLIB_NEEDED = true	
+AR_OPTIONS = rlu
+
+LINKER = cc 
+COMPILER = cc
+TEST = test
+
+#################################################################
+# most versions of lex require you to use -ll
+# but not Linux - reset LEX_LIBS in $(ACEDB_MACHINE)_DEF file
+
+LEX_LIBS = -ll
+
+#################################################################
+# include your choice from a machine dependant file
+# do not edit the present makefile for this purpos
+# this simplifies multiple architecture maintainance
+
+include deffile
+
+# Note that you can keep different DEF files for the same machine
+# setting  various compiler  options
+
+###########################################################
+##  Compiler and library options
+## CC, LIBS, NAME are defined in $(ACEDB_MACHINE)_DEF
+##
+ 
+IDIR = -I. -I.. -I../wh -I/netopt/sge/include 
+
+# Do not use -I/usr/include
+# it prevents gcc from picking up its own includes
+# (cc goes to /usr/include anyway)
+
+## to undefine any rubbish
+CCFLAGS =
+GCFLAGS =
+
+## Different platforms use CC or COMPILE.c
+#  (USEROPTS - see comments at top of file)
+#
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
+COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
+
+
+#################################################################
+#################################################################
+# Add here your definitions
+#################################################################
+#################################################################acc
+ 
+NN_LIBS = nnlayers.o nnchannels.o
+NN_MAIN_OBJS = dnaNN.o nn1.o
+ALL_NN_OBJS = $(NN_LIBS) $(NN_MAIN_OBJS)
+
+ALL_NN_SOURCES =  $(ALL_NN_OBJS:.o=.c)  tictactoe.c tictactoe2.c marienbad.c nnaligner.c motifNN.c
+
+
+
+$(ALL_NN_SOURCES)  :
+	$(TEST) -L $@ || ln -s ../wnn/$@ . 
+
+# "all" should always be the first target so that it is the default make action.
+all: nn1 dnaNN tictactoe tictactoe2 marienbad nnaligner
+
+nn1: nn1.o $(LINK_ACS)
+	$(LINKER)  -o $@  $@.o  $(LINK_ACS) $(LIBS)
+
+dnaNN: dnaNN.o $(LINK_LIGHT) $(NN_LIBS) 
+	$(LINKER)  -o $@  $@.o   $(NN_LIBS) $(LINK_LIGHT) $(LIBS) 
+
+tictactoe: tictactoe.o $(LINK_LIGHT) $(NN_LIBS) 
+	$(LINKER)  -o $@  $@.o   $(NN_LIBS) $(LINK_LIGHT) $(LIBS) 
+
+tictactoe2: tictactoe2.o $(LINK_LIGHT) $(NN_LIBS) 
+	$(LINKER)  -o $@  $@.o   $(NN_LIBS) $(LINK_LIGHT) $(LIBS) 
+
+marienbad: marienbad.o $(LINK_LIGHT) $(NN_LIBS) 
+	$(LINKER)  -o $@  $@.o   $(NN_LIBS) $(LINK_LIGHT) $(LIBS) 
+
+motifNN: motifNN.o $(LINK_LIGHT)
+	$(LINKER)  -o $@  $@.o   $(LINK_LIGHT) $(LIBS) 
+
+nnaligner: nnaligner.o $(LINK_LIGHT)
+	$(LINKER)  -o $@  $@.o   $(LINK_LIGHT) $(LIBS) 
+
+###########################################################
+########### end of     acedb makefile.nn   ################
+###########################################################
+ 

@@ -587,9 +587,8 @@ the program. It is available by ftp from several public file
 servers.  In each case log in as user "anonymous" and give your
 email address as password.
 
-1) ncbi.nih.gov (130.14.20.1) in the USA, in repository/acedb/acembly
-2) ftp.sanger.ac.uk in England, in pub/acembly
-3) ftp.crbm.cnrs-mop.fr ( 193.49.189.95) in France, directory pub/acembly
+1) ftp.ncbi.nih.gov 
+2) github.com:jtm/AceView
 
 Further information about acembly can be obtained from the mosaic server
 http://probe.nalusda.gov:8000/acedocs/index.html.
@@ -606,8 +605,8 @@ mieg@kaa.crbm.cnrs-mop.fr
 
     **************************************************************
     ****           acedb: A C. elegans Database               ****
-    **** Richard Durbin (MRC, UK) rd@mrc-lmba.cam.ac.uk       ****
-    **** Jean Thierry-Mieg (CNRS, France) mieg@kaa.cnrs-mop.fr****
+    **** Richard Durbin (MRC, UK) rd@sanger.ac.uk       ****
+    **** Jean Thierry-Mieg (CNRS, France) mieg@ncbi.nlm.nih.gov ****
     **************************************************************
 
 This help page provides basic information for the whole program.
@@ -620,7 +619,7 @@ Help:
   The F1 or F10 or Help key invokes the on line help related to the
   window to which the mouse points.  Some of these keys may not work on
   some machines or under some window managers, but one should!
-  There is also a help entry in most menus.
+    There is also a help entry in most menus.
 
 Printing:
   The F2 or F9 key creates a post-script file in the

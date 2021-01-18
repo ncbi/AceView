@@ -7,14 +7,5 @@
 # Example:  
 # 123.45.67.89 r // my_computer
 
-130.14.25.190 w  // acedev
-130.14.12.212 r  // mac
-130.14.24.219 r  // mwebdev2
-130.14.24.234 w  // ace01
-165.112.10.74 w  // ace31
-130.14.22.*  r // ncbi
-130.14.24.*  r // ncbi lfarm
-130.14.25.*  r // ncbi lfarm
-
 
 

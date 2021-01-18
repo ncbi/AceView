@@ -28,7 +28,7 @@
 
 #include <wh/regular.h>
 #include <wh/mytime.h>
-#include <wsocket/servertransport.h>			    /* Defines interface required by acedb */
+#include <wsocket7/servertransport.h>			    /* Defines interface required by acedb */
 							    /* server. */
 
 

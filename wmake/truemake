@@ -215,7 +215,7 @@ Xt_OBJS =  graphxt.o graphxlib.o xtsubs.o graphxwww.o xnetscape_remote.o
 
 GIF_OBJS = libgd.o gdfont6x9.o gdfont8x13.o gdfont8x13bold.o
 
-WJAVA_OBJS = wz.o
+# WJAVA_OBJS = wz.o
 
 #####################################################################
 
@@ -487,7 +487,7 @@ WABI_SOURCES = trace.c fmaptrace.c geneexpdisp.c glocdisp.c hseqdisp.c htiledisp
 	gffdump.c gffread.c cdnarename.c chromorepeats.c webquery.c webmagic.c
 WHOOK_SOURCES = sysclass.c class.c tags.c quovadis.c cdnainit.c
 GIF_SOURCES = $(GIF_OBJS:.o=.c)
-WJAVA_SOURCES = $(WJAVA_OBJS:.o=.c)
+# WJAVA_SOURCES = $(WJAVA_OBJS:.o=.c)
 WJO_SOURCES = $(JO_OBJS:.o=.c)
 
 CHANNEL_OBJS =  remote_channel.o
@@ -613,8 +613,8 @@ $(WHOOK_SOURCES):
 	$(TEST) -L $@ || ln -s ../whooks/$@ .
 $(GIF_SOURCES): 
 	$(TEST) -L $@ || ln -s ../wgd/$@ .
-$(WJAVA_SOURCES): 
-	$(TEST) -L $@ || ln -s ../wjava/$@ .
+# $(WJAVA_SOURCES): 
+#	$(TEST) -L $@ || ln -s ../wjava/$@ .
 $(WJO_SOURCES): 
 	$(TEST) -L $@ || ln -s ../wjo/$@ .
 $(WVSIM_SOURCES): 
@@ -663,14 +663,14 @@ libacedna.a : $(ACEDNA_OBJS)
 libfree_clean : 
 	rm -f $(FREE_OBJS) libfree.a
 
-libgraph.a : $(GRAPH_OBJS) $(GIF_OBJS) $(WJAVA_OBJS) $(Xt_OBJS)
+libgraph.a : $(GRAPH_OBJS) $(GIF_OBJS) $(Xt_OBJS)
 	ar $(AR_OPTIONS) libgraph.a $?
 	if ( $(RANLIB_NEEDED) ) then ranlib libgraph.a; fi
 
 libgraph_clean : 
-	rm -f $(GRAPH_OBJS) $(GIF_OBJS) $(WJAVA_OBJS)  $(Xt_OBJS) libgraph.a
+	rm -f $(GRAPH_OBJS) $(GIF_OBJS)  $(Xt_OBJS) libgraph.a
 
-libgif.a : $(GRAPH_OBJS) $(GIF_OBJS) gifsubs.o $(WJAVA_OBJS) 
+libgif.a : $(GRAPH_OBJS) $(GIF_OBJS) gifsubs.o 
 	ar $(AR_OPTIONS) libgif.a $?
 	if ( $(RANLIB_NEEDED) ) then ranlib libgif.a; fi
 

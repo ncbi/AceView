@@ -1,0 +1,8 @@
+#!/bin/tcsh 
+aceclient vesta:2310331 << EOF
+query find gene apb*
+list
+aql select :1  from   @active
+aql select :1, imap from   @active, imap in :1->IntMap
+list
+EOF

@@ -1,6 +1,6 @@
 README for acedb and related stuff
 --
-The code is GPL Gnu Public License V2 or Later.
+The code is GPL
 If you use the acedb_ncbi code
 please quote
 
@@ -29,12 +29,7 @@ whelp
 	contains help files used by the compiled programs.
 
 idoc
-	internal documentation written by Mark S - I am collecting
-	notes about how the system works, as I figure it out.  Don't
-	necessarily place too much confidence in this.
-
-http://www.acedb.org :
-	 the sanger server for acedb constains interesting acedb doc
+	internal documentation written by Mark S 
 
 Quick guide to building the system
 --

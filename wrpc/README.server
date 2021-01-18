@@ -84,17 +84,12 @@ wspec/acetcp_access.wrm
 	and "shutdown".  You can also use "x" for "no access".
 
 	The network number may contain "*" for any octet of the address,
-	so you can write "130.14.24.*", but it does not recognize things
-	like "130.14.24.1*"
+	so you can write "123.45.24.*", but it does not recognize things
+	like "123.45.24.1*"
 
 	"#" begins a comment.
 
 	Here is a file for most machines at NCBI:
-
-		130.14.24.*     r
-		130.14.25.*     r
-		130.14.22.*	r
-		127.0.0.1       rw
 
 	The incoming connection is tested in the order that the lines appear
 	in the file.  So, for example

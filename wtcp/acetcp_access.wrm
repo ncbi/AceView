@@ -1,12 +1,12 @@
 # ncbi machines
 
-# main network we are on:  vesta, cerleris, jove, etc
+# main network we are on:  toto, mimi , etc
 # two times a class C
-130.14.24.*     rw
-130.14.25.*     rw
+123.4.5.*     rw
+
 
 # network genome2 is on
-130.14.22.*	rw
+
 
 # localhost
 127.0.0.1       rw

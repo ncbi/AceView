@@ -1,6 +1,6 @@
 #include "regular.h"
 #include <wtcp/tcp_connect.h>
-#include <wsocket/acesocket_.h>
+#include <wsocket7/acesocket_.h>
 
 int main (int argc, char **argv)
 {

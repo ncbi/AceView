@@ -1,0 +1,92 @@
+#!/bin/tcsh
+# Author: mieg@ncbi.nlm.nih.gov 2017, Novembre 3
+
+# This file in an executable self documented test shell, testing the acedb query language
+# to run the test type on the command line
+
+#       tcsh README
+
+# this directory contains a set of tests for the acedb query language AQL 2017
+#     see the file:   query_examples
+# which will be tested in the subdirectory TEST
+# by running the present file as a tcsh script
+#     tcsh README
+
+#The queries are invoked from tace (text oriented acedb) by the command 'select'
+# example
+#  ./tace TEST
+#     select p in class person
+#     quit
+
+# First the code must be compiled in the .. directory using 'make -k all'
+# in the acedb/magic distribution directory (the parent of th present diredctory)
+# Then we link the tace executable in the present directory
+if (! -e ./tace) then
+  if ($?ACEDB_MACHINE) then
+    ln -s ../bin.$ACEDB_MACHINE/tace .
+  else
+    \ln -s ../bin.*/tace .
+  endif
+endif
+if (! -e ./tace) then
+  echo 'Sorry, the executable tace is not found in ../bin*/tace'
+  echo 'please compile acedb in the directory .. '
+  goto phaseLoop 
+endif
+
+
+# clean up previous results
+if (-d TEST) \rm -rf TEST
+
+# create a new database, and read the supporting data
+if (! -d TEST) then
+  mkdir TEST TEST/database
+  cd TEST
+  gunzip -c  ../wspec.bqltest.tar.gz | tar xf -
+  ln -s wspec.bqltest wspec
+  echo $user >> wspec/passwd.wrm
+  cd ..
+  ./tace TEST << EOF
+y
+    parse query_test.ace
+    save
+EOF
+endif
+
+# avoid exporting the date-dependant banner
+setenv ACEDB_NO_BANNER
+
+# run the queries
+cat query_examples | ./tace TEST > TEST/query_examples.out
+
+# Finally we compare with the expected results and expect a void results
+
+set n=`diff query_examples.expected_results TEST/query_examples.out | wc -l`
+
+if ($n == 0) then
+  echo "SUCCESS, all the tested queries lead to the expected results"
+else
+  echo "ERROR, there are $n differences with the expected results of the queries"
+  echo "Please diff   query_examples.expected_results TEST/query_examples.out"
+  echo " and please report the problem to mieg@ncbi.nlm.nih.gov "
+endif
+
+
+
+# Note: AQL 2017, also called BQL is a revision of of AQL 2005
+# It can be invoked indifferently from the 'tace' command line as
+#     aql select, bql select, or simply select
+# At the end of the example flie some compatibility issues with AQL 2005 are listed
+#   keywords, like 'all', or '@active:1 
+# are deprecated, but recognised for backwards compatibility
+# However, some hard to understand convoluted queries accepted in AQL-2005, 
+# are no longer accepted.
+# Finally in  a where condition, AQL 2005 accepted 'where a = b' OR 'where a == b'
+# in AQL-2017 one must use 'where a == b' to preform a comparison
+# because, like in C, the syntax 'a = b' affects the  value b to variable a
+
+
+phaseLoop:
+  echo done
+
+

@@ -1,0 +1,206 @@
+// The following queries can be tested ginst the 
+// queries which appear in the bql documentation
+select p,pub  from p in class person, pub in p->papers where count { p->papers } >= 5  
+select p from p in class person, w in p->weight, h in p->height where w > 150 * (h - 1) and w > 80 
+ 
+  Find person   // list all members of class person
+  select K*     // limit to names starting with K
+  follow papers  // list their papers
+
+  select ?person k* ; >papers    // idem on a single line
+  select ?sequence s* ; DNA      // export a set of DNA sequences
+
+   select ?Paper
+ 
+  select x, y, z from x = 2 , y = "hello", z = 2 * 3 + 4
+  select L from L in class line , pi = 3.14 where L->length > 2 * pi / 3
+
+  select d from  d = 2 where d == 5 - 3   // correct filter
+  // select d from  d = 2 where d = 5 - 3    // error, please use == 
+
+  select x from x = 2 // full form
+  select x = 2   // short form
+  select 2       // shortest form
+  select  (1 + 2) * (3 - ( 4 + 5))  // returns  (3) * (-6) = -18
+  select  8 modulo 3      // returns 2
+  select  -1 modulo 3     // returns  2 (math convention) 
+                          // rather than  -1
+  select  2 * 5 modulo 3  // returns  1 
+  select  9 ^ 2           // returns square(9) = 9 * 9 = 81
+  select  9 ^ (1/2)       // returns sqrt(9) = 3
+  select  (-1) ^ .5       // error, avoid complex numbers  ERROR
+  select  3*2 , (5+1)/2   // returns 6,3
+ 
+
+ select p in ?Paper, a in p->Author, dr in a#PhD, z in a->Affiliation
+ 
+ select P in ?Paper, p1 in P->page, p2 in p1[1] where p2
+ select P, p1, p2 from P in ?Paper, p in P#page, p1 in p[1], p2 in p[2] where p2
+ select P, p1, p2 from P in ?Paper, p1 in P->page[1], p2 in P->Page[2] where p2
+ select P  in ?Paper, p in P#page, p2 in p[2]
+
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in g[1], a2 in g[2]
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in g[1], a2 in a1[1]
+  select c in ?chromosome, g in c->Gene, a1 in g[1], a2 in a1[1]
+
+  select c, g, a1, a2 from c in ?chromosome, g in c->Gene, a1 in c->Gene[2], a2 in c->Gene[3]
+
+  select p in ?Person, c in p->child where c
+  select ?Person Eva ; @ -> child // Eva's children
+  select ?Person Eva ; @ >> child
+  select ?Person Eva ; @ => child 
+  select c from w in class "Person" where w == "Eva", c in w => child 
+
+  select ?paper p1 ; @=>author
+/
+  select x from x in class "sequence"  // full syntax, or equivalently
+  select x in class "sequence"  // drop from since x is exported, or
+  select x in class  sequence   // drop the the quotes. or
+  select class sequence         // drop the name of the variable, or
+  select ?sequence              // use ? to represent class
+  find sequence                 // intuitive equivalent syntax
+
+
+    select x from x in class "person"  where x like "king"  // full syntax
+    select ?person like "king"   // drop x  and the where keyword
+    select ?person  king         // drop like and the quotes
+    find Person king             // intuitive equivalent syntax
+
+    select ?Person "K?ng"        // select King, Kong but not Kuong 
+    select ?Person "k*ng"        // select King, Kong, Kuong and "Karl Maning" 
+    select ?Person < kj          // select Karl, King but not kong
+    select ?Person =~ '^k.*g'    // =~ invokes Unix regular expressions
+
+    select x in ?Person, y in x->Brother where y > x    // x is a variable
+    select x in ?Person, y in x->Brother where y > "x"  // "x" is letter x
+
+    select a from a in class "person"          // populate the active list @
+    select a from a in @ where a like "king"   // derive a from the list
+ 
+    find person
+    select king
+
+    select p, j from p in class paper, j in p->journal  // case PJ
+    select j    from p in class paper, j in p->journal  // case JP
+    select j, p from p in class paper, j in p->journal  // case J
+
+   //  select a in class "Person" ; select a from a in @ where a like "k*"    ERROR
+   //  select ?person ; "k*"    //  short equivalent form    ERROR
+    select ?person ; k*    //  short equivalent form      WORKS
+  
+    select ?Person Jim
+    select p in class "Person" where p == "Jim"
+ 
+    select p in class Prolific_author // list the subclass
+ 
+   select a in ?person where count a->papers > 5
+   select a in class person where count {select p in a->papers} > 5
+
+   select a in class "person" where count        {select p in a->papers where p->journal == "nature"} > 2 
+
+
+select d = `2016-01-30_22:47:15`
+select d = `2016-1-7_3:7`
+
+   select s in class sequence, d in DNA(s)
+// would yield the full DNA of each sequence in the database. 
+// To obtain a specific part one could using
+   select x = 3, y = 8, s in ?sequence, d in DNA(s,x,y)   
+// The reserved word DNA must be written in upper case, this
+// allows to use dna as a variable name or to access 
+// the DNA tag. If x > y, one obtains the reverse complement
+   select s, dna, adn, from s in ?sequence, dna in DNA(s,1,6), adn in DNA(s,6,1)
+// PEPTIDE will translate the sequence 
+   select PEPTIDE (@,1,2)
+// would give Methionine-Leucine
+   ML
+// To get all proteins encoded in messenger RNA, try
+   select ?sequence CDS      // the CDS tag means the sequence is coding
+   select -o TEST/peptide.fasta  ?sequence CDS ; PEPTIDE // all proteins are written to file f
+
+
+// Other queries on the same model and data
+
+
+select p,a,b from p in class Person, a in p->address, b in a[2] where b == "England" // works
+// select p,a,b from p in class Person, a in p->address, b in a[2] where b = "England"  // syntax error, = should be ==  do we want to allow this 
+
+aql -active select g from g in @active:1 // works
+
+select a, a->Affiliation from a in class Person // works
+
+select p in class Person where p->Address ~ "B*"  // works
+
+// constructing a complex request inside the where clause fails, one must first construct a variable
+// this incomplete behaviour should be fixed by creating a dummy variable automatically
+// select p,a  from p in class Person, a in p->address where a[2] == "England" // FAILS
+// select a from a in class Person where a->Address[2] == "England" // FAILS
+
+
+
+
+select p in ?paper ; select q in @->journal // works
+select p in ?person ; select z in @, a in z->address  where a like "B*" // fails ERROR
+select p in ?person, a in p->address  where a like "B*"   // works
+
+select a,b from a in class Person where a->Address ~ "B*", b in a->Papers, j in b->Journal where j == "Nature"// works
+select a,b from a in class Person where a->Address ~ "B*", b in a->Papers where b->Journal == "Nature"  // works
+
+select a->Papers->Author from a in object("Person","King") // works
+
+select object("Person","King")->Papers->Author  // works
+
+select a in class Person where count a->Papers > 5  // works
+select a in class Person where count {a->Papers} > 5  // works
+select a in class Person where count (a->Papers) > 5  // works
+select a in class Person where count {select  a->Papers} > 5 // works
+select a in class Person where count {select  a->Papers} > 5 // works
+// select a in class Person where count(select a->Papers) > 5 // syntax error () should be {} but reports emty table ERROR
+
+aql select p from p in class "Person" where p like "K*" // works
+
+select p,a from p in class person, a in p->papers where a order by +1+2 // works
+select p,a from p in class person, a in p->papers where a order by +1-2 // works
+select p,a from p in class person, a in p->papers where a order by -1-2 // works
+// select p,a from p in class person, a in p->papers where a order by p-a  // NOT IMPLEMENRED BUT DESIRABLE
+
+select p,a from p in object("Person", "King"), a in p->papers // works
+select a, page, page[1] from a in object("Person", "King")->papers, page in a->page // works
+select a, a->page[1], a->page[2]  from a in object("Person", "King")->papers // works
+select page, page[1] from page in object("Person", "King")->papers->page // works
+select page, page[1] from page in object("Person", "King")->papers->page[2] // works
+select a, a->papers, a->papers->page[1], a->papers->page[2]  from a in object("Person", "King") // works
+
+// calculated variables
+select p, n_pages from p in class paper, p1 in p->page, p2 in p1[1] where p2, n_pages = p2 - p1 + 1 // works
+
+// named table, not implemented in bql
+// @AHsubseq := select x,x[1],x[2] from x in object("Sequence","AH6")->Subsequence
+// union of tables are not implemented, I am nut sure i understand the meaning except for single column tables
+// alose the implicit cosntruction of size in the following example is way too obscure
+// there is no reason not to create a variable size as above for n_pages
+// (select r[1],size:r[3]-r[2] from r in @AH6subseq where r[3]>r[2]) union (select [1],size:[2]-[3] from @AH6subseq where [2]>[3]) order by .size
+
+////////////////////////////////
+// Compatibility with AQL 2005
+
+// all is deprecated but accepted, just drop it
+select all a in class Person where a ~ "k*"  // works
+select all object("Person","King")->Papers->Author  // works
+// equivalent to
+select     a in class Person where a ~ "k*"  // works
+select     object("Person","King")->Papers->Author  // works
+
+// named tables are no longer supported, this may be a problem
+// @active:1 can be simplified into @
+aql -active select g from g in @active:1 // works
+aql -active select g from g in @ // works
+
+
+// NO LONGER ACCEPTED
+// the old aql constructions 'nothing -> tag ' does not seem desirable,
+// it could be restored but somehow adds to the complexity of the syntax
+// without serving a clear purpose 
+// select all class Person where ->Address ~ "B*" // fails
+// use
+select p in ?person where p->address ~ "b*"  // works

@@ -1,0 +1,801 @@
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> King	p1
+King	p2
+King	p3
+King	p4
+King	p5
+King	p6
+King	p7
+// 1 Active Objects
+acedb> John
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> 
+// Found 26 objects in this class
+// 26 Active Objects
+acedb> Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+// 6 Active Objects
+acedb> 
+// Found 7 objects
+// 7 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 7 Active Objects
+acedb> p1
+p2
+p3
+p4
+p5
+p6
+p7
+// 7 Active Objects
+acedb> atgttgccaccttctgagcacagt
+tttgaacagtgatccgtat
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> p1
+p2
+p3
+p4
+p5
+p6
+p7
+// 7 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 7 Active Objects
+acedb> 2	hello	10
+// 0 Active Objects
+acedb> line_b
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> -18
+// 0 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> 2
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> 1
+// 0 Active Objects
+acedb> 81
+// 0 Active Objects
+acedb> 3
+// 0 Active Objects
+acedb> // 0 Active Objects
+acedb> 6	3
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> p1	Jim	NULL	London
+p1	King	PhD	Paris
+p1	King	PhD	Tokyo
+p2	Jim	NULL	London
+p2	King	PhD	Paris
+p2	King	PhD	Tokyo
+p3	Jim	NULL	London
+p3	King	PhD	Paris
+p3	King	PhD	Tokyo
+p4	King	PhD	Paris
+p4	King	PhD	Tokyo
+p5	King	PhD	Paris
+p5	King	PhD	Tokyo
+p6	King	PhD	Paris
+p6	King	PhD	Tokyo
+p7	King	PhD	Paris
+p7	King	PhD	Tokyo
+// 7 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 7 Active Objects
+acedb> p1	1	23
+p2	100	107
+p3	117	190
+// 3 Active Objects
+acedb> p1	1	23
+p2	100	107
+p3	117	190
+// 3 Active Objects
+acedb> p1	1	23
+p2	100	107
+p3	117	190
+// 3 Active Objects
+acedb> p1	Page	23
+p2	Page	107
+p3	Page	190
+p4	NULL	NULL
+p5	NULL	NULL
+p6	NULL	NULL
+p7	NULL	NULL
+// 7 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 7 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	B	4000	6000
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> chr_18	A	1000	2000
+chr_18	A	1000	6000
+chr_18	A	4000	2000
+chr_18	A	4000	6000
+chr_18	B	1000	2000
+chr_18	B	1000	6000
+chr_18	B	4000	2000
+chr_18	B	4000	6000
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Enosh	Baraki
+Enosh	Keman
+Eva	Abel
+Eva	Cain
+Eva	Seth
+Seth	Enosh
+// 3 Active Objects
+acedb> Abel
+Cain
+Seth
+// 3 Active Objects
+acedb> Abel
+Baraki
+Cain
+Enosh
+Keman
+Seth
+// 6 Active Objects
+acedb> Cain; Abel; Seth
+// 0 Active Objects
+acedb> Cain; Abel; Seth
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> King; Jim
+// 0 Active Objects
+acedb> // 0 Active Objects
+acedb> s1
+s2
+s3
+// 3 Active Objects
+acedb> s1
+s2
+s3
+// 3 Active Objects
+acedb> s1
+s2
+s3
+// 3 Active Objects
+acedb> s1
+s2
+s3
+// 3 Active Objects
+acedb> s1
+s2
+s3
+// 3 Active Objects
+acedb> 
+// Found 3 objects in this class
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> 
+// Found 1 objects in this class
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> King
+Kong
+// 2 Active Objects
+acedb> Karl Maning
+King
+Kong
+Kuong
+// 4 Active Objects
+acedb> Abel
+Attim
+B7
+B10
+b23
+Baraki
+Bxy
+Cain
+Enosh
+Eva
+Jim
+John
+Karl Maning
+Keman
+Kenan
+King
+// 16 Active Objects
+acedb> Karl Maning
+King
+Kong
+Kuong
+// 4 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 4 Active Objects
+acedb> Abel	Cain
+Abel	Seth
+Baraki	Kenan
+Cain	Seth
+Xavier	Zachary
+// 4 Active Objects
+acedb> Xavier	Zachary
+Zachary	Xavier
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> Abel
+Attim
+B7
+B10
+b23
+Baraki
+Bxy
+Cain
+Enosh
+Eva
+Jim
+John
+Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+Seth
+Tam
+Theotym
+Thomas
+Tim
+Tom
+Xavier
+Zachary
+// 26 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> 
+// Found 26 objects in this class
+// 26 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> p1	NULL
+p2	NULL
+p3	NULL
+p4	NULL
+p5	Nature
+p6	Nature
+p7	Nature
+// 7 Active Objects
+acedb> Nature
+// 1 Active Objects
+acedb> NULL	p1
+NULL	p2
+NULL	p3
+NULL	p4
+Nature	p5
+Nature	p6
+Nature	p7
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+// 6 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 6 Active Objects
+acedb> Jim
+// 1 Active Objects
+acedb> Jim
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> 2016-01-30_22:47:15
+// 0 Active Objects
+acedb> 2016-01-07_03:07
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> s1	atgttgccaccttctgagcacagt
+s2	tttgaacagtgatccgtat
+s3	NULL
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> 3	8	s1	gttgcc
+3	8	s2	tgaaca
+3	8	s3	NULL
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> s1	atgttg	caacat
+s2	tttgaa	ttcaaa
+s3	NULL	NULL
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> ML
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Keyword ML does not match
+// Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> s1
+s3
+// 2 Active Objects
+acedb> // 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 0 Active Objects
+acedb> King	Buckingham Palace	England
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> "King"
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Abel	NULL
+Attim	NULL
+B7	NULL
+B10	NULL
+b23	NULL
+Baraki	NULL
+Bxy	NULL
+Cain	NULL
+Enosh	NULL
+Eva	NULL
+Jim	London
+John	NULL
+Karl Maning	NULL
+Keman	NULL
+Kenan	NULL
+King	Paris
+King	Tokyo
+Kong	NULL
+Kuong	NULL
+Seth	NULL
+Tam	NULL
+Theotym	NULL
+Thomas	NULL
+Tim	NULL
+Tom	NULL
+Xavier	NULL
+Zachary	NULL
+// 26 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 26 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Nature
+// 1 Active Objects
+acedb> // bql parse error
+// ... BQL query : 
+// ...  select p in ?person ; select z in @, a in z->address  where a like "B*" 
+
+// ... Bad parsing, nothing right of ~
+
+// 0 Active Objects
+acedb> King	Buckingham Palace
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> King	p5
+King	p6
+King	p7
+// 1 Active Objects
+acedb> King	p5
+King	p6
+King	p7
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Jim
+King
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> Jim
+King
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+// 6 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 6 Active Objects
+acedb> Jim	p1
+Jim	p2
+Jim	p3
+King	p1
+King	p2
+King	p3
+King	p4
+King	p5
+King	p6
+King	p7
+// 2 Active Objects
+acedb> Jim	p3
+Jim	p2
+Jim	p1
+King	p7
+King	p6
+King	p5
+King	p4
+King	p3
+King	p2
+King	p1
+// 2 Active Objects
+acedb> King	p7
+King	p6
+King	p5
+King	p4
+King	p3
+King	p2
+King	p1
+Jim	p3
+Jim	p2
+Jim	p1
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> King	p1
+King	p2
+King	p3
+King	p4
+King	p5
+King	p6
+King	p7
+// 1 Active Objects
+acedb> p1	1	23
+p2	100	107
+p3	117	190
+p4	NULL	NULL
+p5	NULL	NULL
+p6	NULL	NULL
+p7	NULL	NULL
+// 7 Active Objects
+acedb> p1	1	23
+p2	100	107
+p3	117	190
+p4	NULL	NULL
+p5	NULL	NULL
+p6	NULL	NULL
+p7	NULL	NULL
+// 7 Active Objects
+acedb> 1	23
+100	107
+117	190
+// 0 Active Objects
+acedb> 23	NULL
+107	NULL
+190	NULL
+// 0 Active Objects
+acedb> King	p1	NULL	NULL
+King	p1	NULL	23
+King	p1	NULL	107
+King	p1	NULL	190
+King	p1	1	NULL
+King	p1	1	23
+King	p1	1	107
+King	p1	1	190
+King	p1	100	NULL
+King	p1	100	23
+King	p1	100	107
+King	p1	100	190
+King	p1	117	NULL
+King	p1	117	23
+King	p1	117	107
+King	p1	117	190
+King	p2	NULL	NULL
+King	p2	NULL	23
+King	p2	NULL	107
+King	p2	NULL	190
+King	p2	1	NULL
+King	p2	1	23
+King	p2	1	107
+King	p2	1	190
+King	p2	100	NULL
+King	p2	100	23
+King	p2	100	107
+King	p2	100	190
+King	p2	117	NULL
+King	p2	117	23
+King	p2	117	107
+King	p2	117	190
+King	p3	NULL	NULL
+King	p3	NULL	23
+King	p3	NULL	107
+King	p3	NULL	190
+King	p3	1	NULL
+King	p3	1	23
+King	p3	1	107
+King	p3	1	190
+King	p3	100	NULL
+King	p3	100	23
+King	p3	100	107
+King	p3	100	190
+King	p3	117	NULL
+King	p3	117	23
+King	p3	117	107
+King	p3	117	190
+King	p4	NULL	NULL
+King	p4	NULL	23
+King	p4	NULL	107
+King	p4	NULL	190
+King	p4	1	NULL
+King	p4	1	23
+King	p4	1	107
+King	p4	1	190
+King	p4	100	NULL
+King	p4	100	23
+King	p4	100	107
+King	p4	100	190
+King	p4	117	NULL
+King	p4	117	23
+King	p4	117	107
+King	p4	117	190
+King	p5	NULL	NULL
+King	p5	NULL	23
+King	p5	NULL	107
+King	p5	NULL	190
+King	p5	1	NULL
+King	p5	1	23
+King	p5	1	107
+King	p5	1	190
+King	p5	100	NULL
+King	p5	100	23
+King	p5	100	107
+King	p5	100	190
+King	p5	117	NULL
+King	p5	117	23
+King	p5	117	107
+King	p5	117	190
+King	p6	NULL	NULL
+King	p6	NULL	23
+King	p6	NULL	107
+King	p6	NULL	190
+King	p6	1	NULL
+King	p6	1	23
+King	p6	1	107
+King	p6	1	190
+King	p6	100	NULL
+King	p6	100	23
+King	p6	100	107
+King	p6	100	190
+King	p6	117	NULL
+King	p6	117	23
+King	p6	117	107
+King	p6	117	190
+King	p7	NULL	NULL
+King	p7	NULL	23
+King	p7	NULL	107
+King	p7	NULL	190
+King	p7	1	NULL
+King	p7	1	23
+King	p7	1	107
+King	p7	1	190
+King	p7	100	NULL
+King	p7	100	23
+King	p7	100	107
+King	p7	100	190
+King	p7	117	NULL
+King	p7	117	23
+King	p7	117	107
+King	p7	117	190
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> p1	23
+p2	8
+p3	74
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 3 Active Objects
+acedb> Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+// 6 Active Objects
+acedb> Jim
+King
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> Karl Maning
+Keman
+Kenan
+King
+Kong
+Kuong
+// 6 Active Objects
+acedb> Jim
+King
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> "Jim"
+"King"
+// 2 Active Objects
+acedb> "Jim"
+"King"
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 2 Active Objects
+acedb> King
+// 1 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 1 Active Objects
+acedb> 
+
+// 1 Active Objects
+
+// A bientot 
+

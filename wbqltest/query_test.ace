@@ -1,0 +1,127 @@
+
+Person Eva
+Child Cain
+Child Abel
+
+
+Person Cain
+Brother Abel
+Brother Seth
+
+Person Seth
+Parent Eva
+Brother Cain
+Brother Abel
+Child Enosh
+
+Person Enosh
+Child Keman
+Child Baraki
+
+Person Kenan
+Brother Baraki
+
+Person Zachary
+Brother Xavier
+
+Person King
+PhD
+Affiliation Paris
+Affiliation Tokyo
+Address "Buckingham Palace" London England
+Papers p1
+Papers p2
+Papers p3
+Papers p4
+
+Paper p5
+Author King
+Journal Nature
+
+Paper p6
+Journal nature
+Author King
+
+Paper p7
+Author King
+Journal nature
+
+
+
+Person Kong
+
+Person Kuong
+
+Person "Karl Maning"
+
+Person Jim
+Papers p1
+Affiliation London
+
+
+Paper p1
+Author Jim
+Year 2000
+Page 1 23
+
+Paper p2
+Author Jim
+Year 2004
+Page 100 107
+
+Paper p3
+Author Jim
+Year 2004
+Page 117 190
+
+
+Person John
+Weight 120 kg
+Height 1.7 meter
+
+Person Tam
+
+Person Tim
+
+Person Tom
+
+Person Attim
+
+Person Theotym
+
+Person Thomas
+
+Person B7
+
+Person B10
+
+
+Person b23
+
+Person Bxy
+
+Chromosome chr_18
+Gene A 1000 2000
+Gene B 4000 6000
+
+Sequence s1
+CDS
+
+DNA s1
+atgttgccacct
+tctgagcacagt
+
+DNA s2
+tttgaacagtgatccgtat
+
+Sequence s3
+CDS
+
+Line line_a
+Length 2
+
+Line line_b
+Length 4
+
+
+
