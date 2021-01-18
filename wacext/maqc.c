@@ -3774,18 +3774,18 @@ static void maqcD1 (MAQC *maqc)
   int na, nb, tm, tm_min, tm_max ;
   double u, v, uu, vv, uv ;
 
-  for (i = 0, lab1 = labos ; lab1->lab ; lab1++)
-    if (lab1->lab && *lab1->bench && !strcmp (lab1->lab, "AGL"))
+  for (i = 0, lab1 = labos ; lab1->lab[0] ; lab1++)
+    if (*lab1->bench && !strcmp (lab1->lab, "AGL"))
       break ;
-  for (lab2 = lab1+1 ; lab2->lab ; lab2++)
-    if (lab2->lab  && *lab2->bench && !strcmp (lab2->lab, "AGL"))
+  for (lab2 = lab1+1 ; lab2->lab[0] ; lab2++)
+    if (*lab2->bench && !strcmp (lab2->lab, "AGL"))
       break ;
-  if (!lab1->lab || ! lab2->lab) /* i did not find the 2 colorant for AGL */
+  if (!lab1->lab[0] || ! lab2->lab[0]) /* i did not find the 2 colorant for AGL */
     return ;
   tm_min = 1000 ; tm_max = -9 ;
   for (i = 0, mm = arrp (maqc->aa, 0, MM) ; i < arrayMax (maqc->aa) ; i++, mm++)
     {
-      if (! mm->lab ||  (*lab1->bench && strcmp (mm->lab, "AGL")))
+      if (! mm->lab[0] ||  (*lab1->bench && strcmp (mm->lab, "AGL")))
 	continue ;
       if (mm->tm < tm_min) tm_min = mm->tm ;
       if (mm->tm > tm_max) tm_max = mm->tm ;
@@ -3860,7 +3860,7 @@ static void maqcVenn (MAQC *maqc, KEYSET ks2, KEYSET ks4, KEY big, BOOL isUp, BO
   KEYSET tested = isAceView ? maqc->testedGene : maqc->testedGeneId ;
   int i, ii, n, n1, n2 ;
 
-  for (ii = 0, lab = labos ; ii < 3 && lab->lab ; lab++)
+  for (ii = 0, lab = labos ; ii < 3 && lab->lab[0] ; lab++)
     if (lab->id & big) mylab[ii++] = lab ;
 
   printf ("Venn Diagram %s between: ", isUp ? "A<B" : "A>B") ;

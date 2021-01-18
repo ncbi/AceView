@@ -11,6 +11,7 @@
 #define CHANNEL__H
 
 #include "wego.h"
+#include <pthread.h>
 
 /*************************************************************************/
 /* Private implementation : 
@@ -21,8 +22,8 @@
  */
 #define channelCreate(_cMax,_type,_h) uChannelCreate(_cMax,sizeof(_type),_h)
 
-#define newChanGet(_chan,_vp,_type) (*(_type*)uChannelGet((_chan),&(_vp),sizeof(_vp),sizeof(_type)))
-#define channelGet(_chan,_vp,_type) (*(_type*)uChannelGet((_chan),(_vp),sizeof(_type)))
+#define channelGet(_chan,_vp,_type) (uChannelMultiGet((_chan),(_vp),sizeof(_type),1,TRUE))
+#define channelGive(_chan,_vp,_type) (*(_type*)uChannelGet((_chan),(_vp),sizeof(_type)))
 #define channelPut(_chan,_vp,_type) uChannelMultiPut((_chan),(_vp),sizeof(_type),1,TRUE)
 
 #define channelMultiGet(_chan,_vp,_max,_type) (uChannelMultiGet((_chan),(_vp),sizeof(_type),_max,TRUE))

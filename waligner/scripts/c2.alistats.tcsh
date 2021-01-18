@@ -8,7 +8,7 @@ set run=$1
 # export the alignment statistics in seqc.tsv format, 
 # since seqc.tsv statitics acn also be derived from BAM files
 # this allows to comprae MAGIC to other aligners
-
+    
 echo > tmp/$MAGIC_COUNT_DIR/$run/tsv2
 
 set ok=1 
@@ -30,7 +30,7 @@ if ($ok == 1) then
   # grab the number of reads to be aligned
   set nr=`cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali/{ok=0;gsub(/\"/,"",$2);if($2==r)ok=1;next;}{if(ok<1)next;}/^Accepted/{nr=$4;next;}END{print 0+nr;}' r=$run`
   # synthetize the s.eqc.tsv stats of the whole run 
-  cat  tmp/$MAGIC_COUNT_DIR/$run/tsv2 | scripts/seqc.py -m -r $run -o tmp/$MAGIC_COUNT_DIR/$run --nreads $nr
+  cat  tmp/$MAGIC_COUNT_DIR/$run/tsv2 | scripts/aliqc.py -m -r $run..magic -o tmp/$MAGIC_COUNT_DIR/$run --nreads $nr
 
 endif
 
@@ -129,6 +129,8 @@ cat $toto.FB | sort  -k 1,1 -k 2,2 -k 3,3n | gawk '/^FB/{nf[$2]++;nx[$3]++;nn[$3
 cat $toto.LB | sort  -k 1,1 -k 2,2 -k 3,3n | gawk '/^LB/{nf[$2]++;nx[$3]++;nn[$3,$2]=$4;if($3>mx)mx=$3;}END{for (x=1;x<=mx;x++){if (nx[x]>0){printf("Last_base_aligned %d", x); if(nf["f"]>0)printf(" %d",nn[x,"f"]); if(nf["f1"]>0)printf(" %d",nn[x,"f1"]); if(nf["f2"]>0)printf(" %d",nn[x,"f2"]); if(nf["f3"]>0)printf(" %d",nn[x,"f3"]);printf("\n");}}}' >>   $toto.ace
 
 cat $toto.amb | gawk '/^Ambiguous_position/{nf[$2]++;nx[$3]++;nn[$2,$3]=$4;if($3>mx)mx=$3;}END{for (x=1;x<=mx;x++){if (nx[x]>0){printf("Ambiguous_position %d", x); if(nf["f"]>0)printf(" %d",nn["f",x]); if(nf["f1"]>0)printf(" %d",nn["f1",x]); if(nf["f2"]>0)printf(" %d",nn["f2",x]); if(nf["f3"]>0)printf(" %d",nn["f3",x]);printf("\n");}}}' >>   $toto.ace
+ 
+     gunzip -c  tmp/$MAGIC_COUNT_DIR/$run/*.aliProfile.gz   | gawk '/^Perfect_reads/{n+=$4;}END{if(n > 0)printf ("Perfect_reads %d %d\n", n,n);}'  >> $toto.ace
 
 ###### Read fate
 
@@ -145,7 +147,7 @@ gunzip -c tmp/PHITS_genome/$run/*.overRepresentedSeeds.gz | gawk '{split($1,aa,"
 
 gunzip -c tmp/$MAGIC_COUNT_DIR/$run/*.noInsert.gz | gawk '/^#/{next}{if($5){ns++;nt+=$2;bp+=$2*($4-$3+1);}}END{printf("No_insert  %d seq %d tags %d kb \n", ns,nt,bp/1000) ;}' >> $toto.ace
 
-gunzip -c tmp/$MAGIC_COUNT_DIR/$run/*.aliProfile.gz |  gawk -F '\t' '/^#/{next}/^Cumul/{next}{z=$1 "\t" $2; nn[z]=1;for(i=3;i<11;i++)n[z,i]+=0+$i;}END{for(k in nn){printf("%s",k);for(i=3;i<11 ;i++)printf("\t%d",n[k,i]);printf("\n");}}' | sort -k 1,1 -k 2,2n >> $toto.ace
+gunzip -c tmp/$MAGIC_COUNT_DIR/$run/*.aliProfile.gz |  gawk -F '\t' '/^#/{next}/^Perfect_reads/{next;}/^Cumul/{next}{z=$1 "\t" $2; nn[z]=1;for(i=3;i<11;i++)n[z,i]+=0+$i;}END{for(k in nn){printf("%s",k);for(i=3;i<11 ;i++)printf("\t%d",n[k,i]);printf("\n");}}' | sort -k 1,1 -k 2,2n >> $toto.ace
 
 gunzip -c tmp/$MAGIC_COUNT_DIR/$run/*.aliProfile.gz |  gawk -F '\t' '/^#/{next}/^Cumul/{z=$1; nn[z]=1;for(i=2;i<10;i++)n[z,i]+=0+$i;}END{for(k in nn){printf("%s",k);for(i=2;i<10 ;i++)printf("\t%d",n[k,i]);printf("\n");}}' | sort -k 1,1 -k 2,2n >> $toto.ace
 
@@ -170,6 +172,10 @@ if (-e  tmp/$MAGIC_COUNT_DIR/$run/runPairHisto.txt) then
   end
 endif
 
+#######  collate the partials
+
+ cat tmp/COUNT/$run/*.partial.p3p5 | gawk '{p5 += $2; p5b += $3; if ($5=="3p"){p3 +=$6;p3b+=$7;}else{p3+=$5;p3b+=$6;}}END{printf("\nAli %s\nPartial_5p %d %d\nPartial_3p %d %d\n\n",run,p5,p5b,p3,p3b);}' run=$run  >> toto.ace
+
 #######  finalize
 
 echo ' ' >> $toto.ace
@@ -181,3 +187,10 @@ echo done
 mv $toto.ace  tmp/$MAGIC_COUNT_DIR/$run/c2.alistats.ace
 \rm $toto.*
 
+exit 0
+
+
+\rm toto.ace
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  cat tmp/COUNT/$run/*.partial.p3p5 | gawk '{p5 += $2; p5b += $3; if ($5=="3p"){p3 +=$6;p3b+=$7;}else{p3+=$5;p3b+=$6;}}END{printf("\nAli %s\nPartial_5p %d %d\nPartial_3p %d %d\n\n",run,p5,p5b,p3,p3b);}' run=$run  >> toto.ace
+end

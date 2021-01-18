@@ -299,5 +299,6 @@ void annotate (KEY key, ANNOTATION *an)
   if (annot->key != key)
     annotInit (key) ;
   graphPop () ;
+  if (0) annotDraw () ; /* for compiler happiness */ 
   annotDraw2 () ;
 }

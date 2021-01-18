@@ -1,6 +1,6 @@
 /*  Last edited: Dec  4 14:19 1998 (fw) */
 
-/* $Id: dotter.c,v 1.7 2016/05/06 21:29:05 mieg Exp $ */
+/* $Id: dotter.c,v 1.8 2020/05/30 16:50:34 mieg Exp $ */
 
 /*
    DOTTER - Sequence-sequence dotplot in a pixel background image
@@ -1220,7 +1220,6 @@ static void calcWindow(void)
     }
 
     handleDestroy(calcHandle);
-    messalloccheck();
     pixelmap_done = 1;
 }
 
@@ -2885,8 +2884,6 @@ Graph dotter (char  type,
 	      int   pixelFacset)
 {
     int  i;
-
-    messalloccheck();
 
     /* Reset global statics */
     resfac = PixelmapON = 1;

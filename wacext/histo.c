@@ -19,8 +19,10 @@ typedef struct sxStruct {
   BOOL gzi, gzo, snp, smooth, plain, plot ;
   int KL ; 
   float min, max ;
-  const char *inFileName, *outFileName, *title, *columns ;
+  const char *inFileName, *outFileName, *title, *columns, *runFileName ;
   KEYSET cols ;
+  DICT *runDict ;
+  Associator run2title ;
   float mutMedian, mutAverage, mutSigma ;
   float wildMedian, wildAverage, wildSigma ;
   float coverMedian, coverAverage, coverSigma ;
@@ -117,7 +119,7 @@ static int histoSnpGetData (SX *sx)
   Array hhh = arrayHandleCreate (8, HH, sx->h) ;
   HH *hh ;
   ACEIN ai = sx->ai ;
-  DICT *dict = dictHandleCreate (100, h) ;
+  DICT *dict = sx->runDict ;
   float cover, mutant, wild ;
   const char *ccp ;
   int i, run ;
@@ -126,6 +128,8 @@ static int histoSnpGetData (SX *sx)
   BigArray bWild = bigArrayHandleCreate (100000, float, h) ;
   BigArray bCover = bigArrayHandleCreate (100000, float, h) ;
 
+  if (! dict)
+    dict = dictHandleCreate (100, h) ;
   aceInSpecial (ai, "\n") ;
 
   if (0)   utSmoothHistoTest () ;
@@ -181,21 +185,38 @@ static int histoSnpGetData (SX *sx)
 	  for (jj = 1 ; jj < hMax ; jj++)
 	    {
 	      hh = arrayp (hhh, jj, HH) ;
+	      if (!hh->title)
+		continue ;
 	      aceOutf (ao, "\t%s", hh->title) ;
 	    } 
+	  aceOut (ao, "\n") ;
+	  if (sx->run2title)
+	    {
+	      aceOut (ao, "Title") ;
+	      for (jj = 1 ; jj < hMax ; jj++)
+		{
+		  char *cp ;
+		  hh = arrayp (hhh, jj, HH) ;
+		  if (!hh->title)
+		    continue ;
+		  cp = 0 ;
+		  assFind (sx->run2title, assVoid(jj), &cp) ;
+		  aceOutf (ao, "\t%s", cp ? cp : "-") ;
+		} 
+	    }
 	  aceOut (ao, "\n") ;
 	  for (i = 0 ; i <= 100 ; i++)
 	    {
 	      aceOutf (ao, "%d", i) ;
 	      for (jj = 1 ; jj < hMax ; jj++)
 		{
+		  hh = arrayp (hhh, jj, HH) ;
+		  if (!hh->title)
+		    continue ;
 		  if (i < sx->min || (sx->max && i > sx->max))
 		    aceOutf (ao, "\t0") ;
 		  else
-		    {
-		      hh = arrayp (hhh, jj, HH) ;
-		      aceOutf (ao, "\t%f", array(hh->aa, i, double)) ;
-		    }
+		    aceOutf (ao, "\t%f", array(hh->aa, i, double)) ;
 		}
 	      aceOut (ao, "\n") ;
 	    }
@@ -216,6 +237,8 @@ static int histoSnpGetData (SX *sx)
 	  for (i = 0, jj = 1 ; jj < hMax ; jj++)
 	    {
 	      hh = arrayp (hhh, jj, HH) ;
+	      if (!hh->title)
+		continue ;
 	      if (arrayMax (hh->aa))
 		aceOutf(ao, "%s '%s.txt' using %d with line title '%s'"
 			, i++  ? ",\\\n\t" : "plot "
@@ -254,9 +277,9 @@ static void histoSmoothExport (SX *sx)
   aceOutf (ao, "# Type 2\t%f\t%f\t%f\n", sx->wildMedian, sx->wildAverage, sx->wildSigma) ;
   aceOutf (ao, "# Total\t%f\t%f\t%f\n", sx->coverMedian, sx->coverAverage, sx->coverSigma) ;
 
-  aceOutf (ao, "\n\n\n\t%s\n", sx->title ? sx->title : "Smoothed histogram") ;
+  aceOutf (ao, "\n\n\n#\t%s\n", sx->title ? sx->title : "Smoothed histogram") ;
   for (i = 0 ; i <= NNz ; i++)
-    aceOutf (ao, "%.2f\t%.5f\n", 1.0 * i/(double)NNz, aa[i]) ;
+    aceOutf (ao, "%.2f\t%.5f\n", 100.0 * i/(double)NNz, aa[i]) ;
   
   if (sx->plot)
     {
@@ -1053,6 +1076,35 @@ static void klAnalyse (SX *sx)
 } /* klAnalyse */
 
 /*************************************************************************************/
+
+static void klParseRunList (SX *sx) 
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEIN ai = aceInCreate (sx->runFileName, FALSE, h) ;
+  
+  sx->runDict = dictHandleCreate (100, sx->h) ;
+  while (aceInCard (ai))
+    {
+      int run ;
+      char *cq, *cp = aceInWord (ai) ;
+      if (! cp || !*cp || *cp == '#')
+	continue ;
+      cq = strstr (cp, "#@#") ;
+      if (cq) *cq = 0 ;
+      dictAdd (sx->runDict, cp, &run) ;
+      if (! cq || ! cq[3])
+	continue ;
+      if (! sx->run2title)
+	sx->run2title = assHandleCreate (sx->h) ;
+      cp = strnew (cq+3, sx->h) ;
+      assInsert (sx->run2title, assVoid (run), cp) ;
+    }
+
+  ac_free (h) ;
+  return ;
+} /* klParseRunList */
+
+/*************************************************************************************/
 /***************************** Public interface **************************************/
 /*************************************************************************************/
 /*************************************************************************************/
@@ -1078,6 +1130,9 @@ static void usage (char *message)
 	    "//      1,3,7 will produce three histos from columns 1, 3, 7 (or 1-2, 3-4 and 7-8)\n" 
 	    "//      1,3-7 will consider columns 1,3,4,5,6,7\n"
 	    "//      2,3,7+ will consider 2,3,7,8,9,10.... to the end of the table\n"
+	    "//   -colList <fileName>\n"
+	    "//      Sorted list of column names, one per line, control the order of the columns\n"
+	    "//      If present, the second column of the file gives associated titles\n"
 	    "//   -snp\n"
 	    "//      The input is a snp count table, run/cover/count in columns 6/9/10\n"
 	    "//      The program exports the corresponding smoothed multi histo\n"
@@ -1158,6 +1213,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-o", &sx.outFileName) ;
   getCmdLineOption (&argc, argv, "-title", &sx.title) ;
   getCmdLineOption (&argc, argv, "-columns", &sx.columns) ;
+  getCmdLineOption (&argc, argv, "-colList", &sx.runFileName) ;
   getCmdLineInt (&argc, argv, "-KL", &sx.KL) ;
   sx.snp = getCmdLineOption (&argc, argv, "-snp", 0) ;
   sx.plot = getCmdLineOption (&argc, argv, "-plot", 0) ;
@@ -1168,6 +1224,9 @@ int main (int argc, const char **argv)
     usage (messprintf("sorry unknown arguments %s", argv[argc-1])) ;
 
   fprintf (stderr, "// start: %s\n", timeShowNow()) ;
+
+  if (sx.runFileName)
+    klParseRunList (&sx) ;
 
   sx.cols = keySetHandleCreate (h) ;
   if (sx.columns)

@@ -99,27 +99,3 @@ endif
 touch $out/wg2b.done
 exit 0
 
-          # notice that /R.genes.frns has not been constructed
-          # all the files called R.genes.*.*.cumul, i.e. R.genes.u.ERF.cumul, are empty
-          if (-e tmp/WIGGLEGROUP/$group/$chrom/R.genes.frns.u.BF.gz && ! -e  tmp/WIGGLEGROUP/$group/$chrom/R.chrom.$uu.ns.sponge.total.1.txt) then 
-
-            set fr=ns
-            set mask=""
-            if(-e tmp/METADATA/RefSeq.$fr.sponge) set mask=$mask",RefSeq_transcripts:tmp/METADATA/RefSeq.$fr.sponge"
-            if(-e tmp/METADATA/av.$fr.sponge) set mask=$mask",AceView_transcripts:tmp/METADATA/av.$fr.sponge"
-            if(-e tmp/METADATA/seqc.$fr.sponge) set mask=$mask",SEQC_transcripts:tmp/METADATA/seqc.$fr.sponge"
-            if(-e tmp/METADATA/EBI.$fr.sponge ) set mask=$mask",EBI_transcripts:tmp/METADATA/EBI.$fr.sponge"
-            if(-e tmp/METADATA/RefSeq.$fr.gene.sponge ) set mask=$mask",RefSeq_genes:tmp/METADATA/RefSeq.$fr.gene.sponge"
-            if(-e tmp/METADATA/av.$fr.gene.sponge ) set mask=$mask",AceView_genes:tmp/METADATA/av.$fr.gene.sponge"
-            if(-e tmp/METADATA/seqc.$fr.gene.sponge ) set mask=$mask",SEQC_genes:tmp/METADATA/seqc.$fr.gene.sponge"
-            if(-e tmp/METADATA/EBI.$fr.gene.sponge ) set mask=$mask",EBI_genes:tmp/METADATA/EBI.$fr.gene.sponge"
-            if(-e tmp/METADATA/genome.ns.sponge) set mask=$mask",Genome:tmp/METADATA/genome.ns.sponge"
-
-            gunzip -c  tmp/WIGGLEGROUP/$group/$chrom/R.genes.frns.u.BF.gz | bin/wiggle -I BF -O BF  $out_step -gzo -o tmp/WIGGLEGROUP/$group/$chrom/R.genes.u.ns
-
-            bin/geneelements -sponge 1 -spongeFile $mask  -sxxChromosome $chrom -wiggle  tmp/WIGGLEGROUP/$group/$chrom/R.chrom.frns.$uu.BF.gz | grep Total  |   sed -e "s/^Total/$chrom\t$fr/" | gawk -F '\t' '{r=run;}/^#/{r="#Run\tChrom"}{printf("%s\t",r);print;}' run=$group >  tmp/WIGGLEGROUP/$group/$chrom/R.chrom.$uu.ns.sponge.total.1.txt
-
-          endif
-
-exit 0
-

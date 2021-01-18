@@ -32,6 +32,7 @@
 #include "cdna.h"
 #include "cdnatr.h"
 #include "makemrna.h"
+#include "bql.h"
 #include "lex.h"
 #include "dna.h"
 #include "query.h"
@@ -616,20 +617,52 @@ static Array  cDnaGetSources (KEYSET genes, int dx)
 }
 
 /*********************************************************************/
+/* select short predicted genes that cannot really be found using ESTs are are often embedded in longer mRNAs */
+static BOOL isPredictedGeneMirLike (KEY seq)
+{
+  static BQL *bql = 0 ;
+  static KEYSET ksIn = 0, ksOut = 0 ; /* no need to realloc each time */
+  BOOL ok ;
 
-static KEY mrnaAnalyseExactGenefinder (KEY g1, int a1, int a2, BOOL isUp1, KEY g2, int b1, int b2, BOOL isUp2, BOOL *isExactp)
+  if (! bql)
+    {      /* precompile the complex query */
+      const char *ccp = "select s from s in @ where s#miRNA || s#vault_RNA || s#G26RNA || s#u21RNA || s#snoRNA || s#snRNA || s#scRNA || s#guide_RNA || s#vault_RNA || s#vault_RNA || s#Y_RNA || s#stRNA || s#RNase_P_RNA || s#RNase_MRP_RNA || s#telomerase_RNA || ((COUNT s->source_exons == 1) && s->source_exons[1] == 1 &&  s->source_exons[2] < 300) " ;
+      bql = bqlCreate (FALSE, 0) ;
+      if (! bqlParse (bql, ccp, FALSE)) 
+	{ 
+	  freeOutf ("// bql parse error in query %s\n%s\n", ccp,  bqlError (bql)) ;
+	  messcrash ("// bad query in function isMirLike, please debug and recompile") ;
+	}
+      ksIn = keySetCreate () ;
+      ksOut = keySetCreate () ;
+    }
+
+  keySet (ksIn, 0) = seq ; keySetMax (ksIn) = 1 ; 
+  
+  bqlRun (bql, ksIn, ksOut) ;
+  ok = ksOut && keySetMax (ksOut) ? TRUE : FALSE ;
+
+  return ok ;
+} /* isPredictedGeneMirLike */
+
+/*********************************************************************/
+
+static KEY mrnaAnalyseExactGenefinder (KEY g1, int a1, int a2, BOOL isUp1, KEY g2, int b1, int b2, BOOL isUp2, BOOL *isExactp
+				       , KEYSET exactMrnas, KEYSET matchingMrnas, KEYSET touchingMrnas, KEYSET mirLike)
 {  
-  int i, j, itr, score, bestScore = 0 ;
+  int i, j, itr, score, bestScore = 0, exonScore, intronScore, endScore ;
   KEYSET mrnas = queryKey (g1, "Follow Mrna") ;
-  KEY mrna = 0, approximateMrna = 0 ;
+  KEY mrna = 0, exactMrna = 0, approximateMrna = 0 ;
   BOOL ok = FALSE ;
+  BOOL isMirLike = isPredictedGeneMirLike (g2) ;
   OBJ G1, G2 ;
   BSunit *uu, *vv ;
   static Array aa = 0, bb = 0, map = 0 ;
 
   for (itr = 0 ; itr < keySetMax (mrnas) ; itr++)
     {
-      score = 0 ;
+      int lenA = 0, lenB = 0, nIntronsA = -1, nIntronsB = -1 ;
+      exonScore = intronScore = endScore = score = 0 ;
       mrna = keySet (mrnas, itr) ;
       G1 = bsCreate (mrna) ; 
       G2 = bsCreate (g2) ; 
@@ -646,17 +679,39 @@ static KEY mrnaAnalyseExactGenefinder (KEY g1, int a1, int a2, BOOL isUp1, KEY g
       a1 = uu[1].i ; a2 = uu[2].i ; /* coordinates of the mRNA on the genome */
       
       for (i = 0 ; i < arrayMax(aa) ; i += 5)
-        {
+	{
           uu = arrp (aa, i, BSunit) ;
           if (a1 < a2)
             { uu[0].i = a1 + uu[0].i - 1 ; uu[1].i = a1 + uu[1].i - 1 ; }
-          else
+	  else
             { int tmp = a1 - uu[0].i + 1 ; uu[0].i = a1 - uu[1].i + 1 ; uu[1].i = tmp ; }
-          if (strstr (name(uu[4].k),"xon")) uu[3].i = 1 ;
+	  if (strstr (name(uu[4].k),"xon")) uu[3].i = 1 ;
           else uu[3].i = 0 ;
         }
+      /* keep happy few */
+      for (i = j = 0 ; j < arrayMax(aa) ; j += 5)
+        {
+	  int k ;
+	  
+          vv = arrp (aa, j, BSunit) ;
+	  if (! vv[3].i)
+	    continue ;
+	  uu = arrp (aa, i, BSunit) ;
+	  if (i < j)
+	    for (k = 0 ; k < 5 ; k++)
+	      uu[k].i = vv[k].i ;
+	  i += 5 ;
+	}
+      arrayMax(aa) = i ;
       
+
       /* merge contiguous CDS UTR in predicted genes */
+      for (j = 0 ; j < arrayMax(bb) ; j += 4)
+        {
+          vv = arrp (bb, j, BSunit) ;
+	  vv[3].i = 1 ;
+	}
+
       for (j = 0 ; j < arrayMax(bb) ; j += 4)
         {
 	  int j1, c2 ;
@@ -673,22 +728,62 @@ static KEY mrnaAnalyseExactGenefinder (KEY g1, int a1, int a2, BOOL isUp1, KEY g
 		break ;
 	    }
 	}
+      /* keep happy few */
+      for (i = j = 0 ; j < arrayMax(bb) ; j += 4)
+        {
+	  int k ;
+	  
+          vv = arrp (bb, j, BSunit) ;
+	  if (! vv[3].i)
+	    continue ;
+	  uu = arrp (bb, i, BSunit) ;
+	  if (i < j)
+	    for (k = 0 ; k < 4 ; k++)
+	      uu[k].i = vv[k].i ;
+	  i+= 4 ;
+	}
+      arrayMax(bb) = i ;
+      
+
       /* move to genome coordinates */
       for (j = 0 ; j < arrayMax(bb) ; j += 4)
-        {
+	{
           vv = arrp (bb, j, BSunit) ;
           if (! isUp2)
             { vv[0].i = b1 + vv[0].i - 1 ; vv[1].i = b1 + vv[1].i - 1 ; }
           else
             { int tmp = b2 - vv[0].i + 1 ; vv[0].i = b2 - vv[1].i + 1 ; vv[1].i = tmp ; } 
-	  vv[3].i = 1 ;
 	}
       
       ok = FALSE ;
       if (aa && bb)
 	{
+	  int iMax = arrayMax (aa) ;
+	  int jMax = arrayMax (bb) ;
+	  
+	  /* length of the mRNA */
+	  for (i = 0 ; i < iMax ; i += 5)
+	    {
+	      uu = arrp (aa, i, BSunit) ; 
+	      if (uu[3].i)
+		{
+		  lenA += uu[1].i - uu[0].i + 1 ;
+		  nIntronsA++ ;
+		}
+	    }
+	  /* length of the Genefinder */
+	  for (j = 0 ; j < jMax ; j += 4)
+	    {
+	      vv = arrp (bb, j, BSunit) ; 
+	      if (vv[3].i)
+		{
+		  lenB += vv[1].i - vv[0].i + 1 ;
+		  nIntronsB++ ;
+		}
+	    }
 	  ok = TRUE ;
-	  for (i = 0, j = 0 ; i < arrayMax(aa) && j < arrayMax(bb) ; )
+	  
+	  for (i = j = 0 ; i < iMax && j < jMax ;)
 	    {
 	      uu = arrp (aa, i, BSunit) ; 
 	      vv = arrp (bb, j, BSunit) ; 
@@ -700,46 +795,100 @@ static KEY mrnaAnalyseExactGenefinder (KEY g1, int a1, int a2, BOOL isUp1, KEY g
 		int c1 = uu[0].i > vv[0].i ?   uu[0].i : vv[0].i ;
 		int c2 = uu[1].i < vv[1].i ?   uu[1].i : vv[1].i ;
 		if (c1 < c2)
-		  score += c2 - c1 + 1 ;
-		if (score > bestScore)
-		  { 
-		    bestScore = score ;
-		    approximateMrna = mrna ;
+		  {
+		    score += c2 - c1 + 1 ;
+		    exonScore += c2 - c1 + 1 ;
+		    if (i + j == 0 && 2 * score > uu[4].i - uu[3].i ) /* same first exon */
+		      { score += 100 ; endScore++ ; }
+		    if (i + 5 == iMax && j + 4 == jMax && (10 * exonScore > 3* lenA || 10 * exonScore > 3 * lenB)) /* same last exon */
+		      { score += 100 ; endScore++ ; }
 		  }
+		if (! isUp2)
+		  {
+		    if (i >= 5 && j >= 4 && uu[-4].i == vv[-3].i && uu[0].i == vv[0].i) /* same intron */
+		      { score += 100 ; intronScore++ ; }
+		  }
+		else
+		  {
+		    if (i >= 5 && j >= 4 && uu[-3].i == vv[-2].i && uu[1].i == vv[1].i) /* same intron */
+		      { score += 100 ; intronScore++ ; }
+		  }
+		
 	      }
-	      if (uu[0].i != vv[0].i ||
-		  uu[1].i != vv[1].i)
-		ok = FALSE ; 
-	      if (uu[1].i <= vv[1].i) i+= 5 ;
-	      if (uu[1].i >= vv[1].i) j += 4 ;
-	    }	
-	  /* do we have remaining coding exons */
-	  for ( ; ok && i < arrayMax(aa) ; )
-	    {
-	      uu = arrp (aa, i, BSunit) ; 
-	      if (!uu[3].i) { i += 4 ; continue ; } /* jumping UTR is ok */
-	      ok = FALSE ;
+
+	      if (! isUp2)
+		{
+		  if (uu[1].i == vv[1].i) { i+= 5 ; j += 4 ; }
+		  else if (uu[1].i < vv[1].i) i+= 5 ;
+		  else j += 4 ;
+		}
+	      else
+		{
+		  if (uu[0].i == vv[0].i) { i+= 5 ; j += 4 ; }
+		  else if (uu[0].i > vv[0].i) i+= 5 ;
+		  else j += 4 ;
+		}
 	    }
-	  for ( ; ok && j < arrayMax(bb) ; )
-	    {
-	      vv = arrp (bb, j, BSunit) ; 
-	      if (!vv[3].i) { j += 4 ; continue ; }
-	      ok = FALSE ;
+	    
+	  if (score > bestScore)
+	    { 
+	      bestScore = score ;
+	      approximateMrna = mrna ; 
+	      keySetMax (matchingMrnas) = 0 ;   /* reset */
+	      keySetMax (mirLike) = 0 ;         /* reset */
+	      keySetMax (exactMrnas) = 0 ;      /* reset */
 	    }
+	  
+	  if (score == bestScore)
+	    {
+	      if (isMirLike)
+		keySet (mirLike, 0) = mrna ;
+	      else
+		{
+		  ok = TRUE ;
+		  /* do we have the very same introns */
+		  if (endScore < 2 || nIntronsA != nIntronsB || intronScore != nIntronsA)
+		    ok = FALSE ;
+		  /* do we have a quasi complete overlap */
+		  if (10 * exonScore < 8 * lenA || 10 * exonScore < 8 * lenB)
+		    ok = FALSE ;
+		  if (ok)
+		    {
+		      exactMrna = mrna ; 
+		      if (! isMirLike)
+			keySet (exactMrnas, keySetMax (exactMrnas)) = mrna ;
+		    }
+		  
+		  ok = FALSE ;
+		  /* do we have the same introns */
+		  if (intronScore && (2 * intronScore >= nIntronsA || 2 * intronScore >= nIntronsA))
+		    ok = TRUE ;
+		  /* do we have a substantial overlap */
+		  if (10 * exonScore > 6 * lenA || 10 * exonScore > 6 * lenB)
+		    ok = TRUE ;
+		  /* do we have the same first and last exons */
+		  if (endScore >= 2)
+		    ok = TRUE ;
+		  
+		  if (ok)
+		    keySet (matchingMrnas, keySetMax (matchingMrnas)) = mrna ;
+		}
+	    }
+	  if (!isMirLike && score > 100) 
+	    keySet (touchingMrnas, keySetMax (touchingMrnas)) = mrna ;
 	}
       
       bsDestroy (G1) ;
       bsDestroy (G2) ;
-      if (ok) break ;
     }
   keySetDestroy (mrnas) ; 
 
-  if (ok) 
-    { *isExactp = TRUE ; return mrna ; }
+  if (exactMrna) 
+    { *isExactp = TRUE ; return exactMrna ; }
   else 
-    *isExactp = FALSE ;
+    *isExactp = 0 ;
   return approximateMrna ; /* they intersect but we did not check the frame */
-}
+} /* mrnaAnalyseExactGenefinder */
 
 /*********************************************************************/
 
@@ -895,7 +1044,7 @@ static KEY mrnaAnalyseExactGenefinder2Product (KEY mrna, int a1, int a2, BOOL is
   else 
     *isExactp = FALSE ;
   return approximateProduct ; /* they intersect but we did not check the frame */
-}
+} /* mrnaAnalyseExactGenefinder2Product */
 
 /*********************************************************************/
 
@@ -919,6 +1068,7 @@ static void mrnaAnalyseGenefinder (Stack s, KEY gene, Array allPg, Array allTg, 
   if (arrayMax(allPg))
     for (i = 0, hh = arrp (allPg, 0, HIT) ; i < arrayMax(allPg) ; i++, hh++)
       {
+        if (! hh->gene) continue ;
         if (hh->gene == gene) continue ;
         if (map != hh->est || isUp != hh->reverse) continue ; 
         b1 = hh->a1 ; b2 = hh->a2 ;
@@ -939,29 +1089,58 @@ static void mrnaAnalyseGenefinder (Stack s, KEY gene, Array allPg, Array allTg, 
               case 1:
                 catText (s, messprintf("Transcribed_gene \"%s\"\n", name(gene))) ;
                 catText (s, messprintf("Matching_genefinder_gene \"%s\" \n", name (hh->gene))) ;
-                /* idiot, gene le reste du systeme des genebox, nov 22, 2001
-                   {
-                   KEYSET genes = queryKey (hh->gene, "FOLLOW Model_of_gene") ;
-                   int i = keySetMax (genes) ;
-                   
-                   while (i--)
-                   catText (s, messprintf("Genes \"%s\" \n", name (keySet(genes, i)))) ;
-                   keySetDestroy (genes) ;
-                   }
-                */
-                catText (s, "\n") ;
+		catText (s, "\n") ;
                 if (dx > 0 && TRUE)
                   {
                     KEY mrna = 0, product = 0 ;
+		    int imm ;
 		    BOOL isExact = FALSE ;
-                    
-                    mrna = mrnaAnalyseExactGenefinder (gene, a1, a2, isUp, hh->gene, b1, b2, hh->reverse, &isExact) ;          
+		    KEYSET exactMrnas = keySetCreate () ;
+		    KEYSET matchingMrnas = keySetCreate () ;
+		    KEYSET touchingMrnas = keySetCreate () ;
+		    KEYSET mirLike = keySetCreate () ;
+ 		    KEYSET matchingMrnasBis = 0 ;
+		    KEYSET touchingMrnasBis = 0 ;
+		    KEYSET touchingMrnasTer = 0 ;
+
+		    mrna = mrnaAnalyseExactGenefinder (gene, a1, a2, isUp, hh->gene, b1, b2, hh->reverse, &isExact, exactMrnas, matchingMrnas, touchingMrnas, mirLike) ;          
                     if (mrna)
                       {
-                        if (isExact)
+			matchingMrnasBis = keySetMINUS (matchingMrnas, exactMrnas) ;
+			touchingMrnasBis = keySetMINUS (touchingMrnas, matchingMrnas) ;
+			touchingMrnasTer = keySetMINUS (touchingMrnasBis, exactMrnas) ;
+
+			for (imm = 0 ; imm < keySetMax (mirLike) ; imm++)
 			  {
-			    catText (s, messprintf("mRNA \"%s\"\n", name(mrna))) ;
-			    catText (s, messprintf("Identical_to_genefinder \"%s\"\n\n", name (hh->gene))) ;
+			    KEY mrna1 = keySet (mirLike, imm) ;
+			    catText (s, messprintf("mRNA \"%s\"\n", name(mrna1))) ;
+			    catText (s, messprintf("%s \"%s\"\n\n"
+						   , "Matching_short_RNA" 
+						   , name (hh->gene))) ;
+			  }
+			for (imm = 0 ; imm < keySetMax (exactMrnas) ; imm++)
+			  {
+			    KEY mrna1 = keySet (exactMrnas, imm) ;
+			    catText (s, messprintf("mRNA \"%s\"\n", name(mrna1))) ;
+			    catText (s, messprintf("%s \"%s\"\n\n"
+						   , "Identical_to_genefinder" 
+						   , name (hh->gene))) ;
+			  }
+			for (imm = 0 ; imm < keySetMax (matchingMrnasBis) ; imm++)
+			  {
+			    KEY mrna1 = keySet (matchingMrnasBis, imm) ;
+			    catText (s, messprintf("mRNA \"%s\"\n", name(mrna1))) ;
+			    catText (s, messprintf("%s \"%s\"\n\n"
+						   , "Matching_genefinder"
+						   , name (hh->gene))) ;
+			  }
+			for (imm = 0 ; imm < keySetMax (touchingMrnasTer) ; imm++)
+			  {
+			    KEY mrna1 = keySet (touchingMrnasBis, imm) ;
+			    catText (s, messprintf("mRNA \"%s\"\n", name(mrna1))) ;
+			    catText (s, messprintf("%s \"%s\"\n\n"
+						   , "Touching_genefinder"
+						   , name (hh->gene))) ;
 			  }
 			product = mrnaAnalyseExactGenefinder2Product (mrna, a1, a2, isUp, hh->gene, b1, b2, hh->reverse, &isExact) ;            
 			if (product)
@@ -972,6 +1151,14 @@ static void mrnaAnalyseGenefinder (Stack s, KEY gene, Array allPg, Array allTg, 
 			    catText (s, messprintf("Matching_gene \"%s\" \n\n", name (hh->gene))) ;
 			  }
 		      }
+
+		    keySetDestroy (exactMrnas) ;
+		    keySetDestroy (matchingMrnas) ;
+		    keySetDestroy (touchingMrnas) ;
+		    keySetDestroy (mirLike) ;
+		    keySetDestroy (matchingMrnasBis) ;
+		    keySetDestroy (touchingMrnasBis) ;
+		    keySetDestroy (touchingMrnasTer) ;
                   }
                 break ;
               case 2:
@@ -1077,7 +1264,7 @@ static int mrnaAnalysePg2Tg (KEY g1, int a1, int a2, BOOL isUp1, KEY g2, int b1,
   G2 = bsCreate (g2) ; 
   aa = arrayReCreate (aa, 40, BSunit) ;
   bb = arrayReCreate (bb, 40, BSunit) ;
-  bsGetArray (G1, _Source_Exons, aa, 2) ;
+  bsGetArray (G1, _Source_Exons, aa, 4) ;
   bsGetArray (G2, _Splicing, bb, 4) ;
 
   for (i = 0 ; i < arrayMax(aa) ; i += 4)
@@ -1114,13 +1301,18 @@ static int mrnaAnalysePg2Tg (KEY g1, int a1, int a2, BOOL isUp1, KEY g2, int b1,
           u2 = uu[1].i < vv[1].i ?  uu[1].i : vv[1].i ;
           if (u2 >= u1)
             dx += u2 - u1 + 1 ;
+	  if (!isUp2 && vv[0].i > uu[1].i) break ;
+	  if (isUp2 && vv[0].i < uu[1].i) break ;
+	  if ( uu[0].i == vv[0].i ||  uu[1].i == vv[1].i) dx += 100 ;
+	  if (dx > 80) break ;
         }
+      if (dx > 80) break ;
     }
 
   bsDestroy (G1) ;
   bsDestroy (G2) ;
   return dx ;
-}
+}/*  mrnaAnalysePg2Tg */
 
 /*********************************************************************/
 
@@ -1317,7 +1509,7 @@ void mrnaAnalyseNeighbours (KEYSET tgenes)
       catText (s, "-D Overlaps\n") ;
       catText (s, "-D Possible_operon\n") ;
       catText (s, "-D Antisens_to\n") ;
-      catText (s, "-D Matching_genefinder_gene\n") ;
+      catText (s, "-D Matching_genefinder_gene\n") ;  
       catText (s, "\n") ;
     }
 
@@ -1328,6 +1520,18 @@ void mrnaAnalyseNeighbours (KEYSET tgenes)
       catText (s, messprintf("Product %s\n", name(product))) ;
       catText (s, "-D Identical_to_gene\n") ;
       catText (s, "-D Matching_gene\n") ;
+      catText (s, "\n") ;
+    }
+
+  nn = arrayMax (mrs) ;
+  while (nn--)
+    {
+      KEY mrna = keySet (mrs, nn) ;
+      catText (s, messprintf("mRNA %s\n", name(mrna))) ;
+      catText (s, "-D Touching_genefinder\n") ;
+      catText (s, "-D Matching_genefinder\n") ;
+      catText (s, "-D Identical_to_genefinder\n") ;
+      catText (s, "-D Stop_of\n") ;
       catText (s, "\n") ;
     }
 
@@ -2213,7 +2417,8 @@ static void mrnaSelectCosmid (SC* sc)
     {
       if (bsGetKey (Cosmid, _IntMap, &map) &&
           bsGetData (Cosmid, _bsRight, _Int, &c1) &&
-          bsGetData (Cosmid, _bsRight, _Int, &c2)) ;
+          bsGetData (Cosmid, _bsRight, _Int, &c2)) 
+	{} ;
       bsDestroy (Cosmid) ;
     }
   if (c1 && c2)
@@ -2234,7 +2439,8 @@ static void mrnaSelectCosmid (SC* sc)
             {
               if (bsGetKey (Cosmid, _IntMap, &map) &&
                   bsGetData (Cosmid, _bsRight, _Int, &b1) &&
-                  bsGetData (Cosmid, _bsRight, _Int, &b2)) ;
+                  bsGetData (Cosmid, _bsRight, _Int, &b2))
+		{} ;
               bsDestroy (Cosmid) ;
             }
           if (b1 < b2 && b1 <= g1 && b1 <= g2 && b2 >= g1 && b2 >= g2)
@@ -2364,7 +2570,8 @@ static KEY mrnaNameGeneByPhenotypicGene (SC *sc)
     {
       if (bsGetKey (Cosmid, _IntMap, &map) &&
           bsGetData (Cosmid, _bsRight, _Int, &c1) &&
-          bsGetData (Cosmid, _bsRight, _Int, &c2)) ;
+          bsGetData (Cosmid, _bsRight, _Int, &c2))
+	{} ;
       bsDestroy (Cosmid) ;
     }
   if (c1 && c2)
@@ -3783,7 +3990,7 @@ static void mrnaSetCompletenessFlags (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrn
       for (j = arrayMax(smrna->hits) - 1 ; j >= 0 && (up = arrp (smrna->hits, j, HIT)) ; j = -1)
         mrnaSetOneCompletenessFlag (up, smrna, gmrna->estHits, FALSE) ;
     }
-} /* mrnaSetFlags */
+} /* mrnaSetCompletenessFlags */
 
 /*********************************************************************/
 /*********************************************************************/
@@ -4009,7 +4216,7 @@ static void mrnaDoSaveProductCoverage (KEY product, KEY est, int p1, int p2
     {
       if (x1 > x2) 
         { 
-          dna1 = arrayCopy (dna) ;
+          dna1 = dnaCopy (dna) ;
           reverseComplement (dna1) ;
           y1 = arrayMax (dna) - x1 + 1 ;
           y2 = arrayMax (dna) - x2 + 1 ;
@@ -4789,7 +4996,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
   for (ii = 0 ; ii < keySetMax(genes) ; ii++)
     {
       gene = keySet (genes, ii) ;
-      mrnas =  queryKey (gene, ">mrna") ;
+      mrnas =  queryKey (gene, "{>mrna} SETOR {>mrna_part}") ;
       for (jj = 0 ; jj < keySetMax(mrnas) ; jj++)
         {
           mrna = keySet (mrnas, jj) ;  
@@ -4853,7 +5060,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	    bsRemoveTag (Gene, str2tag("pastille_regulation_RNA_editing")) ;
 	  
 	  /* pastille_regulation_NMD */
-	  ks = queryKey (gene, " > mrna ; NMD") ;
+	  ks = queryKey (gene, " {>mrna} SETOR {>mrna_part} ; NMD") ;
 	  if (keySetMax (ks))
 	    bsAddTag (Gene, str2tag("pastille_regulation_NMD")) ;
 	  else
@@ -4861,7 +5068,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  keySetDestroy (ks) ;
 	  
 	  /* pastille_regulation_Valid3p */
-	  ks = queryKey (gene, "> mrna ; COUNT Valid3p > 1") ;
+	  ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; COUNT Valid3p > 1") ;
 	  if (keySetMax (ks))
 	    bsAddTag (Gene, str2tag("pastille_regulation_Valid3p")) ;
 	  else
@@ -4869,7 +5076,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  keySetDestroy (ks) ;
 	  
 	  /* pastille_regulation_uORF */
-	  ks = queryKey (gene, "> mrna ; COUNT {>product  uORF_candidate && !(best_product || good_product)} > 0 &&  COUNT {>product  ! uORF_candidate && (best_product || very_good_product)} > 0") ;
+	  ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; COUNT {>product  uORF_candidate && !(best_product || good_product)} > 0 &&  COUNT {>product  ! uORF_candidate && (best_product || very_good_product)} > 0") ;
 	  if (keySetMax (ks))
 	    bsAddTag (Gene, str2tag("pastille_regulation_uORF")) ;
 	  else
@@ -4878,7 +5085,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  
 	  
 	  /* non_atg_start */
-	  ks = queryKey (gene, "> mrna ; > product best_product && good_product && at_position_1  && First_Kozak=1 && (First_ATG > 1 || ! First_ATG)") ;
+	  ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; > product best_product && good_product && at_position_1  && First_Kozak=1 && (First_ATG > 1 || ! First_ATG)") ;
 	  if (keySetMax (ks))
 	    bsAddTag (Gene, str2tag("non_atg_start")) ;
 	  else
@@ -4886,7 +5093,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  keySetDestroy (ks) ;
 	  
 	  /* pastille_conserved_pfam */
-	  ks = queryKey (gene, "> mrna ; > product ; >PFam ; ! IS rvt_1 && ! IS transposase_* && ! IS ribosomal_* && ! IS  gag_* && ! IS  rve && ! IS  rvp && ! IS  dde && ! IS  gp36") ;
+	  ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; > product ; >PFam ; ! IS rvt_1 && ! IS transposase_* && ! IS ribosomal_* && ! IS  gag_* && ! IS  rve && ! IS  rvp && ! IS  dde && ! IS  gp36") ;
 	  if (keySetMax (ks))
 	    bsAddTag (Gene, str2tag("pastille_conserved_pfam")) ;
 	  else
@@ -4958,7 +5165,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  keySetDestroy (ks) ;
 
 	  /* Pastille_coding */
-	  ks = queryKey (gene, "! Non_protein_coding && transcribed_gene ; COUNT {>product; ! From_prediction && best_product && good_product} > 0 ;  [2* COUNT {>product;! From_prediction && best_product && good_product} - COUNT {>mrna}] >= 0 OR  [4* COUNT {>product;! From_prediction &&  best_product && very_good_product} - COUNT {>mrna}] >= 0") ;
+	  ks = queryKey (gene, "! Non_protein_coding && transcribed_gene ; COUNT {>product; ! From_prediction && best_product && good_product} > 0 ;  [2* COUNT {>product;! From_prediction && best_product && good_product} - COUNT {{>mrna} SETOR {>mrna_part}}] >= 0 OR  [4* COUNT {>product;! From_prediction &&  best_product && very_good_product} - COUNT {{>mrna} SETOR {>mrna_part}}] >= 0") ;
 	  if (keySetMax (ks))
 	    {
 	      isCoding = TRUE ;
@@ -4972,7 +5179,7 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	  bsRemoveTag (Gene,  str2tag("Pastille_marginally_coding")) ;
 	  if (! isCoding && isSpliced)
 	    {
-	      ks = queryKey (gene, "! Non_protein_coding && COUNT {>mrna ; >product good_product && best_product} > 0") ;
+	      ks = queryKey (gene, "! Non_protein_coding && COUNT {{>mrna} SETOR {>mrna_part} ; >product good_product && best_product} > 0") ;
 	      if (keySetMax (ks))
 		{
 		  isCoding = TRUE ;
@@ -5032,26 +5239,26 @@ static void  mrnaSaveGenePastilles (KEYSET genes)
 	      int gpr, gprcomplete, gprnh2, gprcooh, gprpartial ;
 	      int vgpr, vgprcomplete, vgprnh2, vgprcooh, vgprpartial ;
 
-	      ks = queryKey (gene, ">mrna ; gt_ag || gc_ag ") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; gt_ag || gc_ag ") ;
 	      ntr = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ; gt_ag || gc_ag ; complete") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; gt_ag || gc_ag ; complete") ;
 	      ntrcomplete = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ; gt_ag || gc_ag ; found5p && ! found3p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; gt_ag || gc_ag ; found5p && ! found3p") ;
 	      ntr5p = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ; gt_ag || gc_ag ; found3p && ! found5p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; gt_ag || gc_ag ; found3p && ! found5p") ;
 	      ntr3p = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ; gt_ag || gc_ag ; !found3p && ! found5p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; gt_ag || gc_ag ; !found3p && ! found5p") ;
 	      ntrpartial = keySetMax (ks) ; keySetDestroy (ks) ;
 
-	      ks = queryKey (gene, ">mrna ; !(gt_ag || gc_ag) ") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ; !(gt_ag || gc_ag) ") ;
 	      untr = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ;  !(gt_ag || gc_ag) ; complete") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ;  !(gt_ag || gc_ag) ; complete") ;
 	      untrcomplete = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ;  !(gt_ag || gc_ag) ; found5p && ! found3p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ;  !(gt_ag || gc_ag) ; found5p && ! found3p") ;
 	      untr5p = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ;  !(gt_ag || gc_ag) ; found3p && ! found5p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ;  !(gt_ag || gc_ag) ; found3p && ! found5p") ;
 	      untr3p = keySetMax (ks) ; keySetDestroy (ks) ;
-	      ks = queryKey (gene, ">mrna ;  !(gt_ag || gc_ag) ; !found3p && ! found5p") ;
+	      ks = queryKey (gene, "{>mrna} SETOR {>mrna_part} ;  !(gt_ag || gc_ag) ; !found3p && ! found5p") ;
 	      untrpartial = keySetMax (ks) ; keySetDestroy (ks) ;
 
 	      bsRemoveTag (Gene, str2tag("nSpliced_mRNA")) ;
@@ -5245,7 +5452,7 @@ static int mrnaCountClones (KEYSET genes, int *nGp, int *nClop)
 {
   KEYSET ks = 0 ;
   Array exons = 0 ; 
-  int i, ii, ix, nn, nr, bp, shadow = 0, x1, x2, a1, a2, b1, b2, tg1, tg2 ;
+  int i, ii, iii, ix, nn, nr, bp, shadow = 0, x1, x2, a1, a2, b1, b2, tg1, tg2 ;
   float cover = 0 ;
   KEY gene, nb = str2tag ("Nb_cDNA_clone") ;
   OBJ Gene = 0 ;
@@ -5258,16 +5465,16 @@ static int mrnaCountClones (KEYSET genes, int *nGp, int *nClop)
   if (!bsIsTagInClass (_VGene, nb))
     return 0 ;
 
-  for (ii = 0 ; ii < keySetMax(genes) ; ii++)
+  for (iii = 0 ; iii < keySetMax(genes) ; iii++)
     {
-      gene = keySet (genes, ii) ;
+      gene = keySet (genes, iii) ;
       bp = nn = nr = 0 ;	 
       exons = arrayCreate (32, HIT) ;
       ix = 0 ;
 
       if (keyFindTag (gene, _mRNA))
 	{   /*  2017_02 : new direct gene->mrna connection */
-	  KEYSET mrnas = queryKey ( gene, "> mRNA") ;
+	  KEYSET mrnas = queryKey ( gene, "{>mrna} SETOR {>mrna_part}") ;
 	  KEYSET reads = keySetCreate () ;
 	  KEY r ;
 
@@ -5344,8 +5551,6 @@ static int mrnaCountClones (KEYSET genes, int *nGp, int *nClop)
 	  bp = 0 ;
 	  aa = arrayCreate (256, BSunit) ;
 	  ks = queryKey (gene, "> Transcribed_gene  Assembled_from") ;
-	  exons = arrayCreate (32, HIT) ;
-	  ix = 0 ;
 	  for (ii = 0 ; ii < keySetMax (ks) ; ii++)
 	    {
 	      OBJ Tg = bsCreate (keySet (ks, ii)) ;
@@ -5617,7 +5822,8 @@ static void mrnaSaveGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas)
       {
         if (bsGetKey (Cosmid, _IntMap, &map) &&
             bsGetData (Cosmid, _bsRight, _Int, &c1)  &&
-            bsGetData (Cosmid, _bsRight, _Int, &c2)) ;
+            bsGetData (Cosmid, _bsRight, _Int, &c2))
+	  {}  ;
         bsDestroy (Cosmid) ;
       }
     if (map && c1 + c2)
@@ -5754,7 +5960,7 @@ static void mrnaSaveGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas)
   {
     int nExons, nAexons, nIntrons, nAintrons, gapl, ll, 
       ifeet = 0, ngt_ag = 0, ngc_ag = 0, nv_rep = 0, nfuzzy = 0 ;
-    HIT *up, *fp ;
+    HIT *up, *vp, *wp, *fp ;
     KEY _v_rep = str2tag ("V_repeat"), actualFoot = 0 ;
     KEY _Fuzzy_gt_ag = str2tag ("Fuzzy_gt_ag") ;
     KEY _Fuzzy_gc_ag = str2tag ("Fuzzy_gc_ag") ;
@@ -5763,9 +5969,15 @@ static void mrnaSaveGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas)
     for (ii = 0, up = arrp (gmrna->hits, 0, HIT) ; ii < arrayMax (gmrna->hits) ; up++, ii++)
       {
         bsAddData (Gene, _Splicing, _Int, &(up->a1)) ;
-        bsAddData (Gene, _bsRight, _Int, &(up->a2)) ;
+	wp = up ;
+	for (vp = up + 1, jj = ii + 1 ; jj < arrayMax (gmrna->hits) ; vp++, jj++)
+	  if ((up->type & gX) && vp->a1 == up->a2 + 1 && vp->type == up->type)
+	    wp = vp ;
+	  else
+	    break ;
+        bsAddData (Gene, _bsRight, _Int, &(wp->a2)) ;
         bsPushObj (Gene) ; 
-        if ((up->type & gI) && minIntronSize && up->a2 >= up->a1 && up->a2 - up->a1 < minIntronSize)
+        if ((up->type & gI) && minIntronSize && wp->a2 >= up->a1 && wp->a2 - up->a1 < minIntronSize)
           up->type |= gMicro ;
         if (up->type & gX)
           {
@@ -5780,12 +5992,13 @@ static void mrnaSaveGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas)
               {
                 bsAddKey (Gene, _bsRight, _Exon) ;
               }
-            ll = up->a2 - up->a1 + 1 ;
+            ll = wp->a2 - up->a1 + 1 ;
 	    sprintf (buf, "%d", nExons) ;
             bsAddData (Gene, _bsRight, _Text, buf) ;
             bsAddData (Gene, _bsRight, _Text, "Length") ;
             bsAddData (Gene, _bsRight, _Int, &ll) ;
             bsAddData (Gene, _bsRight, _Text, "bp") ;
+	    up = wp ;
           }
         else if (up->type & gI)
           {
@@ -6467,7 +6680,8 @@ static void mrnaSaveGeneKillNonBest (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrna
       {
         if (bsGetKey (Cosmid, _IntMap, &map) &&
             bsGetData (Cosmid, _bsRight, _Int, &c1)  &&
-            bsGetData (Cosmid, _bsRight, _Int, &c2)) ;
+            bsGetData (Cosmid, _bsRight, _Int, &c2))
+	  {}  ;
         bsDestroy (Cosmid) ;
       }
   }
@@ -7237,7 +7451,7 @@ static void mrnaLocateOrfs (S2M *s2m, int maxSmrnas, SMRNA *smrna, BOOL isMrna5p
 	if (orf->uOrf && orf->start < orf->met)
 	  {
 	    if (orf->cds < bestCds/4 && orf->cds < 150 && 
-		orf->cds > 15 + orf->met - orf->start && ! orf->start == orf->leu) 
+		orf->cds > 15 + orf->met - orf->start && ! (orf->start == orf->leu)) 
 	      { orf->cds -= orf->met - orf->start ; orf->start = orf->met ; }
 	    else
 	      orf->uOrf = 0 ;
@@ -7363,7 +7577,8 @@ static BOOL mrnaConstructOrfs  (S2M *s2m, SC *sc, SMRNA *gmrna, Array smrnas)
         mrnaMakeDnas (s2m, sc, gmrna->estHits, smrna) ;
       if (smrna->dnas && !smrna->orfs)
         mrnaLocateOrfs (s2m, arrayMax (smrnas), smrna, FALSE) ;
-      /*mrnaMakeOrfs (smrnas) ;
+      /*
+	mrnaMakeOrfs (smrnas) ;
         on a le dna en p morceaux correspondants aux exons p = #gap + 1
         il faut choisir les orf de tout ca
         rabouter les dna
@@ -7883,7 +8098,7 @@ static void mrnaReportGenomicError (SC* sc, HIT *tp, Array allErrors)
   HIT *up ;
   OBJ Cosmid = 0 ;
   KEY est = tp->est ;
-  int a1 = tp->clipTop, x1 = tp->clipEnd, type = tp->type, baseShort = tp->nerr ;
+  int a1 = tp->clipTop, x1 = tp->clipEnd, type = tp->type, baseShort = (tp->nerr < 255 ? tp->nerr : 255) ;
 
   if (type == AMBIGUE)
     return ;
@@ -8047,7 +8262,7 @@ static BOOL mrnaTiling (SC *sc, KEY mrna, BOOL useErrors)
       bsRemoveTag (Transcript, str2tag("Quality")) ;
     }
 
-  dnaMrnaR = arrayCopy (dnaMrna) ;
+  dnaMrnaR = dnaCopy (dnaMrna) ;
   reverseComplement (dnaMrnaR) ;
 
   if (useErrors)
@@ -9991,7 +10206,8 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
       {
         if (bsGetKey (Cosmid, _IntMap, &map) &&
             bsGetData (Cosmid, _bsRight, _Int, &c1)  &&
-            bsGetData (Cosmid, _bsRight, _Int, &c2)) ;
+            bsGetData (Cosmid, _bsRight, _Int, &c2))
+	  {}  ;
         bsDestroy (Cosmid) ;
       }
     if (map && c1 + c2)
@@ -10009,7 +10225,7 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
   /*** SMAP: Splicing ***/
   {
     int nExons, nIntrons, gapl, ll, ifeet = 0, ngt_ag = 0, ngc_ag = 0,  nv_rep = 0, nfuzzy = 0 ;
-    HIT *up,*fp; ORFT *orf ;
+    HIT *up, *vp, *wp, *fp; ORFT *orf ;
     Array hits = 0 ;
     KEY _v_rep = str2tag ("V_repeat"), actualFoot ;
     KEY _Fuzzy_gt_ag = str2tag ("Fuzzy_gt_ag") ;
@@ -10023,14 +10239,21 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
 
     for (ii = 0, up = hits ? arrp (hits, 0, HIT) : 0  ; hits && ii < arrayMax (hits) ; up++, ii++)
       {
-        bsAddData (Transcript, _Splicing, _Int, &(up->a1)) ;
-        bsAddData (Transcript, _bsRight, _Int, &(up->a2)) ;
+        int jj ;
+	bsAddData (Transcript, _Splicing, _Int, &(up->a1)) ;
+	wp = up ;
+	for (vp = up + 1, jj = ii + 1 ; jj < arrayMax (hits) ; vp++, jj++)
+	  if ((up->type & gX) && vp->a1 == up->a2 + 1 && vp->type == up->type)
+	    wp = vp ;
+	  else
+	    break ;
+	bsAddData (Transcript, _bsRight, _Int, &(wp->a2)) ;
         if ((up->type & gI) && minIntronSize && up->a2 >= up->a1  && up->a2 - up->a1 < minIntronSize)
           up->type |= gMicro ;
         if (up->type & gX)
           {
             bsAddData (Transcript, _bsRight, _Int, &(up->x1)) ; 
-            bsAddData (Transcript, _bsRight, _Int, &(up->x2)) ;
+            bsAddData (Transcript, _bsRight, _Int, &(wp->x2)) ;
             bsPushObj (Transcript) ;
             nExons++ ; 
             if (up->type & gStolen)
@@ -10042,12 +10265,13 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
             else
               bsAddKey (Transcript, _bsRight, _Exon) ;
 
-            ll = up->a2 - up->a1 + 1 ;
+            ll = wp->a2 - up->a1 + 1 ;
             mrnaLength += ll ;
             bsAddData (Transcript, _bsRight, _Text, messprintf("%d", nExons)) ;
             bsAddData (Transcript, _bsRight, _Text, "Length") ;
             bsAddData (Transcript, _bsRight, _Int, &ll) ;
-            bsAddData (Transcript, _bsRight, _Text, "bp") ;
+            bsAddData (Transcript, _bsRight, _Text, "bp") ; 
+	    up = wp ;
           }
         else if (up->type & gI)
           {
@@ -11628,7 +11852,7 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
 
         if (!dna2)
           {
-            dna2 = arrayCopy (dna1) ;
+            dna2 = dnaCopy (dna1) ;
             reverseComplement (dna2) ;
           }
         uu = arrp (units, jj1, BSunit) ;
@@ -11713,7 +11937,7 @@ static void mrnaSaveMrna (S2M *s2m, SC* sc, Array estHits, Array smrnas, SMRNA *
     dna1 = arr (smrna->dnas, smrna->bestDna, ORFT).dna ;
     if (dna1 && arrayMax(dna1))
       {
-        dna2 = arrayCopy (dna1) ;
+        dna2 = dnaCopy (dna1) ;
         if (givenBack > 0)
           {
             int nn = arrayMax(dna1) - givenBack ;
@@ -12810,7 +13034,7 @@ void showSmrnas (S2M *s2m, Array smrnas, char *mm)
               printf("  %s", name(keySet(smrna->clones,j))) ;
               j1++ ;
             }
-        if (!j1) continue ;
+        if (!smrna->hits && !j1) continue ;
         printf ("\nsmrna %03d\ta1=%d\ta2=%d:", ii, smrna->a1, smrna->a2) ;
         printf("\n") ;
         if (smrna->orfs && arrayMax(smrna->orfs))
@@ -12889,7 +13113,10 @@ KEY makeMrnaGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas,
 
   chronoReturn () ;
   chrono ("makeMrnaGeneReextend") ;
-  mrnaSetCompletenessFlags (s2m, sc, gmrna, smrnas) ;
+  if (s2m->compositeDesignCovering)
+    mrnaDesignSetCompletenessFlags (s2m, sc, gmrna, smrnas) ;
+  else
+    mrnaSetCompletenessFlags (s2m, sc, gmrna, smrnas) ;
   chronoReturn () ;
   chrono ("makeMrnaGeneSave") ;
   chronoReturn () ;
@@ -12964,7 +13191,8 @@ KEY makeMrnaGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas,
 	mrnaSaveGeneKillNonBest (s2m, sc, gmrna, smrnas) ;
       mrnaSaveMicroIntrons (s2m, sc, gmrna, smrnas) ;
       mrnaSaveProductHierarchy (s2m, sc, gmrna, smrnas) ;
-      abiFixLabelPolyATg (sc->gene, 0, 0, 0) ;
+      if (! s2m->compositeDesignCovering)
+	abiFixLabelPolyATg (sc->gene, 0, 0, 0) ;
       /* this code should work on the genen for tg and/or pg */
       genes = queryKey (sc->gene, ">Gene") ;
       if (mrnaPleaseStealFromPrediction())
@@ -13000,3 +13228,366 @@ KEY makeMrnaGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas,
 
 /**********************************************************************************/
 /**********************************************************************************/
+
+static KEYSET mrnaSplitOneDoubleGene (KEY tg, KEYSET pgs, KEYSET gids) 
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int i, j,  g ;
+  int gMax = arrayMax (gids) ;
+  KEY _Gene_part = str2tag ("Gene_part") ;
+  KEYSET genes = keySetCreate () ;
+  KEYSET mrnas = queryKey (tg, ">mRNA") ;
+  int mMax = arrayMax (mrnas) ;
+  Array aa = arrayHandleCreate (mMax, HIT, h) ;
+  vTXT txt = vtxtHandleCreate (h) ;
+  OBJ Mrna  = 0 ;
+
+  if (gMax < 8)
+    for (i = 0 ; i < mMax ; i++)
+      {  /* associate each mRNA with a best score to its gids via a flag in up->zone */
+	KEY gene ;
+	KEY mrna = keySet (mrnas, i) ;
+	HIT *up = arrayp (aa, i, HIT) ;
+	up->gene = mrna ;
+	KEYSET ks = queryKey (mrna, "{>Identical_to_genefinder} SETOR {>Matching_genefinder} SETOR {>Touching_genefinder} ; >geneid_pg") ;
+	int n = 0 ;
+	
+	Mrna = bsUpdate (mrna) ;
+	vtxtClear (txt) ;
+	for (j = 0 ; j < keySetMax (ks) ; j++)
+	  {
+	    KEY k1 = keySet (ks, j) ;
+	    for (g = 0 ; g < gMax ; g++)
+	      if (k1 == keySet (gids, g))
+		{
+		  up->zone |= (1 << g) ;
+		  if(n++)
+		    vtxtPrint (txt, "--") ;
+		  vtxtPrint (txt, name (k1)) ;
+		  bsAddKey (Mrna, _GeneId, k1) ;
+		}
+	  }
+	keySetDestroy (ks) ;
+	
+	if (n)
+	  {
+	    if (bsFindTag (Mrna, _Gene_part))
+	      bsRemove (Mrna) ;
+	    lexaddkey (vtxtPtr (txt), &gene, _VGene) ;
+	    bsAddKey (Mrna, _Gene_part, gene) ;
+	    keySetInsert (genes, gene) ; 
+	  }
+	bsSave (Mrna) ;
+	
+	if (n)
+	  {
+	    int g ;
+	    OBJ Gene = bsUpdate (gene) ;
+	    
+	    for (g = 0 ; g < gMax ; g++)
+	      if (up->zone & (1 << g))
+		{
+		  KEY gid = keySet (gids, g) ;
+		  bsAddKey (Gene, _GeneId, gid) ;
+		}
+	    bsSave (Gene) ;
+	  }
+      }
+  
+  ac_free (h) ;
+  return genes ;
+} /*  mrnaSplitOneDoubleGene */
+
+/**********************************************************************************/
+/* merge weak genes in better ones */
+static BOOL  mrnaSplitOneMerge(KEYSET genes)
+{
+  BOOL ok = FALSE ;
+  int ii, jj ;
+  KEY _GeneId = str2tag ("GeneId") ;
+  KEY _mRNA_part = str2tag ("mRNA_part") ;
+  KEYSET gids1 = 0 ;
+  KEYSET gids2 = 0 ;
+  KEYSET gids3 = 0 ;
+
+  for (ii = 0 ; ii < keySetMax (genes) ; ii++)
+    {
+      KEY gene1 = keySet (genes, ii) ;
+      gids1 = queryKey (gene1, ">geneId") ;
+      if (keySetMax (gids1))
+	for (jj = 0 ; jj < keySetMax (genes) ; jj++)
+	  if (ii != jj)
+	    {
+	      KEY gene2 = keySet (genes, jj) ;
+	      gids2 = queryKey (gene2, ">geneId") ;
+	      
+	      gids3 = keySetMINUS (gids1, gids2) ;
+	      if (! keySetMax (gids3)) /* we could merge gene1 into gene2 */
+		{  /* look for good matches only */
+		  KEYSET w1 = queryKey (gene1, ">mRNA_part ; {>Identical_to_genefinder} SETOR {>Matching_genefinder} ; >geneid_pg") ;
+		  /*
+		    KEYSET w2 = queryKey (gene2, ">mRNA_part ; {>Identical_to_genefinder} SETOR {>Matching_genefinder} ; >geneid_pg") ;
+		    KEYSET w3 = keySetXOR (w1, w2) ;
+		  */
+		  if (! keySetMax (w1) /* || ! keySetMax (w3) */)  /* i do not have a strong case, or we have the same ones */ 
+		    {
+		      int i ;
+		      KEYSET mrnas = queryKey (gene1, ">mRNA_part") ;
+		      OBJ Gene = bsUpdate (gene1) ;
+		      bsKill(Gene) ;	
+
+		      ok = TRUE ;
+
+		      Gene = bsUpdate (gene2) ;
+		      for (i = 0 ; i < keySetMax (gids1) ; i++)
+			bsAddKey (Gene, _GeneId, keySet (gids1, i)) ;
+		      for (i = 0 ; i < keySetMax (mrnas) ; i++)
+			bsAddKey (Gene, _mRNA_part, keySet (mrnas, i)) ;
+		      bsSave (Gene) ;
+
+		      keySetDestroy (mrnas) ;
+		    }
+		  keySetDestroy (w1) ;
+		  /*
+		    keySetDestroy (w2) ;
+		    keySetDestroy (w3) ;
+		  */
+		  if (ok)
+		    goto done ;
+		}
+	      
+	      keySetDestroy (gids2) ;
+	      keySetDestroy (gids3) ;
+	    }
+      keySetDestroy (gids1) ;
+    }
+
+ done:
+    keySetDestroy (gids1) ;
+    keySetDestroy (gids2) ;
+    keySetDestroy (gids3) ;
+  return ok ;
+} /* mrnaSplitOneMerge */
+
+/**********************************************************************************/
+/* set the geometry */
+static void mrnaSplitOneCoords (KEYSET genes)
+{
+  int ii ;
+  KEY _mRNAs =  str2tag("mRNAs") ;
+
+  for (ii = 0 ; ii < keySetMax (genes) ; ii++)
+    {
+      KEY mrna = 0, gSeq = 0, gChrom = 0, gene = keySet (genes, ii) ;
+      int g1, g2 = -1 ;
+      int a1, a2 ;
+      OBJ Gene = bsUpdate (gene) ;
+      KEYSET mrnas = queryKey (gene, ">mRNA_part") ;
+      KEYSET rids = queryKey (gene, ">mRNA_part ; >matching_short_RNA ; >geneid_pg") ;
+      int jj ; 
+
+      for (jj = 0 ; jj < keySetMax (rids) ; jj++)
+	bsAddKey (Gene, _GeneId, keySet (rids, jj)) ;
+
+      for (jj = 0 ; jj < keySetMax (mrnas) ; jj++)
+	{
+	  KEY chrom = 0 ; 
+	  OBJ Mrna = 0 ;
+
+	  mrna = keySet (mrnas, jj) ;
+	  Mrna = bsCreate (mrna) ;
+
+	  bsGetKey (Mrna, _Genomic_sequence, &gSeq) ;
+	  if (bsGetKey (Mrna, _IntMap, &chrom) &&
+	    bsGetData (Mrna, _bsRight, _Int, &a1)
+	    )
+	  bsGetData (Mrna, _bsRight, _Int, &a2) ;
+	  if (g2 == -1)
+	    { g1 = a1 ; g2 = a2 ; gChrom = chrom ; }
+	  if (a1 < a2)
+	    { if (g1 > a1) g1 = a1 ; if (g2 < a2) g2 = a2 ; }
+	  else
+	    { if (g1 < a1) g1 = a1 ; if (g2 > a2) g2 = a2 ; }
+	}
+      if (gChrom) 
+	{
+	  bsAddKey (Gene, _IntMap, gChrom) ;
+	  bsAddData (Gene, _bsRight, _Int, &g1) ;
+	  bsAddData (Gene, _bsRight, _Int, &g2) ;
+	}
+      
+      if (1)
+	{  /* connect the GenePart (i.e. all 'genes') via the Tg, to the main GeneBox */
+	  KEY tg = mrna ? keyGetKey (mrna, _From_gene) : 0 ;
+	  KEY gBox = tg ? keyGetKey (tg, _Gene) : 0 ;
+	  if (gBox)
+	    bsAddKey (Gene, str2tag("GeneBox"), gBox) ;
+	}
+      bsSave (Gene) ;
+      
+      /* deal with the geometry */
+      if (gSeq)
+	{
+	  OBJ Gseq = bsUpdate (gSeq) ;
+	  int u1, u2 ;
+	  int da1, da2 ;
+	  if (bsFindKey (Gseq, _mRNAs, mrna) &&
+	      bsGetData (Gseq, _bsRight, _Int, &u1) &&
+	      bsGetData (Gseq, _bsRight, _Int, &u2)
+	      )
+	    {
+	      if (a1 < a2)
+		{ da1 = g1 - a1 ; da2 = g2 - a2 ; }
+	      else
+		{ da1 = a1 - g1 ; da2 = a2 - g2 ; }
+	      if (u1 < u2)
+		{ u1 += da1 ; u2 += da2 ; }
+	      else
+		{ u1 -= da1 ; u2 -= da2 ; }
+	      bsAddKey (Gseq, _Genes, gene) ;
+	      bsAddData (Gseq, _bsRight, _Int, &u1) ;
+	      bsAddData (Gseq, _bsRight, _Int, &u2) ;
+	    }
+	  bsSave (Gseq) ;
+	}
+
+      keySetDestroy (mrnas) ;
+      keySetDestroy (rids) ;
+    }
+} /* mrnaSplitOneCoords */
+
+/**********************************************************************************/
+/* set the products */
+static void mrnaSplitOneProducts (KEYSET genes)
+{
+  AC_HANDLE h = ac_new_handle () ;  
+  KEY _GeneBox =  str2tag("GeneBox") ;
+  int ii ;
+  
+  for (ii = 0 ; ii < keySetMax (genes) ; ii++)
+    {
+      OBJ Gene = 0 ;
+      KEY gene = keySet (genes, ii) ;
+      KEYSET products = queryKey (gene, ">mRNA_part ; >Product") ;
+      KEYSET gids = queryKey (gene, ">GeneId") ;
+      int jj ;
+
+      for (jj = 0 ; jj < keySetMax (products) ; jj++)
+	{
+	  KEY product = keySet (products, jj) ;
+	  OBJ Product = bsUpdate (product) ;
+	  if (bsFindTag (Product, _GeneBox))
+	    bsRemove (Product) ;
+	  bsAddKey (Product, _GeneBox, gene) ;
+	  bsSave (Product) ;
+	}
+      keySetDestroy (products) ;  
+      
+      Gene = bsUpdate (gene) ;
+      for (jj = 0 ; jj < keySetMax (gids) ; jj++)
+	{
+	  KEY loc, gid = keySet (gids, jj) ;
+	  bsAddKey (Gene, _GeneId, gid) ;
+	  if ((loc = keyGetKey (gid, _LocusLink)))
+	    bsAddKey (Gene, _LocusLink, loc) ;
+	}
+      bsSave (Gene) ;
+      keySetDestroy (gids) ;  
+    }
+
+  ac_free (h) ;
+} /*  mrnaSplitOneProducts */
+
+/**********************************************************************************/
+/* set the products */
+static void mrnaSplitOnePg (KEYSET genes)
+{
+  AC_HANDLE h = ac_new_handle () ;  
+  KEY _Genefinder =  str2tag("Genefinder") ;
+  int ii ;
+  
+  for (ii = 0 ; ii < keySetMax (genes) ; ii++)
+    {
+      OBJ Gene = 0 ;
+      KEY gene = keySet (genes, ii) ;
+      KEYSET pgs = queryKey (gene, ">mRNA_part ; {>Matching_short_RNA} SETOR {>identical_to_genefinder} SETOR {>Matching_genefinder} SETOR {>Touching_genefinder}") ;
+      int jj ;
+
+      Gene = bsUpdate (gene) ;
+      for (jj = 0 ; jj < keySetMax (pgs) ; jj++)
+	{
+	  KEY pg = keySet (pgs, jj) ;
+	  bsAddKey (Gene, _Genefinder, pg) ;
+	}
+      bsSave (Gene) ;
+      keySetDestroy (pgs) ;
+    }
+
+  ac_free (h) ;
+} /*  mrnaSplitOnePg */
+
+/**********************************************************************************/
+
+void mrnaSplitDoubleGenes (KEYSET tgs)
+{
+  int i, iMax = keySetMax (tgs) ;
+
+  for (i = 0 ; i < iMax ; i++)
+    {
+      KEY tg = keySet (tgs, i) ;
+      
+      KEYSET pgs = queryKey (tg, ">Matching_genefinder_gene") ;
+      KEYSET gids = pgs ? query (pgs, ">GeneId_pg") : 0 ;
+
+      if (gids && keySetMax (gids) > 1) 
+	{
+	  KEYSET subGenes = mrnaSplitOneDoubleGene (tg, pgs, gids) ;
+	  while (mrnaSplitOneMerge (subGenes)) ;
+	  mrnaSplitOneCoords (subGenes) ;
+	  mrnaSplitOneProducts (subGenes) ;
+	  mrnaSplitOnePg (subGenes) ;
+	  mrnaAddAlterSpliceDetails (subGenes) ; 
+	  mrnaCountClones (subGenes, 0, 0) ;
+
+	  giwAddKeysetIntronClass (subGenes, 0) ;
+	  giwAddKeysetProbeWalls  (subGenes, 0) ;
+	  
+	  mrnaSaveAceKog (subGenes) ;
+	  mrnaSavePfam2Go (subGenes) ;
+	  mrnaSavePsort2Go (subGenes) ;
+	  
+	  mrnaSaveGenePastilles (subGenes) ;
+
+	  keySetDestroy (subGenes) ;
+	}
+      else
+	{
+	  KEY gene = keyGetKey (tg, _Gene) ;
+	  if (gene)
+	    {
+	      KEYSET rids = queryKey (tg, ">mRNA;>matching_short_RNA;>geneid_pg") ;
+	      if (keySetMax (rids))
+		{
+		  int i ;
+		  OBJ Gene = bsUpdate (gene) ;
+		  for (i = 0 ; i < keySetMax (rids) ; i++)
+		    {
+		      KEY gid = keySet (rids, i) ;
+		      bsAddKey (Gene, _GeneId, gid) ;
+		    }
+		  bsSave (Gene) ;
+		}
+	      keySetDestroy (rids) ;
+	    }
+	}
+      
+      keySetDestroy (pgs) ;
+      keySetDestroy (gids) ;
+    }
+
+  return ;
+} /* mrnaSplitDoubleGenes */
+
+/**********************************************************************************/
+/**********************************************************************************/
+

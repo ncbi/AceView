@@ -5,7 +5,7 @@
  *   Input: A tab delimited table with some numerical tables
  *          and comment or caption lines starting with #
  *   Output: The same caption
- *      But for each numeric column, the column is rplaced by its stats and its histo
+ *      But for each numeric column, the column is replaced by its stats and its histo
  */
 #define MALLOC_CHECK  
 #define ARRAY_CHECK  

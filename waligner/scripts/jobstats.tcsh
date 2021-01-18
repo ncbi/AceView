@@ -10,9 +10,8 @@ setenv targets2 "any genome seqc av RefSeq UCSC mito rnaGene rrna SpikeIn DNASpi
 setenv targets2 "any $RNAtargets $DNAtargets"
 
 set toto=tmp/COUNT/$lane.jobstats
-set totopreace=tmp/COUNT/$lane.jobstats.preace
 if (-e $toto) \rm $toto
-if (-e $totopreace) \rm $totopreace
+if (-e $toto.preace) \rm $toto.preace
 
     printf "jobstats c1: $lane\n"
       printf "$lane" > $toto
@@ -53,27 +52,28 @@ if (-e $totopreace) \rm $totopreace
         foreach target ($targets2)
           if ($target == any) continue
 
-          set ff=tmp/PHITS_$target/$lane.err
-          if (-e $ff) then
-            set cpu=`cat $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}' $ff`
-            printf "\t$cpu" >> $toto
-            if ($cpu != -10) @ total = $total + $cpu
-            if ($cpu != -10) printf "CPU\t$run\t$lane\t$target\t$cpu\n" >> $totopreace
-          else
-            printf "\t-10" >> $toto
+          set ff1=tmp/MAGICBLAST/$lane.times
+          set ff2=tmp/PHITS_$target/$lane.err
+          set cpu=-10
+          if (-e $ff1) then
+            set cpu=`cat $ff1 | gawk '{if($1 == target){ok=1;}}/user/{if(ok+0<1)next;ok=0;sp;split($1,aa,"user");split($2,bb,"system");s=aa[1]+bb[1]+0;n=1;}END{if(n==0)s=-10;printf("%d",s);}' target=$target`
+          else if (-e $ff2) then
+            set cpu=`cat $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}'`
           endif
+	  printf "\t$cpu" >> $toto
+          if ($cpu != -10) @ total = $total + $cpu
+          if ($cpu != -10) printf "CPU\t$run\t$lane\t$target\t$cpu\n" >> $toto.preace
 
         end
-
-          set ff=tmp/COUNT/$lane.err
-          if (-e $ff) then
-            set cpu=`cat  $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}' $ff`
+        set ff=tmp/COUNT/$lane.err
+        if (-e $ff) then
+            set cpu=`cat  $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}'`
             printf "\t$cpu" >> $toto
             if ($cpu != -10) @ total = $total + $cpu
-            if ($cpu != -10) printf "CPU\t$run\t$lane\tSelectBest\t$cpu\n" >> $totopreace
-          else
+            if ($cpu != -10) printf "CPU\t$run\t$lane\tSelectBest\t$cpu\n" >> $toto.preace
+        else
             printf "\t-10" >> $toto
-          endif
+        endif
 
 	printf "\t$total" >> $toto
 
@@ -169,7 +169,7 @@ if (-e $totopreace) \rm $totopreace
           if (-e $ff) then
             set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
             printf "\t$mem" >> $toto
-            printf "Memory\t$run\t$lane\t$target\t$mem\n" >> $totopreace
+            printf "Memory\t$run\t$lane\t$target\t$mem\n" >> $toto.preace
           else
             printf "\t-1" >> $toto
           endif
@@ -179,7 +179,7 @@ if (-e $totopreace) \rm $totopreace
           if (-e $ff) then
             set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
             printf "\t$mem" >> $toto
-            printf "Memory\t$run\t$lane\tSelectBest\t$mem\n" >> $totopreace
+            printf "Memory\t$run\t$lane\tSelectBest\t$mem\n" >> $toto.preace
           else
             printf "\t-1" >> $toto
           endif

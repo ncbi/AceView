@@ -21,7 +21,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@sanger.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.cnrs-mop.fr
  *
- * SCCS: $Id: bql.h,v 1.7 2016/11/27 00:23:13 mieg Exp $
+ * SCCS: $Id: bql.h,v 1.10 2020/06/21 12:55:24 mieg Exp $
  * Description: bql is a new lighter implementation of aql
  *   suppressing many complexities of the original implementation
  *   removing the dependency on lex/yacc
@@ -47,6 +47,7 @@
 /****************************************************/
 
 typedef struct bqlStruct BQL;	/* opaque type for public interface */
+typedef struct bqlIterStruct BQL_ITER;	/* opaque type for public interface */
 
 /********************************/
 /* public exported functions :- */
@@ -79,15 +80,28 @@ typedef struct bqlStruct BQL;	/* opaque type for public interface */
 /******************************************************************/
 
 BQL *bqlCreate (BOOL debug, AC_HANDLE h)  ;
+BQL *bqlDbCreate (AC_DB db, BOOL debug, AC_HANDLE h)  ;
 BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery) ;
-BOOL bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset) ;
+int bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset) ; /* returns number of lines */
 void bqlMaxLine (BQL *bql, int maxLine) ; /* will block the calculation of the top iteration */
 
 BOOL bqlExport (BQL *bql, char beauty, BOOL showTitle, int beginLine, int maxLine, ACEOUT ao) ;
 AC_TABLE bqlResults (BQL *bql) ;
 
-void uBqlDestroy (void *vp) ;
-#define bqlDestroy(bql_) {uBqlDestroy (bql_); bql_ = 0}
+BQL_ITER *bqlIterCreate (const char *bqlQuery, KEYSET ksIn, const char **errors, AC_HANDLE h) ;
+
+/* To manipulate large tables you may optionally
+ * process table one KEY at a time
+ * 1: iter = bqlIterCreate ("bql query", ksIn, &errors, h) ;
+ * 2: while ((mini_table = bqlIterTable (iter)) 
+ *        { do_something_with_the_mini_table ; }
+ *     The mini table corresponds to the next key producing some data
+ *     returns NULL when no more key produces a non empty mini_table
+ *     DO NOT free the mini_table, it is freed internally on each iteration
+ * 3: Call ac_free (iter) OR ac_free (h) ;
+ */
+BQL_ITER *bqlIterCreate (const char *bqlQuery, KEYSET ksIn, const char **errors, AC_HANDLE h) ;
+AC_TABLE bqlIterTable (BQL_ITER *bqlIter) ;
 
 const char *bqlError (BQL *bql) ;
 /******************************************************************/

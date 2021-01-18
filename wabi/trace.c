@@ -30,12 +30,12 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: trace.c,v 1.25 2009/04/09 17:58:08 mieg Exp $ */
+/* $Id: trace.c,v 1.29 2017/10/02 19:49:25 mieg Exp $ */
 
-/*
+
 #define ARRAY_CHECK  
 #define MALLOC_CHECK
-*/
+
 
 #include "acedb.h"
 #include "acembly.h"
@@ -160,7 +160,7 @@ static void updateConsensus (LOOK look)
   if (!look->dnaKey || look->mode != SHOTGUN)
     return ;
   defCptForget (look->link, look->dnaKey);
-  dnaStoreDestroy (look->dnaKey, arrayCopy(look->dna)) ;
+  dnaStoreDestroy (look->dnaKey, dnaCopy(look->dna)) ;
   if (look->fMapLook)
     fMapPleaseRecompute (look->fMapLook) ;
 }
@@ -895,7 +895,7 @@ static void baseDoEdit (LOOK look, LANE *lane, KEY key,
 		  { bsDestroy (obj) ; return ; }
 		cp = freeword() ;
 		iShort++ ;
-		if (bsAddData (obj, _Problem, _Text, cp)) ;
+		bsAddData (obj, _Problem, _Text, cp) ;
 		iShort-- ;
 		if (i == -1) { key = 'X' ; iShort++ ; }
 		else { key = 'Y' ; iShort-- ; }
@@ -1552,7 +1552,6 @@ static void traceDoDestroy (LOOK look)
   arrayDestroy(look->laneShown) ;
   arrayDestroy(look->baseBoxes) ;
   arrayDestroy(look->hits) ;
-  arrayDestroy(look->geneSplicing) ;
   arrayDestroy(look->selectedKs) ;
 }
 
@@ -1802,7 +1801,7 @@ static BOOL traceIsPoorLane (KEY tg, KEY est)
 
 static BOOL traceMakeLanes (LOOK look, int sens)
 { Array aa = arrayCreate (1000, BSunit), aa1 = arrayCreate (30, BSunit) ;
-  int i, ii = 10000, j, x1, x2 , x3, ct, ce, max = look->map->max ;
+  int i, ii = 10000, j, x1, x2 , ct, ce, max = look->map->max ;
   LANE *lane ; 
   BSunit *u ;
   OBJ obj = 0 ;
@@ -1836,7 +1835,7 @@ static BOOL traceMakeLanes (LOOK look, int sens)
 	  x2 = u[2].i ;
 	  ct = u[3].i ;
 	  ce = u[4].i ;
-	  x3 = (x1 < x2 ? 1 : -1) * 50 + x2 ;
+	  /* x3 = (x1 < x2 ? 1 : -1) * 50 + x2 ; */
 	  lane = arrayp (look->lanes, j++, LANE) ;
 	  lane->key = key ;
 	  lane->hide = look->hide ;
@@ -1872,7 +1871,7 @@ static BOOL traceMakeLanes (LOOK look, int sens)
 	  x2 = u[2].i ;
 	  ct = u[3].i ;
 	  ce = u[4].i ;
-	  x3 = (x1 < x2 ? 1 : -1) * 50 + x2 ;
+	  /* x3 = (x1 < x2 ? 1 : -1) * 50 + x2 ; */
 	  lane = arrayp (look->lanes,j++, LANE) ;
 	  lane->key = key ;
 	  lane->hide = look->hide ;
@@ -2008,34 +2007,6 @@ static BOOL traceMakeHitLanes (LOOK look, int sens)
   arraySort(look->lanes, laneGlobalOrder) ;
   sortNeeded = FALSE ;
   return arrayMax (look->lanes) ;
-}
-
-/***************************************************************************/
-
-static void traceMakeGene (LOOK look, int sens)
-{ 
-  OBJ obj = 0 ;
-  Array aa ;
-  BSunit *u ;
-  int i, min = ACEDB_MAXINT, max = 0 ;
-
-  if (!look->gene) return ;
-  aa = look->geneSplicing = arrayCreate (36, BSunit) ; 
-
-  if ((obj = bsCreate (look->gene)) &&
-       bsGetArray (obj, _Splicing, aa, 4))
-    for (i = 0 ; i < arrayMax(aa) ; i += 4)
-      { 
-	u = arrp (aa, i, BSunit) ;
-	u[0].i  += look->origin ;
-	u[1].i  += look->origin ;
-	if (u[0].i < min) min = u[0].i ;
-	if (u[1].i > max) max = u[1].i ;
-      }
-  if (max < min) { min = 0 ; max = 1000 ; }
-  look->geneMin = min ;
-  look->geneMax = max ;
-  bsDestroy (obj) ;
 }
 
 /*********************************************************/
@@ -2341,12 +2312,14 @@ static void traceDnaLane (LOOK look, MAP map, LANE *lane, float *offset, int min
   KEY key ;
 
   CHECKSEQ ;  CHECKPOS ;
-  if (!lane->base)
+  if (!lane->base || !lane->basePos)
     return ;
 
   *offset += 1.5;  /* shift right (for errors sake) */
   buf[1] = 0 ;
-  nBase = arrayMax (lane->base) ;
+  nBase = arrayMax (lane->basePos) ;
+  if (!nBase)
+    return ;
 
   if (min < 0)
     min = 0 ;
@@ -2402,7 +2375,7 @@ static void traceDnaLane (LOOK look, MAP map, LANE *lane, float *offset, int min
   base = arrp (lane->base, 0, char) ;
   basePos = arrp (lane->basePos, 0, short) ;
 
-  while(*basePos < min  && nBase)
+  while(nBase > 1 && *basePos < min)
     { basePos++ ; base++ ; nBase-- ; n++ ;
     }
   top = n + 1 ; /* Plato */
@@ -2411,7 +2384,7 @@ static void traceDnaLane (LOOK look, MAP map, LANE *lane, float *offset, int min
   graphBoxEnd () ;
   lane->minBase = base - arrp (lane->base, 0, char) ;
   color = WHITE ;
-  while(*basePos <= max && nBase)  
+  while(nBase && *basePos <= max)  
     { n++ ;
       box = graphBoxStart() ;
       hh = arrayp (look->baseBoxes, box, HINT) ;
@@ -2452,27 +2425,29 @@ static void traceDnaLane (LOOK look, MAP map, LANE *lane, float *offset, int min
 	} 
       graphBoxDraw(box, color, bgcolor) ;
       graphBoxFreeMenu (box, baseEdit, baseEditMenu) ;
-      yy = MAP2GRAPH(map, *(basePos + 1)) ;
-      if (map->mag > 0)
-	{ yy1 = y + 1 ; yy2 = yy - .1 ; }
-      else
-	{ yy1 = yy + 1 ; yy2 = y - .1 ; }
-      if (hh->iShort >= lane->clipTop - 1 &&
-	  hh->iShort < lane->clipEnd &&
-	  yy2 > yy1)
-	{ box = graphBoxStart () ;
-	  hh = arrayp (look->baseBoxes, box, HINT) ;
-	  hh->lane = lane ;
-	  hh->iShort = base + 1 - arrp (lane->base, 0, char) ;
-	  hh->iLong = 1 ;
-	  hh->key = 0 ;
-	  hh->y = (yy1 + yy2) / 2 ;
-	  graphRectangle (*offset - 3, yy1, *offset + .8 , yy2) ;
-	  graphBoxEnd() ;
-	  graphBoxDraw (box, WHITE, WHITE) ;
-	  graphBoxFreeMenu (box, baseEdit, baseDoInsertMenu) ;
+      if (nBase > 1)
+	{
+	  yy = MAP2GRAPH(map, *(basePos + 1)) ;
+	  if (map->mag > 0)
+	    { yy1 = y + 1 ; yy2 = yy - .1 ; }
+	  else
+	    { yy1 = yy + 1 ; yy2 = y - .1 ; }
+	  if (hh->iShort >= lane->clipTop - 1 &&
+	      hh->iShort < lane->clipEnd &&
+	      yy2 > yy1)
+	    { box = graphBoxStart () ;
+	      hh = arrayp (look->baseBoxes, box, HINT) ;
+	      hh->lane = lane ;
+	      hh->iShort = base + 1 - arrp (lane->base, 0, char) ;
+	      hh->iLong = 1 ;
+	      hh->key = 0 ;
+	      hh->y = (yy1 + yy2) / 2 ;
+	      graphRectangle (*offset - 3, yy1, *offset + .8 , yy2) ;
+	      graphBoxEnd() ;
+	      graphBoxDraw (box, WHITE, WHITE) ;
+	      graphBoxFreeMenu (box, baseEdit, baseDoInsertMenu) ;
+	    }
 	}
-
       basePos++ ; base++ ; nBase-- ;
     }
   lane->maxBase = fin = n ;
@@ -2806,7 +2781,8 @@ static int jackPotSearch (LOOK look, MAP map, LANE *lane,
      if (sens == 1)
        {
 	 for (i = 0, ep = arrp (a, i, A_ERR) ; 
-	      ep->iLong < look->wmin && i < maxA ; i++, ep++) ;
+	       i < maxA  && ep->iLong < look->wmin  ; i++, ep++)
+	   {} ;
 	 n2 = i < maxA ? look->wmax - ep->iLong : 0 ; j = i ;
 	 for (n1 = 1 ; i < maxA && ep->iLong < look->wmax  ; i++, n1++, ep++) ;
 	 ep = j < maxA ? arrp (a, j, A_ERR) : 0 ;
@@ -2814,7 +2790,7 @@ static int jackPotSearch (LOOK look, MAP map, LANE *lane,
      else
        {
 	 for (i = arrayMax (a) - 1, ep = arrp (a, i, A_ERR) ; 
-	      ep->iLong > look->wmax && i >= 0 ; i--, ep--) ;
+	      i >= 0 && ep->iLong > look->wmax ; i--, ep--) ;
 	 n2 = i >= 0 ? ep->iLong - look->wmin : 0 ; j = i ;
 	 for (n1 = 0 ; i >= 0 && ep->iLong > look->wmin ; i--, n1++, ep--) ;
 	 ep = j >= 0 ? arrp (a, j, A_ERR) : 0 ;
@@ -2908,7 +2884,7 @@ static int jackPotSearch (LOOK look, MAP map, LANE *lane,
 /***********/
 
 static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, int min, int max, BOOL foundSplice)
-{ int n = 0, gotOne = 0 ;
+{ int n = 0 ;
   float y ;
   int  i, nBase , box , color, sens ;
   char *base ; short *basePos , bp ;
@@ -2955,11 +2931,10 @@ static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, i
 
   *offset -= 1.2 ;
 
-  gotOne = 1 ;
   color = WHITE ;
   i++ ; ep -= sens ;
   while (ep += sens , 
-	 i-- && 
+	 --i > 0 && 
 	 ep->iShort >= 0 &&
 	 ep->iShort < arrayMax(lane->basePos) &&
 	 ep->iShort < lane->clipEnd &&
@@ -2982,6 +2957,7 @@ static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, i
       switch(ep->type)
 	{
 	case TROU_DOUBLE:
+	case TROU_TRIPLE:
 	case TROU:
 	  hh->key = ace_upper(c) ;
 	  if(lane->upSequence)
@@ -2993,7 +2969,10 @@ static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, i
 	  break ;
 	case INSERTION: /*_AVANT: */
 	case INSERTION_DOUBLE: /*_AVANT: */
+	case INSERTION_TRIPLE: /*_AVANT: */
 	  hh->key = 'd' ; 
+	  break ;
+	case TYPE80:
 	  break ;
 	}
  
@@ -3026,6 +3005,7 @@ static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, i
 	  c = '*' ;
 	  break ;
 	case INSERTION_DOUBLE: /*_AVANT: */
+	case INSERTION_TRIPLE:
 	  color = MAGENTA ;
 	  c = '#' ;
 	  break ;
@@ -3034,6 +3014,15 @@ static void traceDnaLaneErrors (LOOK look, MAP map, LANE *lane, float *offset, i
 	  graphText(buf, *offset, y - 1) ;
 	  color = MAGENTA ;
 	  c = 'X' ;
+	  break ;
+	case TROU_TRIPLE:
+	  graphText(buf, *offset, y - 3) ;
+	  graphText(buf, *offset, y - 2) ;
+	  graphText(buf, *offset, y - 1) ;
+	  color = MAGENTA ;
+	  c = 'X' ;
+	  break ;
+	case TYPE80:
 	  break ;
 	}
       buf[0] = c ;
@@ -3596,7 +3585,7 @@ static void selectBestTraces (LOOK look)
   i = arrayMax (look->laneShown) ;
   if (look->mode == CDNA && look->hide == SHOW_BEST_ERR)
     {
-      int x1, x2, ok ;
+      int x1, x2 ;
       KEYSET ks = keySetCreate () ;
       while (i--)
 	{
@@ -3657,7 +3646,7 @@ static void selectBestTraces (LOOK look)
 	    {
 	      x1 = lane->x1 ; x2 = lane->x2 ;
 	      lane->hide = TRUE ;
-	      ok = 0 ;
+
 	      if (x1 > 0 && x1 > look->wmin && x1 < look->wmax)
 		{ 
 		  if (!keySet( ks, x1))
@@ -3771,8 +3760,8 @@ static void selectBestTraces (LOOK look)
 static void tracePlotAllLanes (LOOK look, float *offset)
 { LANE *lane, *lane1 = 0 ;
   MAP map = look->map ;
-  int i, j1, j2, min, max, fin ;
-  BOOL old = TRUE ;
+  int i, j1, j2, min, max ;
+  /*   BOOL old = TRUE ; */
   float mag, y, x0 = *offset ;
 
   j1 = j2 = 0 ;
@@ -3792,7 +3781,6 @@ static void tracePlotAllLanes (LOOK look, float *offset)
     look->traceWidth = 12 ;    /* was 6 */
   if (look->traceWidth > 18)
     look->traceWidth = 18 ;
-  old = TRUE ;
 
   for (i = 0 ; i < arrayMax (look->laneShown) ; i++)
     { 
@@ -3831,9 +3819,9 @@ static void tracePlotAllLanes (LOOK look, float *offset)
 	  graphLine (*offset, min, *offset, max) ;    
 	  *offset += .8 ;
 	}
-#endif
 
       fin = look->showClip ?  lane->xClipExtend : lane->xClipEnd ;
+#endif
 
       lane->laneBaseCallBox = graphBoxStart () ;
       lane->laneBaseCallBoxOffSet = *offset ;
@@ -3923,16 +3911,40 @@ void traceScale (LOOK look, float *offset)
 
 void traceGene (LOOK look, float *offset)
 {
-  float  x, y1, y2 ;
-  int i, x1, x2, box ;
+   OBJ obj = 0 ;
+   float  x, y1, y2 ;
+  int i, x1, x2, box ; 
+  int min = ACEDB_MAXINT, max = 0 ;
   KEY tt ;
   MAP map = look->map ;
   float mag = map->mag, centre = map->centre;
   BSunit *u ;
+  Array geneSplicing = 0 ;
 
-  if (look->mode != CDNA || !look->gene ||
-      !look->geneSplicing || !arrayMax(look->geneSplicing)) 
+  if (look->mode != CDNA || !look->gene)
     return ;
+  
+  obj = bsCreate (look->gene) ;
+  if (!obj)
+    return ;
+  
+  geneSplicing = arrayCreate (36, BSunit) ;  
+  bsGetArray (obj, _Splicing, geneSplicing, 4) ;
+  i = arrayMax(geneSplicing);
+  for (i = 0 ; i < arrayMax(geneSplicing) ; i += 4)
+    { 
+      u = arrp (geneSplicing, i, BSunit) ;
+      u[0].i  += look->origin ;
+      u[1].i  += look->origin ;
+      if (u[0].i < min) min = u[0].i ;
+      if (u[1].i > max) max = u[1].i ;
+    }
+  if (max < min) { min = 0 ; max = 1000 ; }
+  look->geneMin = min ;
+  look->geneMax = max ;
+  
+ if (!arrayMax(geneSplicing)) 
+   goto done ;
 
   genex = x = *offset + .2 ;
   
@@ -3955,9 +3967,9 @@ void traceGene (LOOK look, float *offset)
 
   look->geneBox = graphBoxStart () ;
   graphColor (MAGENTA) ;  
-  for (i = 0 ; i < arrayMax(look->geneSplicing) ; i += 4)
+  for (i = 0 ; i < arrayMax(geneSplicing) ; i += 4)
     {
-      u = arrp (look->geneSplicing, i, BSunit) ;
+      u = arrp (geneSplicing, i, BSunit) ;
       x1 = u[0].i ;
       x2 = u[1].i ;
       tt = u[2].k ;
@@ -4020,6 +4032,10 @@ void traceGene (LOOK look, float *offset)
   map->mag = mag ;
   map->centre = centre ;
   *offset += 2 ;
+
+ done:
+  bsDestroy (obj) ;
+  return ;
 }
 
 /*****************************************************************/
@@ -4307,6 +4323,10 @@ static void traceEdLaneBases (LOOK look, LANE *lane, float *offset,
 	  color = BLUE ; 
 	  c = '#' ;
 	  break ;
+	case TROU_TRIPLE:
+	  color = BLUE ; 
+	  c = '#' ;
+	  break ;
 	case INSERTION: /*_AVANT: */
 	  color = BLUE ;
 	  c = ace_upper(c) ;
@@ -4327,10 +4347,22 @@ static void traceEdLaneBases (LOOK look, LANE *lane, float *offset,
 	  c = 'X' ;
 	  ddx = .5 ; ddy = .5 ;
 	  break ; */
+	case INSERTION_TRIPLE: /*_AVANT: */
+	  color = ORANGE ;     /* BLUE ; */
+	  c = 'Z' ;
+	  ddx = -.5 ; ddy = -.5 ;
+	  break ;
+/*	case INSERTION_TRIPLE_APRES:
+	  color = BLUE ;
+	  c = 'z' ;
+	  ddx = .5 ; ddy = .5 ;
+	  break ; */
 
 	case AMBIGUE: 
 	  color = GREEN ; 
 	  c = ace_lower(c) ;
+	  break ;
+	case TYPE80:
 	  break ;
 	}
       if (upSequence)
@@ -4456,7 +4488,7 @@ void traceEds (LOOK look, float *offset)
 /**********************************************************/
 
 static void exportLane0(void)
-{ TRACE *bp[4], *sp, x ;
+{ TRACE *bp[4], *sp ;
   int u1, u2, u3, u4, z ;
   LANE *lane ;
   FILE *ff = 0 ;
@@ -4507,7 +4539,6 @@ static void exportLane0(void)
 	  array (a, lane->maxPos - 1 , char) = 0 ;
 	  cp = arrp (a, 0, char) ;
 	  sp = bp[i] ;
-	  x = 0 ;
 	  u1 = u2 = u3 = 0 ;
 	  for (j=0 ; j < lane->maxPos ; cp++, sp++, j++)
 	    { z = u1 ;
@@ -4527,7 +4558,6 @@ static void exportLane0(void)
 	  array (a, lane->maxPos - 1 , char) = 0 ;
 	  cp = arrp (a, 0, char) ;
 	  sp = bp[i] ;
-	  x = 0 ;
 	  u1 = u2 = u3 = 0 ;
 	  for (j=0 ; j < lane->maxPos ; cp++, sp++, j++)
 	    { z = 2*u1 - u2 ;
@@ -4549,7 +4579,6 @@ static void exportLane0(void)
 	  array (a, lane->maxPos - 1 , char) = 0 ;
 	  cp = arrp (a, 0, char) ;
 	  sp = bp[i] ;
-	  x = 0 ;
 	  u1 = u2 = u3 = 0 ;
 	  for (j=0 ; j < lane->maxPos ; cp++, sp++, j++)
 	    { z = 3*u1 - 3*u2 + u3 ;
@@ -4571,7 +4600,6 @@ static void exportLane0(void)
 	  array (a, lane->maxPos - 1 , char) = 0 ;
 	  cp = arrp (a, 0, char) ;
 	  sp = bp[i] ;
-	  x = 0 ;
 	  u1 = u2 = u3 = u4 = 0 ;
 	  z = 4*u1 - 6*u2 + 4*u3 - u4;
 	  for (j=0 ; j < lane->maxPos ; cp++, sp++, j++)
@@ -4791,12 +4819,13 @@ static void traceKbd (int k)
 /*************************************************************/
 
 static void traceCentre (LOOK look, float from)
-{ int nx, ny ;
+{ int ny ;
   
   graphFitBounds (&look->graphWidth,&look->graphHeight) ;
   halfGraphHeight = 0.5*(look->graphHeight - look->topMargin) ;
  
-  nx = look->graphWidth ; ny = look->graphHeight - look->topMargin - 5 ;
+  /* int nx = look->graphWidth ;  */
+  ny = look->graphHeight - look->topMargin - 5 ;
 
   look->map->centre = from ;
   if (!look->map->mag)
@@ -5097,7 +5126,7 @@ BOOL multiTraceDisplay (KEY key, KEY from, BOOL isOldGraph)
 	    { messout ("no refernce dna") ; graphDestroy () ; return FALSE ; }
 	}
 
-      look->dnaR = arrayCopy (look->dna) ;
+      look->dnaR = dnaCopy (look->dna) ;
       if (sens > 0)
 	reverseComplement (look->dnaR) ;
       else /* contig a l'envers dans le link */
@@ -5105,7 +5134,6 @@ BOOL multiTraceDisplay (KEY key, KEY from, BOOL isOldGraph)
       look->map->max = arrayMax (look->dna) ;
       look->wmin = 0 ;
       look->wmax = look->map->max ;
-      traceMakeGene (look, sens) ; 
       if (look->hits)
 	traceMakeHitLanes (look, sens) ;
       else
@@ -5141,7 +5169,7 @@ static BOOL fineTuneDx1(Array dna, LANE *lane, int u0, int *zp)
    int 
      dy, s, j0, x0 = *zp, 
      max = arrayMax(bc),
-     bestdy, delta = 2, 
+     delta = 2, 
      delta1 = 2,   /* align on 5-mers */
      i, n ;
    BOOL up = lane->upSequence ;
@@ -5152,7 +5180,6 @@ static BOOL fineTuneDx1(Array dna, LANE *lane, int u0, int *zp)
      return FALSE ;
    cp0 = arrp(dna, u0, char) ;
    s = -10 ;
-   bestdy = 0 ;
 
     /* search for the last base left of x0 */
    j0 = 0 ; 
@@ -6027,10 +6054,9 @@ static void traceMiddleDown (double x, double y)
 /************* left button for thumb **********/
 
 static void traceLeftDrag (double x, double y) 
-{ MAP map ;
+{ 
   TRACELOOKGET("traceLeftDrag") ;
 
-  map = look->map ;
   switch (dragFast)
     {
     case 0:

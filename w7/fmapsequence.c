@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: fmapsequence.c,v 1.10 2017/01/19 21:52:14 mieg Exp $ */
+/* $Id: fmapsequence.c,v 1.13 2017/10/16 13:54:41 mieg Exp $ */
 
 #include "fmap_.h"
 
@@ -762,95 +762,108 @@ BOOL fMapGetCDS (LOOK look, KEY parent, Array *cds, Array *index)
     return FALSE ;
 
   dna = look->dna ;
-  dnaMax = arrayMax(look->dna) ;
+  dnaMax = look->dna ? arrayMax(look->dna) : 0 ;
   
-  for (i = 1 ; i < arrayMax(look->segs) ; ++i)
-    { seg = arrp(look->segs,i,SEG) ;
-      if (seg->parent == parent)
-	switch (seg->type)
-	  {
-	  case CDS: case CDS_UP:
-	    cds1 = seg->x1 ;
-	    cds2 = seg->x2 ;
-	    break ;
-	  case SEQUENCE: 
-	    isUp = FALSE ;
-	    break ;
-	  case SEQUENCE_UP: 
-	    isUp = TRUE ;
-	    break ;
-	  case MPRODUCT: 
-	  case MRNA: 
-	    if (seg->key == seg->parent)
-	      {
-		cds1 = seg->x1 ;
-		cds2 = seg->x2 ;
-	      }
-	    isUp = FALSE ;
-	    break ;
-	  case MPRODUCT_UP: 
-	  case MRNA_UP: 
-	    if (seg->key == seg->parent)
-	      {
-		cds1 = seg->x1 ;
-		cds2 = seg->x2 ;
-	      }
-	    isUp = TRUE ;
-	    break ;
-	  default: break ;
-	  }
-    }
-
+  if (look->segs)
+    for (i = 1 ; i < arrayMax(look->segs) ; ++i)
+      {
+	seg = arrp(look->segs,i,SEG) ;
+	if (seg->parent == parent)
+	  switch (seg->type)
+	    {
+	    case CDS: case CDS_UP:
+	      cds1 = seg->x1 ;
+	      cds2 = seg->x2 ;
+	      break ;
+	    case SEQUENCE: 
+	      isUp = FALSE ;
+	      break ;
+	    case SEQUENCE_UP: 
+	      isUp = TRUE ;
+	      break ;
+	    case MPRODUCT: 
+	    case MRNA: 
+	      if (seg->key == seg->parent)
+		{
+		  cds1 = seg->x1 ;
+		  cds2 = seg->x2 ;
+		}
+	      isUp = FALSE ;
+	      break ;
+	    case MPRODUCT_UP: 
+	    case MRNA_UP: 
+	      if (seg->key == seg->parent)
+		{
+		  cds1 = seg->x1 ;
+		  cds2 = seg->x2 ;
+		}
+	      isUp = TRUE ;
+	      break ;
+	    default: break ;
+	    }
+      }
+  
   if (cds1 < 0) 
     cds1 = (cds1 + 9999999)%3 ;
   if (cds1 >= cds2)
     return FALSE ;
-
+  
   if (cds)
     *cds = arrayCreate (1000, char) ; /* wild guess */
   if (index)
     *index = arrayCreate (1000, int) ;
-
-  for (i = 1 ; i < arrayMax(look->segs) ; ++i)
-    { seg = arrp(look->segs,i,SEG) ;
-      if (seg->parent == parent)
-	switch (seg->type)
-	  {			/* pick cds */
-	  case MRNA: case MRNA_UP:
-	  case MPRODUCT: case MPRODUCT_UP:
-	    if (seg->key && !strstr(name(seg->key), "Exon") &&  !strstr(name(seg->key), "Gap"))
+  
+  if (look->segs)
+    for (i = 1 ; i < arrayMax(look->segs) ; ++i)
+      { 
+	seg = arrp(look->segs,i,SEG) ;
+	if (seg->parent == parent)
+	  switch (seg->type)
+	    {			/* pick cds */
+	    case MRNA: case MRNA_UP:
+	    case MPRODUCT: case MPRODUCT_UP:
+	      if (seg->key && !strstr(name(seg->key), "Exon") &&  !strstr(name(seg->key), "Gap"))
+		break ;
+	      /* else fall thru */
+	    case EXON: case EXON_UP:
+	      for (j = seg->x1 ; j <= seg->x2 ; ++j)
+		if (j >= cds1 && j <= cds2)
+		  { if (cds)
+		      {
+			if (j >= 0 && j < dnaMax)
+			  array(*cds,jCode,char) = arr(dna,j,char) ;
+			else
+			  array(*cds,jCode,char) = 0 ;
+		      }
+		    if (index)
+		      array(*index,jCode,int) = j ;
+		    ++jCode ;
+		  }
 	      break ;
-	    /* else fall thru */
-	  case EXON: case EXON_UP:
-	    for (j = seg->x1 ; j <= seg->x2 ; ++j)
-	      if (j >= cds1 && j <= cds2)
-		{ if (cds)
-		    {
-		      if (j >= 0 && j < dnaMax)
-			array(*cds,jCode,char) = arr(dna,j,char) ;
-		      else
-			array(*cds,jCode,char) = 0 ;
-		    }
-		  if (index)
-		    array(*index,jCode,int) = j ;
-		  ++jCode ;
-		}
-	    break ;
-	  default: break ;
-	  }
+	    default: break ;
+	    }
+      }
+  /* zero terminate */
+  if (cds && *cds)
+    {
+      int max = arrayMax (*cds) ;
+      array (*cds, max, char) = 0 ;
+      arrayMax (*cds) = max ;
     }
-
+  
   if (isUp)
-    { if (cds)
+    { 
+      if (cds)
 	reverseComplement (*cds) ;
-      if (index)
+      if (index && *index)
 	for (j = 0, i = jCode-1 ; j < i ; ++j, --i)
-	  { tmp = arr(*index,j,int) ;
+	  { 
+	    tmp = arr(*index,j,int) ;
 	    arr(*index,j,int) = arr(*index,i,int) ;
 	    arr(*index,i,int) = tmp ;
 	  }
     }
-  return TRUE ;
+  return cds && *cds && arrayMax (*cds) ? TRUE : FALSE ; ;
 }
 
 /********************/

@@ -15,11 +15,6 @@
  */
 
 /* @(#)basecallstat.c	1.3  11/12/96  */
-/*
-#define CHRONO
-*/
-#define ARRAY_CHECK 
-#define MALLOC_CHECK
 
 #include "acedb.h"
 #include "topology.h"
@@ -274,7 +269,7 @@ void statisticsDoMakeErreur (KEY target, KEYSET ks)
   if (!target || !(tarDna = dnaGet (target)))
     return ;
   max1 = arrayMax (tarDna) - 1 ;
-  tarDnaR = arrayCopy (tarDna) ;
+  tarDnaR = dnaCopy (tarDna) ;
   reverseComplement (tarDnaR) ;
   messStatus ("Aligning fragments" ) ;
   i = 6 ;
@@ -487,7 +482,7 @@ void statisticsCountGroup (KEYSET recu)
 		  keySet (ks, i) = 0 ;
 		  continue ;
 		}
-	      dna1r = arrayCopy (dna1) ;
+	      dna1r = dnaCopy (dna1) ;
 	      reverseComplement (dna1r) ;
 	      for (j = i + 1 ; j < keySetMax (ks) ; j++)
 		{ key2 = keySet (ks, j) ;

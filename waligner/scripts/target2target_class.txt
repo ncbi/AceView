@@ -11,14 +11,15 @@
 
 
 # Transcriptome starts at DT_magic and is named ?T_   
-# SYNCHRONIZE with lnAliErr.awk and with bestali.c:main() c5.h_Ali.awk and other places
+# SYNCHRONIZE with  with bestali.c:main() c5.h_Ali.awk and other places
 # aceview of different kinds
-    # if ($target == magic) set target_class=DT_magic
+    if ($target == magic) set target_class=DT_magic
 
     if ($target == av) set target_class=ET_av
     if ($target == mRNA2Wiggle) set target_class=ET_av
     if ($target == av2008) set target_class=FT_av2008
     if ($target == extra) set target_class=FT_extra
+    if ($target == simul) set target_class=FT_simul
 
     if ($target == cloud) set target_class=FT_cloud 
 
@@ -27,14 +28,14 @@
     if ($target == RefSeq) set target_class=KT_RefSeq
 # RefSeq is current RefSeq
 
+    if ($target == RefSeqCurrent) set target_class=LT_RefSeqCurrent
     if ($target == seqc) set target_class=LT_seqc
-    if ($target == magic) set target_class=LT_magic
+    # if ($target == magic) set target_class=LT_magic
 
     if ($target == UCSC) set target_class=LT_UCSC
-    if ($target == RefSeqCurrent) set target_class=LT_RefSeqCurrent
     if ($target == EBI) set target_class=MT_EBI
-    if ($target == miRNA) set target_class=NT_miRNA
     if ($target == Gaj) set target_class=MT_Gaj
+    if ($target == miRNA) set target_class=NT_miRNA
     if ($target == HINV) set target_class=NT_HINV
     if ($target == FBK) set target_class=NT_FBK
     if ($target == MiT) set target_class=NT_MiT
@@ -44,6 +45,11 @@
     if ($target == tRNA) set target_class=PT_tRNA
 # rnaGene and tRNA are deprecated,  they are both integrated in smallRNA
 # constructed from Lowe tRNA database and Encode miRNA, snRNA, snoRNA and misc_RNA
+# 2017_05, smallRNA are extracted from the RefSeq GTF by selecting transcripts
+# from genes with no transcript > 155, effectively selecting muRNA, sno ...
+# zcat hs.RefSeq.TM.txt.gz ZZZZZ.gz hs.RefSeq.fasta.gz | gawk '/ZZZZZ/{zz++;next;}{if(zz < 1){if($2 > 155){split($1,aa,"|");ok[aa[5]]=1;next;}}}/^>/{k=2;split($1,aa,"|");if(ok[aa[5]] == 1)k=1;}{if(k==2)print}' > tutu2.short 
+# zcat hs.RefSeq.TM.txt.gz ZZZZZ.gz hs.RefSeq.fasta.gz | gawk '/ZZZZZ/{zz++;next;}{if(zz < 1){if($2 > 155){split($1,aa,"|");ok[aa[5]]=1;next;}}}/^>/{k=0;split($1,aa,"|");if(ok[aa[5]] == 1)k=1;}{if(k==1)print}' > tutu2.long
+# to the short RefSeq, we add some tRNA and make the whole file unique
     if ($target == smallRNA) set target_class=QT_smallRNA
 
 
@@ -60,6 +66,7 @@
     if ($target == bacteria) set target_class=b_bacteria
     if ($target == virus) set target_class=v_virus
 
+    if ($target == sequin) set target_class=w_sequin
     if ($target == gdecoy) set target_class=z_gdecoy
 
 ####

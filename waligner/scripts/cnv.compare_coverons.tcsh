@@ -8,7 +8,8 @@ set phase=$5
 
 echo "scripts/cnv.compare_coverons.tsch $1 $2 $3 $4 $5"
 
-if ($phase == getCoverons) then
+set ok=0
+if (! -e tmp/WIGGLE_CNV/$bigGroup.coverons) then
   # given a big group
   # extract the geometry of the coverons at large threshold
 
@@ -29,10 +30,12 @@ if ($phase == getCoverons) then
   goto done
 endif
 
+if (! -d  tmp/WIGGLE_CNV/$bigGroup) mkdir  tmp/WIGGLE_CNV/$bigGroup
 foreach uu (u nu)
  foreach chrom ($chromSetAll)
-  foreach run (`cat tmp/WIGGLE_CNV/cnv.runs1  tmp/WIGGLE_CNV/cnv.runs2 | sort -u`) 
-     if  (-e  tmp/WIGGLE_CNV/$chrom/$run.cnv.$uu.sponge) continue
+  if (! -d  tmp/WIGGLE_CNV/$bigGroup/$chrom) mkdir  tmp/WIGGLE_CNV/$bigGroup/$chrom
+  foreach run (`cat tmp/WIGGLE_CNV/cnv.$compare.runs1  tmp/WIGGLE_CNV/cnv.$compare.runs2 | sort -u`) 
+     if  (-e  tmp/WIGGLE_CNV/$bigGroup/$chrom/$run.cnv.$uu.sponge) continue
 
      set f=xx
      set fu=xx
@@ -55,8 +58,8 @@ foreach uu (u nu)
      #    set f=$funu.BF.gz
      #  endif
      if ($f == xx) continue
-     echo "scripts/cnv.compare_coverons_do.tcsh tmp/WIGGLE_CNV/$chrom/$bigGroup.coverons  $f  tmp/WIGGLE_CNV/$chrom/$run.cnv.$uu.sponge"
-     scripts/submit  tmp/WIGGLE_CNV/$chrom/$run "scripts/cnv.compare_coverons_do.tcsh tmp/WIGGLE_CNV/$chrom/$bigGroup.coverons  $f  tmp/WIGGLE_CNV/$chrom/$run.cnv.$uu.sponge"
+     echo "scripts/cnv.compare_coverons_do.tcsh tmp/WIGGLE_CNV/$chrom/$bigGroup.coverons  $f  tmp/WIGGLE_CNV/$bigGroup/$chrom/$run.cnv.$uu.sponge"
+     scripts/submit  tmp/WIGGLE_CNV/$chrom/$run "scripts/cnv.compare_coverons_do.tcsh tmp/WIGGLE_CNV/$chrom/$bigGroup.coverons  $f  tmp/WIGGLE_CNV/$bigGroup/$chrom/$run.cnv.$uu.sponge"
      @ ok = $ok + 1
   end
  end
@@ -96,17 +99,19 @@ else
 endif
 
 foreach uu (u nu)
-  echo "bin/cnv --runs MetaDB/$MAGIC/RunListSorted --runsAll tmp/WIGGLE_CNV/cnv.runs1 --runsControl tmp/WIGGLE_CNV/cnv.runs2 --gtitle MetaDB/$MAGIC/gtitle.txt  $gg --coveronSponge tmp/WIGGLE_CNV/$bigGroup.coverons --coverage tmp/WIGGLE_CNV $u2u --$uu -o  tmp/WIGGLE_CNV/$MAGIC.$uu   --db MetaDB --project $MAGIC"
-        bin/cnv --runs MetaDB/$MAGIC/RunListSorted --runsAll tmp/WIGGLE_CNV/cnv.runs1 --runsControl tmp/WIGGLE_CNV/cnv.runs2 --gtitle MetaDB/$MAGIC/gtitle.txt  $gg --coveronSponge tmp/WIGGLE_CNV/$bigGroup.coverons --coverage tmp/WIGGLE_CNV $u2u --$uu -o  tmp/WIGGLE_CNV/$MAGIC.$uu   --db `pwd`/MetaDB --project $MAGIC
+  echo "bin/cnv --runs MetaDB/$MAGIC/RunListSorted --runsAll tmp/WIGGLE_CNV/cnv.$compare.runs1 --runsControl tmp/WIGGLE_CNV/cnv.$compare.runs2 --gtitle MetaDB/$MAGIC/gtitle.txt  $gg --coveronSponge tmp/WIGGLE_CNV/$bigGroup.coverons --coverage tmp/WIGGLE_CNV $u2u --$uu -o  tmp/WIGGLE_CNV/$MAGIC.$compare.$uu   --db MetaDB --big_group $bigGroup --project $MAGIC"
+        bin/cnv --runs MetaDB/$MAGIC/RunListSorted --runsAll tmp/WIGGLE_CNV/cnv.$compare.runs1 --runsControl tmp/WIGGLE_CNV/cnv.$compare.runs2 --gtitle MetaDB/$MAGIC/gtitle.txt  $gg --coveronSponge tmp/WIGGLE_CNV/$bigGroup.coverons --coverage tmp/WIGGLE_CNV $u2u --$uu -o  tmp/WIGGLE_CNV/$MAGIC.$compare.$uu   --db `pwd`/MetaDB --big_group $bigGroup  --project $MAGIC
 end
 
 if (! -d  RESULTS/Coverage_and_exons) mkdir  RESULTS/Coverage_and_exons
 foreach chrom ( $chromSetAll )
-   cat tmp/WIGGLE_CNV/$MAGIC.u.cnv_compare_coverons.scaled.txt | gawk -F '\t' '/^#/{print;next;}{if($2==chrom)print}' chrom=$chrom > RESULTS/Coverage_and_exons/$MAGIC.u.cnv_compare_coverons.scaled.$chrom.txt
-   cat tmp/WIGGLE_CNV/$MAGIC.u.cnv_compare_coverons.raw.txt | gawk -F '\t' '/^#/{print;next;}{if($2==chrom)print}' chrom=$chrom > RESULTS/Coverage_and_exons/$MAGIC.u.cnv_compare_coverons.scaled.$chrom.raw.txt
+   cat tmp/WIGGLE_CNV/$MAGIC.$compare.u.cnv_compare_coverons.scaled.txt | gawk -F '\t' '/^#/{print;next;}{if($2==chrom)print}' chrom=$chrom > RESULTS/Coverage_and_exons/$MAGIC.$compare.u.cnv_compare_coverons.scaled.$chrom.txt
+   cat tmp/WIGGLE_CNV/$MAGIC.$compare.u.cnv_compare_coverons.raw.txt | gawk -F '\t' '/^#/{print;next;}{if($2==chrom)print}' chrom=$chrom > RESULTS/Coverage_and_exons/$MAGIC.$compare.u.cnv_compare_coverons.raw.$chrom.txt
 end
-\cp tmp/WIGGLE_CNV/$MAGIC.nu.cnv_compare_coverons.*.txt    RESULTS/Coverage_and_exons
-\cp tmp/WIGGLE_CNV/$MAGIC.u.cnv_compare_coverons.*lost.txt  RESULTS/Coverage_and_exons
+\cp tmp/WIGGLE_CNV/$MAGIC.$compare.u.cnv_compare_coverons.scaled.txt   RESULTS/Coverage_and_exons
+\cp tmp/WIGGLE_CNV/$MAGIC.$compare.u.cnv_compare_coverons.raw.txt      RESULTS/Coverage_and_exons
+\cp tmp/WIGGLE_CNV/$MAGIC.$compare.nu.cnv_compare_coverons.*.txt       RESULTS/Coverage_and_exons
+\cp tmp/WIGGLE_CNV/$MAGIC.$compare.u.cnv_compare_coverons.*lost.txt    RESULTS/Coverage_and_exons
 
 
 foreach uu (u nu)

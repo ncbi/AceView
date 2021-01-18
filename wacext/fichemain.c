@@ -98,6 +98,11 @@ int main (int argc, char *argv[])
   if (!db)
     messcrash ("could not open %s", target) ;
 
+#ifdef 0
+  /* the existence of this code forces function iin sworm.c not to be static 
+   * if we need this code again, it should eb inside swrm.c
+   */
+
   gmpJumpPointInit () ;
   
   if ((oMap = ac_get_obj (db, "Map", chrom, 0)))
@@ -129,6 +134,7 @@ int main (int argc, char *argv[])
     }
   else
     printf ("cannot find map %s\n", chrom) ;
+#endif
 
   if (vtxtPtr (blkp)) 
     {

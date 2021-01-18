@@ -15,11 +15,6 @@
 
 /* @(#)fmaposp.c	1.23 2/24/98 */
 
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
-
 #include "fmap_.h"
 
 #include "display.h"

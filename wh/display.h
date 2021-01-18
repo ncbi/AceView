@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: display.h,v 1.6 2013/10/08 02:37:03 mieg Exp $ */
+/* $Id: display.h,v 1.7 2017/09/06 20:05:15 mieg Exp $ */
 
 #ifndef _DISPLAY_H
 #define _DISPLAY_H
@@ -70,6 +70,8 @@ void pickGetDisplayTypes(void);
 void pickSetGraphTypes (void);
 char *pickMainTitle(void);
 void pickSetDisplaySize (const char *cp, float x, float y, float w, float h);
+BOOL cFicheDisplay (KEY key, KEY from, BOOL isOldGraph) ;
+BOOL geneAnnotDisplay (KEY key, KEY from, BOOL isOldGraph) ;
 
 /************ from action.c **********/
 /***** should they be here ???????? */

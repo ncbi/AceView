@@ -21,7 +21,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@sanger.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.cnrs-mop.fr
  *
- * SCCS: $Id: bitset_.h,v 1.3 2017/01/27 04:15:41 mieg Exp $
+ * SCCS: $Id: bitset_.h,v 1.4 2020/05/30 15:03:14 mieg Exp $
  * Description: transformation of array package for bits
  * Exported functions: a pure header - no code
  * HISTORY:
@@ -65,9 +65,11 @@ void bitExtend (BitSet bb, unsigned long int n) ;
 
 /* bit() uses arr() for optimal performance */
 
-#define bit(_x,_n)	(bigArr((_x), (_n) >> 5, unsigned int) & \
-			 bitField[(_n) & 0x1f])
-
+#ifndef MEM_DEBUG
+#define bit(_x,_n)	(bigArr((_x), (_n) >> 5, unsigned int) & bitField[(_n) & 0x1f])
+#else
+#define bit(_x,_n) bitt(_x,_n)
+#endif
                   /* Returns the number of set bits */
 unsigned long int bitSetCount (BitSet a) ;
       /* return the maximal allocated bit, useful to scan the table */

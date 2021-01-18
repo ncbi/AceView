@@ -224,7 +224,6 @@ static void flagSet (void)
   int n, position = 0 ;
 
   sFlag = stackCreate (1000) ;
-  stackTextOnly (sFlag) ;
   pushText (sFlag, "0") ;
 
   for (mm = menu ; mm->title ; mm++)
@@ -298,7 +297,6 @@ static int tableLoad (void)
       return 0 ;
     }
   s = stackCreate (100000000) ;
-  stackTextOnly (s) ;
 
   pushText (s, "0") ; /* avoid zero */
   tt = arrayCreate (200000, KEY) ;
@@ -522,7 +520,7 @@ static void page_end (void)
 
 /**************************************************************/
 /**************************************************************/
-
+#ifdef JUNK
 static void table_top(char *db, char *flags, char *name, char *num, char *def, char *prod, char *genes, int n_rows, int tot_prod, int tot_gene)
 {
   
@@ -704,7 +702,7 @@ static char *url_safe(const char *s)
   save = url_encode(s);
   return save;
 }
-
+#endif
 /**************************************************************/
 /**************************************************************/
 

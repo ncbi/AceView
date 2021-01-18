@@ -489,7 +489,6 @@ static int aceKog2aceSplit (ACEIN fi)
   char *cp, *prefix, *kantorName, *seqBuf ; 
   AC_HANDLE h = 0 ;
  
-  stackTextOnly (s) ;
   while (TRUE) 
     {
       if (aceInCard (fi))

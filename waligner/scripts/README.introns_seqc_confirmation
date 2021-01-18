@@ -1033,7 +1033,7 @@ edit intron_in_genebox
 magic_any_any >100
 
 
-# bin/geneelements  -mapSDF titi2.sdf -spongeFile RefSeq_CDS:tmp/METADATA/RefSeq_cds.ns.sponge,AceView_CDS:tmp/METADATA/av_cds.ns.sponge,EBI_CDS:tmp/METADATA/EBI_cds.ns.sponge,Discovery_CDS:tmp/METADATA/seqc_cds.ns.sponge,RefSeq_transcripts:tmp/METADATA/RefSeq.ns.sponge,AceView_transcripts:tmp/METADATA/av.ns.sponge,EBI_transcripts:tmp/METADATA/EBI.ns.sponge,Discovery_transcripts:tmp/METADATA/seqc.ns.sponge,RefSeq_genes:tmp/METADATA/RefSeq.ns.gene.sponge,AceView_genes:tmp/METADATA/av.ns.gene.sponge,EBI_genes:tmp/METADATA/EBI.ns.gene.sponge,Discovery_genes:tmp/METADATA/seqc.ns.gene.sponge,Genome:tmp/METADATA/genome.ns.sponge
+# bin/geneelements  -mapSDF titi2.sdf -spongeFile RefSeq_CDS:tmp/METADATA/RefSeq.ns.cds.sponge,AceView_CDS:tmp/METADATA/av.ns.cds.sponge,EBI_CDS:tmp/METADATA/EBI.ns.cds.sponge,Discovery_CDS:tmp/METADATA/seqc.ns.cds.sponge,RefSeq_transcripts:tmp/METADATA/RefSeq.ns.mrna.sponge,AceView_transcripts:tmp/METADATA/av.ns.mrna.sponge,EBI_transcripts:tmp/METADATA/EBI.ns.mrna.sponge,Discovery_transcripts:tmp/METADATA/seqc.ns.mrna.sponge,RefSeq_genes:tmp/METADATA/RefSeq.ns.gene.sponge,AceView_genes:tmp/METADATA/av.ns.gene.sponge,EBI_genes:tmp/METADATA/EBI.ns.gene.sponge,Discovery_genes:tmp/METADATA/seqc.ns.gene.sponge,Genome:tmp/METADATA/genome.ns.sponge
 
  bin/geneelements  -mapSDF titi2.sdf -spongeFile RefSeq_genes:tmp/METADATA/av.ns.gene.sponge
 

@@ -152,7 +152,7 @@ struct SpreadStruct {
 
 /************************************************************/
 
-typedef struct sprd1 { BSunit u ;
+typedef struct sprd1 { BSunit u ; double z ;
 		       KEY parent, grandParent ; BOOL empty ;
 		     } SPCELL ;
 
@@ -162,9 +162,10 @@ struct spread_cell_struct
   KEY key, parent, grandParent ;
   int iCol ;  COL *col ; 
   SC up, /* previous column */
-   scFrom, /* from/rightof: has the correct mark */
-   scGrandParent ; /* has the correct obj */
+    scFrom, /* from/rightof: has the correct mark */
+    scGrandParent ; /* has the correct obj */
   BSunit u ;
+  double z ;
   OBJ obj ;
   BSMARK mark ;
 } ;
@@ -183,5 +184,5 @@ BOOL spreadDoRecompute (SPREAD spread) ;
 /* sprddef.c */
 void spreadDoSaveDefinitions (SPREAD spread, FILE *f) ;
 void spreadDoExportDefinitions (SPREAD spread) ;
-
+void spreadDoExportBql (SPREAD spread, const char *obql, BOOL doRun) ;
 #endif /* !ACEDB_SPREAD__H */

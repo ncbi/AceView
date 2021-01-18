@@ -1,4 +1,4 @@
-#  $Id: SOLARIS_4_PROF_DEF,v 1.2 2003/09/08 02:45:14 mieg Exp $
+#  $Id: SOLARIS_4_PROF_DEF,v 1.3 2018/08/20 21:49:57 mieg Exp $
 
 #################################################################
 ############### acedb: R.Durbin and J.Thierry-Mieg ##############
@@ -23,7 +23,6 @@ RANLIB_NEEDED = false
 AR_OPTIONS = ru
 RPCGEN_FLAGS = -b -I -K -1
 
-LEX_LIBS = -ll -lw
 TEST = /usr/bin/test
 
 # prof tace -m mon.out [-c | -g | -l] ## to visualize results 

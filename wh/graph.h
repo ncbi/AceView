@@ -36,7 +36,7 @@
  * * Oct 21 16:54 1996 (il) 
  * Created: Jan  1992 (rd)
  **********************************************************************/
-/*  $Id: graph.h,v 1.12 2015/08/12 14:12:11 mieg Exp $ */
+/*  $Id: graph.h,v 1.13 2019/02/19 14:37:58 mieg Exp $ */
 
 #ifndef DEF_GRAPH_H
 #define DEF_GRAPH_H
@@ -444,6 +444,10 @@ void graphWhiteOut (void) ;	/* used to clear screen */
 /********* FLASH stuff, using swfc tool box  *********/
 BOOL swfGraphExport (Graph gId, ACEOUT out, BOOL do_size) ;
 BOOL swfGraphResize (float width, float height) ; /* resize a flash graph (in graphFitBounds units) */
+
+/********* SVG stuff, using HTML%/SVG native browser support  *********/
+BOOL svgGraphExport (Graph gId, ACEOUT out, BOOL do_size) ;
+BOOL svgGraphResize (float width, float height) ; /* resize a flash graph (in graphFitBounds units) */
 
 /********* GIF stuff, using Tim Boutell's gd package (c) Cold Spring Harbor *********/
 GRAPH_FUNC_DCL BOOL graphGIFfile (FILE *fil) ;

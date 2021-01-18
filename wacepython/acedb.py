@@ -11,13 +11,13 @@ import datetime
 # dump: for debugging
 
 def dump(s) :
-    print "DUMP:"
+    print ("DUMP:")
     for idx, x in enumerate(s) :
         if x >= ' ' and x <= '~' :
             c = x
         else :
             c = ' '
-        print "%2d %02x %c"%(idx,ord(x),c)
+        print ("%2d %02x %c"%(idx,ord(x),c))
 
 # block_parser: an object for parsing a response from the server.
 # initialize it with a string (containing the server response) and
@@ -38,9 +38,9 @@ class block_parser(object):
             raise EOFError
         self.cursor += 1
         s = self.s[n]
-        # print "GETC",
+        # print ("GETC",)
         # dump(s)
-        # print "cursor now",self.cursor
+        # print ("cursor now",self.cursor)
         return s
 
     # get a fixed number of bytes as a string
@@ -50,9 +50,9 @@ class block_parser(object):
             raise EOFError
         self.cursor += count
         s = self.s[n:n+count]
-        # print "GET_N",
+        # print ("GET_N",)
         # dump(s)
-        # print "cursor now",self.cursor
+        # print ("cursor now",self.cursor)
         return s
 
     # get a null-terminated string
@@ -60,8 +60,8 @@ class block_parser(object):
         n = self.s[self.cursor:].find('\0')
         r = self.s[self.cursor:self.cursor+n]
         self.cursor += n
-        # print "GETSTRING",r
-        # print "cursor now",self.cursor
+        # print ("GETSTRING",r)
+        # print ("cursor now",self.cursor)
         return r
 
     # get an object header - returns tuple of ( classe, name )
@@ -98,7 +98,7 @@ class block_parser(object):
 
         while 1 :
             try :
-                # print "KTYPE",
+                # print ("KTYPE",)
                 ktype = self.getc()
             except EOFError :
                 return
@@ -119,7 +119,7 @@ class block_parser(object):
                 # tag - 4 bytes
                 value = self.get_n(4)
                 value = struct.unpack(self.db.byte_order_u, value) [0]
-                # print "TAG", value, self.db.tag_num_to_name[value]
+                # print ("TAG", value, self.db.tag_num_to_name[value])
                 value = self.db.tag_num_to_name[value]
                 table.set( row, col, 'tag', value )
 
@@ -127,7 +127,7 @@ class block_parser(object):
                 # object - one byte class, string object name
                 classe = ord(self.getc())
                 name = self.getstring()
-                # print "OBJECT",classe, name
+                # print ("OBJECT",classe, name)
                 # BUG: not a nice representation
                 table.set( row, col, 'object', ( classe, name ) )
 
@@ -157,7 +157,7 @@ class block_parser(object):
             elif ktype == 't' :
                 # string
                 value = self.getstring()
-                # print "STRING", value
+                # print ("STRING", value)
                 table.set( row, col, 'string', value )
 
             elif ktype == '>' :
@@ -225,7 +225,7 @@ class acedb_object(object) :
         self.table = None
 
     def show( self ) :
-        print "OBJECT",self.classe, self.name
+        print ("OBJECT",self.classe, self.name)
         self.table.show()
 
     def ac_has_tag( self, tagname ) :
@@ -277,9 +277,9 @@ class acedb_table(object) :
     #
     def show( self ):
         for n, row in enumerate(self.rows) :
-            print "Row",n
+            print ("Row",n)
             for m,v  in enumerate(row) :
-                print "    ",m,v.__str__()
+                print ("    ",m,v.__str__())
 
     # ensure that there is space allocated for a particular row/column 
     def _grow_to( self, row, col ) :
@@ -319,7 +319,7 @@ class acedb_table(object) :
     def find_tag( self, tagname ) :
         for rnum, r in enumerate(self.rows) :
             for cnum,c in enumerate(r) :
-                # print rnum, cnum, c.dtype, c.value
+                # print (rnum, cnum, c.dtype, c.value)
                 if c.dtype == 'tag' and c.value == tagname :
                     return rnum, cnum
         return None
@@ -405,7 +405,7 @@ class acedb(object) :
         s = self.ac_command( 'show -C' )
         parse = block_parser(s, self)
 
-        # print "PARSE"
+        # print ("PARSE")
         # dump(s)
 
         # must consume object header even though it contains nothing of interest
@@ -695,8 +695,10 @@ if __name__ == '__main__' :
     s.show()
     #
     s = db.ac_get_obj( 'arf', 'a', 1 )
-    # print s
+    # print (s)
 
     # s = db.ac_command( 'list -C' )
-    # print s
+    # print (s)
+
+
 

@@ -10,3 +10,8 @@
 
 //-D Class MRNA
 
+Class Groups
+Visible
+Is_a_subclass_of SRR
+Filter "Is_group"
+

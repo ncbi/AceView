@@ -323,7 +323,7 @@ static char *ficheTAXTreeStatement (vTXT vtxt, GMP *gmp)
     {
       Stack s = stackCreate (4000) ;
       Array a = arrayCreate (64, TAXTREE) ; 
-      
+
       ficheTAXTreeFillArray (oTmp, a, s) ;
 
       ficheTAXTreeCumulate (a, s) ;

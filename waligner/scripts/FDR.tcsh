@@ -199,6 +199,8 @@ foreach mm (`cat MetaDB/$MAGIC/DEG_high_low.txt  | grep '::av::' | grep Diff_mRN
 end
 
 cat $tutu.txt | gawk -F '\t' '{printf("%s %s\nDEG %s %d score %s fc %s %s %s\n\n",$1,$2,$3,$4,$5,$6,$7,$8);}' > $tutu.ace
+set n=`wc -l $tutu.ace`
+if ($n < 2) \rm $tutu.ace
 
 goto phaseLoop
 

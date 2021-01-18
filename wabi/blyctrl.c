@@ -182,6 +182,7 @@ static MENUOPT blyControlMenu[] =
 
 
 /*****************************************************************/
+#ifdef JUNK
 static BOOL checkTC (int tc)
 {
   if (tc < 20 || tc > 99)
@@ -219,7 +220,7 @@ static void vectorSelect(LOOK look)
   graphWordEditor ("downStream bases",look->rightSite,28, 4, line++,0) ;
   graphIntEditor ("Primer to insert distance", &look->nn1, 4, line++, 0) ; 
 }
-
+#endif
 
 /***********************************************************************************/
 
@@ -361,6 +362,8 @@ SCF_dir ?
 /***********************************************************************************/
 /* Undefined Project */
 
+#ifdef JUNK
+
 static void ppM (void)
 {
   LOOK look = BLYGET ("ppS") ;
@@ -395,6 +398,7 @@ static MENUOPT pleaseMenu[]  =
   {ppM, "Sequence mutants and compare to wild type"},
   {0, 0}
 } ;
+#endif
 
 /***********************************************************************************/
 

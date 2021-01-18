@@ -8,7 +8,7 @@
 *** a multi htreaded code synchronized by channels
 *** see wh/channel.h and wh/remote_channel.h for details
 ************************************************************************
-* $Header: /home/mieg/aa/CVS_ACEVIEW/ace/wh/wego.h,v 1.15 2017/02/20 01:27:43 mieg Exp $
+* $Header: /home/mieg/aa/CVS_ACEVIEW/ace/wh/wego.h,v 1.16 2020/05/31 03:29:13 mieg Exp $
 */
 #include <errno.h>
 
@@ -23,23 +23,24 @@ void wego_init (void) ;
 void wego_max_threads (int max_threads) ;
 
 /*
- * calls wego_init()
-* max_threads() tells the library how many concurrently running
-* threads it may use. This limit is on RUNNING threads; the library 
-* WILL create more threads, but they will not all run concurrently.
-*
-* The limit will be observed if you call this function before any
-* tasks are started.  If you call again wego_init with a new limit,
-* the library may not observe the new limit for some time.
-*/
+ * wego_init()
+ * max_threads() tells the library how many concurrently running
+ * threads it may use. This limit is on RUNNING threads; the library 
+ * WILL create more threads, but they will not all run concurrently.
+ *
+ * The limit will be observed if you call this function before any
+ * tasks are started.  If you call again wego_init with a new limit,
+ * the library may not observe the new limit for some time.
+ */
 
 /* logging messages in a serialized way
  * printing to stderr in parallelized threads does not work, the
- * messages may be mixed up
- * The following method uses channeles to garantee a reasonable output
+ * messages may be mixed up. The message in synchrone copied
+ * inside wego_log and can be immediately freed in the calling routine. 
+ * The following method uses channels to garantee a reasonable output
  */
-void wego_log (const char *text) ;  /* export text to a serialized channel */
-void wego_flush (void) ;      /* flushes the wego_log channel on stderr */
+void wego_log (const char *text) ;   /* non blocking: export text to a serialized channel */
+void wego_flush (void) ;              /* blocking: flushes the wego_log channel on stderr */
 
 /* launching parallel threads
  * synchronized by channels

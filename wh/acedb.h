@@ -21,7 +21,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: acedb.h,v 1.7 2017/03/18 15:31:27 mieg Exp $ */
+/* $Id: acedb.h,v 1.8 2017/07/23 15:03:38 mieg Exp $ */
  
              /*********************************************/
              /* ACeDB.h                                   */
@@ -98,8 +98,13 @@ void acemblyInit (void) ; /* used in acembly extension */
 #include "pick.h"
 #include "graph.h"
 
-
-
+void paletteDisplay (void) ;
+void acedbstatus(void) ;
+void dumpAll (void) ;
+void parseControl (void) ;
+void updateData(void) ;
+void alignMaps (void) ;
+void addKeys (void) ;
 
 #endif
  

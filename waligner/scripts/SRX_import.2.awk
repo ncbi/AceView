@@ -97,7 +97,7 @@ function cleanSpace(_s) {
 	id3 = index (idx, "NCBI") ;
 	id4 = index (idx, "DDBJ") ;
 	id5 = index (idx, "dbGaP") ;
-
+	id6 = index (idx, "UWGS-RW") ;
 	if (id0 > 0)
 	{ 
 	    z = substr (z, j) ;
@@ -106,7 +106,7 @@ function cleanSpace(_s) {
 	    if (j > 1) 
 	    { geo = substr (z,1,j-2) ; z = substr (z, j-1) ; }
 	}
-	else if (id1 + id2 + id3 + id4 + id5 == 0)
+	else if (id1 + id2 + id6 == 0)
 	{ ok = 2 ; id = idx ; } # Good identifier found
 	else if (id3 + id4 + id5 > 0)
 	{ 

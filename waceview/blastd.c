@@ -63,7 +63,7 @@ static void check_dbnames (char *s)
 
 
 
-static void service (int s)
+static int service (int s)
 {
   char b[100] ;
   char *blasttype, *evalue, *dbnames, *t, *search_type ;
@@ -80,7 +80,7 @@ static void service (int s)
   evalue=b ;
   search_type=strchr (b,' ') ;
   if (!search_type)
-    return ;
+    return 0 ;
   *search_type++ = 0 ;
   dbnames = strchr (search_type,' ') ;
   *dbnames++ = 0  ;
@@ -101,7 +101,7 @@ static void service (int s)
     case -1:
       printf ("error: unexpected error in server\n") ;
     default:
-      return ;
+      return 0 ;
     }
   close (0) ;
   close (1) ;
@@ -131,6 +131,7 @@ static void service (int s)
   /* arrive here  ONLY if execlp failed */  
   write (1,"<h1>Fnternal error</h1>execl and execlp failed\n",47) ;
   exit (1) ;
+  return 0 ;
 }
 
 int main (int argc, char **argv)

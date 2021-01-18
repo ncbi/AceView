@@ -2,7 +2,7 @@
 #### Main makefile for Acedb, contig tools and Image
 #####################################################################
 
-# $Id: makefile,v 1.83 2017/03/18 15:31:31 mieg Exp $
+# $Id: makefile,v 1.84 2019/05/24 21:47:50 mieg Exp $
 
 
 # don't change this, using other shells can lead to portability problems.
@@ -19,7 +19,7 @@ SHELL = /bin/sh
 
 
 #####################################################################
-all: libs ace aceview acembly acext other tools misc
+all: libs ace aceview acembly acext acenn other tools misc
 
 # Sub categories of code, please add new stuff to one of these groups if possible
 
@@ -113,6 +113,10 @@ contig_all:
 acext:
 	echo "Making all AceC applications in wacext"
 	cd wacext; make  all
+
+acenn:
+	echo "Making all NeuralNet applications in wnn"
+	cd wnn ; make  all
 
 
 #####################################################################

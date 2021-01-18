@@ -1069,7 +1069,6 @@ static int worfDump (AC_DB db, const char *mask)
   Array wdArray = arrayCreate (10000, WD) ;
   WD *wd ;
   
-  stackTextOnly (s) ;
   freeOutf ("#NewName\tGene\tProduct\tLeft\tPrimer1\tRight\tPrimer2\tbp\tmRNA\n") ;
   ccp = messprintf ("Find keyset %s ; expand; >transcribed_gene; >mrna ; IS *.a ; > product best_product ; Complete || Open_length > 300 ; Primers ", mask ? mask : "xxx") ;
   iter = ac_dbquery_iter (db, ccp, h) ;

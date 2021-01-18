@@ -23,7 +23,7 @@ LIBS = -lm  -lnsl -lsocket
 RANLIB_NEEDED = false
 AR_OPTIONS = ru
 RPCGEN_FLAGS = -b -I -K -1
-LEX_LIBS = -ll -lw
+
 TEST = /usr/bin/test
 
 # -DWCS causes a problem, class versus Xlib.h

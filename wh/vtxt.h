@@ -21,6 +21,7 @@ int vtxtMark (vTXT blkp) ; /* Writable position, to be used in vtxtAt */
 char *vtxtAt (vTXT blkp, int pos) ; /* the content strating at pos, obtained from vtxtMark */
 int vtxtLen (vTXT blkp) ; /* the current length */
 int vtxtPrint (vTXT s, const char *txt) ; /* unformatted, uninterpreted, appends to what is already there */
+void vtxtPercent (vTXT s, float z) ;/* format a float with optimal number of decimals */
 int vtxtPrintf (vTXT s, const char * formatDescription, ...) ; /* here an above, return an int valid for vtxtAt */
 char *vtxtPrintWrapped (vTXT s, char *text, int lineLength) ; 
 int vtxtReplaceString (vTXT vtxt, char *a, char *b) ; /* changes a into b, returns the number of replaced strings */

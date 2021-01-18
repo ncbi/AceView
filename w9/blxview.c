@@ -1,6 +1,6 @@
 /*  Last edited: Dec 16 15:03 1998 (fw) */
 
-/* $Id: blxview.c,v 1.8 2016/05/06 21:29:05 mieg Exp $ */
+/* $Id: blxview.c,v 1.9 2017/06/05 20:59:41 mieg Exp $ */
 
 /* 
 
@@ -1200,7 +1200,7 @@ static Graph blviewCreate (void)
     }*/
 #endif
 
-    if (dotter_first && DBhits.next && DBhits.next->sname) {
+    if (dotter_first && DBhits.next && DBhits.next->sname[0]) {
 	strcpy(HighlightSeq, DBhits.next->sname);
 	callDotter();
     }

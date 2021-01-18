@@ -49,6 +49,7 @@ typedef struct sraStruct {
   Array baddies, tokens ;
   int max ;
   const char *template ;
+  const char *project ;
   BOOL showSample, showAuthor, dbEdit, old ;
 } SRA ;
 
@@ -226,12 +227,16 @@ static int sraSetBaddies (SRA *sra, char cc)
   if (1) /* generic baddies */
     {
       array (baddies, nBaddy++, char*) =  "Keywords:" ;
+      array (baddies, nBaddy++, char*) =  "Missing" ;
       if (0) array (baddies, nBaddy++, char*) =  "N/A" ;
     }
 
   switch (cc)  /* class specific baddies */
     {
     case 'a': /* authors */
+      array (baddies, nBaddy++, char*) = "NCBI (GEO)" ;
+      array (baddies, nBaddy++, char*) = "NCBI" ;
+      array (baddies, nBaddy++, char*) = "GEO" ;
       break ;
     case 's': /* sample */ 
       array (baddies, nBaddy++, char*) =  "Escherichia coli" ;
@@ -262,6 +267,7 @@ static int sraSetBaddies (SRA *sra, char cc)
 	  array (baddies, nBaddy++, char*) =  "R.norvegicus" ;
 	  array (baddies, nBaddy++, char*) =  "norvegicus" ;
 	  array (baddies, nBaddy++, char*) =  "Rattus" ;
+	  array (baddies, nBaddy++, char*) =  "E-MTAB-2544" ;
 	}
 
       array (baddies, nBaddy++, char*) = "str. K-12 substr." ;
@@ -324,7 +330,7 @@ static BOOL sraTokenRegister (SRA *sra, char *text)
   char *cp, *cq ;
 
   for (cp = text ; (ispunct (*cp) || *cp == ' ') && *cp != '+' && *cp != '-' && !(*cp == '.' && isdigit(cp[1])) ; cp++) ;    /* gobble initial spaces */
-  for (cq = cp + strlen(cp) - 1 ; cq > cp && (*cq == ' ' || ispunct (*cp)) ; cq--) ;
+  for (cq = cp + strlen(cp) - 1 ; cq > cp && (*cq == ' ' || (0 && ispunct (*cq) && *cp != ')')) ; cq--) ;
   cq[1] = 0 ; /* gobble terminal spaces */
 
   text = cp ;
@@ -739,7 +745,7 @@ static void sraSample2 (SRA *sra)
   isMigs += sraGetData (sra, sra->sample , "Identifier", 2, 100, h) ;
   isMigs += sraGetData (sra, sra->sample , "Description", 1, 300, h) ;
   
-  sraExportTokens (sra, sra->sample, "Magic_sample2") ;
+  sraExportTokens (sra, sra->srr, "Magic_sample2") ;
   
   ac_free (h) ;
 } /* sraSample2  */
@@ -755,7 +761,10 @@ static void sraAnalayze (SRA *sra)
   AC_OBJ srr = 0 ;
   AC_ITER iter = 0 ;
   
-  query = hprintf (h, "Find SRR SPR || SRX || Biosample || GEO ; %s", sra->template ? sra->template : "") ;
+  if (sra->project)
+    query = hprintf (h, "Find project %s ; >SRR ; SPR || SRX || Biosample || GEO ", sra->project) ;
+  else
+    query = hprintf (h, "Find SRR SPR || SRX || Biosample || GEO ; %s", sra->template ? sra->template : "") ;
   iter = ac_query_iter (sra->db, TRUE, query, 0, h) ;
 
   if (sra->showAuthor && ! sra->dbEdit)
@@ -800,6 +809,7 @@ static void usage (char *err)
 	   "//      and populated by the scripts waligner/scripts/SRX_import*\n"
 	   "//    -a : show condensed author\n"
 	   "//    -s : show condensed sample\n"
+	   "//    -p <MAGIC> : limit to SRR in given project\n"
 	   "//    -q query : limit to SRR matching the query\n"
 	   "//    -max <int>  : optional limit while debugging, default unlimited\n"
 	   "//       analyse at most max SRR objects maximal number\n"
@@ -831,6 +841,7 @@ int main (int argc, const char **argv)
 
   getCmdLineInt (&argc, argv, "-max", &(sra.max)) ;
   getCmdLineOption (&argc, argv, "-q", &(sra.template)) ;
+  getCmdLineOption (&argc, argv, "-p", &(sra.project)) ;
 
   sra.showAuthor = getCmdLineBool (&argc, argv, "-a") ;
   sra.showSample = getCmdLineBool (&argc, argv, "-s") ;

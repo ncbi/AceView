@@ -49,6 +49,7 @@ typedef struct wiggleStruct {
     , *trackName, *hitFile, *wiggleDir, *wiggleFeature, *ignoredProbeFileName, *mapFileName
     , *sxxWiggleFileName
     , *wiggleFileName1, *wiggleFileName2
+    , *swiggleFileName1, *swiggleFileName2   /* controlling stranded wiggles */
     , *selectFileName, *rejectFileName
     , *inFileName, *outFileName, *target_class, *min_target_class, *sxxChromosome
     , *transcriptsEndsFileName ;
@@ -56,6 +57,7 @@ typedef struct wiggleStruct {
   BOOL forceUnique ; /* BHIT format: reset multiplicity = 1 */
   BOOL non_unique ; /* BHIT format: only consider unique hits */
   BOOL partial ; /* used in -ventialte option: keep reads with overhand or orphans or incompatible pairs */
+  BOOL noPartial ; /* treat partial as if the were complete, useful for nanopore, PacBio */
   BOOL gzi, gzo ; /* gzip the input or the output */
   BOOL noRemap ; /* all coordinates go in aaa[0], target is discarded */
   Array targets ;
@@ -65,13 +67,14 @@ typedef struct wiggleStruct {
   int strandShift_max, minErrRate, minAliRate, minAliLength, pair ;
   int maxErr, maxErrRate ;
   const char *strandShift_f, *strandShift_r ;
+  const char *strategy ;
+  BOOL RNA_seq ;
   BOOL ventilate, cumul, peaks, multiVentilate, hierarchic, lengthCoverage, flagEnds ;
   int wiggleRatio, wiggleRatioDamper ;
   int multiPeaks ;  
   int BF_predictor ; /* degree of the polynome used to compress the BF format */
   int BF_compressor ; /* degree of the polynome used to compress the BF format */
 } WIGGLE ;
-
 
 typedef struct sxwtMapStruct { int target_map, map, x1, x2, remap, a1, a2 ; float y ;
   BOOL isDown ; KEYSET hits, upHits, downHits ;} SXMAP ;
@@ -86,9 +89,12 @@ void sxWiggleScale (WIGGLE *sx, float scale) ;
 void sxWiggleShift (WIGGLE *sx, float delta) ;
 void sxWiggleFloor (WIGGLE *sx, float mini) ;
 void sxWiggleRatio (WIGGLE *sx) ;
+Array sxWiggleStrandedRatio (WIGGLE *sx, Array aaa, Array bbb, int damper, AC_HANDLE h) ;
+Array sxWiggleMultiply (WIGGLE *sx, Array aaa, AC_HANDLE h) ;
+void sxWiggleMultiplyLocally (WIGGLE *sx, Array bbb) ;
 void sxWiggleCopy (WIGGLE *sx) ;
 void sxWiggleExport (WIGGLE *sx) ;
 
-Array sxGetWiggleZone (const char *fNam, char *type, int step, const char *chrom, int a1, int a2, AC_HANDLE h) ; /* returns an array of WIGGLEPOINT */
+Array sxGetWiggleZone (Array aa, const char *fNam, char *type, int step, const char *chrom, int a1, int a2, AC_HANDLE h) ; /* returns an array of WIGGLEPOINT */
 
 #endif

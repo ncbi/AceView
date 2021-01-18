@@ -1,4 +1,4 @@
-# $Id: SOLARIS_4_PURE_DEF,v 1.7 2006/07/09 04:04:42 mieg Exp $
+# $Id: SOLARIS_4_PURE_DEF,v 1.8 2018/08/20 21:49:58 mieg Exp $
 
 #################################################################
 ############### acedb: R.Durbin and J.Thierry-Mieg ##############
@@ -25,7 +25,6 @@ LIBS = -lm  -lsocket -lnsl
 RANLIB_NEEDED = false
 RPCGEN_FLAGS = -b -I -K -1
 
-LEX_LIBS = -ll -lw
 TEST = /usr/bin/test
 
 .c.o:

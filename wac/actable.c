@@ -1,10 +1,4 @@
-#include <stdio.h>
-
-#include "wac/ac.h"
-#include "wh/regular.h"
 #include "wh/acedb.h"
-#include "wh/mytime.h"
-#include "wh/dict.h"
 #include "wac/ac_.h"
 #include "wh/bitset.h"
 
@@ -583,7 +577,7 @@ const char *ac_table_printable (AC_TABLE tbl, int row, int col, const char *defl
 	sprintf(t->buf25,"%d", c->u.i);
 	return t->buf25;
       case ac_type_float:
-	sprintf(t->buf25,"%.9g", c->u.f);
+	sprintf(t->buf25,"%g", c->u.f);
 	return t->buf25;
       case ac_type_text:
 	return c->u.i > 0 && c->u.i <= dictMax(t->text_dict) ? dictName (t->text_dict, c->u.i) : "" ;
@@ -927,7 +921,7 @@ int ac_table_display (vTXT blkp
 	  bfret[0] = 'l';
 	  while (xi > 0 && xi > 255)
 	    {
-	      bfret[1]= 255; freeOutBinary (bfret, 2) ;
+	      bfret[1]= (char)255; freeOutBinary (bfret, 2) ;
 	      xi -= 255;
 	    }
 	  
@@ -1028,7 +1022,7 @@ static int acTableOrder (const void* va, const void* vb)
       else /* sortSpec > 0   -> ascending  */
 	col = sortSpec - 1;
       
-      /* we make NULL the smallest value ever */
+      /* we make NULL the largest value ever */
       cellA = ac_table_cell (t, rowA, col) ;
       cellB = ac_table_cell (t, rowB, col) ;
       typeA = cellA->type ;
@@ -1038,11 +1032,11 @@ static int acTableOrder (const void* va, const void* vb)
 	{
 	  if (typeB == ac_type_empty)
 	    continue ;
-	  return sortSpec > 0 ? -1 : 1 ;
+	  return sortSpec > 0 ? 1 : -1 ;
 	}
       
       if (typeB == ac_type_empty)
-	return sortSpec>0 ? 1 : -1 ;
+	return sortSpec>0 ? -1 : 1 ;
 
       if (cellA->u.k == cellB->u.k)
 	continue ;
@@ -1056,7 +1050,10 @@ static int acTableOrder (const void* va, const void* vb)
 	  {
 	    KEY keyA = cellA->u.k ;
 	    KEY keyB = cellB->u.k ;
-	    x = lexstrcmp (ac_key_name(keyA), ac_key_name(keyB));
+	    if (acCaseSensitive (keyA))
+	      x = lexstrCasecmp (ac_key_name(keyA), ac_key_name(keyB));
+	    else
+	      x = lexstrcmp (ac_key_name(keyA), ac_key_name(keyB));
 	    if (x)
 	      return sortSpec > 0 ? x : -x ;
 	  }
@@ -1231,6 +1228,47 @@ BOOL ac_table_sort (AC_TABLE table, const char *spec, vTXT errTxt)
 {
   return ac_table_do_sort (table, spec) ;
 } /* ac_table_sort */
+
+/************************************************************/
+
+AC_TABLE ac_table_paragraph (AC_TABLE table, int *rowp, AC_HANDLE h) 
+{
+  AC_TABLE tbl = 0 ;
+  int ir, ir0, irMax ;
+  int col, colMax ;
+  struct ac_table_internal *t2, *t = (struct ac_table_internal *)table ;
+  AC_CELL *c0, *c ;
+
+  if (! table)
+    messcrash ("ac_table_paragraph received a null table") ;
+  if (t->magic != MAGIC_BASE + MAGIC_AC_TABLE)
+    messcrash ("tableSort() received non-magic TABLE* pointer") ;
+  if (! rowp)
+    messcrash ("ac_table_paragraph received a null rowp") ;
+  if (*rowp < 0)
+    messcrash ("tableSort() received negative row value %d", *rowp) ;
+
+  if (*rowp >= table->rows)
+    return 0 ;
+
+  irMax = ir0 = *rowp ;
+  colMax = table->cols ;
+  c0 = ac_table_cell (t, ir0, 0) ;
+  while (c0->u.object == ac_table_cell (t, irMax, 0)->u.object)
+    irMax++ ;
+  
+  tbl = ac_db_empty_table (ac_table_db (table), irMax - ir0, table->cols, h) ;
+  t2 = (struct ac_table_internal *)tbl ;
+  for (ir = ir0 ; ir < irMax ; ir++)
+    for (col = 0 ; col < colMax ; col++)
+      {
+	c = ac_table_new_cell (t2, ir - ir0, col) ;
+	c0 = ac_table_cell (t, ir, col) ;
+	*c = *c0 ;
+      }
+  *rowp = irMax ;
+  return tbl ;
+}
 
 /************************************************************/
 /* Sort and compress a table

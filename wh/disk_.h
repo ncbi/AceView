@@ -1,6 +1,6 @@
 /*  Last edited: Apr 25 15:14 1995 (srk) */
 
-/* $Id: disk_.h,v 1.1.1.1 2002/07/19 20:23:19 sienkiew Exp $ */
+/* $Id: disk_.h,v 1.2 2017/06/06 20:22:00 mieg Exp $ */
 
  
              /*********************************************/
@@ -17,6 +17,7 @@
 #endif
 
 #define BLOC_SIZE 1024      /*number of char in a block*/
+extern int _DISQUE_BLOC_SIZE ;
 typedef struct  blockheader
   { DISK disk,                 /* where */
          nextdisk ;

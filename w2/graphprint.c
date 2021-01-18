@@ -21,7 +21,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: graphprint.c,v 1.13 2015/08/18 23:23:52 mieg Exp $ */
+/* $Id: graphprint.c,v 1.15 2017/08/14 03:11:20 mieg Exp $ */
 
 #include <string.h>
 #include "acedb.h"
@@ -30,6 +30,7 @@
 #include "session.h"
 #include "mydirent.h" /* for getwd below */
 #include "freeout.h"
+#include "graphsvg.h"
 
 #define BUTTON_BACKGROUND PALEBLUE
 
@@ -187,8 +188,7 @@ void pdExecute (void)
 	       pd->isRotate, pd->scale, pd->pages) ;
       break ;
     case 'f': /* pdf */
-	if (pd->copyBuffer &&
-	    *pd->copyBuffer)
+	if (*pd->copyBuffer)
 	  {
 	    int i = 0 ;
 	    char *cp, *tmpBuffer = 0 ;
@@ -215,8 +215,7 @@ void pdExecute (void)
 	int i = 0 ;
 	ACEOUT fo = 0 ;
 	
-	if (pd->copyBuffer &&
-	    *pd->copyBuffer)
+	if (*pd->copyBuffer)
 	  {
 	    cp = pd->copyBuffer + strlen (pd->copyBuffer) - 1 ;
 	    while (*cp != '.' && i < 4) { i++, cp--; }
@@ -240,8 +239,7 @@ void pdExecute (void)
 	int i = 0 ;
 	ACEOUT fo = 0 ;
 	
-	if (pd->copyBuffer &&
-	    *pd->copyBuffer)
+	if (*pd->copyBuffer)
 	  {
 	    cp = pd->copyBuffer + strlen (pd->copyBuffer) - 1 ;
 	    while (*cp != '.' && i < 4) { i++, cp--; }
@@ -251,6 +249,27 @@ void pdExecute (void)
 	    if ((fo = aceOutCreateToFile (pd->copyBuffer, "w", 0)))
 	      {
 		swfGraphExport (graphActive(), fo, 0) ; 
+		aceOutDestroy (fo) ;
+	      }
+	  }
+      }
+      break ;
+    case 'S':  /* SVG embedded drawing */ 
+      {
+	char *cp ;
+	int i = 0 ;
+	ACEOUT fo = 0 ;
+	
+	if (*pd->copyBuffer)
+	  {
+	    cp = pd->copyBuffer + strlen (pd->copyBuffer) - 1 ;
+	    while (*cp != '.' && i < 4) { i++, cp--; }
+	    if (cp > pd->copyBuffer && *cp == '.') ;
+	    else cp =  pd->copyBuffer + strlen (pd->copyBuffer) ;
+	    strcpy (cp, ".svg") ;
+	    if ((fo = aceOutCreateToFile (pd->copyBuffer, "w", 0)))
+	      {
+		svgGraphExport (graphActive(), fo, 0) ; 
 		aceOutDestroy (fo) ;
 	      }
 	  }
@@ -306,6 +325,17 @@ static void swfButton (void)
 { PDGET ("swfButton") ;
   
   pd->style = 's' ; 
+  pd->doMail = 0 ; /* exclusive */ 
+  pd->doPrint = 0 ;
+  pdDraw() ;
+}
+
+/*************************************************************************/
+
+static void svgButton (void)
+{ PDGET ("svgButton") ;
+  
+  pd->style = 'S' ; 
   pd->doMail = 0 ; /* exclusive */ 
   pd->doPrint = 0 ;
   pdDraw() ;
@@ -628,7 +658,7 @@ static MENUOPT* pdGetMenu (void)
 static void pdDraw(void)
 {
   int graphWidth, graphHeight ;
-  int boxp, boxm, boxgif, boxSwf,boxPdf,  boxc, boxl, box = 0, b ;
+  int boxp, boxm, boxgif, boxSwf, boxSvg, boxPdf,  boxc, boxl, box = 0, b ;
   int line ;
   float dy = .1 ;
   double x  ;
@@ -818,7 +848,9 @@ static void pdDraw(void)
   boxgif = graphButton ("Gif", gifButton, 33, line - dy) ;
   boxPdf = graphButton ("PDF", pdfButton, 38, line - dy) ;
   boxSwf = graphButton ("SWF", swfButton, 43, line - dy) ;
-  boxm = graphButton ("Text Only", asciiButton, 49, line - dy) ;
+  boxSvg = graphButton ("SVG", svgButton, 48, line - dy) ;
+  line += 2 ;
+  boxm = graphButton ("Text Only", asciiButton, 11, line - dy) ;
 
   if (pd->style == 'p')
     graphBoxDraw (boxp, BLACK, BUTTON_BACKGROUND) ;
@@ -832,6 +864,8 @@ static void pdDraw(void)
     graphBoxDraw (boxPdf, BLACK, BUTTON_BACKGROUND) ;
   else if (pd->style == 's')
     graphBoxDraw (boxSwf, BLACK, BUTTON_BACKGROUND) ;
+  else if (pd->style == 'S')
+    graphBoxDraw (boxSvg, BLACK, BUTTON_BACKGROUND) ;
 
   line += 2 ;
   graphLine (0, line, graphWidth, line) ;

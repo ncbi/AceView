@@ -20,6 +20,11 @@ typedef struct sobj *OBJ ;
 #define ACE_NCBI
 static void ac_finalise (void *);
 
+BOOL acCaseSensitive (KEY key)
+{
+  return pickCaseSensitive (key) ;
+}
+
 /********************************************************************/
 /********************************************************************/
 /*
@@ -30,6 +35,11 @@ static int ac_open_counter = 0;
 /*
  * counter to know when we should call aceQuit().
  */
+
+int ac_db_nActiveClients (AC_DB db)
+{ /* not public on server side */
+  return -1 ;
+}
 
 
 static void ac_close_on_exit()
@@ -74,8 +84,7 @@ AC_DB ac_open_db (const char *database, const char **error)
   db->magic = MAGIC_BASE + MAGIC_AC_DB ;
   db->handle = ac_new_handle () ;
   db->command_stack = stackHandleCreate (1000, db->handle) ;
-  stackTextOnly (db->command_stack) ;
-  db->look = aceCommandCreate (7, 0xff) ;
+  db->look = aceCommandCreate (255, 0xff) ;
 
   return db ;
 }
@@ -1474,6 +1483,7 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
 {
   AC_HANDLE h = ac_new_handle () ;
   BQL *bql ;
+  char *command = 0 ;
   AC_TABLE results = 0 ;
   KEYSET resultKs = keySetHandleCreate (h) ;
 
@@ -1485,12 +1495,14 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
   if ( ! *query)
     messcrash ("ac_bql_table received an empty query") ;
    
-  bql = bqlCreate (FALSE, handle) ; /* (BOOL debug, AC_HANDLE h) */
-  if (bqlParse (bql, query, FALSE) &&
+  bql = bqlDbCreate (db, FALSE, handle) ; /* (BOOL debug, AC_HANDLE h) */
+  command = halloc (strlen (query) + 100 + (orderBy ? strlen(orderBy) + 12 : 0), 0) ;
+  sprintf (command, "%s %s %s", query, orderBy ? "order_by" : "", orderBy ? orderBy : "") ;
+  if (bqlParse (bql, command, FALSE) &&
       bqlRun (bql,  initial_keyset ? initial_keyset->ks : 0, resultKs)
       )
     results = bqlResults (bql) ;
-
+ 
   if (error_messages)
     *error_messages = bqlError (bql) ;
   ac_free (h) ;
@@ -1649,12 +1661,11 @@ AC_TABLE ac_tablemaker_table (AC_DB db, const char *queryNam, AC_KEYSET iks,
       break ;
     case ac_tablemaker_text:
       defStack = stackHandleCreate (strlen(queryNam) + 24, h) ;
-      stackTextOnly (defStack) ;
       pushText (defStack, queryNam) ;
       if (! spreadDoReadDefinitions (spread, 0, 0, defStack, parameters, FALSE)) /* will close f */
 	{
 	  error_message = 
-	    hprintf (handle, "// Sorry, there is a syntax error in table definition passed to ac_table_maker_table, please test it in graphic acedb mode\n" ) ;
+	    hprintf (handle, "// Sorry, there is a syntax error in table definition passed to ac_tablemaker_table, please test it in graphic acedb mode\n" ) ;
 	  goto abort ;
 	}
 	break ;
@@ -1811,7 +1822,7 @@ char *ac_obj_peptide (AC_OBJ aobj, AC_HANDLE h)
 char *ac_longtext (AC_OBJ aobj, AC_HANDLE h)
 {
   Stack s = aobj ? stackGet (aobj->key) : 0 ;
-  char *cp, *cq = 0, *cq0 ;
+  char *cp, *cq = 0, *cq0 = 0 ;
 
   if (s)
     {
@@ -1822,9 +1833,10 @@ char *ac_longtext (AC_OBJ aobj, AC_HANDLE h)
 	   sprintf(cq, "%s\n", cp) ; /* \n replaces one or more zero, so we do not go over size */
 	   cq += strlen (cq) ;
 	 }
+ 
+      cp = cq0 - 1 ;
+      while ((cp = strchr (cp + 1, '\n'))) *cp= ' ' ;
     }
-  cp = cq0 - 1 ;
-  while ((cp = strchr (cp + 1, '\n'))) *cp= ' ' ;
   return cq0 ;
 }
 

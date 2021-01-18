@@ -12,7 +12,7 @@ but just now only the fiche text loads not any of the other 3 pieces
 
 to activate that code set FR=FALSE (use table)
                              TRUE (use frames, the version that is operational)
-june 2007: separate the page in 4 subpages: fgene,fmol, fexp, ffunc
+june 2007: separate the page in 5 subpages: fgene,fmol, fexp, ffunc, genome
 */
    /*
     * dbname as passed to the cgi 
@@ -26,8 +26,8 @@ june 2007: separate the page in 4 subpages: fgene,fmol, fexp, ffunc
     * These fields exist to be displayed to the user.
     */
 
-#define VERSION "v74"
-#define DATA_VERSION "v74a"
+#define VERSION "v75"
+#define DATA_VERSION "v75a"
 typedef struct dbConfigStruct {
   const char *dbName ; /* public name of the server, i.e. human */
   char dbSpecies ;
@@ -40,38 +40,37 @@ typedef struct dbConfigStruct {
 
 static DBCF dbConfig[] =
 { /* dbName  species      version        host    port         speciesTitle            dbTitle */
-  { "worm",  'w'     , VERSION , "ace01",   2000100, "Caenorhabditis elegans WS190", "February 2009"} ,
-  { "worm",  'w'     , VERSION , "ace31",   2000100, "Caenorhabditis elegans WS190", "February 2009"} ,
-  { "ara",   'a'     , VERSION , "ace01",   2000300, "Arabidopsis thaliana",    "Ara"} ,
-  { "ara",   'a'     , VERSION , "ace31",   2000300, "Arabidopsis thaliana",    "Ara"} ,
-  { "human", 'h'     , VERSION , "ace01", 2310337, "human",                  "Aug 2010" } ,
-  { "human", 'h'     , VERSION , "ace31", 2310337, "human",                  "Aug 2010" } ,
-  { "37a", 'h'       , VERSION , "ace01", 2310337, "human",                  "Aug 2010" } ,
-  { "37a", 'h'       , VERSION , "ace31", 2310337, "human",                  "Aug 2010" } ,
-  { "36a", 'h'       , VERSION , "ace01", 2310337, "human",                  "Aug 2010" } ,
-  { "36a", 'h'       , VERSION , "ace31", 2310337, "human",                  "Aug 2010" } ,
-  { "35g", 'h'       , VERSION , "ace01", 2310337, "human",                  "Aug 2010" } ,
-  { "35g", 'h'       , VERSION , "ace31", 2310337, "human",                  "Aug 2010" } ,
+  { "worm",  'w'     , VERSION , "ace01",   2002100, "Caenorhabditis elegans WS190", "February 2009"} ,
+  { "worm",  'w'     , VERSION , "ace31",   2002100, "Caenorhabditis elegans WS190", "February 2009"} ,
+  { "ara",   'a'     , VERSION , "ace01",   2002300, "Arabidopsis thaliana",    "Ara"} ,
+  { "ara",   'a'     , VERSION , "ace31",   2002300, "Arabidopsis thaliana",    "Ara"} ,
+  { "human", 'h'     , VERSION , "ace01", 2312337, "human",                  "Aug 2010" } ,
+  { "human", 'h'     , VERSION , "ace31", 2312337, "human",                  "Aug 2010" } ,
+  { "37a", 'h'       , VERSION , "ace01", 2312337, "human",                  "Aug 2010" } ,
+  { "37a", 'h'       , VERSION , "ace31", 2312337, "human",                  "Aug 2010" } ,
+  { "36a", 'h'       , VERSION , "ace01", 2312337, "human",                  "Aug 2010" } ,
+  { "36a", 'h'       , VERSION , "ace31", 2312337, "human",                  "Aug 2010" } ,
+  { "35g", 'h'       , VERSION , "ace01", 2312337, "human",                  "Aug 2010" } ,
+  { "35g", 'h'       , VERSION , "ace31", 2312337, "human",                  "Aug 2010" } ,
 
-  { "mouse", 'm'     , VERSION , "ace01", 2320337, "mouse",                  "June 2007" } ,
-  { "mouse", 'm'     , VERSION , "ace31", 2320337, "mouse",                  "June 2007" } ,
-  { "mm_37", 'm'     , VERSION , "ace01", 2320337, "mouse",                  "June 2007" } ,
-  { "mm_37", 'm'     , VERSION , "ace31", 2320337, "mouse",                  "June 2007" } ,
+  { "mouse", 'm'     , VERSION , "ace01", 2322337, "mouse",                  "June 2007" } ,
+  { "mouse", 'm'     , VERSION , "ace31", 2322337, "mouse",                  "June 2007" } ,
+  { "mm_37", 'm'     , VERSION , "ace01", 2322337, "mouse",                  "June 2007" } ,
+  { "mm_37", 'm'     , VERSION , "ace31", 2322337, "mouse",                  "June 2007" } ,
 
-  { "rat", 'r'       , VERSION , "ace01", 2330318, "rat",                  "Sept 2008" } ,
-  { "rat", 'r'       , VERSION , "ace31", 2330318, "rat",                  "Sept 2008" } ,
+  { "rat", 'r'       , VERSION , "ace01", 2332318, "rat",                  "Sept 2008" } ,
+  { "rat", 'r'       , VERSION , "ace31", 2332318, "rat",                  "Sept 2008" } ,
 
-  { "gold",  'h'     , VERSION , "ace01", 2310500, "human",                  "Gold project" } ,
-  { "gold",  'h'     , VERSION , "ace31", 2310500, "human",                  "Gold project" } ,
+  { "gold",  'h'     , VERSION , "ace01", 2312500, "human",                  "Gold project" } ,
+  { "gold",  'h'     , VERSION , "ace31", 2312500, "human",                  "Gold project" } ,
 
-  { "coli", 'c'     , VERSION , "ace01", 2340001, "coli",                  "June 2015" } ,
+  { "coli", 'c'     , VERSION , "ace01", 2342001, "coli",                  "June 2015" } ,
   
-  { "debug", 'h'     , VERSION , "acedev01", 12345, "human",                  "April 2007" } ,
+  { "debug", 'h'     , VERSION , "acedev01", 12345, "worm",                  "April 2007" } ,
 
-  { "debug", 'h'     , VERSION , "ace", 12345, "human",                  "April 2007" } ,
   { "test01", 'h'     , VERSION , "ace01", 12345, "human",                  "Aug 2010" } , 
   { "test31", 'h'     , VERSION , "ace31", 12345, "human",                  "April 2007" } ,
-
+  
   {  0, 0, 0, 0, 0, 0 }
 } ;
 
@@ -79,7 +78,8 @@ static DBCF dbConfig[] =
 typedef enum
 { ZERO_A = 0, TREE_A, DNA_A, PEP_A, PROBE_A, FICHE_A, FGENE_A, FMOL_A, FEXP_A, FFUNC_A, SECTION_A, GENE_A, MRNA_A,
   LIST_A, CLONES_A, TG_SUPPORT_A, GOLD_A, GOLDFILE_A, FASTA_A, ERROR_A, MEGA_A, LINK_A, INFO_A,
-  LOG_A, GENE_P, VmRNA_P, Locator_P, LocatorBig_P, HmRNA_P, PROBE_P , WIGGLE_P, GXP_P, UCSC_A, LAST_A
+  LOG_A, GENE_P, VmRNA_P, Locator_P, LocatorBig_P, HmRNA_P, PROBE_P , WIGGLE_P, GXP_P, UCSC_A,
+  GENOME_A, LAST_A
 } ACTION_TYPE ;
 
 static char *actionName[] = {"ZERO", "TREE", "DNA", "PEP", "PROBE", "FICHE"
@@ -88,11 +88,11 @@ static char *actionName[] = {"ZERO", "TREE", "DNA", "PEP", "PROBE", "FICHE"
 			     , "LIST", "CLONES", "TG_SUPPORT", "GOLD", "GOLDFILE", "FASTA", "ERROR"
 			     , "MEGA", "LINK", "INFO"
 			     , "LOG", "GENE_P", "VmRNA_P", "Locator_P", "LocatorBig_P", "HmRNA_P"
-			     , "PROBE_P", "WIGGLE_P", "GXP_P", "UCSC_A"
+			     , "PROBE_P", "WIGGLE_P", "GXP_P", "UCSC_A", "Genome"
 } ;
  
 typedef enum
-  { ZERO_T = 0, GIF_T, BUBBLE_T, SWF_T, swf_T
+  { ZERO_T = 0, GIF_T, BUBBLE_T, SWF_T, swf_T, SVG_T
 } PICTURE_TYPE ;
 
 typedef struct pStruct
@@ -109,7 +109,8 @@ typedef struct pStruct
     product ;
   PICTURE_TYPE picture_type ;
   ACTION_TYPE action;
-  char	*remote_addr, 
+  char	*remote_addr,
+    *fwd_addr, 
     *http_host, 
     *args ;
   char date[256] ;
@@ -153,7 +154,7 @@ typedef struct pStruct
   char	*browser ;
   int width, height ; /* size of the image draing frame in pixcells */
   BOOL orderByNewName ;
-  BOOL isGoogle, noRobot ; /* send the no robot tag */
+  BOOL isRobot, noRobot, isBuzy ; /* send the no robot tag */
   BOOL noJava ; /* not needed in the frameset pages */
   int  seqstart,seqlen,pagestart,details,newWindow;
   int nonMappedGenes ; /* number of genes without newName */
@@ -195,7 +196,7 @@ static char *error_message_not_found =
 "      RefSeq accession, OMIM accession, or Unigene cluster name Hs<span"
 "      class=GramE>.#</span>.</span> You might also <span style='color:#3366FF'>try"
 "      a cDNA clone name, or a functional or descriptive name</span>. If you are"
-"      interested by function, try the “<span style='color:#3366FF'>Pfam query</span>”."
+"      interested by function, try the <span style='color:#3366FF'>Pfam query</span>."
 "      But please do NOT look for a gi number, a protein or NP accession, an STS"
 "      marker name (go to LocusLink then back to us), an older AceView name (e.g."
 "      <i>Hs11_34081_29_1_661</i>, only archived on our ftp site), a WormPep"
@@ -247,7 +248,7 @@ static char *error_message_not_found =
 "      to the locus unambiguously, or that this locus has no associated sequence because"
 "      it has not been cloned yet. In this case, OMIM or LocusLink would be more"
 "      informative: AceView is only a complementary sequence oriented view. In"
-"      the top ‘Query’ box, search “All databases” at NCBI, or “OMIM”, or “LocusLink/Gene”."
+"      the top Query box, search All databases at NCBI, or OMIM, or LocusLink/Gene."
 "      </span></li>"
 "  <li class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto;"
 "      mso-list:l0 level1 lfo3;tab-stops:list 36.0pt'><b><span style='font-family:"
@@ -277,7 +278,7 @@ static char *error_message_not_found =
 " asked for a DNA sequence, such as an oligonucleotide,</span></b><span"
 " style='font-family:Tahoma'> directly in the query box, this will unfortunately"
 " not bring an answer. Sorry, we do not yet provide a direct AceView align"
-" service. Please try the “<span style='color:#3366FF'>Blast</span>” query in the"
+" service. Please try the <span style='color:#3366FF'>Blast</span>query in the"
 " left <span class=GramE>margin,</span> it will align your DNA or protein against"
 " all the AceView transcripts in the selected species</span></p>"
 " "
@@ -303,7 +304,7 @@ static char *error_message_not_found =
 "      December 03 release on, mRNA variants have a unique identifier, to avoid"
 "      confusion of having objects with different sequences named the same in"
 "      successive versions of AceView.</span> <span"
-"      style='mso-spacerun:yes'> </span><span style='font-family:Tahoma'>And we"
+"      style='mso-spacerun:yes'></span><span style='font-family:Tahoma'>And we"
 "      do not have room to maintain more than the last two builds on our server. Archives"
 "      may be available from Jim Kent, at UCSC.</span></li>"
 " </ol>"
@@ -359,59 +360,72 @@ static char *logPrefix (PP *ppp, char *desc)
   char *q, *rem, *p, *ref ;
 
   q = pgetenv("QUERY_STRING") ;
-  rem = pgetenv("REMOTE_ADDR") ;
-  p = pgetenv("HTTP_X_FWD_IP_ADDR") ;
   ref = pgetenv("HTTP_REFERER") ;
+  p = pgetenv("HTTP_X_FORWARDED_FOR") ;
+  rem = pgetenv("REMOTE_ADDR") ;
   s = messprintf("// aceview: %d %s %s %s %s %s %s %s", (int)time(0), ppp ? ppp->date : "(time)", desc,q,rem,p,ref, ppp->browser ? ppp->browser : "NULL-browser") ;
   return s ;
 }
 
 /******************************************************************************/
 
+static int  cgi_sanitize_word (char *txt, const char *w)
+{
+  int nn = 0, n = strlen (w) ;
+  char *cp = txt ;
+
+  while ((cp = strstr (cp, w)))
+    { 
+      if (!strcmp(w,"script") && !strncmp(cp,"scription",9))
+	continue ;
+      memset (cp, ' ', n) ; cp += n ; nn += n ; 
+    }
+
+  return nn ;
+}
+
+/***********/
+
 static char *cgi_sanitize (char *txt)
 {
-  char *cp0, *cp1 ;
+  char *cp0 ;
+  int nn = 0 ;
+  const char **bad ;
+  const char *baddies[] = {"<", ">"
+			   , "script"
+			   , "http://"
+			   , "https://"
+			   , "../"
+			   , "/bin/"
+			   , "/etc/"
+			   , "@import"
+			   , "SRC="
+			   , "src="
+			   , "style="
+			   , "STYLE="
+			   , "DECLARE "
+			   , "CAST("
+			   , "passwd"
+			   
+			   /* some browser seem to send junk from the aceview page glued to the query */
+			   , "tabs.v"
+			   , "av.cgi?"
+			   , "ncbi_banner_"
+			   , 0
+  } ;
 
   cp0 = strnew (txt, 0) ;
   url_decode_inplace(cp0) ;
-
-  for (cp1 = cp0 ; *cp1 ; cp1++)
-    if (*cp1 == '<' || *cp1 == '>') *cp1 = ' ' ;
-  while ((cp1 = strstr (cp0, "script")))
-    memset (cp1, ' ', 6) ;
-  while ((cp1 = strstr (cp0, "http://")))
-    memset (cp1, ' ', 7) ;
-  while ((cp1 = strstr (cp0, "https://")))
-    memset (cp1, ' ', 8) ;
-  while ((cp1 = strstr (cp0, "../")))
-    memset (cp1, ' ', 3) ;
-  while ((cp1 = strstr (cp0, "/bin/")))
-    memset (cp1, ' ', 5) ;
-  while ((cp1 = strstr (cp0, "/etc/")))
-    memset (cp1, ' ', 5) ;
-  while ((cp1 = strstr (cp0, "@import")))
-    memset (cp1, ' ', 7) ;
-  while ((cp1 = strstr (cp0, "SRC=")))
-    memset (cp1, ' ', 4) ;
-  while ((cp1 = strstr (cp0, "src=")))
-    memset (cp1, ' ', 4) ;
-  while ((cp1 = strstr (cp0, "style=")))
-    memset (cp1, ' ', 6) ;
-  while ((cp1 = strstr (cp0, "STYLE=")))
-    memset (cp1, ' ', 6) ;
-  while ((cp1 = strstr (cp0, "DECLARE ")))
-    memset (cp1, ' ', 8) ;
-  while ((cp1 = strstr (cp0, "CAST(")))
-    memset (cp1, ' ', 5) ;
-
-  /* some browser seem to send junk from the aceview page glued to the query */
-  while ((cp1 = strstr (cp0, "tabs.v"))) 
-    cp1 = 0 ;
-  while ((cp1 = strstr (cp0, "av.cgi?"))) 
-    cp1 = 0 ;
-  while ((cp1 = strstr (cp0, "ncbi_banner_")))
-    cp1 = 0 ;
   
+  for (bad = baddies ; *bad ; bad++)
+    nn += cgi_sanitize_word (cp0, *bad) ;
+  if (nn > 4)
+    {
+      char *cp = cp0 ;
+      while (*cp)
+	*cp++ = 'a' ;
+    }
+
   return cp0 ;
 }
 
@@ -524,6 +538,39 @@ static void showMOI (PP * ppp )
 
   printf ("</form >\n") ;
 } /* showMOI */
+
+/***************************************************************************/
+/***************************************************************************/
+/* these tags will be picked on the NCBI site by Google Analytics 
+ * and rendered as usage graphs
+ */
+static void setMetaNcbiApp (PP *ppp) 
+{
+  printf ("  <meta name=\"ncbi_app\" content=\"AceView\"/>\n") ;
+  printf ("  <meta name=\"ncbi_db\" content=\"%s\"/>\n"
+	  , *ppp->dbName ? ppp->dbName : "No_species"
+	  ) ;
+  printf ("  <meta name=\"ncbi_pdid\" content=\"%s\"/>\n"
+	  , *ppp->actionName ? ppp->actionName : "Header"
+	  ) ;
+  
+  if (*ppp->query && strlen(ppp->query) < 40)
+    printf ("  <meta name=\"ncbi_term\" content=\"%s\"/>\n"
+	    , ppp->query
+	    ) ;
+  
+  printf ("<script type=\"text/javascript\">\n") ;
+  printf ("   var ncbi_startTime= new Date() ;\n") ;
+  printf ("</script>\n") ;
+  return ;
+} /* setMetaNcbiApp */
+
+/***************************************************************************/
+
+static void setNcbiApp (void)
+{
+  printf ("<script type=\"text/javascript\" src=\"//static.pubmed.gov/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js\"> \n</script>\n") ;
+}
 
 /***************************************************************************/
 /***************************************************************************/
@@ -676,23 +723,33 @@ static void setJavaScripts (PP *ppp)
 
 static void standardHtmlHeader (PP *ppp, BOOL hasBody)
 {
-  printf ("Content-type: text/html\n\n") ;
-  printf ("<html>\n") ;
+  if (ppp->isBuzy)  /* 2018_09_19 */
+    {
+      printf ("Status: 429 Too Many Requests\n") ; printf ("Retry-After: 3600\n") ; 
+      return; 
+    }
 
-  printf ("<head>\n") ;   
-  printf ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/>\n") ;
-  if (ppp->noRobot) printf ("<META NAME=\"ROBOTS\" CONTENT=\"NOINDEX, NOFOLLOW\">\n") ;
+  if (1)
+    {
+      printf ("Content-type: text/html\n\n") ;
+      printf ("<html>\n") ;
+      
+      printf ("<head>\n") ;   
+      printf ("  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\"/>\n") ;
+      if (ppp->noRobot) printf ("<META NAME=\"ROBOTS\" CONTENT=\"NOINDEX, NOFOLLOW\">\n") ;
+      
+      printf ("  <title>AceView: %s:%s, a comprehensive annotation"
+	      " of human, mouse and worm genes with"
+	      " mRNAs or ESTsAceView.</title>\n\n"
+	      , ppp->class, ppp->query
+	      ) ;
+      
+      setMetaNcbiApp (ppp) ;
+      setMetaDescription (ppp) ;
 
-  printf ("  <title>AceView: %s:%s, a comprehensive annotation"
-	  " of human, mouse and worm genes with"
-	  " mRNAs or ESTsAceView.</title>\n\n"
-	  , ppp->class, ppp->query
-	  ) ;
-
-  setMetaDescription (ppp) ;
-  if (! ppp->noJava) setJavaScripts (ppp) ;
-  printf ("</head>\n\n") ;
-
+      if (! ppp->noJava) setJavaScripts (ppp) ;
+      printf ("</head>\n\n") ;
+    }
   if (hasBody)
     {
       if (ppp->geneBox)
@@ -700,13 +757,13 @@ static void standardHtmlHeader (PP *ppp, BOOL hasBody)
 
       printf ("<body ") ;
       /*
-	if (1 || ppp->action == FGENE_A || ppp->action == FMOL_A || ppp->action == FEXP_A || ppp->action == FFUNC_A)
+	if (1 || ppp->action == FGENE_A || ppp->action == FMOL_A || ppp->action == FEXP_A || ppp->action == FFUNC_A || ppp->action == GENOME_A )
 	printf (" onLoad=aceViewOnLoad() ") ;
       */
       printf (" onunload=aceViewOnUnload() >\n\n") ;
       if (ppp->action  != FICHE_A && 
 	  ppp->action  != FGENE_A && ppp->action  != FMOL_A && ppp->action  != FEXP_A && ppp->action  != FFUNC_A &&
-	  ppp->action  != ERROR_A 
+	  ppp->action  != ERROR_A && ppp->action  != GENOME_A 
 	  )
 	{
 	  if (strstr (ppp->browser, "Mozilla/") && !strstr (ppp->browser, "MSIE") && !strstr (ppp->browser, "Netscape6") )
@@ -889,7 +946,7 @@ static BOOL contextLoad (PP *ppp)
 
 /***************************************************************************/
 /***************************************************************************/
-
+#define AV_VERSION "aceviewmain.2019_02_17"
 static void executeAction (PP *ppp)
 {
   unsigned char *fiche = 0 ;
@@ -900,9 +957,10 @@ static void executeAction (PP *ppp)
     case FMOL_A:
     case FEXP_A:
     case FFUNC_A:
-      ac_command (ppp->db, messprintf (" // %s start %s  %s" 
+    case GENOME_A:
+      ac_command (ppp->db, messprintf (" // %s start %s  %s %s" 
 				       , actionName[ppp->action]
-				       , ppp->class, ppp->query), 0, 0) ;
+				       , ppp->class, ppp->query, AV_VERSION), 0, 0) ;
 
       fiche = ac_command (ppp->db
 			 , messprintf("view -v %s -c %s -n \"%s\" -xml -preview2"  
@@ -912,7 +970,7 @@ static void executeAction (PP *ppp)
       ac_command (ppp->db, messprintf (" // fiche done %s  %s" , ppp->class, ppp->query), 0, 0) ;
       break ;
     case FICHE_A:
-      ac_command (ppp->db, messprintf (" // fiche start %s  %s" , ppp->class, ppp->query), 0, 0) ;
+      ac_command (ppp->db, messprintf (" // fiche start %s  %s %s" , ppp->class, ppp->query, AV_VERSION), 0, 0) ;
       
       fiche = ac_command (ppp->db
 			  , messprintf("view -v %s -c %s -n \"%s\" -xml -preview2",  
@@ -937,9 +995,9 @@ static void executeAction (PP *ppp)
 			 , 0, 0) ;
       break ;
     case CLONES_A:
-      ac_command (ppp->db, messprintf (" // %s start %s  %s" 
+      ac_command (ppp->db, messprintf (" // %s start %s  %s %s" 
 				       , actionName[ppp->action]
-				       , ppp->class, ppp->query), 0, 0) ;
+				       , ppp->class, ppp->query, AV_VERSION), 0, 0) ;
       fiche = ac_command (ppp->db
 			 , messprintf ("view -v CLONES -c %s -n \"%s\" -xml", ppp->class, ppp->query)
 			 , 0, 0) ;
@@ -974,6 +1032,8 @@ static void executeAction (PP *ppp)
     {
       if (getOneKey (ppp))
 	showTreeObject (ppp,  ppp->geneBox, 1, 0) ;
+
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
     }
 } /* executeAction */
@@ -984,9 +1044,9 @@ static void showInfoFrameSet (PP *ppp)
 {
   int mrnaMode = 0, directMode = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
-  if (ppp->class && !strcasecmp (ppp->class, "cDNA_clone"))
+  if (!strcasecmp (ppp->class, "cDNA_clone"))
     directMode = 1 ;
 
   if (!strcmp (ppp->version,"v47") || directMode) /* old system */
@@ -1030,8 +1090,8 @@ static void showInfoFrameSet (PP *ppp)
     }
   else
     {
-      char *SG = "S" ; /* flash by default */
-      if (!strcmp (ppp->version,"v47")) SG = "G" ;
+      char *SG = "SVG" ; /* svg   (was S flash) by default */
+      if (!strcmp (ppp->version,"v47")) SG = "G" ; /* gif */
 
       printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
 	      "  <!--\n" 
@@ -1054,14 +1114,15 @@ static void showFramesInfo (PP *ppp)
   int mrnaMode = 0 ;
   char *SG = "S" ; /* flash by default */
   if (!strcmp (ppp->version,"v47")) SG = "G" ;
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  SG = "SVG" ;
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
 
   standardHtmlHeader (ppp, FALSE) ;
 
   if (!ppp->newWindow) 
     showInfoFrameSet (ppp) ;
-  else if (strcmp (ppp->version,"v47") || (ppp->action != GENE_A && ppp->action != MRNA_A)) /* old system */
+  else if (1 || strcmp (ppp->version,"v47") || (ppp->action != GENE_A && ppp->action != MRNA_A)) /* old system */
     {
       printf ("<FORM NAME=\"vsim2\">\n") ;
       printf ("<frame MARGINWIDTH=0 MARGINHEIGHT=0 SCROLLING=\"Auto\" FRAMEBORDER=\"0\" FRAMESPACING=0 NAME=\"Graph\"") ;
@@ -1102,7 +1163,7 @@ static void showFramesMain (PP *ppp)
   BOOL showTabFrame = TRUE ; /* needed for the bubbles */
   BOOL showInfoFrame = FALSE ;
   if (!strcmp (ppp->version,"v47")) showInfoFrame = TRUE ;
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
   ppp->noJava = TRUE ;
   standardHtmlHeader  (ppp, FALSE) ;
@@ -1159,7 +1220,7 @@ static void showFramesMain (PP *ppp)
 	    ) ;
   printf (" , go to our <a href=\"help.html\">main page</a> or see our <href=\"AceViewNews.html\">latest news</a>\n"
 	  ) ;
-  if (ppp->isGoogle && ppp->geneBox)
+  if (ppp->isRobot && ppp->geneBox)
     {
       unsigned char *fiche2 = ac_command (ppp->db
 				 , messprintf("view -v FEXP -c %s -n \"%s\" -xml -preview2",  
@@ -1171,10 +1232,10 @@ static void showFramesMain (PP *ppp)
 	  messfree (fiche2) ;
 	}
     }
+  setNcbiApp () ;
   printf ("</body>\n") ;
   printf ("</NOFRAMES>\n") ;
   printf ("</FRAMESET>\n ") ;
-
   printf ("</FORM>\n</html>\n") ;
 }
 
@@ -1522,7 +1583,7 @@ static int getProducts (PP *ppp)
   int nproduct = 0, ngenes = 0 ;
   AC_KEYSET products = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "product"))
+  if (!strcasecmp (ppp->class, "product"))
     {
       products = ac_dbquery_keyset (ppp->db
 				    , messprintf ("find product IS \"%s\"", ppp->query) 
@@ -1569,7 +1630,7 @@ static int getMrnas (PP *ppp)
 {
   int nmrna = 0, ngenes = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "mrna"))
+  if (!strcasecmp (ppp->class, "mrna"))
     {
       ppp->mrnas = ac_dbquery_keyset (ppp->db
 				    , messprintf ("find mrna IS \"%s\"", ppp->query) 
@@ -2391,7 +2452,7 @@ static BOOL showGoldFile (PP *ppp)
 
 static BOOL showUcscFile (PP *ppp)
 {
-  if (ppp->db && ppp->goldFile)
+  if (ppp->db && ppp->goldFile[0])
     {
       ppp->pictureBuffer = ac_command (ppp->db
 				       , messprintf ("ucsc  %s",  ppp->goldFile)
@@ -2816,6 +2877,7 @@ static void showGeneList (PP *ppp)
 	  "</script>\n"
 	  ) ;
   
+  setNcbiApp () ;
   printf ("</body></html>\n") ;
 } /* showGeneList */
 
@@ -2895,7 +2957,7 @@ static void logClientInfo (PP *ppp, char *envp[])
   if (ppp->db)
     {
       ac_command (ppp->db
-		 , messprintf (" // REMOTE_ADDR=%s\t%s\t%s", ppp->remote_addr, ppp->date, ppp->args)
+		  , messprintf (" // REMOTE_ADDR=%s\t%s\t%s\t%s",  ppp->fwd_addr, ppp->remote_addr, ppp->date, ppp->args)
 		 , 0, 0) ;
       ac_command (ppp->db
 		 , messprintf (" // HTTP_HOST=%s\t%s\tbrowser=%s", ppp->http_host, ppp->args,ppp->browser ? ppp->browser : "NULL-browser")
@@ -2944,14 +3006,18 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
   else
     ppp->http_host = cgi_sanitize (ppp->http_host) ;
 
-  if (! ppp->remote_addr)
-    ppp->remote_addr = getenv("HTTP_X_FWD_IP_ADDR") ; /* ("REMOTE_ADDR") ; */
+  if (! ppp->fwd_addr)
+    ppp->fwd_addr = getenv("HTTP_X_FORWARDED_FOR") ; /* ("REMOTE_ADDR") ; */
   if (! ppp->remote_addr)
     ppp->remote_addr = getenv("REMOTE_ADDR");
   if (! ppp->remote_addr)
     ppp->remote_addr = "REMOTE_ADDR=unknown" ;
   else
     ppp->remote_addr = cgi_sanitize (ppp->remote_addr) ;
+  if (! ppp->fwd_addr)
+    ppp->fwd_addr = "FWD_ADDR=unknown" ;
+  else
+    ppp->fwd_addr = cgi_sanitize (ppp->fwd_addr) ;
 
   ppp->action = ZERO_A ;
   ppp->picture_type = ZERO_T ;
@@ -2964,8 +3030,11 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
   else
     ppp->browser =  cgi_sanitize (ppp->browser) ;
 
-  if (strstr (ppp->browser, "Googlebot") || strstr (ppp->browser, "yahoo.com"))
-    ppp->isGoogle = TRUE ;
+  if (strstr (ppp->browser, "Googlebot") || strstr (ppp->browser, "yahoo.com") ||
+      strstr (ppp->browser, "bot") || strstr (ppp->browser, "crawler") || strstr (ppp->browser, "spider")
+      )
+    ppp->isRobot = TRUE ;
+
   args = getenv("QUERY_STRING");
   if (!args)
     args="-args unknown: POST?-";
@@ -3000,9 +3069,11 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
   else if (cgi_arg_exists ("B"))
     ppp->picture_type = BUBBLE_T ;
   else if (cgi_arg_exists ("S"))
-    ppp->picture_type = SWF_T ;
-  else if (cgi_arg_exists ("s"))
+    ppp->picture_type = SVG_T ; /* SWF_T ; */
+  else if (cgi_arg_exists ("s")) 
     ppp->picture_type = swf_T ;
+  else if (cgi_arg_exists ("SVG"))
+    ppp->picture_type = SVG_T ;
   
   { /* class */
     char *s ;
@@ -3065,7 +3136,7 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
 	  }
       }
     else if (!strcasecmp (buff, "vgene"))
-      ppp->action = GENE_P ;	
+      ppp->action = GENOME_A ;	
     else if (!strcasecmp (buff, "gene")) /* backward compatibility */
       { ppp->action = GENE_P ;	; ppp->picture_type = BUBBLE_T ; }
      else if (!strcasecmp (buff, "gifprobe"))
@@ -3087,9 +3158,11 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
     else if (!strcasecmp (buff, "fmol"))
       ppp->action = FMOL_A ;
     else if (!strcasecmp (buff, "fexp"))
-      ppp->action = FEXP_A ;
+      ppp->action = FEXP_A ;  
     else if (!strcasecmp (buff, "ffunc"))
       ppp->action = FFUNC_A ;
+    else if (!strcasecmp (buff, "genome"))
+      ppp->action = GENOME_A ;
     else if (!strcasecmp (buff, "section"))
       ppp->action = SECTION_A ;
     else if (!strcasecmp (buff, "clones"))
@@ -3237,7 +3310,7 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
   }
 
   { /* google crawlers */
-    if (ppp->isGoogle && !ppp->action)
+    if (ppp->isRobot && !ppp->action)
       {
 	if (!*ppp->class) strcpy (ppp->class, "gene") ;
 	strcpy (ppp->faction, "fiche") ;
@@ -3418,7 +3491,7 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
     else if (!strncasecmp (buff, "35", 2))
       strcpy (buff, "human") ;
     else if (!strncasecmp (buff, "36", 2))
-      strcpy (buff, "36a") ;
+      strcpy (buff, "human") ;
     else if (!strncasecmp (buff, "37", 2))
       strcpy (buff, "human") ;
     else if (!strcasecmp (buff, "hg17"))
@@ -3440,8 +3513,8 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
       strcpy (buff, "mm_37") ;
     else if (buff[0] == '3' || !strcmp (buff, "human"))
       {
-	if (force36a) strcpy (buff, "36a") ;
-	if (force37a) strcpy (buff, "37a") ;
+	if (0 && force36a) strcpy (buff, "36a") ;
+	if (0 && force37a) strcpy (buff, "37a") ;
       }
 
     memset (myPP, 0, 64*sizeof(PP)) ;
@@ -3530,6 +3603,16 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
 	    sprintf(buff , "a:%s:%d -timeout 180 ", mypp->host, mypp->port) ;
 	    
 	    db = ac_open_db (buff, 0) ;
+	    if (ppp->isRobot && ac_db_nActiveClients (db) > 2)
+	      {
+		ppp->isBuzy = TRUE ; 
+		sprintf(ppp->query, "Sorry, the AceView %s server is currently buzy, please try later"
+			, !ppp->dbName ||  strstr(ppp->dbName, "null") ? "" : ppp->dbName
+			) ;
+		ac_command (db, messprintf (" // cancelling robot request %d active clients", ac_db_nActiveClients (db)), 0, 0) ;
+		ac_db_close (db) ;
+		return FALSE ;
+	      }
 	    if (db)
 	      break ;
 	  }
@@ -3652,7 +3735,7 @@ static void showLinkList (PP * ppp)
     printf ("<br><image src=\"https://www.ncbi.nlm.nih.gov/AceView/totowz.xml\" width=400 height=400 border=2><br>\n") ;
   
   
-  if ((ppp->dbSpecies == 'w'))
+  if (ppp->dbSpecies == 'w')
     { /****************** refseq ************************/
       AC_TABLE tt = ac_tag_table (ppp->geneBox, "NM_Id", 0) ;
       int ii ;
@@ -3704,9 +3787,9 @@ static void showLinkList (PP * ppp)
       if (nnam)
 	{
 	  sprintf (linkBuf,
-		   "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?%s",
-		   nnam) ;
-	  oneLineLink ("GeneCards", linkBuf, "at the Weizmann Institute, offers concise information about the functions of all human genes that have an approved symbol, as well as selected others.");
+		   "http://www.genecards.org/cgi-bin/carddisp.pl?gene=%s&keywords=%s"
+		   ,nnam, nnam) ;
+	  oneLineLink ("GeneCards", linkBuf, " offers concise information about the functions of all human genes that have an approved symbol, as well as selected others.");
 	}
     }
   
@@ -3729,7 +3812,7 @@ static void showLinkList (PP * ppp)
 	      thing2 = ac_table_obj (tt, x, 0, 0) ;
 	      if (!thing2)
 		continue;
-	    
+	 
 	      sprintf(linkBuf, "http://www.wormbase.org/db/get?class=Sequence;name=%s",
 		      ac_name(thing2));
 	      linkstart(linkBuf);
@@ -3979,8 +4062,7 @@ static void doAction (PP *ppp)
   char * line ;
   unsigned char *cp, *cq ;
   int i, size ;
-
-
+ 
   switch (ppp->picture_type)
     {
     case GIF_T:  /* on call back from javascript/main.ppp->version.js:writeMap () */
@@ -3991,6 +4073,10 @@ static void doAction (PP *ppp)
     case BUBBLE_T:
       standardHtmlHeader (ppp, TRUE) ;
       ppp->picCommand = "bubble -" ; 
+      break ;
+    case SVG_T:
+      if (0) standardHtmlHeader (ppp, TRUE) ; /* in-line SVG: do not export a new header */
+      ppp->picCommand = "svgdump -" ; 
       break ;
     case SWF_T:  /* complete SWF display */
       standardHtmlHeader (ppp, TRUE) ;
@@ -4017,7 +4103,7 @@ static void doAction (PP *ppp)
       printf ("</EMBED>\n") ;
       
   /* create a special division that will be dynamically transfered to the tabs frame */
-      if (strcmp (ppp->version,"v47") && (ppp->action == GENE_P || ppp->action == VmRNA_P))
+      if ( (ppp->action == GENOME_A || ppp->action == GENE_P || ppp->action == VmRNA_P))
 	{
 	  printf ("<div id='999'>\n") ;
 	  printf ("  <table width=\"98%%\" border=2 bordercolor='blue'>") ;
@@ -4048,6 +4134,38 @@ static void doAction (PP *ppp)
 	      "</div>\n"
 	      , url_encode (ppp->query)
 	      ) ;
+      if ( (ppp->action == GENOME_A || ppp->action == GENE_P || ppp->action == VmRNA_P))
+	{
+	  printf ("<div id='999'>\n") ;
+	  printf ("  <table width=\"98%%\" border=2 bordercolor='blue'>") ;
+	  printf ("    <tr>\n") ;
+	  printf ("      <td>?</td>\n") ;
+	  printf ("      <td>\n") ;
+	  printf (        "<a href='javascript:fireCommand (1)'>Gene Summary</a>") ;
+	  printf ("      </td>\n") ;
+	  printf ("      <td>\n") ;
+	  printf ("This plot is in Flash, use right mouse button to zoom in, then drag. \n") ;
+	  printf ("If you prefer, the same views are accessible in gif form the \'Gene Summary\' page\n") ;
+	  printf ("      </td>\n") ;
+	  printf ("    </tr>\n") ;
+	  printf ("  </table>\n") ;
+	  printf ("</div>\n") ;
+	}
+      printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+	      "  <!--\n"
+	      "     aceViewOnLoad() ;\n"
+	      "  //-->\n</script>\n"
+	      ) ;
+      printf ("<div id='executor' onclick='jsExecutor()'>\n") ;
+      printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+	      "  <!--\n"
+	      "     var cannedCommands = new Array (\n\"toto\", \"openAceViewAction ('gene', '%s', 'fgene')\");" 
+	      "  //-->\n"
+	      "</script>\n"
+	      "</div>\n"
+	      , url_encode (ppp->query)
+	      ) ;
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       ac_command (ppp->db, messprintf (" // SWF_T done %s %s gene %s" , ppp->date
 				       , ppp->picCommand ? ppp->picCommand : ""
@@ -4081,6 +4199,7 @@ static void doAction (PP *ppp)
     case FEXP_A:
     case FFUNC_A:
     case FICHE_A:
+    case GENOME_A:
     case GOLD_A:
     case FASTA_A:
     case TG_SUPPORT_A:
@@ -4091,8 +4210,48 @@ static void doAction (PP *ppp)
       printf ("if (window.name.toLowerCase () == \"graph\")document.write (\"<a href='javascript:openFullPage (document.location)' >Full Page</a> &nbsp; | &nbsp; \") ;\n") ;
       printf ("</script>\n") ;
 
-      executeAction (ppp) ; 
+ if (ppp->action == GENOME_A)
+    {
+      /* create a special division that will be dynamically transfered to the tabs frame */
+      if (1)
+	{
+	  printf ("<div id='999'>\n") ;
+	  printf ("  <table width=\"98%%\" border=2 bordercolor='blue'>") ;
+	  printf ("    <tr>\n") ;
+	  printf ("      <td>?</td>\n") ;
+	  printf ("      <td>\n") ;
+	  printf (        "<a href='javascript:fireCommand (1)'>Gene Summary</a>") ;
+	  printf ("      </td>\n") ;
+	  printf ("      <td>\n") ;
+	  printf ("This plot is in SVG, mouse over any element for details\n") ;
+	  printf ("      </td>\n") ;
+	  printf ("    </tr>\n") ;
+	  printf ("  </table>\n") ;
+	  printf ("</div>\n") ;
+
+	  printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+		  "  <!--\n"
+		  "     aceViewOnLoad() ;\n"
+		  "  //-->\n</script>\n"
+		  ) ;
+
+	  printf ("<div id='executor' onclick='jsExecutor()'>\n") ;
+	  printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+		  "  <!--\n"
+	      "     var cannedCommands = new Array (\n\"toto\", \"openAceViewAction ('gene', '%s', 'fgene')\");" 
+		  "  //-->\n"
+		  "</script>\n"
+		  "</div>\n"
+		  , url_encode (ppp->query)
+		  ) ;
+	}
+    }
+
+     executeAction (ppp) ; 
       if (0) system ("printenv >> /tmp/miegenv") ;
+      setNcbiApp () ;
+
+ 
       printf ("</body></html>\n") ;
       break ;
 
@@ -4108,6 +4267,7 @@ static void doAction (PP *ppp)
 			 ,0, 0) ;
       printf ("%s\n", fiche) ;
       messfree (fiche) ;
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
 
@@ -4157,12 +4317,14 @@ static void doAction (PP *ppp)
       standardHtmlHeader (ppp, TRUE) ;
       showContextQuery (ppp) ;
       showGeneList (ppp) ;
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
       
     case LINK_A:
       standardHtmlHeader (ppp, TRUE) ;
       showLinkList (ppp) ;
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
 
@@ -4170,6 +4332,7 @@ static void doAction (PP *ppp)
       standardHtmlHeader (ppp, TRUE) ;
       if (getOneKey (ppp))
         showTreeObject (ppp,  ppp->geneBox, 0, 0) ;
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
 
@@ -4189,6 +4352,7 @@ static void doAction (PP *ppp)
 	    showMOI (ppp) ;
 	  showDnaObject (ppp) ;
 	}
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
 
@@ -4201,6 +4365,7 @@ static void doAction (PP *ppp)
 	    showMOI (ppp) ;
 	  showPepObject (ppp) ;
 	}
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
 
@@ -4211,6 +4376,7 @@ static void doAction (PP *ppp)
       ppp->noJava = TRUE ;
       standardHtmlHeader (ppp, TRUE) ;
       reportError (ppp, ppp->query);
+      setNcbiApp () ;
       printf ("</body></html>\n") ;
       break ;
     }
@@ -4221,7 +4387,7 @@ static void doAction (PP *ppp)
       case swf_T:
 	cp = (unsigned char *) strstr ((char*)ppp->pictureBuffer, "//") ;
 	if (! cp) cp = ppp->pictureBuffer ;
-	else { while (*cp++ != '\n') ; cp++ ; }
+	else { while (*cp++ != '\n') {} ; cp++ ; }
 	cq = ppp->pictureBuffer + size - 1 ;
 	while (size > 0 && *cq != '/') { cq-- ; size-- ; }
 	cq -= 2 ; size -= 2 ;
@@ -4238,6 +4404,26 @@ static void doAction (PP *ppp)
 	    break ;
 	if (ppp->pictureBuffer)
 	  fwrite (ppp->pictureBuffer+i, size-i, 1, stdout) ;
+	break ;
+      case SVG_T:
+	if (ppp->db) ac_command (ppp->db, "// svg file received by aceviewmain", 0, 0) ;
+	if (ppp->pictureBuffer)
+	  {
+	    char *cp0 = (char *)ppp->pictureBuffer ;
+	    char *cp1 = strstr (cp0, "<svg") ;
+	    char *cp2 = strstr (cp0, "</svg>") ;
+	    int n ;
+
+	    if (!cp1) cp1 = cp0 ;
+	    if (cp2) 
+	      {
+		cp2[6] = 0 ;
+		n = cp2 + 6 - cp1 ;
+	      }
+	    else
+	      n = strlen (cp1) ;
+	    fwrite (cp1, n-1, 1, stdout) ;
+	  }
 	break ;
       case BUBBLE_T:   /* compress and dump bubble info */	
 	printf ("\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
@@ -4310,6 +4496,7 @@ static void doAction (PP *ppp)
 		"</div>\n"
 		, url_encode (ppp->query)
 		) ;
+	setNcbiApp () ;
 	printf ("</body></html>\n") ;
 	ac_command (ppp->db, messprintf (" // bubble done %s %s gene %s" , ppp->date, ppp->picCommand, ac_name(ppp->geneBox)), 0, 0) ;
 	break ;
@@ -4384,7 +4571,8 @@ int main (int argc, char * argv[], char *envp[])
       pp.action = ERROR_A;
       pp.geneBox = NULL;
       standardHtmlHeader (&pp, FALSE) ;
-      printf("<h1>cgi parameter error %s</h1>\n",pp.query);
+      if (! pp.isRobot)
+	printf("<h1>cgi parameter error %s</h1>\n",pp.query);
       if (0) printf("<a href=\"index.html\" target='_top'>click here to return to query page</a>\n");
       exit(0);
     }
@@ -4478,6 +4666,8 @@ int main (int argc, char * argv[], char *envp[])
 	    errp = logPrefix (&pp, "saturated") ;
 	  else
 	    errp = logPrefix (&pp, "no_results") ;
+	  if (!errp || !errp)
+	    errp = "// empty error" ;
 	  fprintf(stderr,"%s\n", errp) ;
 	  if (pp.db) ac_command (pp.db, errp, 0, 0) ;
 	  pp.action = ERROR_A;

@@ -21,17 +21,10 @@
 
 #ifndef DEF_BIG_ARRAY_H
 #define DEF_BIG_ARRAY_H
- 
+#include "regular.h"  /* may set ARRAY_CHECK amd MEM_DEBUG*/ 
 mysize_t stackused (void) ;
  
 /************* Array package ********/
-
-/* #define ARRAY_CHECK either here or in a single file to
-   check the bounds on arr() and arrp() calls
-   if defined here can remove from specific C files by defining
-   ARRAY_NO_CHECK (because some of our finest code
-                   relies on abuse of arr!) YUCK!!!!!!!
-*/
 
 typedef struct BigArrayStruct
   { char* base ;    /* char* since need to do pointer arithmetic in bytes */
@@ -60,6 +53,7 @@ typedef struct BigArrayStruct
   void    bigArrayExtend_dbg (BigArray a, long int n, const char *hfname,  int hlineno) ;
   BigArray	bigArrayCopy_dbg(BigArray a, const char *hfname,int hlineno) ; 
   BigArray	bigArrayHandleCopy_dbg(BigArray a, const char *hfname,int hlineno, AC_HANDLE handle) ; 
+#define bigArrayCopy(a) bigArrayCopy_dbg(a, __FILE__, __LINE__)
 #define uBigArrayCreate(n, s, h) uBigArrayCreate_dbg(n, s, h, __FILE__, __LINE__)
 #define bigArrayExtend(a, n ) bigArrayExtend_dbg(a, n, __FILE__, __LINE__)
 #define bigArrayHandleCopy(a,h) bigArrayHandleCopy_dbg(a, __FILE__, __LINE__, h)
@@ -69,18 +63,18 @@ typedef struct BigArrayStruct
 BigArray   uBigArrayReCreate (BigArray a,long int n, int size) ;
 void    uBigArrayDestroy (BigArray a);
 char    *uBigArray (BigArray a, long int index) ;
-char    *uBigArrCheck (BigArray a, long int index) ;
-char    *uBigArrayCheck (BigArray a, long int index) ;
+char    *uBigArrCheck (BigArray a, long int index, int size) ;
+char    *uBigArrayCheck (BigArray a, long int index, int size) ;
 #define bigArrayCreate(n,type)	uBigArrayCreate(n,sizeof(type), 0)
 #define bigArrayHandleCreate(n,type,handle) uBigArrayCreate(n, sizeof(type), handle)
 #define bigArrayReCreate(a,n,type)	uBigArrayReCreate(a,n,sizeof(type))
 #define bigArrayDestroy(x)		((x) ? uBigArrayDestroy(x), x=0, TRUE : FALSE)
 
-#if (defined(ARRAY_CHECK) && !defined(ARRAY_NO_CHECK))
-#define bigArrp(ar,i,type)	((type*)uBigArrCheck(ar,i))
-#define bigArr(ar,i,type)	(*(type*)uBigArrCheck(ar,i))
-#define bigArrayp(ar,i,type)	((type*)uBigArrayCheck(ar,i))
-#define bigArray(ar,i,type)	(*(type*)uBigArrayCheck(ar,i))
+#if (defined(ARRAY_CHECK))
+#define bigArrp(ar,i,type)	((type*)uBigArrCheck(ar,i,sizeof(type)))
+#define bigArr(ar,i,type)	(*(type*)uBigArrCheck(ar,i,sizeof(type)))
+#define bigArrayp(ar,i,type)	((type*)uBigArrayCheck(ar,i,sizeof(type)))
+#define bigArray(ar,i,type)	(*(type*)uBigArrayCheck(ar,i,sizeof(type)))
 #else
 #define bigArr(ar,i,type)	((*(type*)((ar)->base + ((long int)i)*(ar)->size)))
 #define bigArrp(ar,i,type)	(((type*)((ar)->base + ((long int)i)*(ar)->size)))

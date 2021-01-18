@@ -29,7 +29,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: basecall.h,v 1.2 2005/02/02 02:09:42 mieg Exp $ */
+/* $Id: basecall.h,v 1.5 2017/08/07 20:09:55 mieg Exp $ */
 
 #ifndef _BASECALL_H
 #define _BASECALL_H
@@ -151,9 +151,8 @@ struct LookStruct
     Graph fMapGraph ; void* fMapLook ;
     BOOL modified, showClip, consensus ;
     BOOL coord ; /* to show the coord of the individual traces */
-    Array geneSplicing ;
-    int geneMin, geneMax, geneBox ;
-    BOOL select, hideDots ;
+    int geneMin, geneMax, geneBox,  hideDots ;
+    BOOL select ;
     KEYSET selectedKs ; /* to select just a few traces */
   }  ;
 
@@ -205,5 +204,6 @@ void nnQualityTrain (LANE *lane, int pos, int rate) ;
 char nnBaseCall (LANE *lane, int pos) ;
 BOOL findBaseCall (LANE *lane) ;
 char* baseCallNameGuess (KEY key, int type) ;
-
+BOOL baseCallFlagRnaEditing (KEY tg, int *nreadp, int *nagp, int *nagrp) ;
+BOOL baseCallRedoBaseCall (KEY key, int *np) ;
 #endif /* _BASECALL_H */

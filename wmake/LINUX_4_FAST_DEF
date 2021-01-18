@@ -39,14 +39,12 @@ Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 -lXaw -lXt -lXmu -lXext -lX11
 # and then setting (chosing the exact version intslalled on your computer)
 #  Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 /usr/lib64/libXaw7.so.7.0.0  -lXt -lXmu -lXext -lX11 
 
-### flex -l emulates AT&T lex as accurately as possible
-LEX_LIBS = -lfl
-LEX = flex
-LEX_OPTIONS = -l
-
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS = 
+#################################################################
+###################### Lex Libraries ############################
+#################################################################
+# The acedb dependency on LEX/YACC/BISON
+# has been removed
+#################################################################
 
 RPCGEN_FLAGS = -b -I -K -1
 

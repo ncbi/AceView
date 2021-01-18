@@ -50,6 +50,9 @@ static void parseArrayInit (void)
   pickSetClassOption ("BaseCall",      'A', 'h',   ZERO, FALSE, FALSE, FALSE, FALSE ) ;
 }
 
+void dnaAlignInit (void) ;
+
+
 void acemblyInit (void)
 {   
   isTimeStamps = FALSE ;
@@ -63,7 +66,7 @@ void acemblyInit (void)
   lexaddkey ("Quality", &_Quality, 0) ;
   lexaddkey ("SCF_Position", &_SCF_Position, 0) ;
 
-  queryRegisterWebQuery (&owqQuery) ;
+  queryRegisterWebQuery (owqQuery) ;
 }
 
 

@@ -46,6 +46,7 @@ typedef struct cnvStruct {
   DICT *coveronDict ;
   Stack info ;
   const char *project ;
+  const char *big_group ;
   const char *title ;
   const char *chrom ;
   const char *outFileName ;
@@ -567,8 +568,9 @@ static void cnvParseOneCoverage (void *vp)
     {
        AC_HANDLE h = ac_new_handle () ;
        nGet++ ;
-       cp = hprintf (h, "%s/%s/%s.cnv.%ssponge"
+       cp = hprintf (h, "%s/%s/%s/%s.cnv.%ssponge"
 		     , cnv->coverageFileName
+		     , cnv->big_group 
 		     , dictName (cnv->chromDict, gcv.chrom )
 		     , dictName (cnv->runDict, gcv.run)
 		     , cnv->unique ? "u." : (cnv->non_unique ?  "nu." : "")
@@ -685,8 +687,14 @@ static void cnvCumulCoverage (CNV *cnv, BOOL byCoveron)
   int runMax =  dictMax (cnv->runDict) + 1 ;
   int *nRuns = cnv->nRuns ;
 
-  dictFind (cnv->chromDict, "X", &chromX) ;
-  dictFind (cnv->chromDict, "Y", &chromY) ;
+  dictFind (cnv->chromDict, "chrX", &chromX) ;
+  dictFind (cnv->chromDict, "chrY", &chromY) ;
+  
+  if (! chromY)
+    {
+      dictFind (cnv->chromDict, "X", &chromX) ;
+      dictFind (cnv->chromDict, "Y", &chromY) ;
+    }
 
   for (type = 0 ; type < 2 ; type++)
     nRuns[type] = 0 ;
@@ -1081,8 +1089,14 @@ static void cnvExportCoverage (CNV *cnv, BOOL byCoveron, BOOL normalize)
 
   memset (ksG2R, 0, sizeof (ksG2R)) ;
 
-  dictFind (cnv->chromDict, "X", &chromX) ;
-  dictFind (cnv->chromDict, "Y", &chromY) ;
+ dictFind (cnv->chromDict, "chrX", &chromX) ;
+  dictFind (cnv->chromDict, "chrY", &chromY) ;
+  
+  if (! chromY)
+    {
+      dictFind (cnv->chromDict, "X", &chromX) ;
+      dictFind (cnv->chromDict, "Y", &chromY) ;
+    }
 
   if (cnv->db && cnv->project)
     {
@@ -1235,7 +1249,7 @@ static void cnvExportCoverage (CNV *cnv, BOOL byCoveron, BOOL normalize)
       aceOutf (ao, "# %s\tChromosome\ta1\ta2\t%s Length (bp)\tUnicity\tGene\tCumul in normal tissues\tAverage coverage in normal tissues\tAverage coverage in tumor tissues\tMedian coverage in normal tissues\tMedian coverage in tumor tissues\trelative median coverage : tumor/normal\t"
 	       , byCoveron ? "Coveron" : "Gene" , byCoveron ? "Coveron" : "Gene"
 	       ) ;
-      aceOutf (ao, "\tAverage\tMedian\tSamples\tLost (< 0.1 copy)\tLow (0.1 to 1.5 copy)\tMid (1.5 to 2.5 copies)\tHigh (2.5 to 3.5 copies)\tVery_high (over 3.5 copies)\t\t") ;
+      aceOutf (ao, "\t\tAverage\tMedian\tSamples\tLost (< 0.1 copy)\tLow (0.1 to 1.5 copy)\tMid (1.5 to 2.5 copies)\tHigh (2.5 to 3.5 copies)\tVery_high (over 3.5 copies)\t") ;
       for (iGroup = 1 ; iGroup < iGroupMax ; iGroup++)
 	{
 	  const char *ccp = ac_table_printable (groups, iGroup - 1, 0, " ")  ;
@@ -1470,8 +1484,8 @@ static void usage (const char commandBuf [], int argc, const char **argv)
   fprintf (stderr,
 	   "// Usage: cnv -compare -... \n"
 	   "//      try: -h --help --hits_file_caption \n"
-	   "// Example:  cnv \n"
-	   
+	   "// Example:   \n"
+	   "// cnv  --runs MetaDB/Maqc4/RunListSorted --runsAll tmp/WIGGLE_CNV/cnv.cc.runs1 --runsControl tmp/WIGGLE_CNV/cnv.cc.runs2 --gtitle MetaDB/Maqc4/gtitle.txt --geneSponge tmp/METADATA/RefSeq.ns.gene.sponge --coveronSponge tmp/WIGGLE_CNV/all5.coverons --coverage tmp/WIGGLE_CNV --u2u tmp/WIGGLE_CNV/all5.u2u.sponge --u2nu tmp/WIGGLE_CNV/all5.u2nu.sponge --u -o titi --db MetaDB --project Maqc4 --big_group all5\n"
 	   "// -o fileName : output file prefix, all exported files will start with that prefix\n"
   	   "// -gzo : the output file is gziped\n"
 	   "//\n"
@@ -1523,8 +1537,9 @@ int main (int argc, const char **argv)
   }
   /* consume optional args */
   getCmdLineOption (&argc, argv, "-o", &(cnv.outFileName)) ;
-  cnv.gzo = getCmdLineOption (&argc, argv, "--gzo", 0) ;
+  cnv.gzo = getCmdLineBool (&argc, argv, "--gzo") ;
   getCmdLineOption (&argc, argv, "--project", &(cnv.project)) ;
+  getCmdLineOption (&argc, argv, "--big_group", &(cnv.big_group)) ;
   getCmdLineOption (&argc, argv, "--title", &(cnv.title)) ;
   getCmdLineOption (&argc, argv, "--chrom", &(cnv.chrom)) ;
   getCmdLineOption (&argc, argv, "--runs", &(cnv.runsSortedFileName)) ;
@@ -1534,8 +1549,8 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--geneSponge", &(cnv.geneSpongeFileName)) ;
   getCmdLineOption (&argc, argv, "--coveronSponge", &(cnv.coveronSpongeFileName)) ;
   getCmdLineOption (&argc, argv, "--coverage", &(cnv.coverageFileName)) ;
-  cnv.unique = getCmdLineOption (&argc, argv, "--u", 0) ;
-  cnv.non_unique = getCmdLineOption (&argc, argv, "--nu", 0) ;
+  cnv.unique = getCmdLineBool (&argc, argv, "--u") ;
+  cnv.non_unique = getCmdLineBool (&argc, argv, "--nu") ;
   getCmdLineOption (&argc, argv, "--u2u", &(cnv.u2uFileName)) ;
   getCmdLineOption (&argc, argv, "--u2nu", &(cnv.u2nuFileName)) ;
   getCmdLineOption (&argc, argv, "--db", &dbName) ;
@@ -1559,7 +1574,6 @@ int main (int argc, const char **argv)
   cnv.ends = arrayHandleCreate (100000, EC, h) ;
   cnv.info = stackHandleCreate (10000, h) ;
   cnv.gene2coverons = arrayHandleCreate (10000, KEYSET, h) ;
-  stackTextOnly (cnv.info) ;
   
   if (1)
     {

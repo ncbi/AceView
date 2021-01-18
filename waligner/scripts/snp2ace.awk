@@ -13,11 +13,11 @@
   if (substr($3,2,1) == ">")
     { typ = substr($3,1,1) "2" substr($3,3,1)  ; typ2 = typ ; typ3 = typ ; }
   else if (substr($3,1,3) == "Ins")
-    { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) typ3 = "Multi_insertion " typ ; } 
+  { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; typ3 = "Multi_insertion " dk  " " typ ; }} 
   else if (substr($3,1,3) == "Del")
-    { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) typ3 = "Multi_deletion " typ ; }
+  { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; typ3 = "Multi_deletion " dk " " typ ; }}
   else if (substr($3,1,3) == "Dup")
-    { ln = pos1 - pos2 ; typ = $3 ln ;typ2 = typ ; typ3 = "Multi_insertion Duplication_" ln "_bp" ; } 
+    { ln = pos1 - pos2 ; typ = $3 ln ; typ2 = typ ; typ3 = "Multi_insertion Duplication_" ln "_bp" ; } 
   else 
     { typ = $3 ; typ2 = type ; typ3 = 0 ; }
   

@@ -29,7 +29,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: a.h,v 1.5 2015/09/18 22:13:50 mieg Exp $ */
+/* $Id: a.h,v 1.6 2017/10/02 19:49:43 mieg Exp $ */
 
 #ifndef DEFINE_A_h
 #define DEFINE_A_h
@@ -39,9 +39,9 @@
 /***************************************************************/
 #include "acedb.h"
 
-Array  uArrayGet(KEY key, int size, char *format) ;  /* returns 0 if bad */
-Array  uArrayHanleGet(KEY key, int size, char *format, AC_HANDLE handle) ; 
-#define arrayGet(key,type,format)	uArrayGet(key,sizeof(type),format)
+  /* returns 0 if bad */
+Array  uArrayHandleGet(KEY key, int size, char *format, AC_HANDLE handle) ; 
+#define arrayGet(key,type,format)	uArrayHandleGet(key,sizeof(type),format,0)
 #define arrayHandleGet(key,type,f,h) uArrayHandleGet(key,sizeof(type), f,h)
 void   arrayStore(KEY key, Array a, char *format) ;
 

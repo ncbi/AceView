@@ -94,7 +94,7 @@ int main (int argc, const char **argv)
   freeinit () ; 
   h = ac_new_handle () ;
   memset (&p, 0, sizeof (PP)) ;
-
+  aceInWaitAndRetry (0) ; /* does nothink, but triggers the linker on LINUX */
   /* optional arguments */
   if (argc == 1 ||
       getCmdLineOption (&argc, argv, "-h", 0) ||
@@ -134,7 +134,7 @@ int main (int argc, const char **argv)
   /* collate the results and compute the running average */
    for (i = 0 ; i < T ; i++)
      {
-       x = channelGet (p.outChan, &x,double) ;
+       x = channelGive (p.outChan, &x,double) ;
        pi = (i * pi + x) /(i+1) ; 
        /* printf ("%d %g %g\n",i, x, pi) ; */
      }

@@ -2538,7 +2538,6 @@ int main (int argc, const char **argv)
   sv.runDict = dictHandleCreate (1000, h) ;
   sv.runs = arrayHandleCreate (256, RC, h) ;
   sv.info = stackHandleCreate (10000, h) ;
-  stackTextOnly (sv.info) ;
 
   sv.classeDict = dictHandleCreate (256, h) ;
   dictAdd (sv.classeDict, "MICRODELETION", &sv.microdeletion) ;  /* ATTENTION: order of these words must stay synchronized with switch type below */

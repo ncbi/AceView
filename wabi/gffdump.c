@@ -712,7 +712,7 @@ static int gffSplDumpTg (AC_DB  db, AC_OBJ Tg, BOOL debug)
   isDown = tg1 < tg2 ? TRUE : FALSE ;
   
   cosmidDna = gffSplGetCosmidDna (Tg, &c1, &c2, h) ;
-  cosmidDnaR = arrayCopy (cosmidDna) ;
+  cosmidDnaR = dnaCopy (cosmidDna) ;
   reverseComplement (cosmidDnaR) ;
 
   gReads = ac_tag_table (Tg, "Read", h);

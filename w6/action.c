@@ -22,7 +22,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: action.c,v 1.4 2015/08/18 23:24:07 mieg Exp $ */
+/* $Id: action.c,v 1.6 2020/05/30 16:50:32 mieg Exp $ */
 
 #include "acedb.h"
 #include "aceversion.h"
@@ -177,6 +177,7 @@ static void doExternalFileDisplay (const char *title, FILE *f, Stack s, BOOL isP
   if (stackExists(s))
     {
       s1 = stackCreate (1000) ;
+
       stackCursor(s, 0) ;
       while ((cp = stackNextText (s)))
 	{ catText(s1, cp) ; catText(s1, "\n") ; }
@@ -320,6 +321,7 @@ BOOL externalAsynchroneCommand (const char *command, const char *parms,
 #endif
 
   s  = stackCreate (250) ;
+
   pushText (s, messprintf(" %d ", pid)) ;
   catText (s, xx->fName) ;
   catText (s, "  ") ;

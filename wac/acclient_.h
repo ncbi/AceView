@@ -80,6 +80,11 @@ struct ac_db
 		* for x >= 0 and x < num_tags exist, even if some may be ""
 		*/
 	  
+	  int nActiveClients ;
+	        /*
+		 * to see if the server is too buzy
+		 */
+	    
 	  DICT *classeDict ;
 	 	 /* the class names */
 

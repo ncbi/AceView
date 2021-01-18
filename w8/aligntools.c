@@ -16,12 +16,6 @@
 
 /* %W% %G% */
 
-/*
-#define CHRONO
-
-#define ARRAY_CHECK 
-#define MALLOC_CHECK
-*/
 
 #include "acembly.h"
 #include "topology.h"
@@ -239,7 +233,7 @@ void monDnaInsert(DEFCPT look, KEY key, Array dna)
 { Array dnaInter, dummy = 0 ;
   char *kp = 0 ;
 
-  dnaInter = arrayCopy(dna) ;
+  dnaInter = dnaCopy(dna) ;
   dnaStoreDestroy(key, dnaInter) ;
 /* may i need to forget ? */
   if (!look->assDnaGet)
@@ -989,6 +983,7 @@ void localCptErreur(Array longDna, int xl1, int xl2, int pol,
 		newErr->type = AMBIGUE ;
 		newErr->iLong = cp - cp0 ;
 		newErr->iShort = cq - cq0 ;
+		newErr->baseLong = *cp ;
 		newErr->baseShort = *cq ;
 		newErr->sens = sens ;
 	      }
@@ -1012,6 +1007,7 @@ void localCptErreur(Array longDna, int xl1, int xl2, int pol,
 	  newErr->type = AMBIGUE ;
 	  newErr->iLong = cp - cp0 ;
 	  newErr->iShort = cq - cq0 ;
+	  newErr->baseLong = *cp ;
 	  newErr->baseShort = *cq ;
 	  newErr->sens = sens ;
 	}
@@ -1136,26 +1132,31 @@ void localCptErreur(Array longDna, int xl1, int xl2, int pol,
 	  switch(type)
 	    {
 	    case TROU_DOUBLE:
+	      newErr->baseLong = *cp ;
 	      newErr->baseShort = '#' ;
 	      cp += 2 ;
 	      i -= 2 ;
 	      break ;
 	    case TROU:
+	      newErr->baseLong = *cp ;
 	      newErr->baseShort = '*' ;
 	      cp++ ;
 	      i-- ;
 	      break ;
 	    case INSERTION_DOUBLE:
+	      newErr->baseLong = *cp ;
 	      newErr->baseShort = *cq ;
 	      cq += 2 * sens ;
 	      j -= 2 ;
 	      break ;
 	    case INSERTION:
+	      newErr->baseLong = *cp ;
 	      newErr->baseShort = *cq ;
 	      cq += sens ;
 	      j-- ;
 	      break ;
 	    case ERREUR:
+	      newErr->baseLong = *cp ;
 	      newErr->baseShort = *cq ;
 	      break ;
 	    }
@@ -1176,6 +1177,7 @@ void localCptErreur(Array longDna, int xl1, int xl2, int pol,
 	    newErr->type = AMBIGUE ;
 	    newErr->iLong = cp - cp0 ;
 	    newErr->iShort = cq - cq0 ;
+	    newErr->baseLong = *cp ;
 	    newErr->baseShort = *cq ;
 	    newErr->sens = sens ;
 	  }
@@ -1609,7 +1611,7 @@ static void toolShortCopy (Array old, Array new, Array mod,
 static void fixDnaConsensus (FIXTOOL tool, BOOL first)
 { int i, j, max, safemax, maxerr = arrayMax (tool->err), n, nt, ntbis ;
   int *ip, minc = arrayMax (tool->dnad), maxc = - 1, maxdna = 0 ;
-  Array dna2 = arrayCopy (tool->dnad) ;
+  Array dna2 = dnaCopy (tool->dnad) ;
   char *safe, *cp, *cp0, *cq, *cq0, cr=0 ;
   BOOL fixtest = FALSE ;
   int errBase[9], errType[9] ;
@@ -1924,7 +1926,7 @@ void doForceAssembleSeg (DEFCPT look, KEY seg, KEY target, int min, int max,
 
       tool->dnad = monDnaGet (look, tool->target, tool->dnakey) ;
       if (!tool->dnad) goto abort ;
-      tool->dnar = arrayCopy (tool->dnad) ;
+      tool->dnar = dnaCopy (tool->dnad) ;
       reverseComplement (tool->dnar) ;
 
       alignToolsAddPreviousSeq (look, tool, tool->seq, _Assembled_from, 4) ;
@@ -1970,7 +1972,7 @@ void doForceAssembleSeg (DEFCPT look, KEY seg, KEY target, int min, int max,
 
 #ifdef JUNK
   trackFixContig(look->link, target, dnaKey2, tool->seq, tool->dnad) ;
-  dnaStoreDestroy (tool->dnakey, arrayCopy (tool->dnad)) ;
+  dnaStoreDestroy (tool->dnakey, dnaCopy (tool->dnad)) ;
 #else
 /*************  fix ulrich  ************/
 
@@ -1985,27 +1987,24 @@ void doForceAssembleSeg (DEFCPT look, KEY seg, KEY target, int min, int max,
       tool->nbt = arrayCreate (j, int) ;
       array (tool->nbt, j - 1, int) = 0 ;
       arrayDestroy (tool->dnar) ;
-      tool->dnar = arrayCopy (tool->dnad) ;
+      tool->dnar = dnaCopy (tool->dnad) ;
       reverseComplement (tool->dnar) ;
       adjustAssembly (look, tool) ;
      /*  messalloccheck () ; */
       if (tool->err && arrayMax(tool->err))
 	{ arraySort (tool->err, allErrOrder) ;
 	    messStatus (messprintf ("Fixing %s", name(tool->target))) ;
-	  messalloccheck () ;
 	  fixDnaConsensus (tool, first) ;
-	  messalloccheck () ;
 	  first = FALSE ;
 	  arrayDestroy (tool->err) ;
 	  alignToolsAdjustPos (tool) ;
-	  messalloccheck () ;
 	  if (tool->max <= tool->min)
 	    tool->isFixed = FALSE ;
 	}
       else tool->isFixed = FALSE ;
       arrayDestroy (tool->nbt) ;
     }
-  dnaStoreDestroy (tool->dnakey, arrayCopy (tool->dnad)) ;
+  dnaStoreDestroy (tool->dnakey, dnaCopy (tool->dnad)) ;
 
 
 /*********  fin du fix ******************/
@@ -2017,7 +2016,7 @@ void doForceAssembleSeg (DEFCPT look, KEY seg, KEY target, int min, int max,
 	  arrayMax (tool->seq)/4, localCptReport) ;
 */
   arrayDestroy (tool->dnar) ;
-  tool->dnar = arrayCopy (tool->dnad) ;
+  tool->dnar = dnaCopy (tool->dnad) ;
   reverseComplement (tool->dnar) ;
 
   if (tool->seq)
@@ -2363,7 +2362,7 @@ KEYSET alignToolsPurifyContig (KEY link, KEY key)
   cou = arrp(contig, 0, COUPLE) - 1 ;
   if (i > 1)
     ks = keySetCreate() ;
-  dna2 = arrayCopy (dna) ;
+  dna2 = dnaCopy (dna) ;
   monDnaForget (look, key) ;
   j = 0 ;
   if (i>0) while (cou++, i--)

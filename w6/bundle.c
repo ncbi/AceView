@@ -16,11 +16,6 @@
 
 /* %W% %G% */
 
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
-
 #include "acedb.h"
 #include "../wac/ac.h"
 #include "vtxt.h"
@@ -312,7 +307,7 @@ static void bundleDraw (BUNDLE bundle)
   vtxtClear (buf) ;
   memset(mot, 0, 128) ;
   
-  if (bundle->mot && *bundle->mot)
+  if (*bundle->mot)
     {
       length = strlen (bundle->mot) ;
 
@@ -500,7 +495,7 @@ static void bundleExport (void)
   
   memset(buf, 0, 130) ;
   
-  if (bundle->mot && *bundle->mot){
+  if (*bundle->mot){
     strncpy(buf, "*", 1) ;
     strcat (buf, bundle->mot) ;
     strcat (buf, "*") ; 
@@ -626,6 +621,7 @@ static void bundleSaucisse (void)
       saucisseFill (saucisse, a) ;
     }
   s = stackCreate (6000) ;
+
   level = freeOutSetStack (s) ;
   saucisseShow (saucisse, 1) ;
   freeOutClose (level) ;

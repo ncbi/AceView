@@ -545,7 +545,9 @@ void pickRegisterConstraints (void)
       if ((obj = bsCreate (key)))
 	{ if (bsGetData (obj, _Constraints, _Text, &cp))
 	    { if (!s)
-		s = stackCreate (50) ;
+		{
+		  s = stackCreate (50) ;
+		}
 	      pushText (s, messprintf ("(%s)", cp)) ;
 	      while (bsGetData (obj, _bsDown, _Text, &cp))
 		catText (s, messprintf ("AND ( %s )", cp)) ;

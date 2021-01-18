@@ -201,17 +201,19 @@ static void sxGetSelection (WIGGLE *sx)
 
 static void sxVentilate (WIGGLE *sx)
 {
+  typedef struct rHitStruct {int x1, x2;} RHIT ; 
   AC_HANDLE h = 0 ;
   ACEIN ai = sx->ai ;
   ACEOUT ao = 0, eo = 0, po = 0 ;
   Array aos = arrayHandleCreate (64,ACEOUT,h) ;
   Array eos = arrayHandleCreate (64,ACEOUT,h) ;
   Array pos = arrayHandleCreate (64,ACEOUT,h) ;
-
+  Array rHits = arrayHandleCreate (64, RHIT, h) ;
+  int iir ;
   char *ccp, probeBuf[1024], gBuf[1024],  mBuf[1024], target_class = 0 , buf[10001], wall1[256], wall2[256], *fr, *Efr ;
   char oldProbeBuf[1024] ;
   int chrom, score, tc, tc2, a1, a2, e1, e2, p1, p2, x1, x2, ali, toali, map, mult, tmult, pass ;
-  int oldtc = 0, newGene, newMrna, mateAli = 0, mateToAli = 0 ;
+  int oldtc = 0, tcGenome = 0, mateAli = 0, mateToAli = 0 ;
   int nN = 0, nErr = 0 ;
   int ifr, iEfr ;
   float weight ;
@@ -219,6 +221,8 @@ static void sxVentilate (WIGGLE *sx)
   BOOL unique = sx->unique ;
   BOOL non_unique = sx->non_unique ;
   BOOL partial = sx->partial ;
+  BOOL noPartial = sx->noPartial ;
+  BOOL RNA_seq = sx->RNA_seq ;
   BOOL multiVentilate = sx->multiVentilate ;
   BOOL hierarchic = sx->hierarchic ;
   BOOL firstRead ;
@@ -227,10 +231,12 @@ static void sxVentilate (WIGGLE *sx)
   BOOL isPartial = FALSE ;
   int lastScore = 0, lastAli = 0, lastToAli = 0 ;
   int oldScore = 0, oldAli = 0, oldToAli = 0 ;
-
+ 
   probeBuf[0] = 0 ;   oldProbeBuf[0] = 0  ;  
   gBuf[0] = 0 ; mBuf[0] = 0 ;
   
+  dictAdd (sx->target_mapDict, "Z_genome", &tcGenome) ; 
+
   aceInSpecial (ai, "\n") ;
   while (aceInCard (ai))
     {
@@ -252,6 +258,7 @@ static void sxVentilate (WIGGLE *sx)
       if ( strcmp (ccp, probeBuf))
 	{
 	  newProbe = 1 ;
+	  iir = 0 ;
 	  strcpy (oldProbeBuf, probeBuf) ;
 	  oldScore = lastScore ;
 	  oldAli = lastAli ;
@@ -276,8 +283,6 @@ static void sxVentilate (WIGGLE *sx)
 	    }	      
 	}
 	  
-      if (! multiVentilate && ! newProbe)
-	continue ;
  
       strncpy (probeBuf, ccp, 999) ;
       if (! aceInStep (ai, '\t') || ! aceInInt (ai, &score)) continue ;
@@ -292,25 +297,37 @@ static void sxVentilate (WIGGLE *sx)
       if (sx->target_class && ccp && strcmp (ccp, sx->target_class))
 	continue ;
       target_class = *ccp ;
+      if (sx->out == BG  && sx->multiVentilate && target_class == 'Z')
+	continue ;
+
       dictAdd (sx->target_mapDict, ccp, &tc) ; 
       dictAdd (sx->remapDict, ccp, &chrom) ; 
 
       /* gene */
       if (! aceInStep (ai, '\t') || ! (ccp = aceInWord(ai))) continue ;
-      newGene =  strcmp (ccp, gBuf) ;
+      /* newGene =  strcmp (ccp, gBuf) ; */
       strncpy (gBuf, ccp, 1000) ;
-      if (sx->out == BG  && sx->multiVentilate && target_class == 'Z')
-	continue ;
 
       if (! aceInStep (ai, '\t') || ! aceInInt (ai, &tmult)) continue ;
       if (! aceInStep (ai, '\t') || ! (ccp = aceInWord(ai))) continue ;
 
-      newMrna =  newGene ? TRUE : strcmp (ccp, mBuf) ; 
+      /* newMrna =   newGene ? TRUE : strcmp (ccp, mBuf) ; */
       strncpy (mBuf, ccp, 1000) ;
+
       /* keep tags only one mrna per gene */
-      /* ATTENTION we may wan to keep genome discontinuous aligments */
-      if (! newProbe && hierarchic && tc == oldtc && ! newMrna)
+      /* ATTENTION we may want to keep genome discontinuous aligments */
+      if (0 && (! multiVentilate || hierarchic) &&
+	  ! newProbe &&
+	  tc != oldtc	   
+	  )
 	continue ;
+
+      /* mieg before 2017_06_15 we use to keep only one exon per ali
+       * the new idea is to trust bestali to having chosen the correct hierarchy
+       *
+      if (! newProbe && hierarchic && tc != tcGenome && tc == oldtc && ! newMrna)
+	continue ;
+      */
 
       /* ok, ccp == the chromosome or the mRNA */
       oldtc = tc ;
@@ -364,13 +381,12 @@ static void sxVentilate (WIGGLE *sx)
 
       if (x1 > x2)  /* x1<x2 is the convention, this should never be necessary, do it just in case */
 	{ int x0 = x1 ; x1 = x2 ; x2 = x0 ; x0 = a1 ; a1 = a2 ; a2 = x0 ; }
-      
       /************** partial ***************/ 
       /************** ENDS ***************/
       /* e1 e2 will be used to find the ends of the template, they match x1 and x1+30 */
       e1 = a1 ; e2 = a2 ;
-      if (e1 < e2 && e2 > e1 + 29) e2 = e1 + 29 ;
-      if (e1 > e2 && e2 < e1 - 29) e2 = e1 - 29 ;
+      if (e1 < e2) e2 = e1 + sx->out_step ;
+      if (e1 > e2) e2 = e1 - sx->out_step ;
       if (sx->out_step)
 	{
 	  if (e1 < e2 && e2 > e1 + sx->out_step) e2 = e1 + sx->out_step ;
@@ -426,14 +442,15 @@ static void sxVentilate (WIGGLE *sx)
  
 	  /* keep only matched pairs */
 	  {
-	    int delta = 0 ;
-	    if (aceInStep (ai, '\t') &&  aceInInt (ai, &delta))
+	    int deltaPair = 0 ;
+	    if (aceInStep (ai, '\t') &&  aceInInt (ai, &deltaPair))
 	      {
 
-		if (delta > 30 || delta < -30) hasPair = TRUE ; /* at least one correctly annotated pair was found */
-		if (hasPair &&  delta >  NON_COMPATIBLE_PAIR && delta < 0 && delta != -2 && delta != -5)  /* synchronize to hack these reserved values with bestali.c */
+		if (deltaPair > 30 || deltaPair < -30) hasPair = TRUE ; /* at least one correctly annotated pair was found */
+		if (hasPair &&  deltaPair >  NON_COMPATIBLE_PAIR && deltaPair < 0 && deltaPair != -2 && deltaPair != -5)  /* synchronize to hack these reserved values with bestali.c */
 		  goodPair = FALSE ;
 #ifdef JUNK
+                synchronize with snp.c
 		int mateAliDirect  = 0, mateToAliDirect  = 0,  mateScoreDirect = 0 ; /* in case they are available in cols 23 24 */
 		if (aceInStep (ai, '\t') &&  aceInInt (ai, &mateScore) && aceInStep (ai, '\t') &&  aceInInt (ai, &mateAli) && aceInStep (ai, '\t') &&  aceInInt (ai, &mateToAli) )
 		  {
@@ -466,11 +483,52 @@ static void sxVentilate (WIGGLE *sx)
 	   )
 	isPartial = TRUE ;
 
+      /* 1 || because we want to show as discontinuous the guys i get from the genome
+       * as opposed to the reads i get via an annotatted transcriptome which
+       * are continuous and will be remappad as discontinuous
+       */
+      if ((1 || RNA_seq) &&   /* in exome studies, a discontinuous ali counts as a partial */
+	  (ali > x2 - x1 + 10)
+	  )
+	isPartial = TRUE ;
+
+      if (noPartial)
+	isPartial = FALSE ;
       if (isPartial && ! partial)
 	continue ;
      if (! isPartial && partial)
 	continue ;
  
+      if (1)  /* hierarchic clean up before we map tot he wiggles */
+	{
+	  RHIT *vp, *up = arrayp (rHits, iir++, RHIT) ;
+	  int i, u1, u2 ;
+	  up->x1 = x1 ;
+	  up->x2 = x2 ;
+	  for (i = 0 ; i < iir - 1 ; i++)
+	    {
+	      vp = arrp (rHits, i, RHIT) ;
+	      u1 = x1 > vp->x1 ? x1 : vp->x1 ;
+	      u2 = x2 < vp->x2 ? x2 : vp->x2 ;
+	      if (u1 < u2) /* there is an intersect */
+		{
+		  int dx1 = u2 - x1 ;
+		  int dx2 = x2 - u1 ;
+
+		  x1 += dx1 ;
+		  x2 -= dx2 ;
+		  if (a1 < a2) 
+		    { a1 += dx1 ; a2 -= dx2 ; }
+		  else
+		    { a1 -= dx1 ; a2 += dx2 ; }
+		}
+	    }
+	  if (x1 > x2) /* drop */
+	    continue ;
+	  up->x1 = x1 ;
+	  up->x2 = x2 ;
+	}
+      
       for (pass = 0 ; pass < 1 ; pass++)
 	{
 	  if (pass == 1)
@@ -902,6 +960,9 @@ static void usage (const char *error)
 	   "//     -force_unique : reset mult =1 before checing unicity\n"
 	   "//     -partial : idem but only consider partial or orphan or incompatible pairs\n"
 	   "//         partial implies unique, i.e. forget the multi-aligned partial reads\n" 
+           "//     -noPartial : partial are treated as complete\n"
+	   "//         defaul in nu case so that u + pp + nu ar additive\n"
+	   "//         useful for nanopore or pacbio runs where all ali are partial\n"
 	   "//     -delta <int>: \n"
 	   "//         in this case all hits are shortened by delta at both ends \n"
 	   "//         this can be used to create a 2*delta gap around unsupported introns\n"
@@ -931,14 +992,16 @@ static void usage (const char *error)
            "//   -peaks : export the peaks above mincover with area above 1.5 * minCover * width\n"
 	   "//     peaks are exported on <-out>.peaks as a 4 columns table\n"
 	   "//     target(e.g. the target of the wiggle) x1 x2 max area\n"
-	   "//   -multiPeaks <int n> -wiggle1 <file1> -wiggle2 <file2> -stranding <float s> -minExonCover <int c>\n"
+	   "//   -multiPeaks <int n> -wiggle1 <file1> -wiggle2 <file2> -swiggle1 <sfile1> -swiggle2 <sfile2> -stranding <float s> -minCover <int c>\n"
 	   "//     file 1/2 are wiggle files (of type -I, optionally .gzipped) representing sense and antisense alignments\n"
 	   "//     stranding [default 100] is the percentage of reads mapping to the top strand, for example 98.5, or equivalently 1.5\n"
 	   "//     the idea is first to substract a fraction (2*s)/100 of file2 from file1,\n"
 	   "//     to screen the artefact that a fraction a large antisense peak of a not perfectly stranded protocol will leak to the sense strand,\n"
 	   "//     then to export coverons representing region covered at least c times, as stepwise-plateaux with granularity n-fold\n" 
 	   "//     This option is typically run first of w1=forward wiggle w2=reverse wiggle, then w1=R w2=F, yieding clean strand specific exons\n"
-	   "//   -transcriptsEnds <file name prefix ff> -I <type> [-gzi] -stranding <int> -minExonCover <int c> : detect transcripts-ends\n"
+	   "//     If the control stranded wiggles swiggle[12] are provided, they control the final strand ratio of the (non stranded) wiggles\n"
+	   "//     In that case the stranding should be that of the control wiggles\n"
+	   "//   -transcriptsEnds <file name prefix ff> -I <type> [-gzi] -stranding <int> -minCover <int c> : detect transcripts-ends\n"
 	   "//     Analyze the files ff.Exx.type[.gz], where Exx = ELF, ELR, ERF, ERR, representing the left/rigth ends of genes on the F/R strands\n"
 	   "//     Export the corresponding 4 types of coverons, with coverage at least an optimized fraction of c, and high E[L/R]x contrast\n" 
 	   "//     The same scaled sreening strategy is applied in -multiPeaks and -transcriptsEnds options\n"  
@@ -968,7 +1031,7 @@ static void usage (const char *error)
 	   "//       map_file has 1 or 3 columns: only export the hits corresponding to these targets\n"
 	   "//       map_file has 7 columns: target_class target x1 x2 chrom a1 a2, hits to target segment x1,x2 are remapped to chrom a1,a2,\n"
 	   "//       To map on the genome the hits to each exon of a spliced mRNA give one line per exon.\n"
-	   "//    -mapOnChrom chrom : if specified, kepp only the lines in map_file where column4 == chrom\n" 
+	   "//    -mapOnChrom chrom : if specified, keep only the lines in map_file where column4 == chrom\n" 
            "//    -wiggleDir dirName:  the wiggle is exported in wiggle format in the externalDirectory,\n"
 	   "//          the file is named name.slx.\n"
 	   "//\n"
@@ -1049,7 +1112,7 @@ int main (int argc, const char **argv)
   if (getCmdLineFloat(&argc, argv, "-stranding", &(sx.wiggleScale2)))
     {
       float x = sx.wiggleScale2 ;
-      if (x > 50) x = 100.0 - x ;
+      if (x < 120 && x > 50) x = 100.0 - x ;
       sx.wiggleScale2 = 2.0 * x / 100.0 ;
     }
 
@@ -1121,14 +1184,14 @@ int main (int argc, const char **argv)
   sx.forceUnique = getCmdLineBool (&argc, argv, "-force_unique");
   sx.non_unique = (getCmdLineBool (&argc, argv, "-nu") ||  getCmdLineBool (&argc, argv, "-non_unique") ) ;
   sx.partial = (getCmdLineBool (&argc, argv, "-partial")) ;
-  if (0 && sx.partial)
-    messcrash ("partial is not yet implemented") ;
+  sx.noPartial = getCmdLineBool (&argc, argv, "-noPartial") ;
   if (sx.unique && sx.non_unique)
     usage ("Sorry: options -unique and -non_unique are incompatible") ;
+  if (sx.partial && sx.noPartial)
+    usage ("Sorry: options -partial and -noPartial are incompatible") ;
   if (sx.partial && sx.non_unique)
     usage ("Sorry: options -partial and -non_unique are incompatible") ;
-  if (sx.partial) sx.unique = TRUE ;
-  if (sx.ventilate && !sx.unique && !sx.non_unique)
+  if (sx.ventilate && !sx.unique && !sx.non_unique && !sx.partial)
     usage ("Sorry: options -ventilate requires -unique or -non_unique or -partial") ;
   sx.gzi = getCmdLineBool (&argc, argv, "-gzi");
   sx.gzo = getCmdLineBool (&argc, argv, "-gzo");
@@ -1151,7 +1214,13 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-wiggleRatioDamper", &(sx.wiggleRatioDamper)) ;
   getCmdLineOption (&argc, argv, "-wiggle1", &(sx.wiggleFileName1)) ;
   getCmdLineOption (&argc, argv, "-wiggle2", &(sx.wiggleFileName2)) ;
-
+  getCmdLineOption (&argc, argv, "-swiggle1", &(sx.swiggleFileName1)) ;
+  getCmdLineOption (&argc, argv, "-swiggle2", &(sx.swiggleFileName2)) ;
+ 
+  if (getCmdLineOption (&argc, argv, "-strategy", &(sx.strategy)) &&
+      ! strcasecmp (sx.strategy, "RNA_seq"))
+    sx.RNA_seq = TRUE ;
+ 
   if (argc > 1)
     usage (messprintf ("unknown option %s\n", argv[1]));
 
@@ -1231,7 +1300,7 @@ int main (int argc, const char **argv)
 		}
 	      sxWiggleScale (&sx,  sx.wiggleScale1) ;
 	      sxWiggleFloor (&sx, 0) ;
-	      sxWiggleShift (&sx, sx.wiggleRatioDamper) ;
+	      /* sxWiggleShift (&sx, sx.wiggleRatioDamper) ; */
 	      sxWiggleCopy (&sx) ;    /* push the "other end" on the wiggle stack */
 	      sx.aaa = 0 ;  sx.aaa = arrayHandleCreate (100, Array, h) ; sxGetMap (&sx) ;
 
@@ -1255,21 +1324,102 @@ int main (int argc, const char **argv)
 		}
 	      sxWiggleScale (&sx,  sx.wiggleScale1) ;
 	      sxWiggleFloor (&sx, 0) ;
+
+	      /*
 	      sxWiggleShift (&sx, sx.wiggleRatioDamper) ;
-	      sxWiggleRatio (&sx) ; /* divide "goodEnd" by "badEnd" stored in the wiggleCopyBuffer */
+	      sxWiggleRatio (&sx) ; // divide "goodEnd" by "badEnd" stored in the wiggleCopyBuffer 
 	      sxWiggleScale (&sx,  sx.wiggleRatioDamper) ;
 	      sxWiggleShift (&sx,  -sx.wiggleRatioDamper) ;
 	      sxWiggleFloor (&sx, 0) ;
+	      */
+	      
+	      sxWiggleRatio (&sx) ; /* compute: 200 * f / (100 * r + f + 20) */
 
 	      sxWiggleExport (&sx) ;
 	    }
-
+ 
 	  sx.ai = old ;
 	}
-      else /* if (!sx.multiPeaks)  multiPeaks */
+      else /* if (!sx.transcriptends)  multiPeaks */
 	{
 	  /* z = ax + by   ==   b (a/b x + y) */
-	  if (sx.wiggleFileName1)
+	  if (sx.swiggleFileName1 || sx.swiggleFileName2)
+	    {
+	      Array Aaaa = 0, Baaa = 0, Alpha = 0 ;
+	      ACEIN old = sx.ai ;
+	      AC_HANDLE h = 0 ;
+
+	      if (! sx.swiggleFileName2)
+		usage ("Missing parameter: -swiggle1 requires -swiggle2") ;
+	      if (! sx.swiggleFileName1)
+		usage ("Missing parameter: -swiggle2 requires -swiggle1") ;
+	      if (! sx.wiggleFileName1)
+		usage ("Missing parameter: -swiggle1 requires -wiggle1") ;
+	      if (! sx.wiggleFileName2)
+		usage ("Missing parameter: -swiggle1 requires -wiggle2") ;
+
+	      /* get a, b  = stranded wiggles, smooth them over sigma = 50 bases
+	       * compute alpha = a + 10 / a + b + 20
+	       *          beta = b + 10 / a + b + 20
+	       *    => alpha + beta = 1, so we only need to compute alpha
+	       * then read the non stranded wiggle x, y. 
+	       * compute z = x + y
+	       *         x' = alpha * z 
+	       *         y' =  beta * z 
+	       * use x', y' in place of x, y
+	       *  since we just want to use x', 
+	       *  we can compute in place x, then z = x + y, then x' = alpha * z
+	       */
+ 
+	      h = ac_new_handle () ;
+	      if (1) /* parse a */
+		{
+		  sx.ai = aceInCreate (sx.swiggleFileName1, sx.gzi, h) ;
+		  aceInSpecial (sx.ai,"\t\n") ;
+		  sxWiggleParse (&sx, 0, 0) ;      /* parse x */
+		  ac_free (sx.ai) ;
+
+		  if (sx.gauss)
+		    sxWiggleGauss (&sx) ; 
+		  Aaaa = sx.aaa ; sx.aaa = arrayHandleCreate (arrayMax (Aaaa), Array, h) ;
+		}
+	      if (1) /* parse b */
+		{
+		  sx.ai = aceInCreate (sx.swiggleFileName2, sx.gzi, h) ;
+		  aceInSpecial (sx.ai,"\t\n") ;
+		  sxWiggleParse (&sx, 0, 0) ;      /* parse x */
+		  ac_free (sx.ai) ;
+
+		  if (sx.gauss)
+		    sxWiggleGauss (&sx) ; 
+		  Baaa = sx.aaa ; sx.aaa = arrayHandleCreate (arrayMax (Aaaa), Array, h) ;
+		}
+	      if (1) /* construct the damped ratio alpha */
+		Alpha = sxWiggleStrandedRatio (&sx, Aaaa, Baaa, sx.wiggleRatioDamper, h) ; /* => a + 10 / a + b + 10 */
+	      if (1) /* parse x */
+		{
+		  sx.ai = aceInCreate (sx.wiggleFileName1, sx.gzi, h) ;
+		  aceInSpecial (sx.ai,"\t\n") ;
+		  sxWiggleParse (&sx, 0, 0) ;      /* parse x */
+		  ac_free (sx.ai) ;
+		}
+	      if (1) /* parse y, and add into z = x + y */
+		{
+		  sx.ai = aceInCreate (sx.wiggleFileName2, sx.gzi, h) ;
+		  aceInSpecial (sx.ai,"\t\n") ;
+		  sxWiggleParse (&sx, 0, 0) ;      /* parse x */
+		  ac_free (sx.ai) ;
+		}
+	      if (1) /* compute x' = alpha * zadd y */
+		{
+		  sxWiggleMultiplyLocally (&sx, Alpha) ;      /* parse x */
+		}
+	      sxWiggleExport (&sx) ;
+	   
+	      sx.ai = old ; sx.aaa = 0 ;
+	      ac_free (h) ;
+	    }
+	  else if (sx.wiggleFileName1)
 	    { 
 	      ACEIN old = sx.ai ;
 	      sx.ai = aceInCreate (sx.wiggleFileName1, sx.gzi, h) ;
@@ -1284,22 +1434,28 @@ int main (int argc, const char **argv)
 		  if (sx.wiggleScale2) 
 		    scale1 /= -sx.wiggleScale2 ;   
 		  sxWiggleScale (&sx, scale1) ;   /* obtain -a/b x */
-
+		  ac_free (sx.ai) ;
 		  sx.ai = aceInCreate (sx.wiggleFileName2, sx.gzi, h) ;
 		  aceInSpecial (sx.ai,"\t\n") ;
 		  sxWiggleParse (&sx, 0, 0) ;     /* add y, obtain -a/b x + y */
 		  sxWiggleScale (&sx, -scale2) ; /* scale again, obtain ax - by */
 		}
+	      ac_free (sx.ai) ;
 	      sx.ai = old ;
 	    }
-	  else  /* single wiggle */ 
-	    sxWiggleParse (&sx, 0, 0) ;
-       
-	  sxWiggleGauss (&sx) ; 
-	   if (sx.in == BF && sx.BF_predictor)
-	     wiggle_compress_write (&sx) ;
-	   else
-	    sxWiggleExport (&sx) ;
+	  else  /* single wiggle */
+	    { 
+	      sxWiggleParse (&sx, 0, 0) ;
+	      ac_free (sx.ai) ;
+	    }
+	  if (sx.aaa)
+	    {
+	      sxWiggleGauss (&sx) ; 
+	      if (sx.in == BF && sx.BF_predictor)
+		wiggle_compress_write (&sx) ;
+	      else
+		sxWiggleExport (&sx) ;
+	    }
 	}
     }
       

@@ -14,6 +14,8 @@
 ######  Edit this file to adapt the ACeDB to a new machine ######
 #####   following the explanations given in wmake/truemake  #####
 #################################################################
+# On linux use valgrind as is
+#  valgrind bin.LINUX_4/program param
 
 NAME = OPTERON
 COMPILER = gcc -g -Wall -fno-strict-aliasing -I/usr/X11/include  -DACEDB4
@@ -30,16 +32,6 @@ Xt_LIBS = -L/usr/X11R6/lib64 -lXaw -lXt -lXmu -lXext -lX11
 #			   /usr/X11/lib64/libXmu.so \
 #			   /usr/X11/lib64/libXext.so
 
-LEX_LIBS = -lfl
-
-### flex -l emulates AT&T lex as accurately as possible
-LEX = flex
-LEX_OPTIONS = -l
-
-
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS = 
 
 #RPCGEN_FLAGS = -Y /usr/local/gcc-3.4.1/bin/ -b -I -K -1
 RPCGEN_FLAGS = -b -I -K -1

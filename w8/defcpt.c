@@ -18,14 +18,8 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: defcpt.c,v 1.57 2017/02/15 20:36:47 mieg Exp $ */
+/* $Id: defcpt.c,v 1.64 2020/05/30 16:50:34 mieg Exp $ */
 
-/*
-#define CHRONO
-
-#define ARRAY_CHECK 
-#define MALLOC_CHECK
-*/
 #include "acedb.h"
 #include "freeout.h"
 
@@ -50,10 +44,11 @@ static int DEFCPTMAG  =  727830152 ;  /* repeated in blyDnaGet */
 #include "bs.h"
 #include "a.h"
 #include "dna.h"
+#include "cdna.h"
 #include "sysclass.h"
 #include "classes.h"
 #include "systags.h"
-#include "tags.h"
+#include "tags.h" 
 #include "pick.h"
 #include "topology.h"
 #include "query.h"
@@ -64,9 +59,12 @@ static int DEFCPTMAG  =  727830152 ;  /* repeated in blyDnaGet */
 #include "mytime.h"
 #include "session.h"
 #include "parse.h"
+#include "ctf.h"
 #include "../wabi/chromorepeats.h"
-
+#include "acembly.h"  
+ 
 static BOOL DEBUG = FALSE ;    /* additional printouts */
+extern void monDnaForget(DEFCPT look, KEY key) ;
 
 typedef struct { int g1, g2 ; } GENE_PAIR ;
 typedef struct { KEY key ; int tai ; } KEY_INT ;
@@ -98,7 +96,7 @@ static int nblook = 0 ;
 #define localDoDestroy(x) ((x) ? uLocalDoDestroy(x), x=0, TRUE : FALSE)
 
 static FREEOPT mkaction[] =
-{ { 83, "Ace.mbly"},
+{ { 82, "Ace.mbly"},
     {'q', "Quit [<filename>] : Quits ace.mbly [and reports on file]"},
     {'l', "Load -all | -active | name : Loads sequences, discarding previous set (ex: load a1*)"},
     {'A', "add query : Adds in result of the query (ex: Add >?Clone; >Cloning_Vector)"},
@@ -1834,9 +1832,8 @@ static void defCptDoTrainNNonKeySet (KEYSET aa)
     return ;
   for (i = 0 ; i < keySetMax(aa) ; i++)
     { key = keySet(aa, i) ;
-      if (dnaReClass (key, &key) &&
-	  !nnContigTrain (key))
-	break ;
+      if (dnaReClass (key, &key))
+	nnContigTrain (key);
     }
   nnContigTrain (0) ; /* close export file */
   if (diffaction)
@@ -1853,7 +1850,7 @@ static int defCptDoPatchKeySet (KEYSET aa)
   char timeBuf[25] ;
 
   messStatus("AutoEdit") ;
-  if (!aa)
+  if (!aa) 
     return 0 ;
   for (i = 0 ; i < keySetMax(aa) ; i++)
     { 
@@ -1871,7 +1868,7 @@ static int defCptDoPatchKeySet (KEYSET aa)
 }
 
 /***************************************************************/
-
+#ifdef JUNK
 static int defCptDoFlagRnaEditingKeySet (KEYSET aa)
 { int i, n, nn = 0 ; 
   KEY key ;
@@ -1894,7 +1891,7 @@ static int defCptDoFlagRnaEditingKeySet (KEYSET aa)
 				   timeShow(timeNow(), timeBuf, 25))) ;
   return nn ;
 }
-
+#endif
 /***************************************************************/
 
 static int defCptDoBaseCall (KEYSET aa)
@@ -2153,7 +2150,7 @@ static void defCptGetMoreSequences(void)
   if (messPrompt(buf, messprintf("%d", j), "i"))
     { freeint(&i) ;
       if (i < 0 || i > 256)
-	{ sprintf(buf, messprintf("Bad value (%d) ; please try again", i)) ;
+	{ sprintf(buf, "Bad value (%d) ; please try again", i) ;
 	  goto ici ;
 	}
       look->whatDis = (unsigned char)i ;
@@ -3018,7 +3015,7 @@ static void defCptMakeSubsequences (DEFCPT look)
   int size = 0, overlap = -1, i, ii, jj, jjMax, nn, myZero, myTrueZero ; 
   int zero[7], trueZero[7] ;
   char *buffer = 0 , *cp = 0, *prefix = 0, *prefix2 = 0, *source = 0, *subsource = 0;
-  KEY seq, map, maps[7] ; 
+  KEY seq, maps[7] ; 
   Array dna = 0 ;
   BOOL withDna = FALSE, isWorm = FALSE, isDroso = FALSE, isAra = FALSE ;
   Stack s = stackCreate (10000000) ;
@@ -3074,7 +3071,7 @@ static void defCptMakeSubsequences (DEFCPT look)
       printf ("Sequence %s length %d\n", name(seq), jj) ;
 
       myZero = myTrueZero = 0 ;
-      for (map = 0, i = 0 ; i < 7 ; i++)
+      for (i = 0 ; i < 7 ; i++)
 	if (!strcmp (name(maps[i]), name (seq)))
 	  {
 	    myZero = zero[i] ;
@@ -3189,7 +3186,7 @@ typedef struct coverFlagStruct {KEY map, mrna ; KEYSET mrnas ; int dna, dm, a1, 
 static void defCptMakeDnOneCoverDict (KEY mrna, int nn,  DICT *dict, Array flags, BOOL span, BOOL isWorm, BOOL justIntron, BOOL isPg, AC_HANDLE h)
 {
   CF *cf ;
-  KEY map, Nmrna ;
+  KEY Nmrna ;
   OBJ Mrna = bsCreate (mrna) ;
   Array dna = 0 ;
   Array aa = arrayCreate (128, BSunit) ;
@@ -3220,7 +3217,7 @@ static void defCptMakeDnOneCoverDict (KEY mrna, int nn,  DICT *dict, Array flags
   if (bsGetArray (Mrna, str2tag("IntMap"), aa, 3))
     {
       uu = arrp (aa, 0, BSunit) ;
-      map = uu[0].k ;
+      /*  map = uu[0].k ; */
       g1 = uu[1].i ;
       g2 = uu[2].i ;
     }
@@ -4125,8 +4122,10 @@ static void defCptDoReadAction(DEFCPT look, int level)
 		  if (!strncmp(cp, "-f", 2))
 		    if (!(cp = freeword()) || /* filename */
 			!(f = fopen(cp,"r")))
-		      { fprintf (defCptOut, 
-				 messprintf ("Sorry: I cannot find file \"%s\"\n",cp ? cp : "")) ;
+		      { fprintf (defCptOut 
+				 , "Sorry: I cannot find file \"%s\"\n"
+				 , cp ? cp : ""
+				 ) ;
 			break ;
 		      }
 		}
@@ -4154,13 +4153,13 @@ static void defCptDoReadAction(DEFCPT look, int level)
 	      break ;
 	    }
 	  if (DEBUG)
-	    { mysize_t nmessalloc,aMade, aUsed, aAlloc, aReal ;
-	      int messalloctot, dnaMade, dnaTotal ;
+	    { mysize_t aUsed, aMade, aAlloc, aReal ;
+	      int nmessalloc, messalloctot, dnaMade, dnaTotal ;
 	      nmessalloc = messAllocStatus (&messalloctot) ;
 	      monDnaReport (&dnaMade, &dnaTotal) ;
 	      arrayStatus (&aMade, &aUsed, &aAlloc, &aReal) ;
-	      fprintf (defCptOut, " // nMessAlloc %ld totMessAlloc %d kb nArr %ld totArr %ld kb, nMondna %d totMonDna %d kb\n",
-		       nmessalloc, messalloctot/1024, aMade, aAlloc/1024, dnaMade, dnaTotal/1024 ) ;
+	      fprintf (defCptOut, " // nMessAlloc %d totMessAlloc %d kb nArr %ld totArr %ld kb, nMondna %d totMonDna %d kb\n",
+		       nmessalloc, messalloctot/1024, (long)aMade, (long)aAlloc/1024, dnaMade, dnaTotal/1024 ) ;
 	      fprintf (stderr, " // %ld assInserted, %ld assRemoved, %ld assFound, %ld assNotFound, %ld assBounce\n",
 		       assInserted, assRemoved, assFound, assNotFound, assBounce) ;
 	    }
@@ -4216,7 +4215,7 @@ static void defCptWriteAction(void)
   if (!(ff = filqueryopen(dirName, fileName, "smb", "w", 
 			 "Name of Ace-mbly session ?")))
     return ;
-  fprintf(ff, stackText(diffaction, 0)) ;
+  fprintf(ff, "%s", stackText(diffaction, 0)) ;
   filclose(ff) ;
 } /* defCptWriteAction */
 #endif /* !NON_GRAPHIC */

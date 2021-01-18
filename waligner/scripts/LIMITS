@@ -7,6 +7,8 @@
 ## The type of experiment, DNA or RNA is defined in the file
 ## LIMITS in the project directory created by by the command
 ## MAGIC init [DNA | RNA]
+## This parameter must never be modified.
+setenv MOLECULE_TYPE RNA
 
 ##############################################################
 ## 2: Species
@@ -80,7 +82,10 @@ setenv minAli 24
 ## Thresholds used in exon discovery
 
 setenv minExonCover 30
+##############################################################
+## Thresholds used in counting support of introns annotatted in Etargets transcripts
 
+setenv minIntronOverlap 8
 ##############################################################
 ## Thresholds used in SNV detection
 
@@ -106,7 +111,9 @@ setenv minCoveron 10
 
 setenv minSnpCount 4
 setenv minSnpCover 10
-setenv minSnpFrequency 20
+setenv minSnpFrequency 18
+
+setenv snpDropMultiplicity 0
 
 ##############################################################
 ## Size of the fastc sequence files to be aligned
@@ -119,14 +126,15 @@ setenv minSnpFrequency 20
 setenv splitMb 200
 setenv splitMs 7000000
 
-
 ##############################################################
 ## Targets on which the reads are aligned
 ## DNAtargets and RNAtargets are redefined in TARGET/LIMITS
 ## and their fasta files are given in TARGET/Targets
 
+setenv targets " "
 setenv DNAtargets " " 
 setenv RNAtargets " "
+setenv Etargets " "
 
 ## The other targets can be microarray results or data from
 ## any other programs provided by the user as index .ace files in 
@@ -139,6 +147,40 @@ setenv other_targets  " "
 # allowed values are Exome RNA_seq
 setenv Strategy Exome
 setenv Strategy RNA_seq
+
+# The species, reference genome and the list of chomosomes must be defined in TARGET/LIMITS
+setenv species " "
+setenv species_kantor " "
+setenv chromSetAll " "
+setenv Reference_genome " "
+setenv UCSCgenomeRelease " "
+
+##############################################################
+## Wiggle coverage plots
+## the wiggle represent the genome coverage by runs and groups
+## automatically remapping to the genome the reads best aligned on spliced transcripts
+## separating the strands after automatically inverting the strand of the
+## stranded reads. i.e. in illumina read 1 is usually antistranded and flipped
+## and read2 is stranded. But the need to flip is not decided a priori
+## but measured automatically by the program with a threshold at 60%
+## to avoid a random behaviour when the stranding is 50% +- epsilon
+
+## The resolution of the wiggle is one point every 10 bases
+## which is sufficient because one never maps a read shorter than 20 bases
+## On a virus or bacteria target, you could reset it to one
+## in  your ./LIMITS file or in TARGET/LIMITS if you have very fast disks
+## Never do that on human, mouse or any giga-base genome, the hardwares
+## would be overwhelmed.
+
+setenv wiggle_step 10
+
+##############################################################
+## Captures 
+## the capture files hould be declared in TARGET/GENES and
+## the CAPTURES variable should be edited in TARGET/LIMITS 
+## or preferably in ./LIMITS
+
+setenv CAPTURES ""
 
 ##############################################################
 ##############################################################
@@ -185,6 +227,7 @@ setenv maxHit 10
 # The max intron lengthin bp  depends on the species, it is reset in the Target LIMITS file
 # 100k is a reasonable choice for vertebrates
 setenv intronMaxLength 100000
+setenv intronMinLength 30
 
 # If RecoverId==1 the original read identifiers are recovered in tmp/ALIa
 # this operation is very costly and only useful in exceptional situations
@@ -194,6 +237,7 @@ setenv RecoverId 0
 # transcriptome annotations are available, RNAtargets is reset in TARGET/LIMITS
 setenv DNAtargets "DNASpikeIn SpikeIn genome"
 setenv RNAtargets " "
+setenv Ttargets " "
 setenv Etargets "av RefSeq"
 
 
@@ -201,6 +245,11 @@ setenv Etargets "av RefSeq"
 # by redirecting in your_project/LIMITS, it is possible to run a recursion
 # after modifying the target transcriptome without losing the previous results
 setenv MAGIC_COUNT_DIR COUNT
+
+# Analyze the expression of gene groups defined in TARGET/GENES
+# by ressetting to zero in ./LIMITS, you discard gene-groups expression tables
+# this makes sense in capture experiments where only some genes of the groups are captured
+setenv MAGIC_GENE_GROUP 1
 
 ## RNA-editing 
 setenv MAGIC_A2G 0
@@ -210,6 +259,19 @@ setenv MAGIC_A2G 0
 #     setenv MAGIC_A2G 1
 # will  allow for the special RNA_editing search
 # This option is automatically disabled in Solid and in DNA studies
+
+## Wiggle precision, in bacteria one may consider out_set 1
+## but it makes the file much larger without a lot of benefit
+## since the ali are always at least 10bp long
+setenv out_step 10
+
+## VIRUS_PROJECT, align on a single or a small collection of viruses treated as a genomic target
+## Useful in speclial sample collections, used for corona virus pandemic in 2020 
+setenv VIRUS_PROJECT 0
+
+## SAM/BAM analysis may be reset in specialized scripts
+setenv MAGIC_SAM 0
+setenv USE_MAGIC_BLAST 0
 
 ###########################################################
 ## The rest of the files deals with adaptors per platform

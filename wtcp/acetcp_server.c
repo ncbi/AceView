@@ -123,6 +123,8 @@ static u_long port = 12345 ;
     }
 #endif
 
+extern FILE *tcp_log_file  ;
+
 static void openOutFile (void)
 { char buf [12*1024] ;
   strcpy (buf, sessionFilName ("server", "log", 0)) ;
@@ -133,6 +135,7 @@ static void openOutFile (void)
   if (!out)
     out = stderr ;
   setbuf (out, NULL) ;
+  tcp_log_file = out ;
   /* setbuf (stdout, NULL) ; this flat crashes under daemon on new linux */
 }
 
@@ -141,11 +144,6 @@ static void openOutFile (void)
 UT_MAKE_GETCOMPILEDATEROUTINE()
 
 /************************************************************/
-
-FILE *get_log_file_fp()
-{
-return out;
-}
 
 int main (int argc, const char **argv)
 { 

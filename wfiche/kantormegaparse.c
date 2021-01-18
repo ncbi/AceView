@@ -371,7 +371,9 @@ static int readTaxTree (char *anB, CRITT * critter, int * pMaxLev)
       
       /* the critter name */
       critter[iNum].name = tblPtr;
-      for (;*tblPtr && ! (*tblPtr == '.' && (tblPtr[1] == '.' || (tblPtr[1] == ' ' && tblPtr[2] == ' '))) ;tblPtr++) ;*tblPtr = 0;
+      for (;*tblPtr && ! (*tblPtr == '.' && (tblPtr[1] == '.' || (tblPtr[1] == ' ' && tblPtr[2] == ' '))) ;tblPtr++)
+	{} ;
+      *tblPtr = 0;
       clnVar (critter[iNum].name) ;
       /*vstrFindReplaceSymbols (critter[iNum].name, critter[iNum].name, 0, ".", "", 0, 1, 0) ; */
       
@@ -627,14 +629,15 @@ static int kantorParsePSORTList (vSTR * blkp, char *src, char *look, char *domai
 	{qrySt=fixPsortCoord(qrySt) ;qryEd=fixPsortCoord(qryEd) ;}
       /* find the sequence from C-terminus if position is not defined */
       if (ist==-1)
-	{vstrCleanEnds(seq,seq,0," \n\t",1) ;
-	if (!strstr(seq,"none"))
-	  {sscanf("%s ",seq) ;
-	  seq[strlen(seq)+1]=0;
-	  if ((fnd=psortSearchDottedSequence(seqBuf,seq,-1,1))!=0)
-	    {qrySt=fnd-seqBuf;qryEd=qrySt+strlen(seq) ;qrySt++;} 
-	  else break;
-	  }
+	{
+	  vstrCleanEnds(seq,seq,0," \n\t",1) ;
+	  if (!strstr(seq,"none"))
+	    {
+	      seq[strlen(seq)+1]=0;
+	      if ((fnd=psortSearchDottedSequence(seqBuf,seq,-1,1))!=0)
+		{qrySt=fnd-seqBuf;qryEd=qrySt+strlen(seq) ;qrySt++;} 
+	      else break;
+	    }
         }
       if (! (xLen && qrySt < xPos && qryEd > xPos))
 	  vstrPrintf(blkp,"Domain \"%s_domain\" \"Psort\" %d. %d %d %d %d \"%s\" \n"

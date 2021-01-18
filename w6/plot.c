@@ -15,7 +15,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: plot.c,v 1.11 2017/03/18 15:30:51 mieg Exp $ */
+/* $Id: plot.c,v 1.12 2017/06/05 20:59:15 mieg Exp $ */
 
 #include "acedb.h"
 
@@ -436,7 +436,7 @@ static void histoImport (void)
       arrayDestroy(a) ;
       return;
     }
-  if (!look->title || !*look->title)
+  if (!look->title[0])
     sprintf(look->title, "%s", look->fileName) ;
   graphRetitle (look->title) ;
   arrayDestroy (look->originalArray) ;
@@ -1347,7 +1347,7 @@ static void plotDoLoad (BOOL isAscii)
       arrayDestroy(a) ;
       return;
     }
-  if (!look->title || !*look->title)
+  if (!*look->title)
     sprintf(look->title, "%s", look->fileName) ;
   graphRetitle (look->title) ;
   arrayDestroy (look->originalArray) ;

@@ -1,6 +1,6 @@
 #!/bin/tcsh -f
 #  2014_01_05
-
+#  revised 2019_05_10
 ################################################################
 # Construct a mini project
 ##### Mini genome
@@ -21,15 +21,15 @@ pushd MagicMiniTest
 
 ## Task 1: construct tmp/METADATA -> .sponge, .info 
 ## this phase only needs to be run once
-
-if (! -e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
+~/aaa1/ZOO/human/TARGET.human.2016_03_20
+if (! -e ~/aaa1/ZOO/human/TARGET.human.2016_03_20/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
   echo "Sorry, i cannot find the file DATA/TARGET/MagicMiniTest.data_preparation.done, so the test data are not  ready"
   echo " and I cannot find the  ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz, so i cannot prepeare the test data, I quit"
   exit (1)
 endif
 
 
-if (-e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
+if (-e ~/aaa1/ZOO/human/TARGET.human.2016_03_20/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniTest.data_preparation.done) then
 
   if (! -d TARGET) mkdir TARGET
   if (! -d TARGET/Targets) mkdir TARGET/Targets
@@ -38,7 +38,9 @@ if (-e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniT
   echo "Creating the MiniTest genome and artificial reads"
 
   echo " extract the genome"
-  dna2dna -I fasta -i ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz -leftClipAt 95510001 -rightClipAt  95810000 -O fasta -gzo -maxLineLn 60 >  hs.genome.dicer1_region.fasta.gz
+
+if (0) then
+  dna2dna -I fasta -i ~/aaa1/ZOO/human/TARGET.human.2016_03_20/CHROMS/hs.chrom_14.fasta.gz -leftClipAt 95510001 -rightClipAt  95810000 -O fasta -gzo -maxLineLn 60 >  hs.genome.dicer1_region.fasta.gz
   # get the corresponding transcripts from AceView and RefSeq and shift their coordinates
   zcat ~/37_6/TARGET/GTF/hs.av.gtf.gz | gawk -F '\t' '/^14/{a1=$4;a2=$5;if(a1>=95510001 && a2<=95810000){$4-=95510000;$5-=95510000;printf("%s",$1);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}}' | gzip > hs.av_v4.dicer1_region.gtf.gz
   zcat ~/37_6/TARGET/GTF/hs.RefSeq.gtf.gz | gawk -F '\t' '/^14/{a1=$4;a2=$5;if(a1>=95510001 && a2<=95810000){$4-=95510000;$5-=95510000;printf("%s",$1);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}}' | gzip > hs.RefSeq_v105.dicer1_region.gtf.gz
@@ -48,10 +50,13 @@ if (-e ~/37_5/TARGET/CHROMS/hs.chrom_14.fasta.gz &&  ! -e DATA/TARGET/MagicMiniT
 
   mv  hs.*.dicer1_region.gtf.gz TARGET/GTF
   mv  hs.*.dicer1_region.fasta.gz TARGET/Targets
-  
+endif
+  cp $MAGIC_SRC/waligner/metaData/DicerTest/hs.*.dicer1_region.gtf.gz TARGET/GTF
+  cp $MAGIC_SRC/waligner/metaData/DicerTest/hs.*.dicer1_region.fasta.gz TARGET/Targets
+ 
   pushd TARGET/GTF
     ln -s hs.RefSeq_v105.dicer1_region.gtf.gz hs.RefSeq.gtf.gz
-    ln -s hs.av_v4.dicer1_region.gtf.gz hs.av.gtf.gz
+    zcat hs.av_v4.dicer1_region.gtf.gz | grep aAug10 | gzip > hs.av.gtf.gz
   popd
   pushd TARGET/Targets
     ln -s hs.av_v4.dicer1_region.fasta.gz hs.av.fasta.gz
@@ -79,8 +84,8 @@ setenv intronMaxLength 100000
 setenv chromSetAll "14"
 setenv MAGIC_A2G 0
 
-setenv DNAtargets "DNASpikeIn SpikeIn mito genome gdecoy"
-setenv RNAtargets "rrna  av RefSeq"
+setenv DNAtargets "genome gdecoy"
+setenv RNAtargets "av RefSeq"
 
 setenv Etargets "av RefSeq"
 
@@ -221,7 +226,7 @@ RNA
 SNP
 Is_run
 Reverse
-group ExactFR
+group SubFR
 project Test
 W_colour_plus RED
 W_colour_minus LIGHTRED
@@ -429,6 +434,11 @@ echo "parsing DATA/runs.ace"
     quit
 EOF
 
+  # we need to hack away the cds not coming from the first transcript of the gene
+  foreach ff ( tmp/METADATA/gtf.av.ns.cds.sponge)
+    zcat $ff > tmp/toto
+    cat tmp/toto | grep .aAug > $ff
+  end
 endif
 
 ##########################################################################
@@ -438,8 +448,8 @@ setenv MAGIC_SUBMIT MULTICORE
 if (1) then
   MAGIC ALIGN
 
-  MAGIC ALIGN  SNP WIGGLE GENE_EXPRESSION INTRON_EXON
-  MAGIC wait f1 wait f2 wait f3 wait f4 wait
+  MAGIC ALIGN  SNP WIGGLE GENE MRNA INTRON EXON polyA
+  MAGIC wait f0 wait f1 wait f2 wait f3 wait f4 wait
 
   echo "pparse tmp/METADATA/gtf.av.transcripts.ace.gz" | tbly tmp/XH14 -no_prompt
  tbly tmp/XH14 <<EOF
@@ -459,6 +469,8 @@ endif
 #### 1) verify by hand that all output files are useful and correct
 #### 2) register a reference copy of these files and diff to check the current code
 
+done:
+ echo done
 
 exit 0 
 

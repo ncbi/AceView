@@ -1,4 +1,4 @@
-#$Id: truemake,v 1.180 2017/03/18 15:31:31 mieg Exp $
+#$Id: truemake,v 1.185 2019/05/24 21:47:50 mieg Exp $
 #################################################################
 ############### acedb: R.Durbin and J.Thierry-Mieg ##############
 #################################################################
@@ -108,11 +108,8 @@ Xt_LIBS = -lXaw -lXt -lXmu -lXext -lX11
 #################################################################
 ###################### Lex Libraries ############################
 #################################################################
-# most versions of lex require you to use -ll
-# but not Linux - reset LEX_LIBS in $(ACEDB_MACHINE)_DEF file
-
-LEX_LIBS = -ll
-
+# The acedb dependency on LEX/YACC/BISON
+# has been removed
 #################################################################
 ################## Source code directory, #######################
 ###### can be changed in $(ACEDB_MACHINE)_DEF if need be ########
@@ -158,12 +155,6 @@ true = 1
 false = 0
 RANLIB_NEEDED = true	# default overridable in $(ACEDB_MACHINE)_DEF
 AR_OPTIONS = rlu	# default overridable in $(ACEDB_MACHINE)_DEF
-LEX         = lex
-LEX_OPTIONS = 
-YACC        = yacc
-###YACC_OPTIONS = -dvt
-YACC_OPTIONS =
-
 
 # defaults overridable in $(ACEDB_MACHINE)_DEF
 # e.g. different compiler when using purify
@@ -213,9 +204,9 @@ FREE_OBJS = freesubs.o  freeout.o messubs.o \
 TS_FREE_OBJS = acein.o aceout.o utils.o vtxt.o strsubs.o msort.o vcgi.o cgi.o \
 	dict.o heap.o liste.o keyset.o memsubs.o bump.o \
 	randsubs.o timesubs.o channel.o \
-	arraysub.o bigarraysub.o dnacode.o topology.o wigglelib.o
+	arraysub.o bigarraysub.o matrix.o matrix_slice.o dnacode.o sambam.o topology.o wigglelib.o
 
-GRAPH_OBJS = graphcon.o graphsub.o graphps.o graphswf.o graphselect.o \
+GRAPH_OBJS = graphcon.o graphsub.o graphps.o graphswf.o graphsvg.o graphselect.o \
 	graphascii.o graphprint.o filquery.o graphgd.o graphcolour.o graphramp.o \
 	colcontrol.o viewedit.o chronodisp.o graphhelp.o \
 	graphAcedbInterface.o menu.o
@@ -655,38 +646,6 @@ testprog.c:
 .c.a5.o: $<
 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -DACEDB5 -c $< -o $@
 
-########### AQL objects ######################
-
-# AQL source-files - link them to the bin-dir, then make aqlparse.c with lex/yacc
-#aql.c aqlcheck.c aqlrun.c aqlerror.c aqldebug.c aqlmain.c aqlparse.l aqlparse.y:
-#	$(TEST) -L $@ || ln -s ../waql/$@ .
-
-# aql.h aql_.h:
-#	$(TEST) -L $@ || ln -s ../wh/$@ .
-
-# lex.yy.c: aqlparse.l aql_.h
-#	$(LEX) $(LEX_OPTIONS)  aqlparse.l
-
-# aqlparse.c: lex.yy.c aqlparse.y
-# 	$(YACC) $(YACC_OPTIONS) -o aqlparse.c aqlparse.y
-
-#compile the AQL objects
-# aql.o: aql.c aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aql.c -o aql.o
-# aqlrun.o: aqlrun.c aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlrun.c -o aqlrun.o
-# aqlcheck.o: aqlcheck.c aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlcheck.c -o aqlcheck.o
-# aqldebug.o: aqldebug.c aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqldebug.c -o aqldebug.o
-# aqlparse.o: aqlparse.c
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlparse.c -o aqlparse.o
-# aqlerror.o: aqlerror.c aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c aqlerror.c -o aqlerror.o
-# $(AQL_OBJS): $< aql_.h
-# 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c $< -o $@
-
-
 ################## libraries #########################
 
 libfree.a : $(FREE_OBJS)
@@ -807,7 +766,7 @@ XACE_OBJS = $(GRAPHICAL_ACE_OBJS) $(WORM_DISP_ACE_OBJS) $(JO_OBJS)
 
 xace : libfree.a libtsfree.a libgraph.a libace.a libxace.a xacemain.c $(XACE_OBJS) 
 	$(CC) xacemain.c
-	$(LINKER) -o xace xacemain.o $(XACE_OBJS) -L. -lxace -lfree -ltsfree  -lgraph  -lace  $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o xace xacemain.o $(XACE_OBJS) -L. -lxace -lfree -ltsfree  -lgraph  -lace  $(Xt_LIBS) $(LIBS) 
 
 xace_clean :
 	rm -f $(XACE_OBJS) xace
@@ -818,7 +777,7 @@ GIFACE_OBJS = $(GRAPHICAL_ACE_OBJS) $(WORM_DISP_ACE_OBJS) $(JO_OBJS) acein.o ace
 
 giface : libfree.a libtsfree.a libgif.a libxace.a gifacemain.c $(GIFACE_OBJS)  libgraph.a
 	$(CC) gifacemain.c
-	$(LINKER) -o giface gifacemain.o $(GIFACE_OBJS) -L. -lxace -lfree -ltsfree -lgif  -lgraph  $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o giface gifacemain.o $(GIFACE_OBJS) -L. -lxace -lfree -ltsfree -lgif  -lgraph  $(LIBS) 
 	chmod $(MODE_P) giface
 
 # gifacembly:
@@ -830,7 +789,7 @@ GIFACEMBLY_OBJS = $(GRAPHICAL_ACEMBLY_OBJS)  \
 
 gifacembly : libfree.a libtsfree.a libgif.a libstaden.a libace.a libxace.a gifacemain.c $(GIFACEMBLY_OBJS) libgraph.a
 	$(CC) -o gifacemblymain.o  -DACEMBLY gifacemain.c
-	$(LINKER) -o gifacembly gifacemblymain.o $(GIFACEMBLY_OBJS) -L. -lace -lxace -lfree -ltsfree -lstaden -lgif  -lgraph  $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o gifacembly gifacemblymain.o $(GIFACEMBLY_OBJS) -L. -lace -lxace -lfree -ltsfree -lstaden -lgif  -lgraph  $(LIBS) 
 	chmod $(MODE_P) gifacembly
 
 #####################################
@@ -841,7 +800,7 @@ XACE_5_OBJS = xacemain.o $(NON_ACEMBLY_OBJS) $(X_KERNEL_5_OBJS) \
 	$(JO_OBJS)
 
 xace5 : libfree.a libtsfree.a $(XACE_5_OBJS) 
-	$(LINKER) -o xace5 $(XACE_5_BJS) -L. -lfree -ltsfree $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o xace5 $(XACE_5_BJS) -L. -lfree -ltsfree $(Xt_LIBS) $(LIBS) 
 	chmod $(MODE_NP) xace
 
 # Xacembly version 4 build:
@@ -854,7 +813,7 @@ XACEMBLY_OBJS =  \
 
 xacembly : $(LINK_ACI) libfree.a libtsfree.a libgraph.a libstaden.a xacemain.c libace.a $(XACEMBLY_OBJS)  $(LINK_ACI)
 	$(CC) -DACEMBLY -c xacemain.c -o xacemblymain.o
-	$(LINKER) -o xacembly $(XACEMBLY_OBJS) xacemblymain.o -L. -lfree -ltsfree -lgraph -lstaden -lace  $(LINK_ACI) $(Xt_LIBS) $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o xacembly $(XACEMBLY_OBJS) xacemblymain.o -L. -lfree -ltsfree -lgraph -lstaden -lace  $(LINK_ACI) $(Xt_LIBS) $(LIBS)  
 	chmod $(MODE_NP) xacembly
 
 # Xacembly version 5 build:
@@ -863,7 +822,7 @@ ALL_ACEMBLY_5_OBJS =  xacemain.acm.o $(ACEMBLY_OBJS) $(X_KERNEL_5_OBJS) \
 	$(ABI_GRAPH_OBJS) $(BASECALL_OBJS) $(MAPPING_OBJS)
 
 xacembly5 : libfree.a libtsfree.a libgraph.a libstaden.a $(ALL_ACEMBLY_5_OBJS)
-	$(LINKER) -o xacembly5 $(ALL_ACEMBLY_5_OBJS) -L. -lfree -ltsfree -lgraph -lstaden $(Xt_LIBS) $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o xacembly5 $(ALL_ACEMBLY_5_OBJS) -L. -lfree -ltsfree -lgraph -lstaden $(Xt_LIBS) $(LIBS) 
 
 
 ################################################################
@@ -873,7 +832,7 @@ xacembly5 : libfree.a libtsfree.a libgraph.a libstaden.a $(ALL_ACEMBLY_5_OBJS)
 # tace
 tace :  $(LINK_ACI) libfree.a libtsfree.a libace.a tacemain.c
 	$(CC) tacemain.c
-	$(LINKER) -o tace tacemain.o -L. -lace $(LINK_ACI) -lfree -ltsfree -ltsfree $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o tace tacemain.o -L. -lace $(LINK_ACI) -lfree -ltsfree -ltsfree $(LIBS)  
 	chmod $(MODE_P) tace
 
 tace_clean :
@@ -886,7 +845,7 @@ TACEMBLY_OBJS =  \
 
 tacembly : $(LINK_ACI) libfree.a libtsfree.a libstaden.a libace.a tacemain.c $(TACEMBLY_OBJS)
 	$(CC) -DACEMBLY -c tacemain.c -o tacemblymain.o
-	$(LINKER) -o tacembly $(TACEMBLY_OBJS) tacemblymain.o -L. -lfree -ltsfree -lstaden -lace  $(LINK_ACI) $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o tacembly $(TACEMBLY_OBJS) tacemblymain.o -L. -lfree -ltsfree -lstaden -lace  $(LINK_ACI) $(LIBS) 
 	chmod $(MODE_P) tacembly
 
 # tacembly - version 5
@@ -895,7 +854,7 @@ TACEMBLY_5_OBJS = tacemain.acm.o \
 	$(BASECALL_NONGRAPH_OBJS) $(MAPPING_NONGRAPH_OBJS)
 
 tacembly5 : $(LINK_ACI) libfree.a libtsfree.a libstaden.a libace.a $(TACEMBLY_5_OBJS)
-	$(LINKER) -o tacembly5 $(TACEMBLY_5_OBJS) -L.  -lace5 $(LINK_ACI)  -lfree -ltsfree -lstaden $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o tacembly5 $(TACEMBLY_5_OBJS) -L.  -lace5 $(LINK_ACI)  -lfree -ltsfree -lstaden $(LIBS) 
 	chmod $(MODE_NP) tacembly5
 
 ######### the AQL test-platform #################
@@ -904,13 +863,13 @@ tacembly5 : $(LINK_ACI) libfree.a libtsfree.a libstaden.a libace.a $(TACEMBLY_5_
 # 	$(CC) aqlmain.c
 # 
 # taql :  libfree.a libtsfree.a libace.a aqlmain.o aqlmain.o 
-# 	$(LINKER) -o taql aqlmain.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS) 
+# 	$(LINKER) -o taql aqlmain.o -L. -lace -lfree -ltsfree $(LIBS)  
 
 ##############################################
 
 tagcount : libfree.a libtsfree.a libace.a tagcount.c
 	$(CC) tagcount.c
-	$(LINKER) -o tagcount tagcount.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o tagcount tagcount.o -L. -lace -lfree -ltsfree $(LIBS) 
 
 
 #### ACEDB 5 test programs ################
@@ -922,7 +881,7 @@ TACE_5_OBJS = tacemain.o command.o banner.o \
 
 tace5 : $(LINK_ACI) libfree.a libtsfree.a $(TACE_5_OBJS)
 	$(CC) tacemain.c
-	$(LINKER) -o tace5 $(TACE_5_OBJS) -L. -lace5 $(LINK_ACI) -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o tace5 $(TACE_5_OBJS) -L. -lace5 $(LINK_ACI) -lfree -ltsfree $(LIBS) 
 
 ###############################################################################
 ################## Sockets server/client ACEDB programs #######################
@@ -939,7 +898,7 @@ $(ACESOCK_UTILS_OBJ):  $(ACESOCK_UTILS_HDR)
 saceserver:  libfree.a libtsfree.a libace.a libmd5.a $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) \
              $(ACESOCK_SERVER_OBJ)
 	$(LINKER) -o $@  $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_SERVER_OBJ) \
-	 -L. -lace -lfree -ltsfree -ltsfree -lmd5 -lm $(LIBS) $(LEX_LIBS) 
+	 -L. -lace -lfree -ltsfree -ltsfree -lmd5 -lm $(LIBS)  
 	chmod $(MODE_NP) $@
 
 ##################### sgifaceserver, graphical - via gifs ###################
@@ -955,7 +914,7 @@ sgifaceserver:  libfree.a libtsfree.a  libgraph.a libgif.a libgiface.a libace.a 
 	$(CC) -DGIFACESERVER -c serverace.c -o sgifaceserver.o 
 	$(LINKER) -o $@ sgifaceserver.o  $(SGIFACESERVER_OBJS) \
 	$(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) serveracepasswd.o \
-	 -L.  -lgiface -lgraph -lgif -lace -lfree -ltsfree -lmd5 -lm $(LIBS) $(LEX_LIBS) 
+	 -L.  -lgiface -lgraph -lgif -lace -lfree -ltsfree -lmd5 -lm $(LIBS)  
 	chmod $(MODE_NP) $@
 
 ##################### saceclient, client version of tace ####################
@@ -965,7 +924,7 @@ $(ACESOCK_CLIENT_OBJ): $(ACESOCK_UTILS_HDR) $(ACESOCK_CLIENTLIB_HDR) $(ACESOCK_C
 saceclient:  libfree.a libtsfree.a aceversion.o libmd5.a  $(ACESOCK_SOCKET_OBJ) libacedna.a\
              $(ACESOCK_UTILS_OBJ) $(ACESOCK_CLIENTLIB_OBJ) $(ACESOCK_CLIENT_OBJ) $(TS_FREE_OBJS)
 	$(LINKER) -o $@  $(ACESOCK_SOCKET_OBJ) $(ACESOCK_UTILS_OBJ) $(ACESOCK_CLIENTLIB_OBJ) \
-	 $(ACESOCK_CLIENT_OBJ) aceversion.o -L. -lfree -ltsfree -lacedna -lmd5 -lm $(LIBS) $(LEX_LIBS)
+	 $(ACESOCK_CLIENT_OBJ) aceversion.o -L. -lfree -ltsfree -lacedna -lmd5 -lm $(LIBS) 
 	chmod $(MODE_NP) $@
 
 ##################### sxaceclient, client version of xace ###################
@@ -977,7 +936,7 @@ SXACECLIENT_OBJS =  $(ACESOCK_XCLIENT_OBJ) $(ACESOCK_CLIENTLIB_OBJ) \
 sxaceclient : libfree.a libtsfree.a libmd5.a $(GRAPHXWIN_DEPEND) libace.a libxace.a xclientmain.c $(SXACECLIENT_OBJS)
 	$(CC) xclientmain.c
 	$(LINKER) -o sxaceclient xclientmain.o $(SXACECLIENT_OBJS) \
-	 -L. -lace -lxace $(GRAPHXWIN_LIBS) -lfree -ltsfree -lmd5 $(XWIN_LIBS) $(LIBS) $(LEX_LIBS)  
+	 -L. -lace -lxace $(GRAPHXWIN_LIBS) -lfree -ltsfree -lmd5 $(XWIN_LIBS) $(LIBS)   
 	chmod $(MODE_NP) sxaceclient
 
 ######################### clean all socket code. ############################
@@ -1017,7 +976,7 @@ ACESERVER_OBJS = $(RPC_SERVER_OBJS)
 
 aceserver : libfree.a libtsfree.a libace.a aceserver.c $(ACESERVER_OBJS) rpcace.x rpcace.h
 	$(CC) aceserver.c
-	$(LINKER)  -o aceserver aceserver.o $(ACESERVER_OBJS) -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	$(LINKER)  -o aceserver aceserver.o $(ACESERVER_OBJS) -L. -lace -lfree -ltsfree $(LIBS) 
 	chmod $(MODE_P) aceserver
 	\rm -f rpc.acedbd
 
@@ -1039,7 +998,7 @@ gifservercontrol.o: gifacemain.c
 #gifaceserver : libfree.a libtsfree.a libgif.a libgiface.a aceserver.c $(GIFACESERVER_OBJS) rpcace.x rpcace.h  \
 #	libacecl.a
 ##	$(CC) -DGIFACESERVER -c aceserver.c -o gifaceserver.o 
-#	$(LINKER)  -o gifaceserver gifaceserver.o $(GIFACESERVER_OBJS) -L. -lgiface -lfree -ltsfree -lgif  $(LIBS) $(LEX_LIBS)
+#	$(LINKER)  -o gifaceserver gifaceserver.o $(GIFACESERVER_OBJS) -L. -lgiface -lfree -ltsfree -lgif  $(LIBS) 
 #	chmod $(MODE_P) gifaceserver
 #	\rm -f rpc.gifacedbd
 #	ln -s gifaceserver rpc.gifacedbd
@@ -1055,7 +1014,7 @@ gifservercontrol.o: gifacemain.c
 
 #gifacemblyserver : libfree.a libtsfree.a libgif.a libstaden.a libace.a libacecl.a aceserver.c $(GIFACEMBLYSERVER_OBJS) rpcace.x rpcace.h 
 #	$(CC) -DGIFACESERVER -DACEMBLY -c aceserver.c -o gifacemblyserver.o 
-#	$(LINKER)  -o gifacemblyserver gifacemblyserver.o $(GIFACEMBLYSERVER_OBJS) -L. -lfree -ltsfree -lgif -lstaden  -lace   $(LIBS) $(LEX_LIBS)
+#	$(LINKER)  -o gifacemblyserver gifacemblyserver.o $(GIFACEMBLYSERVER_OBJS) -L. -lfree -ltsfree -lgif -lstaden  -lace   $(LIBS) 
 #	chmod $(MODE_NP) gifacemblyserver
 
 #gifacemblyserver_clean : 
@@ -1077,7 +1036,7 @@ TACESERVER_OBJS =  \
 
 taceserver : $(LINK_ACI) libfree.a libtsfree.a libgif.a libstaden.a libace.a acetcp_server.c $(TACESERVER_OBJS)  libtcpfn.a
 	$(CC) -DACESERVER -DACEMBLY -c acetcp_server.c -o taceserver.o 
-	$(LINKER)  -o taceserver taceserver.o $(TACESERVER_OBJS) $(LINK_ACI) -L. -lace -ltcpfn  $(LIBS) $(LEX_LIBS) -lfree -ltsfree
+	$(LINKER)  -o taceserver taceserver.o $(TACESERVER_OBJS) $(LINK_ACI) -L. -lace -ltcpfn  $(LIBS)  -lfree -ltsfree
 	chmod $(MODE_NP) taceserver
 
 TGIFACEMBLYSERVER_OBJS = gifservercontrol.o \
@@ -1088,7 +1047,7 @@ TGIFACEMBLYSERVER_OBJS = gifservercontrol.o \
 
 tgifacemblyserver : $(LINK_ACI) libfree.a libtsfree.a libgif.a libstaden.a libace.a acetcp_server.c $(TGIFACEMBLYSERVER_OBJS)  libtcpfn.a
 	$(CC) -DGIFACESERVER -DACEMBLY -c acetcp_server.c -o tgifacemblyserver.o 
-	$(LINKER)  -o tgifacemblyserver tgifacemblyserver.o $(TGIFACEMBLYSERVER_OBJS) $(LINK_ACI) -L. -lfree -ltsfree -lgif -lstaden  -lace  -ltcpfn $(LIBS) $(LEX_LIBS)
+	$(LINKER)  -o tgifacemblyserver tgifacemblyserver.o $(TGIFACEMBLYSERVER_OBJS) $(LINK_ACI) -L. -lfree -ltsfree -lgif -lstaden  -lace  -ltcpfn $(LIBS) 
 	chmod $(MODE_NP) tgifacemblyserver
 
 tgifacemblyserver_clean : 
@@ -1122,7 +1081,7 @@ SWORM_OBJS = sworm.o fichelogic.o fichegold.o fichetxbl.o ficheasn.o
 sworm.std.o: sworm.c
 	$(CC) -DSTANDALONE -c sworm.c -o sworm.std.o
 sworm: $(SWORM_STD_OBJS) libace.a   libfree.a libtsfree.a 
-	$(LINKER) $(SWORM_STD_OBJS) -L. -lace -lfree -ltsfree  $(LIBS) $(LEX_LIBS) -o sworm
+	$(LINKER) $(SWORM_STD_OBJS) -L. -lace -lfree -ltsfree  $(LIBS)  -o sworm
 
 ####### kantorizer #############
 
@@ -1131,7 +1090,7 @@ sworm: $(SWORM_STD_OBJS) libace.a   libfree.a libtsfree.a
 KANTORMEGAPARSE_OBJS = kantormegaparse.o 
 
 kantormegaparse: $(KANTORMEGAPARSE_OBJS) libace.a libfree.a libtsfree.a 
-	$(LINKER) $(KANTORMEGAPARSE_OBJS)   -L. -lace -lfree -ltsfree   $(LIBS) $(LEX_LIBS) -o kantormegaparse
+	$(LINKER) $(KANTORMEGAPARSE_OBJS)   -L. -lace -lfree -ltsfree   $(LIBS)  -o kantormegaparse
 
 # calls expasy and exports an ace file
 
@@ -1144,7 +1103,7 @@ expasy: expasy.o  libfree.a libtsfree.a  libtcpfn.a $(WVSIM_OBJS)
 LOCUSLINKGO_OBJS = locuslinkgo.o 
 
 locuslinkgo: $(LOCUSLINKGO_OBJS) $(LINK_ACS) libace.a
-	$(LINKER) -o locuslinkgo $(LOCUSLINKGO_OBJS)  -L. -lace $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o locuslinkgo $(LOCUSLINKGO_OBJS)  -L. -lace $(LINK_ACS) $(LIBS)  
 
 ####### cl2acc #############
 # collects est accessions from Genbank fetch file
@@ -1152,7 +1111,7 @@ locuslinkgo: $(LOCUSLINKGO_OBJS) $(LINK_ACS) libace.a
 CL2ACC_OBJS = cl2acc.o  
 
 cl2acc: $(CL2ACC_OBJS) $(LINK_ACS)
-	$(LINKER) $(CL2ACC_OBJS)   -L.    $(LINK_ACS)  $(LIBS) $(LEX_LIBS) -o cl2acc
+	$(LINKER) $(CL2ACC_OBJS)   -L.    $(LINK_ACS)  $(LIBS)  -o cl2acc
 
 ####### acekog2ace #############
 # collects ACEKOG information and prepares ACE file 
@@ -1177,14 +1136,14 @@ aceclient : libfree.a libtsfree.a aceclient.c $(RPC_CLIENT_OBJS) rpcace.x rpcace
 ####### gff dumper #############
 
 gffdump : gffdump.o $(LINK_ACS)
-	$(LINKER) -o $@ gffdump.o $(LINK_ACS) -L. -lfree -ltsfree $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o $@ gffdump.o $(LINK_ACS) -L. -lfree -ltsfree $(LIBS)  
 	chmod $(MODE_NP) $@
 
 ####### gff reader #############
 
 gffread : libfree.a libtsfree.a gffread.c libace.a $(RPC_CLIENT_OBJS) rpcace.x rpcace.h
 	$(CC) gffread.c
-	$(LINKER) -o gffread gffread.o $(RPC_CLIENT_OBJS) -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o gffread gffread.o $(RPC_CLIENT_OBJS) -L. -lace -lfree -ltsfree $(LIBS) 
 	chmod $(MODE_NP) gffread
 
 ####### graphical client ###############
@@ -1196,7 +1155,7 @@ XACECLIENT_OBJS =  $(RPC_X_CLIENT_OBJS) \
 
 xaceclient : libfree.a libtsfree.a libgraph.a libxace.a xclientmain.c $(XACECLIENT_OBJS) 
 	$(CC) xclientmain.c
-	$(LINKER) -o xaceclient xclientmain.o $(XACECLIENT_OBJS) -L. -lxace -lgraph -lfree -ltsfree  $(Xt_LIBS) $(LIBS) $(LEX_LIBS)  
+	$(LINKER) -o xaceclient xclientmain.o $(XACECLIENT_OBJS) -L. -lxace -lgraph -lfree -ltsfree  $(Xt_LIBS) $(LIBS)   
 	chmod $(MODE_NP) xaceclient
 
 xaceclient_clean :
@@ -1219,7 +1178,7 @@ jade2sybase : libfree.a libtsfree.a jade2sybase.o
 
 jadeserver : libfree.a libtsfree.a libace.a jadeserver.c
 	$(CC) jadeserver.c
-	$(LINKER) -o jadeserver jadeserver.o -L. -lace -lfree -ltsfree $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o jadeserver jadeserver.o -L. -lace -lfree -ltsfree $(LIBS) 
 	chmod $(MODE_NP) jadeserver
 
 ###################################################
@@ -1252,14 +1211,14 @@ blixelect : blxselect.o blxparser.o blixem.o translate.o dotter.o dotterKarlin.o
 
 blixem : libgraph.a libfree.a libtsfree.a libace.a blixem.o blxmain.o blxparser.o translate.o dotter.o dotterKarlin.o 
 	$(LINKER) -o blixem blixem.o blxmain.o blxparser.o dotter.o dotterKarlin.o \
-	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS) $(LEX_LIBS) 
+	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS)  
 
 blixem.o : blxview.c
 	$(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c -o $@ blxview.c
 
 dotter : libgraph.a libfree.a libtsfree.a libace.a dotter.o dotterMain.o dotterKarlin.o colormap.o translate.o 
 	$(LINKER) -o dotter dotter.o dotterKarlin.o dotterMain.o colormap.o \
-	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS)  $(LEX_LIBS) 
+	translate.o -L. -lgraph -lace -lfree -ltsfree $(Xt_LIBS) $(LIBS)   
 
 dotter.o: dotter.c
 	$(COMPILER) $(USEROPTS) -O2 -g3 $(IDIR) -D$(NAME) -c -o $@ dotter.c
@@ -1374,7 +1333,7 @@ acctest: acctest.o $(LINK_ACC)
 	$(LINKER) -o acctest acctest.o $(LINK_ACC) $(LIBS)
 
 acstest: acctest.o $(LINK_ACS)
-	$(LINKER) -o acstest acctest.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o acstest acctest.o $(LINK_ACS) $(LIBS)  
 
 
 ###########################################################
@@ -1393,7 +1352,7 @@ kantorcount: kantorcount.o $(LINK_ACC)
 	$(LINKER) -o $@ kantorcount.o $(LINK_ACC) $(LIBS)
 
 ckantorcount: kantorcount.o $(LINK_ACS)
-	$(LINKER) -o $@ kantorcount.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o $@ kantorcount.o $(LINK_ACS) $(LIBS)  
 
 
 ###########################################################
@@ -1442,7 +1401,7 @@ taceclient: taceclient.o $(LINK_ACC)
 	$(LINKER) -o taceclient taceclient.o $(LINK_ACC) $(LIBS)
 
 staceclient: taceclient.o $(LINK_ACS)
-	$(LINKER) -o $@ taceclient.o $(LINK_ACS) $(LIBS) $(LEX_LIBS) 
+	$(LINKER) -o $@ taceclient.o $(LINK_ACS) $(LIBS)  
 
 
 ###########################################################
@@ -1517,7 +1476,7 @@ pfamcgi.c:
 	$(TEST) -L $@ || ln -s ../waceview/$@ .
 
 pfam.cgi: pfamcgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
-	$(LINKER) -o pfam.cgi pfamcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o pfam.cgi pfamcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) 
 
 ###########################################################
 #
@@ -1528,7 +1487,7 @@ zonecgi.c:
 	$(TEST) -L $@ || ln -s ../waceview/$@ .
 
 zone.cgi: zonecgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
-	$(LINKER) -o zone.cgi zonecgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o zone.cgi zonecgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) 
 
 ###########################################################
 #
@@ -1539,7 +1498,7 @@ genehuntcgi.c:
 	$(TEST) -L $@ || ln -s ../waceview/$@ .
 
 genehunt.cgi: genehuntcgi.o avlib.o libaccl.a libfree.a libtsfree.a libtcpfn.a
-	$(LINKER) -o genehunt.cgi genehuntcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) $(LEX_LIBS)
+	$(LINKER) -o genehunt.cgi genehuntcgi.o avlib.o libaccl.a -L. -lfree -ltsfree libtcpfn.a $(LIBS) 
 
 ###########################################################
 #

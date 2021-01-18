@@ -157,8 +157,10 @@ function parseDate(d) {
 		printf ("sraRNA sraUnspecified_RNA") ;
 	    else if ($14 == "Reduced Representation")
 		printf ("sraRNA sraUnspecified_RNA") ;
-	    else if ($14 == "size fractionation")
+	    else if ($7 < 100 && $14 == "size fractionation")
 		printf ("sraRNA sraSmall_RNA") ;
+	    else if ($7 >= 100 && $14 == "size fractionation")
+		printf ("sraRNA sraUnspecified_RNA") ;
 	    else if ($13 == "RNA-Seq")
 		printf ("sraRNA sraUnspecified_RNA") ;
 	    else if ($13 == "miRNA-Seq")
@@ -205,6 +207,8 @@ function parseDate(d) {
 	z = "Helicos" ;
     else if ($19 == "ILLUMINA")
 	z = "Illumina" ;
+    else if ($19 == "BGISEQ")
+	z = "Illumina" ;
     else if ($19 == "ION_TORRENT")
 	z = "Ion_Torrent" ;
     else if ($19 == "LS454")
@@ -216,7 +220,7 @@ function parseDate(d) {
     else if ($19 == "PACBIO_SMRT")
 	z = "PacBio" ;
     else if ($19 == "OXFORD_NANOPORE")
-	z = "Oxford_nanopore" ;
+	z = "Nanopore" ;
     else
 	z = "ERROR \"unkown platform " $19 "\"" ;
     z1 = $20 ;
@@ -286,9 +290,9 @@ function parseDate(d) {
     ####### column 37 tumor
     z = $37 ;
     if (z == "yes") 
-	print "Tumor" ;
+	print "Phenotype Tumor" ;
     # if (z == "no") 
-    #	print "No_tumor" ;
+    #    print "Phenotype No_tumor" ;
     
     ####### column 41 Body_site
     z = $41 ;

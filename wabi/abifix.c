@@ -35,6 +35,7 @@
 #include "acembly.h"
 #include "basecall.h"
 #include "freeout.h"
+#include "makemrna.h"
 
 /********************************************************************/
 
@@ -57,7 +58,7 @@ static int abiFixDoubleReads (KEY contig, int *ip)
       return 0 ;
     }
   consensusDirect = consensus ;
-  consensusReverse = arrayCopy (consensus) ;
+  consensusReverse = dnaCopy (consensus) ;
   reverseComplement (consensusReverse) ;
   amax = arrayMax (consensus) ;
 
@@ -1084,7 +1085,7 @@ void trackContig (LOOK look, int z1, int z2, BOOL whole)
       i = -z1 ;
       while (i-- > 0)
 	arr (consensus, i- z1, char) = N_ ;
-      look->dnaR = arrayCopy (look->dna) ;
+      look->dnaR = dnaCopy (look->dna) ;
       reverseComplement (look->dnaR) ;
       z2 += -z1 ; z1 = 0 ;
     }
@@ -1354,8 +1355,8 @@ void trackContig (LOOK look, int z1, int z2, BOOL whole)
   arrayDestroy (reads) ;
   arrayDestroy (look->dna) ;
   arrayDestroy (look->dnaR) ;
-  look->dna = arrayCopy(result) ;
-  look->dnaR = arrayCopy (look->dna) ;
+  look->dna = dnaCopy(result) ;
+  look->dnaR = dnaCopy (look->dna) ;
   reverseComplement (look->dnaR) ;
   if (look->sens < 0)
     reverseComplement (result) ;
@@ -1376,8 +1377,8 @@ void trackFixContig (KEY link, KEY contig, KEY contigDnaKey, Array af, Array dna
 			
   look->key = contig ;
   look->dnaKey = contigDnaKey ;
-  look->dna = arrayCopy (dna) ;
-  look->dnaR = arrayCopy (dna) ;
+  look->dna = dnaCopy (dna) ;
+  look->dnaR = dnaCopy (dna) ;
   reverseComplement (look->dnaR) ;
   look->lanes = arrayCreate (arrayMax(af)/4, LANE) ;
 
@@ -1750,7 +1751,7 @@ static int doTrackVector (KEY seq, Array v1, Array v2, int force)
       reverseComplement (vector) ;
       if (!dnaR)
 	{
-	  dnaR = arrayCopy (dna) ;
+	  dnaR = dnaCopy (dna) ;
 	  reverseComplement (dnaR) ;
 	}
       if (!ok && lg > 15 && tg1 >= 0)
@@ -1908,7 +1909,7 @@ static int doTrackVector (KEY seq, Array v1, Array v2, int force)
   
   if (ok)
     { 
-      c1 = -1 ; c2 = 100000 ;
+      c1 = -1 ; c2 = 1000000 ;
       bsGetData (obj, _Clipping, _Int, &c1) ;
       bsGetData (obj, _bsRight, _Int, &c2) ;
       if (c2 > pp2) c2 = pp2 ; 
@@ -2056,7 +2057,7 @@ static int doTrackVectorExact (KEY seq, Array v1, Array v2, int force, BOOL sl)
       reverseComplement (vector) ;
       if (!dnaR)
 	{
-	  dnaR = arrayCopy (dna) ;
+	  dnaR = dnaCopy (dna) ;
 	  reverseComplement (dnaR) ;
 	}
       pos1 = (long)arrayMax (dna) - pos1  + 1 ;
@@ -2141,7 +2142,7 @@ static int doTrackVectorExact (KEY seq, Array v1, Array v2, int force, BOOL sl)
     {
       char *ok_text[] = { "NULL", "Exact_start", "Exact_stop", "Exact"} ;
 
-      c1 = -1 ; c2 = 100000 ;
+      c1 = -1 ; c2 = 1000000 ;
       bsGetData (obj, _Clipping, _Int, &c1) ;
       bsGetData (obj, _bsRight, _Int, &c2) ;
       if (c2 > pp2) c2 = pp2 ; 
@@ -3521,7 +3522,7 @@ static BOOL abiFixLabelGatherPolyA (KEY mrna, Array gDna, Array aa5,  Array aa3,
 
   if (CHEAT)
     {
-      mDna = arrayCopy (gDna) ;
+      mDna = dnaCopy (gDna) ;
     }
   else
     mDna = dnaGet (mrna) ;

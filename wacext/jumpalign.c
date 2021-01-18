@@ -60,7 +60,7 @@ typedef struct jpStruct {
   int readLengthMin ;
   int readLengthMax ;
   int wMax, wMax0 ;
-  unsigned int NN, NN0, pNN ;
+  long unsigned int NN, NN0, pNN ;
   int NFILTERS ;
   int max_threads ;
   Array pps ;
@@ -68,7 +68,7 @@ typedef struct jpStruct {
   BigArray tDnaArray, pDnaArray, dna2chrom ;
   DICT *targetDict, *readDict ;
   char *dDna, *tDna ;
-  unsigned int *zz, *zz2, *zzInit, *pzz, *pzz2 ;  
+  long unsigned int *zz, *zz2, *zzInit, *pzz, *pzz2 ;  
   int tDnaFd ;/* file descriptor to mmap zzInit */
   size_t  tDnaSize ;
   long int *nRep, *nComp, *nHooks ;
@@ -87,27 +87,30 @@ typedef struct jpStruct {
 
 typedef struct ppStruct { 
   AC_HANDLE h ;
-  unsigned int NN, pNN ;
+  long unsigned int NN, pNN ;
   int nam, iFilter, w, wMax, wMax0 ; 
-  unsigned int *zz, *zz2, *pzz, *pzz2 ; 
+  long unsigned int iMin, iMax ; /* this thread searches in this zone */
+  long unsigned int *zz, *zz2, *pzz, *pzz2 ; 
   char *dDna, *tDna ;
   BigArray tDnaArray, pDnaArray ; 
   BitSet flags ;
   long int *nRep, *nComp, *nHooks ;
-  CHAN *inChan, *outChan ;
+  CHAN *zoneChan, *outChan ;
   int NFILTERS ;
 } PP ;
  
 typedef struct readStruct { 
   int nam ;
-  unsigned int ln, start, end ;
+  long unsigned int ln, start, end ;
   BOOL isDown ;
 } SEQ ;
 
-typedef struct indexLoaderStruct { int fd ; unsigned int size ; unsigned long int nn ; unsigned int *zzInit ; int suffix ; const char *fNam ; } IXLD ;
+typedef struct indexLoaderStruct { int fd ; long unsigned int size ; unsigned long int nn ; long unsigned int *zzInit ; int suffix ; const char *fNam ; } IXLD ;
+
+typedef struct zoneStruct { int w, iFilter ; long unsigned int iMin, iMax  ;} ZONE ;
 
 static void usage (char *err) ;
-#define ZBAD ((unsigned int)0xffffffff) 
+#define ZBAD ((long unsigned int)0xffffffffffffffff) 
 
 /***************************************************************/
 /* Order by read length to accelerate 'reportExactReads ' */
@@ -127,12 +130,12 @@ static int reportExactReads (JP *jp, int w, int oldW, int *oldiip)
   int ii = *oldiip ;
   Array reads = jp->reads ;
   int iiMax = arrayMax (jp->reads) ;
-  unsigned int nn = 0, nn1 = 0 ;
+  long unsigned int nn = 0, nn1 = 0 ;
   SEQ *seq, *chrom ;
   DICT *targetDict = jp->targetDict ;
   DICT *readDict = jp->readDict ;
-  unsigned int z1, *zz  = jp->zz ;
-  unsigned int *pzz  = jp->pzz ;
+  long unsigned int z1, *zz  = jp->zz ;
+  long unsigned int *pzz  = jp->pzz ;
   long int d2cMax = jp->dna2chrom ? bigArrayMax (jp->dna2chrom) : 0 ;
   int chromIndex, *chromIndexp = jp->dna2chrom  ? bigArrayp (jp->dna2chrom, 0, int) : 0 ;
   const char *chromNam ;
@@ -161,24 +164,24 @@ static int reportExactReads (JP *jp, int w, int oldW, int *oldiip)
 	      chrom = arrp (jp->chroms, chromIndex, SEQ) ;
 	      chromNam = dictName (targetDict, chrom->nam) ;
 	      if (seq->isDown)
-		aceOutf (ao, "%s\t%u\t%u", chromNam, z1 - chrom->start + 1 , z1 + w  - chrom->start) ;
+		aceOutf (ao, "%s\t%lu\t%lu", chromNam, z1 - chrom->start + 1 , z1 + w  - chrom->start) ;
 	      else /* reversed read */
-		aceOutf (ao, "%s\t%u\t%u", chromNam, z1 + w  -chrom->start, z1 - chrom->start + 1 ) ;
+		aceOutf (ao, "%s\t%lu\t%lu", chromNam, z1 + w  -chrom->start, z1 - chrom->start + 1 ) ;
 	      aceOutf (ao, "\t%s\t%d\t%d\t0\n", dictName (readDict, seq->nam), 1, w) ;
 	    }
 	  else
-	    aceOutf (ao, "%s\t%u\t%u\t%s\t%d\t%d\t0\n", seq->isDown ? "Down" : "Up", z1  , z1 + w - 1, dictName (readDict, seq->nam), 1, w) ;
+	    aceOutf (ao, "%s\t%lu\t%lu\t%s\t%d\t%d\t0\n", seq->isDown ? "Down" : "Up", z1  , z1 + w - 1, dictName (readDict, seq->nam), 1, w) ;
 	  z1 = zz[z1] ;
 	}
     }
   *oldiip = ii ;
-  fprintf (stderr, "// === w = %d exported %u reads with %u hits\n", w, nn1, nn) ;
+  fprintf (stderr, "// === w = %d exported %lu reads with %lu hits\n", w, nn1, nn) ;
   return nn ;
 } /* reportExactReads */
 
 /***************************************************************/
 /* calls to  reportExactReads must preferably be done in ever increasing values of w */
-static void reportHitsReport (JP *jp, SEQ *seq, unsigned int z1)
+static void reportHitsReport (JP *jp, SEQ *seq, long unsigned int z1)
 {
   DICT *targetDict = jp->targetDict ;
   DICT *readDict = jp->readDict ;
@@ -198,22 +201,22 @@ static void reportHitsReport (JP *jp, SEQ *seq, unsigned int z1)
       chrom = arrp (jp->chroms, chromIndex, SEQ) ;
       chromNam = chrom->nam ? dictName (targetDict, chrom->nam) : "toto" ;
       if (seq->isDown)
-	aceOutf (ao, "%s\t%u\t%u", chromNam, z1 - chrom->start + 1 , z1 + w  - chrom->start) ;
+	aceOutf (ao, "%s\t%lu\t%lu", chromNam, z1 - chrom->start + 1 , z1 + w  - chrom->start) ;
       else /* reversed read */
-	aceOutf (ao, "%s\t%u\t%u", chromNam, z1 + w  -chrom->start, z1 - chrom->start + 1 ) ;
+	aceOutf (ao, "%s\t%lu\t%lu", chromNam, z1 + w  -chrom->start, z1 - chrom->start + 1 ) ;
       aceOutf (ao, "\t%s\t%d\t%d\t0\n", dictName (readDict, seq->nam), 1, w) ;
     }
   else
-    aceOutf (ao, "%s\t%u\t%u\t%s\t%d\t%d\t0\n", seq->isDown ? "Down" : "Up", z1  , z1 + w - 1, dictName (readDict, seq->nam), 1, w) ;
+    aceOutf (ao, "%s\t%lu\t%lu\t%s\t%d\t%d\t0\n", seq->isDown ? "Down" : "Up", z1  , z1 + w - 1, dictName (readDict, seq->nam), 1, w) ;
 
   return ;
 } /* reportHitsReport */
 
 /***************************************************************/
 
-static unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
+static long unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
 {
-  unsigned int z1, z2, last = 0, nn = 1 ;
+  long unsigned int z1, z2, last = 0, nn = 1 ;
   int i, k  = arrayMax (z1s), w = jp->wMax ;
 
   while (k > 0)
@@ -221,7 +224,7 @@ static unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
       arraySort (z1s, unsignedIntReverseOrder) ;
       for (i = k - 1 ; i >= 0 ; i--)
 	{
-	  z1 = arr (z1s, i, unsigned int) ;
+	  z1 = arr (z1s, i, long unsigned int) ;
 	  if (z1 == ZBAD) continue ;
 	  if (z1)
 	    {
@@ -230,7 +233,7 @@ static unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
 	      last = z1 ;
 	      z2 = jp->zz[z1] ;
 	      if (z2)
-		arr (z1s, i, unsigned int) = z2 ;
+		arr (z1s, i, long unsigned int) = z2 ;
 	      else
 		k-- ;
 	      break ;
@@ -244,11 +247,11 @@ static unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
 /* collect all initial hits in an array, so we can navigate
  * with all pointers in parallel and do less multi search 
 */
-static unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
+static long unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
 {
   SEQ *seq = arrp (jp->reads, ii, SEQ) ; 
-  unsigned  int i, k, z1, *pzz = jp->pzz ;
-  unsigned int iMax = seq->end ;
+  long unsigned int i, k, z1, *pzz = jp->pzz ;
+  long unsigned int iMax = seq->end ;
   
   arrayMax (z1s) = 0 ;
   for (i = seq->start, k = 0 ; i < iMax ; i++)
@@ -256,7 +259,7 @@ static unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
       z1 = pzz[i] ;
       if (z1 == ZBAD) continue ;
       if (z1) 
-	array (z1s, k++, unsigned int) = z1 ;
+	array (z1s, k++, long unsigned int) = z1 ;
     } 
   return k ;
 } /* reportHitsCollect */
@@ -266,7 +269,7 @@ static unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
 static int reportHits (JP *jp, int *nReadsp, int *nHitsp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  Array z1s = arrayHandleCreate (1000, unsigned int, h) ; 
+  Array z1s = arrayHandleCreate (1000, long unsigned int, h) ; 
   int ii, nn = 0, iMax = arrayMax (jp->reads) ;
   int n, nn2 = 0 ;
   int w = jp->wMax ;
@@ -296,7 +299,7 @@ static int reportHits (JP *jp, int *nReadsp, int *nHitsp)
 static int jumpAlignExportHash (JP *jp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  Array z1s = arrayHandleCreate (1000, unsigned int, h) ; 
+  Array z1s = arrayHandleCreate (1000, long unsigned int, h) ; 
   int ii, nn = 0, iMax = arrayMax (jp->reads) ;
   int w = jp->wMax ;
   SEQ *seq ;
@@ -319,14 +322,93 @@ static int jumpAlignExportHash (JP *jp)
  * create a hash length jp->exportHash
  * export it in binary format
  */
+typedef struct rpStruct { long unsigned int pos, k ; } RP ;
+/*************************************************************************************/
+
+static int rpOrder (const void *a, const void *b)
+{
+  const RP *r1 = (const RP *) a, *r2 = (const RP *) b ;
+  return r1->pos < r2->pos ? -1 : 1 ;
+}
+
+/*************************************************************************************/
+
 static int jumpAlignExportRepeats (JP *jp)
 {
+  RP *rp ;
   AC_HANDLE h = ac_new_handle () ;
-  int nn = 0 ;
+  ACEOUT ao = aceOutCreate (jp->outFileName, ".repeats", jp->gzo, h) ;
+  long unsigned int *zp, *zz = jp->zz, nn = 0, pos1, pos2, k ;
+  register long unsigned int i, NN = jp->NN - jp->wMax, dw = jp->wMax / 2 ;
+  BigArray bb = bigArrayHandleCreate (100000, RP, h) ;
+  long long unsigned int ii = 0 ;
 
-  messcrash ("exportRepeats not written") ;
+  for (i = 0, zp = jp->zz ; i <= NN  ; i++, zp++)  /* scan the genome */
+    {
+      if (*zp)
+	{
+	  int k = 1 ;
+	  register long unsigned int *zq = zp, *zr ;
+	  
+	  /* count the repeats, then export them */
+	  while (*zq)
+	    {
+	      k++ ; zq = zz + *zq ;
+	    }
+	  /* report the numbers */
+	  zq = zp ;
+	  rp = bigArrayp (bb, ii++, RP) ;
+	  rp->pos = i + dw ;
+	  rp->k = k ;
+
+	  while (*zq)
+	    {
+	      rp = bigArrayp (bb, ii++, RP) ;
+	      rp->pos = *zq + dw ;
+	      rp->k = k ;
+
+	      zr = zq ;
+	      zq = zz + *zq ;
+	      *zr = 0 ;
+	    }
+	  nn += k ;
+	}
+    }
+  
+  bigArraySort (bb, rpOrder) ;
+  ii = bigArrayMax (bb) + 1 ; /* we want to loop once more to export the last segment */
+  rp = bigArrp (bb, 0, RP) - 1 ;
+  k = 0 ; pos1 = pos2 = 0 ; 
+  aceOutDate (ao, "##", "Repeats") ;
+  aceOutf (ao, "## Number of exact repeats of length %d  centered at each position\n", jp->wMax) ;
+  
+  aceOutf (ao, "## Sequence\tStrand\tFrom\tTo\tRepeats\tdebug dx mseq start seaq\n") ;
+  while (rp++, ii--)
+    {
+      if (ii == 0 ||  rp->k != k || rp->pos != pos2 + 1)
+	{
+	  if (k)
+	    {
+	      long unsigned int dx = (pos1) >> 10 ;
+	      int nTarget = bigArray (jp->dna2chrom, dx, int) ;
+	      SEQ *seq = arrp (jp->chroms, nTarget, SEQ) ;
+
+	      if (seq->isDown)
+		aceOutf (ao, "%s\t%c\t%lu\t%lu\t%lu\tdx=%lu nTarget=%d start=%lu pos1=%lu pos2=%lu\n"
+			 , dictName (jp->targetDict, seq->nam)
+			 , seq->isDown ? '+' : '-'
+			 , pos1 - seq->start + 1, pos2 - seq->start + 1, k
+			 , dx, nTarget, seq->start, pos1, pos2
+			 ) ;
+	    }
+	  pos1 = rp->pos ;
+	}
+      k = rp->k ;
+      pos2 = rp->pos ;
+    }
 
   ac_free (h) ;
+  fprintf (stderr, "Found %lu repeats of length %d\n", nn, jp->wMax) ;
   return nn ;
 } /* jumpAlignExportRepeats  */
 
@@ -336,16 +418,16 @@ static int jumpAlignExportRepeats (JP *jp)
 static void ppShow (JP *jp, char *title)
 { 
   char cc, *tDna ;
-  unsigned int i ;
-  unsigned int NN = jp->NN ;
-  unsigned int *zz  = jp->zz ;
+  long unsigned int i ;
+  long unsigned int NN = jp->NN ;
+  long unsigned int *zz  = jp->zz ;
 
   printf ("ppShow %s\n", title ? title : "") ;
   tDna = jp->tDna ? jp->tDna : (bigArrp (jp->tDnaArray, 0, char)) ;
   for (i = 0 ; i < NN ; i++)
     {
       cc = dnaDecodeChar[(int)tDna[i]] ;
-      printf ( "%c\t%u\t%u", cc, i, zz[i])  ;
+      printf ( "%c\t%lu\t%lu", cc, i, zz[i])  ;
       printf ("\n") ;
     }
 }  /* ppShow */
@@ -356,7 +438,7 @@ static void ppShow (JP *jp, char *title)
 static BOOL fdBigWrite (int fd, void *vp, long int nn, const char *fNam)
 {
   long int m,  n = 0 ;
-  unsigned int k, gb ;
+  long unsigned int k, gb ;
   char *cp = (char *) vp ;
 
   gb = 1 ; gb = gb << 30 ; /* 1 Giga */
@@ -380,7 +462,7 @@ static BOOL fdBigWrite (int fd, void *vp, long int nn, const char *fNam)
 static BOOL fdBigRead (int fd, void *vp, long int nn, const char *fNam)
 {
   long int m, n = 0 ;
-  unsigned int k, gb ;
+  long unsigned int k, gb ;
   char *cp = (char *) vp ;
 
   gb = 1 ; gb = gb << 30 ; /* 1 Giga */
@@ -402,7 +484,7 @@ static BOOL fdBigRead (int fd, void *vp, long int nn, const char *fNam)
 static BOOL bigmemset (void *vp, unsigned char cc, long int  nn)
 {
   long int n = 0 ;
-  unsigned int k, gb ;
+  long unsigned int k, gb ;
   char *cp = (char *) vp ;
  
   gb = 1 ; gb = gb << 30 ; /* 1 Giga */
@@ -423,8 +505,8 @@ static BOOL bigmemset (void *vp, unsigned char cc, long int  nn)
 
 static void jumpAlignExportIndex (JP *jp, int wMax) 
 {
-  unsigned int NN = jp->NN ;
-  unsigned int *zz = jp->zz ;
+  long unsigned int NN = jp->NN ;
+  long unsigned int *zz = jp->zz ;
   int suffix = 0 ;
   BOOL useMemoryMapping = FALSE ;
 
@@ -454,9 +536,9 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
     {
       char *fNam = hprintf (jp->h, "%s.jumpalign.mask", jp->indexFileNameX) ;
       int fd = open (fNam, O_CREAT | O_RDWR | O_BINARY , 0644 );
-      unsigned int n ;
+      long unsigned int n ;
 
-      n = NN ; n = n * sizeof(unsigned int) ;
+      n = NN ; n = n * sizeof(long unsigned int) ;
       
       fdBigWrite (fd, jp->zz, n, fNam) ;
 
@@ -478,7 +560,7 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
     {   
       int fd ;
       unsigned long int NI, NI1 ;
-      unsigned int missing, ii = 0 ;
+      long unsigned int missing, ii = 0 ;
       unsigned long int oligo, mask ;
       char *cp ;
       int ok ;
@@ -487,7 +569,7 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
       mask = 1 ;  mask <<= 2 * wMax ; 
       NI = mask >>  (SPLIT == 256 ? 8 : 4) ; 
       mask-- ; missing = NI ;
-      NI1 = NI * sizeof (unsigned int) ;
+      NI1 = NI * sizeof (long unsigned int) ;
       
       unlink (fNam) ;
       fd = open (fNam, O_CREAT | O_RDWR | O_BINARY , 0644 );
@@ -495,7 +577,7 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
 	zz = mmap(NULL, NI1, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0) ;
       else
 	{
-	  zz = (unsigned int *) malloc (NI1) ;
+	  zz = (long unsigned int *) malloc (NI1) ;
 	  bigmemset (zz, 0, NI1) ;
 	}
       /* we wish to scan the genome and write the first address */
@@ -523,7 +605,7 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
 		{
 		  missing-- ;
 		  zz[oligo2] = ii - wMax + 1 ; /* jp->NN0  avoids zero */
-		  if (0 && ii-wMax+1 < 12) fprintf (stderr,"%u %lu\n", ii - wMax + 1, oligo) ;
+		  if (0 && ii-wMax+1 < 12) fprintf (stderr,"%lu %lu\n", ii - wMax + 1, oligo) ;
 		}
 	    }   
 	  
@@ -582,7 +664,7 @@ static void jumpAlignImportIndexChroms  (JP *jp)
 {
   if (1) /* parse the chroms coordinates */
     {
-      unsigned int mx, n, fd = open (messprintf ("%s.jumpalign.chroms", jp->indexFileNameI), O_RDONLY | O_BINARY , 0644 );
+      long unsigned int mx, n, fd = open (messprintf ("%s.jumpalign.chroms", jp->indexFileNameI), O_RDONLY | O_BINARY , 0644 );
       if (! fd)
 	messcrash ("cannot open the jumpalign.chroms") ;
 
@@ -625,7 +707,7 @@ static void jumpAlignImportIndexDna  (JP *jp)
 {
   if (1) /* parse the dna */
     {
-      unsigned int NN = jp->NN ;
+      long unsigned int NN = jp->NN ;
       char *fNam = hprintf (jp->h, "%s.jumpalign.dna", jp->indexFileNameI) ;
       int fd = open (fNam, O_RDONLY | O_BINARY , 0644 );
       if (! fd)
@@ -640,11 +722,11 @@ static void jumpAlignImportIndexDna  (JP *jp)
 	}
       else
 	{
-	  jp->tDnaArray = bigArrayHandleCreate (NN + 1, unsigned int, jp->h) ;
+	  jp->tDnaArray = bigArrayHandleCreate (NN + 1, long unsigned int, jp->h) ;
 	  bigArray (jp->tDnaArray, NN, char) = 0 ; /* double zero terminate */
 	  bigArrayMax (jp->tDnaArray) = NN ;
 	  
-	  fdBigRead (fd, bigArrp (jp->tDnaArray, 0, unsigned int), NN, fNam) ;
+	  fdBigRead (fd, bigArrp (jp->tDnaArray, 0, long unsigned int), NN, fNam) ;
 	  
 	  close (fd) ;
 	}
@@ -656,7 +738,7 @@ static void jumpAlignImportIndexDna  (JP *jp)
 /* parse the jump table */
 static void jumpAlignImportIndexMask  (JP *jp)
 {
-  unsigned int NN = jp->NN ;
+  long unsigned int NN = jp->NN ;
   long int NN1 ;
   char *fNam = hprintf (jp->h, "%s.jumpalign.mask", jp->indexFileNameI) ;
   int fd = open (fNam, O_RDONLY | O_BINARY , 0644 );
@@ -664,14 +746,14 @@ static void jumpAlignImportIndexMask  (JP *jp)
     messcrash ("cannot open the jumpalign.mask") ;
   
   ac_free (jp->zz) ;
-  NN1 = NN ; NN1 = NN1 * sizeof ( unsigned int) ;
-  jp->zz = (unsigned int *) malloc (NN1) ;
+  NN1 = NN ; NN1 = NN1 * sizeof ( long unsigned int) ;
+  jp->zz = (long unsigned int *) malloc (NN1) ;
   
   fdBigRead (fd, jp->zz, NN1, fNam) ;
   
   if (jp->NFILTERS > 1)
     {
-      jp->zz2 = (unsigned int *) malloc (NN1) ;
+      jp->zz2 = (long unsigned int *) malloc (NN1) ;
       memcpy (jp->zz2, jp->zz, NN) ;
     }
   close (fd) ;
@@ -690,7 +772,7 @@ static void jumpAlignImportIndex  (JP *jp)
   jumpAlignImportIndexDna (jp) ;
   jumpAlignImportIndexMask (jp) ;
 
-  fprintf (stderr, "// %s: Found from the index %u %d-mers oligos known in the genome\n", timeShowNow (), jp->NN, jp->wMax0) ;
+  fprintf (stderr, "// %s: Found from the index %lu %d-mers oligos known in the genome\n", timeShowNow (), jp->NN, jp->wMax0) ;
   if (debug) ppShow (jp, "jumpAlignReadInitFromIndex") ;
   return ;
 } /* jumpAlignImportIndex */
@@ -738,7 +820,7 @@ static void jumpAlignImportReadsDict  (void *vp)
 static void jumpAlignImportReadsArray  (JP *jp)
 {
   char *fNam = hprintf (jp->h, "%s.jumpalign.reads_array", jp->readFileNameI) ;
-  unsigned int mx, fd = open (fNam, O_RDONLY | O_BINARY , 0644 );
+  long unsigned int mx, fd = open (fNam, O_RDONLY | O_BINARY , 0644 );
   if (! fd)
     messcrash ("cannot open the jumpalign.reads_array") ;
   
@@ -766,18 +848,18 @@ static void jumpAlignImportReadsArray  (JP *jp)
 /* parse the dna in binary format */
 static void jumpAlignImportReadsDna  (JP *jp)
 {
-  unsigned int pNN = jp->pNN ;
+  long unsigned int pNN = jp->pNN ;
   char *fNam = hprintf (jp->h, "%s.jumpalign.reads_dna", jp->readFileNameI) ;
   int fd = open (fNam, O_RDONLY | O_BINARY , 0644 );
   if (! fd)
     messcrash ("cannot open the jumpalign.reads.dna") ;
   
   ac_free (jp->pDnaArray) ;
-  jp->pDnaArray = bigArrayHandleCreate (pNN + 1, unsigned int, jp->h) ;
+  jp->pDnaArray = bigArrayHandleCreate (pNN + 1, long unsigned int, jp->h) ;
   bigArray (jp->pDnaArray, pNN, char) = 0 ; /* double zero terminate */
   bigArrayMax (jp->pDnaArray) = pNN ;
   
-  fdBigRead (fd, bigArrp (jp->pDnaArray, 0, unsigned int), pNN, fNam) ;
+  fdBigRead (fd, bigArrp (jp->pDnaArray, 0, long unsigned int), pNN, fNam) ;
   
   close (fd) ;
 } /* jumpAlignImportIndexDna */
@@ -799,9 +881,9 @@ static void jumpAlignImportReads  (JP *jp)
   
   if (1)
     {
-      int n1 = channelGet (jp->outChan, &n1, int) ;  /* wait on setting jp->pNN */
-      int n2 = channelGet (jp->outChan, &n2, int) ;  /* wait on setting jp->pNN */
-      int ns = channelGet (jp->outChan, &ns, int) ;  /* wait on setting jp->pNN */
+      int n1 = channelGive (jp->outChan, &n1, int) ;  /* wait on setting jp->pNN */
+      int n2 = channelGive (jp->outChan, &n2, int) ;  /* wait on setting jp->pNN */
+      int ns = channelGive (jp->outChan, &ns, int) ;  /* wait on setting jp->pNN */
       
       jp->pNN = n1 ; jp->pNN <<= 16 ; jp->pNN += n2 ; 
       ac_free (jp->reads) ;
@@ -812,12 +894,12 @@ static void jumpAlignImportReads  (JP *jp)
   jumpAlignImportReadsArray  (jp) ;
   jumpAlignImportReadsDna (jp) ;
   
-  fprintf (stderr, "// %s: Found from the index %u reads contatining %ld base pairs\n"
+  fprintf (stderr, "// %s: Found from the index %d reads contatining %ld base pairs\n"
 	   , timeShowNow ()
 	   , dictMax (jp->readDict), bigArrayMax (jp->pDnaArray)
 	   ) ;
   
-  channelMultiGet (jp->outChan, &k, 1, int) ;  /* wait on readDict initialisation */
+  channelGet (jp->outChan, &k, int) ;  /* wait on readDict initialisation */
   
   return ;
 } /* jumpAlignImportReads */
@@ -860,7 +942,7 @@ static void jumpAlignExportReadsDict  (JP *jp)
 static void jumpAlignExportReadsArray  (JP *jp)
 {
   char *fNam = hprintf (jp->h, "%s.jumpalign.reads_array", jp->readFileNameX) ;
-  unsigned int mx, fd =  open (fNam, O_CREAT | O_RDWR | O_BINARY , 0644 );
+  long unsigned int mx, fd =  open (fNam, O_CREAT | O_RDWR | O_BINARY , 0644 );
   if (! fd)
     messcrash ("cannot open the jumpalign.reads_array") ;
   
@@ -874,13 +956,13 @@ static void jumpAlignExportReadsArray  (JP *jp)
 /* parse the dna in binary format */
 static void jumpAlignExportReadsDna  (JP *jp)
 {
-  unsigned int pNN = jp->pNN ;
+  long unsigned int pNN = jp->pNN ;
   char *fNam = hprintf (jp->h, "%s.jumpalign.reads_dna", jp->readFileNameX) ;
   int fd = open (fNam, O_CREAT | O_RDWR | O_BINARY , 0644 );
   if (! fd)
     messcrash ("cannot open the jumpalign.reads.dna") ;
   
-  fdBigWrite (fd, bigArrp (jp->pDnaArray, 0, unsigned int), pNN, fNam) ;
+  fdBigWrite (fd, bigArrp (jp->pDnaArray, 0, long unsigned int), pNN, fNam) ;
   
   close (fd) ;
 } /* jumpAlignExportIndexDna */
@@ -893,7 +975,7 @@ static void jumpAlignExportReads  (JP *jp)
   jumpAlignExportReadsArray  (jp) ;
   jumpAlignExportReadsDna (jp) ;
 
-  fprintf (stderr, "// %s: Exported %u reads contatining %ld base pairs\n"
+  fprintf (stderr, "// %s: Exported %d reads contatining %ld base pairs\n"
 	   , timeShowNow ()
 	   , dictMax (jp->readDict), bigArrayMax (jp->pDnaArray)
 	   ) ;
@@ -904,20 +986,20 @@ static void jumpAlignExportReads  (JP *jp)
 /***************************************************************/
 /***************************************************************/
 /* initialize the jump table zz with bridges to the next ATGC base, i.e. for words of length zero */
-static unsigned int jumpAlignInitTargetJumps (JP *jp)
+static long unsigned int jumpAlignInitTargetJumps (JP *jp)
 {
-  unsigned int nRepeats = 0 ;
-  unsigned int i, j, *zp, *zz = jp->zz ;
-  unsigned int NN = jp->NN ;
+  long unsigned int nRepeats = 0 ;
+  long unsigned int i, j, *zp, *zz = jp->zz ;
+  long unsigned int NN = jp->NN ;
   char *tDna = 0 ;
   
   tDna = jp->tDna ? jp->tDna : bigArrp (jp->tDnaArray, 0, char) ;
 
-  zz = jp->zz = (unsigned int *) malloc (NN * sizeof(unsigned int)) ;
-  if (jp->NFILTERS > 1) jp->zz2 = (unsigned int *) malloc (NN * sizeof(unsigned int)) ;
+  zz = jp->zz = (long unsigned int *) malloc (NN * sizeof(long unsigned int)) ;
+  if (jp->NFILTERS > 1) jp->zz2 = (long unsigned int *) malloc (NN * sizeof(long unsigned int)) ;
 
   
-  bigmemset (zz, 0, NN * sizeof (unsigned int)) ;
+  bigmemset (zz, 0, NN * sizeof (long unsigned int)) ;
 
   for (zp = zz, i = 0, j = NN + 1 ; i < NN ; zp++, i++)
     { 
@@ -947,10 +1029,10 @@ static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (J
   int suffix = ixld->suffix ;
   int wMax0 = jp->wMax0 ;
   int wMax = jp->wMax ;
-  unsigned int pNN = jp->pNN ;
+  long unsigned int pNN = jp->pNN ;
 
-  register unsigned int *zzInit = ixld->zzInit ;
-  register unsigned int *zz = jp->pzz ;
+  register long unsigned int *zzInit = ixld->zzInit ;
+  register long unsigned int *zz = jp->pzz ;
   BigArray dna =  jp->pDnaArray ;
   /*   BitSet flags = jp->flags ; */
 
@@ -958,9 +1040,9 @@ static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (J
   unsigned long int oligo, nn = 0 ;
   unsigned long int mask, mask2 ;
   int ok, pass ;
-  unsigned int ii, iMax, nHooks = 0,  ln = 1 ;
+  long unsigned int ii, iMax,  ln = 1 ;
 
-  unsigned int shift2 = 2 * (wMax0 - 1) ; /* mask the 2 left bits of the oligo to insert a base from the left */
+  long unsigned int shift2 = 2 * (wMax0 - 1) ; /* mask the 2 left bits of the oligo to insert a base from the left */
   unsigned long int A__ = 0 ;
   unsigned long int T__ =  ((unsigned long int) 0x1) << shift2 ;
   unsigned long int G__ =  ((unsigned long int) 0x2) << shift2 ;
@@ -998,7 +1080,7 @@ static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (J
 	
 	if (ok >= wMax0) /* the oligo exists */
 	  {
-	    register unsigned int iDebut = ii ;
+	    register long unsigned int iDebut = ii ;
 	    /* use the last 4 bits as a suffix flag and create 16 smaller tables */
 	    if (
 		(SPLIT ==  16 && (oligo &  0xf) == suffix && zz[iDebut] != ZBAD) ||
@@ -1006,17 +1088,17 @@ static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (J
 		)
 	      {
 		register unsigned long int oligo2 = oligo >> (SPLIT == 256 ? 8 : 4) ;
-		register unsigned int z1 = zzInit[oligo2] ;
+		register long unsigned int z1 = zzInit[oligo2] ;
 		if (z1)
 		  {
-		    nn++ ; nHooks++ ;
+		    nn++ ; 
 		    zz[iDebut] = z1 ;
  		    /* bitSet (flags, z1) ; */
-		    if (pNN < 220) fprintf (stderr,"%u %c %lx\t%u\n", iDebut, dnaDecodeChar[(int)(*cp)], oligo, z1) ;
+		    if (pNN < 220) fprintf (stderr,"%lu %c %lx\t%lu\n", iDebut, dnaDecodeChar[(int)(*cp)], oligo, z1) ;
 		  }
 		else
 		  {  /* kill this oligo and everyone over that will overlap with it at the end of the extension */
-		    register unsigned int  dw, dwMax ;
+		    register long unsigned int  dw, dwMax ;
 		    dwMax = wMax > wMax0 ?  wMax - wMax0 + 1 : 1 ;
 		    if (dwMax > iDebut) dwMax = iDebut ;
 		    for (dw = 0 ; dw < dwMax ; dw++)
@@ -1064,7 +1146,7 @@ static void jumpAlignInitLoader (void *vp)
   BOOL debug = FALSE ;
 
   NI <<= 2*jp->wMax0 ; 
-  NI *= sizeof ( unsigned int) ;
+  NI *= sizeof ( long unsigned int) ;
   if (SPLIT == 256)
     NI >>= 8 ; /* since we divide in 256 parts */
   else if (SPLIT == 16)
@@ -1084,11 +1166,11 @@ static void jumpAlignInitLoader (void *vp)
       if (useMemoryMapping)
 	{
 	  ixld.size = NI ;
-	  ixld.zzInit =  (unsigned int *) mmap(NULL, NI, PROT_READ, MAP_PRIVATE,  ixld.fd, 0) ;
+	  ixld.zzInit =  (long unsigned int *) mmap(NULL, NI, PROT_READ, MAP_PRIVATE,  ixld.fd, 0) ;
 	}
       else
 	{
-	  ixld.zzInit = (unsigned int *) malloc (NI) ; /* malloc : mo need to zero init */
+	  ixld.zzInit = (long unsigned int *) malloc (NI) ; /* malloc : mo need to zero init */
 	  fdBigRead (ixld.fd, ixld.zzInit, NI, ixld.fNam) ;
 	}
       /* signal the indexer to work on this block */
@@ -1107,7 +1189,7 @@ static unsigned long int jumpAlignInitReadJumpsFromOligoTable (JP *jp)
   IXLD ixld ;
 
   memset (&ixld, 0, sizeof (ixld)) ;
-  memset (jp->pzz, 0, jp->pNN * sizeof(unsigned int)) ;
+  memset (jp->pzz, 0, jp->pNN * sizeof(long unsigned int)) ;
 
   /* create the communication channels before we wego the subroutines */
   jp->ixldChan1 = channelCreate (256, IXLD, jp->h) ;
@@ -1177,7 +1259,7 @@ static unsigned long int jumpAlignInitReadJumpsFromOligoTable (JP *jp)
 static unsigned long int jumpAlignInitReadJumpsTrivially (JP *jp)
 {
   unsigned long int nn = 0 ;
-  register unsigned int i = jp->pNN, *zp = jp->pzz - 1 ;
+  register long unsigned int i = jp->pNN, *zp = jp->pzz - 1 ;
   register const char *cp = bigArrp (jp->pDnaArray, 0, char) - 1 ;
   
   if (i > 0)
@@ -1206,9 +1288,9 @@ static unsigned long int jumpAlignInitReadJumpsTrivially (JP *jp)
 static void jumpAlignInitReadJumps (JP *jp)
 {
   unsigned long int nn = 0 ;
-  jp->pzz = (unsigned int *) malloc (jp->pNN * sizeof(unsigned int)) ;
+  jp->pzz = (long unsigned int *) malloc (jp->pNN * sizeof(long unsigned int)) ;
   if (jp->NFILTERS > 1)
-    jp->pzz2 = (unsigned int *) malloc (jp->pNN * sizeof(unsigned int)) ;
+    jp->pzz2 = (long unsigned int *) malloc (jp->pNN * sizeof(long unsigned int)) ;
 
   jp->flags  =  bitSetCreate (jp->NN + 1, 0) ;
 
@@ -1231,16 +1313,17 @@ static void jumpAlignInitReadJumps (JP *jp)
  * it is slower by a factor 3 or so
  * not sure why
  */
-static void jumpAlignDoFilter (PP *pp)
+static void jumpAlignDoFilter (PP * pp, ZONE * zone)
 {
   int NFILTERS = pp->NFILTERS ;
-  int iFilter = pp->iFilter ;
-  int w = pp->w ;
-  unsigned int i ;
-  unsigned int *zp, *zp2, z1, *zz, *zz2 ;
+  int iFilter = zone->iFilter ;
+  int w = zone->w ;
+  long unsigned int i, iMin, iMax ;
+  long unsigned int *zp, *zp2, z1, *zz, *zz2 ;
   BigArray dna = pp->tDnaArray ;
-  char cc, *tDna, ccFilter[2], filters[] = {A_,T_,G_,C_} ;
-  unsigned int NN = pp->NN ;
+  char cc, ccFilter[2], filters[] = {A_,T_,G_,C_} ;
+  const char *tDna ;
+  long unsigned int NN = pp->NN ;
 
   zz = (w & 0x1 ? pp->zz : pp->zz2) ;
   zz2 = (w & 0x1 ? pp->zz2 : pp->zz) ;
@@ -1252,9 +1335,15 @@ static void jumpAlignDoFilter (PP *pp)
     messcrash (" jumpAlignFilter w=%d, iFilter=%d did not receive a good dna", w, iFilter) ;
   tDna = pp->tDna ? pp->tDna : bigArrp (pp->tDnaArray, 0, char) ;
 
-
+  
+  iMin = zone->iMin ; iMax = zone->iMax ;
+  if (iMin > NN - w)
+    iMin = NN - w ;
+  if (iMax == 0 || iMax > NN - w)
+    iMax = NN - w ;
+  
   if (1) printf("--filter %d:%c w=%d\n", iFilter, dnaDecodeChar[(int)ccFilter[0]], w) ;
-  for (i = 0, zp = zz, zp2 = zz2 ; i <= NN - w ; i++, zp++, zp2++)
+  for (i = iMin, zp = zz + i, zp2 = zz2 + i ; i <= iMax ; i++, zp++, zp2++)
     { 
       if (NFILTERS >= 4)
 	{
@@ -1271,6 +1360,10 @@ static void jumpAlignDoFilter (PP *pp)
      /* search if  word w[i] of length w starting at i is repeated downwards */
       z1 = *zp ;
       if (!z1)      /* w[i] cannot be repeated if (w-1)[i] is not */
+	{
+	  continue ;
+	}
+      if (!zp[1])      /* w[i] cannot be repeated if (w-1)[i+1] is not */
 	{
 	  continue ;
 	}
@@ -1293,6 +1386,41 @@ static void jumpAlignDoFilter (PP *pp)
 	    }       /* done: no repeat */
 	}
     }
+  /* request new zone calculation or issue termnination */
+  if (1)
+    {
+      ZONE newZone ;
+      BOOL done = TRUE ;
+
+      if (iMax < NN - w) /* new coords, same filter */
+	{
+	  newZone.w = w ;
+	  newZone.iFilter = iFilter ;
+	  newZone.iMin = iMax + 1 ;
+	  newZone.iMax = iMax + NN/(pp->NFILTERS) ;
+	  if (newZone.iMax  > NN - w)
+	    newZone.iMax  = NN - w ;
+	  channelPut (pp->zoneChan, &newZone, ZONE) ;
+	  done = FALSE ;
+	}
+      if (iMax == 0 && iFilter < pp->NFILTERS)
+	{
+	  newZone.w = w ;
+	  newZone.iFilter = iFilter + 1 ;
+	  newZone.iMin = iMin ;
+	  newZone.iMax = iMax ;
+	  channelPut (pp->zoneChan, &newZone, ZONE) ;
+	  done = FALSE ;
+	}
+      if (1 && done)
+	{ /* we cannot close the zoneCham, we need it for the next w */
+	  newZone.w = -1 ;
+	  channelPut (pp->zoneChan, &newZone, ZONE) ;
+	}
+      /*  else
+	  channelClose (pp->zoneChan) ;
+      */
+    }
 } /* jumpAlignDoFilter */
 
 /***************************************************************/
@@ -1300,14 +1428,14 @@ static void jumpAlignDoFilter (PP *pp)
 /* this option is faster than the one above by about 5% */
 static void jumpAlignDo (PP *pp)
 {
-  unsigned int i ;
+  long unsigned int i ;
   int w = pp->w ;
   int wMax = pp->wMax ;
   BitSet flags = pp->flags ;
-  unsigned int *zp, z1, *zz = pp->zz, *pzz = pp->pzz ;
-  unsigned int comp = pp->nComp[pp->iFilter] ;
-  unsigned int hooks = 0 ;
-  unsigned int rep = pp->nRep[pp->iFilter] ;
+  long unsigned int *zp, z1, *zz = pp->zz, *pzz = pp->pzz ;
+  long unsigned int comp = pp->nComp[pp->iFilter] ;
+  long unsigned int nHooks = 0 ;
+  long unsigned int nRep = 0 ; /* pp->nRep[pp->iFilter] ; */
   char cc, *tDna ;
   BOOL debug = FALSE ;
 
@@ -1326,7 +1454,7 @@ static void jumpAlignDo (PP *pp)
     {
       char *pDna = bigArrp (pp->pDnaArray, 0, char) ;  
       for (i = 0 ; i <= pp->pNN  ; i++, zp++)
-	fprintf (stderr, "//----- Begin: w=%d %c:%u->%u\n"
+	fprintf (stderr, "//----- Begin: w=%d %c:%lu->%lu\n"
 		 , w, pDna[i], i, pzz[i]) ;
     }
 
@@ -1353,7 +1481,7 @@ static void jumpAlignDo (PP *pp)
 	      comp++ ; /* count all comparisons */
 	      if (cc == tDna[w - 1 +  z1])    /* found the next repeat */
 		{ 
-		  hooks++ ; /* count all repeats */ 
+		  nHooks++ ; /* count all repeats */ 
 		  *zp = z1 ;  /* pointer in pZZ */
 		  /* bitSet (flags, z1) ; do  this in a specialized loop , it is probably faster */
 		  break ;        /* done: found repeat */
@@ -1361,7 +1489,7 @@ static void jumpAlignDo (PP *pp)
 	      z1 = zz[z1] ; /* pointer in target */
 	      if (!z1) 
 		{ 
-		  register unsigned int  dw, dwMax ;
+		  register long unsigned int  dw, dwMax ;
 		  dwMax = wMax > w ?  wMax - w + 1 : 1 ;
 		  if (dwMax > i) dwMax = i ;
 		  for (dw = 0 ; dw < dwMax ; dw++)
@@ -1377,7 +1505,7 @@ static void jumpAlignDo (PP *pp)
   if (w == 1)  /* hook each acceptable base to its first repeat */
     {
       register char cc, *cp, *cq ;
-      register unsigned int i, j, *zp, NN = pp->NN - 1  ;
+      register long unsigned int i, j, *zp, NN = pp->NN - 1  ;
 
       for (i = 0, zp = zz, cp = tDna ; i <  NN  ; i++, zp++, cp++)  /* scan the reads */
 	{
@@ -1389,14 +1517,16 @@ static void jumpAlignDo (PP *pp)
 	    }
 	}
       *zp = 0 ;
-      rep = NN  ;
+      comp = 0 ;
+      nHooks = 4 ; /* there are 4 words of length 1 */
+      nRep = NN  ;
       goto done ;
     }
 
   /* flag the chains of words present in the reads */
   if (pp->pDnaArray)
     {
-      register unsigned int i, NN = pp->NN, *zp ;
+      register long unsigned int i, NN = pp->NN, *zp ;
       char *pDna = bigArrp (pp->pDnaArray, 0, char) ;
 
       if (debug) fprintf (stderr, "// %s: start flagging chains of words present in the reads\n", timeShowNow ()) ;
@@ -1407,15 +1537,16 @@ static void jumpAlignDo (PP *pp)
       if (debug) fprintf (stderr, "// %s: flagged %lu words present in the reads\n", timeShowNow (), bitSetCount (flags)) ;
       if (0)
 	for (i = 0, zp = zz ; i <= pp->pNN  ; i++, zp++)
-	  fprintf (stderr, "//----- w=%d %c:%u->%u\n"
+	  fprintf (stderr, "//----- w=%d %c:%lu->%lu\n"
 		   , w, pDna[i], i, pzz[i]) ;
     }
 
   if (tDna)  /* extend the target part */
-    {
+    { 
+      BitSet isRepeat = bitSetCreate (pp->NN + 1, 0) ;
       BitSet flags = pp->pDnaArray ? pp->flags : 0 ;
       register char cc ;
-      register unsigned int i, NN = pp->NN - w, z1, *zp ;
+      register long unsigned int i, NN = pp->NN - w, z1, *zp ;
       register BOOL firstPass =  pp->w == pp->wMax0 + 1 ? TRUE : FALSE ;
       register int dw, dwMax = pp->wMax - pp->wMax0 ;
       if (0) fprintf (stderr, "wMax = %d wMax0 = %d dwMax =%d\n", pp->wMax, pp->wMax0, dwMax) ;
@@ -1426,7 +1557,7 @@ static void jumpAlignDo (PP *pp)
 	    continue ;   /* w[i] cannot be repeated if (w-1)[i] is not */
 	  if (! *(zp+1)) /*  does not apply if we have cancelled the most frequent hooks */
 	    { *zp = 0 ; continue ;  }  /* w[i] cannot be repeated if (w)[i+1] is not */
-	  if (flags && ! bit (flags, i))
+	  if (flags && (! bit (flags, i) || !  bit (flags, i+1)))
 	    { *zp = 0 ; continue ;  }  /* w[i] will not extend to a word present in the reads */
 	  if (0) 
 	    {
@@ -1454,11 +1585,15 @@ static void jumpAlignDo (PP *pp)
 			  ok = FALSE ;  /* we must not chain towards this repeat */
 		    }
 		  if (ok)
-		    {
-		      rep++ ; /* count all repeats */ 
+		    {   
+		      if (isRepeat && ! bit(isRepeat, i))
+			nHooks++ ;
+		      nRep++ ; /* count all repeats */ 
 		      *zp = z1 ;
 		      if (flags)
 			bitSet (flags, z1) ;
+		      if (isRepeat)
+			bitSet (isRepeat, z1) ;
 		      break ;        /* done: found repeat */
 		    } 
 		}
@@ -1470,12 +1605,13 @@ static void jumpAlignDo (PP *pp)
 		}       /* done: no repeat */
 	    }
 	}
+      bitSetDestroy (isRepeat) ;
     }
 
  done:
   pp->nComp[pp->iFilter] = comp ;
-  pp->nHooks[pp->iFilter] = hooks ;
-  pp->nRep[pp->iFilter] = rep ;
+  pp->nHooks[pp->iFilter] = nHooks ;
+  pp->nRep[pp->iFilter] = nRep + nHooks ;
 
   if (debug) printf("-- %s: end target single filter %d w=%d\n", timeShowNow (), 0, w) ;
 } /* jumpAlignDo */
@@ -1485,21 +1621,27 @@ static void jumpAlignDo (PP *pp)
 static void jumpAlignFilter (void *vp)
 {
   PP *pp = (PP *) vp ;
-  int w, iFilter = pp->iFilter ;
-  
-  while (channelMultiGet (pp->inChan, &w, 1, int))
+  ZONE zone ;
+
+  memset (&zone, 0, sizeof(zone)) ;
+  while (channelGet (pp->zoneChan, &zone, ZONE))
     {
-      pp->w = w ;
+      if (zone.w < 0)
+	break ;
       if (pp->NFILTERS == 1)
 	{
-	    jumpAlignDo (pp) ;
+	  int w = pp->w = zone.w ;
+	  pp->iFilter = zone.iFilter ;
+	  jumpAlignDo (pp) ;
+	  channelPut (pp->outChan, &w, int) ; /* signal completion */
 	}
       else
 	{
-    	    jumpAlignDoFilter (pp) ;
+	  jumpAlignDoFilter (pp, &zone) ;
+	  /* outchan is written by the last member of the canon */
 	}
-      channelPut (pp->outChan, &iFilter, int) ; /* signal completion */
     }
+  channelPut (pp->outChan, &(zone.w), int) ; /* signal completion */
 } /* jumpAlignFilter */
 
 /***************************************************************/
@@ -1509,7 +1651,7 @@ static int jumpAlign (JP *jp)
 {
   int NFILTERS = jp->NFILTERS ;
   PP *pp, ppp[NFILTERS] ;
-  unsigned int i ;
+  long unsigned int i ;
   int w = 0, iFilter ;
   long int nRepeats, nNewRepeats, nComparisons, nHooks ;
   char *tDna ;
@@ -1518,8 +1660,9 @@ static int jumpAlign (JP *jp)
   int readLengthMin = jp->readLengthMin ;
   Array pps = jp->pps ;
   BigArray dna = jp->tDnaArray ;
-  unsigned int NN = jp->NN ;
+  long unsigned int NN = jp->NN ;
   BOOL debug = FALSE ;
+  CHAN *zoneChan = channelCreate (1, ZONE, jp->h) ;
   int oldw = 0, iiReport = 0 ;
   time_t t2, t1, t0 = time (0)  ;
 
@@ -1539,13 +1682,13 @@ static int jumpAlign (JP *jp)
   /* zz[i] is the offset of the first repeat of [dna[i]..dna[i+w-1] */
   /* jump is the next position which may have a repeat */
 
-  nRepeats = nNewRepeats =  nComparisons = nHooks = 1 ;
+  nRepeats = nNewRepeats =  nComparisons = 0 ; nHooks = 1 ;
 
   if (NN < 20) 
     {
       for(i = 0 ; i < NN && i < 100 ; i++)
 	{
-	  printf("%c\t%u\t%u\n", dnaDecodeChar[(int)tDna[i]], i, jp->zz[i]) ;
+	  printf("%c\t%lu\t%lu\n", dnaDecodeChar[(int)tDna[i]], i, jp->zz[i]) ;
 	}
     }
   
@@ -1579,12 +1722,13 @@ static int jumpAlign (JP *jp)
 	  PP *pi = ppp + iFilter ;
 	  ppp[iFilter] = *pp ;
 	  ppp[iFilter].iFilter = iFilter ;
-	  ppp[iFilter].inChan = channelCreate (1, int, pp->h) ;
+	  ppp[iFilter].zoneChan = zoneChan ; 
 	  ppp[iFilter].nComp = pp->nComp ;
 	  ppp[iFilter].nRep = pp->nRep ;
 	  wego_go (jumpAlignFilter,  pi, PP) ;
 	}
       
+      if (1) fprintf (stderr, "// Date\tword length\tDistinct repeated words\tRepeats\tCumul\tComparisons\n") ;
       for (w = jp->wMax0 + 1 ; nHooks + nNewRepeats > 0 && w <= wMax ; w++)
 	{
 	  pp->w = w ;
@@ -1603,14 +1747,29 @@ static int jumpAlign (JP *jp)
 
 	  if (1) /* actual work */
 	    {
-	      int n = 0 ;
-
-	      /* start execution of the actual work in several parallel threads */
-	      for (iFilter = 0 ; iFilter < NFILTERS ; iFilter++)
-		channelPut ((ppp+iFilter)->inChan, &w, int) ;
+	      /* start one execution of the actual work 
+	       * the code runs 'en canon'
+	       * the end of each zone
+	       * crates 2 new channelPut
+	       * same zone next fileter plus same fileter next zones
+	       * until the word length is studied
+	       * and we issue channelPut (pp->outChan)
+	       */
+	      for (iFilter = 0 ; iFilter < 1 ; iFilter++)
+		{
+		  ZONE zone ;
+		  zone.iFilter = iFilter ;
+		  zone.w = w ;
+		  zone.iMin = 0 ;
+		  zone.iMax = NN/NFILTERS ;
+		  channelPut ((ppp+iFilter)->zoneChan, &zone, ZONE) ;
+		}
 	      /* wait for completion */
 	      for (iFilter = 0 ; iFilter < NFILTERS ; iFilter++)
-		channelMultiGet (pp->outChan, &n, 1, int) ;  /* wait on all filters */
+		{
+		   int wDone = 0 ;
+		   channelGet (pp->outChan, &wDone, int) ;  /* wait on all filters */
+		}
 	     }
 
 	  /* gather the statistics */
@@ -1625,7 +1784,7 @@ static int jumpAlign (JP *jp)
 	  if (debug)   ppShow (jp, messprintf ("after w=%d", w)) ;
 
 	  t2 = time(0) ; 
-	  if (1) fprintf (stderr, "// %s: w=%3d%18lu%18lu%12lu%12lu%8d%8d\n"
+	  if (1) fprintf (stderr, "// %s:\tw=%3d\t%18lu\t%18lu\t%12lu\t%12lu\t%8d\t%8d\n"
 			  , timeShowNow()
 			  , w, nHooks, nNewRepeats, nRepeats, nComparisons
 			  , (int)(t2 - t0), (int)(t2 - t1)
@@ -1642,7 +1801,7 @@ static int jumpAlign (JP *jp)
   if (jp->wMax0 == jp->wMax && jp->reads && jp->exportExactHits)
     reportExactReads (jp, jp->wMax, oldw, &iiReport) ;
   for (iFilter = 0 ; iFilter < NFILTERS ; iFilter++)
-    channelClose ((ppp+iFilter)->inChan) ;
+    channelClose ((ppp+iFilter)->zoneChan) ;
   
   if (jp->exportIndex)
     jumpAlignExportIndex (jp, jp->wMax) ; /* will free zz */
@@ -1657,7 +1816,7 @@ static int jumpAlign (JP *jp)
  */
 static int jumpAlignSoftClipPolyA (JP *jp, SEQ *seq, int *nbp)
 {
-  unsigned int i, j, n, k ; 
+  long unsigned int i, j, n, k ; 
   int nClipped = 0, nbClipped = *nbp ;
   register unsigned char *cp ;
   BigArray dna = jp->pDnaArray ;
@@ -1703,10 +1862,10 @@ static int jumpAlignSoftClipPolyA (JP *jp, SEQ *seq, int *nbp)
 
 /*************************************************************************************/
 
-static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
+static int parseFastaFile (JP *jp, long unsigned int *nbp, BOOL isRead)
 {
   AC_HANDLE h = ac_new_handle () ;
-  unsigned int np, nb = 0 ;
+  long unsigned int nTarget, nb = 0 ;
   int newNam ;
   SEQ *seq = 0 ;
   BOOL last = FALSE ;
@@ -1717,7 +1876,7 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
   ACEIN ai ;
   BOOL justStrand = jp->justStrand ;
   DICT *dict = isRead ? jp->readDict : jp->targetDict ;
-  unsigned int NN = isRead ? jp->pNN : jp->NN ;
+  long unsigned int NN = isRead ? jp->pNN : jp->NN ;
   int nClipped = 0, nbClipped = 0 ;
   
   if (isRead)
@@ -1735,7 +1894,6 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
       dict = jp->targetDict = dictHandleCreate (256, jp->h) ;
       seqs = jp->chroms = arrayHandleCreate (100, SEQ, jp->h) ;
       dna = jp->tDnaArray = bigArrayHandleCreate (1000, char, jp->h) ;
-      jp->dna2chrom = bigArrayHandleCreate (1000, int, jp->h) ;
       if (NN == 0)
 	{
 	  jp->NN0 = NN = 1 ;  /* leave a 1b gap where we can stick the individual reads */
@@ -1746,7 +1904,7 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
 	usage ("Sorry i cannot open the target fasta file") ;
     }
 
-  np = arrayMax (seqs) ;
+  nTarget = arrayMax (seqs) ;
   
   while (TRUE)
     {
@@ -1774,16 +1932,16 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
 	    {
 	      if (isRead)
 		{
-		  bigArray (dna, NN++, char) = 0 ; /* 00terminate each sequence */
+		  bigArray (dna, NN++, char) = 0 ; /* 00 terminate each sequence */
 		  bigArray (dna, NN++, char) = 0 ;
 		}
 	      else
 		{
-		  bigArray (dna, NN++, char) = 0 ; /* 00terminate each sequence */
+		  bigArray (dna, NN++, char) = 0 ; /* 00 terminate each sequence */
 		  bigArray (dna, NN++, char) = 0 ;
 		  if (NN % 1024) /* start on a new page and associate this page to the current newName */
 		    NN = NN - (NN % 1024) + 1024 ;
-		  bigArray (dna2chrom, NN >> 10, int) = newNam ;
+		  bigArray (dna2chrom, NN >> 10, int) = nTarget ;
 		}
 	      seq->end = NN - 1 ;
 	      nb += seq->ln ;
@@ -1799,25 +1957,31 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
 	  
 	  if (seq && isRead && jp->clipPolyA)
 	    nClipped += jumpAlignSoftClipPolyA (jp, seq, &nbClipped) ;
-	  if (seq && isRead && !justStrand)
+	  if (seq && (isRead || jp->exportRepeats)  && !justStrand)
 	    { /* add the strand inverted read */
 	      char *cr ;
-	      unsigned int j, n0 = NN ;
+	      long unsigned int j, n0 = NN ;
+	      
+
 	      bigArray (dna, NN + seq->ln + 2, char) = 0 ; /* make room */
-	      for (cr = arrp (dna, seq->end-2, char), j = seq->ln ; j-- ; cr--)
+	      for (cr = arrp (dna, seq->start + seq->ln - 1, char), j = seq->ln ; j-- ; cr--)
 		bigArray (dna, NN++, char) = complementBase[(int)*cr] ;
 	      bigArray (dna, NN++, char) = 0 ;
 	      bigArray (dna, NN++, char) = 0 ;
-	      seq = arrayp (seqs, np++, SEQ) ;
+	      if (NN % 1024) /* start on a new page and associate this page to the current newName */
+		NN = NN - (NN % 1024) + 1024 ;
+	      seq = arrayp (seqs, nTarget++, SEQ) ;
 	      seq->nam = (seq-1)->nam ;
 	      seq->isDown = FALSE ;
 	      seq->ln = (seq-1)->ln ;
 	      seq->start = n0 ;
 	      seq->end = NN - 1 ;  /* last letter of the read (inclusive ? ) */
+	      nb += seq->ln ;
+	      bigArray (dna2chrom, NN >> 10, int) = nTarget ;
 	    }
 	  if (last)
 	    break ;
-	  seq = arrayp (seqs, np++, SEQ) ;
+	  seq = arrayp (seqs, nTarget++, SEQ) ;
 	  seq->nam = newNam ;
 	  seq->isDown = TRUE ;
 	  seq->start = NN ;
@@ -1853,10 +2017,10 @@ static int parseFastaFile (JP *jp, unsigned int *nbp, BOOL isRead)
     } 
   ac_free (h) ;
   
-  fprintf (stderr, "// %s: Parsed %u %s, %u bases\n", timeShowNow (), np, isRead ? "fragments" : "targets", nb) ;
+  fprintf (stderr, "// %s: Parsed %lu %s, %lu bases\n", timeShowNow (), nTarget, isRead ? "fragments" : "targets", nb) ;
   if (jp->clipPolyA)
     fprintf (stderr, "//   clipped %d bases in %d reads\n", nbClipped, nClipped) ;
-  return np ;
+  return nTarget ;
 } /* parseFastaFile  */
 
 /*************************************************************************************/
@@ -1895,7 +2059,8 @@ static void usage (char *err)
 	   "// -wMax <int n> : compute the bridges up to words of length n\n" 
 	   "//       use n <= 14 in -exportIndex mode, but later any value can be used (say 150)\n"
 	   "// -exportHits  -exportExactHits : export hits of length wMax\n"
-	   "// -exportRepeats <int n>: export repeats of length at least wMax seen at least n times in the target\n"
+	   "// -exportRepeats [-: export repeats of length at least wMax\n"
+	   "//       -nFilters  : [n=1|4|16, default 1] compute en canon int n voices\n"
 	   "// -exportHash : draft code, do not use\n"
 	   "// -clipPolyA : soft clip terminal polyA in the reads\n"
 	   "// -max_threads <int> : number of simultaneoulsy running functions\n"
@@ -1917,7 +2082,7 @@ static void usage (char *err)
 int main (int argc, const char **argv)
 {
   AC_HANDLE h = ac_new_handle () ;
-  unsigned int np=0, npb=0, ntb=0, nFound = 0 ;
+  long unsigned int np=0, npb=0, ntb=0, nFound = 0 ;
   JP jp ;
 
   if (argc == 1 ||
@@ -1946,8 +2111,6 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-i", &(jp.pFileName)) ;
 
   getCmdLineInt (&argc, argv, "-nFilters", &jp.NFILTERS) ;
-  if (jp.NFILTERS > 1)
-    messcrash ("The code is nom longer correct for NFLTERS > 1") ;
 
   if (jp.NFILTERS >= 16) jp.NFILTERS = 16 ;
   else if (jp.NFILTERS >= 4) jp.NFILTERS = 4 ;
@@ -1956,14 +2119,18 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-max_threads", &jp.max_threads) ;
   getCmdLineInt (&argc, argv, "-wMax", &jp.wMax) ;
   jp.wMax0 = 0 ;
-  if (jp.wMax < 4) jp.wMax = 4 ;
+  if (jp.wMax < 3) jp.wMax = 3 ;
 
   jp.exportHits = getCmdLineBool (&argc, argv, "-exportHits") ;
-  getCmdLineInt (&argc, argv, "-exportRepeats", &jp.exportRepeats) ;
+  jp.exportRepeats = getCmdLineBool (&argc, argv, "-exportRepeats") ;
   jp.exportExactHits = getCmdLineBool (&argc, argv, "-exportExactHits") ;
   jp.importIndex = getCmdLineOption (&argc, argv, "-importIndex", &jp.indexFileNameI) ;
   jp.exportIndex = getCmdLineOption (&argc, argv, "-exportIndex", &jp.indexFileNameX) ;
   getCmdLineInt (&argc, argv, "-exportHash", &jp.exportHash) ;
+
+  if (! jp.exportRepeats && jp.NFILTERS > 1)
+    messcrash ("The code is no longer correct for NFLTERS > 1") ;
+
   if (jp.exportIndex)
     {
       jp.exportIndex = TRUE ;
@@ -1979,7 +2146,7 @@ int main (int argc, const char **argv)
   jp.importReads = getCmdLineOption (&argc, argv, "-importReads", &jp.readFileNameI) ;
   jp.exportReads = getCmdLineOption (&argc, argv, "-exportReads", &jp.readFileNameX) ;
 
-  wego_max_threads (jp.max_threads) ;
+ 
 
   jp.h = ac_new_handle () ;
   jp.pps = arrayHandleCreate (100, PP, h) ;
@@ -1999,7 +2166,11 @@ int main (int argc, const char **argv)
       np = parseFastaFile (&jp, &npb, TRUE) ;
       if (np && jp.exportReads)
 	jumpAlignExportReads  (&jp) ;
+      if (jp.max_threads <  jp.NFILTERS + 4)
+	jp.max_threads =  jp.NFILTERS + 4 ;
    }
+
+  wego_max_threads (jp.max_threads) ;
 
  /* open and parse the reads and the target file */
   if (jp.importIndex)
@@ -2009,6 +2180,8 @@ int main (int argc, const char **argv)
       parseFastaFile (&jp, &ntb, FALSE) ;
       jumpAlignInitTargetJumps (&jp) ;
     }
+  else
+    messcrash ("missing option -t, please try jumpalign --help") ;
  
   /* initialize the read jump table and the flags */
   if (jp.pDnaArray && (jp.exportHits || jp.exportExactHits))
@@ -2019,7 +2192,7 @@ int main (int argc, const char **argv)
 	   ) ;
 
   if (jp.zz && 
-      (jp.exportHits || jp.exportExactHits || jp.exportIndex || jp.exportHash || jp.exportRepeats > 1)
+      (jp.exportHits || jp.exportExactHits || jp.exportIndex || jp.exportHash || jp.exportRepeats)
       )
     {
       int nReads = 0, nHits = 0 ;
@@ -2032,7 +2205,7 @@ int main (int argc, const char **argv)
 	jumpAlignExportRepeats (&jp) ;
       fprintf (stderr, "// %s: found %d reads alignmed in %d poitions\n ", timeShowNow (), nReads, nHits) ;
     }
-  fprintf (stderr, "// %s: jumpalign done, found %d alignments\n ", timeShowNow (), nFound) ;
+  fprintf (stderr, "// %s: jumpalign done, found %lu alignments\n ", timeShowNow (), nFound) ;
 
   ac_free (h) ;
   return 0 ;

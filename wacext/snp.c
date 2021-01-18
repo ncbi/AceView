@@ -33,15 +33,17 @@ typedef struct hitStruct {
     , prefix, suffix  /* overhangs, read in the tag, on the strand extending the alignment */
     , targetPrefix, targetSuffix  /* 30bp, up and downstream, read on the target in the orientation of the tag */
     , dPair           /* distance to pair */
+    , isRead2         /* 1 if a read< */
     ;
 } HIT ;
 
 typedef struct snpStruct {  
   AC_HANDLE h ; BOOL gzi, gzo, smooth ; 
   const char *inFileName, *outFileName, *selectFileName, *title, *fastaFileName, *targetGeneFileName, *newIntronsFileName ;
-  const char *remapFileName1, *remapFileName2, *runQualityFileName ;
-  const char *run, *target_class, *snpListFileName, *project, *Reference_genome ;
-  BOOL mito, qual, BRS_detect, BRS_make_snp_list, BRS_count, pool, ventilate, solid, snp_merge, BRS_merge, BRS_merge_ns, mergeExportPopulationTable, aliExtend ;
+  const char *remapFileName1, *remapFileName2, *runQualityFileName, *runListFileName ;
+  const char *run, *target_class, *snpListFileName, *snpValFileName,*project, *Reference_genome ;
+  BOOL mito, qual, BRS_detect, BRS_make_snp_list, BRS_count, pool, ventilate, solid, snp_merge, BRS_merge, BRS_merge_ns, mergeExportPopulationTable, aliExtend , phasing ;
+  BOOL vcfName ;
   int ooFrequency, editSequence ;
   Stack targetDna ; /* actual dna ofd the targets */
   Array target2dna, targetDnaLength, targetGene ; /* array of offset in targetDna */
@@ -49,8 +51,8 @@ typedef struct snpStruct {
   BOOL hits2BRS ;
   int mult, n, NN, snp ;
   int eeLastSub, eeLastInsert ;
-  BOOL unique, db_intersect, db_group, remap, keepSample, db_pheno, db_translate, db_report ;
-  BOOL frequencyTable, prevalenceTable, frequencyHisto, dbCount ;
+  BOOL unique, db_intersect, remap, keepSample, db_pheno, db_translate, db_report, db_VCF ;
+  BOOL vcfTable, frequencyTable, prevalenceTable, frequencyHisto, dbCount ;
   BOOL dropMultiplicity ; /* count each sequence only one, dropping the #multiplicity parameter */
   BOOL differential ; /* limit to Variant with tag differential */
   BOOL dropMonomodal ;
@@ -63,11 +65,14 @@ typedef struct snpStruct {
   Array aliSnps ;
   enum { STRATEGY_ZERO=0, STRATEGY_RNA_SEQ, STRATEGY_EXOME, STRATEGY_GENOME} strategy ;
   KEYSET selectZoneIndex ;
+  KEYSET runs ;
   Stack snipnet ;
   DICT *selectDict ; 
   DICT *ventilationDict ;
   DICT *chromDict ;
   DICT *targetDict ;
+  DICT *snpDict ;
+  DICT *snpNamDict ;
   const char *selected8kbFileName ;
   DICT *selected8kbDict ;
   BitSet selected8kbBitSet ;
@@ -79,9 +84,19 @@ typedef struct snpStruct {
   DICT *oldSnps ;
   AC_DB db ;
   BitSet run_sample ;
-  Array errorsP, snps, dnas ;
+  Array errorsP, dnas ;
+  BigArray snps ;
   ACEIN ai ; ACEOUT ao ; 
 } SNP ;
+
+static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
+			    , vTXT gTxt, vTXT cTxt, vTXT pTxt
+			    , int *gMapp, int *gPosp
+			    , char *gType, char *cType, vTXT pType
+			    , vTXT location
+			    , vTXT geneboxes, vTXT avgeneboxes, vTXT gsnippet, vTXT snippet, vTXT pSnippet
+			   ) ;
+
 
 /*************************************************************************************/
 /* parse the runQuality file
@@ -332,7 +347,6 @@ static int snpCreateAtlas (SNP *snp)
   x1 = x2 = a1 = a2 = 0 ;
   snp->target2geneAtlas = arrayHandleCreate (4, Array, snp->h) ;
   snp->target2exonAtlas = arrayHandleCreate (4, Array, snp->h) ;
-  snp->target_classDict = dictHandleCreate (4, snp->h) ;
   if (snp->remapFileName1)
     ai = aceInCreate (snp->remapFileName1, FALSE, h) ;
   else
@@ -657,6 +671,12 @@ static int snpRemap2 (SNP *snp)
 	}
     }
   fprintf(stderr, "snpRemap2 found %d variants remapped %d\n", nn1, nn2) ;
+  if (vtxtPtr (txt))
+    {
+      ACEOUT ao = aceOutCreate ("toto", 0, 0, h) ;
+      aceOut (ao,  vtxtPtr (txt)) ;
+      ac_free (ao) ;
+    }
   ac_parse (snp->db, vtxtPtr (txt), &errors, 0, h) ; 
   if (*errors) fprintf(stderr, "snpRemap parsing error %s\n", errors) ;
   ac_free (h1) ;
@@ -964,7 +984,10 @@ static int snpHits2BRS (SNP *snp)
   int oldXSnp = 0, oldXRun = 0, oldXTarget = 0 ; /* old exported value */
   ZONE *zp = 0, *zzp = 0 ;
   BOOL hasMore = FALSE ;
-  BOOL hasPair = FALSE ;
+
+  BOOL hasPair = FALSE ;  /* we autodetect the pairs */
+  BOOL goodPair = TRUE ;
+  
   KEYSET zzDas = keySetHandleCreate (h) ;
   KEYSET targetZone2target = keySetHandleCreate (h) ;
   Array snpsArray ;
@@ -973,26 +996,11 @@ static int snpHits2BRS (SNP *snp)
   int snpTotal = 0 ;
   int ventU = 0, ventNU = 0, ventUF = 0, ventNUF = 0 ;
   int runQualityPrefix = 0 ;
-  int  Remove_inserts_shorter_than = snp-> Remove_inserts_shorter_than ;
+  int  Remove_inserts_shorter_than = snp->Remove_inserts_shorter_than ;
   Array runQuality = snp->runQuality ;
   BOOL dropMultiplicity = snp->dropMultiplicity ;
 
-   runQuality = 0 ;
-  /* Set runQuality = FALSE
-   * the idea of using the quality in the BRS is costly, very hard useless and bugged
-   * costly: for a 1 Tb sequencing we call runQ 10^12 times
-   *         if we rather compute runQ just in snpExtend we need 10^6 snps times 100X = 10^8 calls
-   * very hard: computing the coordinates in the presence of indels for negative strand hist is nearly impossible
-   *            rather in snpExtend we use dnaAlign so we have handy the ERR table which gives the coordinates
-   * useless: BRS is just use to detect the SNPs, so by not killing the error spikes we create a few false positives
-   *          which just go in the gigantic pile of false positives that we sieve later to get the true SNPs
-   * bugged: last time i debugged the Ghs3:X:2700202 was plain wrong
-   *   no Quality-> homozygous mutant 2700202 a>g     -       ~       2000    2100    2100    0
-   *   using Qual-> homozygous wild   2700202 a       -       ~       1835    1835    1835    0
-   *   by hand, it is truly mutant
-   */
-
-
+  runQuality = 0 ;
   if (snp->ventilate) aceInSpecial (ai, "\n") ;
   memset (tagBuf, 0, sizeof(tagBuf)) ;
 
@@ -1016,7 +1024,7 @@ static int snpHits2BRS (SNP *snp)
       ccp = aceInWord (ai) ;
       if (!ccp || *ccp == '#')
 	continue ;
-      if (runQuality)  /* this is disabled, we set runQuality = 0 see comment above */
+      if (runQuality) 
 	{
 	  const char *ccq = ccp + strlen(ccp) - 1 ;
 	  int i = 2 ;
@@ -1038,11 +1046,19 @@ static int snpHits2BRS (SNP *snp)
       aceInStep (ai, '\t') ; aceInInt (ai, &mult) ; /* multiplicity */
 
       count = dropMultiplicity ? 1 : mult ; /* 2014_12_12: new option, was mult since 2011_06_13, was 1 before */
+
+      /* check partial : score is per pair but ali and toBeAligned are per read
+       * so the constraint on >minAliPerCent applies independantly to each read
+       *    2017_09_14, after FDA-MOD challenge, we relax and accept ali > 100 even is < snp->minAliPerCent
+       */
       ali = toBeAligned = 0 ;
       aceInStep (ai, '\t') ; aceInInt (ai, &toBeAligned) ;        /* clipped length */
       aceInStep (ai, '\t') ; aceInInt (ai, &ali) ;  /* length aligned */
       if (ali < snp->minAli) continue ;
-      if (100 * ali < snp->minAliPerCent * toBeAligned) continue ;
+      if (ali < 140 &&                    /* 100 per read translates into 200 for the pair which seems secure */
+	  100 * ali < snp->minAliPerCent * toBeAligned)
+	continue ;
+
       aceInStep (ai, '\t') ; aceInInt (ai, &x1) ;   /* x1 tag coord */
       aceInStep (ai, '\t') ; aceInInt (ai, &x2) ;   /* x2 tag coord */
 
@@ -1137,15 +1153,27 @@ static int snpHits2BRS (SNP *snp)
 		{ aceInStep (ai, '\t') ; aceInWord (ai) ; }
 	      aceInStep (ai, '\t') ; aceInInt (ai, &deltaPair) ;
 	      
-	      if (deltaPair > 30) /* at least one correctly annotated pair was found */
+	      if (deltaPair > 30 || deltaPair < -30) /* at least one correctly annotated pair was found */
 		hasPair = TRUE ;
-
+	      goodPair = TRUE ;
 	      if (hasPair && deltaPair < 0 && deltaPair > NON_COMPATIBLE_PAIR && deltaPair != -2 && deltaPair != -5) /* synchronize to hack with wiggle.c and bestali.c*/
-		continue ; 
+		goodPair = FALSE ;
 	      if ( Remove_inserts_shorter_than && deltaPair <  Remove_inserts_shorter_than && deltaPair > - Remove_inserts_shorter_than)
-		continue ;
+		goodPair = FALSE ;
+#ifdef JUNK
+                synchronize with snp.c
+		int mateAliDirect  = 0, mateToAliDirect  = 0,  mateScoreDirect = 0 ; /* in case they are available in cols 23 24 */
+		if (aceInStep (ai, '\t') &&  aceInInt (ai, &mateScore) && aceInStep (ai, '\t') &&  aceInInt (ai, &mateAli) && aceInStep (ai, '\t') &&  aceInInt (ai, &mateToAli) )
+		  {
+		    mateAli = mateAliDirect ; mateScore = mateScoreDirect ; mateToAli = mateToAliDirect ; /* if I find them directly that is ok */
+		  }
+#endif
 	    }
+	  if (hasPair && ! goodPair)
+	    continue ;
+	  
 
+	  /* check unicity to ventilate into u or nu files */
 	  if (unicity < 2)
 	    {
 	      ventU++ ;
@@ -1277,7 +1305,7 @@ static int snpHits2BRS (SNP *snp)
 	 r1 = a1 ; r2 = a2 ; /* inherit S values */
        }
 
-       /* because the insert is presented on the next base and there is a also a deficit of 1 for the deletions */
+      /* because the insert is presented on the next base and there is a also a deficit of 1 for the deletions */
       /* R cover assymetry, wait for a letter change before counting */
       if (snp->target2dna && snp->targetDna && target < arrayMax(snp->target2dna))
 	{
@@ -1337,7 +1365,7 @@ static int snpHits2BRS (SNP *snp)
 	      r2 -= dx ;
 	    }
 	}
-      if ( Remove_inserts_shorter_than)
+      if (Remove_inserts_shorter_than)
 	{ 
 	  int i, deltaPair = 0 ;
 	      
@@ -1760,7 +1788,7 @@ static int snpHits2BRS (SNP *snp)
 } /* snpCountSNPs */
 /*  run --select TUTU/toto.zone2 --runQuality tmp/SNP/AmishExome.Quality_profile.txt --unique --count --strategy $Strategy --minAliPerCent 90 --target_class Z_genome --run Ghs99 -i TUTU/toto3.hit */
 /*************************************************************************************/
-/* Danielle does not like name strating with + or - */
+/* Danielle does not like name starting with + or - */
 
 static char *cleanSnpName (const char * ccp, int strand, int *type)
 {
@@ -1826,20 +1854,20 @@ static int zz (SNP *snp, int run)
 
 /*************************************************************************************/
 
-static int snpCoalesce (Array snps)
+static long int snpCoalesce (BigArray snps)
 {
-  int ii, jj, nn ;
+  long int ii, jj, nn ;
   SSM *ssm, *ssm2, *ssm3  ;
 
   /* accumulate the counts in identical SNP */
-  arraySort (snps, ssmOrderBySnp) ;
-  for (ii = nn = 0,  ssm3 = ssm = arrp (snps, 0, SSM) ; ii < arrayMax (snps) ; ssm++, ii++)
+  bigArraySort (snps, ssmOrderBySnp) ;
+  for (ii = nn = 0,  ssm3 = ssm = bigArrp (snps, 0, SSM) ; ii < bigArrayMax (snps) ; ssm++, ii++)
     {
       if (ssm->count > 0)
 	{
 	  /* accumulate */
 	  for (jj = ii+1 ,  ssm2 = ssm+1  ; 
-	       jj < arrayMax (snps) && ssm2->target == ssm->target && ssm2->pos == ssm->pos && ssm2->snp == ssm->snp && ssm2->run == ssm->run ; 
+	       jj < bigArrayMax (snps) && ssm2->target == ssm->target && ssm2->pos == ssm->pos && ssm2->snp == ssm->snp && ssm2->run == ssm->run ; 
 	       ssm2++, jj++)
 	    {
 	      /* divide by 100, because the counts were scale up by 100 to use the qualities */
@@ -1853,20 +1881,21 @@ static int snpCoalesce (Array snps)
 	  nn++ ; ssm3++ ;
 	}
     }
-  arrayMax (snps) = nn  ;
+  bigArrayMax (snps) = nn  ;
   return nn ;
 } /* snpCoalesce */
 
 /*************************************************************************************/
 
-static int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
+static long int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 {
   int j, strand = 0, nLines = 0 ;
   int qual, count ;
   int oldXMrna = 0, oldXPos = 0, oldXStrand = 0 , oldXSnp = 0, oldXRun = 0 ;
   long int nAli = 0, nBpAli = 0 ;
   ACEIN ai = snp->ai ;
-  Array snps, dna = 0 ; 
+  BigArray snps ;
+  Array  dna = 0 ; 
   SSM *ssm ;
   SS *ee ;
   const char *ccp ;
@@ -1880,7 +1909,7 @@ static int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
   snp->eeDict = eeDictCreate (snp, h) ;
   dictAdd (snp->eeDict, "toto", 0) ; /* avoid 1 */
   snp->errorsP = arrayHandleCreate (1000, SS, h) ;
-  snps = snp->snps = arrayHandleCreate (10000, SSM, h) ;
+  snps = snp->snps = bigArrayHandleCreate (10000, SSM, h) ;
 
   while (aceInCard (ai))
     {
@@ -1923,7 +1952,7 @@ static int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 	  continue ;
 	}
       /* actual snp */
-      ssm = arrayp (snps, arrayMax (snps), SSM) ;
+      ssm = bigArrayp (snps, bigArrayMax (snps), SSM) ;
       if (*ccp == '~' && oldXMrna) ssm->target = oldXMrna ;
       else  
 	{
@@ -1967,7 +1996,7 @@ static int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 	}
       if (*ccp == '~' && oldXSnp) ssm->snp = oldXSnp ;
       else if (*ccp == '-' && ccp[1] == 0) 
-	{ arrayMax (snps)-- ; continue ; } /* we are out of the genome reference */
+	{ bigArrayMax (snps)-- ; continue ; } /* we are out of the genome reference */
       else 
 	{
 	  char c, c1 ;
@@ -2134,8 +2163,8 @@ static int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 	     , insideCover/(100 * (insideLast - insideStart + 1))
 	     ) ;
 
-  fprintf (stderr, "// Parsed %d lines in input file : %s\n", arrayMax (snps), timeShowNow ()) ;
-  return arrayMax (snps) ;
+  fprintf (stderr, "// Parsed %ld lines in input file : %s\n", bigArrayMax (snps), timeShowNow ()) ;
+  return bigArrayMax (snps) ;
 } /* snpParseBRSFile */
 
 /*************************************************************************************/
@@ -2698,14 +2727,14 @@ static BOOL snpIsCompatibleToGenome (SNP *snp, SSM *ssm, const char *type, const
  * for insertions the wild count is R (like del)  of previous base if I insert the same base tttgg-> tttTgg
  * or local S (like for a substitution) if I inser something else      tttgg -> tttAgg
  */
-static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, int ii0, int delta, const char *typeBuf, const char *Abuf
+static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int delta, const char *typeBuf, const char *Abuf
 				 , int *cover, int *calledp, int *calledm, int *mp, int *mm, int *wp, int *wm
 				 , int *oo1p, int *oo1m, int *oo2p, int *oo2m, int pass)
 {
   SSM *ssm, *ssm2 ;
-  int ii, ii2, coverp = 0, coverm = 0 ;
+  int coverp = 0, coverm = 0 ;
   int pos = ssm0->pos, target = ssm0->target, run = ssm0->run ;
-  int iMax = arrayMax (snp->snps) ;
+  long int ii, ii2, iMax = bigArrayMax (snp->snps) ;
   int b = 0, donep, donem ;
 
   if (sn < 0) sn = -sn ; 
@@ -3086,7 +3115,7 @@ static int snpBRS2snpExport (SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = snp->ao ;
-  Array snps = snp->snps ;
+  BigArray snps = snp->snps ;
   DICT *oldSnps = snp->oldSnps ;
   DICT *targetDict = snp->targetDict ;
   SSM *ssm ;
@@ -3210,11 +3239,11 @@ static int snpBRS2snpExport (SNP *snp)
 	bb[ii] = bitSetCreate (1024, h) ;
     }
 
-  if (!snps || ! arrayMax(snps))
+  if (!snps || ! bigArrayMax(snps))
     goto done ;
 
-  arraySort (snps, ssmOrderByC2a) ;
-  for (ii = 0, ssm = arrp (snps, 0, SSM) ; ii < arrayMax (snps) ; ssm++, ii++)
+  bigArraySort (snps, ssmOrderByC2a) ;
+  for (ii = 0, ssm = bigArrp (snps, 0, SSM) ; ii < bigArrayMax (snps) ; ssm++, ii++)
     {
       keySet (goodRuns, ssm->run) = 1 ;
 
@@ -3437,7 +3466,8 @@ static int snpBRS2snpExport (SNP *snp)
 
   if (oldSnps)
     {
-      int jj, kk, jOldSnp ;
+      long int jj, kk ;
+      int jOldSnp ;
       char buf[1000], *cp ;
       const char *ccp ;
       Associator missed2old = 0 ;
@@ -3474,7 +3504,7 @@ static int snpBRS2snpExport (SNP *snp)
 
 	  /* now we scan again the table */
 	  bb1 = bitSetCreate (1024, h) ;
-	  for (ii = 0, ssm = arrp (snps, 0, SSM) ; ii < arrayMax (snps) ; ssm++, ii++)
+	  for (ii = 0, ssm = bigArrp (snps, 0, SSM) ; ii < bigArrayMax (snps) ; ssm++, ii++)
 	    {
 	      int iBucket = 0 ;
 	      Array bucket = 0 ;
@@ -3830,50 +3860,215 @@ static int snpPhenotype (SNP *snp)
 /*************************************************************************************/
 /* extend the snpnet using the genome
  */
-
-static void switchCase (char *buf)
+/*************************************************************************************/
+/* returns sliding and edits the duffers */
+static BOOL snpIsSliding (char *typ, char *buf1, char *buf2, BOOL isRNA, BOOL isDown, int *vcfPosp, char *vcfBuf)
 {
-  char *cp = buf - 1 ;
-  while (*++cp)
-    {
-      if (*cp == ace_upper(*cp))
-	*cp= ace_lower(*cp) ;
-      else
-	*cp = ace_upper(*cp) ;
+  int i, j, ddx = strlen(typ) - 3 ;
+  BOOL isSliding = FALSE ;
+  char *cp, *cq, *bb[3] ;
+  
+  bb[0] = buf1 ; bb[1] = buf2 ; bb[2] = typ + 3 ;
+  for (i = 0 ; i < 3 ; i++)
+    for (cp = bb[i] ; *cp ; cp++)
+      {
+	if (isRNA)
+	  *cp = ace_upper (rnaDecodeChar[(int)dnaEncodeChar[(int) *cp]]) ;
+	else
+	  *cp = ace_upper (dnaDecodeChar[(int)dnaEncodeChar[(int) *cp]]) ;	
+      }
+  if (vcfBuf)
+    vcfBuf[0] = 0 ;
+
+  if (! isDown)
+    { /* complement buf1 and buf2 */
+      char cc1, cc2 ;
+      for (i = 0 ; i < 2 ; i++)
+	{
+	  int j, ln = strlen(bb[i]) ;
+	  cp = bb[i] ;
+	  for (j = 0 ; j < (ln+1)/2 ; j++)
+	    {
+	      cc1 = cp[j] ; cc2 = cp[ln - 1 - j] ;
+	      if (isRNA)
+		{
+		  cp[j] = ace_lower(rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)cc2]]]) ;
+		  cp[ln - 1 - j] = ace_lower(rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)cc1]]]) ;
+		}
+	      else
+		{
+		  cp[j] = ace_upper(dnaDecodeChar[(int)dnaEncodeChar[(int)cc2]]) ;
+		  cp[ln - 1 - j] = ace_upper(dnaDecodeChar[(int)dnaEncodeChar[(int)cc1]]) ;
+		}
+	    }
+	}
     }
-}  /* switchCase */
+  
+  if (typ[1] == '>' || typ[1] == '2')
+    {
+      typ[1] = '>' ;
+      if (isDown)
+	{
+	  if (isRNA)
+	    {
+	      typ[0] = ace_lower(rnaDecodeChar[(int)dnaEncodeChar[(int)typ[0]]]) ;
+	      typ[2] = ace_lower(rnaDecodeChar[(int)dnaEncodeChar[(int)typ[2]]]) ;
+	    }
+	  else
+	    {
+	      typ[0] = ace_upper(dnaDecodeChar[(int)dnaEncodeChar[(int)typ[0]]]) ;
+	      typ[2] = ace_upper(dnaDecodeChar[(int)dnaEncodeChar[(int)typ[2]]]) ;
+	    }
+	}
+      else
+	{
+	  if (isRNA)
+	    {
+	      typ[0] = ace_lower(rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)typ[0]]]]) ;
+	      typ[2] = ace_lower(rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)typ[2]]]]) ;
+	    }
+	  else
+	    {
+	      typ[0] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)typ[0]]]]) ;
+	      typ[2] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)typ[2]]]]) ;
+	    }
+	}
+
+      if (vcfBuf)
+	{
+	  vcfBuf[0] = ace_upper (typ[0]) ;
+	  vcfBuf[1] = ' ' ;
+	  vcfBuf[2] = ace_upper (typ[2]) ; 
+	  vcfBuf[3] = 0 ;
+	}
+    }
+  
+  if (!strncmp (typ, "Del", 3))
+    { 
+      int vcfPos = vcfPosp ? *vcfPosp - 1 : 0 ;
+      
+      cp = buf1 ; cq = buf2 ;
+      while (ace_upper (*cp) == ace_upper(*cq))
+	{ cp++ ; cq++ ; } 
+      cp-- ; cq-- ;
+      
+      j = 0 ;
+      while (cp > buf1 && ace_upper (cp[0]) == ace_upper (cp[ddx]))
+	{ cp-- ; vcfPos-- ; j++ ; }
+      if (j >= ddx)
+	isSliding = TRUE ; 
+      
+      if (vcfBuf)
+	{
+	  *vcfPosp = vcfPos ;
+	  for (i = 0 ; i < ddx + 1 && i < 60 ; i++) 
+	    vcfBuf[i] = ace_upper (cp[i]) ;
+	  vcfBuf[i++] = ' ' ;
+	  vcfBuf[i++] = ace_upper (cp[0]) ;
+	  vcfBuf[i++] = 0 ;
+	}
+    } 
+  else if (!strncmp (typ, "Ins", 3))
+    {
+      int vcfPos = vcfPosp ? *vcfPosp - 1 : 0 ;
+      
+      cp = buf1 ; cq = buf2 ;
+      while (ace_upper (*cp) == ace_upper(*cq))
+	{ cp++ ; cq++ ; } 
+      cp-- ; cq-- ;
+      
+      j = 0 ;
+      while (cq > buf2 && ace_upper (cq[0]) == ace_upper (cq[ddx]))
+	{ cq-- ; vcfPos-- ;  j++ ; }
+      if (j >= ddx)
+	isSliding = TRUE ; 
+       
+      if (vcfBuf)
+	{
+	  *vcfPosp = vcfPos ;
+	  vcfBuf[0] = vcfBuf[2] = ace_upper (*cq) ;
+	  vcfBuf[1] = ' ' ;
+	  for (i = 1 ; i < ddx + 1 && i < 60 ; i++) 
+	    vcfBuf[2+i] = ace_upper (cq[i]) ;
+	  vcfBuf[2+i] = 0 ;
+	}
+    }
+	      
+  /* fix the upper lower case */
+  cp = buf1 ; cq = buf2 ;
+  while (*cp && *cq && ace_upper (*cp) == ace_upper(*cq))
+    { 
+      *cp = ace_upper (*cp) ; cp++ ;
+      *cq = ace_upper (*cq) ; cq++ ;
+    }
+  if (!strncmp (typ, "Del", 3))
+    {
+      for (i = 0 ; *cp && i < ddx ; cp++, i++)
+	*cp = ace_lower (*cp) ;
+    }
+  else if (!strncmp (typ, "Ins", 3))
+    {
+      for (i = 0 ; *cq && i < ddx ; cq++, i++)
+       *cq = ace_lower (*cq) ;
+    }
+  else if (*cp && *cq)
+    {
+      *cp = ace_lower (*cp) ; cp++ ;
+      *cq = ace_lower (*cq) ; cq++ ;
+    }
+  while (*cp)
+    {
+      *cp = ace_upper (*cp) ; cp++ ;
+    }
+  while (*cq)
+    {
+      *cq = ace_upper (*cq) ; cq++ ;
+    }
+  
+  return isSliding ;
+} /* snpIsSliding */
+
+/*************************************************************************************/
 
 static int snpExtendGenomicSnpNet  (SNP *snp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
-  int n = 0, nn = 0 ;
+  int n = 0, nn = 0, nnnn = 0 ; ;
   vTXT txt = vtxtHandleCreate (h) ;
   AC_DB db = snp->db ;
   AC_ITER iter ;
-  AC_TABLE map ;
+  AC_TABLE map, intMap ;
   AC_OBJ variant = 0, seq = 0 ;
   KEY chrom, oldChrom = 0 ;
   const char  *dna1, *dna = 0 ;
-  char buf1[50], buf2[50] ;
+  char buf1[1024], buf2[1024], typBuf[2048] ; /* typBuf must accpomodate long multisub */
   const char *typ ;
-  int a0, a11, a22, dx1, dx2, cdim, cdup ;
+  int a0, a11, a22, dx1, dx2 ;
   const char *errors = 0 ;
-  BOOL debug = FALSE, isSliding ;
+  BOOL isDown = TRUE ;
 
-  if (0)
-     iter = ac_query_iter (db, TRUE, "find variant", 0, h) ;  
+  if (1)
+    iter = ac_query_iter (db, TRUE, "find variant", 0, h) ;  
   else
-    iter = ac_query_iter (db, TRUE, "find variant IntMap && ! observed_sequence", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "find variant IntMap && (IS \"NC_045512:26550:Del_21:gTTGAAGAGCTTAAAAAGCTCC:g\")", 0, h) ;
   while (ac_free (variant), ac_free (h1), vtxtClear (txt), variant = ac_iter_obj (iter))
     {
+      intMap = ac_tag_table (variant, "IntMap", h1) ;      
+      BOOL ok = FALSE ;
+      
+      memset (typBuf, 0, sizeof (typBuf)) ;
+      nnnn++ ;
+      if (0) fprintf (stderr, "---- %d\n", nnnn) ;
       if (ac_has_tag (variant, "Found_in_mRNA"))
-	map = ac_tag_table (variant, "mRNA", h1) ;
+	{
+	  map = ac_tag_table (variant, "mRNA", h1) ;
+	  if (intMap && ac_table_int (intMap, 0, 2, 1) == -1) 
+	    isDown = FALSE ;
+	}
       else
-	map = ac_tag_table (variant, "IntMap", h1) ;
+	map = intMap ;
       if (! map || map->cols < 3) 
 	continue ;
-
-      cdim = cdup = 0 ;
       chrom = ac_table_key (map, 0, 0, 0) ;
       if (chrom != oldChrom)
 	{
@@ -3890,12 +4085,12 @@ static int snpExtendGenomicSnpNet  (SNP *snp)
 	}
       if (! dna)
 	continue ;
-      
+      n =  strlen (dna) ;
       a0 = ac_table_int (map, 0, 1, 0) ;
       a11 = a0 - 20 ; if (a11 < 1) a11 = 1 ;
       if (a0 < 1)
 	continue ;
-      a22 = a0 + 21 ;
+      a22 = a0 + 1020 ;
       if (n < a22) a22 = n ;
       if (a22 <= a11)
 	continue ;
@@ -3903,84 +4098,223 @@ static int snpExtendGenomicSnpNet  (SNP *snp)
       strncpy (buf1, dna1, a0 - a11) ; dx1 = a0 - a11 ;
       strncpy (buf2, dna1, a0 - a11) ; dx2 = a0 - a11 ;
       
-      typ = ac_tag_printable (variant, "Typ", "toto") ;
-      if (typ[1] == '>' || typ[1] == '2')
+      ok = FALSE ;
+      typ = ac_tag_printable (variant, "Transition", 0) ;
+      if (! typ) typ = ac_tag_printable (variant, "Transversion", 0) ;
+      if (typ)
 	{
-	  buf1[a0 - a11] = ace_upper (typ[0]) ; dx1++ ;
-	  buf2[a0 - a11] = ace_upper (typ[2]) ; dx2++ ;
-	  memcpy (buf1 + dx1, dna1 + dx1, a22 - a11 - dx1) ;
-	  memcpy (buf2 + dx2, dna1 + dx1, a22 - a11 - dx2) ;
-	}
-      else if (!strncmp (typ, "Del", 3))
-	{
-	  int i, dx = strlen(typ) - 3 ;
-	  for (i = 0 ; i < dx ; i++, dx1++)
-	    buf1[dx1] = ace_upper (dna1[dx1]) ;
-	  memcpy (buf1 + dx1, dna1 + dx1, a22 - a11 - dx1) ;
-	  memcpy (buf2 + dx2, dna1 + dx1, a22 - a11 - dx2) ;
-	  if (dx == 1 && 
-	      (
-	       (dx1 > 0 && dna1[a0 - a11] == dna1[a0 - a11 - 1]) || 
-	       dna1[a0-a11] == dna1[a0 - a11 + 1]
-	       )
-	      )
-	    cdim = typ[3] ;
-	}
-      else if (!strncmp (typ, "Ins", 3))
-	{
-	  int i, dx = strlen(typ) - 3 ;
-	  for (i = 0 ; i < dx ; i++, dx2++)
-	    buf2[dx2] = ace_upper (typ[i + 3]) ;
-	  memcpy (buf1 + dx1, dna1 + dx1, a22 - a11 - dx1) ;
+	  ok = TRUE ;
+	  typBuf[0] = buf1[a0 - a11] = ace_upper (typ[0]) ; dx1++ ;
+	  typBuf[2] = buf2[a0 - a11] = ace_upper (typ[2]) ; dx2++ ;
+	  typBuf[1] = '2' ;
+	  typBuf[3] = 0 ;
+	  if (a22 > a11 + dx1 + 20) a22 = a11 + dx1 + 1 ;
+	  memcpy (buf1 + dx1, dna1 + dx1, a22 - a11 - dx1) ; 
 	  memcpy (buf2 + dx2, dna1 + dx1, a22 - a11 - dx2) ; 
-	  if (dx == 1 && 
-	      (
-	       ace_upper (buf2[a0 - a11]) == ace_upper (buf2[a0 - a11 + 1]) ||
-	       ace_upper (buf2[a0 - a11]) == ace_upper (buf2[a0 - a11 - 1])
-	       )
-	      )
-	    cdup = typ[3] ;
+	  dx1 += a22 - a11 - dx1 ; dx2 += a22 - a11 - dx2 ;
 	}
-      else
-	continue ;
-
-      buf1[a22 - a11 + 1] = buf2[a22 - a11 + 1] = 0 ;
-      /* danielle prefers upper case for conserved letters, we switch */
-      {
-	int pass ;
-	for (pass = 0 ; pass < 2 ; pass++)
-	  switchCase (pass ? buf1 : buf2) ;
-      }
-
-      isSliding = FALSE ;
-      if (typ[3])
+      if (! ok)
 	{
-	  const char *cp ; 
-	  if (typ[0] == 'I') cp = buf1 ; else cp = buf2 ;
-	  for ( ; *cp ; cp++)
-	    if (*cp == ace_lower (*cp))
-	      { isSliding = TRUE ; break ; }
-	}
+	  typ = ac_tag_printable (variant, "Multi_substitution", 0) ;
+	  if (typ)
+	    {
+	      AC_TABLE t1 = ac_tag_table (variant, "Multi_substitution", h1) ;
 
-      /* edit this variant */	   
-      if (debug)
-	{  
-	  fprintf(stderr, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-	  fprintf(stderr, "Reference_sequence  %s\n", buf1) ;
-	  fprintf(stderr, "Observed_sequence   %s\n", buf2) ;
-	  if (isSliding)
-	    vtxtPrintf(txt, "In_repeat\n") ;
-	  fprintf(stderr, "\n") ;
+	      ok = TRUE ;
+	      if (t1 && t1->cols >= 3 && ac_table_printable (t1,0,1,0) && ac_table_printable (t1,0,2,0))
+		{
+		  const  char *ccp ;
+		  int tbn = 0 ;
+		  ccp = ac_table_printable (t1,0,1,0)  ;
+		  n = strlen (ccp) ;
+		  if (n + dx1 > 500) n = 500 - dx1 ;
+		  if (n > 0)
+		    { memcpy (buf1 + dx1, ccp, n) ; dx1 += n ; memcpy (typBuf, ccp, n) ; tbn = n ; }
+		  typBuf[tbn++] = '2' ;
+		  ccp = ac_table_printable (t1,0,2,0)  ;
+		  n = strlen (ccp) ;
+		  if (n + dx2 > 1000) n = 100 - dx2 ;
+		  if (n > 0)
+		    { memcpy (buf2 + dx2, ccp, n) ;  dx2 += n ; memcpy (typBuf+tbn, ccp, n) ; tbn += n ; } 
+		  typBuf[tbn++] = 0 ;		 
+
+		  n = 20 ;
+		  if (a22 < a11 + dx1 + n) n = a22 - a11 - dx1 ;
+		  if (n>0)
+		    {
+		      memcpy (buf1 + dx1, dna1 + dx1, n) ; 
+		      memcpy (buf2 + dx2, dna1 + dx1, n) ; 
+		      dx1 += n ; dx2 += n ;
+		    }
+		}
+	    }
 	}
-      else
+      if (! ok)
+	{
+	  typ = ac_tag_printable (variant, "Single_deletion", 0) ;
+	  if (typ)
+	    {
+	      ok = TRUE ;
+	      int i, dx = 1 ;
+	      
+	      memcpy (buf1 + dx1, dna1 + dx1, 1) ;                  /* because the variant name reports a la VCF the base before the deletion */
+	      memcpy (buf2 + dx2, dna1 + dx1, 1) ; dx1++ ; dx2++ ;  /* because the variant name reports a la VCF the base before the deletion */
+
+	      strcpy (typBuf, "Del") ;
+	      for (i = 0 ; i < dx ; i++)
+		typBuf[3+i] = ace_upper (typ[i+3]) ;
+	      typBuf[3+i] = 0 ;
+	      for (i = 0 ; i < dx ; i++, dx1++)
+		buf1[dx1] = ace_upper (dna1[dx1]) ;
+	      n = 20 ;
+	      if (a22 < a11 + dx1 + n) n = a22 - a11 - dx1 ;
+	      if (n>0)
+		{
+		  memcpy (buf1 + dx1, dna1 + dx1, n) ;
+		  memcpy (buf2 + dx2, dna1 + dx1, n) ; 
+		  dx1 += n ; dx2 += n ;
+		}
+	    }
+	}
+      if (! ok)
+	{
+	  int dx = ac_tag_int (variant, "Multi_deletion", 0) ;
+	  if (dx && dx < 1000)
+	    {
+	      ok = TRUE ;
+	      int i ;
+	      
+	      memcpy (buf1 + dx1, dna1 + dx1, 1) ;                  /* because the variant name reports a la VCF the base before the deletion */
+	      memcpy (buf2 + dx2, dna1 + dx1, 1) ; dx1++ ; dx2++ ;  /* because the variant name reports a la VCF the base before the deletion */
+
+	      strcpy (typBuf, "Del") ;
+	      for (i = 0 ; i < dx ; i++, dx1++)
+		{
+		  buf1[dx1] = ace_upper (dna1[dx1]) ;
+		  typBuf[3+i] = buf1[dx1] ;
+		}
+	      typBuf[3+i] = 0 ;
+	      n = 20 ;
+	      if (a22 < a11 + dx1 + n) n = a22 - a11 - dx1 ;
+	      if (n>0)
+		{
+		  memcpy (buf1 + dx1, dna1 + dx1, n) ;
+		  memcpy (buf2 + dx2, dna1 + dx1, n) ; 
+		  dx1 += n ; dx2 += n ;
+		}
+	    }
+	}
+      if (! ok)
+	{
+	  typ = ac_tag_printable (variant, "Single_insertion", 0) ;
+	  if (typ)
+	    {
+	      int i, dx = 1 ;
+	      ok = TRUE ;
+	      
+	      memcpy (buf1 + dx1, dna1 + dx1, 1) ;                  /* because the variant name reports a la VCF the base before the deletion */
+	      memcpy (buf2 + dx2, dna1 + dx1, 1) ; dx1++ ; dx2++ ;  /* because the variant name reports a la VCF the base before the deletion */
+
+	      strcpy (typBuf, "Ins") ;
+	      for (i = 0 ; i < dx ; i++)
+		typBuf[3+i] = ace_upper (typ[i+3]) ;
+	      typBuf[3+i] = 0 ;
+	      for (i = 0 ; i < dx ; i++, dx2++)
+		buf2[dx2] = ace_upper (typ[i + 3]) ;
+	      n = 20 ;
+	      if (a22 < a11 + dx1 + n) n = a22 - a11 - dx1 ;
+	      if (n>0)
+		{
+		  memcpy (buf1 + dx1, dna1 + dx1, n) ;
+		  memcpy (buf2 + dx2, dna1 + dx1, n) ; 
+		  dx1 += n ; dx2 += n ;
+		}
+	    }
+	}
+      if (! ok)
+	{
+	  int dx = ac_tag_int (variant, "Multi_insertion", 0) ;
+	  if (dx)
+	    {
+	      AC_TABLE t1 = ac_tag_table (variant, "Multi_insertion", h1) ;
+	      if (t1 && t1->cols >= 2)
+		{
+		  const char *ccp = ac_table_printable (t1,0,1,0) ;
+
+		  memcpy (buf1 + dx1, dna1 + dx1, 1) ;                  /* because the variant name reports a la VCF the base before the deletion */
+		  memcpy (buf2 + dx2, dna1 + dx1, 1) ; dx1++ ; dx2++ ;  /* because the variant name reports a la VCF the base before the deletion */
+
+		  if (ccp)
+		    {
+		      if (dx <= strlen (ccp))
+			{
+			  dx = strlen (ccp) ; 
+			  if (dx > 1000 + dx2)
+			    dx = 1000 - dx2 ;
+			  if (dx > 0)
+			    {
+			      int i ;
+			      
+			      ok = TRUE ;
+			      strcpy (typBuf, "Ins") ;
+			      for (i = 0 ; i < dx ; i++)
+				typBuf[3+i] = ace_upper (ccp[i]) ;
+			      typBuf[3+i] = 0 ;
+			      for (i = 0 ; i < dx ; i++, dx2++)
+				buf2[dx2] = ace_upper (ccp[i]) ;
+			      n = 20 ;
+			      if (a22 < a11 + dx1 + n) n = a22 - a11 - dx1 ;
+			      if (n>0)
+				{
+				  memcpy (buf1 + dx1, dna1 + dx1, n) ;
+				  memcpy (buf2 + dx2, dna1 + dx1, n) ; 
+				  dx1 += n ; dx2 += n ;
+				}
+			    } 
+			}
+		    }
+		}
+	    }
+	}
+      if (! ok)
+	continue ;
+      buf1[dx1] = buf2[dx2] = 0 ;
+
+      /* edit this variant */	  
+      /* ATTENTION 2018_01_12 if we start from_mrna and we are on negative strand this is completely FAUX
+       * we need to complement everything, but how do we deal with introns ?
+       * also the vcfPos should be a genomic position, not a0 which is a mrna position
+       * we should start from a0 on the mrna, slide it on the mrna, then remap it to the genome
+       *
+       * if we start from the genome, we slide it and then remap it to the mrna
+       * but it may have jumped an intron
+       * in both cases, on the negative strand, we must slide in opposite directions on mrna and on genome
+       */ 
+      if (1)
 	{ 
+	  int vcfPos = intMap ? ac_table_int (intMap, 0, 1, 0) : 0 ;
+	  char vcfBuf[128] ;
+	  BOOL sliding = FALSE ;
+
 	  vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-	  vtxtPrintf(txt, "Reference_sequence  %s\n", buf1) ;
-	  vtxtPrintf(txt, "Observed_sequence   %s\n", buf2) ;
-	  if (cdim)  vtxtPrintf(txt, "Dim%c\n", cdim) ; 
-	  if (cdup)  vtxtPrintf(txt, "Dup%c\n", cdup) ;  
-	  if (isSliding)
-	    vtxtPrintf(txt, "In_repeat\n") ;
+	  vtxtPrintf(txt, "Reference_genomic_sequence  %s\n", buf1) ;
+	  vtxtPrintf(txt, "Observed__genomic_sequence   %s\n", buf2) ;
+	  vtxtPrintf(txt, "Typ %s\n", typBuf) ;
+	  
+	  sliding =  snpIsSliding (typBuf, buf1, buf2, FALSE, isDown, &vcfPos, vcfBuf) ;
+	  vtxtPrintf(txt, "VCF %d %s\n", vcfPos, vcfBuf) ;
+	  if (sliding)
+	    {
+	      vtxtPrintf(txt, "In_repeat\n") ;
+
+	      if (typBuf[4] && !strncmp (typBuf, "Del", 3))
+		vtxtPrintf(txt, "Dim%c\nIn_repeat\nDiminution\n", typBuf[3]) ;
+	      if (typBuf[4] && !strncmp (typBuf, "Ins", 3))
+		vtxtPrintf(txt, "Dup%c\nIn_repeat\nDuplication\n", typBuf[3]) ;
+	    }
+	  else
+	    vtxtPrintf(txt, "-D In_repeat\n") ;
+	  
 	  vtxtPrintf(txt, "\n") ;
 	  ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ;  
 	}
@@ -4044,7 +4378,7 @@ static int locateMet (const char *dna,  const char *translationTable, int pos1, 
   memcpy (arrp (dna2, 0, char), dna, n) ;
   dnaEncodeArray (dna2) ;
 
-  /* the new stop may me way outside the snippet, we must translate the whole mrna */
+  /* the new stop may be way outside the snippet, we must translate the whole mrna */
   *dMetp = *cc99p = 0 ;  /* stop not found */
   if (isDown) { i = pos1 - 1 + 6 ; j = 2 ; }
   else { i = pos1 - 3 ; j = -1 ; }
@@ -4059,12 +4393,122 @@ static int locateMet (const char *dna,  const char *translationTable, int pos1, 
 } /* locateMet */
 
 /***************/
+/* look for snp in geneBox but not in transcript */
+static int snpPotential_splice_disruption (SNP *snp)
+{
+  AC_HANDLE  h1 = 0, h2 = 0, h = ac_new_handle () ;
+  AC_DB db = snp->db ;
+  AC_ITER iter ;
+  AC_OBJ variant = 0 ;
+  AC_TABLE spl, iMap, viMap = 0 ;
+  vTXT txt = vtxtHandleCreate (h) ;
+  const char *errors = 0 ;
+  int nn = 0, vPos ;
+
+  iter = ac_query_iter (db, TRUE, "find variant geneBox && !mRNA", 0, h) ;
+		
+  while (ac_free (variant), ac_free (h1), vtxtClear (txt), variant = ac_iter_obj (iter))
+    {
+      AC_OBJ mrna = 0 ;
+      BOOL done = FALSE ;
+      AC_ITER iter2 = ac_objquery_iter (variant, ">geneBox ; >mrna COUNT Splicing > 2", h1) ;
+      
+      h1 = ac_new_handle () ; 
+      viMap = ac_tag_table (variant, "IntMap", h1) ;
+      vPos =  viMap ? ac_table_int (viMap, 0,1,0) : 0 ;
+      
+      
+      while (ac_free (mrna), ac_free (h2), (! done) && (mrna = ac_iter_obj (iter2)))
+	{
+	  int jr, g1, g2, gPos ;
+	  h2 = ac_new_handle () ; 
+	  
+	  spl = ac_tag_table (mrna, "Splicing", h2) ;
+	  iMap = ac_tag_table (mrna, "IntMap", h2) ;
+	  g1 = iMap ? ac_table_int (iMap, 0, 1, 0) : 0 ;
+	  g2 = iMap ? ac_table_int (iMap, 0, 2, 0) : 0 ;
+	  
+	  if (g1 < g2) gPos = vPos - g1 + 1 ;
+	  else  gPos = g1 - vPos + 1 ;
+	  
+	  for (jr = 1 ; g2 && jr < spl->rows - 1 ; jr++)
+	    {
+	      int a1 = ac_table_int (spl, jr, 0, 0) ;
+	      int a2 = ac_table_int (spl, jr, 1, 0) ;
+	      int y1 = ac_table_int (spl, jr, 2, 0) ;
+	      int y2 = ac_table_int (spl, jr, 3, 0) ;
+	      int da ;
+	      
+	      if (! strcasestr (ac_table_printable (spl, jr, 4, "toto"), "intron"))
+		continue ;
+	      da = gPos - a1 + 1 ; /* a1 is first base of intron */
+	      if (da <= 0) da-- ; /* Plato */
+	      switch (da)
+		{
+		case -16:
+		case -1:
+		case 1:
+		case 2:
+		case 3:
+		case 5:
+		  done = TRUE ;
+		  nn++ ;
+		  vtxtPrintf(txt, "Variant %s\nNear_donor %d\n\n"
+			     , ac_protect (ac_name (variant), h2)
+			     , da 
+			     , ac_protect (ac_name (mrna), h2)
+			     , a1 - 1, y1 /* last base of donor exon */
+			     ) ;
+		  break ;
+		}
+	      
+	      da = gPos - a2  ; /* a2 is last base of intron */
+	      if (da <= 0) da-- ; /* Plato */
+	      switch (da)
+		{
+		case -2:
+		case -1:
+		  done = TRUE ;
+		  nn++ ;
+		  vtxtPrintf(txt, "Variant %s\nNear_acceptor %d %s %d %d\n\n"
+			     , ac_protect (ac_name (variant), h2)
+			     , da
+			     , ac_protect (ac_name (mrna), h2)
+			     , a2 + 1, y2 /* first base of acceptor exon */
+			     ) ;
+		  break ;
+		}		      
+	    }
+	}
+      /* edit this variant */
+      vtxtPrintf (txt, "\n") ;
+      ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ; 
+      if (errors && *errors)
+	messerror (errors) ;
+    }
+
+  
+  ac_free (h) ;
+  return nn ;
+} /* snpPotential_splice_disruption */
+
+/***************/
 static int snpTranslate  (SNP *snp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
   int nn = 0, nnnn = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
+  vTXT gTxt = vtxtHandleCreate (h) ;
+  vTXT cTxt = vtxtHandleCreate (h) ;
+  vTXT pTxt = vtxtHandleCreate (h) ;
   vTXT qq = vtxtHandleCreate (h) ;
+   vTXT geneboxes = vtxtHandleCreate (h) ;
+  vTXT avgeneboxes = vtxtHandleCreate (h) ;
+  vTXT location = vtxtHandleCreate (h) ;
+  vTXT gsnippet = vtxtHandleCreate (h) ;
+  vTXT snippet = vtxtHandleCreate (h) ;
+  vTXT pSnippet = vtxtHandleCreate (h) ; 
+  vTXT pType = vtxtHandleCreate (h) ;
   AC_DB db = snp->db ;
   AC_ITER iter ;
   AC_TABLE mrnas ;
@@ -4072,6 +4516,7 @@ static int snpTranslate  (SNP *snp)
   const char *errors = 0 ;
   int ir ;
   BOOL debug = FALSE ;
+  SNP* snp0 = snp ;
 
   /*
     char *best = "where exists_tag p->best_product or exists_tag p->very_good_product" ;
@@ -4084,18 +4529,22 @@ static int snpTranslate  (SNP *snp)
   */
 
   if (1)
-    iter = ac_query_iter (db, TRUE, "find variant mRNA && IS * && (coding || ! translation) ", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "find variant mRNA && IS *  ", 0, h) ;
   else
-    iter = ac_query_iter (db, TRUE, "find variant IS \"FBtr0070130:1946:A2C\" ", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "find variant IS \"RPL6.aAug10:831:A2G\" ", 0, h) ;
 
   while (ac_free (variant), ac_free (h1), vtxtClear (txt), variant = ac_iter_obj (iter))
     {
+      BOOL is_Potential_splice_disruption = FALSE ;
+
+      if (snp != snp0)
+	invokeDebugger () ;
       nnnn++ ;
       if (debug && nnnn > 20)
 	break ;
       h1 = ac_new_handle () ; 
       /* try to remap the variant in the mrna */
-      vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
+      vtxtPrintf (txt, "Variant %s\n-D Potential_splice_disruption\n", ac_protect (ac_name (variant), h1)) ;
       vtxtPrintf (txt, "Non_coding_transcript\n") ; /* default, will possible be overwritten since the schema is UNIQUE Coding/non_coding */
  
       /* export the nature of the Variant in more polite form + translation of proteins */
@@ -4185,9 +4634,28 @@ static int snpTranslate  (SNP *snp)
 		  " Text\n"
 		  " From 1\n"
 		  " Tag Typ\n"
+		  " \n"
+		  " Colonne 10\n"
+		  " Subtitle Column #10\n"
+		  " Width 12\n"
+		  " Optional\n"
+		  " Visible\n"
+		  " Class\n"
+		  " Class Map\n"
+		  " From 1\n"
+		  " Tag IntMap\n"
+		  " \n"
+		  " Colonne 11\n"
+		  " Subtitle Column #11\n"
+		  " Width 12\n"
+		  " Optional\n"
+		  " Visible\n"
+		  " Integer\n"
+		  " Right_of 10\n"
+		  " Tag  HERE \n"
 		  ,  ac_name(variant)
 		  ) ; 
-		  mrnas = ac_tablemaker_table (db, vtxtPtr (qq), 0, ac_tablemaker_text , 0 , 0, &errors, h) ;
+      mrnas = ac_tablemaker_table (db, vtxtPtr (qq), 0, ac_tablemaker_text , 0 , 0, &errors, h) ;
 
 
       if (! mrnas || ! mrnas->rows)
@@ -4251,6 +4719,26 @@ static int snpTranslate  (SNP *snp)
 		  " Text\n"
 		  " From 1\n"
 		  " Tag Typ\n"
+		  " \n"
+		  " Colonne 7\n"
+		  " Subtitle Column #7\n"
+		  " Width 12\n"
+		  " Optional\n"
+		  " Visible\n"
+		  " Class\n"
+		  " Class Map\n"
+		  " From 1\n"
+		  " Tag IntMap\n"
+		  "\n"
+		  " Colonne 8\n"
+		  " Subtitle Column #8\n"
+		  " Width 12\n"
+		  " Optional\n"
+		  " Visible\n"
+		  " Integer\n"
+		  " Right_of 7\n"
+		  " Tag  HERE \n"
+		  "\n"
 		  ,  ac_name(variant)
 		  ) ; 
 
@@ -4288,19 +4776,80 @@ static int snpTranslate  (SNP *snp)
 		if (ac_table_key (mrnas, ir, 1, 0))
 		  { hasCDS = 1 ; break ; }
 	      } 
+	  /* name the gene  and locate a Potential_splice_disruption */
 	  if (mrnas && ir < mrnas->rows)
 	    {
-	      AC_OBJ m = ac_table_obj (mrnas, ir, 1, 0) ;
-	      const char *ccp = m ? ac_tag_printable (m, "Gene", 0) : 0 ;
+	      AC_OBJ mrna = ac_table_obj (mrnas, ir, 1, 0) ;
+	      const char *ccp = mrna ? ac_tag_printable (mrna, "Gene", 0) : 0 ;
 	      if (ccp)
 		vtxtPrintf (txt, "Gene \"%s\"\n", ccp) ;
-	      ac_free (m) ;	      
+	      if (! is_Potential_splice_disruption)
+		{
+		  int jr ;
+		  AC_TABLE spl = ac_tag_table (mrna, "Splicing", h1) ;
+		  AC_TABLE iMap = ac_tag_table (mrna, "IntMap", h1) ;
+		  int g1 = iMap ? ac_table_int (iMap, 0, 1, 0) : 0 ;
+		  int g2 = iMap ? ac_table_int (iMap, 0, 2, 0) : 0 ;
+		  int gPos =  ac_table_int (mrnas, ir, mrnas->cols > 10 ? 10 : 8, 0) ;
+		  
+		  if (spl && gPos)
+		    {
+		      if (g1 < g2) gPos = gPos - g1 + 1 ;
+		      else  gPos = g1 - gPos + 1 ;
+		      
+		      for (jr = 1 ; g2 && jr < spl->rows - 1 ; jr++)
+			{
+			  int a1 = ac_table_int (spl, jr, 0, 0) ;
+			  int a2 = ac_table_int (spl, jr, 1, 0) ;
+			  int y1 = ac_table_int (spl, jr, 2, 0) ;
+			  int y2 = ac_table_int (spl, jr, 3, 0) ;
+			  int da ;
+			  
+			  if (! strcasestr (ac_table_printable (spl, jr, 4, "toto"), "intron"))
+			    continue ;
+			  da = gPos - a1 + 1 ; /* a1 is first base of intron */
+			  if (da <= 0) da-- ; /* Plato */
+			  switch (da)
+			    {
+			    case -16:
+			    case -1:
+			    case 1:
+			    case 2:
+			    case 3:
+			    case 5:
+			      vtxtPrintf(txt, "Near_donor %d %s %d %d\n"
+					 , da
+					 , ac_protect (ac_name (mrna), h1)
+					 , a1 - 1, y1 /* last base of donor exon */
+					 ) ;
+			      break ;
+			    }
+			  
+			  da = gPos - a2  ; /* a2 is last base of intron */
+			  if (da <= 0) da-- ; /* Plato */
+			  switch (da)
+			    {
+			    case -2:
+			    case -1:
+			      vtxtPrintf(txt, "Near_acceptor %d\n"
+					 , da
+					 , ac_protect (ac_name (mrna), h1)
+					 , a2 + 1, y2 /* first base of acceptor exon */
+					 ) ;
+			      break ;
+			    }		      
+			}
+		      
+		      is_Potential_splice_disruption = TRUE ;
+		    }
+		}
+	      ac_free (mrna) ;	      
 	    }
 	  if (hasCDS) /* export a dna/peptide motif of a few letters */
 	    {
 	      int pos, u1, u2, delta1, delta2, i, j, ln ;
 	      const char *dna, *cd1, *cd2 = 0, *cd22 = 0 ;
-	      char cc, *cd3 ;
+	      char cc, *cd3, *buf ;
 	      char buf1[1024], buf2[1024] ;
 	      char tbuf1[1024], tbuf2[1024] ;
 	      
@@ -4309,7 +4858,7 @@ static int snpTranslate  (SNP *snp)
 	      strand = ac_table_int (mrnas, ir, 3, 1) ;
 	      Mrna = ac_table_obj (mrnas, ir, 1, h1) ;
 	      dna = ac_obj_dna (Mrna, h1) ;
-	      typ = ac_table_printable (mrnas, ir, mrnas->cols > 8 ? 8 : 5 , "xxx") ;
+	      typ = ac_table_printable (mrnas, ir, mrnas->cols > 10 ? 8 : 5 , "xxx") ;
 	      x1 = ac_table_int (mrnas, ir, 5, 0) ;
 	      x2 = ac_table_int (mrnas, ir, 6, 0) ;
 
@@ -4320,7 +4869,7 @@ static int snpTranslate  (SNP *snp)
 
 		  /* shift left on homopolymer */
 		  for (u1 = pos - 1, cd1 = dna + u1 - 1, k = k0 - 1 ; u1 > 1 && ace_lower(typ[3+k]) == *cd1 ; u1--, cd1--, k = (k0 + k - 1) % k0) ;  
-		  if (u1 > 1 && u1 < pos) { u1++ ; cd1++ ;}
+		  if (u1 >= 1 && u1 < pos) { u1++ ; cd1++ ;}
 		  /* shift right on homopolymer
 		  for (u2 = pos+1, cd2 = dna + u2 - 1, k = 0 ; ace_lower(typ[3+k]) == *cd2 ; u2++, cd2++, k = (k0 + k - 1) % k0) ; 
 		  u2-- ; cd2-- ;
@@ -4349,7 +4898,7 @@ static int snpTranslate  (SNP *snp)
 	      if ( strncasecmp (typ, "Ins", 3))
 		for ( ; i <= u2 ; j++, i++, cd1++, cd3++)
 		  *cd3 = ace_upper(*cd1) ;
-	      /* in case of multi deletion, write in captital letters */
+	      /* in case of multi deletion, write in capital letters */
 	      if (! strncasecmp (typ, "del", 3))
 		{
 		  int k ;
@@ -4386,6 +4935,7 @@ static int snpTranslate  (SNP *snp)
 		}
 	      else if (! strncasecmp (typ, "Ins", 3)) /* insert the insertion */
 		{ 
+		  if (snp->db_VCF) *cd3++ = ace_upper(*cd1++) ; /* because the variant name reports a la VCF the base before the insertion */
 		  if (strand > 0)
 		    {
 		      for (cd2 = typ+3; *cd2 ; cd2++, cd3++, j++) 
@@ -4420,6 +4970,7 @@ static int snpTranslate  (SNP *snp)
 		}
 	      else if (! strncasecmp (typ, "del", 3)) /* delete the deletion */
 		{ 
+		  if (snp->db_VCF) *cd3++ = *cd1++ ; /* because the variant name reports a la VCF the base before the deletion */
 		  cd3-- ; cd1-- ; 
 		  for (cd2 = typ+3; *cd2 ; cd2++) 
 		    { 
@@ -4427,6 +4978,26 @@ static int snpTranslate  (SNP *snp)
 		      if (isFrameshift == 0 && cd1[0] == cd1[-1] && typ[4] == 0)
 			vtxtPrintf (txt, "Dim%c\n", ace_upper(typ[3])) ;
 		      cd1++ ; isFrameshift-- ; 
+		    }
+		}
+	      else if (strchr (typ, '2')) /* multi_substitution */
+		{
+		  char *buf = strnew (typ, h1) ;
+		  char *cp = strstr (buf, "2") ;
+		  
+		  *cp++ = 0 ;
+		  if (strand == 1)
+		    {
+		      cd3-- ;
+		      while (*cp)
+			*cd3++ = ace_upper (*cp++) ;
+		    }
+		  else
+		    {
+		      char *cq = cp + strlen (cp) - 1 ;
+		      cd3-- ;
+		      while (cq >= cp)
+			*cd3++ = ace_upper (dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)(*cq--)]]])   ;
 		    }
 		}
 	      
@@ -4439,25 +5010,12 @@ static int snpTranslate  (SNP *snp)
 	      if (0 && isFrameshift < 0)
 		{ i = - isFrameshift / 3 ; *(cd3 - 3*i) = 0 ; }
 
-	      /* danielle prefers uop case for conserved letters, we switch */
-	      switchCase (buf1) ;
-	      switchCase (buf2) ;
-
+	      /* adjust upper/lower */
+	      buf = strnew (typ, h1) ;
+	      snpIsSliding (buf, buf1, buf2, TRUE, TRUE, 0, 0) ;
 	      /* export the buffer */
 	      vtxtPrintf(txt, "Reference_sequence  %s\n", buf1) ;
-	      vtxtPrintf(txt, "Observed_sequence   %s\n", buf2) ;
-
-	      if (typ[3])
-		{
-		  BOOL isSliding = FALSE ;
-		  const char *cp ;
-		  if (typ[0] == 'I') cp = buf1 ; else cp = buf2 ;
-		  for ( ; *cp ; cp++)
-		    if (*cp == ace_lower (*cp))
-		      { isSliding = TRUE ; break ; }
-		  if (isSliding)
-		    vtxtPrintf(txt, "In_repeat\n") ;
-		}
+	      vtxtPrintf(txt, "Observed__sequence   %s\n", buf2) ;
 
 	      /* translate */
 	      /* see www.hgvs.org den Dunnen and Antonarakis nov 15, 2014  HGV human genone variations */
@@ -4627,67 +5185,78 @@ static int snpTranslate  (SNP *snp)
 			{
 			  if (isFrameshift == 0)
 			    vtxtPrint (txt, "Stop_to_AA") ;
-			  else if (isFrameshift % 3)
-			    vtxtPrint (txt, "Frameshift") ;
-			  else
+			  else if (isFrameshift % 3 == 0)
 			    vtxtPrint (txt, "Frame_preserving_indel ") ; 
-			  if (pepShortName[(int)cc21])
+			  else 
 			    {
-			      vtxtPrintf (txt, " Ter%dext%s"
-					  , ppos
-					  , pepShortName[(int)cc21]
-					  ) ;
-			      if (stop2 >= 0)
-				vtxtPrintf (txt, "Ter%d", stop2) ;
-			      else
-				vtxtPrint (txt, "Ter") ; 
+			      vtxtPrint (txt, "Frameshift") ;
+			      if (pepShortName[(int)cc21])
+				{
+				  vtxtPrintf (txt, " Ter%dext%s"
+					      , ppos
+					      , pepShortName[(int)cc21]
+					      ) ;
+				  if (stop2 >= 0)
+				    vtxtPrintf (txt, "Ter%d", stop2) ;
+				  else
+				    vtxtPrint (txt, "Ter") ; 
+				}
 			    }
 			}
 		      else if (cc11 == cc21 && cc12 == 'X')
 			{
 			  if (isFrameshift == 0)
 			    vtxtPrint (txt, "Stop_to_AA") ;
-			  else if (isFrameshift % 3)
-			    vtxtPrint (txt, "Frameshift") ;
-			  else
+			  else if (isFrameshift % 3 == 0)
 			    vtxtPrint (txt, "Frame_preserving_indel ") ; 
-			  vtxtPrintf (txt, " Ter%dext%s"
-				      , 1 + ppos
-				      , pepShortName[(int)cc22]
-				      ) ;
-			  if (stop2 >= 0)
-			    vtxtPrintf (txt, "Ter%d", stop2) ;
-			  else
-			    vtxtPrint (txt, "Ter") ; 
+			  else 
+			    {
+			      vtxtPrint (txt, "Frameshift") ;
+			      if(cc22)
+				{
+				  vtxtPrintf (txt, " Ter%dext%s"
+					      , 1 + ppos
+					      , pepShortName[(int)cc22]
+					      ) ;
+				  if (stop2 >= 0)
+				    vtxtPrintf (txt, "Ter%d", stop2) ;
+				  else
+				    vtxtPrint (txt, "Ter") ; 
+				}
+			    }
 			}
 		      else if (cc21 == 'X')
 			{
 			  if (isFrameshift == 0)
 			    vtxtPrint (txt, "AA_to_stop") ;
-			  else if (isFrameshift % 3)
-			    vtxtPrint (txt, "Frameshift") ;
-			  else
+			  else if (isFrameshift % 3 == 0)
 			    vtxtPrint (txt, "Frame_preserving_indel ") ; 
-			  vtxtPrintf (txt, " %s%dTer"
-				      , pepShortName[(int)cc11]
-				      , ppos
-				      ) ;
+			  else 
+			    {
+			      vtxtPrint (txt, "Frameshift") ;
+			      vtxtPrintf (txt, " %s%dTer"
+					  , pepShortName[(int)cc11]
+					  , ppos
+					  ) ;
+			    }
 			}
 		      else if (cc11 == cc21 && cc22 == 'X')
 			{
 			  if (isFrameshift == 0)
 			    vtxtPrint (txt, "AA_to_stop") ;
-			  else if (isFrameshift % 3)
-			    vtxtPrint (txt, "Frameshift") ;
-			  else
+			  else if (isFrameshift % 3 == 0)
 			    vtxtPrint (txt, "Frame_preserving_indel ") ; 
-			  vtxtPrintf (txt, " %s%dTer"
-				      , pepShortName[(int)cc12]
-				      , 1 + ppos
-				      ) ;
+			  else 
+			    {
+			      vtxtPrint (txt, "Frameshift") ;
+			      vtxtPrintf (txt, " %s%dTer"
+					  , pepShortName[(int)cc12]
+					  , 1 + ppos
+					  ) ;
+			    }
 			}
 		      else if (isFrameshift == 0) /* but we already know that 2 bases are affected */
-			vtxtPrintf (txt, " %s%d_%s%ddelins%s"
+			vtxtPrintf (txt, "AA_substitution %s%d_%s%ddelins%s"
 				    , pepShortName[(int)cc11], ppos 
 				    , pepShortName[(int)cc12], ppos + 1
 				    , cc21 ?  pepShortName[(int)cc21] : ""
@@ -4742,19 +5311,19 @@ static int snpTranslate  (SNP *snp)
 					) ;
 			}
 		      else if (cc11 == cc21)
-			vtxtPrintf (txt, " %s%dins%s"
+			vtxtPrintf (txt, "AA_substitution  %s%dins%s"
 				    , pepShortName[(int)cc11], ppos
 				    , cc22 ? pepShortName[(int)cc22] : "" 
 				    ) ;
 		      else
-			vtxtPrintf (txt, " %s%ddelins%s%s"
+			vtxtPrintf (txt, "AA_substitution  %s%ddelins%s%s"
 				    , cc11 ? pepShortName[(int)cc11] : "?"
 				    , ppos
 				    , cc21 ? pepShortName[(int)cc21] : "?"
 				    , cc22 ? pepShortName[(int)cc22] : "?" 
 				    ) ;
 			}	
-		      else if (isFrameshift) 
+		      else if (isFrameshift % 3) 
 			{	 
 			  if (cc11 == cc21)
 			    {
@@ -4783,40 +5352,35 @@ static int snpTranslate  (SNP *snp)
 		    messcrash ("bizare") ;
 
 		  /* set non-common letters of the protein in lower case */
+		  /* set all etters to upper */
 		  cp1 = tbuf1 ; cp2 = tbuf2 ;
-		  while (*cp1 && *cp1 == *cp2) { cp1++ ; cp2++ ; } /* keep common fist char upper */
-		  if (*cp1) { while (*cp1) { *cp1 = ace_lower (*cp1) ; cp1++ ; }}  /* lower the rest */
+		  for (cp1 = tbuf1 ; *cp1 ; cp1++) *cp1 = ace_upper (*cp1) ;
+		  for (cp2 = tbuf2 ; *cp2 ; cp2++) *cp2 = ace_upper (*cp2) ;
+		  /* keep common fist letters upper */
+		  cp1 = tbuf1 ; cp2 = tbuf2 ;
+		  while (*cp1 && *cp1 == *cp2) { cp1++ ; cp2++ ; } 
+		   /* lower the rest */
+		  if (*cp1) { while (*cp1) { *cp1 = ace_lower (*cp1) ; cp1++ ; }} 
 		  if (*cp2) { while (*cp2) { *cp2 = ace_lower (*cp2) ; cp2++ ; }}
-		  if (isFrameshift == -3 && strlen(tbuf1) == strlen(tbuf2)) { cp2-- ; *cp2 = ace_upper (*cp2) ; }
-		  if (isFrameshift == +3 && strlen(tbuf1) == strlen(tbuf2)) { cp1-- ; *cp1 = ace_upper (*cp1) ; }
-		  if (isFrameshift %3 == 0)
-		    while (--cp1 >= tbuf1 && --cp2 >= tbuf2 && *cp1 == *cp2)  /* re-upper common terminal letters */
-		      { *cp1 = ace_upper (*cp1) ;  *cp2 = ace_upper (*cp2) ; }
-		  /* re lower the sliding letters ? */
+		  /* re-upper common terminal letters */
+		  while (--cp1 >= tbuf1 && --cp2 >= tbuf2 && *cp1 == *cp2) 
+		    { *cp1 = ace_upper (*cp1) ;  *cp2 = ace_upper (*cp2) ; }
 
-		  vtxtPrintf(txt, "Reference_sequence  %s %s %s %s %d\n"
-			     , buf1, tbuf1
-			     , ac_table_printable (mrnas, iMrnaWithCDS, 1, " ") 
-			     , ac_table_printable (mrnas, iMrnaWithCDS, 4, " ") 
-			     , 1 + (pos - x1) / 3
-			     ) ;
-		  vtxtPrintf(txt, "Observed_sequence   %s %s%s %s %s %d\n"
-			     , buf2, tbuf2
-			     , 0 && ((999999 + isFrameshift) % 3) ? "fs" : "" /* we no longer add fs, since we now put the peptide in lower case */
-			     , ac_table_printable (mrnas, iMrnaWithCDS, 1, " ") 
-			     , ac_table_printable (mrnas, iMrnaWithCDS, 4, " ") 
-			     , 1 + (pos - x1) / 3
-			     ) ;
-		  if (typ[3])
+		  if (0)
 		    {
-		      BOOL isSliding = FALSE ;
-		      const char *cp ;
-		      if (typ[0] == 'I') cp = buf1 ; else cp = buf2 ;
-		      for ( ; *cp ; cp++)
-			if (*cp == ace_lower (*cp))
-			  { isSliding = TRUE ; break ; }
-		      if (isSliding)
-			vtxtPrintf(txt, "In_repeat\n") ;
+		      vtxtPrintf(txt, "Reference_sequence  %s %s %s %s %d\n"
+				 , buf1, tbuf1
+				 , ac_table_printable (mrnas, iMrnaWithCDS, 1, " ") 
+				 , ac_table_printable (mrnas, iMrnaWithCDS, 4, " ") 
+				 , 1 + (pos - x1) / 3
+				 ) ;
+		      vtxtPrintf(txt, "Observed__sequence   %s %s%s %s %s %d\n"
+				 , buf2, tbuf2
+				 , 0 && ((999999 + isFrameshift) % 3) ? "fs" : "" /* we no longer add fs, since we now put the peptide in lower case */
+				 , ac_table_printable (mrnas, iMrnaWithCDS, 1, " ") 
+				 , ac_table_printable (mrnas, iMrnaWithCDS, 4, " ") 
+				 , 1 + (pos - x1) / 3
+				 ) ;
 		    }
 		}
 	    }
@@ -4828,10 +5392,38 @@ static int snpTranslate  (SNP *snp)
       if (errors && *errors)
 	messerror (errors) ;
       vtxtClear (txt) ;
+      if (1)
+	{
+	  int gMap = 0, gPos = 0 ;
+	  const char *ccp ;
+	  char gType[64], cType[64] ;
+	  vtxtClear (gTxt) ;
+	  vtxtClear (cTxt) ;
+	  vtxtClear (pTxt) ;
+	  vtxtClear (geneboxes) ;
+	  vtxtClear (avgeneboxes) ;
+	  vtxtClear (gsnippet) ;
+	  vtxtClear (snippet) ;
+	  vtxtClear (pSnippet) ;
+	  vtxtClear (pType) ;
+	  gType[0] = 0 ;
+	  cType[0] = 0 ;
+	  
+	  ccp = ac_tag_printable (variant, "Typ", 0) ;
+	  if (ccp && strlen (ccp) < 64)
+	    {
+	      strcpy (gType, ccp) ;
+	      snpPrettyNames (snp, variant, gTxt, cTxt, pTxt, &gMap, &gPos, gType, cType, pType, location, geneboxes, avgeneboxes, gsnippet, snippet, pSnippet) ;
+	    }
+	}
     }
+  if (snp != snp0)
+    invokeDebugger () ;
 
   ac_free (h1) ;
   ac_free (h) ;
+  snpPotential_splice_disruption (snp) ;
+
   return nn ;
 } /* snpTranslate */
 /*
@@ -4839,8 +5431,9 @@ static int snpTranslate  (SNP *snp)
    c.76A>T   coding dna     utr:-300 -1 exon 1 1000  there is no base zero exclu les exons on inclu le promoteur au dela du CAP
                              on arrete au stop ensuite on compte *1 *2 *1000 
    c.76A>T   genomic
-   m.8276A>T genomit
-   r.345a>u  RNA
+   m.8276A>T mito
+   r.345a>u  RNA (including the 5' UTR
+   c.34a>u   CDS (1 is the A of the ATG-Met)
    p.Lys76Asn
    76_78delATC
    on pousse en 3' dans le sens du gene
@@ -5406,37 +5999,80 @@ static int snpExportEditedSequence (SNP *snp)
 /*************************************************************************************/
 /*************************************************************************************/
 
-typedef struct aesStruct { int target, a1, da, m, mm, mp, w, wm, wp, other, otherp, otherm, oo1m, oo1p, oo2m, oo2p, snipnet1, snipnet2 ; char mb, mb2, mb3, wb, wb2, wb3, type[8] ; } AES ;
+typedef struct aesStruct { int snp, target, aceNam, vcfNam, a1, da, m, mm, mp, w, wm, wp, other, otherp, otherm, oo1m, oo1p, oo2m, oo2p, snipnet1, snipnet2 ; char mb, mb2, mb3, wb, wb2, wb3, type[8] ; int phasingScore[8], phase ; } AES ;
 
+
+
+static int aesOrder (const void *va, const void *vb)
+{
+  const AES *a = (const AES *)va, *b = (const AES *)vb ;
+  int n ;
+
+  n = a->target - b->target ; if (n) return n ;
+  n = a->a1 - b->a1 ; if (n) return n ;
+  n = a->snp - b->snp ; if (n) return n ;
+
+  return 0 ;
+} /* aesOrder */
+
+/*************************************************************************************/
 /* parse a snp table exported previously by detect or count */
-static int snpAliExtendParseSnpList (SNP *snp)
+static int snpAliExtendParseSnpList (SNP *snp, Array raw)
 {
   AC_HANDLE h = ac_new_handle () ;
   Array aa = arrayHandleCreate (100000, AES, snp->h) ;
-  int nn = 0, target, a1 ;
+  int nn = 0, target, s, a1, aceNam = 0, vcfNam = 0 ;
   ACEIN ai ;
   AES *aes ;
   char *cp ;
   DICT *targetDict = snp->targetDict  ;
-  
+  DICT *snpDict = snp->snpDict  ;
+  DICT *snpNamDict = snp->snpNamDict ;
+  char buf[1000] ;
   ai = aceInCreate (snp->snpListFileName, 0, h) ;
   if (! ai)
     messcrash ("Cannot open file -snp_list %s",  snp->snpListFileName) ;
   
+  if (!snpDict)
+    snpDict = snp->snpDict = dictHandleCreate (100000, snp->h) ;
+ if (!snpNamDict)
+    snpNamDict = snp->snpNamDict = dictHandleCreate (100000, snp->h) ;
+
+
   snp->aliSnps = aa ;
   while (aceInCard (ai))
     {
       cp = aceInWord (ai) ;
+      if (cp && *cp == '#')
+	continue ;
+      if (!cp)
+	{ aceInStep(ai, '\t') ; cp = aceInWord (ai) ; }
       if (!cp || *cp == '#')
 	continue ;
-      if (! dictFind (targetDict, cp, &target))
-	continue ; /* only use the targets for which we have a fasta file */
+    if (0 && ! dictFind (targetDict, cp, &target))
+	{
+	  if (snp->phasing)
+	    {  /* optionally skip the snp number in the RESULT file */
+	       aceInStep(ai, '\t') ;
+	       cp = aceInWord (ai) ;
+	       if (!cp || ! dictFind (targetDict, cp, &target))
+		 continue ;
+	    }
+	  else
+	    continue ; /* only use the targets for which we have a fasta file */
+	}
       dictAdd (targetDict, cp, &target) ; 
       aceInStep(ai, '\t') ;
       if (!aceInInt(ai, &a1))
 	continue ;
       aceInStep(ai, '\t') ;
       cp = aceInWord (ai) ;
+      if (!strcmp (cp, "+") || !strcmp (cp, "-")) /* jump the optional strand column */
+	{
+	  aceInStep(ai, '\t') ;
+	  cp = aceInWord (ai) ;
+   	}
+
       aes = arrayp (aa, nn++, AES) ;
       aes->target = target ;
       aes->a1 = a1 ;
@@ -5444,40 +6080,85 @@ static int snpAliExtendParseSnpList (SNP *snp)
 	{
 	  aes->wb = dnaEncodeChar [(int)cp[0]] ;
 	  aes->mb = dnaEncodeChar [(int)cp[2]] ;
-	  strncpy (aes->type, cp, 7) ;
+	  aes->type[0] = dnaDecodeChar [(int)aes->wb] ;
+	  aes->type[1] = '>' ;
+	  aes->type[2] = dnaDecodeChar [(int)aes->mb] ;
+	  aes->type[3] = 0 ;
 	  aes->da = 0 ;
 	}
       else if (! strncasecmp (cp, "Del", 3))
 	{
-	  aes->wb = dnaEncodeChar [(int)cp[3]] ;
+	  aes->type[0] = '-' ;
 	  aes->mb = 0 ;
+	  aes->wb = dnaEncodeChar [(int)cp[3]] ;
+	  aes->type[1] = dnaDecodeChar [(int)aes->wb] ;
 	  aes->da = - (strlen(cp) - 3) ;  /* deletion */
-	  if (aes->da < -1) aes->wb2 = dnaEncodeChar [(int)cp[4]] ;
-	  if (aes->da < -2) aes->wb3 = dnaEncodeChar [(int)cp[5]] ;
-	  strncpy (aes->type, cp, 7) ;
+	  if (aes->da < -1)
+	    {
+	      aes->wb2 = dnaEncodeChar [(int)cp[4]] ;
+	      aes->type[2] = dnaDecodeChar [(int)aes->wb2] ;
+	    }
+	  if (aes->da < -2)
+	    {
+	      aes->wb3 = dnaEncodeChar [(int)cp[5]] ;
+	      aes->type[3] = dnaDecodeChar [(int)aes->wb3] ;
+	    }
+	  aes->type[1 - aes->da]  = 0 ;
 	}
       else if (! strncasecmp (cp, "Ins", 3))
 	{
-	  aes->mb = dnaEncodeChar [(int)cp[3]] ;
+	  aes->type[0] = '-' ;
 	  aes->wb = 0 ;
+	  aes->mb = dnaEncodeChar [(int)cp[3]] ;
+	  aes->type[1] = dnaDecodeChar [(int)aes->mb] ;
 	  aes->da = (strlen(cp) - 3) ;  /* deletion */
-	  if (aes->da > 1) aes->mb2 = dnaEncodeChar [(int)cp[4]] ;
-	  if (aes->da > 2) aes->mb3 = dnaEncodeChar [(int)cp[5]] ;
-	  strncpy (aes->type, cp, 7) ;
+	  if (aes->da > 1)
+	    {
+	      aes->mb2 = dnaEncodeChar [(int)cp[4]] ;
+	      aes->type[2] = dnaDecodeChar [(int)aes->mb2] ;
+	    }
+	  if (aes->da > 2)
+	    {
+	      aes->mb3 = dnaEncodeChar [(int)cp[5]] ;
+	      aes->type[3] = dnaDecodeChar [(int)aes->mb3] ;
+	    }
+	  
+	  aes->type[1 + aes->da]  = 0 ;
 	}
+
+      sprintf (buf, "%s:%d:%s", dictName(snp->targetDict,aes->target), aes->a1, aes->type) ;
+      dictAdd (snpDict, buf, &s) ;
+      aes->snp = s ; 
+      /* parse the aceName */
       aceInStep(ai, '\t') ;  cp = aceInWord (ai) ;
-      if (cp && *cp != '-' && ! strstr(cp, "NNNN"))
+      dictAdd (snpNamDict, cp, &(aceNam)) ; 
+      /* parse the vcfName */
+      aceInStep(ai, '\t') ;  cp = aceInWord (ai) ;
+      dictAdd (snpNamDict, cp, &(vcfNam)) ;
+      /* parse the genomic snpnet */
+      if (! snp->phasing)
 	{
-	  aes->snipnet1 = stackMark (snp->snipnet) ;
-	  pushText (snp->snipnet, cp) ;
+	  aceInStep(ai, '\t') ;  cp = aceInWord (ai) ;
+	  if (cp && *cp != '-' && ! strstr(cp, "NNNN"))
+	    {
+	      aes->snipnet1 = stackMark (snp->snipnet) ;
+	      pushText (snp->snipnet, cp) ;
+	    }
+	  aceInStep(ai, '\t') ; cp = aceInWord (ai) ;
+	  if (cp && *cp != '-' && ! strstr(cp, "NNNN"))
+	    {
+	      aes->snipnet2 = stackMark (snp->snipnet) ;
+	      pushText (snp->snipnet, cp) ;
+	    }
 	}
-       aceInStep(ai, '\t') ; cp = aceInWord (ai) ;
-      if (cp && *cp != '-' && ! strstr(cp, "NNNN"))
-	{
-	  aes->snipnet2 = stackMark (snp->snipnet) ;
-	  pushText (snp->snipnet, cp) ;
-	}
+      aes = arrayp (raw, s, AES) ;
+      aes->target = target ;
+      aes->a1 = a1 ;
+      aes->aceNam = aceNam ;
+      aes->vcfNam = vcfNam ;
     }
+
+  arraySort (aa, aesOrder) ;
 
   ac_free (h) ;	
   return nn ;
@@ -5491,7 +6172,8 @@ static int snpAliExtendGetHits (SNP *snp, ACEIN ai, Array hits, int *runQualityP
   int nn = 0 ;
   char buf[1024] ;
   HIT *up ;
-  char *cp ;
+  char *cp, *cq ;
+  BOOL isRead2 = FALSE ;
 
   buf[0] = 0 ;
   hits = arrayReCreate (hits, 32, HIT) ;
@@ -5503,6 +6185,17 @@ static int snpAliExtendGetHits (SNP *snp, ACEIN ai, Array hits, int *runQualityP
       cp = aceInWord (ai) ;
       if (! cp || *cp == '#') 
 	continue ;
+      cq = cp + strlen (cp) - 1 ;
+      isRead2 = FALSE ;
+      switch ((int)(*cq))
+	{
+	case '<':
+	  isRead2 = TRUE ;
+	  /* fall through */
+	case '>':
+	  *cq = 0 ;
+	  break ;
+	}
       if (nn && buf[0] && strcmp (cp, buf))
 	{
 	  aceInCardBack (ai) ;
@@ -5516,7 +6209,7 @@ static int snpAliExtendGetHits (SNP *snp, ACEIN ai, Array hits, int *runQualityP
       aceInInt (ai, &(up->ali)) ; aceInStep(ai, '\t') ;
       aceInInt (ai, &(up->x1)) ; aceInStep(ai, '\t') ;
       aceInInt (ai, &(up->x2)) ; aceInStep(ai, '\t') ;
-
+      up->isRead2 = isRead2 ;
       cp = aceInWord (ai) ;
       if (cp && snp->target_class && strcmp (cp, snp->target_class))
 	{ nn-- ; continue ; } aceInStep(ai, '\t') ;
@@ -5583,8 +6276,14 @@ static int snpAliExtendGetHits (SNP *snp, ACEIN ai, Array hits, int *runQualityP
 	}
       else
 	up->suffix = 0 ;
-
-      break ;
+      aceInStep(ai, '\t') ; cp = aceInWord (ai) ; /* target prefix, drop it */
+     aceInStep(ai, '\t') ; cp = aceInWord (ai) ; /* target suffix, drop it */
+      up->dPair = 0 ;
+      aceInStep(ai, '\t') ; aceInInt (ai, &(up->dPair)) ;
+      if (up->dPair < 0 && up->dPair > -20)
+	break ; /* do not use mate pairs for phasing is not a good pair */
+      if (up->unicity > 1)
+	break ; /* do not use mate pairs because w e may mix up 2 mapping of same read, but the single read remains ok */
    }
 
   arrayMax (hits) = nn ;
@@ -5832,7 +6531,7 @@ static int snpAliExtendAnalyse (SNP *snp, Array hits, int runQualityPrefix)
 
       a1 = up->a1 ; a2 = up->a2 ; da = a2 - a1 + 1 ;
       a0 = a1 > 50 ? a1 - 50 : 1 ;
-      a3 = a2 + 50 < aL ? a2 + 50 : aL ; 
+      a3 = a2 + (1000 < aL ? a2 + 1000 : aL) ; 
 
       /* dx =  dy = da ; */
 
@@ -6169,12 +6868,7 @@ static int snpAliExtend (SNP *snp)
   ACEOUT ao = aceOutCreate (snp->outFileName, snp->unique ? ".extend.u.txt" : ".extend.nu.txt", snp->gzo, snp->h) ;
   
   snp->snipnet = stackHandleCreate (1000000, h) ;
-  if (snp->fastaFileName)           /* parse the target DNA */
-    snpParseFastaFile (snp) ;
-  snpAliExtendParseSnpList (snp) ;  /* fills array: snp->aliSnps */
-
   snp->aliExtendStack = stackHandleCreate (1024, h) ;
-  stackTextOnly (snp->aliExtendStack) ;
   while (snpAliExtendGetHits (snp, ai, hits, &runQualityPrefix))
     snpAliExtendAnalyse (snp, hits, runQualityPrefix) ;
 
@@ -6186,12 +6880,501 @@ static int snpAliExtend (SNP *snp)
 
 /*************************************************************************************/
 /*************************************************************************************/
+/* snp1 and snp2 are offsets in the  snp->aliSnps Array */
+typedef struct phasingStruct { int snp1, snp2, a1, a2, mm, ww, mw, wm, m1, w1, m2, w2 ; } PHS ;
+
+static int phsOrder (const void *va, const void *vb)
+{
+  const PHS *a = (const PHS *)va, *b = (const PHS *)vb ;
+  int n ;
+
+  n = a->snp1 - b->snp1 ; if (n) return n ;
+  n = a->snp2 - b->snp2 ; if (n) return n ;
+
+  return 0 ;
+} /* phsOrder */
+
+/*************************************************************************************/
+
+static long int snpPhasingCompress (BigArray ph)
+{
+  if (bigArrayMax (ph) > 1)
+    {
+      PHS *xp, *yp ;
+      long int iph, jph = 0 , iMax = bigArrayMax (ph) ;
+      
+      bigArraySort (ph, phsOrder) ;
+      
+      for (iph = 1, jph = 1, yp = bigArrp (ph, 0, PHS), xp = yp + 1 ; iph < iMax ; iph++, xp++)
+	{
+	  if (xp->snp1 == yp->snp1 &&
+	      xp->snp2 == yp->snp2
+	      )
+	    {
+	      yp->mm += xp->mm ;
+	      yp->mw += xp->mw ;
+	      yp->wm += xp->wm ;
+	      yp->ww += xp->ww ;
+	      yp->m1 += xp->m1 ;
+	      yp->m2 += xp->m2 ;
+	      yp->w1 += xp->w1 ;
+	      yp->w2 += xp->w2 ;
+	    }
+	  else
+	    {
+	      yp++; jph++ ;
+	      *yp = *xp ;
+	    }
+	}
+      bigArrayMax (ph) = jph ;
+    }
+  return bigArrayMax (ph) ;
+} /* snpPhasingCompress  */
+
+/*************************************************************************************/
+static int snpPhasingExport (SNP *snp, BigArray ph, Array raw)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (snp->outFileName, ".phasing", snp->gzo, h) ;
+  long int da = 0, iph = 0, iMax = bigArrayMax (ph) ;
+  PHS *up ;
+  DICT *dict = snp->snpDict ;
+  DICT *phaseDict = dictHandleCreate (10000, h) ;
+  int pass, mm, ww, mw, wm, m1, w1, m2, w2, M1, M2, W1, W2, pb, line ;
+
+  mm = ww = mw = wm = m1 = w1 = m2 = w2 =  M1 = W1 = M2 = W2 = pb = line = 0 ;
+
+  aceOutDate (ao, "##", "Phasing info") ;
+  aceOutf (ao, "# SNP1 ....\t SNP2 ....\tmm\tww\tmw\twm\tm1\tw1\tm2\tw2\tam\taw\tbm\tbw\tdistance\tk>3\ta/a or b/b\n") ;
+
+  for (pass = pb = 0 ; pass < 3 ; pb = 0, pass++)
+    {
+      if (pass == 1)
+	{ /* reinitialize the phasingScore counters */
+	  int ii, iMax = arrayMax (raw) ;
+
+	  for (ii = 0 ; ii < iMax ; ii++)
+	    {
+	      int a,b,c ;
+	      AES *ap = arrayp (raw, ii, AES) ;
+	      a = ap->phasingScore[0] ;
+	      b = ap->phasingScore[1] ;
+	      c = ap->phasingScore[2] ;
+	      
+	      if (a == 0 && c > 0 && b >= 0)
+		ap->phasingScore[3] =  ap->phasingScore[2] ;
+	      ap->phasingScore[0] = 0 ;
+	      ap->phasingScore[1] = 0 ;
+	      ap->phasingScore[2] = 0 ;
+	      ap->phasingScore[6] = 0 ;
+	    }
+	  continue ;
+	}
+
+      for (iph = 0, up = bigArrp (ph, 0, PHS) ; iph < iMax ; iph++, up++)
+	{
+	  AES *ap = arrayp (raw, up->snp1, AES) ;
+	  AES *bp = arrayp (raw, up->snp2, AES) ;
+	  int cis, trans, ok ;
+	  BOOL isH ;
+	  char *kk ;
+	  
+	  cis = up->mm +  up->ww ;
+	  trans = up->mw +  up->wm ;
+	  kk = "" ; ok = 5 ;
+	  if (cis * trans > 0)
+	    {
+	      kk = "**" ; pb++ ; ok = 2 ;		
+	      if (
+		  (20 * cis < trans) || 
+		  (20 * trans < cis)
+		  ) 
+		{ kk = "*" ; ok = 1 ; }
+	    }
+	  if ( ok == 5 &&
+	       cis + trans >= 3
+	       )
+	    { ok = 0 ; kk = "++" ; }
+	  if (ap->phasingScore[3] + bp->phasingScore[3])
+	    { kk = "***" ; ok = 5 ; }
+
+	  isH = (ap->m >= 10 * ap->w) || (bp->m >= 10 * bp->w) || (ap->w >= 10 * ap->m) || (bp->w >= 10 * bp->m) ;
+
+	  if (isH)
+	    ok = 5 ;
+	  if (ok < 3)
+	    {
+	      (ap->phasingScore[ok])++ ;
+	      (bp->phasingScore[ok])++ ;
+	      if (ok == 0)
+		{
+		  (ap->phasingScore[6]) += cis + trans ;
+		  (bp->phasingScore[6]) += cis + trans ;
+		}	   
+	    }
+	  if (pass == 0)
+	    continue ;
+	  
+	  if (isH)
+	    continue ;
+
+	  if (pass == 2 && ok == 0) /* phasing */
+	    {
+	      int p1 = ap->phase ;
+	      int p2 = bp->phase ;
+	      
+	      if (1)
+		{
+		  if (p1 && ! p2) { p2 = (cis > trans ? p1 : -p1) ; }
+		  else if (p2 && ! p1) { p1 = (cis > trans ? p2 : -p2) ; }
+		  else if (p1 == 0 &&  p2 == 0)
+		    {
+		      char *buf = strnew (dictName (dict, up->snp1), 0) ;
+		      char *cr = strchr (buf, ':') ;
+		      if (cr) *cr = '_' ;
+		      cr = strchr (buf, ':') ;
+		      if (cr) *cr = 0 ;	
+		      dictAdd (phaseDict, buf, &p1) ;
+		      p2 = (cis > trans ? p1 : -p1) ;
+		    }
+		}
+	      ap->phase = p1 ;
+	      bp->phase = p2 ;
+	    }
+
+	  aceOutf (ao, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\td=%d\t%s%s\t%d\t%d\n"
+		   , dictName (dict, up->snp1)
+		   , dictName (dict, up->snp2)
+		   , up->mm
+		   , up->ww
+		   , up->mw
+		   , up->wm
+		   , up->m1, up->w1
+		   , up->m2, up->w2
+		   , ap->m, ap->w
+		   , bp->m, bp->w
+		   , bp->a1 - ap->a1
+		   , kk
+		   , isH ? "H" : ""
+		   , ap->phase
+		   , bp->phase
+		   ) ;
+	  line++ ;
+	  mm += up->mm ;
+	  ww += up->ww ;
+	  mw += up->mw ;
+	  wm += up->wm ;
+	  m1 += up->m1 ;
+	  w1 += up->w1 ;
+	  m2 += up->m2 ;
+	  w2 += up->w2 ;
+	  da += bp->a1 - ap->a1 ; 
+	  M1 += ap->m ;
+	  W1 += ap->w ;
+	  M2 += bp->m ;
+	  W2 += bp->w ;
+
+	}
+    }
+  if (line == 0) line = 1 ;
+  aceOutf (ao, "# cumul ....\tcumul ....\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%ld\t%d\n"
+	   , mm
+	   , ww
+	   , mw
+	   , wm
+	   , m1, w1
+	   , m2, w2
+	   , M1, W1
+	   , M2, W2
+	   , da / line
+	   , pb
+	   ) ;
+  aceOutf (ao, "# average ..\taverage ..\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%ld\t%d\n"
+	   , mm/ line
+	   , ww/ line
+	   , mw/ line
+	   , wm/ line
+	   , m1/ line, w1/ line
+	   , m2/ line, w2/ line
+	   , M1/ line, W1/ line
+	   , M2/ line, W2/ line
+	   , da / line
+	   , 0
+	   ) ;
+
+  ac_free (ao) ;
+  ao = aceOutCreate (snp->outFileName, ".phasing_score", snp->gzo, h) ;
+  if (ao)
+    {
+      int ii, iMax = arrayMax (raw) ;
+      
+      aceOutDate (ao, "##", "Phasing success and arrors") ;
+      aceOutf (ao, "# SNP\tPhases correctly with n other SPS using at least 3 molecules\tMild problems\tMore that 5%% cis/trans or vice versa\tOnly problematic links\n") ;
+
+      for (ii = 0 ; ii < iMax ; ii++)
+	{
+	  int a,b,c,d ;
+	  AES *ap = arrayp (raw, ii, AES) ;
+	  a = ap->phasingScore[0] ;
+	  b = ap->phasingScore[1] ;
+	  c = ap->phasingScore[2] ;
+	  d = ap->phasingScore[3] ;
+
+	  if (a + b + c + d)
+	    aceOutf (ao, "%s\t%d\t%d\t%d\t%d\n"
+		     , dictName (dict, ii)
+		     , a, b, c, d
+		     ) ;
+	}
+
+      ac_free (ao) ;
+    }
+
+  ac_free (ao) ;
+  ao = aceOutCreate (snp->outFileName, ".phases.ace", snp->gzo, h) ;
+  if (ao)
+    {
+      int ii, iMax = arrayMax (raw) ;
+      DICT *snpNamDict = snp->snpNamDict ;
+
+      aceOutDate (ao, "//", "Phasing") ;
+
+      for (ii = 0 ; ii < iMax ; ii++)
+	{
+	  AES *ap = arrayp (raw, ii, AES) ;
+	  int phase = ap->phase ;
+	  int strand = 1 ;
+	  int d ;
+	  int nam = ap->vcfNam ; /* sould be aceNam */
+
+	  d = ap->phasingScore[3] ;
+	  if (phase)
+	    {
+	      if (phase < 0)
+		{ strand = 2 ; phase = -phase ; }
+	      
+	      aceOutf (ao, "Variant \"%s\"\nPhase %d \"%s\" %d\n\n"
+		       , snpNamDict && nam ? dictName (snpNamDict, nam) : dictName(dict, ii)
+		       , strand
+		       , dictName (phaseDict, phase)
+		       , ap->phasingScore[6] 
+		       ) ;
+	    }
+	  else if (d)
+	    aceOutf (ao, "Variant \"%s\"\nPhase %d\n\n"
+		     , snpNamDict && nam ? dictName (snpNamDict, nam) : dictName(dict, ii)
+		     , -d
+		     ) ;
+
+	}
+
+      ac_free (ao) ;
+    }
+
+  ac_free (h) ;
+  return 1 ;
+} /* snpPhasingExport */
+
+/*************************************************************************************/
+/* plug the list of mismatches, known from the snp file, in the gg array */
+static void snpPhasingInterpretOneMissmatch (SNP *snp, HIT *up, Array gg, Array raw, char *cp)
+{
+  char type[8] ;
+  DICT *dict = snp->snpDict ;
+  int s ;
+  char *cq ;
+  
+  cq = strchr (cp, ':') ;
+  if (cq > cp)
+    {
+      int a1 = 0 ;
+
+      *cq = 0 ;
+      sscanf (cp, "%d", &a1) ;
+      cp = cq + 1 ;
+      if (a1 > 0)
+	{
+	  char buf[256] ;
+	  if (cp[0] == '*') cp++ ;
+	  strncpy (type, cp, 7) ;
+	  type[7] = 0 ; 
+
+	  sprintf (buf, "%s:%d:%s", dictName(snp->targetDict,up->target), a1, type) ;
+	  if (dictFind (dict, buf, &s))
+	    {
+	      AES *ap = arrayp (raw, s, AES) ; 
+	      PHS *phs ;
+	      int ig ;
+	      BOOL ok = FALSE ;
+
+	      for (ig = 0 ; ! ok &&  ig < arrayMax (gg) ; ig++)
+		{
+		  phs = arrp (gg, ig, PHS) ;
+		  if (ap->a1 == phs->a1)
+		    ok = TRUE ; 
+		}
+	      if (! ok)
+		{
+		  phs = arrayp (gg, arrayMax (gg), PHS) ;
+		  phs->snp1 = s ;
+		  phs->a1 = ap->a1 ;
+		  phs->m1 = up->mult ; phs->w1 = 0 ;
+		  ap->m += up->mult ;
+		}
+	    }
+	}
+    }
+  return ;
+} /* snpPhasingInterpretOneMissmatch  */
+
+/*************************************************************************************/
+/* register all the snps seen in that HIT (easy) and all the wild type covered (less easy) */
+static BOOL snpPhasingInterpretOneHit (SNP *snp, HIT *up, Array gg, Array raw)
+{
+  int a1 = up->a1, a2 = up->a2 ;
+  AES *aes ;
+  int target = up->target ;
+  static int iSnp = 0 ;
+  Stack s = snp->aliExtendStack ;
+  Array snps = snp->aliSnps ;
+  int iSnpMax = arrayMax (snps) ;
+    
+  if (a1 > a2)
+    { int a0 = a1 ; a1 = a2 ; a2 = a0 ; }
+  if (up->errTarget)
+    {
+      char *cp, *cq ;
+
+      cp = stackText (s, up->errTarget) ;
+      while ((cq = strchr (cp, ',')))
+	{
+	  *cq = 0 ;
+	  snpPhasingInterpretOneMissmatch (snp, up, gg, raw, cp) ;
+	  cp = cq + 1 ;
+	}
+      snpPhasingInterpretOneMissmatch (snp, up, gg, raw, cp) ;
+    }
+  /* position back */
+  if (iSnp) iSnp-- ;
+  aes = arrayp (snps, iSnp, AES) ;
+  while (iSnp > 0 && aes->target >= target && aes->a1 >= a1)
+    { aes-- ; iSnp-- ; }
+  /* scan for releant snps */
+  while (iSnp < iSnpMax && aes->target < target)
+    { aes++ ; iSnp++ ; }
+  while (iSnp < iSnpMax && aes->target == target && aes->a1 <= a2 - 8)
+    {
+      if ( aes->a1 >= a1 + 8 )
+	{
+	  int ig ;
+	  PHS *phs ;
+	  BOOL ok = FALSE ;
+	  /* check if we have seen that snp in our fragment */
+	  for (ig = 0 ; ! ok &&  ig < arrayMax (gg) ; ig++)
+	    {
+	      phs = arrp (gg, ig, PHS) ;
+	      if (aes->a1 == phs->a1)
+		ok = TRUE ; 
+	    }
+	  if (!ok)
+	    {
+	      AES *ap = arrayp (raw, aes->snp, AES) ; 
+	      phs = arrayp (gg, arrayMax (gg), PHS) ;
+	      
+	      phs->snp1 = aes->snp ;
+	      phs->a1 = aes->a1 ;
+	      phs->w1 = up->mult ; phs->m1 = 0 ;
+	      ap->w += up->mult ;
+	    }
+	}
+      aes++ ; iSnp++ ;
+    }
+  return TRUE ;
+} /* snpPhasingInterpretOneHit */
+
+/*************************************************************************************/
+
+static void snpPhasing (SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  Array hits = arrayHandleCreate (32, HIT, h) ;
+  Array gg = arrayHandleCreate (32, PHS, h) ;
+  Array raw = arrayHandleCreate (100000, AES, h) ;
+  BigArray ph = bigArrayHandleCreate (100000, PHS, h) ;
+  ACEIN ai = aceInCreate (snp->inFileName, snp->gzi, h) ;
+  int kk = 0, runQualityPrefix = 0 ;
+  long int iph = 0 ;
+
+  snp->aliExtendStack = stackHandleCreate (100000, snp->h) ;
+  snpAliExtendParseSnpList (snp, raw) ;  /* fills array: snp->aliSnps */
+  arraySort (snp->aliSnps, aesOrder) ; 
+
+  /* get all hits for a given read, we should do it per clone */
+  while (snpAliExtendGetHits (snp, ai, hits, &runQualityPrefix))
+    {
+      int ii, jj ;
+      HIT *up ;
+      PHS *ap, *bp ;
+      /* for all hits of the same clone, check if we cover as wild type or mutant the given snps */
+      gg = arrayReCreate (gg, 32, PHS) ;
+      for (ii = 0, up = arrp (hits, ii, HIT) ; ii < arrayMax (hits) ; up++, ii++)
+	snpPhasingInterpretOneHit (snp, up, gg, raw) ;
+      /* register all the phasing info */
+      arraySort (gg, phsOrder) ;
+
+      for (ii = 0, ap = arrp (gg, ii, PHS) ; ii < arrayMax (gg) ; ap++, ii++)
+	{
+	  if (ii && ap->snp1 == (ap-1)->snp1)
+	    continue ;
+	  for (jj = ii + 1, bp = ap + 1 ; jj < arrayMax (gg) ; bp++, jj++)
+	    {
+	      PHS *xp, *yp ;
+	      PHS *wp ;
+	      
+	      if (bp->snp1 == (bp-1)->snp1)
+		continue ;
+	      
+	      wp = bigArrayp (ph, iph++, PHS) ;
+	      kk++ ;
+	      if (ap->snp1 < bp->snp1)
+		{
+		  xp = ap ; yp = bp ;
+		}
+	      else
+		{
+		  xp = bp ; yp = ap ;
+		}
+	      wp->snp1 = xp->snp1 ;
+	      wp->snp2 = yp->snp1 ;
+	      if (xp->m1 && yp->m1)
+		wp->mm += xp->m1 ;
+	      else if (xp->w1 && yp->w1)
+		wp->ww += xp->w1 ;
+	      else if (xp->w1 && yp->m1)
+		wp->wm += xp->w1 ;
+	      else if (xp->m1 && yp->w1)
+		wp->mw += xp->m1 ;
+	      wp->m1 += xp->m1 ;
+	      wp->w1 += xp->w1 ;
+	      wp->m2 += yp->m1 ;
+	      wp->w2 += yp->w1 ;
+	    }
+	  if (0 && kk > 1000000)
+	    { iph = snpPhasingCompress (ph) ; kk = 0 ; }
+	}
+    }
+  snpPhasingCompress (ph) ;
+  snpPhasingExport (snp, ph, raw) ;
+
+  ac_free (h) ;
+} /* snpPhasing */
+
+/*************************************************************************************/
+/*************************************************************************************/
 typedef struct aehStruct { int target, score, chrom1, pos1, chrom2, pos2, cover, mp, mm, wp, wm
 			     , bad, oo1p, oo1m, oo2p, oo2m, multip, multim
 			     , type, typeW, typeM, ss, genotype
 			     ; } AEH ;
-
-typedef struct phasingStruct { int target1, target2, mm, ww, mw, wm ; } PHS ;
 
 /*************************************************************************************/
 
@@ -6271,8 +7454,8 @@ static void snpAnalyzeEditedHitsRegisterPreviousProbe (Array aa, Array bb, DICT 
 		      continue ;
 		    dictAdd (phasingDict, messprintf ("%d:%d", uu->target, vv->target), &nph) ;
 		    phs = arrayp (phasing, nph, PHS) ;
-		    phs->target1 = uu->target ;
-		    phs->target2 = vv->target ;
+		    phs->snp1 = uu->target ;
+		    phs->snp2 = vv->target ;
 		    mult = uu->mp + uu->mm + uu->wp + uu->wm ;
 
 		    if (uu->mp + uu->mm && vv->mp + vv->mm) phs->mm += mult ;
@@ -6493,45 +7676,7 @@ static int snpAnalyzeEditedHits (SNP *snp)
   
   if (bb && arrayMax(bb))
     snpAnalyzeEditedHitsRegisterPreviousProbe (aa, bb, phasingDict, phasing, delta, isMulti) ;
-  /* DO NOT sort aa before exporting the phasing */
-
-  /* export the phasing */
-  /* DO NOT sort aa before exporting the phasing */
-  if (arrayMax (phasing))
-    {
-      PHS *phs ;
-      AEH *up, *vp ;
-      const char *ccp1, *ccp2 ;
-
-      ao = aceOutCreate (snp->outFileName, ".phasing", snp->gzo, h) ;
-      aceOutDate (ao, "##", snp->project) ;
-      aceOutf (ao, "##Number of reads supporting 2 Variants at the same time in Cis or in Trans\n") ;
-      aceOutf (ao, "# Chrom1\tPosition\tType\tChomosome\tPosition\tType\tDistance\tRun\ta\ta+\tb\tb+\tab\t++\tab+\ta+b\n") ;
-
-      for (ii = 0, phs = arrp (phasing, 0, PHS) ; ii < arrayMax (phasing) ; ii++, phs++)
-	{
-	  if (! phs->target1) continue ;
-	  up = arrp (aa, phs->target1, AEH) ;
-	  vp = arrp (aa, phs->target2, AEH) ;
-	  ccp1 = up->type ? dictName (chromDict, up->type)  : "-" ;
-	  ccp2 = vp->type ? dictName (chromDict, vp->type)  : "-" ;
-	  if (1) /*  (up->mp + up->mm > 4 &&  vp->mp + vp->mm > 4) */
-	    aceOutf (ao, "%s\t%d\t%s\t%s\t%d\t%s\t%d\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
-		     , dictName (chromDict, up->chrom1)
-		     , up->pos1 + ( ccp1[1] == '>' || !strncmp (ccp1, "Del", 3) || !strncmp (ccp1, "Ins", 3) ? 1 : 0)
-		     , ccp1
-		     , dictName (chromDict, vp->chrom1)
-		     , vp->pos1 + ( ccp2[1] == '>' || !strncmp (ccp2, "Del", 3) || !strncmp (ccp2, "Ins", 3) ? 1 : 0)
-		     , ccp2
-		     , vp->pos1 - up->pos1
-		     , snp->run
-		     , up->mp + up->mm, up->wp + up->wm
-		     , vp->mp + vp->mm, vp->wp + vp->wm
-		     , phs->mm, phs->ww, phs->mw, phs->wm
-		     ) ;
-	}
-    }
-  ac_free (ao) ;
+ 
   if (! arrayMax(aa))
     messcrash ("No data read from the input file, sorry") ;
   /* sort aa must come AFTER exporting the phasing */
@@ -8182,7 +9327,6 @@ static void snpMerge (SNP *snp)
   int ii ;
   BOOL solid = FALSE ;
 
-  stackTextOnly (snipnet) ;
 
   aceOutf (ao, "## %s\n", timeShowNow ()) ;
   if (snp->title)
@@ -8319,7 +9463,6 @@ static int snpMergeExportPopulationTable (SNP *snp)
   const char *ccp  ;
   RI *info ;
   Array infos = arrayHandleCreate (300, RI, h) ;
-  stackTextOnly (snipnet) ;
 
   /* PREORDER THE runs according to the complementary info */
   aceInSpecial (ai, "\t\"\n") ;
@@ -8385,7 +9528,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  aceOutf (ao, "\t%s", dictName (runDict, run)) ;
-      aceOutf (ao, "\n# Machine\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Machine\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8393,7 +9536,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->machine ? dictName (infoDict, info->machine) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# Sample\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Sample\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8401,7 +9544,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->sample ? dictName (infoDict, info->sample) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# System\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# System\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8409,7 +9552,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->system1 ? dictName (infoDict, info->system1) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# Subsystem\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Subsystem\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8417,7 +9560,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->system2 ? dictName (infoDict, info->system2) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# Tissue\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Tissue\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8425,7 +9568,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->tissue1 ? dictName (infoDict, info->tissue1) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# Sub tissue\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Sub tissue\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8433,7 +9576,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 	    ccp = info->tissue2 ? dictName (infoDict, info->tissue2) : "-" ;
 	    aceOutf (ao, "\t%s", ccp) ;
 	  }
-      aceOutf (ao, "\n# Run\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+      aceOutf (ao, "\n# Run\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
       for (run = 1 ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
@@ -8592,8 +9735,8 @@ static void snpDbCount (SNP *snp)
   if (! (ai = aceInCreate (snp->inFileName, snp->gzi, h)))
     messcrash ("-db_count cannot open file : %s\n", snp->inFileName) ;
  
-  memset (newNam, sizeof(newNam), 0) ;
-  memset (oldNam, sizeof(oldNam), 0) ;
+  memset (newNam, 0, sizeof(newNam)) ;
+  memset (oldNam, 0, sizeof(oldNam)) ;
 
   /* scan the file,
    * reject unkown variants
@@ -8603,7 +9746,7 @@ static void snpDbCount (SNP *snp)
   while (aceInCard (ai))
     {
       /* recognize the snp name */
-      memset (newNam, sizeof(newNam), 0) ;
+      memset (newNam, 0, sizeof(newNam)) ;
       
       if (strcmp (oldNam, newNam))
 	{   /* store the previous counts */
@@ -8639,16 +9782,21 @@ static BOOL snpPleaseDropMonomodal (int nww, int nlow, int nwm, int nhigh, int n
 
 /*************************************************************************************/
 
-static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT ao, int max, Array ff, int oldTarget, int oldPos, int oldType
-					    , AC_TABLE groups, AC_TABLE groups2runs, KEYSET r2ir, DICT *runDict
+static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT aoF, ACEOUT aoC
+					    , int max
+					    , Array ff, Array ff1, Array ff2
+					    , int oldTarget, int oldPos, int oldType
+					    , AC_TABLE groups, AC_TABLE groups2runs
+					    , KEYSET r2ir, DICT *runDict
 					    , int mp, int mm, int wp, int wm
 					    )
 {
-  int i, ir, jr ;
+  int i, ir, jr, pass ;
   float z, zMax ;
   KEY key ;
   int nm = 0, nww = 0, nwm = 0, nmm = 0, nlow = 0, nhigh = 0, nNA = 0 ;
   BOOL isDrop = FALSE ;
+  ACEOUT ao = 0 ;
 
   for (i = 0 ; i < max ; i++)
     {
@@ -8684,116 +9832,99 @@ static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT ao, int max, Array 
       snp->anyRunDropped++ ;
     }
 
-  aceOutf (ao, "\t%d\t%d\t%d\t%d", mp, mm, wp, wm) ;
-  aceOutf (ao, "\t%s%d", (isDrop ? "+" : ""), chi2 (mp, mm, wp, wm, &z)) ; /* type : isDrop + sign allows sorting but does not affect excell */
-  aceOutf (ao, "\t%.1f", z) ;
-  aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t", nm, nNA, nww, nlow, nwm, nhigh, nmm, nm > 20 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : -10.0) ;
-
-  for (ir = jr = 0 ; groups && ir < groups->rows ; ir++)
+  for (pass = 0 ; pass < 2 ; pass++)
     {
-      nm = nNA = nww = nlow = nwm = nhigh = nmm = 0 ;
-      key = ac_table_key (groups, ir, 0, 0) ;
-      for (jr = 0 ; key && groups2runs && jr < groups2runs->rows ; jr++)
+      ao = pass == 0 ? aoF : aoC ;
+      aceOutf (ao, "\t%d\t%d\t%d\t%d", mp, mm, wp, wm) ;
+      aceOutf (ao, "\t%s%d", (isDrop ? "+" : ""), chi2 (mp, mm, wp, wm, &z)) ; /* type : isDrop + sign allows sorting but does not affect excell */
+      aceOutf (ao, "\t%.1f", z) ;
+      aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d", nm, nNA, nww, nlow, nwm, nhigh, nmm) ;
+      if (1) /* allelic frequency in the population (before 2020_01_17) */
+	aceOutf (ao, "\t%.2f", nm > 20 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : -10.0) ;
+      if (1) /* average frequency 2020_01_17 */
+	aceOutf (ao, "\t%.2f", mp + mm + wp + wm >= 20 ? (mp + mm)/ (0.01 * (mp + mm + wp + wm)) : -20.0) ;
+      aceOutf (ao, "\t") ;
+      for (ir = jr = 0 ; groups && ir < groups->rows ; ir++)
 	{
-	  int run ;
-	  if (ac_table_key (groups2runs, jr, 0, 0) == key && dictFind (runDict, ac_table_printable (groups2runs, jr, 1, "-"), &run))
+	  nm = nNA = nww = nlow = nwm = nhigh = nmm = 0 ;
+	  key = ac_table_key (groups, ir, 0, 0) ;
+	  for (jr = 0 ; key && groups2runs && jr < groups2runs->rows ; jr++)
 	    {
-	      i =  keySet(r2ir, run) ;
-	      z = array (ff, i, float) - 1000 ;
-	      nm++ ; /* measured */
-	      if (z < 0) { nNA++ ; nm-- ; }
-	      else if (z < 5) nww++ ; /* wild */
-	      else if (z < 20) nlow++ ;
-	      else if (z < 80) nwm++ ;
-	      else if (z < 95) nhigh++ ;
-	      else nmm++ ;
+	      int run ;
+	      if (ac_table_key (groups2runs, jr, 0, 0) == key && dictFind (runDict, ac_table_printable (groups2runs, jr, 1, "-"), &run))
+		{
+		  i =  keySet(r2ir, run) ;
+		  z = array (ff, i, float) - 1000 ;
+		  nm++ ; /* measured */
+		  if (z < 0) { nNA++ ; nm-- ; }
+		  else if (z < 5) nww++ ; /* wild */
+		  else if (z < 20) nlow++ ;
+		  else if (z < 80) nwm++ ;
+		  else if (z < 95) nhigh++ ;
+		  else nmm++ ;
+		}
+	    }
+	  aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t", nm, nNA, nww, nlow, nwm, nhigh, nmm, nm > 0 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : 0) ;
+	}
+      zMax = -10 ;
+      for (i = 0 ; i < max ; i++)
+	{
+	  z = array (ff, i, float) - 1000 ; 
+	  if (z > zMax) zMax = z ;
+	}
+      aceOutf (ao, "\t") ;
+      aceOutPercent (ao, zMax) ;
+      for (i = 0 ; i < max ; i++)
+	{
+	  if (pass == 0)
+	    {
+	      z = array (ff, i, float) - 1000 ; 
+	      aceOutf (ao, "\t") ;
+	      if (z  >= 0 ) aceOutPercent (ao, z) ;
+	      else  aceOutf (ao, "-%d", snp->minCover) ;
+	    }
+	  else
+	    {
+	      int z1 = array (ff1, i, int) ;
+	      int z2 = array (ff2, i, int) ;
+	      aceOutf (ao, "\t") ;
+	      if (z2  >= 0 ) aceOutf(ao, "%d|%d", z1, z2) ;
 	    }
 	}
-      aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t", nm, nNA, nww, nlow, nwm, nhigh, nmm, nm > 0 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : 0) ;
-    }
-  zMax = -10 ;
-  for (i = 0 ; i < max ; i++)
-    {
-      z = array (ff, i, float) - 1000 ; 
-      if (z > zMax) zMax = z ;
-    }
-  aceOutf (ao, "\t") ;
-  aceOutPercent (ao, zMax) ;
-  for (i = 0 ; i < max ; i++)
-    {
-      z = array (ff, i, float) - 1000 ; 
-      aceOutf (ao, "\t") ;
-      if (z  >= 0 ) aceOutPercent (ao, z) ;
-      else  aceOutf (ao, "-10") ;
     }
   return isDrop ;
 }  /* snpFrequencyTableExportOneLine */
 
 /*************************************************************************************/
 
-static void snpPrettyCoordinatesName (vTXT txt, int a1, int a2, char *type)
+static void snpPrettyCoordinatesName (vTXT txt, int a1, int a2, char *type, BOOL isRNA, BOOL isSliding)
 {
   int ddx =  strlen (type) - 3 ;
-  char *cz = type ;
   
   if (a2 > a1 || a2 == 1) a2 = 1 ;
   else a2 = -1 ;
 
-  if (ddx > 0)
-    for (cz = type + 3 ; *cz ; cz++)
-      *cz = ace_upper(*cz) ;
-
   if (ddx == 0 && type[1] == '>')
-    {
-      if (a2 >= 0)
-	{
-	  type[0] = ace_upper(type[0]) ;
-	  type[2] = ace_upper(type[2]) ;
-	}
-      else
-	{
-	  type[0] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)type[0]]]]) ;
-	  type[2] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)type[2]]]]) ;
-	}
-      if (txt)
-	vtxtPrintf (txt, "%d%s", a1, type) ;
-    }
+    vtxtPrintf (txt, "%d%s", a1, type) ;
   else if (! strncasecmp (type,  "Ins", 3))
     {
-      if (a2 >= 0)
-	{
-	  if (txt)
-	    vtxtPrintf (txt,"%d_%dins%s", a1 - 1, a1, type + 3) ;
+      if (isSliding)
+	{ 
+	  if (ddx == 1)
+	    vtxtPrintf (txt,"%ddup%s", a1 - 1, type + 3) ;
+	  else
+	    vtxtPrintf (txt,"%d_%ddup%s", a1 - ddx, a1 - 1, type + 3) ;
 	}
       else
-	{ 
-	  for (cz = type + 3 ; *cz ; cz++)
-	    *cz =ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cz]]]) ;
-	  
-	  if (txt)
-	    vtxtPrintf (txt,"%d_%dins%s", a1, a1 + 1, type + 3) ;
-	}	 
+	vtxtPrintf (txt,"%d_%dins%s", a1 - 1, a1, type + 3) ;
     }
   else if (! strncasecmp (type,  "Del", 3))
     {
-      if (a2 >= 0)
-	{
-	  if (txt)
-	    {
-	      if (ddx == 1)
-		vtxtPrintf (txt,"%ddel%s", a1 - 1, type + 3) ;
-	      else
-		vtxtPrintf (txt,"%d_%ddel%s", a1 - ddx, a1 - 1, type + 3) ;
-	    }
-	}
+      char *t = isSliding ? "dim" : "del" ;
+      if (ddx == 1)
+	vtxtPrintf (txt,"%d%s%s", a1, t, type + 3) ;
       else
-	{ 
-	  for (cz = type + 3 ; *cz ; cz++)
-	    *cz =ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cz]]]) ;
-
-	  if (txt) 
-	    vtxtPrintf (txt,"%d_%ddel%s", a1, a1 + ddx, type + 3) ;
-	}	   
+	vtxtPrintf (txt,"%d_%d%s%s", a1, a1 + ddx - 1, t, type + 3) ;
     }
 } /* snpPrettyCoordinatesName */
 
@@ -8806,15 +9937,15 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 			    , int *gMapp, int *gPosp
 			    , char *gType, char *cType, vTXT pType
 			    , vTXT location
-			    , vTXT geneboxes, vTXT avgeneboxes, vTXT snippet, vTXT pSnippet
-			   , BOOL *isSlidingp
-			    /* , char *snippet1, char *snippet2 */
-			    )
+			    , vTXT geneboxes, vTXT avgeneboxes, vTXT gsnippet, vTXT snippet, vTXT pSnippet
+			   )
 {
   AC_HANDLE h = ac_new_handle () ;
-  AC_TABLE imap = 0, tt1 = 0, tt2 = 0, tt3 = 0,  ttm = 0 ;
+  AC_TABLE imap = 0, tt1 = 0, tt2 = 0,  ttg1 = 0, ttg2 = 0, tt3 = 0,  ttm = 0 ;
   int ir, a1, a2, ga1, ga2 = 0, type = 0 ;
   const char *ccp, *product ;
+  BOOL isIntronic = TRUE ;
+  BOOL isSliding = FALSE ;
   KEY key ;
 
   vtxtClear (gTxt) ;
@@ -8823,34 +9954,77 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
   vtxtClear (location) ;
   vtxtClear (avgeneboxes) ;
   vtxtClear (geneboxes) ;
+  vtxtClear (gsnippet) ;
   vtxtClear (snippet) ;
   vtxtClear (pSnippet) ;
   cType[0] = 0 ;
   vtxtClear (pType) ;
  
   strcpy (cType, gType) ; /* as given in the snp object */
-  *isSlidingp = ac_has_tag (snpObj, "In_repeat") ;
 
   /* genome name */ 
   *gMapp = 0 ; *gPosp = 0 ;
   imap = ac_tag_table (snpObj, "IntMap", h) ;
   if (imap && imap->cols >= 3)
     {
+      int x ;
       ga1 = ac_table_int (imap, 0, 1, 0) ;
       ga2 = ac_table_int (imap, 0, 2, 0) ;
       dictAdd (snp->targetDict, ac_table_printable (imap, 0, 0, "-"), gMapp) ;
       *gPosp =  ga1 ;
-      ccp = ac_table_printable (imap, 0, 0, "-") ;
-      if (! strncasecmp (ccp, "chr", 3)) ccp += 3 ; 
-      vtxtPrintf (gTxt, "chr%s:g.", ccp) ;
-      snpPrettyCoordinatesName (gTxt, ga1, ga2, gType) ;
-      if (snp->Reference_genome)
-	vtxtPrintf (gTxt, "(%s)", snp->Reference_genome) ;
+      if (1)
+	{
+	  AC_OBJ map = ac_table_obj (imap, 0, 0, h) ;
+	  BOOL hasTitle = FALSE ;
+
+	  ccp = 0 ;
+	  if (map)
+	    ccp = ac_tag_printable (map, "Title", 0) ;
+	  if (ccp) 
+	    {
+	      hasTitle = TRUE ;
+	      vtxtPrintf (gTxt, "%s", ccp) ;
+	    }
+	  else
+	    {
+	      ccp = ac_table_printable (imap, 0, 0, "-") ;
+	      
+	      vtxtPrintf (gTxt, "%s", ccp) ;
+	    }
+
+	  vtxtPrintf (gTxt, ":g.", ccp) ;
+	  
+	  /* in-repeat applies to the genomic repeat */
+	  isSliding = ac_has_tag (snpObj, "In_repeat") ;
+	  snpPrettyCoordinatesName (gTxt, ga1, ga2, gType, FALSE, isSliding) ;
+
+	  if (hasTitle || snp->Reference_genome)
+	    {
+	      vtxtPrintf (gTxt, "(") ;
+	      if (hasTitle)
+		vtxtPrintf (gTxt, "%s", ac_name(map)) ;
+	      if (hasTitle && snp->Reference_genome) 
+		vtxtPrintf (gTxt, ",") ;
+	      if (snp->Reference_genome)
+		vtxtPrintf (gTxt, "%s", snp->Reference_genome) ;
+	      vtxtPrintf (gTxt, ")") ;
+	    }
+	}
+     /*
+	Potential_splice_disruption Near_donor    // -16, -1, 1,2 3, 5,, ne pas remplir ces tags detailles, pvalue < 1/100, and > 20% splice disrupting (2 stars), add spl at the end of the c.name
+	Near_acceptor //  -2, -1  Rivas et al., Effect of predicted protein truncating SNVs on transcriptome. Science 348:666-669, May 2015.
+      */
+      if ((x = ac_tag_int (snpObj, "Near_donor", 0)))
+	vtxtPrintf (gTxt, ".spl(?donor%d)", x) ;
+      if ((x =ac_tag_int (snpObj, "Near_acceptor",0)))
+	vtxtPrintf (gTxt, ".spl(?donor%d)", x) ;
     }
 
   /* cDNA name */
+  ttg1 = ac_tag_table (snpObj, "Reference_genomic_sequence", h) ;
+  ttg2 = ac_tag_table (snpObj, "Observed__genomic_sequence", h) ;
   tt1 = ac_tag_table (snpObj, "Reference_sequence", h) ;
-  tt2 = ac_tag_table (snpObj, "Observed_sequence", h) ;
+  tt2 = ac_tag_table (snpObj, "Observed__sequence", h) ;
 
   vtxtPrintf (location, "Intergenic") ;
   ttm = ac_tag_table (snpObj, "GeneBox", h) ;
@@ -8863,14 +10037,11 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 	  y = ac_table_int (ttm, ir, 1, -999999) ;
 	  if (y > x) x = y ;
 	}
-      for (ir = 0 ; ir < ttm->rows ; ir++)
-	{
-	  vtxtPrintf (geneboxes, "%s%s", ir ? ", " : "", ac_table_printable (ttm, ir, 0, "")) ;
-	  y = ac_table_int (ttm, ir, 1, -999999) ;
-	  if (y > x) x = y ;
-	}
       if (x > 0) 
-	{  vtxtClear (location) ; vtxtPrintf (location, "Intronic") ; }
+	{  
+	  isIntronic = TRUE ;
+	  vtxtClear (location) ; vtxtPrintf (location, "Intronic") ; 
+	}
       else if (x < 0 && x > -99999)
 	{ vtxtClear (location) ; vtxtPrintf (location, "Promotor region") ; }
     }
@@ -8878,13 +10049,15 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
   if (ttm)
     {
       BOOL first = TRUE ;
-       for (ir = 0 ; ir < ttm->rows ; ir++)
+       for (ir = 0 ; ir < ttm->rows && ir < 1 ; ir++)
 	 {
 	   AC_OBJ mrna = ac_table_obj (ttm, ir, 0, h) ;
 	   if (mrna)
 	     {
+	       char *cq = vtxtPtr (geneboxes) ;
 	       ccp = ac_tag_printable (mrna, "Gene", 0) ;
-	       if (ccp)
+
+	       if (ccp && (! cq || ! strstr (cq, ccp)))
 		 {
 		   if (first)
 		     {
@@ -8911,51 +10084,111 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 	 }
     }
 
+  vtxtClear (gsnippet) ;
+  if (ttg1 && ttg2)  /* by default use the gsnippet in the genome orientation */
+    {
+      const char *ccp = ac_table_printable (ttg1, 0, 0, 0) ;
+      if (ccp) 
+	{
+	  vtxtPrintf (gsnippet, "%s", ccp) ;
+	  ccp = ac_table_printable (ttg2, 0, 0, 0) ;
+	  if (ccp) vtxtPrintf (gsnippet," > %s",  ccp) ;
+	}
+    }
   vtxtClear (snippet) ;
   if (tt1 && tt2)  /* by default use the snippet in the given orientation */
     {
+      const char *ccr ;
+      const char *ccp = ac_table_printable (tt1, 0, 0, "") ; 
+      const char *ccq = ac_table_printable (tt2, 0, 0, "") ;
+      int i, k1 = strlen (ccp) ;
+      int k2 = strlen (ccq) ;
+      char *cp, buf1 [k1+7] ;
+      char *cq, buf2 [k2+7] ;
+      int ddx = strlen (cType) - 3 ;
+
+      if (ace_lower (cType[0]) == 'd')
+	ddx *= -1 ;
+      buf1[0] = buf2[0] = 0 ;
       if (ga2 >= 0)
 	{
-	  const char *ccp = ac_table_printable (tt1, 0, 0, 0) ;
-	  if (ccp) 
+	  ccr = ccp ;
+	  i = 0 ;
+	  while (*ccr)
 	    {
-	      vtxtPrintf (snippet, "%s", ccp) ;
-	      ccp = ac_table_printable (tt2, 0, 0, 0) ;
-	      if (ccp) vtxtPrintf (snippet," > %s",  ccp) ;
+	      char c = rnaDecodeChar[(int)dnaEncodeChar[(int)*ccr]] ;
+	      buf1[i++] = c ; ccr++ ;
 	    }
+	  buf1[i++] = 0 ;
+	  ccr = ccq ;
+	  i = 0 ;
+	  while (*ccr)
+	    {
+	      char c = rnaDecodeChar[(int)dnaEncodeChar[(int)*ccr]] ;
+	      buf2[i++] = c ; ccr++ ;
+	    }
+	  buf2[i++] = 0 ;
 	}
       else  /* complement to obtain the g orientation */
 	{
-	  const char *cr ;
-	  const char *ccp = ac_table_printable (tt1, 0, 0, 0) ;
-	  if (ccp)
+	  ccr = ccp + strlen (ccp)  ;
+	  i = 0 ;
+	  while (--ccr >= ccp)
 	    {
-	      cr = ccp + strlen (ccp)  ;
-	      while (--cr >= ccp)
-		{
-		  char c = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cr]]] ;
-		  if (*cr == ace_upper(*cr))
-		    c = ace_upper (c) ;
-		  vtxtPrintf (snippet, "%c", c) ;
-		}
-	      ccp = ac_table_printable (tt2, 0, 0, 0) ;
-	      if (ccp)
-		{
-		  vtxtPrintf (snippet, " > ") ;
-		  cr = ccp + strlen (ccp)  ;
-		  while (--cr >= ccp)
-		    {
-		      char c = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cr]]] ;
-		      if (*cr == ace_upper(*cr))
-			c = ace_upper (c) ;
-		      vtxtPrintf (snippet, "%c", c) ;
-		    }
-		}
+	      char c = rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccr]]] ;
+	      buf1[i++] = c ;
 	    }
+	  buf1[i++] = 0 ;
+
+	  ccr = ccq + strlen (ccq)  ;
+	  i = 0 ;
+	  while (--ccr >= ccq)
+	    {
+	      char c = rnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccr]]] ;
+	      buf2[i++] = c ;
+	    }
+	  buf2[i++] = 0 ;
+	}	  
+      cp = buf1 ; cq = buf2 ;
+      while (ace_lower(*cp) == ace_lower(*cq))
+	{
+	  *cp = ace_upper(*cp) ;
+	  *cq = ace_upper(*cq) ;
+	  cp++ ; cq++ ;
 	}
+      if (ddx == 0)
+	{
+	  *cp = ace_lower(*cp) ;
+	  *cq = ace_lower(*cq) ;
+	  cp++ ; cq++ ;
+	}
+      else if (ddx > 0)
+	{
+	  for (i = 0 ; i < ddx ; i++)
+	    { *cq = ace_lower(*cq) ; cq++ ; }
+	}
+      else if (ddx < 0)
+	{
+	  for (i = 0 ; i < -ddx ; i++)
+	    { *cp = ace_lower(*cp) ; cp++ ; }
+	}
+      while (*cp)
+	{
+	  *cp = ace_upper(*cp) ;
+	  cp++ ; 
+	}
+      while (*cq)
+	{
+	  *cq = ace_upper(*cq) ;
+	  cq++ ;
+	}
+      vtxtPrintf (snippet,"%s > %s",  buf1, buf2) ;
+      isSliding = snpIsSliding (cType, buf1, buf2, TRUE, TRUE, 0, 0) ;
     }
+  
   if (ttm && ttm->rows > 0)
     {
+      int ddx = strlen (cType) - 3 ;
       vtxtClear (location) ; vtxtPrintf (location, "Exonic") ;
       type |= 0x1 ;
       if (tt2 && tt2->rows >= 1 && tt2->cols >= 3)
@@ -8968,49 +10201,61 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 		  {  
 		    a1 =  ac_table_int (ttm,ir, 1, 0) ;
 		    a2 =  ac_table_int (ttm,ir, 2, 1) ;
-		    vtxtPrintf (cTxt, "%s:c.", ac_table_printable (tt2, 0, 2, "")) ;
-		    snpPrettyCoordinatesName (cTxt, a1, a2, cType) ;
-		    /*
-                   Potential_splice_disruption Near_donor    // -16, -1, 1,2 3, 5,, ne pas remplir ces tags detailles, pvalue < 1/100, and > 20% splice disrupting (2 stars), add spl at the end of the c.name
-                                               Near_acceptor //  -2, -1  Rivas et al., Effect of predicted protein truncating SNVs on transcriptome. Science 348:666-669, May 2015.
-		    */
-		    if (ac_has_tag (snpObj, "Potential_splice_disruption") )
-		      vtxtPrint (cTxt, "spl") ;
+		    vtxtPrintf (cTxt, "%s:r.", ac_table_printable (tt2, 0, 2, "")) ;
+		    snpPrettyCoordinatesName (cTxt, a1, a2, cType, TRUE, isSliding) ;
 		    /* translated snippet */
 		    ccp = ac_table_printable (tt2, 0, 1, 0) ;
 		    if (ccp)
 		      {
 			char *cp, *cq, *ccp2 = hprintf (h, "%s", ccp) ;
 			char *ccp1 = hprintf (h, "%s", ac_table_printable (tt1, 0, 1, 0)) ;
-			if (ccp1)
-			  {
-			    if (strcmp (ccp1, ccp2))
-			      {
-				cp = ccp1  ; cq = ccp2 - 1 ;
-				while (*++cq)
-				  {
-				    if (*cp && ace_upper(*cp) == ace_upper(*cq))
-				      {	 if (*cp) { *cp = ace_upper(*cp) ; cp++ ;}  *cq = ace_upper(*cq) ;  }
-				    else
-				      {	if (*cp) { *cp = ace_lower(*cp) ; cp++;}  *cq = ace_lower(*cq) ;  }
-				  }
-				cq = strchr (ccp2, 'x') ; if (cq) cq[1] = 0 ;
-				vtxtPrintf (pSnippet, "%s > %s", ccp1, ccp2) ;
-			      }
-			    else
-			      vtxtPrintf (pSnippet, "%s", ccp1) ;
+		
+			/* fix the upper lower case */
+			cp = ccp1 ; cq = ccp2 ;
+			while (*cp && *cq && ace_upper (*cp) == ace_upper(*cq))
+			  { 
+			    *cp = ace_upper (*cp) ; cp++ ;
+			    *cq = ace_upper (*cq) ; cq++ ;
 			  }
+			if (ddx == 3)
+			  {
+			    if (!strncmp (cType, "Del", 3)) 
+			      { *cp = ace_lower (*cp) ; cp++ ; }
+			    if (!strncmp (cType, "Ins", 3)) 
+			      { *cq = ace_lower (*cq) ; cq++ ; }
+			    while (*cp && *cq && ace_upper (*cp) == ace_upper(*cq))
+			      { 
+				*cp = ace_upper (*cp) ; cp++ ;
+				*cq = ace_upper (*cq) ; cq++ ;
+			      }
+			  }
+			else
+			  {  
+			    while (*cp)
+			      {
+				*cp = ace_upper (*cp) ; cp++ ;
+			      }
+			    while (*cq)
+			      {
+				*cq = ace_upper (*cq) ; cq++ ;
+			      }
+			  }
+			cq = strchr (ccp1, 'x') ; if (cq) cq[1] = 0 ;
+			cq = strchr (ccp2, 'x') ; if (cq) cq[1] = 0 ;
+			vtxtPrintf (pSnippet, "%s > %s", ccp1, ccp2) ;
 		      }
+		    else
+		      vtxtPrintf (pSnippet, "####") ;
 		    break ;
 		  }
 	      }
 	}
       else if (ttm->rows >= 1)
 	{
-	  vtxtPrintf (cTxt, "%s:c.", ac_table_printable (ttm,0, 0, "?")) ; 
+	  vtxtPrintf (cTxt, "%s:r.", ac_table_printable (ttm,0, 0, "?")) ; 
 	  a1 =  ac_table_int (ttm,0, 1, 0) ;
 	  a2 =  ac_table_int (ttm,0, 2, 1) ;
-	  snpPrettyCoordinatesName (cTxt, a1, a2, cType) ;
+	  snpPrettyCoordinatesName (cTxt, a1, a2, cType, TRUE, isSliding) ;
 	}
     }
 
@@ -9025,7 +10270,8 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 	    { 
 	      const char *ccp = ac_table_printable (tt3, 0, 0, 0) ;
 	      
-	      vtxtClear (location) ; vtxtPrintf (location, "Coding"); 
+	      vtxtClear (location) ; vtxtPrintf (location, "Coding"); 	 
+
 	      vtxtClear (pTxt) ; vtxtPrintf (pTxt, "p.%s", ccp ? ccp : "=") ;
 	      vtxtClear (pType) ;
 	      vtxtPrint (pType, "Synonymous") ;
@@ -9086,7 +10332,7 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 	  else
 	    { 
 	      vtxtClear (pType) ; vtxtPrintf (pType, "5' UTR %s", cType) ; 
-	      vtxtClear (location) ; vtxtPrintf (location, "5' UTR") ;
+	      vtxtClear (location) ; vtxtPrintf (location, "5' UTR") ;	
 	    }
 	}
     }
@@ -9105,10 +10351,39 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
       vtxtClear (pType) ; vtxtPrintf (pType, "3' UTR %s", cType) ; 
       vtxtClear (location) ; vtxtPrintf (location, "3' UTR") ; 
     }
+  else if (isIntronic)
+    { 
+      vtxtClear (pType) ; vtxtPrintf (pType, "Intronic") ;
+    }
+  
+  if (ac_has_tag (snpObj, "Potential_splice_disruption") )
+    vtxtPrint (location, "_potential_splice_disruption") ;
 
   /* protect the future printf */
   if (! vtxtPtr (gTxt)) vtxtPrintf (gTxt, " ") ;
   
+  if (1)
+    { 
+      const char *errors = 0 ;
+      const char *ccp ;
+      vTXT txt = vtxtHandleCreate (h) ;
+      
+      vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name(snpObj), h)) ;
+      ccp = vtxtPtr (gTxt) ;
+      if (ccp && strlen (ccp) > 2)
+	vtxtPrintf (txt, "gName %s\n",  ac_protect (ccp, h)) ;
+      ccp = vtxtPtr (cTxt) ;
+      if (ccp && strlen (ccp) > 2)
+	vtxtPrintf (txt, "rName %s\n",  ac_protect (ccp, h)) ;
+       ccp = vtxtPtr (pTxt) ;
+      if (ccp && strlen (ccp) > 2)
+	 vtxtPrintf (txt, "pName %s\n",  ac_protect (ccp, h)) ;
+      vtxtPrintf (txt, "\n") ;
+      ac_parse (snp->db, vtxtPtr (txt), &errors, 0, h) ;  
+      if (errors && *errors) 
+	fprintf(stderr, "snpPrettyNames parsing error %s\n", errors) ;
+    }
+
   ac_free (h) ;
   return type ;
 } /* snpPrettyNames */
@@ -9178,7 +10453,7 @@ static void snpFrequencyTableHeader (ACEOUT ao, int maxNHLBI,  AC_TABLE groups, 
 {
   int ir ;
 
-  aceOutf (ao, "\n##\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
+  aceOutf (ao, "\n##\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t") ;
   for (ir = 0 ; ir < maxNHLBI ; ir++) aceOut (ao, "\t") ; 
   for (ir = 0 ;  groups && ir < groups->rows; ir++)
     aceOutf (ao, "\t\t\t\t\t\t\t\t\t") ;
@@ -9189,19 +10464,19 @@ static void snpFrequencyTableHeader (ACEOUT ao, int maxNHLBI,  AC_TABLE groups, 
 
 /* input snp-count table (per snp, counts of m/w on both strands 
  * db -> MetaDB : gives runs/groups and runs metadata
- * export a table of frequency, one column per run. ome line per snp
+ * export a table of frequency, one column per run. one line per snp
  */ 
 static int snpFrequencyTable (SNP *snp, BOOL preRun)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai = snp->ai ;
-  ACEOUT ao = 0 ;
+  ACEOUT ao, aoF = 0, aoC = 0 ;
   DICT *eeDict = eeDictCreate (snp, h) ;  /* a,t,g,c and all error types in canonical order */
   DICT *selectDict = snp->selectDict ;
   DICT *targetDict = dictHandleCreate (1000, h) ;
   DICT *runDict = dictHandleCreate (1000, h) ;
   int nn = 0 ;
-  int ir, run, gPos, line = 0 ;
+  int ir, run, gPos, line = 0 , pass ;
   int gMap ;
   int type, pos, target, oldType = 0, oldPos = 0, oldTarget = 0 ;
   AC_TABLE runs =  snpProjectRuns (snp, h) ;
@@ -9219,6 +10494,8 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
   int snpExAnyAny = 0,snpExWildAny = 0, snpExLowAny = 0, snpExMidAny = 0, snpExHighAny = 0, snpExPureAny = 0 ; /* Exonic */
 
   Array ff = 0 ; 
+  Array ff1 = 0 ; 
+  Array ff2 = 0 ; 
   float z, cover, mutant ;
   float minCover = snp->minCover ;
   Array hh, histos = arrayHandleCreate (100, Array, h) ;
@@ -9229,11 +10506,12 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
   vTXT geneboxes = vtxtHandleCreate (h) ;
   vTXT avgeneboxes = vtxtHandleCreate (h) ;
   vTXT location = vtxtHandleCreate (h) ;
+  vTXT gsnippet = vtxtHandleCreate (h) ;
   vTXT snippet = vtxtHandleCreate (h) ;
   vTXT pSnippet = vtxtHandleCreate (h) ; 
   vTXT pType = vtxtHandleCreate (h) ;
   char gType[32], cType[32] ;
-  /*  char snippet1[100], snippet2[100] ; */
+
   int  maxNHLBI = 0 ;
   AC_OBJ snpObj = 0 ;
   AC_TABLE groups = 0, groups2runs = 0 ;
@@ -9300,51 +10578,67 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 
 
   if (! preRun && snp->frequencyTable)
-    {
-      ao = aceOutCreate (snp->outFileName, ".snp_list_with_allele_frequency_per_sample.txt", snp->gzo, h) ;
-      aceOutDate (ao, "##", snp->project) ;
-      if (maxNHLBI)
-	{
-	  aceOutf (ao, "## The NHLBI columns were downloaded for comparison from\n") ;
-	  aceOutf (ao, "## Citation: Exome Variant Server, NHLBI GO Exome Sequencing Project (ESP), Seattle, WA (URL: http://evs.gs.washington.edu/EVS/) downloaded  December 10, 2014\n") ;
-	  aceOutf (ao, "## Acknoledgment for publication:: The authors would like to thank the NHLBI GO Exome Sequencing Project and its ongoing studies which produced and provided exome variant calls for comparison: the Lung GO Sequencing Project (HL-102923), the WHI Sequencing Project (HL-102924), the Broad GO Sequencing Project (HL-102925), the Seattle GO Sequencing Project (HL-102926) and the Heart GO Sequencing Project (HL-103010).\n") ;
-	}
-      aceOutf (ao, "# Chromosome\tPosition\tStrand\tGenome SNV type on plus strand of genome\tGenome snippets\tGenome SNV\tGene area\tAceView gene area\tcDNA SNV\tcDNA SNV type on plus strand of transcript\tProtein SNV\tSNV type\tProtein snippets\tLocation relative to transcripts\tFull SNV name") ;
-      if (maxNHLBI) aceOut (ao, vtxtPtr (stlTxt)) ;
+    for (pass = 0 ; pass < 2 ; pass++)
+      {
+	switch (pass)
+	  {
+	  case 0:
+	    ao = aoF = aceOutCreate (snp->outFileName, ".snp_list_with_allele_frequency_per_sample.txt", snp->gzo, h) ;
+	    break ;
+	  case 1:
+	    ao = aoC = aceOutCreate (snp->outFileName, ".snp_list_with_allele_counts_per_sample.txt", snp->gzo, h) ;
+	    break ;
+	  }
+	    
+	aceOutDate (ao, "##", snp->project) ;
+	if (maxNHLBI)
+	  {
+	    aceOutf (ao, "## The NHLBI columns were downloaded for comparison from\n") ;
+	    aceOutf (ao, "## Citation: Exome Variant Server, NHLBI GO Exome Sequencing Project (ESP), Seattle, WA (URL: http://evs.gs.washington.edu/EVS/) downloaded  December 10, 2014\n") ;
+	    aceOutf (ao, "## Acknoledgment for publication:: The authors would like to thank the NHLBI GO Exome Sequencing Project and its ongoing studies which produced and provided exome variant calls for comparison: the Lung GO Sequencing Project (HL-102923), the WHI Sequencing Project (HL-102924), the Broad GO Sequencing Project (HL-102925), the Seattle GO Sequencing Project (HL-102926) and the Heart GO Sequencing Project (HL-103010).\n") ;
+	  }
+	aceOutf (ao, "# Chromosome\tPosition\tStrand\tMagic id\tVCF id\tGenome SNV type on plus strand of genome\tSNiPpets on plus strand of the genome\tSNiPpets on transcribed strand if applicable\tGenome SNV\tGene area\tAceView gene area\tcDNA SNV\tcDNA SNV type on plus strand of transcript\tProtein SNV\tProtein SNV type\tProtein snippets\tLocation relative to transcripts\tFull SNV name") ;
+	if (maxNHLBI) aceOut (ao, vtxtPtr (stlTxt)) ;
+	
+	if (0)
+	  { /* eliminate these 2 columns, add magic name and vcf name as columns 1 and 2 */
+	    aceOutf (ao, "\tRS\tDifferential between") ;
+	  }
+	
+	aceOutf (ao, "\tVariant counts on the plus strand in the whole cohort\tVariant counts on the minus strand in the whole cohort\tReference counts on the plus strand in the whole cohort\tReference counts on the minus strand in the whole cohort\tCompatibility\tchi2") ;
+	aceOutf (ao, "\tMeasured in\tNA\tReference (<5% variant)\tLow (5-20%)\tMid (20-80%)\tHigh(80-95%)\tPure variant (>95%)\tAllele frequency in cohort\tAverage allele frequency") ;
+	for (ir = 0 ; groups && ir < groups->rows; ir++)
+	  {
+	    ccp = ac_table_printable ( groups, ir, 0, "") ;
+	    aceOutf (ao, "\t\t%s Measured in\t%s NA\t%s Reference (<5% variant)\t%s Low (5-20%)\t%s Mid (20-80%)\t%s High (80-95%)\t%s Pure variant (>95%)\tAllele frequency in %s"
+		     , ccp
+		     , ccp
+		     , ccp
+		     , ccp
+		     , ccp
+		     , ccp
+		     , ccp
+		     , ccp
+		     ) ;
+	  }
+	aceOutf (ao, "\tRun\tMaximal allele frequency in any run") ;
+	for (ir = 0 ; ir < runs->rows ; ir++)
+	  aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 0, "-")) ;
+	
+	snpFrequencyTableHeader (ao, maxNHLBI, groups, "Sorting title\tAny run") ;
+	for (ir = 0 ; ir < runs->rows ; ir++)
+	  aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 1, "-")) ;
+	
+	snpFrequencyTableHeader (ao, maxNHLBI, groups, "Title\tAny run") ;
+	for (ir = 0 ; ir < runs->rows ; ir++)
+	  aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 2, "-")) ;
+	
+	snpFrequencyTableHeader (ao, maxNHLBI, groups, "Sample\tAny sample") ;
+	for (ir = 0 ; ir < runs->rows ; ir++)
+	  aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 3, "-")) ;
+	aceOutf (ao, "\n") ;
+      }
 
-      aceOutf (ao, "\tRS\tDifferential between\tVariant counts on the plus strand in the whole cohort\tVariant counts on the minus strand in the whole cohort\tReference counts on the plus strand in the whole cohort\tReference counts on the minus strand in the whole cohort\tCompatibility\tchi2") ;
-      aceOutf (ao, "\tMeasured in\tNA\tReference (<5% variant)\tLow (5-20%)\tMid (20-80%)\tHigh(80-95%)\tPure variant (>95%)\tAllele frequency in cohort") ;
-      for (ir = 0 ; groups && ir < groups->rows; ir++)
-	{
-	  ccp = ac_table_printable ( groups, ir, 0, "") ;
-	  aceOutf (ao, "\t\t%s Measured in\t%s NA\t%s Reference (<5% variant)\t%s Low (5-20%)\t%s Mid (20-80%)\t%s High (80-95%)\t%s Pure variant (>95%)\tAllele frequency in %s"
-		   , ccp
-		   , ccp
-		   , ccp
-		   , ccp
-		   , ccp
-		   , ccp
-		   , ccp
-		   , ccp
-		   ) ;
-	}
-      aceOutf (ao, "\tRun\tMaximal allele frequency in any run") ;
-      for (ir = 0 ; ir < runs->rows ; ir++)
-	aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 0, "-")) ;
-     
-      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Sorting title\tAny run") ;
-      for (ir = 0 ; ir < runs->rows ; ir++)
-	aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 1, "-")) ;
-
-      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Title\tAny run") ;
-      for (ir = 0 ; ir < runs->rows ; ir++)
-	aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 2, "-")) ;
-
-      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Sample\tAny sample") ;
-      for (ir = 0 ; ir < runs->rows ; ir++)
-	aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 3, "-")) ;
-      aceOutf (ao, "\n") ;
-    }
   dictAdd (runDict, "_zero_", 0) ;
   for (ir = 0 ; ir < runs->rows ; ir++)
     {
@@ -9352,7 +10646,7 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
       dictAdd (runDict, ccp, &run) ;
       keySet (r2ir, run) = ir ;
     }
-
+  
   aceInSpecial (ai, "\n") ;
   while (aceInCard (ai))
     {
@@ -9363,27 +10657,28 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
       vtxtClear (pTxt) ;
       vtxtClear (geneboxes) ;
       vtxtClear (avgeneboxes) ;
+      vtxtClear (gsnippet) ;
       vtxtClear (snippet) ;
       vtxtClear (pSnippet) ;
       vtxtClear (pType) ;
       if (0 && line++ > 20) break ;
       gType[0] = 0 ;
       cType[0] = 0 ;
-
+      
       if (selectDict)
 	{
 	  int zone, iSelect ;
-
+	  
 	  if (! dictFind (selectDict, ccp, &zone)) 
 	    continue ;
 	  dictAdd (targetDict, ccp, &target) ;
 	  aceInStep (ai, '\t') ; if (! aceInInt (ai, &pos)) continue ;
- 
+	  
 	  if (snp->selectZone)
 	    {
 	      ZONE *zp ;
 	      int iSelectMax = arrayMax (snp->selectZone) ;
-
+	      
 	      iSelect = keySet (snp->selectZoneIndex, zone) ;
 	      zp = arrp (snp->selectZone, iSelect, ZONE) ;
 	      while (iSelect > 0 && (zp->zone > zone || zp->a2 > pos)) { zp-- ; iSelect-- ; }
@@ -9397,20 +10692,17 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 	  dictAdd (targetDict, ccp, &target) ;
 	  aceInStep (ai, '\t') ; if (! aceInInt (ai, &pos)) continue ;
 	}
-
+      
       aceInStep (ai, '\t') ; ccp = aceInWord (ai) ; if (! ccp || *ccp == '#') continue ;
       dictAdd (eeDict, ccp, &type) ;
-      /*
-	aceInStep (ai, '\t') ; ccp = aceInWord (ai) ; if (! ccp || *ccp == '#') continue ; strncpy (snippet1, ccp, 100) ;
-	aceInStep (ai, '\t') ; ccp = aceInWord (ai) ; if (! ccp || *ccp == '#') continue ; strncpy (snippet2, ccp, 100) ;
-      */
+      
       if (target != oldTarget || pos != oldPos || type != oldType)
 	{
 	  if (snp->frequencyTable)
 	    {
 	      if (oldTarget) 
 		{
-		  BOOL isDrop = snpFrequencyTableExportOneLine (snp, ao, max - 1, ff, oldTarget, oldPos, oldType, groups, groups2runs, r2ir, runDict, mp, mm, wp, wm) ;
+		  BOOL isDrop = snpFrequencyTableExportOneLine (snp, aoF, aoC, max - 1, ff, ff1, ff2, oldTarget, oldPos, oldType, groups, groups2runs, r2ir, runDict, mp, mm, wp, wm) ;
 		  if (! isDrop)
 		    {  
 		      float zPc = -10, zEx = -10 ;
@@ -9419,7 +10711,7 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 			  float z = array (ff, ir, float) - 1000 ;
 			  
 			  if (z >= 0) snpMeasured[ir]++ ;
-
+			  
 			  if (z < 0) snpNA[ir]++ ;
 			  else if (z < 5) snpWild[ir]++ ;
 			  else if (z < 20) snpLow[ir]++ ;
@@ -9462,7 +10754,7 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 			  else if (z < 95) snpPcHighAny++ ;
 			  else snpPcPureAny++ ;
 			}
-
+		      
 		      if (prettyType & 0x1) /* Exonic */
 			{
 			  z = zEx ;
@@ -9496,49 +10788,82 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 	      oldTarget = 0 ;
 	      if (snp->differential && ! ac_has_tag (snpObj, "Differential"))
 		continue ;
-	      if (ao)
-		{
-		  BOOL isSliding = FALSE ;
-		  prettyType = snpPrettyNames (snp, snpObj, gTxt, cTxt, pTxt, &gMap, &gPos, gType, cType, pType, location, geneboxes, avgeneboxes, snippet, pSnippet, &isSliding) ;
-
-		  aceOutf (ao, "\n%s\t%d\t+\t%s",  ac_tag_printable (snpObj, "IntMap", " "), gPos, gType) ;
-		  aceOutf (ao, "\t%s", vtxtPtr (snippet) ? vtxtPtr (snippet) : "") ; /* snippet */
-		  aceOutf (ao, "\t%s", vtxtPtr (gTxt)) ; /* genomic g.name */
-		  aceOutf (ao, "\t%s", vtxtPtr (geneboxes) ? vtxtPtr (geneboxes) : "") ;
-		  aceOutf (ao, "\t%s", vtxtPtr (avgeneboxes) ? vtxtPtr (avgeneboxes) : "") ;
-		  aceOutf (ao, "\t%s", vtxtPtr (cTxt) ? vtxtPtr (cTxt) : "") ; /* cDNA c.name */
-		  aceOut (ao, "\t") ;
-		  if (isSliding) aceOut (ao, "*") ;
-		  aceOutf (ao, "%s", cType) ;          /* cDNA type, possibly the complement of the type */
-		  aceOutf (ao, "\t%s", vtxtPtr (pTxt) ? vtxtPtr (pTxt) : "") ; /* protein p.Name */
-		  aceOutf (ao, "\t%s", vtxtPtr (pType) ? vtxtPtr (pType) : "") ;
-		  aceOutf (ao, "\t%s", vtxtPtr (pSnippet) ?  vtxtPtr (pSnippet) : "") ;
-		  /* composite name */
-		  aceOutf (ao, "\t%s", vtxtPtr (location)) ;
-		  aceOutf (ao, "\t%s", vtxtPtr (gTxt)) ; /* genomic g.name */ 
-		  if (vtxtPtr (cTxt))
-		    aceOutf (ao, ", %s", vtxtPtr (cTxt)) ;
-		  if (vtxtPtr (pTxt))
-		    aceOutf (ao, ", %s", vtxtPtr (pTxt)) ;
-		  if (vtxtPtr (pSnippet))
-		    aceOutf (ao, " ; %s", vtxtPtr (pSnippet)) ;
-		}
+	      if (aoF)
+		for (pass = 0 ; pass < 2 ; pass++)
+		  {
+		    ao = pass ? aoF : aoC ;
+		    prettyType = snpPrettyNames (snp, snpObj, gTxt, cTxt, pTxt, &gMap, &gPos, gType, cType, pType, location, geneboxes, avgeneboxes, gsnippet, snippet, pSnippet) ;
+		    
+		    aceOutf (ao, "\n") ;
+		    
+		    aceOutf (ao, "%s\t%d\t+\t%s",  ac_tag_printable (snpObj, "IntMap", " "), gPos, gType) ;
+		    aceOutf (ao, "\t%s", ac_name(snpObj)) ;
+		    if (1)
+		      {
+			AC_TABLE vcf = ac_tag_table (snpObj, "VCF", h) ;
+			
+			if (vcf && vcf->cols >= 3 &&
+			    (ccp = ac_tag_printable (snpObj, "IntMap", 0))
+			    ) 
+			  aceOutf (ao, "\t%s:%s:%s:%s"
+				   , ccp
+				   , ac_table_printable (vcf, 0, 0, "")
+				   , ac_table_printable (vcf, 0, 1, "")
+				   , ac_table_printable (vcf, 0, 2, "")
+				   ) ;
+			else
+			  aceOutf (ao, "\t") ;
+			ac_free (vcf) ;
+		      }
+		    
+		    aceOutf (ao, "\t%s", vtxtPtr (gsnippet) ? vtxtPtr (gsnippet) : "") ; /* genomic snippet */
+		    aceOutf (ao, "\t%s", vtxtPtr (snippet) ? vtxtPtr (snippet) : "") ; /* snippet */
+		    aceOutf (ao, "\t%s", vtxtPtr (gTxt)) ; /* genomic g.name */
+		    aceOutf (ao, "\t%s", vtxtPtr (geneboxes) ? vtxtPtr (geneboxes) : "") ;
+		    aceOutf (ao, "\t%s", vtxtPtr (avgeneboxes) ? vtxtPtr (avgeneboxes) : "") ;
+		    aceOutf (ao, "\t%s", vtxtPtr (cTxt) ? vtxtPtr (cTxt) : "") ; /* cDNA c.name */
+		    aceOut (ao, "\t") ;
+		    
+		    aceOutf (ao, "%s", cType) ;          /* cDNA type, possibly the complement of the type */
+		    aceOutf (ao, "\t%s", vtxtPtr (pTxt) ? vtxtPtr (pTxt) : "") ; /* protein p.Name */
+		    aceOutf (ao, "\t%s", vtxtPtr (pType) ? vtxtPtr (pType) : "") ;
+		    aceOutf (ao, "\t%s", vtxtPtr (pSnippet) ?  vtxtPtr (pSnippet) : "") ;
+		    /* composite name */
+		    aceOutf (ao, "\t%s", vtxtPtr (location)) ;
+		    aceOutf (ao, "\t%s", vtxtPtr (gTxt)) ; /* genomic g.name */ 
+		    if (vtxtPtr (cTxt))
+		      aceOutf (ao, ", %s", vtxtPtr (cTxt)) ;
+		    if (vtxtPtr (pTxt))
+		      aceOutf (ao, ", %s", vtxtPtr (pTxt)) ;
+		    if (vtxtPtr (pSnippet))
+		      aceOutf (ao, " ; %s", vtxtPtr (pSnippet)) ;
+		  }
 	    }
-
+	  
 	  ff = arrayReCreate (ff, max, float) ; wp = wm = mp = mm = 0 ;
+	  ff1 = arrayReCreate (ff1, max, int) ; 
+	  ff2 = arrayReCreate (ff2, max, int) ; 
 	  oldTarget = target ; oldPos = pos ; oldType = type ; new = TRUE ;
 	  nn++ ;
 	}
- 
-      if (ao && snp->frequencyTable && new) 
+      
+      if (aoF && snp->frequencyTable && new) 
 	{  
 	  if (maxNHLBI)
-	    snpStLouisData (snp, snpObj, ao, maxNHLBI) ;
-	  aceOutf (ao, "\t-") ; /* RS number */
+	    {
+	      snpStLouisData (snp, snpObj, aoF, maxNHLBI) ;
+	      snpStLouisData (snp, snpObj, aoC, maxNHLBI) ;
+	    }
+	  if (0)
+	    {
+	      aceOutf (aoF, "\t-") ; /* RS number */
+	      aceOutf (aoC, "\t-") ; /* RS number */
+	    }
 	}
-      if (ao && snp->frequencyTable && new) 
+      if (0 && aoF && snp->frequencyTable && new) 
 	{ 
 	  AC_TABLE dd = ac_tag_table ( snpObj, "Differential", h)  ;
+	  ao = aoF ;
 	  aceOutf (ao, "\t") ;
 	  if (dd && dd->rows && dd->cols >= 2)
 	    for (ir = 0 ; ir < dd->rows ; ir++)
@@ -9570,9 +10895,9 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
       new = FALSE ;
       
       aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;  /* jump the 2 snippets */
+      aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;  /* jump the 2 genomic snippets */
       aceInStep (ai, '\t') ; ccp = aceInWord (ai) ; 
       
-      aceInStep (ai, '\t') ; ccp = aceInWord (ai) ; 
       if (! ccp || *ccp == '#') continue ;
       if (! dictFind (runDict, ccp, &run)) continue ;
       aceInStep (ai, '\t') ;  if (! aceInFloat (ai, &z)) continue ;
@@ -9599,6 +10924,8 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 	{
 	  float z =  100.0 * mutant/((float)cover) ;
 	  array (ff, ir, float) = 1000 + z ;
+	  array (ff1, ir, int) = mutant ;
+	  array (ff2, ir, int) = cover ;
 	}
       
       {
@@ -9620,9 +10947,9 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 	  maxMeasured = snpMeasured[ir] ;
       if ( oldTarget) 
 	{
-	  BOOL isDrop = snpFrequencyTableExportOneLine (snp, ao, max - 1, ff, oldTarget, oldPos, oldType, groups, groups2runs, r2ir, runDict, mp, mm, wp, wm) ;  
+	  BOOL isDrop = snpFrequencyTableExportOneLine (snp, aoF, aoC, max - 1, ff, ff1, ff2, oldTarget, oldPos, oldType, groups, groups2runs, r2ir, runDict, mp, mm, wp, wm) ;  
 	  if (! isDrop)
-		    {  
+	    {  
 		      float zPc = -10, zEx = -10 ;
 		      for (ir = 0 ; ir < runs->rows ; ir++)
 			{
@@ -9697,182 +11024,193 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 			}
 		    }
 	}
-      if (ao)
-	{
-	  float x ;
-	  aceOutf (ao, "\n") ;
-	  
-	  /* export the global counts */
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, hprintf (h, "All sites (variant in at least one sample) covered at least %d times ", snp->minCover )) ;
-	  aceOutf (ao, "\t%d", snp->anyRunMeasured + snp->anyRunDropped) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpMeasured[ir] + snpDropped[ir]) ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, hprintf (h, "Sites not measurable (less than %d reads)", snp->minCover)) ;
-	  aceOutf (ao, "\t%d", snp->anyRunNA) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpNA[ir]) ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Rejected monomodal sites (likely sequencing or mapping error)") ;
-	  aceOutf (ao, "\t%d", snp->anyRunDropped) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpDropped[ir]) ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Well measured sites") ;
-	  aceOutf (ao, "\t%d",  snp->anyRunMeasured) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpMeasured[ir]) ;
-
-	  x = snp->anyRunMeasured > 0 ? 100.0 / snp->anyRunMeasured : 0 ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Reference (<5% variant)") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunWild) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ; aceOutf (ao, "\t%.2f", 100.0 * snpWild[ir]/z) ; }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Low (5-20% variant)") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunLow) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpLow[ir]/z) ; }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Mid (20-80% variant)") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunMid) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpMid[ir]/z) ; }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "% High (80-95%% variant)") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunHigh) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpHigh[ir]/z) ; }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Pure variant (>95% variant)") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunPure) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpPure[ir]/z) ; }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Variant (20-100%), heterozygous") ;
-	  aceOutf (ao, "\t%.2f", x * snp->anyRunMid + x * snp->anyRunHigh + x * snp->anyRunPure) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ; aceOutf (ao, "\t%.2f", 100.0 * (snpMid[ir] + snpHigh[ir] + snpPure[ir] )/z) ; }
-	  
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Reference (<5% variant)") ;
-	  aceOutf (ao, "\t%d", snp->anyRunWild) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpWild[ir]) ;
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Low (5-20%)") ;
-	      aceOutf (ao, "\t%d", snp->anyRunLow) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpLow[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Mid (20-80%)") ;
-	      aceOutf (ao, "\t%d", snp->anyRunMid) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpMid[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "High (80-95%)") ;
-	      aceOutf (ao, "\t%d", snp->anyRunHigh) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpHigh[ir]) ;
-	    }
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Variant (20-100%)") ;
-	      aceOutf (ao, "\t%d", snp->anyRunPure + snp->anyRunMid + snp->anyRunHigh) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpPure[ir] +  snpMid[ir] + snpHigh[ir]) ;
-	    }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Pure variant (>95%)") ;
-	  aceOutf (ao, "\t%d", snp->anyRunPure) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpPure[ir]) ;
-
-	  if (0)
-	    { /* very wrong in posterior code */
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Heterozygosity index") ;
-	      aceOutf (ao, "\t%.2f", snp->anyRunMeasured ? (100.0 * (snp->anyRunLow + snp->anyRunMid + snp->anyRunHigh)/(1.0*snp->anyRunMeasured)) : 0.0) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		{	      
-		  if (snpMeasured[ir] > 0) 
-		    {
-		      float z = snpLow[ir] + snpMid[ir] + snpHigh[ir] ;
-		      z = 100.0 * z / snpMeasured[ir] ;
-		      aceOutf (ao, "\t%.2f", z) ;
-		    }
-		  else
-		    aceOutf (ao, "\t%.2f", 0) ;
-		}
-	    }
-
-
-	  /********************/ 
-
-         snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Sites") ;
-	 aceOutf (ao, "\t%d", snpPcAnyAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpPcAny[ir]) ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Reference (<5% variant)") ;
-	 aceOutf (ao, "\t%d", snpPcWildAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpPcWild[ir]) ;
-	  
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Low (5-20%)") ;
-	      aceOutf (ao, "\t%d", snpPcLowAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpPcLow[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Mid (20-80%)") ;
-	      aceOutf (ao, "\t%d", snpPcMidAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpPcMid[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing High (80-95%%)") ;
-	      aceOutf (ao, "\t%d", snpPcHighAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpPcHigh[ir]) ;
-	    }
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Intermediate frequency (5-95%)") ;
-	      aceOutf (ao, "\t%d", snpPcLowAny + snpPcMidAny + snpPcHighAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpPcLow[ir]+snpPcMid[ir]+snpPcHigh[ir]) ;
-	    }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Pure variant (>95%)") ;
-	  aceOutf (ao, "\t%d", snpPcPureAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpPcPure[ir]) ;
-
-	  /********************/ 
-
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Sites") ;  /* exonic, not Exonic, to influence later call to sort */
-	 aceOutf (ao, "\t%d", snpExAnyAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpExAny[ir]) ;
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Reference (<5% variant)") ;
-	  aceOutf (ao, "\t%d", snpExWildAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpExWild[ir]) ;
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Low (5-20%)") ;
-	      aceOutf (ao, "\t%d", snpExLowAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpExLow[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Mid (20-80%)") ;
-	      aceOutf (ao, "\t%d", snpExMidAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpExMid[ir]) ;
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic High (80-95%%)") ;
-	      aceOutf (ao, "\t%d", snpExHighAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpExHigh[ir]) ;
-	    }
-	  if (1)
-	    {
-	      snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Intermediate frequency (5-95%)") ;
-	      aceOutf (ao, "\t%d", snpExLowAny + snpExMidAny + snpExHighAny) ;
-	      for (ir = 0 ; ir < runs->rows ; ir++)
-		aceOutf (ao, "\t%d", snpExLow[ir] + snpExMid[ir] + snpExHigh[ir]) ;
-	    }
-	  snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Pure variant (>95%)") ;
-	  aceOutf (ao, "\t%d", snpExPureAny) ;
-	  for (ir = 0 ; ir < runs->rows ; ir++)
-	    aceOutf (ao, "\t%d", snpExPure[ir]) ;
-
-	  /********************/ 
-	  aceOutf (ao, "\n") ;
-	}
+      if (aoF)
+	for (pass = 0 ; pass < 2 ; pass++)
+	  {
+	    float x ;
+	    ao = pass ? aoF : aoC ;
+	    
+	    aceOutf (ao, "\n") ;
+	    
+	    /* export the global counts */
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, hprintf (h, "All sites (variant in at least one sample) covered at least %d times ", snp->minCover )) ;
+	    aceOutf (ao, "\t%d", snp->anyRunMeasured + snp->anyRunDropped) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpMeasured[ir] + snpDropped[ir]) ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, hprintf (h, "Sites not measurable (less than %d reads)", snp->minCover)) ;
+	    aceOutf (ao, "\t%d", snp->anyRunNA) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpNA[ir]) ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "Rejected monomodal sites (likely sequencing or mapping error)") ;
+	    aceOutf (ao, "\t%d", snp->anyRunDropped) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpDropped[ir]) ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "Well measured sites") ;
+	    aceOutf (ao, "\t%d",  snp->anyRunMeasured) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpMeasured[ir]) ;
+	    
+	    x = snp->anyRunMeasured > 0 ? 100.0 / snp->anyRunMeasured : 0 ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Reference (<5% variant)") ;
+	    aceOutf (ao, "\t%.2f", x * snp->anyRunWild) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ; aceOutf (ao, "\t%.2f", 100.0 * snpWild[ir]/z) ; }
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Low (5-20% variant)") ;
+	    aceOutf (ao, "\t%.2f", x * snp->anyRunLow) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpLow[ir]/z) ; }
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Mid (20-80% variant)") ;
+	    aceOutf (ao, "\t%.2f", x * snp->anyRunMid) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpMid[ir]/z) ; }
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "% High (80-95% variant)") ;
+	    aceOutf (ao, "\t%.2f", x * snp->anyRunHigh) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpHigh[ir]/z) ; }
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Pure variant (>95% variant)") ;
+	    aceOutf (ao, "\t%.2f", x * snp->anyRunPure) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ;aceOutf (ao, "\t%.2f", 100.0 * snpPure[ir]/z) ; }
+	    if (1)
+	      {
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "% Variant (20-100%)" ) ;
+		aceOutf (ao, "\t%.2f", x * snp->anyRunMid + x * snp->anyRunHigh + x * snp->anyRunPure) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  { z = snpMeasured[ir] ? snpMeasured[ir] : 1 ; aceOutf (ao, "\t%.2f", 100.0 * (snpMid[ir] + snpHigh[ir] + snpPure[ir] )/z) ; }
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Variant (20-100%)") ;
+		aceOutf (ao, "\t%d", snp->anyRunPure + snp->anyRunMid + snp->anyRunHigh) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPure[ir] +  snpMid[ir] + snpHigh[ir]) ;
+	      }
+	    if (1)
+	      {
+		
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Reference (<5% variant)") ;
+		aceOutf (ao, "\t%d", snp->anyRunWild) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpWild[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Low (5-20%)") ;
+		aceOutf (ao, "\t%d", snp->anyRunLow) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpLow[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Mid (20-80%)") ;
+		aceOutf (ao, "\t%d", snp->anyRunMid) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpMid[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "High (80-95%)") ;
+		aceOutf (ao, "\t%d", snp->anyRunHigh) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpHigh[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Pure variant (>95%)") ;
+		aceOutf (ao, "\t%d", snp->anyRunPure) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPure[ir]) ;
+	      }
+	    
+	    if (0)
+	      { /* very wrong in posterior code */
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Heterozygosity index") ;
+		aceOutf (ao, "\t%.2f", snp->anyRunMeasured ? (100.0 * (snp->anyRunLow + snp->anyRunMid + snp->anyRunHigh)/(1.0*snp->anyRunMeasured)) : 0.0) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  {	      
+		    if (snpMeasured[ir] > 0) 
+		      {
+			float z = snpLow[ir] + snpMid[ir] + snpHigh[ir] ;
+			z = 100.0 * z / snpMeasured[ir] ;
+			aceOutf (ao, "\t%.2f", z) ;
+		      }
+		    else
+		      aceOutf (ao, "\t%.2f", 0) ;
+		  }
+	      }
+	    
+	    
+	    /********************/ 
+	    
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Sites") ;
+	    aceOutf (ao, "\t%d", snpPcAnyAny) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpPcAny[ir]) ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Reference (<5% variant)") ;
+	    aceOutf (ao, "\t%d", snpPcWildAny) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpPcWild[ir]) ;
+	    
+	    if (1)
+	      {
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Low (5-20% AF)") ;
+		aceOutf (ao, "\t%d", snpPcLowAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcLow[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Mid (20-80% AF)") ;
+		aceOutf (ao, "\t%d", snpPcMidAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcMid[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing High (80-95% AF)") ;
+		aceOutf (ao, "\t%d", snpPcHighAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcHigh[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Pure variant (>95% AF)") ;
+		aceOutf (ao, "\t%d", snpPcPureAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcPure[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing variant (20-95% AF)") ;
+		aceOutf (ao, "\t%d", snpPcPureAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcMid[ir] + snpPcHigh[ir] + snpPcPure[ir]) ;
+	      }
+	    if (0)
+	      {
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "Protein changing Intermediate frequency (5-95%)") ;
+		aceOutf (ao, "\t%d", snpPcLowAny + snpPcMidAny + snpPcHighAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpPcLow[ir]+snpPcMid[ir]+snpPcHigh[ir]) ;
+	      }
+	    
+	    /********************/ 
+	    
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Sites") ;  /* exonic, not Exonic, to influence later call to sort */
+	    aceOutf (ao, "\t%d", snpExAnyAny) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpExAny[ir]) ;
+	    snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Reference (<5% variant)") ;
+	    aceOutf (ao, "\t%d", snpExWildAny) ;
+	    for (ir = 0 ; ir < runs->rows ; ir++)
+	      aceOutf (ao, "\t%d", snpExWild[ir]) ;
+	    if (1)
+	      {
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Low (5-20%)") ;
+		aceOutf (ao, "\t%d", snpExLowAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExLow[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Mid (20-80%)") ;
+		aceOutf (ao, "\t%d", snpExMidAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExMid[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic High (80-95%)") ;
+		aceOutf (ao, "\t%d", snpExHighAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExHigh[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Pure variant (>95%)") ;
+		aceOutf (ao, "\t%d", snpExPureAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExPure[ir]) ;
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic variant (20-95%)") ;
+		aceOutf (ao, "\t%d", snpExPureAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExMid[ir] + snpExHigh[ir] + snpExPure[ir]) ;
+	      }
+	    if (0)
+	      {
+		snpFrequencyTableHeader (ao, maxNHLBI, groups, "exonic Intermediate frequency (5-95%)") ;
+		aceOutf (ao, "\t%d", snpExLowAny + snpExMidAny + snpExHighAny) ;
+		for (ir = 0 ; ir < runs->rows ; ir++)
+		  aceOutf (ao, "\t%d", snpExLow[ir] + snpExMid[ir] + snpExHigh[ir]) ;
+	      }
+	    
+	    /********************/ 
+	    aceOutf (ao, "\n") ;
+	  }
     }
   
   if (snp->frequencyHisto)
@@ -9918,6 +11256,335 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
   ac_free (h) ;
   return nn ;
 } /*  snpFrequencyTable */
+
+/*************************************************************************************/
+/*************************************************************************************/
+
+static BOOL snpVcfCounts (AC_OBJ s, const char *tag, const char *run, int *m, int *w,  int *cover)
+{
+  AC_HANDLE h = ac_new_handle () ;BOOL ok = FALSE ;
+  AC_TABLE tt = ac_tag_table (s, tag, h) ;
+  
+  *m = *w = 0 ;
+  if (cover) *cover = 0 ;
+  if (tt && tt->rows && tt->cols >= 3)
+    {
+      int ir ;
+      for (ir = 0 ; ir < tt->rows ; ir++)
+	{
+	  const char *ccp = ac_table_printable (tt, ir, 0, 0) ;
+	  if (ccp && !strcasecmp (ccp, run))
+	    break ;
+	}
+      if (ir < tt->rows)
+	{
+	  ok = TRUE ;
+	  *m = ac_table_int (tt, ir, 1, 0) ;
+	  *w = ac_table_int (tt, ir, 2, 0) ;
+   	  if (cover)
+	    {
+	      *cover = ac_table_int (tt, ir, 3, 0) ;
+	      if (*cover < *m + *w)
+		*cover = *m + *w ;
+	    }
+	}
+    }
+  return ok ;
+} /* snpVcfCounts */
+
+/*************************************************************************************/
+
+static void snpVcfRunCounts (vTXT txt, SNP *snp, AC_OBJ s, const char *run)
+{
+  int mutant, wild, cover, mm, mp, wm, wp ;
+  float frequency = 0 ;
+
+  snpVcfCounts (s, "nsCounts", run, &mutant, &wild, &cover) ;
+  snpVcfCounts (s, "fCounts", run, &mp, &wp, 0) ;
+  snpVcfCounts (s, "rCounts", run, &mm, &wm, 0) ;
+  
+  if (cover)
+    { 
+      AC_HANDLE h = ac_new_handle () ;
+      AC_TABLE tt = ac_tag_table (s, "Phase", h) ;
+      int strand =  tt ? ac_table_int (tt, 0, 0, 0) : 0 ;
+      const char *genotype, *phaseName = tt ? ac_table_printable (tt, 0, 1, ".") : "." ;
+
+      frequency =  100.0 * mutant/cover ;
+      if (strand)
+	{
+	  if (frequency > 80)
+	    genotype = "1|1" ;
+	  else if (frequency < 20)
+	    genotype = "0|0" ;
+	  else if (strand == 1)
+	    genotype = "1|0" ;
+	  else if (strand == 2)
+	    genotype = "0|1" ;
+	}
+      else
+	{
+	  if (frequency > 80)
+	    genotype = "1/1" ;
+	  else if (frequency < 20)
+	    genotype = "0/0" ;
+	  else 
+	    genotype = "1/0" ;
+	}
+
+      vtxtPrintf (txt, "\t%s:%.3f:%d:%d,%d:%d,%d:%d,%d:%s"
+		  , genotype
+		  , frequency/100
+		  , cover
+		  , wild, mutant
+		  , wp, mp
+		  , wm, mm
+		  , phaseName
+		  ) ;
+
+      ac_free (h) ;
+    }
+  else
+    {
+      vtxtPrintf (txt, "\t.:.:.:.:.") ;
+    }
+} /*  snpVcfRunCounts */
+
+/*************************************************************************************/
+
+static void snpVcfTableHeader (SNP *snp, ACEOUT ao, KEYSET runs)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  AC_TABLE tt = 0 ;
+  int ir ;
+  const char *errors = 0 ;
+
+  aceOutf (ao, "%s", 
+	   "##fileformat=VCFv4.2\n"
+	   "##fileDate=20170912\n"
+	   "##source=MAGIC_NCBI.v2017_09_11\n"
+	   "##reference=GRCh37.p10_Primary_Assembly_GCF_000001405.22_https://www.ncbi.nlm.nih.gov/assembly/GCF_000001405.22\n"
+	   ) ;
+  tt = ac_bql_table (snp->db , "select m, t, ln from m in ?map, ln in m->length, t in m->title where t", 0, 0, &errors, h) ;
+  for (ir = 0 ; tt && ir < tt->rows ; ir++)
+    {
+      const char *ccp = ac_table_printable (tt, ir, 0, "") ;
+      
+      if (ccp && strlen (ccp) < 3)
+	{
+	  aceOutf (ao, "##contig=<ID=%s,chromosome=chr%s,RefSeqID=%s,length=%d>\n"
+		   , ac_table_printable (tt, ir, 0, "") 
+		   , ac_table_printable (tt, ir, 0, "") 
+		   , ac_table_printable (tt, ir, 1, "") 
+		   , ac_table_int (tt, ir, 2, 0) 
+		   ) ;
+	}
+    }
+  aceOutf (ao, "%s", 
+	   "##ALT=<ID=NON_REF,Description=\"Represents a particular alternative allele at this location, a single alternative per line\">\n"
+	   "##FILTER=<ID=Reject_M,Number=0,Type=Flag,Description=\"monomodal\">\n"
+	   "##FILTER=<ID=Reject_P,Number=0,Type=Flag,Description=\"Not consistently phasable\">\n"
+	   "##INFO=<ID=In_51bp_genomic_repeat,Number=1,Type=Integer,Description=\"The modified base is at the centre of a 51 bp segment repeated N times on the either strand of the genome.\">\n"
+	   "##INFO=<ID=In_101bp_genomic_repeat,Number=1,Type=Integer,Description=\"The modified base is at the centre of a 101 bp segment repeated N times on the either strand of the genome.\">\n"
+	   "##INFO=<ID=MOD,Number=0,Type=Flag,Description=\"This variant appears to be MOD specific, it is not detected by MAGIC or by GIAB in sample NA12878.\">\n"
+	   "##INFO=<ID=Monomodal,Number=0,Type=Flag,Description=\"This variant is hard to read, possibly it sits in a genome compression or is generated by a systematic sequencer error: the histogram of the observed frequency of this variant in hundreds of samples is monomodal in the intermediate range, without clear homozygotes.\">\n"
+	   "##INFO=<ID=Phasing,Number=1,Type=Integer,Description=\"Number of heterozygous SNVs consistently phased with this  heterozygous SNV in cis or in trans,  by at least 3 paired end fragments with less than 5% contradictions\">\n"
+	   "##INFO=<ID=Non_phasable,Number=1,Type=Integer,Description=\"Number of heterozygous SNVs with inconsistent phasing with this SNV: the SNVs are seemingly seen associated in both cis and trans. Either there is a copy number variation and more than 2 copies, or the SNV is an artefact\">\n"
+	   "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
+	   "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth, only read pairs aligning uniquely and over their quasi-entire length contribute ton SNV calling\">\n"
+	   "##FORMAT=<ID=AF,Number=1,Type=Float,Description=\"Variant allele frequency for the ref and alt alleles in the order listed\">\n"
+	   "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed\">\n"
+	   "##FORMAT=<ID=ADP,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed, aligned on strand plus of the genome; this is used to estimate strand bias\">\n"
+	   "##FORMAT=<ID=ADM,Number=.,Type=Integer,Description=\"Allelic depths for the ref and alt alleles in the order listed, aligned on strand minus of the genome; used to estimate strand bias\">\n"
+	   "##FORMAT=<ID=PS,Number=1,Type=String,Description=\"Phase information: all heterozygous alleles in this phase group are measured to be in cis or trans relative to each other, in at least three connecting pairs of reads\">\n"
+	   "##phasing=partial\n"
+	   ) ;
+  
+  aceOutf (ao, "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT") ;
+    
+  if (snp->runs)
+    {
+      DICT *dict = snp->runDict ;
+      KEYSET runs = snp->runs ;
+      int ir, irMax = keySetMax (runs) ; 
+      
+      for (ir = 0 ; ir < irMax ; ir++)
+	{
+	  int run = keySet (runs, ir) ;
+	  aceOutf (ao, "\t%s", dictName (dict, run)) ;
+	}
+    }
+
+  aceOutf (ao, "\n") ;
+  
+  return ;
+} /* snpVcfTableHeader  */
+
+/*************************************************************************************/
+/* parse RunsSortedList */
+static KEYSET snpVcfTableGetRuns (SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEIN ai = aceInCreate (snp->runListFileName, FALSE, h) ;
+  int ir = 0 ;
+
+  snp->runs = keySetHandleCreate (snp->h) ;
+  while (aceInCard (ai))
+    {
+      char *cp = aceInWord (ai) ;
+      int run ;
+
+      if (!cp || ! *cp || *cp == '#' || *cp == '/')
+	continue ;
+
+      dictAdd (snp->runDict, cp, &run) ;
+      keySet (snp->runs, ir++) = run ;
+    }
+  ac_free (ai) ;
+  ac_free (h) ;
+
+  return snp->runs ;
+} /* snpVcfTableGetRuns */
+
+/*************************************************************************************/
+
+static void snpVcfTable (SNP *snp)
+{
+  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+  ACEOUT ao = 0 ;
+  int nn = 0 ;
+  AC_DB db = snp->db ;
+  AC_OBJ s = 0 ;
+  AC_ITER iter = ac_query_iter (db, TRUE, hprintf (h, "find variant project == %s", snp->project), 0, h) ;
+  vTXT txt = vtxtHandleCreate (h) ;
+  /*
+    const char **runp, *runs[] = {"Magic11", 0, "MagicWG2", "GIAB", "7_18.FDA.Walia", "8_24.Atgenomix.conf30", "8_30.NYU_Langone", "7_27.NIH_Lack", "8_31.Hard", "Richa", 0} ;
+  */
+  KEYSET runs = snpVcfTableGetRuns (snp) ;
+  
+  ao = aceOutCreate (snp->outFileName, ".vcf", snp->gzo, h) ;
+  snpVcfTableHeader (snp, ao, runs) ;
+  
+  while (ac_free (s), ac_free (h1), vtxtClear (txt), s = ac_iter_obj (iter))
+    { 
+      h1 = ac_new_handle () ;
+      char *cq, *cp = strnew (ac_name(s), h1) ;
+      
+      vtxtClear (txt) ;
+      /* chrom */
+      cq = strchr (cp, ':') ; if (! cq) continue ; 
+      *cq = 0 ; vtxtPrintf (txt, "%s", cp) ; cp = cq + 1 ; 
+      if (! *cp) continue ;
+      /* pos */
+      cq = strchr (cp, ':') ; if (! cq) continue ; 
+      *cq = 0 ; vtxtPrintf (txt, "\t%s", cp) ; cp = cq + 1 ; 
+      if (! *cp) continue ;
+      vtxtPrintf (txt, "\t.") ; /* RS id */
+      /* reference */
+      cq = strchr (cp, ':') ; if (! cq) continue ; 
+      *cq = 0 ; bufferToUpper (cp) ; vtxtPrintf (txt, "\t%s",cp ) ; cp = cq + 1 ; 
+      if (! *cp) continue ;
+      /* variant */
+      bufferToUpper (cp) ; vtxtPrintf (txt, "\t%s", cp) ; cp = cq + 1 ; 
+      
+      /*
+      if (! snpVcfCounts (s, "nsCounts", snp->run, &mutant, &wild, &cover))
+	continue ;
+      if (cover < 10) continue ;
+      if (mutant == 0) continue ;
+      frequency =  100.0 * mutant/cover ;
+      if (frequency < 20) continue ;
+      */
+
+      vtxtPrintf (txt, "\t.") ; /* quality */
+      if (1)
+	{
+	  int phase = ac_tag_int (s, "Phase", 0) ;
+	  
+	  if (ac_has_tag (s, "Rejected"))
+	    vtxtPrintf (txt, "\tReject_M") ; /* filter */
+	  else if (phase < 0)
+	    vtxtPrintf (txt, "\tReject_P") ; /* filter */ 
+	  else if (0 && ac_has_tag (s, "Genome_51mer_repeats"))
+	    vtxtPrintf (txt, "\tReject_R") ; /* filter */ 
+	  else
+	     vtxtPrintf (txt, "\tPASS") ; /* filter */
+	}
+      
+      vtxtPrintf (txt, "\t") ;
+      if (1)
+	{  /* info */
+	  char *sep = "" ; 
+	  int x ;
+	  int phase = ac_tag_int (s, "Phase", 0) ;
+	  const char *coding ;
+	  
+	  if (0 && ! ac_has_tag (s, "MagicWG2") && ! ac_has_tag (s, "GIAB"))
+	    { vtxtPrintf (txt, "%sMOD", sep) ; sep = ";" ; }
+	  x = ac_tag_int (s, "Genome_51mer_repeats", 0) ;
+	  if (x > 0)
+	    { vtxtPrintf (txt, "%sIn_51bp_genomic_repeat=%d", sep, x) ; sep = ";" ; }
+	  x = ac_tag_int (s, "Genome_101mer_repeats", 0) ;
+	  if (x > 0)
+	    { vtxtPrintf (txt, "%sIn_101bp_genomic_repeat=%d", sep, x) ; sep = ";" ; }
+	  if (ac_has_tag (s, "Rejected"))
+	    { vtxtPrintf (txt, "%sMonomodal", sep) ; sep = ";" ; }
+	  if (phase > 0)
+	    { 
+	      AC_TABLE tt = ac_tag_table (s, "Phase", h1) ;
+	      vtxtPrintf (txt, "%sPhasing=%d", sep, ac_table_int (tt, 0, 2, 0)) ; sep = ";" ; 
+	      ac_free (tt) ;
+	    }
+	  if (phase < 0)
+	    { vtxtPrintf (txt, "%sNon_phasable=%d",sep, -phase) ; sep = ";" ; }
+	  coding= ac_tag_printable (s, "pName", 0) ;
+	  if (0 && coding)
+	    { 
+	      /* 
+		 AC_TABLE tt1 = ac_tag_table (s, "Reference_sequence", h1) ;
+		 AC_TABLE tt2 = ac_tag_table (s, "Observed__sequence", h1) ;
+		 vtxtPrintf (txt, "Coding=\"") ; sep = ";" ; 
+	      */	    
+	    }
+	}
+	   
+      /* INFO : proprietes du SNP, distance to nearest neighbour, difficult region, nb de 51mers du genome, delins insert sub deletes dup dim strand discordant  */
+      vtxtPrintf (txt, "\tGT:AF:DP:AD:ADP:ADM:PS") ;
+      /*
+	genotype = "." ;
+	     if (frequence > 90) genotype = "1/1" ;
+	     else  if (frequence < 5) genotype = "1/1" ;
+	     else  genotype = "1/0" ;
+	     vtxtPrintf (txt, "\t%s", genotype) ;
+      */
+        
+      if (snp->runs)
+	{
+	  DICT *dict = snp->runDict ;
+	  KEYSET runs = snp->runs ;
+	  int ir, irMax = keySetMax (runs) ; 
+	  
+	  for (ir = 0 ; ir < irMax ; ir++)
+	    {
+	      int run = keySet (runs, ir) ;
+	      const char* runName = dictName (dict, run) ;
+	      
+	      snpVcfRunCounts (txt, snp, s, runName) ;
+	    }
+	}      
+      if (0) vtxtPrintf (txt, "\t%s", ac_has_tag (s, "GIAB_easy") ? "EASY" : "DIFFICULT") ;
+      
+      vtxtPrintf (txt, "\n") ;
+      
+      nn++ ;
+      aceOut (ao, vtxtPtr (txt)) ;
+    }
+  
+  
+  fprintf (stderr, "// Exported %d snp in file %s\n", nn, aceOutFileName (ao)) ;
+  ac_free (h) ;
+  return ;
+} /*  snpVcfTable */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -9992,7 +11659,7 @@ static int snpPrevalenceTable (SNP *snp)
 	  fprintf (stderr, "Recognised %d run names in file %s\n", i, aceInFileName (ai)) ;
 	  if (i < 1) goto done ;
 	  if (! snvTypeCol)
-	    messcrash ("In line 2, thre was no column called \"SNV type\" needed to distinguish protein changing SNPs") ;
+	    messcrash ("In line 2 of file %s , there was no column called \"SNV type\" needed to distinguish protein changing SNPs", aceInFileName (ai)) ;
 	  break ;
 	}
     }
@@ -10049,8 +11716,11 @@ static int snpPrevalenceTable (SNP *snp)
 		      continue ;
 		    if (!strncmp (ccp, "AA_sub", 6) ||
 			!strncmp (ccp, "Met1", 4) ||
-			!strcmp (ccp, "Frameshift")  ||
-			!strcmp (ccp, "AA_to_Stop")
+			!strncmp (ccp, "Ter", 3) ||
+			!strncmp (ccp, "Frame", 5)  ||
+			!strncmp (ccp, "Extension", 9)  ||
+			!strncmp (ccp, "AA_to_Stop", 10) ||
+			!strncmp (ccp, "Stop_to_AA", 10)
 			)
 		      { isProteinChanging = TRUE ; /* fprintf(stderr,"....%s\n",ccp) ; */ }
 		  }
@@ -10086,9 +11756,9 @@ static int snpPrevalenceTable (SNP *snp)
 	    */
 	  }
 
-	for (i = 1 ; i <= 6 ; i++)
+	for (i = 1 ; i <= 9 ; i++)
 	  { aceInWordCut (ai, "\t", &cutter) ; }
-	i = 7 ; ccp = aceInWordCut (ai, "\t", &cutter) ; /* gene */
+	i = 10 ; ccp = aceInWordCut (ai, "\t", &cutter) ; /* gene */
 	if (! ccp) continue ;
 	dictAdd (geneDict, ccp, &gene) ;
 	gp = arrayp (genes, gene, GP) ;
@@ -10109,7 +11779,7 @@ static int snpPrevalenceTable (SNP *snp)
 	gp->nSnps++ ;
 	if (isProteinChanging)	
 	  gp->nPcSnps++ ;
-	for (i = 8 ;  i < keySetMax (col2run) ; i++)
+	for (i = 11 ;  i < keySetMax (col2run) ; i++)
 	  {
 	    /* get value z in each run 
 	     * split value into a dosage
@@ -10176,12 +11846,12 @@ static int snpPrevalenceTable (SNP *snp)
 			  , "%s Reference (<5% variant)"
 			  , "%s Low (5-20%)"
 			  , "%s Mid (20-80%)"
-			  , "%s High (80-95%%)"
+			  , "%s High (80-95%)"
 			  , "%s Pure variant (>95%)"
   } ;
   */
-  aceOutf (ao, "\tSNP sites and types\tObservations\tNA\tReference (<5% variant)\tLow (5-20%)\tMid (20-80%)\tHigh (80-95%%)\tPure variant (>95%)\tMid to Pure (20-100%%)") ;
-  aceOutf (ao, "\t\t%%NA\t%%Reference (<5% variant)\t%%Low (5-20%)\t%%Mid (20-80%)\t%%High (80-95%%)\t%%Pure variant (>95%)\t%% Mid to Pure (20-100%%)") ;
+  aceOut (ao, "\tSNP sites and types\tObservations\tNA\tReference (<5% variant)\tLow (5-20%)\tMid (20-80%)\tHigh (80-95%)\tPure variant (>95%)\tMid to Pure (20-100%)") ;
+  aceOut (ao, "\t\t%%NA\t%%Reference (<5% variant)\t%Low (5-20%)\t%Mid (20-80%)\t%High (80-95%)\t%Pure variant (>95%)\t% Mid to Pure (20-100%)") ;
     aceOutf (ao, "\t") ;
   {
     aceOutf (ao, "\tRuns with no measured site") ;
@@ -10461,18 +12131,14 @@ static void usage (char *message)
 	    "//   The analyses rely on a the existence of an acedb VariantDB.$zone database, aware of genes, transcripts and coding structures\n"
 	    "//     and containing a copy of the metadata of the runs, originally hand constructed in MetaDB\n"
 	    "//     The parameter -db points to this database, we recommend one database per zone, allowing parallelization\n"
-	    "//   -db_snp_parse        -db ACEDB : parse the .snp file into VariantDB\n"
-	    "//      Input: a .snp file exported by the BRS_count or the snp_merge options\n"
 	    "//   -db_remap2genome tmp/METADATA/mrnaRemap.gz  -db ACEDB\n"
 	    "//      Remap the transcript variants into genome coordinates\n"
 	    "//   -db_remap2genes tmp/METADATA/mrnaRemap.gz -db ACEDB\n"
 	    "//      Remap the genome variants into transcript coordinates\n"
-	    "//   -db_translate        -db ACEDB : translate the mRNA variants (or genome variants remapped to mRNAs) if they map to a protein coding exon\n"
-	    "//   -db_group            -db ACEDB : merge Run variants into Group variants\n"
-	    "//      Scan all Variants in Variant DB and merge the counts for groups of runs\n"
-	    "//   -db_count -i input_file -db ACEDB  : scan the input file and adjust in the ACEDB database the variant->population and ->strand counts\n"
+	    "//   -db_translate -db ACEDB : translate the mRNA variants (or genome variants remapped to mRNAs) if they map to a protein coding exon\n"
+	    "//   -db_count -i count_file -db ACEDB  : scan the input file and adjust in the ACEDB database the variant->population and ->strand counts\n"
 	    "//   Finally various kinds of user friendly reports, if -db is documented, the tables will show run->sample, title and other info\n"
-	    "//   -db_frequencyTable   -db ACEDB -project project [-select selectFile] [-minCover c] [-Reference_genome] [-dropMonomodal]\n"
+	    "//   -db_frequencyTable  -i count_file  -db ACEDB -project project [-select selectFile] [-minCover c] [-Reference_genome] [-dropMonomodal]\n"
 	    "//       Report a long table, one SNP per line, one run per column, and several histograms\n"
 	    "//       Use minCover and selectFile to restrict the report to a zone or a cover threshold\n"
 	    "//       Use -Reference_genome to qualify the g.name in the exported table\n"
@@ -10483,6 +12149,11 @@ static void usage (char *message)
 	    "//       Report a table, one GENE per line, one run per column, and several histograms\n"
 	    "//       Use minCover and selectFile to restrict the report to a zone or a cover threshold\n"
 	    "//       Use -Reference_genome to qualify the g.name in the exported table\n"
+	    "//   -db_vcfTable -db ACEDB -project p -run_list list -o f [-gzo] \n"
+	    "//       Export variants in VCF format\n"
+	    "//         selects variant with tag project $P\n"
+	    "//                                  nsCount $run in run_list\n"
+	    "//         writes in file f.vcf[.gz]\n"
 	    "//   -db_report           -db ACEDB : report general statistics, obsolete\n"
 	    "//   -db_intersect        -db ACEDB : analyze how many SNPs are seen in how many samples\n"
 	    "//   -db_pheno            -db ACEDB : get the phenotype of the variants\n"
@@ -10508,7 +12179,7 @@ static void usage (char *message)
 	    "//      optionally reject reads not aligning on a sufficient fraction of their clipped lenght\n" 
 	    "//   -aliExtend -snp_list filename [-target_class class]\n"
 	    "//      draft program attempting to reanalyze the hits files given on stdin trying to locally remap the same reads\n"
-	    "//      on the locally combinatorial variations of the genome implied by the snp_list\n"
+	    "//      on the locally combinatorial variations of the genome implied by the snp_list i.e. 3:45321_A>C 3:45667_InsA \n"
 
 	    //\n"
 	    "// Filters\n"
@@ -10615,6 +12286,7 @@ int main (int argc, const char **argv)
     {
       char *cp = strchr (snp.Reference_genome, '.') ; if (cp) *cp = 0 ; 
     }
+  getCmdLineOption (&argc, argv, "-run_list", &snp.runListFileName) ;
   getCmdLineOption (&argc, argv, "-snp_list", &snp.snpListFileName) ;
   getCmdLineOption (&argc, argv, "-newIntrons", &snp.newIntronsFileName) ;
   snp.gzi = getCmdLineBool (&argc, argv, "-gzi") ;
@@ -10626,6 +12298,8 @@ int main (int argc, const char **argv)
   snp.dropMonomodal = getCmdLineBool (&argc, argv, "-dropMonomodal") ;
   snp.solid = getCmdLineBool (&argc, argv, "-solid") ;
   snp.dbCount = getCmdLineBool (&argc, argv, "-db_count") ;
+  snp.vcfTable = getCmdLineBool (&argc, argv, "-db_vcfTable") ;
+  getCmdLineOption (&argc, argv, "-db_val", &snp.snpValFileName) ;
   snp.frequencyTable = getCmdLineBool (&argc, argv, "-db_frequencyTable") ;
   snp.prevalenceTable = getCmdLineBool (&argc, argv, "-db_prevalenceTable") ;
   snp.frequencyHisto = getCmdLineBool (&argc, argv, "-db_frequencyHisto") ;
@@ -10634,6 +12308,7 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-Remove_inserts_shorter_than", &(snp.Remove_inserts_shorter_than)) ;
 
   snp.aliExtend = getCmdLineBool (&argc, argv, "-aliExtend") ;
+  snp.phasing = getCmdLineBool (&argc, argv, "-phasing") ;
   getCmdLineInt (&argc, argv, "-ooFrequency", &(snp.ooFrequency)) ;
   getCmdLineInt (&argc, argv, "-editSequence", &(snp.editSequence)) ;
   getCmdLineInt (&argc, argv, "-countEdited", &(snp.analyzeEditedHits)) ;
@@ -10650,8 +12325,8 @@ int main (int argc, const char **argv)
 
   getCmdLineOption (&argc, argv, "-db_remap2genome", &snp.remapFileName1) ;
   getCmdLineOption (&argc, argv, "-db_remap2genes", &snp.remapFileName2) ;
+  snp.db_VCF = getCmdLineBool (&argc, argv, "-db_VCF") ;
   snp.db_translate = getCmdLineBool (&argc, argv, "-db_translate") ;
-  snp.db_group = getCmdLineBool (&argc, argv, "-db_group") ;
   snp.db_intersect = getCmdLineBool (&argc, argv, "-db_intersect") ;
   snp.db_pheno = getCmdLineBool (&argc, argv, "-db_pheno") ;
 
@@ -10674,6 +12349,7 @@ int main (int argc, const char **argv)
 	  )
 	{
 	  snp.strategy = STRATEGY_EXOME ;
+	  snp.strategy = STRATEGY_RNA_SEQ ; /* default */
 	}
       else if (! strcasecmp (ccp, "RNA_seq"))
 	{
@@ -10703,6 +12379,7 @@ int main (int argc, const char **argv)
  
   snp.targetDict = dictHandleCreate (10000, snp.h) ;
   snp.chromDict = dictHandleCreate (100, snp.h) ;
+  snp.target_classDict = dictHandleCreate (4, snp.h) ;
   if (snp.selected8kbFileName)
     {
       snp.selected8kbDict = dictHandleCreate (100, snp.h) ;
@@ -10757,17 +12434,6 @@ int main (int argc, const char **argv)
 	}
       snpBRS2snp (&snp) ;
     }
-  else if (snp.db_group)
-    {
-      if (! sessionGainWriteAccess())
-	{
-	  fprintf (stderr, " Sorry, You do not have write access") ;
-	  exit (1) ;
-	}
-      snpTranslate (&snp) ;
-      snpPhenotype (&snp) ;
-      snpExtendGenomicSnpNet (&snp) ;
-    }
   else if (snp.db_translate)
     {
       if (! sessionGainWriteAccess())
@@ -10775,8 +12441,8 @@ int main (int argc, const char **argv)
 	  fprintf (stderr, " Sorry, You do not have write access") ;
 	  exit (1) ;
 	}
-      if (1) snpTranslate (&snp) ;
-      snpExtendGenomicSnpNet (&snp) ;
+      if (1) snpExtendGenomicSnpNet (&snp) ;
+      snpTranslate (&snp) ; 
     }
   else if (snp.db_pheno)
     {
@@ -10802,6 +12468,15 @@ int main (int argc, const char **argv)
 	messcrash ("-editSequence requires -fasta parameter pointing to the reference sequence, sorry") ;
       snpExportEditedSequence (&snp) ;
     }
+  else if (snp.phasing)
+    { 
+      if (! snp.run)
+	messcrash ("-phasing requires -run run_name, sorry") ;
+
+      if (! snp.snpListFileName)
+	messcrash ("-phasing requires -snp_list and will flag SNPs validated by phasing") ;
+       snpPhasing (&snp) ;
+    }
   else if (snp.aliExtend)
     {
       if (! snp.run)
@@ -10810,6 +12485,8 @@ int main (int argc, const char **argv)
 	messcrash ("-aliExtend requires -fasta parameter pointing to the reference sequence, sorry") ;
       if (! snp.snpListFileName)
 	messcrash ("-aliExtend requires -snp_list and will locally realign on these variations of the same target, sorry") ;
+      snpParseFastaFile (&snp) ;
+      snpAliExtendParseSnpList (&snp, 0) ;  /* fills array: snp->aliSnps */
       snpAliExtend (&snp) ;
     }
   else if (snp.db_intersect)
@@ -10834,7 +12511,19 @@ int main (int argc, const char **argv)
       snpFrequencyTable (&snp, FALSE) ;
       */
     }
-  else if (snp.prevalenceTable)
+  else if (snp.vcfTable)
+    {
+      if (! snp.db) 
+	usage ("-db_vcfTable requires -db MetaDB") ;
+      if (! snp.runListFileName)
+	messcrash ("-db_vcfTable requires -run_list, the list of runsto be exported") ;
+      if (0 && ! snp.run) 
+	usage ("-db_vcfTable requires -run runName") ;
+      if (! snp.project) 
+	usage ("-db_frequencyTable requires -project projectName") ;
+      snpVcfTable (&snp) ;
+    }
+   else if (snp.prevalenceTable)
     {
       if (! snp.db) 
 	usage ("-db_prevalenceTable requires -db MetaDB") ;
@@ -10856,8 +12545,8 @@ int main (int argc, const char **argv)
 	usage ("-db_count requires -db MetaDB") ;
       if (! snp.project) 
 	usage ("-db_count requires -project projectName") ;
-      if (! snp.inFileName)
-	usage ("-db_count requires -i snp_file_name") ;
+      if (! snp.inFileName && ! snp.snpValFileName)
+	usage ("-db_count requires -i snp_file_name OR -db_val snp2.val.txt file list") ;
       snpFrequencyTable (&snp, FALSE) ;
     }
  else if (snp.analyzeEditedHits)

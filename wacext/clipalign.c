@@ -10,32 +10,37 @@
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
+ * GNU General Public License for more details.    
+ *  
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  * or see the on-line version at http://www.gnu.org/copyleft/gpl.txt
  * -------------------------------------------------------------------
- * This file is part of the AceView project developped by
- *	 D and J Thierry-Mieg (mieg@ncbi.nlm.nih.gov)
- *
- *  This should be linked with the acedb libraries
- *  available from http://www.acedb.org
+ * This file is part of the AceView project developped by 
+ *	 D and J Thierry-Mieg (mieg@ncbi.nlm.nih.gov)      
+ *   
+ *  This should be linked with the acedb libraries 
+ *  available from http://www.acedb.org 
  *
  *  Please direct all question about this code to
  *  mieg@ncbi.nlm.nih.gov
  */
 
-/*
-#define ARRAY_CHECK 
-#define MALLOC_CHECK 
-*/
+#define VERSION "2017_12"
+#define MAXJUMP 8
 
 #define LATESORT 0
 #include "ac.h"
 #include "bitset.h"
 #include "bigarray.h"
+
+
+#ifdef RESTRICT 
+#define Restrict restrict
+#else
+#define Restrict 
+#endif
 
 /* max number of bases in prefix/suffix */
 #define OVLN 30
@@ -44,6 +49,7 @@
 typedef struct clipAlignStruct {
   AC_HANDLE h ;
   const char *probeFileName ;
+  const char *probeFileName2 ;  /* pair case, one can give the sequences in 2 independant files */
   const char *targetFileName ;
   const char *multiTargetFileNames ;
   const char *selectedProbeFileName ;
@@ -64,7 +70,9 @@ typedef struct clipAlignStruct {
   BOOL oligoGeneTouched ;
   int wffSize ;
   unsigned char *wff ; /* word frequency table of words of length wffSize */
+  int UMI ; /* length of cell bar code, clip behind, report in col 20, do not map read 1 */
   int jump5_1, jump5_2 ; /* jump that many base at the 5' or 3' end of the probes, for read 1 or read 2 */
+  int forceRightClip_1, forceRightClip_2 ; /* force rightClip read 1 and/or read 2 */
   int clipAt ; /* clip all probes at that maximal length */
   int targetStart, targetStop; /* this range on the target, must be included, used to validate snps */
   int exactTargetStart, exactTargetStop; /* no error in this range on the target, used to search exon juntions */
@@ -72,7 +80,7 @@ typedef struct clipAlignStruct {
   int intronMaxLength ; /*  used in -splice mode when veryfying the overhang matches the genome */
   int intronMinLength ; /*  used in -splice mode to classify as intron or short deletion */
   int maxDiscardableAli ;
-  BOOL showTargetPrefix ; /* export 30bp upstream of the alignment */
+  BOOL showTargetPrefix ;
   BOOL probeSetName ; /* if provided, export the column */
   BOOL showProbeSequence, showOverhang ;
   BOOL clipPolyA, clipPolyA2 ; /* clip terminal polyA */
@@ -80,9 +88,11 @@ typedef struct clipAlignStruct {
   BOOL hasGenes ;
   BOOL MRNAH ; /* hierarchic mapping, drop other tarnscripts in alphabetic order */
   BOOL solid ;  /* we are aligning in color space, apply the error correcting procedure */
+  BOOL roche ; /* favor deletions */
   BOOL pacbio ; /* favor deletions */
+  BOOL nanopore ; /* favor deletions */
   BOOL fastQ ; /* probe file is in fastQ format */
-  BOOL A2G, T2C, A2C, T2G, C2G, A2T, X2X ;  /* search for intense RNA-editing by aligning in 3 letter code */
+  BOOL A2G, G2A, T2C, C2T, A2C, C2A, T2G, G2T, G2C, C2G, A2T, T2A, X2X ;  /* search for intense RNA-editing by aligning in 3 letter code */
   int probeQquality ; /* ignore, if fastq format, right clip until a letter of given quality is reached */
   int fastQbase ; /* base of the quality factors, may be 33 (NCBI) or 64 (ILM/solexa), if set, report the quality of the SNP */
   int nbpQclipped ;   /* how many bp where clipped on the right */
@@ -101,6 +111,7 @@ typedef struct clipAlignStruct {
   BOOL strand, antistrand, antiprobe, aceOutGenomic, aceOutMrna, aceOutNM, silent ;
   BOOL vectorize ; /* export the alignments -a la Jim Kent- with coma separated muti coordinates */ 
   BOOL bestHit, splice, getTm, golay, multi, preScanGenome, preScanProbes, strandedTarget ;
+  BOOL sam ; /* sam output requested */
   BOOL decoy ;
   BOOL avoidPseudoGenes ;   /* kill hits to unspliced gene on the same strand as hits to spliced genes */
   enum { STRATEGY_ZERO=0, STRATEGY_RNA_SEQ, STRATEGY_GENOME} strategy ;
@@ -108,7 +119,7 @@ typedef struct clipAlignStruct {
   unsigned char **sl, **slR, **entryAdaptor, **entryAdaptorDecoded , **exitAdaptor, **exitAdaptor2, **exitAdaptorDecoded, **exitAdaptor2Decoded ;
   unsigned int *entryAdaptorFound,  *exitAdaptorFound,  *exitAdaptor2Found, *entryAdaptorHasN,  *exitAdaptorHasN ,  *exitAdaptor2HasN ;
   int targetMutantMalus, mutantMalus, geneStrandMalus ;
-  int aliBonusForThisAli, leftAdaptorClipForThisAli, rightAdaptorClipForThisAli ; /* belong to mm, but it saves memory to have them as globals */
+  int aliBonusForThisAli, leftAdaptorClipForThisAli, rightAdaptorClipForThisAli ; /* belong to mm, but it saves memory to have them as globals */   
   int errMin, errMax, errRateMax, errCost, endBonus, bonus, slBonus, clipN,
     maxHit, maxHitR, minEntropy, nExportedHits,
     probeMinMultiplicity,
@@ -130,7 +141,6 @@ typedef struct clipAlignStruct {
   BigArray exportDoubleIntrons ;
   BigArray geneDonors, geneAcceptors ;
   BigArray geneIntrons ;
-  BigArray geneDoubleIntrons ;
   Associator ass, ass1, ass2, assB, assB1, assB2, assMulti[32] ;
   Array scores[1024] ;
   int hashPhase, nOligo, score ;
@@ -142,8 +152,10 @@ typedef struct clipAlignStruct {
   BOOL gzi, gzo ;
   BitSet seedOver25 ;
   BitSet doubleGenes ;
-  ACEIN ai ; ACEOUT ao, outNoInsert ;
+  ACEIN ai ; ACEOUT ao, outNoInsert, aoRead2Intron ;
 } CLIPALIGN ;
+
+#define NBESTSCORES 25
 
 typedef struct mmStruct {
   int probeLength ;
@@ -154,19 +166,19 @@ typedef struct mmStruct {
   int probeSequence ; /* offsett in CLIPALIGN->probeStack */
   int probeQuality ;  /* offsett in CLIPALIGN->qualityStack */
   int nScore ;        /* offset in scores array for that loop */
-  int lastTarget, lastTargetGene, lastA1, lastA2, lastX1, lastX2 ;
-  BOOL lastIsUp ;
+  int lastTarget, lastTargetGene, lastA1, lastA2, lastX1, lastX2, lastDelta ;
   int ipx ;           /* offset in exportHits array */
-  int ipxg ;           /* offset in exportGeneHits array */
+  int ipxg ;          /* offset in exportGeneHits array */
   int pair ;          /* +- offset + 2 of other read of same fragment */
   int fragment ;      /* fragment number */
-  int  mult ;          /* multiplicity in fastc format */
+  int mult ;          /* multiplicity in fastc format */
   int entropy ;       /* complexity in bp equivalent */
+  BOOL lastIsUp ;
   float tm ;          /* TM Maniatis formula */
-  short nGeneHits ;          /* number of hits reported */
-  short nPerfectHit ;          /* number of perfect hits reported */
-  short bestHit ;       /* minimal N +err+unaligned so far */
-  short bestScore ;     /* best score so far */
+  short nGeneHits ;   /* number of hits reported */
+  short nPerfectHit ; /* number of perfect hits reported */
+  short bestHit ;     /* minimal N +err+unaligned so far */
+  short bestScore[NBESTSCORES], bestX1[NBESTSCORES], bestX2[NBESTSCORES] ;     /* best score so far */
   short pairScore ;
   short bestPairScore ;
   short same ;          /* number of letters in common with (mm+1) */ 
@@ -176,7 +188,6 @@ typedef struct mmStruct {
 
 
 static char B2[256] ;
-static char B2r[256] ;
 static int nVerif = 0 ;
 static int nPerfect = 0 ;
 static int nHashRejected = 0 ;
@@ -188,6 +199,7 @@ static BOOL slideCheckHookEntropy (const unsigned char *hook) ;
 static int clipAlignOptimizePairs (CLIPALIGN *pp, BOOL singleGene) ;
 
 static const char *COSMID = 0 ;
+static void clipAlignSquish (CLIPALIGN *pp, int nn) ;
 
 /*************************************************************************************/
 /*********************************************************************/
@@ -202,6 +214,8 @@ typedef struct pExportStruct {
     , ipxold
     /*     , geneStrandMalus */
     , fragment
+    , intron, doubleIntron
+    , donor, acceptor
     ;
   MM *mm ;
   char type, isDown, foot[6]
@@ -224,6 +238,9 @@ static void showPexport (CLIPALIGN *pp, int nn)
     case 3: bb = pp->geneAcceptors ; title = "gene acceptors" ; break ;
     case 4: bb = pp->exportDonors ; title = "export donors" ; break ;
     case 5: bb = pp->exportAcceptors ; title = "export acceptors" ; break ;
+    case 6: bb = pp->geneIntrons ; title = "gene introns" ; break ;
+    case 7: bb = pp->exportIntrons ; title = "export introns" ; break ;
+    case 9: bb = pp->exportDoubleIntrons ; title = "export double introns" ; break ;
     default: bb = pp->exportHits ; title = "hits" ; break ;
     }
 
@@ -231,81 +248,59 @@ static void showPexport (CLIPALIGN *pp, int nn)
     {
       iMax = bigArrayMax (bb) ;
       fprintf (stderr, "---  showPexport %d lines, %s\n", iMax, title) ;
-      for (ii = 0, px = bigArrp (bb, 0, PEXPORT) ; ii < iMax ; ii++, px++)
-	if (px->target && px->score)
-	  fprintf (stderr, "%d: \ts:%d\tps=%d\tali:%d\ta:%d-%d \tx:%d-%d\t%s\tfrag=%d\tchain=%d\tu=%d\t%s\n"
-		   , ii
-		   , px->score,  px->pairScore, px->ali
-		   , px->a1, px->a2
-		   , px->x1, px->x2
-		   , stackText (pp->probeStack, px->mm->probeName)
-		   , px->fragment
-		   , px->chain, px->uu
-		   , dictName (pp->targetDict, px->target)
-		   ) ;
+      if (iMax)
+	for (ii = 0, px = bigArrp (bb, 0, PEXPORT) ; ii < iMax ; ii++, px++)
+	  if (px->mm && (nn > 5 ||  (px->target && px->score))) 
+	    fprintf (stderr, "%d: \ts:%d\tps=%d\tali:%d\ta:%d-%d \tx:%d-%d\t%s\tfrag=%d\tchain=%d:%d:%d chAli=%d\tu=%d\t%s\tpfx:%d\tsfx:%d\ti:%d di:%d d:%d a:%d\n"
+		     , ii
+		     , px->score,  px->pairScore, px->ali
+		     , px->a1, px->a2
+		     , px->x1, px->x2
+		     , stackText (pp->probeStack, px->mm->probeName)
+		     , px->fragment
+		     , px->chain, px->s1, px->s2, px->chainAli, px->uu
+		     , px->target ? dictName (pp->targetDict, px->target) : "---"
+		     , px->prefix, px->suffix
+		     , px->intron, px->doubleIntron, px->donor, px->acceptor
+		     ) ;
     }
 } /* showPexport */
 
 /*************************************************************************************/
-/* dna is double zero terminated, so we extend max before copy then decrease it */
-static Array dnaHandleCopy (Array dna, AC_HANDLE h)
-{
-  Array new ;
-  arrayMax (dna)++ ;
-  new = arrayHandleCopy (dna, h) ;
-  arrayMax (dna)-- ;
-  arrayMax (new)-- ;
-  return new ;
-} /* dnaHandleCopy */
 
-/*************************************************************************************/
- 
-
-static void squish (CLIPALIGN *pp, int nn)
+static void clipAlignSquish (CLIPALIGN *pp, int nn)
 {
   int ii, jj ;
   BigArray aa = 0 ;
   int iMax ;
-  PEXPORT *px, *py ;
-
-  return ;
+  PEXPORT *px, *py, *pz ;
 
   switch (nn)
     {
     case 1: aa = pp->exportGeneHits ; break ;
-    case 2: aa = pp->exportDonors ; break ;
-    case 3: aa = pp->exportAcceptors ; break ;
+    case 2: aa = pp->geneDonors ; break ;
+    case 3: aa = pp->geneAcceptors ; break ;
+    case 4: aa = pp->exportDonors ; break ;
+    case 5: aa = pp->exportAcceptors ; break ;
     default: aa = pp->exportHits ; break ;
     }
-  iMax = arrayMax (aa) ;
-  if (aa)
-    for (ii = jj = 0, px = py = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++, px++)
-      if (px->score)
-	{
-	  if (jj < ii) *py = *px ;
-	  py++; jj++ ;
+  iMax = aa ? arrayMax (aa) : 0 ;
+  if (iMax)
+    {
+      for (ii = jj = 0, px = py = pz = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++, px++)
+	{	
+	  if (px->score)
+	    {
+	      if (jj < ii && ! memcmp (px, pz, sizeof (PEXPORT)))
+		continue ;
+	      if (jj < ii) *py = *px ;
+	      pz = py ;
+	      py++; jj++ ;
+	    }
 	}
-  bigArrayMax (aa) = jj ;
-}  /* squish */
-
-/*************************************************************************************/
-
-static void clipAlignInit ()
-{
-  int i ; 
-  
-  i = 256 ;  while (i--) B2[i] = 0 ;
-  i = 256 ;  while (i--) B2r[i] = 0 ;
-  B2[A_] = 0x0 ; B2[T_] = 0x3 ;     /* ATTENTION copied in dnasubs.c:dnagetWordUsage */
-  B2[G_] = 0x1 ; B2[C_] = 0x2 ;     /* you must keep the 2 identical */
-  B2r[A_] = 0x3 ; B2r[T_] = 0x0 ;     /* ATTENTION copied in dnasubs.c:dnagetWordUsage */
-  B2r[G_] = 0x2 ; B2r[C_] = 0x1 ;     /* you must keep the 2 identical */
-  B2[Y_] = B2[T_] ;
-  B2[R_] = B2[A_] ;
-  if (0) showPexport(0, 0) ; /* for compiler happiness */
-
-  return ;
-} /* clipAlignInit */
+      bigArrayMax (aa) = jj ;
+    }
+}  /* clipAlignSquish */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -663,6 +658,22 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
 	  oldErrCost = errCost ;
 	  switch (ep2->type) /* faux ? , on veut sans doute oldErrCost */
 	    {
+	    case ERREUR: 
+	      if (ep2->baseLong & ep2->baseShort)
+		oldErrCost = 1 ;  
+	      if (0)
+		switch ((int)ep2->baseLong)
+		  {
+		  case A_:
+		  case T_:
+		  case G_:
+		  case C_:
+		    break ;
+		  default:
+		    oldErrCost = 1 ;  
+		    break ;
+		  }
+	      break ;
 	    case TROU_DOUBLE: oldErrCost += 2 ; break ; 
 	    case TROU_TRIPLE: oldErrCost += 4 ; break ; 
 	    case INSERTION_DOUBLE: oldErrCost += 2 ; break ; 
@@ -781,11 +792,11 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
 	  switch (ep1->type)
 	    {
 	    case TROU: (*x1p)-- ; break ; 
-	    case TROU_DOUBLE: (*x1p) -=2 ; break ; 
-	    case TROU_TRIPLE: (*x1p) -=3 ; break ; 
+	    case TROU_DOUBLE: (*x1p) -=1 ; (*a1p)++ ; break ; 
+	    case TROU_TRIPLE: (*x1p) -=1 ; (*a1p) += 2 ; break ; 
 	    case INSERTION: (*a1p)-- ; break ; 
-	    case INSERTION_DOUBLE:(*a1p) -= 2 ; (*a1p)++ ; (*x1p)++ ; break ; 
-	    case INSERTION_TRIPLE:(*a1p) -= 3 ; (*a1p)+=2 ; (*x1p)+=2 ; break ; 
+	    case INSERTION_DOUBLE:(*a1p)-- ; (*x1p)++ ; break ; 
+	    case INSERTION_TRIPLE:(*a1p)-- ; (*x1p)+=2 ; break ; 
 	    case AMBIGUE:
 	    case ERREUR:
 	    default: break ;
@@ -820,7 +831,7 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
    *  but NOT recursivelly
    */
 
- if (pp->X2X)
+ if (0 && pp->X2X)
     {
       char *cp, *cq ;
       int i, j, k1 = 0, k2 = 0 ;
@@ -828,14 +839,7 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
 	{
 	  if (*cp != *cq)
 	    {
-	      if (
-		  (*cp == R_ && *cq == G_) ||   /* R = AG */
-		  (*cp == Y_ && *cq == C_) ||   /* Y = TC */
-		  (*cp == M_ && *cq == C_) ||   /* M = AC */
-		  (*cp == K_ && *cq == G_) ||   /* K = TG */
-		  (*cp == S_ && *cq == G_) ||   /* S = CG */
-		  (*cp == W_ && *cq == T_)      /* W = AT */
-		  )
+	      if (*cp & *cq)
 		k1 = i ;
 	    }
 	}
@@ -843,14 +847,7 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
 	{
 	  if (*cp != *cq)
 	    {
-	      if (
-		  (*cp == R_ && *cq == G_) ||   /* R = AG */
-		  (*cp == Y_ && *cq == C_) ||   /* Y = TC */
-		  (*cp == M_ && *cq == C_) ||   /* M = AC */
-		  (*cp == K_ && *cq == G_) ||   /* K = TG */
-		  (*cp == S_ && *cq == G_) ||   /* S = CG */
-		  (*cp == W_ && *cq == T_)      /* W = AT */
-		  )
+	      if (*cp & *cq)
 		{
 		  k2 = errCost - i ;
 		  break ;
@@ -874,7 +871,7 @@ static void clipAlignErrorDoClip (CLIPALIGN *pp, MM *mm, BOOL transitionSpace, A
 /* eliminate the error walls at the 2 ends */
 static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm, 
 			       Array err, Array probeDnaArray, Array dna, Array dnaR,
-			       int *nNp, int *nCorrectedp, int *a1p, int *a2p, int *x1p, int *x2p,
+			       int *nNp, int *nCorrectedp, int pos, int xpos, int *a1p, int *a2p, int *x1p, int *x2p,
 			       BOOL isUp, float *tmp)
 {
   int ii, jj, dx, eMax ;
@@ -925,15 +922,16 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
     case STRATEGY_RNA_SEQ:
       ooCost = 8 ;
       transitionCost = 3 ;
-      errCost = 8 ;
+      errCost = pp->errCost ;
       transitionFavor = 1 ;
       break ;
     case STRATEGY_GENOME:
       ooCost = 3 ;
       transitionCost = 2 ;
-      errCost = 4 ;
-      transitionFavor = 0 ;
-      break ;
+      errCost = pp->errCost ;
+      transitionFavor = 1 ;  
+      /* FDA 2017_08  was 4 , see also STRATEGY_ in snp.c */
+       break ;
     default:
       ooCost = 0 ;
       errCost = pp->errCost ;
@@ -966,6 +964,7 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
    * the previous left-right error tracking
    */
   
+
   if (pp->X2X || arrayMax (err))
     {
       if (*x1p < 1) *x1p = 1 ;
@@ -974,9 +973,21 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
       
       if (isUp == FALSE)
 	{    
-	  aceDnaDoubleTrackErrors (probeDnaArray, x1p, x2p, TRUE /* bio coordinates  */
-				   , dna, dnaR, a1p, a2p
-				   , nNp, err, 3, pp->errMax > 0 ? 999 : 0, FALSE, 0) ;
+	  int pass = 5 ;
+	  while (pass-- > 0) 
+	    { /* beware of losing the zone of the anchor */
+	      aceDnaDoubleTrackErrors (probeDnaArray, x1p, x2p, TRUE /* bio coordinates  */
+				       , dna, dnaR, a1p, a2p
+				       , nNp, err, MAXJUMP, pp->errMax > 0 ? 999 : 0, FALSE, 0) ;
+	      if (xpos >= *x1p && xpos <= *x2p)
+		break ;
+	      /* rescan */
+	      *x1p = xpos ; *a1p = pos ; 
+	      *x2p = xpos + pp->seedLength ; *a2p = pos + pp->seedLength ;
+	      aceDnaDoubleTrackErrors (probeDnaArray, x1p, x2p, TRUE /* bio coordinates  */
+				       , dna, dnaR, a1p, a2p
+				       , nNp, err, 2, pp->errMax > 0 ? 999 : 0, TRUE, 0) ;
+	    }
 
 	  if (pp->solid) 
 	    {
@@ -1018,7 +1029,7 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
 
 	  aceDnaDoubleTrackErrors (probeR, &y1, &y2, TRUE /* bio coordinates  */
 				   , dnaR, dna, &b1, &b2
-				   , nNp, err, 3, pp->errMax > 0 ? 999 : 0, FALSE, 0) ;
+				   , nNp, err, MAXJUMP, pp->errMax > 0 ? 999 : 0, FALSE, 0) ;
 	  
 	  if (arrayMax (err) && pp->solid) 
 	    {
@@ -1158,9 +1169,19 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
     ((pp->splice || pp->clipPolyA2) ? INTRONBONUS : 0) +
     pairTampon ;
 
-  if (pp->bestHit && !pp->splice &&  mm->bestScore > score2)
-    return 0 ;
-	
+  if (mm->bestX1[0])
+    {
+      int i ;
+      for (i = 0 ; i < NBESTSCORES ; i++)
+	if (mm->bestX1[i])
+	  {
+	    int c1 = *x1p > mm->bestX1[i] ? *x1p : mm->bestX1[i] ;
+	    int c2 = *x2p < mm->bestX2[i] ? *x2p : mm->bestX2[i] ;
+	    dx = 3 *(c2 - c1 + 1) ;
+	    if (pp->bestHit && !pp->splice &&  mm->bestScore[i] > score2 && dx > *x2p - *x1p)
+	      return 0 ;
+	  }
+    }
   if (pp->bestHit && bigArrayMax (pp->exportGeneHits) > 1 && mm->ipxg)
     {
       int x1 = *x1p, x2 = *x2p, a1 = *a1p, a2 = *a2p ;
@@ -1201,20 +1222,20 @@ static void slInit (CLIPALIGN *pp)
 {
   /* if you edit the SL table, also edit the corresponding table in solexa.c */
   char *slu[] = { "GGTTTAATTACCCAAGTTTGAG" ,    /* SL1 */
-		  "GGTTTTAACCCAGTTACTCAAG" ,    /* SL2 */
-		  "GGTTTTAACCCAGTTAACCAAG" ,    /* SL3 */
+	 	  "GGTTTTAACCCAGTTACTCAAG" ,    /* SL2 */
+	 	  "GGTTTTAACCCAGTTAACCAAG" ,    /* SL3 */
 		  "GGTTTTAACCCAGTTTAACCAAG" ,    /* SL4 */
-		  "GGTTTTAACCCAGTTACCAAG" ,    /* SL5 */
-		  "GGTTTAAAACCCAGTTACCAAG" ,    /* SL6 */
-		  "GGTTTTAACCCAGTTAATTGAG" ,    /* SL7 */
-		  "GGTTTTTACCCAGTTAACCAAG" ,    /* SL8 */
+     		  "GGTTTTAACCCAGTTACCAAG" ,    /* SL5 */
+ 	 	  "GGTTTAAAACCCAGTTACCAAG" ,    /* SL6 */
+ 	 	  "GGTTTTAACCCAGTTAATTGAG" ,    /* SL7 */
+ 		  "GGTTTTTACCCAGTTAACCAAG" ,    /* SL8 */
 		  "GGTTTATACCCAGTTAACCAAG" ,    /* SL9 */
 		  "GGTTTTAACCCAAGTTAACCAAG" ,    /* SL10 */
-		  "GGTTTTAACCAGTTAACTAAG" ,    /* SL11 */
+ 		  "GGTTTTAACCAGTTAACTAAG" ,    /* SL11 */
 		  "GGTTTTAACCCATATAACCAAG" ,    /* SL12 */
 		  /* existe pas
 		   * "GTTTTTAACCCAGTTACTCAAG" ,   SL13 
-		   * "GGTTTTTAACCCAGTTACTCAAG" ,   SL14 
+ 	 	   * "GGTTTTTAACCCAGTTACTCAAG" ,   SL14 
 		   */
 		  0 } ;
   /* char *solexaOutAdaptor = "GTAGGCAC" ;  to be extended */
@@ -1605,11 +1626,11 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
   */
   aceDnaDoubleTrackErrors (probeDnaArray, &x1, &x2, TRUE /* bio coordinates  */
 			   , dna, dnaR, &a1, &a2
-			   , nNp, err, 3, pp->errMax > 0 &&  pp->errMax < 999 ? 999 :  pp->errMax, TRUE, 0) ;
+			   , nNp, err, MAXJUMP, pp->errMax > 0 &&  pp->errMax < 999 ? 999 :  pp->errMax, TRUE, 0) ;
   
   /* clip out terminal error walls and compute the score */
   if (! arrayExists(err)) messcrash ("err does not exist") ;
-  score = clipAlignErrorClip (pp, mm, err, probeDnaArray, dna, dnaR, nNp, &nCorrected, &a1, &a2, &x1, &x2, isUp, &temperature) ;
+  score = clipAlignErrorClip (pp, mm, err, probeDnaArray, dna, dnaR, nNp, &nCorrected, pos, xpos, &a1, &a2, &x1, &x2, isUp, &temperature) ;
 
   if (0) fprintf (stderr, "### score=%d  %d %d   %d %d\n", score, x1, x2, a1, a2) ;
 
@@ -1617,8 +1638,8 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
   mm->lastTargetGene = pp->targetGene ;
   mm->lastIsUp = isUp ;
   mm->lastA1 = a1 ; mm->lastA2 = a2 ; mm->lastX1 = x1 ; mm->lastX2 = x2 ;
- 
-  if (! score)
+  mm->lastDelta = pos - xpos ;
+  if (! score) 
      return FALSE ;
 
   *a1p = a1 ; *a2p = a2 ; 
@@ -1631,32 +1652,163 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
   iLeft = iRight = -1 ;
 
   if (pp->X2X)
-    {
+    { 
       char *cp, *cq ;
-      int i, j, k = arrayMax (err) ;
+      int b1, b2, y1, y2, i, j, k = 0, ii, iiMax ; 
       int ln = arrayMax(dna) ;
       int lnX = arrayMax(probeDnaArray) ;
-      for (i = 0, j = 0, cp = arrp (dna, a1 - 1, char), cq = arrp (probeDnaArray, x1 - 1, char) ; j <= x2 - x1 ; i++, j++, cp++, cq++) 
-	{
-	  if (*cp != *cq)
+      Array err2 = arrayCopy (err) ;
+      BOOL A2G = isUp ? pp->T2C : pp->A2G ;
+      BOOL T2C = isUp ? pp->A2G : pp->T2C ;
+      BOOL G2A = isUp ? pp->C2T : pp->G2A ;
+      BOOL C2T = isUp ? pp->G2A : pp->C2T ;
+      BOOL A2C = isUp ? pp->T2G : pp->A2C ;
+      BOOL C2A = isUp ? pp->G2T : pp->C2A ;
+      BOOL T2G = isUp ? pp->A2C : pp->T2G ;
+      BOOL G2T = isUp ? pp->C2A : pp->G2T ;
+      BOOL C2G = isUp ? pp->G2C : pp->C2G ;
+      BOOL G2C = isUp ? pp->C2G : pp->G2C ;
+      BOOL A2T = isUp ? pp->T2A : pp->A2T ;
+      BOOL T2A = isUp ? pp->A2T : pp->T2A ;
+
+
+      iiMax = arrayMax (err2) ;
+      for (ii = 0 ; ii <= iiMax ; ii++)  
+	{ /* for each error free segment */
+	  int iiR = isUp ? iiMax - ii - 1 : ii ;
+	  if (ii < iiMax)
 	    {
-	      if (
-		  (*cp == R_ && *cq == G_) ||   /* R = AG */
-		  (*cp == Y_ && *cq == C_) ||   /* Y = TC */
-		  (*cp == M_ && *cq == C_) ||   /* M = AC */
-		  (*cp == K_ && *cq == G_) ||   /* K = TG */
-		  (*cp == S_ && *cq == G_) ||   /* S = CG */
-		  (*cp == W_ && *cq == T_)      /* W = AT */
-	  )
+	      A_ERR *eq = arrayp (err2, iiR, A_ERR) ;
+	      y2 = isUp ? lnX - eq->iShort - 1 : eq->iShort ;
+	      b2 = isUp ? ln - eq->iLong - 1 : eq->iLong ;
+	      if (0)
+		switch (eq->type)
+		  {
+		  case TROU:
+		    if (isUp) b2 -= 0 ;
+		    break ;
+		  case TROU_DOUBLE:
+		    if (isUp) b2 -= 0 ;
+		    break ;
+		  case TROU_TRIPLE:
+		    if (isUp) b2 -= 0 ;
+		    break ;
+		  case INSERTION:
+		    if (0)y2++ ;
+		    break ;
+		  case INSERTION_DOUBLE:
+		    if (0) y2 += 2 ;
+		    break ;
+		  case INSERTION_TRIPLE:
+		    if (0) y2 += 3 ;
+		    break ;
+		  default:
+		    break ;
+		  }
+	    }
+	  else
+	    {
+	      y2 = x2 ;
+	      b2 = a2 ;
+	    }
+	  if (ii > 0)
+	    {
+	      A_ERR *er, *eq = arrayp (err2, iiR + (isUp ? 1 : - 1), A_ERR) ;
+	      er = arrayp (err, k++, A_ERR) ;
+	      *er = *eq ;
+	      y1 = isUp ? lnX - eq->iShort - 1 : eq->iShort ;
+	      b1 = isUp ? ln - eq->iLong - 1 : eq->iLong ;
+	      switch (eq->type)
 		{
-		  ep = arrayp (err, k++, A_ERR) ;
-		  ep->iLong = (isUp ? ln - a1 - i : a1 + i - 1) ;
-		  ep->iShort = (isUp ? lnX - j - x1 :  x1 + j - 1) ;
-		  ep->type = AMBIGUE ;
-		  score-- ;
+		case TROU:
+		  b1++ ;
+		  if (isUp) { y1++ ; }
+		  break ;
+		case TROU_DOUBLE:
+		  b1 += 2 ;
+		  if (isUp) { b1-- ; y1++ ; }
+		  break ;
+		case TROU_TRIPLE:
+		  b1 += 3 ;
+		  if (isUp) { b1-=2 ; y1++ ; }
+		  break ;
+		case INSERTION:
+		  y1++ ;
+		  if (isUp) b1++ ; 
+		  break ;
+		case INSERTION_DOUBLE:
+		  y1 += 2 ;
+		  if (isUp) { b1++ ; y1-- ;} 
+		  break ;
+		case INSERTION_TRIPLE:
+		  y1 += 3 ;
+		  if (isUp) { b1++ ; y1-=2 ; }
+		  break ;
+		default:
+		  y1++ ;
+		  b1++ ;
+		  break ;
+		}
+	    }
+	  else
+	    {
+	      y1 = x1 - 1 ;
+	      b1 = a1 - 1 ;
+	    }
+	  for (i = b1, j = y1, cp = arrp (dna, i, char), cq = arrp (probeDnaArray, j, char) ; i < b2 && j < y2 ; i++, j++, cp++, cq++) 
+	    {
+	      if (*cp != *cq)
+		{
+		  switch (*cp)
+		    {
+		    case R_:
+		      if (A2G && *cq == A_)
+			continue ;
+		      if (G2A && *cq == G_)
+			continue ;
+		      break ;
+		    case Y_:
+		      if (T2C && *cq == T_)
+			continue ;
+		      if (C2T && *cq == C_)
+			continue ;
+		      break ;
+		    case M_:
+		      if (A2C && *cq == A_)
+			continue ;
+		      if (C2A && *cq == C_)
+			continue ;
+		      break ;
+		    case K_:
+		      if (T2G && *cq == T_)
+			continue ;
+		      if (G2T && *cq == G_)
+			continue ;
+		      break ;
+		    case S_:
+		      if (G2C && *cq == G_)
+			continue ;
+		      if (C2G && *cq == C_)
+			continue ;
+		      break ;
+		    case W_:
+		      if (A2T && *cq == A_)
+			continue ;
+		      if (T2A && *cq == T_)
+			continue ;
+		      break ;
+		    }
+		  {
+		    A_ERR *eq = arrayp (err, k++, A_ERR) ;
+		    eq->iLong = (isUp ? ln - i - 1 : i) ;
+		    eq->iShort = (isUp ? lnX - j - 1 :  j) ;
+		    eq->type = ERREUR ;
+		    score-- ;
+		  }
 		}
 	    }
 	}
+      arrayDestroy (err2) ;
     }
 
   *nerrp = arrayMax (err) ; 
@@ -1664,6 +1816,20 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
      nS = a2 - a1 + 1 ; 
   else
     {
+      BOOL A2G = pp->A2G ;
+      BOOL T2C = pp->T2C ;
+      BOOL G2A = pp->G2A ;
+      BOOL C2T = pp->C2T ;
+      BOOL A2C = pp->A2C ;
+      BOOL C2A = pp->C2A ;
+      BOOL T2G = pp->T2G ;
+      BOOL G2T = pp->G2T ;
+      BOOL C2G = pp->C2G ;
+      BOOL G2C = pp->G2C ;
+      BOOL A2T = pp->A2T ;
+      BOOL T2A = pp->T2A ;
+      BOOL X2X = pp->X2X ;
+
       /* count the  secondary errors */
       for (ii = 0, ep = arrp (err, 0, A_ERR) ; ii < arrayMax (err) ; ii++, ep++)
 	{
@@ -1702,11 +1868,11 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 	      if (ii) 
 		{
 		  cp += strlen(cp) ;
-		  if (cp - errLeftVal > 1000)
+		  if (cp - errLeftVal > 10000)
 		    break ;
 		  *cp++ = ',' ; 
 		  cr += strlen(cr) ;
-		  if (cr - errRightVal > 1000)
+		  if (cr - errRightVal > 10000)
 		    break ;
 		  *cr++ = ',' ; 
 		}
@@ -1748,7 +1914,7 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 			    , xShort - 1
 			    , isUp ? dnaDecodeChar[(int)cc2a] : dnaDecodeChar[(int)cc1a]
 			    , isUp ? dnaDecodeChar[(int)cc1a] : dnaDecodeChar[(int)cc2a]
-			    ) ;
+	 		    ) ;
 		  }
 		  break ;
 		case AMBIGUE:
@@ -1761,18 +1927,78 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 
 		    if (pp->solid)
 		      {
-			cc1a = clipAlignSolidProduct (arr(pp->dna0, (isUp ? xLongR : xLong - 2),unsigned char)
+	 		cc1a = clipAlignSolidProduct (arr(pp->dna0, (isUp ? xLongR : xLong - 2),unsigned char)
 						          , probeDna[xShort - 1]) ;
 		      }
 		    else
 		      {
-			cc1a = probeDna[xShort - 1] ;
+	 		cc1a = probeDna[xShort - 1] ;
 		      }
 		    cc1o = arr(pp->dna0, isUp ? xLongR - 1 : xLong - 1,unsigned char) ;
-		    if (pp->X2X)
+
+		    if (X2X)
 		      {
-			if (cc1o == R_ || cc1o == M_) cc1o = A_ ;
-			if (cc1o == Y_ || cc1o == K_) cc1o = T_ ;
+			if (A2G)
+			  {
+			    if (cc1o == R_) cc1o = A_ ;
+			    if (cc1o == Y_) cc1o = T_ ;
+			  }
+			if (T2C)
+			  {
+			    if (cc1o == R_) cc1o = A_ ;
+			    if (cc1o == Y_) cc1o = T_ ;
+			  }
+			if (G2A)
+			  {
+			    if (cc1o == R_) cc1o = G_ ;
+			    if (cc1o == Y_) cc1o = C_ ;
+			  }
+			if (T2C)
+			  {
+			    if (cc1o == Y_) cc1o = T_ ;
+			    if (cc1o == R_) cc1o = A_ ;
+			  }
+			if (C2T)
+			  {
+			    if (cc1o == Y_) cc1o = C_ ;
+			    if (cc1o == R_) cc1o = G_ ;
+			  }
+			if (A2C)
+			  {
+			    if (cc1o == M_) cc1o = A_ ;
+			    if (cc1o == K_) cc1o = T_ ;
+			  }
+			if (C2A)
+			  {
+			    if (cc1o == M_) cc1o = C_ ;
+			    if (cc1o == K_) cc1o = G_ ;
+			  }
+			if (T2G)
+			  {
+			    if (cc1o == K_) cc1o = T_ ;
+			    if (cc1o == M_) cc1o = A_ ;
+			  }
+			if (G2T)
+			  {
+			    if (cc1o == K_) cc1o = G_ ;
+			    if (cc1o == M_) cc1o = C_ ;
+			  }
+			if (G2C)
+			  {
+			    if (cc1o == S_) cc1o = isUp ? C_ : G_ ;
+			  }
+			if (C2G)
+			  {
+			    if (cc1o == S_) cc1o = isUp ? G_ : C_ ;
+			  }
+			if (A2T)
+			  {
+			    if (cc1o == W_) cc1o = isUp ? T_ : A_ ;
+			  }
+			if (T2A)
+			  {
+			    if (cc1o == W_) cc1o = isUp ? A_ : T_ ;
+			  }
 		      }
 
 		    cc2o = isUp ? complementBase[(int)cc1o] : cc1o ; 
@@ -2203,7 +2429,7 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
       if (! pN && pp->sl && !goodPrefix && 
 	  pAok &&
 	  strlen((char*)buf) < 24 && 
-	  strlen((char*)buf) > 6) /* search for SL1 */
+	  strlen((char*)buf) > 8) /* search for SL1 */
 	{
 	  int ns, n1 ;
 	  unsigned char buf2[OVLN+3] ;
@@ -2355,7 +2581,7 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
   /* Export the suffix      */
   /**************************/
   
-  if ((pp->splice || pp->clipPolyA || pp->clipPolyT || pp->exitAdaptor  || pp->exitAdaptor2 || pp->showOverhang || (pp->sl && ! mm->stranded > 0)) && x2 < mm->probeLength)
+  if ((pp->splice || pp->clipPolyA || pp->clipPolyT || pp->exitAdaptor  || pp->exitAdaptor2 || pp->showOverhang || (pp->sl && !( mm->stranded > 0))) && x2 < mm->probeLength)
     { 
       int pN = 0, goodSuffix = 0, genomeLn, adaptorSuffix = 0 ;
       unsigned char *genome ;
@@ -2394,10 +2620,10 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
        genomeLn = pp->intronMaxLength ;
      
      /* search for transpliced leaders in the suffix of the probe */
-     if (! pN && pp->slR && !goodSuffix && ! mm->stranded > 0 &&
+     if (! pN && pp->slR && !goodSuffix && !( mm->stranded > 0) &&
 	 pTok &&
 	 strlen((char *)suffix + 1) < 24 && 
-	 strlen((char *)suffix + 1) > 6) /* search for SL1 */
+	 strlen((char *)suffix + 1) > 8) /* search for SL1 */
        {
 	 int ns, n1 ;
 	 unsigned char buf2[OVLN+3] ;
@@ -2834,7 +3060,7 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 	  int i0 = 0 ;
 	  /* prefix */
 	  *cp++ = '#' ; /* separator */
-	  i = a1 - 30  ;  j = 0 ;
+	  i = a1 - 29  ;  j = 0 ;
 	  while (j < 30 && i <= 0)
 	    { *cp++ = '-' ; i++ ; j++ ;}
 	  ccp = arrp (pp->dna0, i - 1, unsigned char) ;
@@ -2863,10 +3089,22 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
   /***************************/
 
   /* here use bestScore, since pA and INTRON bonuses have already been integrated */
-  if (pp->bestHit && !pp->splice && score < mm->bestScore -pairTampon) 
-    return FALSE ;
-
-  if (pp->minAli > x2 - x1 + 1) /* 2012_06_07 needed because of reclippimg in case of recognized vector or SL */
+   if (mm->bestX1[0])
+    {
+      int i ;
+      for (i = 0 ; i < NBESTSCORES ; i++)
+	if (mm->bestX1[i])
+	  {
+	    int c1 = x1 > mm->bestX1[i] ? x1 : mm->bestX1[i] ;
+	    int c2 = x2 < mm->bestX2[i] ? x2 : mm->bestX2[i] ;
+	    int dc = 3 *(c2 - c1 + 1) ;
+	    int dx = x2 - x1 + 1 ;
+	    if (pp->bestHit && !pp->splice && score < mm->bestScore[i] -pairTampon && dc > dx)
+	      return FALSE ;
+	  }
+    }
+ 
+  if (pp->minAli > x2 - x1 + 1) /* 2012_06_07 needed because of reclipping in case of recognized vector or SL */
     return FALSE ; 
   if (pp->targetMutantMalus && score <  array (pp->originalScores, mm - arrayp (pp->probes, 0, MM), short) + pp->mutantMalus -pairTampon)
     return FALSE ; /* idiot: on ne verra pas les cas d'egalite wild type/mutant */
@@ -2874,10 +3112,76 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 
   if (score < 0)
     return FALSE ;
-  if (score >= mm->bestScore)
+  if (1)
     {
-      mm->bestScore = score ;
-      mm->nGeneHits = 0 ;
+      int i ;
+      int done = -1 ;
+      for (i = 0 ; done < 0 && i < NBESTSCORES ; i++)
+	if (mm->bestX1[i])
+	  {
+	    int c1 = x1 > mm->bestX1[i] ? x1 : mm->bestX1[i] ;
+	    int c2 = x2 < mm->bestX2[i] ? x2 : mm->bestX2[i] ;
+	    int dc = 3 *(c2 - c1 + 1) ;
+	    int dx = x2 - x1 + 1 ;
+	    int dx2 = mm->bestX2[i] - mm->bestX1[i] + 1 ;
+	    if (dc > dx || i == NBESTSCORES - 1) /* good overlap position */
+	      {
+		if (score >= mm->bestScore[i] && 2*dx > dx2)
+		  {
+		    mm->bestScore[i] = score ;
+		    mm->bestX1[i] = x1 ; mm->bestX2[i] = x2 ;
+		    mm->nGeneHits = 0 ;
+		  }
+		done = i ;
+	      }
+	  }
+	else
+	  {
+	    mm->bestScore[i] = score ;
+	    mm->bestX1[i] = x1 ; mm->bestX2[i] = x2 ;
+	    mm->nGeneHits = 0 ;
+	    done = i ;
+	  }
+
+      if (done >= 0) /* eat up the region below me that I overlap */
+	{
+	  for (i = done + 1 ; i < NBESTSCORES ; i++)
+	    if (mm->bestX1[i])
+	      {
+		int c1 = x1 > mm->bestX1[i] ? x1 : mm->bestX1[i] ;
+		int c2 = x2 < mm->bestX2[i] ? x2 : mm->bestX2[i] ;
+		int dc = 3 *(c2 - c1 + 1) ;
+		int dx = mm->bestX2[i] - mm->bestX1[i] + 1 ;
+		if (dc > dx)       /* good overlap position kill it */
+		  {
+		    int j ; 
+		    for (j = i + 1 ; j < NBESTSCORES ; j++)
+		      {
+			mm->bestScore[j-1] = mm->bestScore[j] ;
+			mm->bestX1[j-1] = mm->bestX1[j] ;
+			mm->bestX2[j-1] = mm->bestX2[j] ;
+		      }
+		    mm->bestScore[j-1] = 0 ;
+		    mm->bestX1[j-1] = 0 ;
+		    mm->bestX2[j-1] = 0 ;
+		  }
+	      }
+	}
+      if (done > 0) /* reorder by shiftting it up */
+	{
+	  for (i = done - 1 ; i >= 0 ; i--)
+	    if (mm->bestScore[i] < score) /* swap */
+	      {
+		mm->bestScore[done] = mm->bestScore[i] ;
+		mm->bestX1[done] = mm->bestX1[i] ;
+		mm->bestX2[done] = mm->bestX2[i] ;
+
+		mm->bestScore[i] = score ;
+		mm->bestX1[i] = x1 ; mm->bestX2[i] = x2 ;
+		
+		done = i ; /* new position of this record */
+	      }
+	}
     }
   if (1 && /* this is a second line garantee, we are already protected by mm->wordHits */
       pp->maxHit && mm->nGeneHits * 30 > pp->maxHit * mm->probeLength) /* assume 30bp per exon */
@@ -3015,7 +3319,7 @@ static BOOL slideCheckExonEntropy16 (CLIPALIGN *pp, unsigned const char *exon)
 /*********************************************************************/
 /*********************************************************************/
 
-static int  pExportPairOrder (const void *a, const void *b)
+static int  pExportPairAOrder (const void *a, const void *b)
 {
   const PEXPORT *px = (const PEXPORT *)a, *py = (const PEXPORT *)b ;
   int n ;
@@ -3026,10 +3330,34 @@ static int  pExportPairOrder (const void *a, const void *b)
   n = px->targetGene - py->targetGene ; if (n) return n ;
   n = px->target - py->target ; if (n) return n ;
   n = px->mm - py->mm ; if (n) return n ;
+  n = px->isDown - py->isDown ; if (n) return n ;
   n = px->a1 - py->a1 ; if (n) return n ;
   n = px->score - py->score ; if (n) return - n ; /* bad score last */
+  n = px->chain - py->chain ; if (n) return n ;
+  n = px->x1 - py->x1 ; if (n) return n ;
   return 0 ;  
-} /* pExportPairOrder */
+} /* pExportPairAOrder */
+
+/*********************************************************************/
+
+static int  pExportPairXOrder (const void *a, const void *b)
+{
+  const PEXPORT *px = (const PEXPORT *)a, *py = (const PEXPORT *)b ;
+  int n ;
+
+  if (! px->mm) return  1 ; /* zero probe last */
+  if (! py->mm) return -1 ;
+  n = px->fragment - py->fragment ; if (n) return -n ; /* singletons last */
+  n = px->targetGene - py->targetGene ; if (n) return n ;
+  n = px->target - py->target ; if (n) return n ;
+  n = px->mm - py->mm ; if (n) return n ;
+  n = px->isDown - py->isDown ; if (n) return n ;
+  n = px->x1 - py->x1 ; if (n) return n ;
+  n = px->score - py->score ; if (n) return - n ; /* bad score last */
+  n = px->chain - py->chain ; if (n) return n ;
+  n = px->a1 - py->a1 ; if (n) return n ;
+  return 0 ;  
+} /* pExportPairXOrder */
 
 /*********************************************************************/
 
@@ -3045,6 +3373,9 @@ static int pExportHitOrder (const void *a, const void *b)
   n = px->score - py->score ; if (n) return - n ; /* bad score last */
   n = px->targetGene - py->targetGene ; if (n) return n ;
   n = px->target - py->target ; if (n) return n ;
+  n = px->isDown - py->isDown ; if (n) return n ;
+  n = px->chain - py->chain ; if (n) return n ;
+  n = px->x1 - py->x1 ; if (n) return n ;
   n = px->a1 - py->a1 ; if (n) return n ;
   return 0 ;  
 } /* pExportHitOrder */
@@ -3063,8 +3394,30 @@ static int pExportChainOrder (const void *a, const void *b)
   n = px->x1 - py->x1 ; if (n) return n ;
   n = px->targetGene - py->targetGene ; if (n) return n ;
   n = px->target - py->target ; if (n) return n ;
+  n = px->isDown - py->isDown ; if (n) return n ;
   n = px->a1 - py->a1 ; if (n) return n ;
   n = px->score - py->score ; if (n) return - n ; /* bad score last */
+ return 0 ;  
+} /* pExportChainOrder */
+
+/*********************************************************************/
+
+static int pExportSamOrder (const void *a, const void *b)
+{
+  const PEXPORT *px = (const PEXPORT *)a, *py = (const PEXPORT *)b ;
+  int n ;
+
+  if (! px->mm) return  1 ; /* zero probe last */
+  if (! py->mm) return -1 ;
+  n = px->fragment - py->fragment ; if (n) return -n ; /* singletons last, used in  clipAlignOptimizeIntronCleanUp  */
+  n = px->mm - py->mm ; if (n) return n ;
+  n = px->score - py->score ; if (n) return - n ; /* bad score last */
+  n = px->targetGene - py->targetGene ; if (n) return n ;
+  n = px->target - py->target ; if (n) return n ;
+  n = px->isDown - py->isDown ; if (n) return n ;
+  n = px->chain - py->chain ;  if (n) return n ;
+  n = px->a1 - py->a1 ; if (n) return n ;
+  n = px->x1 - py->x1 ; if (n) return n ;
  return 0 ;  
 } /* pExportChainOrder */
 
@@ -3160,7 +3513,7 @@ static void clipAlignDoExportPx (CLIPALIGN *pp, PEXPORT *px, int type)
 {
   MM *mm = px->mm ;
   const char *ct = "-\t-" ;
-  char buf[101] ;
+  char buf[256] ;
 
   buf[0] = 0 ;
   if (pp->showTargetPrefix &&  px->targetPresuffix &&
@@ -3192,7 +3545,24 @@ static void clipAlignDoExportPx (CLIPALIGN *pp, PEXPORT *px, int type)
 	    }
 	}
     }
+  else if (pp->UMI && pp->UMI < 250) /* so it can be exported inside buf */
+    {
+      int i = 0 ;
+      int n1 = array (pp->probePairs, mm->fragment, int) ;
+      const char *UMIbarCode = 0 ;
 
+      n1 = - n1 ;
+      if (n1 >= 2)
+	UMIbarCode = stackText (pp->probeStack, n1 - 1) ;
+      if (UMIbarCode && UMIbarCode[0])
+	for (i = 0 ; i < pp->UMI ; i++)
+	  buf[i] = dnaDecodeChar[(int)UMIbarCode[i]] ;      
+      else
+	buf[i++] = '-' ;
+      buf[i++] = '\t' ;
+      buf[i++] = '-' ;
+      buf[i++] = 0 ;
+    }
   /*
     if (0 && mm)  // mm1 points to the matching other half of a paired fragment 
     {
@@ -3232,7 +3602,7 @@ static void clipAlignDoExportPx (CLIPALIGN *pp, PEXPORT *px, int type)
 
 	       , ct
 	       ) ;  
-      aceOutf (pp->ao, "\t-\t-\t-\t-\tchain %d", px->chain) ;
+      aceOutf (pp->ao, "\t-\t-\t-\t-\tchain %d\t%d\t%d", px->chain,px->s1, px->s2) ; /* first column: distance to mate (later added by bestali */
       if (pp->showProbeSequence)
 	{
 	  char *cp, *cq, buf[mm->probeLength + 2] ;
@@ -3373,51 +3743,74 @@ static void clipAlignDoExportPx (CLIPALIGN *pp, PEXPORT *px, int type)
 	    break ;
 	  }
 
-	aceOutf (pp->ao,  "%s\t%05d\t%d\t%d\t%d\t%s\t%s\t%s\t%d\t%s\t%s\t%d\n"
-		 , stackText (pp->probeStack, mm->probeName)
-		 , px->score, mm->mult
-		 , px->x1, px->x2
-		 , type
-		 , dictName (pp->targetDict, px->target)
-		 , strand
-		 , a1
-		 , px->targetPresuffix ? dictName (pp->exportDict, px->targetPresuffix) : "-"
-		 , px->presuffix ? dictName (pp->exportDict, px->presuffix) : "-"
-		 , px->score
-		 ) ; 
+	if (px->score)
+	  aceOutf (pp->ao,  "%s\t%05d\t%d\t%d\t%d\t%s\t%s\t%s\t%d\t%s\t%s\t%d\n"
+		   , stackText (pp->probeStack, mm->probeName)
+		   , px->score, mm->mult
+		   , px->x1, px->x2
+		   , type
+		   , dictName (pp->targetDict, px->target)
+		   , strand
+		   , a1
+		   , px->targetPresuffix ? dictName (pp->exportDict, px->targetPresuffix) : "-"
+		   , px->presuffix ? dictName (pp->exportDict, px->presuffix) : "-"
+		   , px->score
+		   ) ; 
       }
       break ;
 
     case 3: /*INTRONS */
-      {
-	aceOutf (pp->ao, "%s%s\t%s\t%s\t%05d\t%05d\t%s\t%05d\t%05d\t%s\t%d\t%d\t%d\n"
-		 , px->nN & 0x2 ? "NS" : ""
-		 , px->nN < 0x4 ? "INTRON" : (px->nN < 0x8 ? "DELETION" : (px->nN < 0x10 ? "DUPLICATION" : (px->nN < 0x20 ? "BIGINTRON" : (px->nN < 0x40 ? "HUGEINTRON" : "TRANSSPLICING"))))
-		 , px->nN >= 0x40 ? "-" : (px->nN & 0x1 ? "Reverse" : "Forward")
-		 , dictName (pp->targetDict, px->s1)
-		 , px->x1, px->a1
-		 , dictName (pp->targetDict, px->s2)
-		 , px->a2, px->x2
-		 , px->foot
-		 , px->ali
-		 , px->score 
-		 , px->pairScore
-		 ) ; 	
-     }
+      if (px->score)
+	{
+	  aceOutf (pp->ao, "%s%s\t%s\t%s\t%05d\t%05d\t%s\t%05d\t%05d\t%s\t%d\t%d\t%d"
+		   , px->nN & 0x2 ? "NS" : ""
+		   , px->nN < 0x4 ? "INTRON" : (px->nN < 0x8 ? "BIGINTRON" : (px->nN < 0x10 ? "HUGEINTRON" : (px->nN < 0x20 ? "DELETION" : (px->nN < 0x40 ? "DUPLICATION" : "TRANSLOCATION"))))
+		   , px->nN >= 0x40 ? "-" : (px->nN & 0x1 ? "Reverse" : "Forward")
+		   , dictName (pp->targetDict, px->s1)
+		   , px->x1, px->a1
+		   , dictName (pp->targetDict, px->s2)
+		   , px->a2, px->x2
+		   , px->foot
+		   , px->ali
+		   , px->score 
+		   , px->pairScore
+		   ) ;
+#ifdef JUNK
+	  if (px->nN >= 0x10 && px->nErr)
+	    {  /* export VCF name */
+	      if (px->nN < 0x20) /* deletion */
+		aceOutf (pp->ao, "\t%s:%d:%s:%c"
+			 , dictName (pp->targetDict, px->s1)
+			 , px->a1 - px->nErr + 1
+			 , px->suffix ? dictName (pp->targetDict, px->suffix) : ""
+			 , px->suffix ? (dictName (pp->targetDict, px->suffix))[0] : ""
+			 ) ; 
+	      else if (px->nN < 0x40) /* duplication */
+		aceOutf (pp->ao, "\t%s:%d:%c:%s"
+			 , dictName (pp->targetDict, px->s1)
+			 , px->a2 - px->nErr + 1
+			 , px->suffix ? (dictName (pp->targetDict, px->suffix))[0] : ""
+			 , px->suffix ? dictName (pp->targetDict, px->suffix) : ""
+			 ) ; 
+	  }
+#endif
+	  aceOutf (pp->ao, "\n") ;
+	}
       break ;
     case 4: /* DOUBLE INTRONS */
-      {
-	aceOutf (pp->ao, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n"
-		 , "DOUBLEINTRON"
-		 , dictName (pp->targetDict, px->target)
-		 , px->a1, px->a2
-		 , px->x1, px->x2
-		 , px->s1, px->s2
-		 , px->score
-		 , px->foot 
-		 , (px->mm &&  px->mm->probeName ? stackText (pp->probeStack, px->mm->probeName) : "")
-		 ) ; 	
-     }
+      if (px->score)
+	{
+	  aceOutf (pp->ao, "%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n"
+		   , "DOUBLEINTRON"
+		   , dictName (pp->targetDict, px->target)
+		   , px->a1, px->a2
+		   , px->x1, px->x2
+		   , px->s1, px->s2
+		   , px->score
+		   , px->foot 
+		   , (px->mm &&  px->mm->probeName ? stackText (pp->probeStack, px->mm->probeName) : "")
+		   ) ; 	
+	}
       break ;
     }
 } /* clipAlignDoExportPx */
@@ -3484,6 +3877,538 @@ static int clipAlignExportPx (CLIPALIGN *pp, int type)
 } /* clipAlignExportPx */
 
 /*********************************************************************/
+/* hits is  in pExportSamOrder
+ * so organized by  read/taget/chain in the orientation of the target 
+ * as befits a good Cuban CIGAR
+ */
+static char *clipAlignExportOneSamCigar (CLIPALIGN *pp,PEXPORT *px, int di, vTXT cigar, Array cigarettes, Array dnaShort, Array err, int *nErrp, AC_HANDLE h)
+{
+  int ii, nErr = 0 ;
+  PEXPORT *py ;
+  int a1, a2, b2 = 0, x1, x2, y2 ;
+  const char *ccp, *errors ;
+  int isDown = 1 ;
+  int ln = 0 ;
+
+  vtxtClear (cigar) ;
+
+  for (py = px, ii = 0 ; ii < di ; ii++, py++)
+    {
+      BOOL isGtAg = FALSE ;
+      BOOL isGcAg = FALSE ;
+      int oldA, ddN = 0, ddA = 0 ;
+      int da1 = 0, da2 = 0, intron = 0, intronLn = 0 ;
+      a1 = py->a1 ;
+      a2 = py->a2 ;
+      x1 = py->x1 ;
+      x2 = py->x2 ;
+
+      if (a1 < a2) 
+	{
+	  intron = py->intron ;
+	  if (intron)
+	    {
+	      PEXPORT *pi = bigArrp (pp->exportIntrons, intron - 1, PEXPORT) ;
+	      isGtAg = !strcmp (pi->foot, "gt_ag") ;
+	      isGcAg = !strcmp (pi->foot, "gc_ag") ;
+	      if (pi->a2 > pi->a1)
+		{
+		  da1 = pi->a2 - a1 ;
+		  x1 += da1 ;
+		  intronLn = pi->a2 - pi->a1 - 1 ;
+		}
+	      else
+		{
+		  da1 = pi->a1 - a1 ;
+		  x1 += da1 ;
+		  intronLn = pi->a1 - pi->a2 - 1 ;
+		}
+	    }
+	  intron = (ii < di - 1) ? py[1].intron : 0 ;
+	  if (intron)
+	    {
+	      PEXPORT *pi = bigArrp (pp->exportIntrons, intron - 1, PEXPORT) ;
+	      if (pi->a2 > pi->a1)
+		{
+		  da2 = pi->a1 - a2 ;
+		  x2 += da2 ;
+		}
+	      else
+		{
+		  da2 = pi->a2 - a2 ;
+		  x2 += da2 ;
+		}
+	    }
+	}
+      else
+	{
+	  intron = (ii > 0) ? py[-1].intron : 0 ;
+	  if (intron)
+	    {
+	      PEXPORT *pi = bigArrp (pp->exportIntrons, intron - 1, PEXPORT) ;
+	      isGtAg = !strcmp (pi->foot, "gt_ag") ;
+	      isGcAg = !strcmp (pi->foot, "gc_ag") ;
+	      if (pi->a2 > pi->a1)
+		{
+		  da2 = pi->a2 - a2 ;
+		  x2 -= da2 ;
+		  intronLn = pi->a2 - pi->a1 - 1 ;
+		}
+	      else
+		{
+		  da2 = pi->a1 - a2 ;
+		  x2 -= da2 ;
+		  intronLn = pi->a1 - pi->a2 - 1 ;
+		}
+	    }
+	  intron = py->intron ;
+	  if (intron)
+	    {
+	      PEXPORT *pi = bigArrp (pp->exportIntrons, intron - 1, PEXPORT) ;
+	      if (pi->a2 > pi->a1)
+		{
+		  da1 = pi->a1 - a1 ;
+		  x1 -= da1 ;
+		}
+	      else
+		{
+		  da1 = pi->a2 - a1 ;
+		  x1 -= da1 ;
+		}
+	    }
+	}
+      a1 += da1 ;
+      a2 += da2 ;
+
+      errors = py->errLeftVal ? dictName (pp->exportDict, py->errLeftVal) : 0 ;   /* error list in target coordinates and orientation */
+      
+      if (a1 > a2)
+	{
+	  int a0 ;
+	  a0 = a1 ; a1 = a2 ; a2 = a0 ; a0 = x1 ; x1 = x2 ; x2 = a0 ;
+	  isDown = -1 ;
+	  if (ii > 0) /* look for an overlap on the read */
+	    {
+	      ddN = y2 - 1 - x1 ;
+	    }
+	}
+      else if (ii > 0) /* look for an overlap on the read */
+	{
+	  ddN = x1 - y2 - 1 ;
+	}
+      b2 += intronLn ;
+      ddA = a1 - b2 - 1 ; 
+
+
+      if (ii == 0) /* gap en tete de sequence */
+	{
+	  ddN = 0 ; ddA = 0 ;
+	  if (isDown == 1 && x1 > 1)
+	    { vtxtPrintf (cigar, "%dS", x1 - 1) ;  ln += x1 - 1 ; }
+	  else if (isDown == -1 && x1 < arrayMax (dnaShort))
+	    { vtxtPrintf (cigar, "%dS", arrayMax (dnaShort) - x1) ; ;  ln += arrayMax (dnaShort) - x1 ; }
+	}
+      if (intronLn)
+	{
+	  vtxtPrintf (cigar, "%d%c", intronLn, isGtAg ? 'N' :(isGcAg ? 'n' : 'D')) ;
+	}
+
+      if (ddN < 0) /* overlap in x , on detruit cet overlap */ 
+	{
+	  if (1) { a1 -= ddN ; x1 -= ddN ; ddA -= ddN ; }
+	  ddN = 0 ;
+	}
+      if (ddN > 0 && ddA >= ddN)
+	{  /* on alonge l'exon precedent avec des erreurs */ 
+	  vtxtPrintf (cigar, "%dX", ddN) ; ln += ddN ;
+	  ddA -= ddN ; 
+	  b2 += ddN ;
+	  y2 += ddN * isDown ;
+	  ddN = 0 ;
+	}
+      if (ddN > 0 && ddA < 0)
+	{
+	  ddN -= ddA ;
+	  a1 -= ddA ;
+	  x1 -= ddA * isDown ;
+	  ddA = 0 ;
+	}
+      if (ddN > 0 && ddA > 0 && ddN >= ddA)
+	{  /* on alonge l'exon precedent avec des erreurs */ 
+	  vtxtPrintf (cigar, "%dX", ddA) ; ln += ddA ;
+	  b2 += ddA ;
+	  y2 += ddA * isDown ;
+	  ddN -= ddA ;
+	  ddA = 0 ;
+	}
+      if (ddN > 0 && ddA == 0)
+	{  /* insertion */
+	  vtxtPrintf (cigar, "%dI", ddN) ; ln += ddN ;
+	  y2 += ddN * isDown ;
+	  ddN = 0 ;
+	}
+
+      if (ddA < 0) /* duplication */
+	{
+	  vtxtPrintf (cigar, "%dI", -ddA) ; ln += -ddA ;
+	  a1 -= ddA ; x1 -= ddA * isDown ; ddA = 0 ;
+	}
+      else if (0 && ddA > 30 && pp->strategy == STRATEGY_RNA_SEQ) /* intron */
+	{
+	  vtxtPrintf (cigar, "%dN", ddA) ; ddA = 0 ;
+	}
+      else if (ddA > 0)  /* deletion */
+	{
+	  vtxtPrintf (cigar, "%dD", ddA) ; ddA = 0 ;
+	}
+ 
+
+      oldA = a1 - 1 ;
+
+      if (errors)
+	{
+	  int a, n, nSub = 0 ;
+	  ccp = errors - 1 ;
+	  
+	  while (ccp[1] && ccp[2])
+	    {
+	      a = 0 ; while (*++ccp != ':') { a = 10 * a + (*ccp - '0') ; } /* coord of the error */ 
+	      if (a < oldA) /* clip this error */
+		{
+		  while (ccp[1] && *ccp != ',')
+		    ccp++ ;
+		  continue ;		  
+		}
+	      
+	      n = 0 ; ccp++ ; /* jump the : */
+	      if (*ccp == '*') ccp++ ;
+	      if (a - oldA  + (*ccp == '+' ? 1 : 0) > 1)
+		{
+		  int k ;
+		  if (nSub)
+		    { vtxtPrintf (cigar, "%dX", nSub) ;  ln += nSub ; }
+		  nSub = 0 ;
+		  k =  a - oldA - 1 + (*ccp == '+' ? 0 : 0) ;
+		  if (k)
+		    {
+		      vtxtPrintf (cigar, "%d=",k) ;
+		      ln +=  k ;
+		    }
+		  oldA  = a ;
+		}
+	      if (n == 0)
+		{
+		  while (*ccp == '+') { n++ ; ccp++; }
+		  if (n) 
+		    { 
+		      if (nSub)
+			{ vtxtPrintf (cigar, "%dX", nSub) ;  ln += nSub ; }
+		      nSub = 0 ; 	
+		      oldA = a ;
+		      vtxtPrintf (cigar, "%dI", n) ; oldA += 0*n - 1 ; ccp += n ;
+		      ln += n ;
+		    }
+		}
+	      if (n == 0)
+		{
+		  while (*ccp == '-') { n++ ; ccp++; }
+		  if (n) 
+		    {
+		      if (nSub)
+			{ vtxtPrintf (cigar, "%dX", nSub) ; ln += nSub ; }
+		      nSub = 0 ;
+		      oldA = a ;
+		      vtxtPrintf (cigar, "%dD", n) ; oldA += n - 1 ; ccp += n ; 
+		    }
+		}
+	      if (n == 0) /* substitution */
+		{
+		  if (a == oldA  + 1)
+		    ;
+		  else
+		    {
+		      if (nSub)
+			{ vtxtPrintf (cigar, "%dX", nSub) ; ln +=  nSub ; } 
+		      nSub = 0 ;
+		      if (a - oldA) 
+			{ vtxtPrintf (cigar, "%d=", a - oldA - 1) ; ln += a - oldA - 1 ; }
+		    }
+		  oldA = a ; 
+		  nSub++ ;
+		  ccp += 3 ; n = 1 ;
+		}
+	      nErr += n ; if (! *ccp) break ; 
+	    }
+	  if (nSub)
+	    { vtxtPrintf (cigar, "%dX", nSub) ; ln +=  nSub ; }
+	  nSub = 0 ;
+	}
+      if (a2 > oldA)
+	{ vtxtPrintf (cigar, "%d=", a2 - oldA) ; ln +=  a2 - oldA ; }
+
+      y2 = x2 ;
+      b2 = a2 ;
+    }  
+
+  /* gap en queue */
+  if (isDown == 1 && x2 <  arrayMax (dnaShort))
+    { vtxtPrintf (cigar, "%dS", arrayMax (dnaShort) - x2) ;  ln += arrayMax (dnaShort) - x2 ; }
+  else if (isDown == -1 && x2 > 1)
+    { 
+      int k = arrayMax (dnaShort) - (ln + x2 - 1) ;
+      x2 += k ;
+      if (x2 > 1)
+	vtxtPrintf (cigar, "%dS", x2 - 1) ;  
+      ln += x2 - 1 ; 
+    }
+
+  samCheckCigar(0, vtxtPtr(cigar), cigarettes, px->a1, arrayMax (dnaShort)) ;
+
+  *nErrp = nErr ;
+  return vtxtPtr (cigar) ;
+} /* clipAlignExportOneSamCigar */
+
+/*********************************************************************/
+/* count the hit lines summarized in this sam line */ 
+static int clipAlignExportOneSam (ACEOUT ao, CLIPALIGN *pp
+				  , vTXT cigar, Array cigarettes
+				  , Array dnaShort, Array err
+				  , BigArray hits
+				  , long int ii0, long int iMax)
+{
+  AC_HANDLE h = 0 ;
+  int flag, di = 1 ;					
+  long int j ;
+  PEXPORT *pz = 0, *py, *px = bigArrayp (hits, ii0, PEXPORT) ;
+  int nerr = 0 ;
+  int a1 = px->a1, a2 = px->a2 ;
+  int b1 = 0, b2 = 0 ;
+  int target = px->target ;
+  int chain = px->chain ;
+  BOOL isDown = TRUE ;
+  BOOL mateIsDown = TRUE ;
+  BOOL isPrimary = TRUE ;
+  BOOL isSecondary = FALSE ;
+  BOOL isSupplementary = FALSE ;
+  BOOL isOrphan = FALSE ; 
+  char *seq ;
+  MM *mm = px->mm ;
+  int fragment = mm ? mm->fragment : 0 ;
+  MM *mate = 0 ;
+
+  if (!px->target || ! px->score || ! px->pairScore)
+    return 1 ;
+  h = ac_new_handle () ;
+
+  if ((a1 < a2 && px->x1 < px->x2) || (a1 > a2 && px->x1 > px->x2))
+    isDown = TRUE ;
+  else
+    isDown = FALSE ;
+
+  if (a1 > a2)
+    { int a0 = a1 ; a1 = a2 ; a2 = a0 ; }
+
+  /* the chain starting at px including di lines will be reported as a single CIGAR */
+  for (di = 0, j = ii0, py = px ; j < iMax && py->mm == mm && py->target == target && py->chain == chain ; j++, py++)
+    {
+      if (py->a1 < a1) a1 = py->a1 ;
+      if (py->a2 < a1) a1 = py->a2 ;
+      di++ ;
+    }
+
+  /* check f I am a primary alignment, i.e. first alignment of the current read */
+  for (j = ii0, py = px ; j >= 0 && py->mm == mm && py->target == target && py->chain == chain ; j--, py--)
+    ;
+  if (j >= 0 && py->mm == mm) /* i changed chain or target */
+    {
+      isPrimary = FALSE ;
+      if (px->uu == 1)
+	isSupplementary = TRUE ;
+      else
+	isSecondary = TRUE ;
+    }
+
+  /* proceed to the next read of the same fragment */
+  if (! strcmp (stackText (pp->probeStack, mm->probeName), "seq.144399>"))
+    invokeDebugger () ;
+  if (isPrimary && mm->pair)
+    {
+      /* try upwards */
+      mate = 0 ; pz = 0 ;
+      for (j = ii0, py = px ; j >= 0 && py->mm->fragment == fragment ; j--, py--)
+	;
+      j++ ; py++ ;
+      if (j >= 0 && py->mm->fragment == fragment && py->mm != mm)
+	{ pz = py ; mate = pz->mm ; } /* first hit of other read */
+      
+      if (mate == 0)
+	{ /* try downwards */
+	  for (j = ii0, py = px ; j < iMax && py->mm == mm ; j++, py++)
+	    ;
+	  if (j < iMax && py->mm && py->mm->fragment == fragment && py->mm != mm)
+	    { pz = py ; mate = pz->mm ; } /* first hit of other read */
+	}
+      if (mate) /* select mateTarget and matePosition and fragment length */
+	{
+	  b1 = b2 = pz->a1 ;
+	  if (pz->x1 < pz->x2 && pz->a1 < pz->a2)
+	    mateIsDown = TRUE ;
+	  else
+	    mateIsDown = FALSE ;
+	  for (py = pz ; j < iMax && py->mm == pz->mm && py->target == pz->target && py->chain == pz->chain ; j++, py++)
+	    {
+	      if (py->a1 < b1) b1 = py->a1 ;
+	      if (py->a2 < b1) b1 = py->a2 ;
+	      if (py->a1 > b2) b2 = py->a1 ;
+	      if (py->a2 > b2) b2 = py->a2 ;
+	    }
+	}
+    }
+ 
+   if (isPrimary && mm->pair && ! mate)  
+     isOrphan = TRUE ;
+
+  /* there are 11 mandatory columns */
+  aceOutf (ao, "%s", stackText (pp->probeStack, mm->probeName)) ;
+  flag = 0 ;
+  if (1) 
+    {   /* SAM FLAGS */
+      /* this read belongs to a pair */
+      if (pp->hasPairs && mm->pair) flag |= 0x1 ;
+      /* all segments are well and compatibly aligned */
+      if (pp->hasPairs && mm->pair && mate) flag |= 0x2 ;
+      /* unmapped read */
+      if (! px->target) flag |= 0x4 ;  
+      /* orphan pair-mate is unmapped */
+      if (pp->hasPairs && mm->pair && isOrphan) flag |= 0x8 ;
+      /* the seq is given in the orientation of the genome
+       * the flags say if the shown read is the complement of 
+       * read found on the machine fastq file 16 == 0x10,  32 == 0x20
+       */
+      if (! isDown) flag |= 0x10 ;
+      if (pp->hasPairs && mm->pair && mate && ! mateIsDown) flag |= 0x20 ;
+      /* i am read 1 of a pair or first or central part of a composite */
+      if (pp->hasPairs && mm->pair > 1) flag |= 0x40 ;
+      /* i am read 2 of a pair, or last or central part of a composite 128 == 0x80*/
+      /* notice that central read parts are 0x4 | 0x8 == 0xb0 */ 
+      if (pp->hasPairs && mm->pair < 0) flag |= 0x80 ;
+      /* multi-mapping : all have this flag except first one 256 == 0x100 */
+      if (isSecondary) flag |= 0x100 ;
+      /* read not passing quality filters 512 = 0x200 */
+      if (px->score < 10) flag |= 0x200 ;
+      /* i am a PCR duplicate: never used by magic 1024 == 0x400 */
+      if (0) flag |= 0x400 ;
+      /*  supplementary alignment  2048 == 0x800
+       *  divers portion du meme read sont incompatibles
+       *  all have this flag except the first one
+       */
+      if (isSupplementary) flag |= 0x800 ;
+    }
+
+  aceOutf (ao, "\t%d", flag) ;
+  aceOutf (ao, "\t%s", dictName (pp->targetDict, px->target)) ;
+  aceOutf (ao, "\t%d", a1) ;
+  { /* do we trust the ali */
+    int z = 0 ;
+    if (
+	(! mm->pair || px->pairScore > px->score) &&
+	10*px->ali >= 9*px->ln && 100 * px->nErr < px->ali
+	)
+      z = 33 ;
+    else if (px->nErr < 4)
+      z = 20 ;
+    else
+      z = 10 ;
+    z = px->pairScore ;
+    aceOutf (ao, "\t%d", z) ;
+  }
+  
+  seq =  stackText (pp->probeStack, mm->probeSequence) ;
+  array (dnaShort, strlen (seq) + mm->probeLeftClip + mm->probeRightClip, char) = 0 ; /* zero terminate */
+  arrayMax (dnaShort) = strlen (seq) + mm->probeLeftClip + mm->probeRightClip  ;
+  if (mm->probeLeftClip)
+    memset (arrp (dnaShort, 0, char), T_,  mm->probeLeftClip) ;
+  memcpy (arrp (dnaShort, mm->probeLeftClip, char), seq, strlen (seq)) ;
+  if (mm->probeRightClip)
+    memset (arrp (dnaShort, mm->probeLeftClip + strlen (seq), char), A_,  mm->probeRightClip) ;
+
+  if (! isDown)
+    reverseComplement (dnaShort) ;
+  
+/* CIGAR */
+  aceOutf (ao, "\t%s", clipAlignExportOneSamCigar (pp, px, di, cigar, cigarettes, dnaShort, err, &nerr, h)) ;
+  if (1)
+    aceOutf (ao, "\t%s", isPrimary && pz && pz->target ? (px->target == pz->target ? "=" :dictName (pp->targetDict, pz->target)) : "0") ; /* RNEXT name of mate or next chain of same read */
+  else
+    aceOutf (ao, "\t%s", isPrimary && mate ? (mm == mate ? "=" : stackText (pp->probeStack, mate->probeName)) : "0") ; /* RNEXT name of mate or next chain of same read */
+  aceOutf (ao, "\t%d", b1) ; /* PNEXT pmate position or next string if on same target */
+  aceOutf (ao, "\t%d", b2 ? (a1 < b2 ? b2 - a1 + 1 : b1 - a2 - 1) : 0) ; /* TLEN observed template length */
+  
+  if (0 && ! isPrimary)
+    aceOutf (ao, "\t*") ;
+  else
+    {
+      dnaDecodeArray (dnaShort) ;
+      aceOutf (ao, "\t%s", arrp (dnaShort, 0, char)) ;
+    }
+  
+  if (! isPrimary)
+    aceOutf (ao, "\t*") ;
+  else
+    {
+      if (isDown)
+	aceOutf (ao, "\t*") ;  /* QUAL ascii de phread scale quaity + 33 ou * */
+      else
+	aceOutf (ao, "\t*") ; /* we must reverse the order of the QUALs */
+    }
+  /* end of the 11 mandatory columns */
+  
+  aceOutf (ao, "\tNH:i:%d", px->uu) ;
+  aceOutf (ao, "\tAS:i:%d", px->score) ;
+  aceOutf (ao, "\tNM:i:%d", nerr) ;
+  aceOutf (ao, "\tmt:i:%d", mm->mult) ;
+  /* aceOutf (ao, "\tMD:Z:0") ; */
+  
+  aceOut (ao, "\n") ;
+  ac_free (h) ;
+  return di ;
+}  /* clipAlignExportOneSam */
+
+/*********************************************************************/
+
+static int clipAlignExportSam (CLIPALIGN *pp, const char *commandBuf)
+{ 
+  long int nn = 0 ;
+  BigArray hits = pp->exportHits ;
+  
+  if (hits)
+    {
+      AC_HANDLE h = ac_new_handle () ;
+      Array dnaShort = arrayHandleCreate (1024, char, h) ;
+      Array err = arrayHandleCreate (1024, A_ERR, h) ;
+      Array cigarettes = arrayHandleCreate (1024, SAMCIGAR, h) ;
+      ACEOUT ao = aceOutCreate (pp->outFileName, ".sam", pp->gzo, h) ;
+      long int i, iMax = bigArrayMax (hits) ;
+      int di = 1 ;
+      vTXT cigar = vtxtHandleCreate (h) ;
+      aceOutf (ao, "@HD VN:1.5\tSO:queryname\n") ;
+      aceOutf (ao, "@PG ID:1\tPN:Magic\tVN:%s", VERSION) ;
+      aceOutf (ao, "\tCL:%s", commandBuf) ;
+      aceOut (ao, "\n") ;
+
+      bigArraySort (hits, pExportSamOrder) ;
+      for (i = 0 ; i < iMax ; i += di)
+	di = clipAlignExportOneSam (ao, pp, cigar, cigarettes, dnaShort, err, hits, i, iMax) ;
+
+      fprintf (stderr, "// %s Exported %ld ali in sam file %s\n", timeShowNow(), nn, aceOutFileName (ao)) ;
+      ac_free (ao) ;
+      ac_free (h) ;
+    }
+
+  return nn ;
+} /*  clipAlignExportSam */
+
+/*********************************************************************/
 
 static int clipAlignRestoreAcceptorScores (CLIPALIGN *pp)
 {
@@ -3505,13 +4430,12 @@ static int clipAlignRestoreAcceptorScores (CLIPALIGN *pp)
 
 static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarget)
 {
-  PEXPORT *up, *vp, *wp, *px = 0, *lastUp = 0, *lastVp = 0, *lastPx = 0 ;
-  int i, ii, jj, kk, jjA = 0, nIntrons = 0, nLastIntron = 0, fragment = 0 ;
+  PEXPORT *up, *vp, *wp, *px = 0 ;
+  int i, ii, jj, kk, jjA = 0, nIntrons = 0, fragment = 0 ;
   int da, dx, bestda, bestdx, bestjj, bestk, k1, k2 ;
   int a2, b1, x2, y1 ;
   int nnTest = 0 ;
   BigArray exportIntrons       = (singleTarget ? pp->geneIntrons : pp->exportIntrons) ;
-  BigArray exportDoubleIntrons = (singleTarget ? pp->geneDoubleIntrons : pp->exportDoubleIntrons) ;
   BigArray exportDonors        = (singleTarget ? pp->geneDonors : pp->exportDonors) ;
   BigArray exportAcceptors     = (singleTarget ? pp->geneAcceptors : pp->exportAcceptors) ;
   int iiMax = arrayMax (exportDonors) ;
@@ -3519,7 +4443,7 @@ static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarg
   BigArray aa ;
   MM *mm ;
   const char *exon1, *exon2, *hook1, *hook2, *cp, *ccp, *ccq ;
-  int dx1, dx2, overlap, lastK = 0 ;
+  int dx1, dx2, overlap ;
   char *cr, cc ;
   BOOL reverse ;
   char f1[6], f2[6], foot[6] ;
@@ -3531,21 +4455,24 @@ static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarg
 
   if (! bigArrayMax (exportDonors) || ! bigArrayMax(exportAcceptors))
     return 0 ;
- 
+  if (!singleTarget)
+    return 1 ;
+
   if (1)
     {	
-      if (pp->nIntronPlus  > 100 && pp->nIntronPlus  > 10 * pp->nIntronMinus)
+      if (pp->nIntronPlus  > 100 && pp->nIntronPlus  > 20 * pp->nIntronMinus)
 	globallyStranded = 1 ;
-      else if (pp->nIntronMinus > 100 && pp->nIntronMinus > 10 * pp->nIntronPlus)
+      else if (pp->nIntronMinus > 100 && pp->nIntronMinus > 20 * pp->nIntronPlus)
 	globallyStranded = -1 ;
     }
-  if (0) globallyStranded = 1 ;
+  if (0) globallyStranded = 0 ;
   aa = exportIntrons ;
   ii = jj = 0 ; nIntrons = arrayMax (aa) ;
   up = bigArrp (exportDonors, 0, PEXPORT) ;
 
   for (ii = 0,  jjA = 0 ; up && ii < iiMax && jjMax ; up++, ii++)
     {
+      BOOL foundIntron = FALSE ;
       if (up->type != 1 && up->type != 63) continue ;
       if (up->score <= 0 || up->pairScore < 0) continue ;
       mm = up->mm ;
@@ -3556,450 +4483,422 @@ static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarg
 	continue ;
       stranded = globallyStranded ;
       if (mm->pair < 0) stranded = -stranded ;
-
-      if (debug) fprintf (stderr, "ii=%d f=%d s=%d a1=%d a2=%d x1=%d x2=%d\n", ii, mm->fragment, up->score, up->a1, up->a2, up->x1, up->x2) ;
+      if (0 && up->a1 > 25170000 && up->a1 < 25171000)
+	  invokeDebugger () ;
+      if (debug)
+	fprintf (stderr, "ii=%d f=%d s=%d a1=%d a2=%d x1=%d x2=%d\n", ii, mm->fragment, up->score, up->a1, up->a2, up->x1, up->x2) ;
 
       /* locate on closest corresponding acceptor in x space */
-      for (jj = jjA, vp = bigArrp (exportAcceptors, jj, PEXPORT) ; jj > 0 && (jj == jjMax || vp->fragment <= fragment) ; jj--, vp--) ;
+      for (jj = jjA, vp = bigArrp (exportAcceptors, jj, PEXPORT) ;  jj < jjMax && vp->fragment >= fragment && ! foundIntron ; jj++, vp++)
+	;
       bestda = 1<<30 ; bestjj = -1 ;
-      for ( ; jj < jjMax && vp->fragment >= fragment ; jj++, vp++)
+      if (jj == jjMax) { jj-- ; vp-- ; }
+      for ( ; jj >= 0 && vp->fragment <= fragment /* && ! foundIntron */ ; jj--, vp--)
 	if ((vp->type == 1 || vp->type == 63) && vp->fragment == fragment && 
 	    vp->mm == mm && vp->score > 0 && vp->pairScore >= 0)
 	  { 
 	    if ((isDown==1 &&  vp->a1 > vp->a2) || (isDown == -1 &&  vp->a1 < vp->a2))
 	      continue ;
+	    if ((isDown==1 &&  vp->a2 < up->a1) || (isDown == -1 &&  vp->a2 > up->a1))
+	      continue ;
 	    y1 = vp->x1 ; 
-	    b1 = vp->a1 ; 
+	    b1 = vp->a1 ;
 	    dx = x2 + 1 - y1 ; /* number of slipage base */
 	    if (dx < - shorty)
-	      break ;
+	      continue ;
 	    if (dx > 24)
 	      continue ;
 	    da = (b1 > a2 ? b1 - a2 : a2 - b1) ;
 	    overlap = 0 ;
 	    
 	    if (up->target != vp->target)
-	      break ;
-	    if (bestda > da)
-	      { bestda = da ; bestjj = jj ; }
-	  }
-      if (bestjj == -1)
-	continue ;
-      jj = jjA = bestjj ;
-      vp = bigArrp (exportAcceptors, jj, PEXPORT) ;
-      if (debug) fprintf (stderr, "... jj=%d f=%d s=%d a1=%d a2=%d x1=%d x2=%d\n", jj, vp->mm->fragment, vp->score, vp->a1, vp->a2, vp->x1, vp->x2) ;
-     /* verify that reciprocally there is no better pair */
-      if (1)
-	{
-	  y1 = vp->x1 ; 
-	  b1 = vp->a1 ; 
-	  for (kk = ii, wp = up ; kk > 0 && wp->fragment <= fragment ; kk--, wp--) ;
-	  for ( ; kk < iiMax && bestjj >= 0 && wp->fragment >= fragment ; kk++, wp++)
-	    {
-	      if (wp->score == 0 || wp-> mm != mm || (isDown==1 &&  wp->a1 > wp->a2) || (isDown == -1 &&  wp->a1 < wp->a2))
-		continue ;
-
-	      dx = wp->x2 + 1 - y1 ; /* number of slipage base */
-	      if (dx > 24)
-		break ;
-	      if (dx < - shorty)
-		continue ;
-	      da = (b1 > wp->a2 ? b1 - wp->a2 : wp->a2 - b1) ;
-	      if (up->target != vp->target)
-		break ;
-	      if (bestda > da) /* ii,jj is not a best reciprocal match */
-		{ if (kk != ii) bestjj = -1 ; }
-	    }
-	}
-      if (bestjj < 0)
-	continue ;
-      else
-	{
-	  /* this block documents de uno discoveries and chaining
-	   * it has no effect on reporting donrs and acceptors or hits geometry
-	   */
-	  int dxMin, dxMax ;
-	  nnTest++ ;
-	  jj = bestjj ;
-	  vp = bigArrp (exportAcceptors, jj, PEXPORT) ;
-	  
-	  x2 = up->x2 ;
-	  a2 = up->a2 ;
-	  y1 = vp->x1 ; 
-	  b1 = vp->a1 ; 
-	  
-	  da = (b1 > a2 ? b1 - a2 : a2 - b1) ;
-	  overlap = 0 ;
-	  dx = x2 + 1 - y1 ; /* number of slipage base */
-
-	  if (1)
-	    { /*  2015_11_02 chaining on very short deletions is a good idea */
-	      if (dx < - shorty || dx > 24)
-		continue ;
-	      if ((0 && isDown == 1 && a2 - dx > b1 - pp->intronMinLength) || 
-		  (0 && isDown  == -1 &&  a2 < b1 - dx + pp->intronMinLength) ||
-		  (isDown  == 1 && a2 < b1 - pp->intronMaxLength) || 
-		  (isDown  == -1 &&  a2 > b1 + pp->intronMaxLength)
-		  )
-		continue ;
-	    }
-
-	  if (up->target == vp->target)
-	    {
-	      if (da < 30)
-		overlap = 12 ; /* small standard intron */ 
-	      else if (da< 20000) 
-		overlap = 8 ; /* standard intron */ 
-	      else if (da < 100000) 
-		overlap = 12 ; /* big standard intron */ 
-	      else if (da < 1000000) 
-		overlap = 16 ; /* big standard intron */ 
-	    }
-	  if (! overlap || isDown == 0)  /* translocations ? */
-	    overlap = 20 ;
-
-	  if (0)
-	    fprintf(stderr,  "%d %d   %d %d   ln=%d\n", x2, y1, a2, b1, da) ;
-	  
-	  exon1 = dictName (pp->exportDict, up->targetPresuffix) ;
-	  hook1 = dictName (pp->exportDict, up->presuffix) ;
-	  
-	  exon2 = dictName (pp->exportDict, vp->targetPresuffix) ;
-	  hook2 = dictName (pp->exportDict, vp->presuffix) ;
-	  
-	  /* do not report de_uno discoveries if hooks are too short */
-	  /* check if hooks are long enough */
-	  if (strlen (hook1) < overlap ||
-	      strlen (hook2) < overlap
-	      )
-	    continue ;
-	  /* in missed exon case, check if hooks are long enough */
-	  if (dx < 0 &&
-	      ( strlen (hook1) < overlap - dx ||
-		strlen (hook2) < overlap -dx 
-		)
-	      )
-	    continue ;
-	  /* check if hook2 hooks into exon1 */
-	  cr = (char *)hook2 + overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
-	  cp = strstr (exon1 + 2, hook2 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
-	  if (!cp)
-	    continue ;
-	  dx1 = cp - exon1 ;
-	  if (dx1 < 2)
-	    continue ;
-	  
-	  /* check if hook1 hooks into exon2 */
-	  cr = (char *)hook1 + overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
-	  cp = strstr (exon2 + dx1, hook1 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
-	  if (!cp)
-	    continue ;
-	  dx2 = cp - exon2 ;
-	  if (dx2 < 2)
-	    continue ;
-	  
-	  if (dx1 != dx2)
-	    continue ;
-	  
-	  /* verify there is room for the gt-ag feet */
-	  if (dx1 + dx2  < 4)
-	    continue ;
-	  /* verify that the sliding parts are reverse-complementary */
-          for (i = 2 ; i < dx1 ; i++)
-	    {
-	      ccp = exon1 + i  ; ccq = exon2 + dx1 + 1 - i ;
-	      if ( 
-		  (*ccp == 'a' && *ccq == 't') ||
-		  (*ccp == 't' && *ccq == 'a') ||
-		  (*ccp == 'g' && *ccq == 'c') ||
-		  (*ccp == 'c' && *ccq == 'g')
-		  ) ;
-	      else
-		{ dx1 = dx2 = 0 ; break ; }
-	    }
-	  if (dx1 + dx2 < 4)
-	    continue ;
-	  
-	  if (dx < 0) /* missing exon, no yet fully analysed */
-	    {	
-	      if (0 && !isDown)
-		fprintf(stderr,  "....GAP %s\t%s\t%s\t%d\t%d\t%d\t%d\tbestk=%d\tln=%d\n"
-			, isDown ?  "Reverse" : "Forward"
-			, dictName (pp->targetDict, up->target) 
-			, stackText (pp->probeStack, mm->probeName)
-			, up->x2 - bestdx
-			, vp->x1 + dx1 - bestdx - 2
-			, up->a2 + (up->a1 < up->a2 ? - bestdx + 1 : bestdx - 1)
-			, vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 3 : - dx1 + bestdx + 3) 
-			, bestk
-			, da
-			) ;
 	      continue ;
-	    }
-	  /* success, now we adjust the boundary and hope to slide to a gt-ag  */
-	  
-	  bestk = -1 ;
-	  bestdx = 0 ;
-	  reverse = FALSE ;
-	  foot[0] = '-' ; foot[1] = 0 ;
-	  f1[2] = '_' ; f1[5] = 0 ;
-	  f2[2] = '_' ; f2[5] = 0 ;
-	  if (pp->strategy == STRATEGY_RNA_SEQ &&
-	      (
-	       (isDown == 1 && a2 - dx1 < b1 - pp->intronMinLength) || 
-	       (isDown  == -1 &&  a2 > b1 - dx1 + pp->intronMinLength)
-	       )
-	      )
-	    { dxMin = 0 ; dxMax = dx1 - 2 ; }
-	  else /* always push right */
-	    {
-	      if (
-		  (up->a1 < up->a2 && isDown) ||
-		  (up->a1 > up->a2 && ! isDown) 
-		  )
-		dxMin = dxMax = 0 ; 
-	      else
-		dxMin = dxMax = dx1 - 2 ;
-	    }	      
 
-	  /* if stranded != 0, we slide but we do not flip */
-	  for (bestk = -1, i = dxMin ; i <= dxMax ; i++)
-	    {
-	      k1 = k2 = 0 ; 
-	      ccp = exon1 + i  ; ccq = ccp+1 ;
-	      f2[3] = *ccp ; f2[4] = *ccq ;
-	      f1[1] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccp]]] ;
-	      f1[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccq]]] ;
-	      if (stranded >= 0 && *ccp == 'a' && *ccq == 'c')   /*    d1 == "gt"  */
-		{ k2++ ; k1 += 5 ; } /* also increment k2 to favor ct_ac antisense introns */
-	      else if (stranded >= 0 && *ccp == 'g' && *ccq == 'c')     /* || d1 == "gc"  */
-		{ k2++ ; k1 += 4 ; }
-	      else if (stranded <= 0)
-		{
-		  if (*ccp == 'a' && *ccq == 'g')   /*    d1 == "ct"  */
-		    { k1++ ; k2 += 4 ; }  /*    d1 == "ag"  */
-		}
-	      
-	      ccp = exon2 + dx1 - i - 2 ; ccq = ccp+1 ;
-	      f1[3] = *ccp ; f1[4] = *ccq ;
-	      f2[1] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccp]]] ;
-	      f2[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccq]]] ;
-	      if (stranded >= 0 && *ccp == 'a' && *ccq == 'g')   /*    d1 == "ag"  */
-		{ k1 += 4 ;  k2++ ; }
-	      else if (stranded <= 0)
-		{
-		  if (*ccp == 'a' && *ccq == 'c')   /*    d1 == "gt"  */
-		    { k1++ ; k2 += 5 ; }
-		  else if (*ccp == 'g' && *ccq == 'c')     /* || d1 == "gc"  */
-		    { k1++ ; k2 += 4 ; }
-		} 
-	      if (0 &&
-		  i == 0 && k1 < 8 && 
-		  (
-		   (up->a1 < up->a2 && isDown) ||
-		   (up->a1 > up->a2 && ! isDown) 
-		   )
-		  )
-		k1 = 7 ;
-	      if (stranded > 0) k1++ ;
-	      if (stranded < 0) k2++ ;
-	      if (k1 > bestk)
-		{ bestk = k1 ; bestdx = i ; reverse = FALSE ; strcpy (foot, f1) ; }
-	      if ( k2 > bestk)
-		{ bestk = k2 ; bestdx = i ; reverse = TRUE ; strcpy (foot, f2) ; }
-	      if (0) fprintf (stderr, "a2=%d b1=%d i=%d dxMin=%d dxMax=%d %s\n"
-			      ,a2,b1,i,dxMin, dxMax, reverse ? "reverse": "forward") ;
-#ifdef JUNK
-	      else if (0 &&
-		       i == dx1 - 2 && bestk < 8 && 
-		       (
-			(up->a1 < up->a2 && ! isDown) ||
-			(up->a1 > up->a2 && isDown) 
-			)
-		       )
-		{ bestdx = dx1 - 2 ;  reverse = FALSE ; strcpy (foot, f1) ; }
-#endif
-	    }
-	  if (bestk >= 8)
-	    {
-	      BOOL r = reverse ;
-	      if (mm->pair < 0) r = (r ? FALSE : TRUE) ;
-	      if (r == FALSE) pp->nIntronPlus += mm->mult ;
-	      else pp->nIntronMinus += mm->mult ;
-	    }
-	  if (bestk < 8 && overlap < 2)
-	    continue ;
+	    bestda = da ; bestjj = jj ;
 
-	  /* acceptable intron boundaries */
-#ifdef JUNK
-	    { /* we may want to edit the hits: but this is not inside up, vp but inside the hits table */
-	      /* actually, 2015_11_02 we DO NOT want to edit the hits we are happy with double cover of
-	       * the repeated region, this is useful in the de_duo analysis and to recognize
-	       * sliding introns
-	       */
-	      up->x2 -= bestdx ; vp->x1 += dx1 - bestdx ; FAUX: up is a donor not  a hit
-	      if (up->a1 < up->a2)
-		{ up->a2 -= bestdx ; vp->a1 += dx1 - bestdx ; }
-	      else
-		{ up->a2 += bestdx ; vp->a1 -= dx1 - bestdx ; }
-	    }
-#endif
-	  if (0)
-	    fprintf(stderr,  "ZINTRON %s\t%s\t%s\t%d\t%d\t%d\t%d\tbestk=%d\tln=%d\n"
-		    , reverse ? "Reverse" : "Forward"
-		    , dictName (pp->targetDict, up->target) 
-		    , stackText (pp->probeStack, mm->probeName)
-		    , up->x2 - bestdx
-		    , vp->x1 + dx1 - bestdx - 2
-		    , up->a2 + (up->a1 < up->a2 ? - bestdx + 1 : bestdx - 1)
-		    , vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 3 : - dx1 + bestdx + 3) 
-		    , bestk
-		    , da
-		    ) ;
-
-	  px = bigArrayp (aa, nIntrons++, PEXPORT) ;
-	  px->mm = mm ;
-	  px->fragment = up->fragment ;
-	  px->s1 = up->target ;
-	  px->s2 = vp->target ;
-	  px->x1 = up->a1 ;   
-	  px->a1 = up->a2 + (up->a1 < up->a2 ? - bestdx + 0 : bestdx - 0) ;
-	  px->x2 = vp->a2 ;
-	  px->a2 =  vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 2 : - dx1 + bestdx + 2) ;
-	  px->prefix = up->targetPresuffix ;
-	  px->suffix = vp->targetPresuffix ;
-
-	  if (px->mm->bestScore  > 90 || 
-	      (px->mm->bestScore  > 60 &&  px->mm->bestScore > .8 * (px->mm->probeLength - px->mm->probeLeftClip - px->mm->probeRightClip))
-	      )
-	    px->pairScore = mm->mult ;
-	  px->score = mm->mult ;
-	  px->fragment = mm->fragment ;
-	  px->ali = px->a1 < px->a2 ? px->a2 - px->a1 - 1 : px->a1 - px->a2 - 1 ;
-	  strcpy (px->foot, foot) ;
-	  px->nN = (px->a1 < px->a2 ? 0x0 : 0x1) ;   /* forward reverse */
-	  if (!stranded && bestk < 8) px->nN |= 0x2 ;             /* non gt-ag */
-	  if (pp->strategy != STRATEGY_RNA_SEQ || bestda <  pp->intronMinLength) 
-	    {
-	      px->nN  |= 0x4 ;   /* small deletion */
-	      if ((px->x1 < px->a1 && px->a1 > px->a2) || (px->x1 > px->a1 && px->a1 < px->a2))
-		{ px->ali += 2 ; px->nN |=  0x8 ; }   /* small duplication */
-	    }
-	  if (pp->strategy == STRATEGY_RNA_SEQ && bestda > pp->intronMaxLength) px->nN |= 0x10 ;  /* big intron */
-	  if (pp->strategy == STRATEGY_RNA_SEQ && bestda > 200000) px->nN |= 0x20 ;              /* huge intron */
-	  if (bestda > 1000000) px->nN |= 0x40 ;             /* > 1M call it translocation */
-	  if (px->s1 != px->s2) px->nN |= 0x40 ;             /* tranlocation between 2 targets */
-	  if ((px->x1 < px->a1 && px->a1 > px->a2 + 29) || (px->x1 > px->a1 && px->a1 < px->a2 - 29))
-	    { px->nN |= 0x40 ; px->ali += 2 ; }                 /* grand recouvrement (grand intron negatif) */
-	  if ((px->x1 < px->a1 && px->a2 > px->x2) || (px->x1 > px->a1 && px->a2 < px->x2))
-	    px->nN |= 0x40 ;                   /* mauvaise topologie */
-	  if ((px->a2 - px->a1) * mm->pair > 0)   px->errLeftVal = mm->mult ; /* my mm is a read > */
-	  else px->errRightVal = mm->mult ;                /* my mm is a read < */
-	  if (reverse) 
-	    { 
-	      i = px->x1 ; px->x1 = px->x2 ; px->x2 = i ;
-	      i = px->a1 ; px->a1 = px->a2 ; px->a2 = i ;
-	      i = px->prefix ; px->prefix = px->suffix ; px->suffix = i ;
-	      i = up->errLeftVal ; up->errLeftVal = up->errRightVal ; up->errRightVal = i ;
-	      px->nN ^= 0x1 ;
-	    }
-	  up->score = - up->score ; /* do not reuse */
-	  vp->score = - vp->score ; /* do not reuse */
-
-	  /*
-	    aceOutf (pp->ao, "%s\t%05d\t%d\t%d\t%s\t%s\t%d\t%d\n"
-		 , stackText (pp->probeStack, mm->probeName)
-		 , px->score
-		 , px->x1, px->x2
-		 , "INTRON", dictName (pp->targetDict, px->target)
-		 , px->a1, px->a2
-		 ) ; 
-	  */
-	}
-      /* search for double introns */
-      {
-	if (pp->strategy == STRATEGY_RNA_SEQ  &&  nIntrons > lastK)
-	  {
-	    lastPx =  bigArrayp (aa, nLastIntron, PEXPORT) ;
-	    if (lastUp && lastVp &&
-		lastUp->mm == mm && lastVp->mm == mm &&
-		px->s1 == px->s2 &&
-		px->s1 == px->s2 &&
-		lastPx->s1 == lastPx->s2 && 
-		px->s1 == lastPx->s1
-		)
-	      {
-		PEXPORT wp , *dwp ;
-		BOOL ok = FALSE ;
-
-		memset (&wp, 0, sizeof (PEXPORT)) ;
-		wp.target = px->s1 ;
-		wp.score = mm->mult ;
-		wp.fragment = mm->fragment ;
-		wp.nN = px->nN ; /* strand */
-		strncpy(wp.foot, px->foot, 6) ;
-		wp.mm = px->mm ;
-
-		if (lastPx->a1 <  lastPx->a2 && px->a1 < px->a2 && lastPx->a2 < px->a1 && px->x1 - lastPx->x2 < 30)
+	    if (debug) fprintf (stderr, "... jj=%d f=%d s=%d a1=%d a2=%d x1=%d x2=%d\n", jj, vp->mm->fragment, vp->score, vp->a1, vp->a2, vp->x1, vp->x2) ;
+	    /* verify that reciprocally there is no better pair */
+	    if (0)
+	      { /* 2018-11-05 ce truc est idiot si kk < ii on a deja essaye kk */
+		y1 = vp->x1 ; 
+		b1 = vp->a1 ; 
+		for (kk = ii, wp = up ; kk > 0 && wp->fragment >= fragment ; kk--, wp--) ;
+		for ( ; kk < iiMax && bestjj >= 0 && wp->fragment <= fragment ; kk++, wp++)
 		  {
-		    ok = TRUE ;
-		    wp.a1 = lastPx->x1 ;  /* exon 1: a1-a2 */
-		    wp.a2 = lastPx->a1 ;
-		    wp.x1 = lastPx->a2 ;      /* exon 2: x1-x2 */
-		    wp.x2 = px->a1 ;
-		    wp.s1 = px->a2 ;      /* exon 3: s1-s2 */
-		    wp.s2 = px->x2 ;
-		  }
-		else	if (lastPx->a1 <  lastPx->a2 && px->a1 < px->a2 && lastPx->a2 > px->a1 && lastPx->x1 - px->x2 < 30)
-		  {
-		    ok = TRUE ;
-		    wp.a1 = px->x1 ;  /* exon 1: a1-a2 */
-		    wp.a2 = px->a1 ;
-		    wp.x1 = px->a2 ;      /* exon 2: x1-x2 */
-		    wp.x2 = lastPx->a1 ;
-		    wp.s1 = lastPx->a2 ;      /* exon 3: s1-s2 */
-		    wp.s2 = lastPx->x2 ;
-		  }
-		else	if (lastPx->a1 >  lastPx->a2 && px->a1 > px->a2 && lastPx->a2 > px->a1 &&  lastPx->x2 - px->x1 < 30)
-		  {
-		    ok = TRUE ;
-		    wp.a1 = lastPx->x1 ;  /* exon 1: a1-a2 */
-		    wp.a2 = lastPx->a1 ;
-		    wp.x1 = lastPx->a2 ;      /* exon 2: x1-x2 */
-		    wp.x2 = px->a1 ;
-		    wp.s1 = px->a2 ;      /* exon 3: s1-s2 */
-		    wp.s2 = px->x2 ;
-		  }
-		else	if (lastPx->a1 >  lastPx->a2 && px->a1 > px->a2 && lastPx->a2 < px->a1 && px->x2 - lastPx->x1 < 30)
-		  {
-		    ok = TRUE ;
-		    wp.a1 = px->x1 ;  /* exon 1: a1-a2 */
-		    wp.a2 = px->a1 ;
-		    wp.x1 = px->a2 ;      /* exon 2: x1-x2 */
-		    wp.x2 = lastPx->a1 ;
-		    wp.s1 = lastPx->a2 ;      /* exon 3: s1-s2 */
-		    wp.s2 = lastPx->x2 ;
-		  }
-		if (ok)
-		  {
-		    dwp = bigArrayp (exportDoubleIntrons, bigArrayMax (exportDoubleIntrons), PEXPORT) ;
-		    *dwp = wp ;
+		    if (wp->score == 0 || wp-> mm != mm || (isDown==1 &&  wp->a1 > wp->a2) || (isDown == -1 &&  wp->a1 < wp->a2))
+		      continue ;
+		    
+		    dx = wp->x2 + 1 - y1 ; /* number of slipage base */
+		    if (dx > 24)
+		      break ;
+		    if (dx < - shorty)
+		      continue ;
+		    da = (b1 > wp->a2 ? b1 - wp->a2 : wp->a2 - b1) ;
+		    if (up->target != vp->target)
+		      break ;
+		    if (bestda > da) /* ii,jj is not a best reciprocal match */
+		      { if (kk != ii) bestjj = -1 ; }
 		  }
 	      }
-	     
-	    lastUp = up ; lastVp = vp ;
-	    nLastIntron = nIntrons - 1 ; lastPx =  px ;
+	    if (bestjj < 0)
+	      continue ;
+	    else
+	      {
+		/* this block documents de uno discoveries and chaining
+		 * it has no effect on reporting donors and acceptors or hits geometry
+		 */
+		int dxMin, dxMax ;
+		nnTest++ ;
+		jj = bestjj ;
+		vp = bigArrp (exportAcceptors, jj, PEXPORT) ;
+		
+		x2 = up->x2 ;
+		a2 = up->a2 ;
+		y1 = vp->x1 ; 
+		b1 = vp->a1 ; 
+		
+		da = (b1 > a2 ? b1 - a2 : a2 - b1) ;
+		overlap = 0 ;
+		dx = x2 + 1 - y1 ; /* number of slipage base */
+		
+		if (1)
+		  { /*  2015_11_02 chaining on very short deletions is a good idea */
+		    if (dx < - shorty || dx > 24)
+		      continue ;
+		    if ((0 && isDown == 1 && a2 - dx > b1 - pp->intronMinLength) || 
+			(0 && isDown  == -1 &&  a2 < b1 - dx + pp->intronMinLength) ||
+			(isDown  == 1 && a2 < b1 - pp->intronMaxLength) || 
+			(isDown  == -1 &&  a2 > b1 + pp->intronMaxLength)
+			)
+		      continue ;
+		  }
+		
+		if (up->target == vp->target)
+		  {
+		    if (da < 30)
+		      overlap = 12 ; /* small standard intron */ 
+		    else if (da< 20000) 
+		      overlap = 8 ; /* standard intron */ 
+		    else if (da < 100000) 
+		      overlap = 12 ; /* big standard intron */ 
+		    else if (da < 1000000) 
+		      overlap = 16 ; /* big standard intron */ 
+		  }
+		if (! overlap || isDown == 0)  /* translocations ? */
+		  overlap = 20 ;
+		
+		if (0)
+		  fprintf(stderr,  "%d %d   %d %d   ln=%d\n", x2, y1, a2, b1, da) ;
+		
+		exon1 = dictName (pp->exportDict, up->targetPresuffix) ;
+		hook1 = dictName (pp->exportDict, up->presuffix) ;
+		
+		exon2 = dictName (pp->exportDict, vp->targetPresuffix) ;
+		hook2 = dictName (pp->exportDict, vp->presuffix) ;
+		
+		/* do not report de_uno discoveries if hooks are too short */
+		/* check if hooks are long enough */
+		if (strlen (hook1) < overlap ||
+		    strlen (hook2) < overlap
+		    )
+		  continue ;
+		/* in missed exon case, check if hooks are long enough */
+		if (dx < 0 &&
+		    ( strlen (hook1) < overlap - dx ||
+		      strlen (hook2) < overlap -dx 
+		      )
+		    )
+		  continue ;
+		/* check if hook2 hooks into exon1 */
+		cr = (char *)hook2 + 2*overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
+		cp = strstr (exon1 + 2, hook2 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
+		if (!cp)
+		  {
+		    cr = (char *)hook2 + overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
+		    cp = strstr (exon1 + 2, hook2 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
+		  }
+		if (!cp)
+		  continue ;
+		dx1 = cp - exon1 ;
+		if (dx1 < 2)
+		  continue ;
+		
+		/* check if hook1 hooks into exon2 */
+		cr = (char *)hook1 + 2*overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
+		cp = strstr (exon2 + dx1, hook1 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
+		if (!cp)
+		  {
+		    cr = (char *)hook1 + overlap + (dx < 0 ? -dx : 0) ; cc = *cr ; *cr = 0 ; /* abuse the dictionary privacy */
+		    cp = strstr (exon2 + dx1, hook1 + (dx < 0 ? -dx : 0)) ; *cr = cc ;
+		  }
+		if (!cp)
+		  continue ;
+		dx2 = cp - exon2 ;
+		if (dx2 < 2)
+		  continue ;
+		
+		if (dx1 != dx2)
+		  continue ;
+		
+		/* verify there is room for the gt-ag feet */
+		if (dx1 + dx2  < 4)
+		  continue ;
+		/* verify that the sliding parts are reverse-complementary */
+		for (i = 2 ; i < dx1 ; i++)
+		  {
+		    ccp = exon1 + i  ; ccq = exon2 + dx1 + 1 - i ;
+		    if ( 
+			(*ccp == 'a' && *ccq == 't') ||
+			(*ccp == 't' && *ccq == 'a') ||
+			(*ccp == 'g' && *ccq == 'c') ||
+			(*ccp == 'c' && *ccq == 'g')
+			 ) ;
+		    else
+		      { dx1 = dx2 = 0 ; break ; }
+		  }
+		if (dx1 + dx2 < 4)
+		  continue ;
+		
+		if (dx < 0) /* missing exon, no yet fully analysed */
+		  {	
+		    if (0 && !isDown)
+		      fprintf(stderr,  "....GAP %s\t%s\t%s\t%d\t%d\t%d\t%d\tbestk=%d\tln=%d\n"
+			      , isDown ?  "Reverse" : "Forward"
+			      , dictName (pp->targetDict, up->target) 
+			      , stackText (pp->probeStack, mm->probeName)
+			      , up->x2 - bestdx
+			      , vp->x1 + dx1 - bestdx - 2
+			      , up->a2 + (up->a1 < up->a2 ? - bestdx + 1 : bestdx - 1)
+			      , vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 3 : - dx1 + bestdx + 3) 
+			      , bestk
+			      , da
+			      ) ;
+		    continue ;
+		  }
+		/* success, now we adjust the boundary and hope to slide to a gt-ag  */
+		
+		bestk = -1 ;
+		bestdx = 0 ;
+		reverse = FALSE ;
+		foot[0] = '-' ; foot[1] = 0 ;
+		f1[2] = '_' ; f1[5] = 0 ;
+		f2[2] = '_' ; f2[5] = 0 ;
+		if (pp->strategy == STRATEGY_RNA_SEQ &&
+		    (
+		     (isDown == 1 && a2 - dx1 < b1 - pp->intronMinLength) || 
+		     (isDown  == -1 &&  a2 > b1 - dx1 + pp->intronMinLength)
+		     )
+		    )
+		  { dxMin = 0 ; dxMax = dx1 - 2 ; }
+		else /* always push right */
+		  {
+		    if (
+			(up->a1 < up->a2 && isDown) ||
+			(up->a1 > up->a2 && ! isDown) 
+			)
+		      dxMin = dxMax = dx1 - 2 ;
+		    else
+		      dxMin = dxMax = 0 ;
+		  }	      
+		
+		/* the valued introns are 
+		 * (2019_08_07: added the decoy case, fixed a probable nasty gt_ag strand call error)
+		 * s>=0   k1      s<=0   k2 donor_score_acceptor_score
+		 * gt_ag 5_4      ct_ac 4_5
+		 * gc_ag 4_4      ct_gc 4_4
+		 * at_ac 3_3      gt_at 3_3
+		 * ct_ac 3_3      gt_ag 3_3
+		 * ct_gc 3_2      gc_ag 2_3
+		 */
+		/* if stranded != 0, we slide but we do not flip */
+		for (bestk = -1, i = dxMin ; i <= dxMax ; i++)
+		  {
+		    char c1, c2 ;
+		    k1 = k2 = 0 ; 
+		    ccp = exon1 + i  ; ccq = ccp+1 ;
+		    f2[3] = *ccp ; f2[4] = *ccq ;
+		    c2 = f1[1] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccp]]] ;
+		    c1 = f1[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccq]]] ;
+
+		    if (c1 == 'g' && c2 == 't')        /*    d1 == "gt"  */
+		      { k1 += 5 ; k2 += 3 ; } 
+		    else if (c1 == 'g' && c2 == 'c')   /*    d1 == "gc"  */
+		      { k1 += 4 ; k2 += 2 ; } 
+		    else if (c1 == 'a' && c2 == 't')   /*    d1 == "at"  */
+		      { k1 += 3 ; k2 += 0 ; } 
+		    else if (c1 == 'c' && c2 == 't')   /*    d1 == "ct"  */
+		      { k1 += 3 ; k2 += 4 ; } 
+
+		    ccp = exon2 + dx1 - i - 2 ; ccq = ccp+1 ;
+		    c1 = f1[3] = *ccp ; c2 = f1[4] = *ccq ;
+		    f2[1] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccp]]] ;
+		    f2[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccq]]] ;
+		    
+		    if (c1 == 'a' && c2 == 'g')        /*    d1 == "ag"  */
+		      { k1 += 4 ; k2 += 3 ; } 
+		    else if (c1 == 'a' && c2 == 'c')   /*    d1 == "ac"  */
+		      { k1 += 3 ; k2 += 5 ; } 
+		    else if (c1 == 'g' && c2 == 'c')   /*    d1 == "gc"  */
+		      { k1 += 2 ; k2 += 4 ; } 
+		    else if (c1 == 'a' && c2 == 't')   /*    d1 == "ac"  */
+		      { k1 += 0 ; k2 += 3 ; } 
+
+		    if (stranded > 0) k2 = 0 ;
+		    if (stranded < 0) k1 = 0 ;
+		    if (k1 > bestk)
+		      { bestk = k1 ; bestdx = i ; reverse = FALSE ; strcpy (foot, f1) ; }
+		    if ( k2 > bestk)
+		      { bestk = k2 ; bestdx = i ; reverse = TRUE ; strcpy (foot, f2) ; }
+		    if (0) fprintf (stderr, "a2=%d b1=%d i=%d dxMin=%d dxMax=%d %s\n"
+				    ,a2,b1,i,dxMin, dxMax, reverse ? "reverse": "forward") ;
+		  }
+		if (bestk >= 8)
+		  {
+		    BOOL r = reverse ;
+		    if (mm->pair < 0) r = (r ? FALSE : TRUE) ;
+		    if (r == FALSE) pp->nIntronPlus += mm->mult ;
+		    else pp->nIntronMinus += mm->mult ;
+		  }
+		if (bestk < 8 && overlap < 2)
+		  continue ;
+		
+		/* acceptable intron boundaries */
+#ifdef JUNK
+		{ /* we may want to edit the hits: but this is not inside up, vp but inside the hits table */
+		  /* actually, 2015_11_02 we DO NOT want to edit the hits we are happy with double cover of
+		   * the repeated region, this is useful in the de_duo analysis and to recognize
+		   * sliding introns
+		   */
+		  up->x2 -= bestdx ; vp->x1 += dx1 - bestdx ; FAUX: up is a donor not  a hit
+								if (up->a1 < up->a2)
+								  { up->a2 -= bestdx ; vp->a1 += dx1 - bestdx ; }
+								else
+								  { up->a2 += bestdx ; vp->a1 -= dx1 - bestdx ; }
+		}
+#endif
+		if (debug)
+		  fprintf(stderr,  "ZINTRON %s\t%s\t%s\t%d\t%d\t%d\t%d\tbestk=%d\tln=%d\n"
+			  , reverse ? "Reverse" : "Forward"
+			  , dictName (pp->targetDict, up->target) 
+			  , stackText (pp->probeStack, mm->probeName)
+			  , up->x2 - bestdx
+			  , vp->x1 + dx1 - bestdx - 2
+			  , up->a2 + (up->a1 < up->a2 ? - bestdx + 1 : bestdx - 1)
+			  , vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 3 : - dx1 + bestdx + 3) 
+			  , bestk
+			  , da
+			  ) ;
+		
+		foundIntron = TRUE ;
+		px = bigArrayp (aa, nIntrons++, PEXPORT) ;
+		px->mm = mm ;
+		px->intron = nIntrons ;
+		px->target = up->target ;
+		if (0) {up->donor = 0 ; vp->acceptor = 0 ; }
+		px->fragment = up->fragment ;
+		px->s1 = up->target ;
+		px->s2 = vp->target ;
+		px->x1 = up->a1 ;   
+		px->a1 = up->a2 + (up->a1 < up->a2 ? - bestdx + 0 : bestdx - 0) ;
+		px->x2 = vp->a2 ;
+		px->a2 = vp->a1 + (up->a1 < up->a2 ?  dx1 - bestdx - 2 : - dx1 + bestdx + 2) ;
+		px->prefix = up->targetPresuffix ;
+		px->suffix = vp->targetPresuffix ;
+		
+		if (pp->strategy != STRATEGY_RNA_SEQ) /* shift right */
+		  {
+		    if (up->a1 < up->a2)
+		      {
+			px->a1 += (bestdx - dxMin) ;
+			px->a2 += (bestdx - dxMin) ;
+		      }
+		    else
+		      {
+			px->a1 += (dxMax - bestdx) ;
+			px->a2 += (dxMax - bestdx) ;
+		      }
+		  }
+		
+		if (px->mm->bestScore[0]  > 90 || 
+		    (px->mm->bestScore[0]  > 60 &&  px->mm->bestScore[0] > .8 * (px->mm->probeLength - px->mm->probeLeftClip - px->mm->probeRightClip))
+		    )
+		  px->pairScore = mm->mult ;
+		px->score = mm->mult ;
+		px->fragment = mm->fragment ;
+		px->ali = px->a1 < px->a2 ? px->a2 - px->a1 - 1 : px->a1 - px->a2 - 1 ;
+		strcpy (px->foot, foot) ;
+		px->nN = (px->a1 < px->a2 ? 0x0 : 0x1) ;   /* forward reverse */
+		if (!stranded && bestk < 8) px->nN |= 0x2 ;             /* non gt-ag */
+		if (pp->strategy == STRATEGY_RNA_SEQ &&
+		    bestda >=  pp->intronMinLength
+		    )
+		  {
+		    if (bestda > pp->intronMaxLength) px->nN |= 0x4 ;  /* big intron */
+		    if (bestda > 200000) px->nN |= 0x8 ;              /* huge intron */
+		  }
+		else
+		  px->nN  |= 0x10 ; /* cannot be called intron */
+		
+		if ((px->x1 < px->a1 && px->a1 > px->a2) || (px->x1 > px->a1 && px->a1 < px->a2))
+		  { px->ali += 2 ; px->nN |=  0x20 ; px->nN ^= 0x1 ; }   /* duplication */
+		
+		if (px->s1 != px->s2) px->nN |= 0x40 ;       /* translocation between 2 targets */	  
+		if ((px->x1 < px->a1 && px->a2 > px->x2) || (px->x1 > px->a1 && px->a2 < px->x2))
+		  px->nN |= 0x40 ;                   /* mauvaise topologie */
+		
+		if ((px->a2 - px->a1) * mm->pair > 0)   px->errLeftVal = mm->mult ; /* my mm is a read > */
+		else px->errRightVal = mm->mult ;                /* my mm is a read < */
+		if (reverse) 
+		  { 
+		    int i ;
+		    i = px->x1 ; px->x1 = px->x2 ; px->x2 = i ;
+		    i = px->a1 ; px->a1 = px->a2 ; px->a2 = i ;
+		    i = px->prefix ; px->prefix = px->suffix ; px->suffix = i ;
+		    i = up->errLeftVal ; up->errLeftVal = up->errRightVal ; up->errRightVal = i ;
+		    px->nN ^= 0x1 ;
+		  }
+#ifdef JUNK
+		too complex to get the dna
+		  /* add vcf names */
+		  if (px->nN < 0x20 && (px->nN & 0x10))
+		    {  /* deletion */
+		      char buf[128] ;	
+		      int i = 0, dx = px->a2 - px->a1 - 1, dy = 0 ; /* del length */
+		      if (dx < strlen(hook1) && dx < 120)
+			{
+			  const char *cp = hook1 + dx ;
+			  while (px->a1 >  dy && cp[0] == cp[dx])
+			    { cp-- ; dy++ ; } /* shift left vcf style */
+			  memcpy (buf, hook1, dx) ;
+			  buf[dx] = 0 ;
+			  px->suffix = dictAdd (pp->targetDict,buf, &pp->suffix) ;
+			}
+		      px->nErr = dy + 1 ; /* shift size */
+		    } 
+#endif
+		/* export the fragment name and intron support */
+		if (pp->aoRead2Intron)
+		  aceOutf (pp->aoRead2Intron, "%s\t%d\t%d\t%s\t%d\t%s\t%d\t%s\n"
+			   , stackText (pp->probeStack, mm->probeName)
+			   , mm->bestPairScore
+			   , mm->mult
+			   , dictName (pp->targetDict, up->target)
+			   , px->a1
+			   , dictName (pp->targetDict, vp->target)
+			   , px->a2
+			   , px->foot
+			   ) ;
+	      }
 	  }
-	lastK = nIntrons ;
-      }
     }
-  if (0) fprintf (stderr, ".... pass = %d nn=%d introns=%ld %s\n", isDown, nnTest, bigArrayMax (aa), timeShowNow()) ;
+  if (debug)
+    fprintf (stderr, "// %s  clipAlignConstructIntrons isDown = %d nn=%d introns=%ld\n", timeShowNow(), isDown, nnTest, bigArrayMax (aa)) ;
 
   return arrayMax (aa) ;
 } /* clipAlignConstructIntrons */
 
 /*********************************************************************/
-
+/* merge introns must be done last, because eportHits has ->intron offsets inside exportIntrons */
 static int clipAlignMergeIntrons (CLIPALIGN *pp)
 {
   PEXPORT *up, *vp ;
@@ -4011,6 +4910,8 @@ static int clipAlignMergeIntrons (CLIPALIGN *pp)
   if (iMax) 
     {
       bigArraySort (aa, pExportIntronOrder) ;
+      bigArrayCompress (aa) ;
+
       for (ii = 0, up = bigArrp (aa, 0, PEXPORT)  ; ii < iMax ; ii++, up++)
 	{
 	  if (! up->score) continue ;
@@ -4082,6 +4983,8 @@ static int clipAlignMergeDoubleIntrons (CLIPALIGN *pp)
   if (iMax) 
     {
       bigArraySort (aa, pExportDoubleIntronOrder) ;
+      bigArrayCompress (aa) ;
+
       for (ii = 0, up = bigArrp (aa, 0, PEXPORT)  ; ii < iMax ; ii++, up++)
 	{
 	  if (! up->score) continue ;
@@ -4121,48 +5024,60 @@ static int clipAlignMergeDoubleIntrons (CLIPALIGN *pp)
 } /* clipAlignMergeDoubleIntrons */
 
 /*********************************************************************/
-
-static void clipAlignOpenOutput (CLIPALIGN *pp, char *type)
-{
-  pp->ao = aceOutCreate (pp->outFileName, type, pp->gzo, pp->h) ;
-} /* clipAlignOpenOutput */
-
 /*********************************************************************/
 
-static void clipAlignExportAll (CLIPALIGN *pp)
+static void clipAlignExportAll (CLIPALIGN *pp, const char *commandBuf)
 {
   int i ;
   BOOL debug = FALSE ;
 
-  fprintf (stderr, ".....clipAlignExportAll :%s\n"
+  fprintf (stderr, "// %s .....clipAlignExportAll\n"
 	   , timeShowNow () 
 	   ) ;
    
   bigArraySort (pp->exportHits, pExportChainOrder) ;
-  bigArraySort (pp->exportDonors, pExportChainOrder) ;
-  bigArraySort (pp->exportAcceptors, pExportChainOrder) ;
-  bigArraySort (pp->exportIntrons, pExportChainOrder) ;
+  bigArrayCompress (pp->exportHits) ;
 
-  fprintf (stderr, ".....clipAlignExportAll optimize pair start %ld hits :%s\n"
-	   , bigArrayMax (pp->exportHits)
+
+  if (0 && pp->splice)
+    {
+      if (! pp->aoRead2Intron)
+	pp->aoRead2Intron = aceOutCreate (pp->outFileName, ".frag2intron", pp->gzo, pp->h) ;
+      if (pp->strategy == STRATEGY_RNA_SEQ) 
+	clipAlignConstructIntrons (pp, 1, FALSE) ;  /* introns on plus strand */
+      fprintf (stderr, "// %s after construct introns plus\n", timeShowNow()) ; 
+      if (pp->strategy == STRATEGY_RNA_SEQ) 
+	clipAlignConstructIntrons (pp, -1, FALSE) ;   /* introns on minus strand */
+      fprintf (stderr, "// %s after construct introns minus\n", timeShowNow()) ; 
+      if (1) clipAlignConstructIntrons (pp, 0, FALSE) ;  /* rearrangements on remaining donors/acceptors */
+      ac_free (pp->aoRead2Intron) ;
+      
+      fprintf (stderr, "// %s after construct introns 0\n", timeShowNow()) ; 
+    }
+  
+  fprintf (stderr, "// %s .....clipAlignExportAll optimize pair start %ld hits\n"
 	   , timeShowNow () 
+	   , bigArrayMax (pp->exportHits)
 	   ) ;
   clipAlignOptimizePairs (pp, FALSE) ; /* global clean up on best pair score */
-  fprintf (stderr, ".....clipAlignExportAll optimize pair done :%s\n"
+  fprintf (stderr, "// %s .....clipAlignExportAll optimize pair done\n"
 	   , timeShowNow () 
 	   ) ;
-
+  
   if (debug) showPexport (pp, 0) ;
- 
+  
   bigArraySort (pp->exportHits, pExportHitOrder) ;
- 
+  
   if (debug) showPexport (pp, 0) ;
-
+  
   /* export the hits */
   clipAlignExportPx (pp, 0) ;
+  if (pp->sam)
+    clipAlignExportSam (pp, commandBuf) ;
   if (!pp->silent) aceOutf (pp->ao, "# %s done\n", timeShowNow ()) ;
   ac_free (pp->ao) ;
-
+  
+  
   /* export the list of probes for which each seed is seen over 25 times */
   if (pp->seedOver25 && bitSetCount (pp->seedOver25))
     {
@@ -4174,9 +5089,18 @@ static void clipAlignExportAll (CLIPALIGN *pp)
       ac_free (pp->ao) ;
     }
 
+  if (pp->splice)   /* merge introns and blank out the donor acceptors */
+    {
+      clipAlignMergeIntrons (pp) ;
+      clipAlignMergeDoubleIntrons (pp) ;
+    }
+
   /* export the donors and acceptors */
   bigArraySort (pp->exportDonors, pExportDonorOrder) ;
   bigArraySort (pp->exportAcceptors, pExportAcceptorOrder) ;
+  clipAlignSquish (pp, 4) ;
+  clipAlignSquish (pp, 5) ;
+  if (0) clipAlignRestoreAcceptorScores (pp) ;  /* restore the score of the donors/acceptors */
 
   if (bigArrayMax (pp->exportDonors) + bigArrayMax (pp->exportAcceptors))
     {
@@ -4189,23 +5113,13 @@ static void clipAlignExportAll (CLIPALIGN *pp)
       ac_free (pp->ao) ;
     }
 
-  fprintf (stderr, "before construct introns %s\n", timeShowNow()) ;
+  fprintf (stderr, "// %s before construct introns\n", timeShowNow()) ;
   /* export the introns */
   ac_free (pp->exportHits) ; /* make room */
   
   if (pp->splice)
     {
-      if (pp->strategy == STRATEGY_RNA_SEQ) 
-	clipAlignConstructIntrons (pp, 1, FALSE) ;  /* introns on plus strand */
-      if (pp->strategy == STRATEGY_RNA_SEQ) 
-	clipAlignConstructIntrons (pp, -1, FALSE) ;   /* introns on minus strand */
-      if (1) clipAlignConstructIntrons (pp, 0, FALSE) ;  /* rearrangements on remaining donors/acceptors */
-      fprintf (stderr, "after construct introns 0: %s\n", timeShowNow()) ; 
-      clipAlignRestoreAcceptorScores (pp) ;  /* restore the score of the donors/acceptors */
-
-      clipAlignMergeIntrons (pp) ;
-      clipAlignMergeDoubleIntrons (pp) ;
-      fprintf (stderr, "after merge introns: %s\n", timeShowNow()) ;
+      fprintf (stderr, "// %s after merge introns\n", timeShowNow()) ;
 
       if (bigArrayMax (pp->exportIntrons))
 	{
@@ -4262,6 +5176,8 @@ static void clipAlignTableCaption (CLIPALIGN *pp)
       
       if (pp->solid)
 	aceOutf (pp->ao, "\tNumber of SOLiD corrected bases") ;
+      else
+	aceOutf (pp->ao, "\tNumber of N bases") ;
       aceOutf (pp->ao, "\tNumber of mismatches") ;
       
       
@@ -4463,7 +5379,7 @@ void clipAlignExportHit (CLIPALIGN *pp, MM *mm, int xpos
 		  ok = FALSE ; 
 		  continue ;
 		}
-	      if (score < px->score - pairTampon)
+	      if (0 && score < px->score - pairTampon)
 		{
 		  if (pp->bestHit)
 		    { ok = FALSE ; continue ; }
@@ -4543,7 +5459,6 @@ void clipAlignExportHit (CLIPALIGN *pp, MM *mm, int xpos
 	    }
 	}  
     }
-  if (0) mm->bestScore = 0 ;  /* was if pp->seedShift */
 } /* clipAlignExportHit  */
 
 /*********************************************************************/
@@ -4602,18 +5517,48 @@ static void clipAlignCountLetters (CLIPALIGN *pp)
     }  
 } /* clipAlignCountLetters */
 
+/*************************************************************************************/
+
+static void clipAlignInitB2 (CLIPALIGN *pp, BOOL isUp)
+{
+  int i ; 
+ 
+ 
+  i = 256 ;  while (i--) B2[i] = 0 ;
+  B2[A_] = 0x0 ; B2[T_] = 0x3 ;     /* ATTENTION copied in dnasubs.c:dnagetWordUsage */
+  B2[G_] = 0x1 ; B2[C_] = 0x2 ;     /* you must keep the 2 identical */
+
+  if (0) showPexport(0, 0) ; /* for compiler happiness */
+
+  if (pp->A2G) { B2[R_] = B2[A_] ; B2[Y_] = B2[T_] ; }
+  if (pp->G2A) { B2[R_] = B2[G_] ; B2[Y_] = B2[C_] ; }
+  if (pp->T2C) { B2[Y_] = B2[T_] ; B2[R_] = B2[A_] ; }
+  if (pp->C2T) { B2[Y_] = B2[C_] ; B2[R_] = B2[G_] ; }
+  if (pp->A2C) { B2[M_] = B2[A_] ; B2[K_] = B2[T_] ; }
+  if (pp->C2A) { B2[M_] = B2[C_] ; B2[K_] = B2[G_] ; }
+  if (pp->T2G) { B2[K_] = B2[T_] ; B2[M_] = B2[A_] ; }
+  if (pp->G2T) { B2[K_] = B2[G_] ; B2[M_] = B2[C_] ; }
+  if (pp->G2C) { B2[S_] = isUp ? B2[C_] : B2[G_] ; }
+  if (pp->C2G) { B2[S_] = isUp ? B2[G_] : B2[C_] ; }
+  if (pp->A2T) { B2[W_] = isUp ? B2[T_] : B2[A_] ; }
+  if (pp->T2A) { B2[W_] = isUp ? B2[A_] : B2[T_] ; }
+
+  return ;
+} /* clipAlignInitB2 */
+
 /*********************************************************************/
 static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isUp)
 {
   int i, ii, j, jx, jxB, pos, max, dx2, nErr, nN, nHits = 0, same ;
   int a1, a2, xpos, x1, x2 ;
   MM *mm, *mm0 ;
-  char *cp=0, *cpB, errLeftVal[1024], errRightVal[1024] ;
+  char *cp=0, *cpB, errLeftVal[10024], errRightVal[10024] ;
   unsigned char prefix[64+OVLN], targetPrefix[64 + 4 * OVLN], suffix[64+OVLN] ;
   int nf = 0 ;
   int iBucket ;
   int nTargets = pp->nTargets ;
   BOOL oligoGeneTouched = FALSE ;
+  BOOL doubleSeed = pp->doubleSeed ;
   BitSet oligoGene = pp->nTargets > 0 ? pp->oligoGene : 0 ;  /* useless on first target */
   unsigned long int oligo = 0,  oligoB = 0, myOligo, anchor, mask1 = 0, mask, maskB ;
   const void *vp;
@@ -4633,6 +5578,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 
   COSMID=cosmidName ;
 
+  clipAlignInitB2 (pp, isUp) ;
   if (0)  fprintf (stderr, "get probe hits cosmid=%s isUp=%d  %s\n", cosmidName, isUp, timeShowNow());
   dx2 = pp->dx2 ;
   mask = pp->mask ;
@@ -4642,7 +5588,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
     messcrash ("clipAlignGetProbeHits received obsolete option mask1 != 0") ;
   ii = pp->probeLengthMin - 1 ;
   max = arrayMax (dna) ;
-  if (max < pp->probeLengthMin) return 0 ;
+  if (max < 100 && max < pp->probeLengthMin) return 0 ;
 
   /* load the mask */
   jx = dx2 ;
@@ -4675,6 +5621,8 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
   pos = -1 ; ii = arrayMax(dna) - dx2 ;
   if (ii > 0) while (pos++, cp++, cpB++, ii--)
     { 
+      if (0 && pp->hashPhase && pos == 4910877  && pp->target == 17 && isUp == FALSE)
+	invokeDebugger() ;
       if (cp > arrp (dna, arrayMax(dna)-1, char))
 	{
 	  char *cq0 = arrp (dna, 0, char) ;
@@ -4721,7 +5669,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 			array (oligoFrequency, nOligo, unsigned char) = nf + 1 ;
 		    }
 		}
-	      if (pp->doubleSeed) /* big oligos */
+	      if (doubleSeed) /* big oligos */
 		{
 		  if (! assFind (assB1, assVoid(oligoB), &vp))
 		    {
@@ -4765,7 +5713,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 			  if (nf < 5 || (nTargets < 5 && nf < 255)) 
 			    array (oligoFrequency, nOligo, unsigned char) = nf + 1 ;
 			}
-		      if (pp->doubleSeed) /* The short oligo is included in the long one */
+		      if (doubleSeed) /* The short oligo is included in the long one */
 			{
 			  if (assFind(assB1, assVoid(oligoB), &vp)) 
 			    {
@@ -4784,10 +5732,10 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
       /*
       if (assFind (ass2, assVoid(oligo), 0) && assFind(ass, assVoid(oligo), &vp))
 	{ myass = ass ; myOligo = oligo ; }
-      else if (pp->doubleSeed && assFind (assB2, assVoid(oligoB), 0) && assFind(assB, assVoid(oligoB), &vp))
+      else if (doubleSeed && assFind (assB2, assVoid(oligoB), 0) && assFind(assB, assVoid(oligoB), &vp))
 	{ myass = assB ; myOligo = oligoB ; }
       */
-      if (pp->doubleSeed)
+      if (doubleSeed)
 	{ myass = assB ; myOligo = oligoB ; }
       else
 	{ myass = ass ; myOligo = oligo ; }
@@ -4818,12 +5766,17 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 		  {   /* same hit as before  ? */
 		    if (xpos >= mm->lastX1  && xpos <= mm->lastX2 && 
 			pos >= mm->lastA1 && pos <= mm->lastA2  &&
+			pos - xpos >= mm->lastDelta - 20 &&
+			pos - xpos <= mm->lastDelta + 20 &&
 			mm->lastIsUp == isUp
 			)
-		      continue ; 
+		      {
+			mm->lastDelta = pos - xpos ;
+			continue ; 
+		      }
 		  }
 		if (pp->MRNAH && 
-		    !pp->hasPairs &&  /* 2015_02_02  is hasPairs we cannot do that becuas if r1 goes just in b and run2 goes in a,b we need to keep b */
+		    !pp->hasPairs &&  /* 2015_02_02  is hasPairs we cannot do that because if r1 goes just in b and run2 goes in a,b we need to keep b */
 		    mm->lastTarget &&
 		    mm->lastTargetGene == pp->targetGene &&
 		    mm->lastIsUp == isUp &&
@@ -4836,26 +5789,25 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 		 * since we cannot count every position, we count modulo a hash
 		 * we do not zero this number when we get a better hit
 		 */
-		if (1)
+		if (mm->probeLength < 128) /* catastrophic on long reads becasue we fold back on 8 counters
+			* we have 8 * seedStep = 40 so it only work for seq length up to 128
+			*/
 		  {
 		    int limit = 64 ; /* must be smaller than 255 = max char value */
 		    unsigned int xk = xpos ;
-		    int ll = (mm->probeLength + pp->seedShift - 1) / pp->seedShift ;
-		    int w, k = (ll + 7)/8 ; /* since we want at most 8 counter we should divide again by k */
+		    int w ;
 		    xk /= pp->seedShift ;
-		    xk = (xk) ^ (xk * 13) ^ (xk * 37) ; xk = xk ^ (xk > 3) ^ (xk >> 5) ; xk = xk % ll ;
-		    if (k > 1) xk /= k ;
-		    if (xk > 7) 
-		      messcrash ("bad value while estimating the mm->wordCount: xk=%d k=%d xpos=%d mm->probeLength=%d pp->seedShift=%d ll=%d"
-				 , xk, k, xpos,  mm->probeLength, pp->seedShift, ll
-				 ) ;
+		    xk = (xk) ^ (xk * 13) ^ (xk * 37) ; xk = xk ^ (xk > 3) ^ (xk >> 5) ;
+		    xk = xk % 8 ;
 		    xk <<= 1 ; if (isUp) xk |= 0x1 ;
 		    w = mm->wordCount[xk] ;
 		    if (w >= limit)
 		      continue ;
-		    if (1) mm->wordCount[xk]++ ;
+		    mm->wordCount[xk]++ ;
 		  }
 		nErr = nN = 0 ;
+		if (0 && xpos < 230 && xpos > 130 && pp->target == 17 && isUp == FALSE)
+		  invokeDebugger() ;
 		if (clipAlignVerifyProbeHit (pp, mm, dna, dnaR, pos, xpos
 					     , (unsigned char*) stackText (pp->probeStack, mm->probeSequence)
 					     , mm->probeLength, isUp
@@ -4919,7 +5871,7 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
 	    {
 	      pp->dna0 = dnaHandleCopy (dnaR, h) ;
 	      dnaSolidEncodeArray (dnaR, TRUE) ;
-	      dnaS = arrayHandleCopy (dna0, h) ;
+	      dnaS = dnaHandleCopy (dna0, h) ;
 	      dnaSolidEncodeArray (dnaS, TRUE) ;
 	    }
 	  else
@@ -4928,7 +5880,7 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
 	  nHits += clipAlignGetProbeHits (pp, dnaR, dnaS, TRUE) ;
 	  arrayUnlock (dnaR) ; arrayUnlock (dnaS) ;
 	}
-      if (! pp->decoy && (pp->strand || ! pp->antistrand))
+      if (pp->strand || ! pp->antistrand)
 	{
 	  if (pp->solid)
 	    {
@@ -4982,32 +5934,51 @@ static void  clipAlignOptimizeIntronCleanUp (CLIPALIGN *pp, BigArray aa, int ii1
 					     int *t0p, int *w0p, int *d0p, int *c0p)
 {  
   int fragment = 0, target = 0 ;
-  int ii, jj, t, t1 = 0, t2 = 0, d1 = 0, d2 = 0, c1 = 0, c2 = 0, w, w1 = 0, w2 = 0 ;
-  int a1, a2, b1, b2 ;
+  int ii, jj ;
+  int a2, b1, b2 ;
   int nValidatedIntrons = 0 ;
   BigArray introns = singleTarget ? pp->geneIntrons : pp->exportIntrons ;
-  BigArray doubleIntrons = singleTarget ? pp->geneDoubleIntrons : pp->exportDoubleIntrons ;
   BigArray donors =  singleTarget ? pp->geneDonors : pp->exportDonors ;
   BigArray acceptors =  singleTarget ? pp->geneAcceptors : pp->exportAcceptors ;
   int tMax = introns ? bigArrayMax (introns) : 0 ;
-  int wMax = introns ? bigArrayMax (doubleIntrons) : 0 ;
-  int dMax =  donors ? bigArrayMax (donors) : 0 ;
-  int cMax = acceptors ? bigArrayMax (acceptors) : 0 ;
   PEXPORT *px, *py, *pt ;
-  BOOL hasZero = FALSE ;
+  int t, t1 = tMax + 2, t2 = 0 ;
 
-  if (1 && ! singleTarget) /* reserve negative score is pairscore to use them when searching rearrangmnets */
+  return ;
+  if (! singleTarget) /* reserve negative score is pairscore to use them when searching rearrangmnets */
     for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-      px->pairScore = px->score ;
+      {
+	px->pairScore = px->score ;
+      }
+
+  if (1)
+    for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
+      {
+	if (px->intron)
+	  {
+	    py = bigArrp (introns, px->intron - 1, PEXPORT) ;
+	    py->score = 0 ;
+	  }
+	if (0 && px->donor)
+	  {
+	    py = bigArrp (donors, px->donor - 1, PEXPORT) ;
+	    py->score = 0 ;
+	  }
+ 	if (0 && px->acceptor)
+	  {
+	    py = bigArrp (acceptors, px->acceptor - 1, PEXPORT) ;
+	    py->score = 0 ;
+	  }
+	if (px->intron < t1)
+	  t1 = px->intron ;
+	if (px->intron > t2)
+	  t2 = px->intron ;
+      }
   for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
     {
-      if (! px->score)
-	hasZero = TRUE ; /* some lines have been discarded, we need to check the exons introns */
-      else  if (px->fragment)
+      if (px->fragment)
 	fragment = px->fragment ;
     }
-  if (! hasZero)  /* nothing to do */
-    return ;
 
   if (! fragment)
     {
@@ -5016,130 +5987,36 @@ static void  clipAlignOptimizeIntronCleanUp (CLIPALIGN *pp, BigArray aa, int ii1
 	  if (donors)    bigArrayMax (donors) = 0 ;
 	  if (acceptors) bigArrayMax (acceptors) = 0 ;
 	  if (introns)   bigArrayMax (introns) = 0 ;
-	  if (doubleIntrons)   bigArrayMax (doubleIntrons) = 0 ;
 	}
       return ;
     }
-  if (tMax) /* find the limit [t1,t2[ of the relevant introns and kill the score */
-    {
-      for (t1 = *t0p, pt = bigArrp (introns, t1, PEXPORT) ; t1 > 0 && pt->fragment <= fragment ; t1--, pt--) ;
-      for ( ; t1 < tMax ; pt++, t1++)
-	if (pt->fragment <= fragment)
-	  break ;
-      t2 = t1 ;
-      if (pt->fragment == fragment)
-	{
-	  for (t2 = t1, pt = bigArrp (introns, t2, PEXPORT) ; t2 < tMax && pt->fragment == fragment ; pt++, t2++) 
-	    pt->score = 0 ;
-	}
-      *t0p = t2 ;
-    }
-  if (wMax) /* find the limit [t1,t2[ of the relevant double introns and kill the score */
-    {
-      for (w1 = *w0p, pt = bigArrp (doubleIntrons, w1, PEXPORT) ; w1 > 0 && pt->fragment <= fragment ; pt--, w1--) ;
-      for (; w1 < wMax ; pt++, w1++)
-	if (pt->fragment <= fragment)
-	  break ;
-      w2 = w1 ;
-      if (pt->fragment == fragment)
-	{
-	  for (w2 = w1, pt = bigArrp (doubleIntrons, w2, PEXPORT) ; w2 < tMax && pt->fragment == fragment ; pt++, w2++) 
-	    pt->score = 0 ;
-	}
-      *w0p = w2 ;
-    }
-  if (dMax) /* find the limit [d1,d2[ of the relevant donors and kill the score */
-    {
-      for (d1 = *d0p, pt = bigArrp (donors, d1, PEXPORT) ; d1 > 0 && pt->fragment <= fragment ; pt--, d1--) ;
-      for ( ; d1 < dMax ; pt++, d1++)
-	if (pt->fragment <= fragment)
-	  break ;
-      d2 = d1 ;
-      if (pt->fragment == fragment)
-	{
-	  for (d2 = d1, pt = bigArrp (donors, d2, PEXPORT) ; d2 < dMax && pt->fragment == fragment ; pt++, d2++) 
-	    pt->score = 0 ;
-	}
-      *d0p = d2 ;
-    }
-  if (cMax) /* find the limit [c1,c2[ of the relevant acceptors and kill the score */
-    {
-      for (c1 = *c0p, pt = bigArrp (acceptors, c1, PEXPORT) ; c1 > 0 && pt->fragment <= fragment ; pt--, c1--) ;
-      for ( ; c1 < cMax ; pt++, c1++)
-	if (pt->fragment <= fragment)
-	  break ;
-      c2 = c1 ;
-      if (pt->fragment == fragment)
-	{
-	  for (c2 = c1, pt = bigArrp (acceptors, c2, PEXPORT) ; c2 < cMax && pt->fragment == fragment ; pt++, c2++)
-	    pt->score = 0 ;
-	}
-      *c0p = c2 ;
-    }
-
+  
   /* scan the accepted exons and reestablish a positive score for the introns/donors/acceptors of those exons */
   for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
     {
+      BOOL intronFound = FALSE ;
       if (! px->score || ! px->mm)
 	continue ;   
       target = px->target ;
-
-      /* try to find an intron corresponding to the exon */
-      if (px->a1 < px->a2)
-	{ a1 = px->a1 ; a2 = px->a2 ; }
-      else
-	{ a1 = px->a2 ; a2 = px->a1 ; }
-
-      if (donors && bigArrayMax (donors) && d1 < d2)
-	for (t = d1, pt = bigArrp (donors, t, PEXPORT) ; t < d2 ; t++, pt++)
-	  if (pt->target == target)
-	    {
-	      if (pt->a1 < pt->a2)
-		{ b1 = pt->a1 ; b2 = pt->a2 ; }
-	      else
-		{ b1 = pt->a2 ; b2 = pt->a1 ; }
-	      
-	      if (b1 == a1 && b2 == a2)
-		pt->score += px->mm->mult ;
-	    }
-      
-      if (acceptors && bigArrayMax (acceptors) && c1 < c2)
-	for (t = c1, pt = bigArrp (acceptors, t, PEXPORT) ; t < c2 ; t++, pt++)
-	    if (pt->target == target)
-	      {
-		if (pt->a1 < pt->a2)
-		  { b1 = pt->a1 ; b2 = pt->a2 ; }
-		else
-		  { b1 = pt->a2 ; b2 = pt->a1 ; }
-		
-		if (b1 == a1 && b2 == a2)
-		  pt->score += px->mm->mult ;
-	      }
-      
-      nValidatedIntrons = 0 ;
+      a2 = px->a2 ;
       if (1 && introns && bigArrayMax (introns) && t1 < t2)
 	for (t = t1, pt = bigArrp (introns, t, PEXPORT) ; t < t2 ; t++, pt++)
 	  {
 	    int targ = 0 ;
+	    int du = px->a1 < px->a2 ? 10 : 2 ;
+	    int dv = px->a1 < px->a2 ? 2 : 10 ;
+	    
 	    if (pt->s1 == target || pt->s2 == target)
 	      {
-		if (pt->a1 < pt->a2)
-		  { b1 = pt->a1 ; b2 = pt->a2 ; targ = pt->s1 ; }
-		else
-		  { b1 = pt->a2 ; b2 = pt->a1 ; targ = pt->s2 ; }
-		
-		if (b1 > a2 - 10 && b1 < a2 + 2 && targ == target)
+		b1 = pt->a1 ; b2 = pt->a2 ; targ = pt->s1 ; }
+		if (b1 > a2 - du && b1 < a2 + dv && targ == target)
 		  { /* found an intron look for next exon */
 		    int e1 ;
 		    
 		    for (jj = ii + 1, py = px + 1 ; jj < ii2 ; py++, jj++)
 		      {
-			if (py->a1 < py->a2)
-			  { e1 = py->a1 ; targ = py->s1 ; } 
-			else
-			  { e1 = py->a2 ; targ = py->s2 ; }
-			
-			if (e1 > b2 - 10 && e1 < b2 + 2 &&
+			e1 = py->a1 ; targ = py->target ; 
+			if (e1 > b2 - du && e1 < b2 + dv &&
 			    targ == target &&
 			    py->score && py->mm
 			    )
@@ -5152,38 +6029,29 @@ static void  clipAlignOptimizeIntronCleanUp (CLIPALIGN *pp, BigArray aa, int ii1
 			     */
 			    if (! strcmp (pt->foot, "gt_ag"))
 			      {
-				if (pt->errLeftVal > pt->errLeftVal)
+				if (pt->errLeftVal > pt->errRightVal)
 				  pp->nIntronPlus += mult ;
 				else
 				  pp->nIntronMinus  += mult ;
 			      }
+			    py->acceptor = 0 ;
+			    intronFound = TRUE ;
 			    break ;  /* break the py loop */
 			  }
 		      }
 		    break ; /* break the pt loop */
 		  }
 	      }
-	  }
-      if (nValidatedIntrons >= 2 && doubleIntrons && bigArrayMax (doubleIntrons))
-	for (w = w1, pt = bigArrp (doubleIntrons, w, PEXPORT) ; w < w2 ; w++, pt++)
-	  {
-	    /* in principle, we should verify that the introns of this double intron have been validated 
-	    * for the moment we simply have checked that at least 2 introns of this fragment were validated
-	    */
-	    int ok = 0, targ = pt->target ;
-	    
-	    if (introns && bigArrayMax (introns) && t1 < t2)
-	      for (t = t1, py = bigArrp (introns, t, PEXPORT) ; t < t2 ; t++, py++)
-		if (py->score > 0 && py->s1 == targ && py->s2 == targ &&
-		    ( 
-		     (pt->x2 == py->a1 && pt->s1 == py->a2) || 
-		     (pt->a2 == py->a1 && pt->x1 == py->a2) 
-		      )
-		    )
-		  ok++ ;
-	    if (ok >= 2)
-	      pt->score +=  px->mm->mult ;
-	  }
+      if (! intronFound && px->donor)
+	{	
+	  py = bigArrp (donors, px->donor - 1, PEXPORT) ;
+	  py->score = px->mm->mult ;
+	}
+      if (px->acceptor)
+	{	
+	  py = bigArrp (acceptors, px->acceptor - 1, PEXPORT) ;
+	  py->score = px->mm->mult ;
+	}
     }
 } /* clipAlignOptimizeIntronCleanUp */
 
@@ -5191,40 +6059,95 @@ static void  clipAlignOptimizeIntronCleanUp (CLIPALIGN *pp, BigArray aa, int ii1
 /* set px-> to the cumulated score of the exon intron chain going through each exon */
 static int clipAlignOptimizeHalfChain (CLIPALIGN *pp, BigArray aa, int ii1, int ii2, int chain)
 {
-  int nN = 0 ;
-  int fragment = 0 ;
-  int ii, jj, t, t1 = 0, t2 = 0 ;
-  int a2, b1, b2, c1 ;
+  int ii, jj, t, t1 = 0 ;
+  int a2, b1, b2, db, c1 ;
   int minChainAli = pp->minChainAli ;
   BigArray introns = pp->geneIntrons ;
-  int tMax = introns ? bigArrayMax (introns) : 0 ;
-  KEYSET scores = keySetCreate () ; 
-  KEYSET lns = keySetCreate () ;
-  PEXPORT *px, *py, *pt ;
+  int tMax ;
+  PEXPORT *px, *py, *pt ; 
   BOOL debug = FALSE ;
 
-  /* get the fragment number, needed to compare to the intron table */
-  for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-    {
-      if (! px->score || ! px->mm)
-	continue ;
-
-      fragment = px->fragment ;
-      break ;
-    }
-
-  if (tMax && introns && bigArrayMax(introns)) /* find the limit [t1,t2[ of the relevant introns */
-    {
-      for (t1 = 0, pt = bigArrp (introns, 0, PEXPORT) ; t1 < tMax ; pt++, t1++)
-	if (pt->fragment == fragment)
-	  break ;
-      if (pt->fragment == fragment)
-	for (t2 = t1, pt = bigArrp (introns, t2, PEXPORT) ; t2 < tMax && pt->fragment == fragment ; pt++, t2++) ;
-    }
+  if (0 && ! introns && pp->exportIntrons)
+    introns = pp->exportIntrons ;
+  tMax = introns ? bigArrayMax (introns) : 0 ;
   
+  /* stitch overlapping exons */
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    {
+      if (! px->score)
+	continue ;
+      for (jj = ii + 1, py = px + 1 ; jj < ii2 ; py++, jj++)
+	if (px->score && py->score && px->mm == py->mm && px->target == py->target)
+	  {
+	    PEXPORT *pa, *pb ;
+	    const char *cpa, *cpb, *cta, *ctb ;
+	    char *cp, *ct, bufp[12], buft[12] ;
+	    if (px->x1 < py->x1)
+	      { pa = px ; pb = py ;}
+	    else
+	      { pa = py ; pb = px ;}
+	    
+	    if (pa->x2 < py->x1 || 
+		! pa->errLeftVal ||
+		! pa->errRightVal ||
+		! pb->errLeftVal ||
+		! pb->errRightVal 
+		)
+	      continue ;
+	    /* look for matching error */
+	    cpa = dictName (pp->exportDict, pa->errRightVal) ;
+	    cta = dictName (pp->exportDict, pa->errLeftVal) ;
+	    cpb = dictName (pp->exportDict, pb->errRightVal) ;
+	    ctb = dictName (pp->exportDict, pb->errLeftVal) ;
+	    
+	    strncpy (bufp, cpb, 10) ; bufp[11] = 0 ;
+	    cp = strchr (bufp, ',') ; if (cp) *++cp = 0 ; else continue ;
+	    cp = strstr (cpa, bufp) ;
+	    if (!cp)
+	      continue ;
+	    
+	    strncpy (buft, ctb, 10) ; buft[11] = 0 ;
+	    ct = strchr (bufp, ',') ; if (ct) *++ct = 0 ; else continue ;
+	    ct = strstr (cta, buft) ;
+	    if (!ct)
+	      continue ;
+	    else if (0) /* stitch */
+	      {
+		char buf[20000] ;
+		int n ;
+		/* we found an exact match, stitch pb behind pa */
+		pa->x2 = pb->x2 ; pa->a2 = pb->a2 ; 
+		pb->score = pb->pairScore = 0 ; /* kill pb */
+		n = cp - cpa ;
+		memcpy (buf, cpa, n) ;
+		memcpy (buf + n, cpb, strlen(cpb)) ;
+		buf[n + strlen(cpb)] = 0 ;
+		dictAdd (pp->exportDict, buf, &(pa->errRightVal)) ;
+
+		n = 1 ; cp = buf ; while (*++cp) if (*cp == ',') n++ ;
+		pa->nErr = n ;
+		pa->ali = pa->x2 - pa->x1 + 1 ;
+		pa->score = pa->ali - n * pp->errCost ;
+		
+		n = ct - cta ;
+		memcpy (buf, cta, n) ;
+		memcpy (buf + n, ctb, strlen(ctb)) ;
+		buf[n + strlen(ctb)] = 0 ;
+		dictAdd (pp->exportDict, buf, &(pa->errLeftVal)) ;
+	      }
+	  }
+	  
+      
+    }
+
   /* construct an nN chain for all exons */
-  for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-    px->chain = px->pairScore = 0 ;
+  if (0)
+    for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
+      px->chain = px->pairScore = 0 ;
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    { /* tmp space to store the exon chaining and previous score */
+      px->s1 = px->s2 = 0 ;
+    }
   for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
     {
       MM *mm = px->mm ;	 
@@ -5232,22 +6155,35 @@ static int clipAlignOptimizeHalfChain (CLIPALIGN *pp, BigArray aa, int ii1, int 
       if (! px->score || ! mm)
 	continue ;   
       if (! px->chain)
-	px->chain = ++chain ; /* new chain */
-      nN = px->chain ;
-      if (pp->splice)
 	{
-	  keySet (scores, nN) += px->score ;
-	  keySet (lns, nN) += px->x2 - px->x1 + 1 ;
-	}
-      else
-	{
-	  if (px->score > keySet (scores, nN))
+	  MM *mm = px->mm ;
+	  int d0 = px->donor ;
+	  int a0 = px->acceptor ;
+	  int jj, iMax = bigArrayMax (aa) ;
+	  for (jj = ii + 1,  py = px + 1 ; jj <  iMax && py->mm == mm && py->x1 == px->x1 ; jj++, py++)
 	    {
-	      keySet (scores, nN) = px->score ;
-	      keySet (lns, nN) = px->x2 - px->x1 + 1 ;
+	      if (! py->score)
+		continue ;
+	      else if (py->a1 == px->a1)
+		{
+		  int d = py->donor ;
+		  int a = py->acceptor ;
+
+		  py->donor = d0 ; 
+		  py->acceptor = a0 ;
+		  if (! memcmp(px, py, sizeof (PEXPORT)))
+		    py->score = 0 ;
+		  else
+		    {
+		      py->donor = d ; 
+		      py->acceptor = a ;
+		    }
+		}
 	    }
+
+	  px->chain = ++chain ; /* new chain */
 	}
-	  
+ 
       /* look for a quasi continuous alignment */
       if (1)
 	{
@@ -5256,19 +6192,18 @@ static int clipAlignOptimizeHalfChain (CLIPALIGN *pp, BigArray aa, int ii1, int 
 	  int target = px->target ;
 
 	  for (jj = ii + 1, py = px + 1 ; jj < ii2 ; py++, jj++)
-	    if (py->score && py->mm == mm && py->target == target)
+	    if (py->score && py->mm == mm && py->target == target &&
+		py->pairScore <= px->score + px->pairScore)
 	      {
 		int dx = py->x1 - x2 ;
 		int da = isDown * (py->a1 - a2) ;
 		if (isDown * (py->a2 - py->a1) > 0 && dx - da > -3 && dx - da < 3 && dx >= -3 && dx < 20)
 		  {
 		    int ddx = px->x2 - py->x1 + 1 ;
-		    if (ddx > -2 && pp->splice)
-		      {
-			keySet (scores, nN) -= ddx ;
-			keySet (lns, nN) -= ddx ;
-		      }
-		    py->chain = px->chain ; /* attributes the px chain number to py */
+		    if (ddx < -2)
+		      ddx = 0 ;
+		    py->s1 = ii + 1 ;
+		    py->s2 = px->score + px->s2 - ddx ;;
 		    break ;  /* break the py loop */
 		  }
 	      }
@@ -5277,117 +6212,594 @@ static int clipAlignOptimizeHalfChain (CLIPALIGN *pp, BigArray aa, int ii1, int 
       if (! pp->splice)
 	continue ;
       /* reclip 8bp at each end and try to find an intron corresponding to the exon */
-      if (px->a1 < px->a2)
-	{ a2 = px->a2 ; }
-      else
-	{ a2 = px->a1 ; }
+      a2 = px->a2 ; 
 
-      if (introns && bigArrayMax (introns))
-	for (t = t1, pt = introns ? bigArrp (introns, t, PEXPORT) : 0 ; t < t2 ; t++, pt++)
+      if (t1 < tMax && introns && bigArrayMax (introns))
+	for (t = t1, pt = introns ? bigArrp (introns, t, PEXPORT) : 0 ; t < tMax ; t++, pt++)
 	  {
-	    if (pt->a1 < pt->a2)
-	      { b1 = pt->a1 ; b2 = pt->a2 ; }
-	    else
-	      { b1 = pt->a2 ; b2 = pt->a1 ; }
-	    
-	    if (b1 > a2 - 10 && b1 < a2 + 2)
+	    b1 = pt->a1 ; b2 = pt->a2 ; 
+	    db = b2 - b1 ;
+
+	    if (isDown * db < 0)
+	      { int b0 = b1 ; b1 = b2 ; b2 = b0 ; db = -db ; }
+
+	    if (
+		( isDown == 1 && b1 < a2 + 2 && b1 > a2 - 20) || 
+		( isDown == -1 && b1 > a2 - 2 && b1 < a2 + 20) 
+		)
 	      { /* found an intron look for next exon */
 		for (jj = ii + 1, py = px + 1 ; jj < ii2 ; py++, jj++)
 		  {
-		    if (! py->score || isDown * (py->a2 - py->a1) < 0)
-		      continue ;
-		    if (py->a1 < py->a2)
-		      { c1 = py->a1 ; } 
-		    else
-		      { c1 = py->a2 ; }
+		    int dx = py->x1 - px->x2 ;
+		    int da ;
 		    
-		    if (c1 > b2 - 10 && c1 < b2 + 2 &&
-			py->score && py->mm
-			)
-		      {
-			int ddx ;
 
-			if (px->a1 < px->a2) 
+		    c1 = py->a1 ; da = py->a1 - px->a2 ; 
+
+		    if (isDown * (py->a2 - py->a1) > 0 &&  isDown * (db - da) + dx == 1 &&
+			py->pairScore <= px->score + px->pairScore)
+		      {	
+			 if (! py->score || isDown * (py->a2 - py->a1) < 0)
+			  continue ;
+			
+			if (
+			    (
+			     ( isDown == -1 && c1 > b2 - 2 && c1 < b2 + 20) ||
+			     ( isDown == 1 && c1 < b2 + 2 && c1 > b2 - 20) 
+			     ) &&
+			    py->score && py->mm
+			    )
 			  {
+			    int ddx ;
+			    
 			    ddx = px->x2 - py->x1 + 1 ;
-			    px->suffix = py->prefix = -1 ; /* rm the target presuffix at export time */
-			    /* clean up px->targetPresuffix ; */
+			    /* do not hook on exon with better predecessor */
+			    if (ddx <= -2)
+			      ddx = 0 ;
+			    if (py->s2 <= px->score + px->s2 - ddx)
+			      {
+				py->s2 = px->score + px->s2 - ddx;
+				py->s1 = ii + 1 ;
+				py->intron = t + 1 ;
+				break ;  /* break the py loop */
+			      }
 			  }
-			else 
-			  {
-			    ddx = py->x2 - px->x1 + 1 ;
-			    /* clean up suffixes */
-			    px->prefix = py->suffix = -1 ;
-			  }
-
-			if (ddx > -2)
-			  {
-			    keySet (scores, nN) -= ddx ;
-			    keySet (lns, nN) -= ddx ;
-			  }
-			py->chain = px->chain ; /* attributes the px chain number to py */
-			break ;  /* break the py loop */
 		      }
 		  }
-		break ; /* break the pt loop */
+		/* break ; do not break the pt loop */
 	      }
 	  }
     }
-  /* add a bonus if a chain touches a chain of the other read of the same fragment */
 
-  /* set the chain score */
-  for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
+  /* find recursivelly the best exon chain and set the chain */
+  while (1)
     {
-      if (! minChainAli || keySet (lns, px->chain) >=  minChainAli)
+      int pairScore, chain, ln = 0, bestS2 = 0 ; ;
+      t1 = 0 ;
+      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
+	if (px->s1)
+	  {
+	    py = bigArrp (aa, px->s1 - 1, PEXPORT) ;
+	    if (py->pairScore)
+	      px->s1 = px->s2 = 0 ;
+	  }
+	
+      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)    
+	if (px->score > 0 && px->pairScore == 0 && px->score + px->s2 > bestS2)
+	  {
+	    bestS2 = px->score + px->s2 ;
+	    t1 = 1 ;
+	    t = ii ; 
+	  }
+      if (! t1)
+	break ;
+      /* t is the best exon, set its pairScore and those of its predecessor */
+      px = bigArrp (aa, t, PEXPORT) ;
+      pairScore = px->score ; /* + px->s2 ; */
+      /* px->score = px->pairScore = pairScore ; */
+      chain = px->chain ;
+      ln =  px->x2 - px->x1 + 1 ;
+      while (px->s1)
 	{
-	  px->score = px->pairScore = keySet (scores, px->chain) ;
-	  px->chainAli = keySet (lns, px->chain) ;
+	  int ddx ; 
+	  py = px ;
+	  px = bigArrp (aa, px->s1 - 1, PEXPORT) ;
+	  if (px->pairScore) /* already hook in a strongre chain */
+	    break ;
+	  px->chain = chain ;
+	  px->suffix = py->prefix = -1 ;  /* rm the target presuffix at export time */
+
+	  ddx = px->x2 - py->x1 + 1 ;
+	  /* do not hook on exon with better predecessor */
+	  if (ddx <= -2)
+	    ddx = 0 ;
+	  ln += px->x2 - px->x1 + 1 - ddx ;
+	  pairScore += px->score - ddx ;
 	}
-      else
+      /* set the global ali */
+      px = bigArrp (aa, t, PEXPORT) ;
+      if (! minChainAli || ln >=  minChainAli)
+	{
+	  px->ali = ln ;
+	  px->score = px->pairScore = pairScore ;
+	  while (px->s1)
+	    {
+	      px = bigArrp (aa, px->s1 - 1, PEXPORT) ;
+	      if (px->pairScore) /* already hook in a stronger chain */
+		break ;
+	      px->ali = ln ;
+	      px->score = px->pairScore = pairScore ;
+	    }
+	}
+      else /* kill */
 	{
 	  px->score = px->pairScore = px->chain = 0 ;
-	  px->chainAli = 0 ;
+	  while (px->s1)
+	    {
+	      px = bigArrp (aa, px->s1 - 1, PEXPORT) ;
+	      if (px->pairScore) /* already hook in a strongre chain */
+		break ;
+	      px->score = px->pairScore = px->chain = px->ali = 0 ;
+	    }
 	}
+ 
     }
 
-  keySetDestroy (lns) ;
-  keySetDestroy (scores) ;
+
+
+  /* add a bonus if a chain touches a chain of the other read of the same fragment */
+
   if (debug) showPexport (pp, 1) ;
+
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    { /* restore tmp space to store the exon chaining and previous score */
+      px->s1 = px->s2 = 0 ;
+    }
 
   return chain ;
 }  /* clipAlignOptimizeHalfChain */
 
 /*************************************************************************************/
+/* Tie together with raphia topologically compatible chains
+ * starting from thr longest ones
+ */
+
+typedef struct raphiaStruct { int nn, a1, a2, x1, x2, isDown, chain, nr, previous, score, rScore, ali ; } RF ;
+
+static void showRaphia (Array aa)
+{
+  int i, iMax = aa ? arrayMax (aa) : 0 ;
+  RF *rf ;
+
+  for (i = 0 ; i < iMax ; i++)
+    {
+      rf = arrp (aa, i, RF) ;
+      fprintf (stderr, "Raphia %3d nn=%d nr=%d <-%d score=%d rScore=%d ali=%d chain=%d x1/x2 %d/%d a1/a2 %d/%d\n"
+	       , i
+	       , rf->nn, rf->nr, rf->previous
+	       , rf->score, rf->rScore, rf->ali, rf->chain
+	       , rf->x1, rf->x2, rf->a1, rf->a2
+	       ) ;
+    }
+}
+
+static int raphiaXOrder (const void *va, const void *vb)
+{
+  const RF *a = (const RF *)va, *b = (const RF *)vb ;
+  int n ;
+  n = a->isDown - b->isDown ; if (n) return n ;
+  n = a->x1 - b->x1 ; if (n) return n ;
+  n = a->x2 - b->x2 ; if (n) return -n ;  /* long dx first */
+  n = a->nn - b->nn ; if (n) return -n ;  /* long first */
+
+  return n ;
+} /*raphiasXOrder */
+
+static int raphiaChainOrder (const void *va, const void *vb)
+{
+  const RF *a = (const RF *)va, *b = (const RF *)vb ;
+  int n ;
+  n = a->chain - b->chain ; if (n) return n ;
+  n = a->isDown - b->isDown ; if (n) return n ;
+  n = a->x1 - b->x1 ; if (n) return n ;
+  n = a->x2 - b->x2 ; if (n) return -n ;  /* long dx first */
+  n = a->nn - b->nn ; if (n) return -n ;  /* long first */
+
+  return n ;
+} /* raphiaChainOrder */
+
+static int raphiaNrOrder (const void *va, const void *vb)
+{
+  const RF *a = (const RF *)va, *b = (const RF *)vb ;
+  int n ;
+  n = a->nr - b->nr ; if (n) return n ;
+  n = a->x1 - b->x1 ; if (n) return n ;
+  n = a->x2 - b->x2 ; if (n) return -n ;  /* long dx first */
+  n = a->nn - b->nn ; if (n) return -n ;  /* long first */
+
+  return n ;
+} /* raphiaNrOrder */
+
+/*************************************************************************************/
+static int clipAlignOptimizeHalfRaphia (CLIPALIGN *pp, BigArray aa, int ii1, int ii2)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  Array raphia = arrayHandleCreate (128, RF, h) ;
+  KEYSET scores, chainScores, chain2nr, nr2chain ;
+  RF *rf, *rg ;
+  int nRF = 0 ;
+  int ii, jj, iMax, nr ;
+  PEXPORT *px ;
+  int isDown = 1 ;
+  int daMax = 1000000 ;
+  int malus = 2 * pp->errCost ;
+  int bestScore, bestii ;
+  /* select the orientation */
+  /* count the chains and the number of exons in each chain */
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    {
+      if (! px->score)
+	continue ;
+      rf = arrayp (raphia, px->chain, RF) ;
+      rf->chain = px->chain ;
+      if (!rf->nn)
+	nRF++ ;
+      rf->nn++ ;
+      rf->score = px->score ;
+      rf->ali = px->ali ;
+      if (! rf->x1 || px->x1 < rf->x1)
+	rf->x1 = px->x1 ;
+      if (px->x2 > rf->x2)
+	rf->x2 = px->x2 ;
+      isDown = px->isDown ? 1 : -1 ;
+      if (! rf->a1)
+	{ 
+	  rf->isDown = isDown ;
+	  rf->a1 = px->a1 ;
+	  rf->a2 = px->a2 ;
+	}
+      if (isDown == 1)
+	{
+	  if (rf->a1 > px->a1)
+	    rf->a1 = px->a1 ;
+	  if (rf->a2 < px->a2)
+	    rf->a2 = px->a2 ;
+	}
+      else
+	{
+	  if (rf->a1 < px->a1)
+	    rf->a1 = px->a1 ;
+	  if (rf->a2 > px->a2)
+	    rf->a2 = px->a2 ;
+	}
+    }
+  /*
+mapped_read= 
+ 6S    20=                 2X17=             1I25=15S
+ GTTCACAACGCTTTCATTGCAGGAAATAATGCTATATGGCCATTTGCTGACTTGTCGTAACAAAGTTTCCAATACCATTAGTGATAG   ln= 87
+ SSSSSSAACGCTTTCATTGCAGGAAAATATGCTATATGGCCATTGICTGACTTGTCGTAACAAAGTTTCCASSSSSSSSSSSSSSS    ln= 86
+
+mapped_read= 
+ GTCGGCCAACCATTCTCTGAATGTCTGAATGACAGCGACTATTGTTTAAGGTTTT    GTAAATAAGAGACCTTAAGCAATGCATTGACTGCATGGTCTCAACCTCATCTGTGCTGTGAGAA   ln= 119
+ SSSGGCCAACCATTCTCTGAATGTCTGAATGACAGCGACTATIGTTTAAGGTTTTTTTTGTAAATAAGAGACCTTAAGCAATGCATTGACTGCATGGTCTCAACCTCATCTGTGCTGTGAGAA    ln= 123
+
+ ttctcacagcacagatgaggttgagaccatgcagtcaatgcattgcttaaggtctcttatttacaaaaA    ccttaaacatagtcgctgtcattcagacattcagagaatggttggcc
+ ttctcacagcacagatgaggttgagaccatgcagtcaatgcattgcttaaggtctcttatttacaaaaaaaaaccttaaacatagtcgctgtcattcagacattcagagaatggttggcc
+
+  */
+  if (nRF < 2)
+    goto done ;
+  arraySort (raphia, raphiaChainOrder) ;
+  for (ii = jj = 0, rf = rg = arrp (raphia, 0, RF) ; ii < arrayMax (raphia) ; ii++, rf++)
+    {
+      if (! rf->nn)
+	continue ;
+      if (jj < ii)
+	*rg = *rf ;
+      jj++ ; rg++ ;
+    }
+  arrayMax (raphia) = jj ;
+  if (jj < 2)
+    goto done ;
+
+  /* merge raphia from same chain */
+  iMax = arrayMax (raphia) ;
+  for (ii = jj = 0, rf = rg = arrp (raphia, 0, RF) ; ii < iMax ; ii++, rf++)
+    {
+      if (! rf->nn)
+	continue ;
+      if (jj < ii && rg->isDown == rf->isDown && rg->chain == rf->chain)
+	{
+	  if (rg->x1 > rf->x1)
+	    rg->x1 = rf->x1 ;
+	  if (rg->x2 < rf->x2)
+	    rg->x2 = rf->x2 ;
+	  if (rf->isDown * (rg->a1 - rf->a1) > 0)
+	    rg->a1 = rf->a1 ;
+	  if (rf->isDown * (rg->a2 - rf->a2) < 0)
+	    rg->a2 = rf->a2 ;
+	  rg->nn += rf->nn ;
+	  continue ;
+	}
+      if (jj < ii)
+	*rg = *rf ;
+      jj++ ; rg++ ;
+    }
+  iMax = arrayMax (raphia) = jj ;
+
+  if (jj < 2)
+    goto done ;
+
+  arraySort (raphia, raphiaXOrder) ;
+
+  for (nr = 1 ; nr <= iMax ; nr++)
+    { /* iterate untill there is no rf not assigned to a raphia */
+      BOOL found = FALSE ;
+      
+      for (ii = 0 ; ii < iMax ; ii++)
+	{ /* reset */
+	  rf = arrp (raphia, ii, RF) ;
+	  if (! rf->nn)
+	    continue ; 
+	  if (rf->nr)
+	    continue ;
+	  found = TRUE ;
+	  rf->previous = 0 ;
+	  rf->rScore = 0 ;
+	}
+      if (! found)
+	break ;
+
+      /* find the heaviest path */
+      bestScore = bestii = 0 ;
+      for (ii = 0 ; ii < iMax ; ii++)
+	{
+	  int a1 = 0, a2 = 0, y2 = 0 ;
+	  int rScore ;
+	  
+	  rf = arrp (raphia, ii, RF) ;
+	  if (! rf->nn)
+	    continue ; 
+	  if (rf->nr)
+	    continue ;
+	  
+	  rScore = rf->rScore + rf->score ;
+	  if (rScore > bestScore)
+	    {
+	      bestScore = rScore ;
+	      bestii = ii ;
+	    }
+	  for (jj = ii + 1, rg = rf + 1 ; jj <  iMax ; jj++, rg++)
+	    {
+	      if (! rg->nn)
+		continue ;
+	      if (rg->nr)
+		continue ;
+
+	      if (rg->isDown != rf->isDown)
+		break ;
+	      
+	      /* stop if the y1-y2 exon would fit */
+	      if (y2 && rg->x1 > y2 - 4)
+		break ;
+	      
+	      /* set a target wall at the repeats of rf */
+	      if (rg->x1 < rf->x1 + 10 && rg->x2 > rf->x2 - 10)
+		{
+		  if (rg->isDown * (rg->a1 - rf->a1) > 0 && 
+		      (!a2 || isDown *( a2  - rg->a1) > 0)
+		      )
+		    a2 = rg->a1 ;
+		  if (rg->isDown * (rg->a1 - rf->a1) < 0 && 
+		      (!a1 || isDown *( a1  - rg->a2) < 0)
+		      )
+		    a1 = rg->a2 ;
+		}
+	      
+	      /* reject if overlap */
+	      if (rg->x1 < rf->x2 - 8)
+		continue ;
+	      if (rg->isDown * (rg->a1 - rf->a2) > 1.1 * (rg->x1 - rf->x2) &&
+		  rg->isDown * (rg->a1 - rf->a2) > rg->x1 - rf->x2 + 8)
+		continue ;
+	      
+	      if (rg->rScore > rScore)
+		break ;
+	      
+	      /* reject rg behind walls */
+	      if (a2 && (rg->isDown * (rg->a1 - a2) > 0))
+		continue ;
+	      if (a1 && (rg->isDown * (rg->a2 - a1) < 0))
+		continue ;
+	      
+	      /* reject too distant rg */
+	      if (rg->isDown * (rg->a1 - rf->a2) > daMax)
+		continue ;
+	      
+	      /* check the topology */
+	      if (rg->isDown * (rg->a1 - rf->a1) * (rg->x1 - rf->x1) < 0)
+		continue ;
+	      if (rg->isDown * (rf->a2 - rg->a1) - (rf->x2 - rg->x1) > 10 &&
+		  rf->x2 > rg->x1)
+		continue ;
+	      y2 = rg->x2 ;
+	      rg->rScore = rScore ; rg->previous = ii + 1 ;
+	      if (rg->score + rScore > bestScore)
+		{
+		  bestScore = rg->score + rScore ;
+		  bestii = jj ;
+		}
+	    }
+	}
+      /* start from bestii, and assign the nr backwards */
+      jj = bestii + 1 ;
+      while (jj)
+	{
+	  rg = arrp (raphia, jj - 1, RF) ;
+	  rg->nr = nr ;
+	  jj = rg->previous ;
+	}
+    }
+ 
+  /* compute the score of all the raphias */
+  scores = keySetHandleCreate (h) ;
+  chainScores = keySetHandleCreate (h) ;
+  chain2nr = keySetHandleCreate (h) ;
+  nr2chain = keySetHandleCreate (h) ;
+ 
+  arraySort (raphia, raphiaNrOrder) ;
+  for (ii = 0, rf = arrp (raphia, ii, RF); ii < iMax ; ii++, rf++)
+    {
+      if (! rf->nn || ! rf->nr)
+	continue ;
+      if (keySet (scores, rf->nr))
+	 {
+	   int dx = rf->x1 - rf[-1].x2 - 1 ;
+	   if (dx < 0)
+	     {
+	       dx = -dx ;
+	     }
+	   else 
+	     dx = 0 ;
+	   keySet (scores, rf->nr) += rf->score - dx - malus ;
+	 }
+      else
+	{
+	  keySet (scores, rf->nr) = rf->score ;
+	}
+    }
+  for (ii = 0, rf = arrp (raphia, ii, RF); ii < iMax ; ii++, rf++)
+    {
+      if (! rf->nn || ! rf->nr)
+	continue ;
+      keySet (chainScores, rf->chain) =  keySet (scores, rf->nr) ;
+      keySet (chain2nr, rf->chain) = rf->nr ;
+      jj = keySet (nr2chain, rf->nr) ;
+      if (! jj)
+	keySet (nr2chain, rf->nr) = rf->chain ;
+    }
+  /* attribute it to all the chains which are part of the raphia */
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    {
+      if (! px->score)
+	continue ;
+     
+      nr = keySet (chain2nr, px->chain) ;
+      px->chain =  keySet (nr2chain, nr) ;
+      px->score = px->pairScore = keySet (chainScores, px->chain) ;
+    }
+  if (0)
+    showRaphia (raphia) ;
+ done:   
+  ac_free (h) ;
+  return nRF ;
+}  /* clipAlignOptimizeHalfRaphia */
+
+/*************************************************************************************/
+
+static void clipAlignOptimizeSetChainAli  (CLIPALIGN *pp, BigArray aa, int ii1, int ii2)
+{  
+  AC_HANDLE h = ac_new_handle () ;
+  KEYSET chainAlis, x1Alis, x2Alis ;
+  PEXPORT *px ;
+  int ii, dx, ii3 = ii1, old = -1 ;
+  
+  chainAlis = keySetHandleCreate (h) ;
+  x1Alis = keySetHandleCreate (h) ;
+  x2Alis = keySetHandleCreate (h) ;
+  
+  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    {
+      if (! px->score)
+	continue ;
+      if (ii > ii1 && old >= 0 && px[0].mm != px[old-ii].mm)
+	{
+	  int i ;
+	  PEXPORT *px2 ;
+	  
+	  ii3 = ii ;
+	  for (i = ii1, px2 = bigArrp (aa, i, PEXPORT) ; i < ii ; px2++, i++)
+	    {
+	      if (! px2->score)
+		continue ;
+	      px2->chainAli = keySet (chainAlis, px2->chain) ;
+	      px2->s1 = keySet (x1Alis, px2->chain) ;
+	      px2->s2 = keySet (x2Alis, px2->chain) ;
+	    }
+	  chainAlis = keySetHandleCreate (h) ;
+	  x1Alis = keySetHandleCreate (h) ;
+	  x2Alis = keySetHandleCreate (h) ;
+	  dx = 0 ;
+	}
+      else
+	dx = px->x1 - keySet (x2Alis, px->chain) - 1 ;
+      if (dx < 0)
+	dx = -dx ;
+      else 
+	dx = 0 ;
+      old = ii ;
+      if (! keySet (x2Alis, px->chain))
+	{
+	  keySet (x1Alis, px->chain) = px->x1 ;
+	  keySet (x2Alis, px->chain) = px->x2 ;
+	}
+      else 
+	{
+	  if (keySet (x1Alis, px->chain) > px->x1)
+	    keySet (x1Alis, px->chain) = px->x1 ;
+	  if (keySet (x2Alis, px->chain) < px->x2)
+	    keySet (x2Alis, px->chain) = px->x2 ;
+	}
+      keySet (chainAlis, px->chain) +=  px->x2 - px->x1 + 1 - dx ;
+    }
+  
+  for (ii = ii3, px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+    {
+      if (! px->score)
+	continue ;
+      px->chainAli = keySet (chainAlis, px->chain) ;
+      px->s1 = keySet (x1Alis, px->chain) ;
+      px->s2 = keySet (x2Alis, px->chain) ;
+    }
+  
+  ac_free (h) ;
+  return ; 
+} /* clipAlignOptimizeSetChainAli */
+
+/*************************************************************************************/
 
 /* separate the 2 reads of the fragment */
-static void clipAlignOptimizeChain  (CLIPALIGN *pp, BigArray aa, int ii1, int ii2)
+static void clipAlignOptimizeChain  (CLIPALIGN *pp, BigArray aa, int ii1, int ii2, BOOL isRaphia)
 {
   MM *mm = 0 ;
   int ii = 0, jj1 = ii1 ;
   PEXPORT *px ;
+  BOOL isDown ;
   BOOL debug = FALSE ;
   int chain = 0 ;
   int target = 0 ;
   
-  if (1 || pp->splice)
+  for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
     {
-      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
+      px->isDown = px->a1 < px->a2 ? 1 : 0 ;
+      if (! target) { isDown = px->isDown ; target = px->target ; }
+      if (! mm) mm = px->mm ;
+      if (mm != px->mm || target != px->target || isDown != px->isDown)
 	{
-	  if (! target) target = px->target ;
-	  if (! mm) mm = px->mm ;
-	  if (mm != px->mm || target != px->target)
-	    {
-	      chain = clipAlignOptimizeHalfChain  (pp, aa, jj1, ii, chain) ;
-	      jj1 = ii ; mm = px->mm ; target = px->target ;
-	    }
+	  if (! isRaphia)
+	    chain = clipAlignOptimizeHalfChain  (pp, aa, jj1, ii, chain) ;
+	  else
+	    clipAlignOptimizeHalfRaphia (pp, aa, jj1, ii) ;
+	  jj1 = ii ; mm = px->mm ; target = px->target ;
+	  isDown = px->isDown ;
 	}
-      clipAlignOptimizeHalfChain  (pp, aa, jj1, ii2, chain) ;
     }
-  else  /* simply document the pair score */
-    {
-      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-	px->pairScore = px->score ;
-    }
+  
+  if (! isRaphia)
+    clipAlignOptimizeHalfChain  (pp, aa, jj1, ii2, chain) ;
+  else
+    clipAlignOptimizeHalfRaphia (pp, aa, jj1, ii2) ; 
+  clipAlignOptimizeSetChainAli (pp,  aa, ii1, ii2) ;
   if (debug) 
     showPexport (pp, 1) ;
   return ;
@@ -5401,7 +6813,6 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
   int ii, jj ;
   PEXPORT * __restrict__ px, * __restrict__ py, * __restrict__ px1, * __restrict__ px2 ;
   BOOL isTranscript = ! pp->splice ;
-  int pairTampon = pp->pairTampon ;
   int maxDiscardableAli = pp->maxDiscardableAli ;
   BOOL debug = FALSE ;
   static int pass = 0 ;
@@ -5411,17 +6822,34 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
  
   if (singleTarget)
     clipAlignOptimizeCleanUp (pp, aa, ii1, ii2) ;
+
+  px = bigArrp (aa, ii1, PEXPORT) ;
+  if (0 && ! strcmp (stackText (pp->probeStack, px->mm->probeName), "seq.1149586>"))
+    debug = TRUE ;
+  if (0 && singleTarget)
+    clipAlignSquish (pp,1) ;
+  
   if (debug)
     {
       fprintf (stderr, "-------0-------clipAlignOptimizeOnePair starts: %s\n"
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
       showPexport (pp, singleTarget ? 1 : 0) ;
-      squish (pp,1) ;
     } 
  
   if (singleTarget) /* genome spliced case, score the exon/intron chains of each read */
-    clipAlignOptimizeChain (pp, aa, ii1, ii2) ;
+    {
+      clipAlignOptimizeChain (pp, aa, ii1, ii2, FALSE) ;  /* chain */
+      if(1) clipAlignOptimizeChain (pp, aa, ii1, ii2, TRUE)  ;  /* raphia */
+    }
+
+  if (debug)
+    {
+      fprintf (stderr, "-------A-------clipAlignOptimizeOnePair starts: %s\n"
+	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
+	       ) ;
+      showPexport (pp, singleTarget ? 1 : 0) ;
+    } 
 
   /* in transcript case, for each read in a given gene keep only the best score in that gene
    * discard suboptimal or multiple hits in the same transcript
@@ -5433,49 +6861,62 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
     {
       MM *mm1 = 0 ;
       bb = bitSetReCreate (bb, ii2) ;
+      px = bigArrp (aa, ii1, PEXPORT) ;
 
-      for (ii = ii1,  px = bigArrp (aa, ii, PEXPORT) ; ii < ii2 ; px++, ii++)
+      for (;;) /* forever */
 	{
-	  int score = 0, ali = 0 ;
-	  if (bit(bb, ii)) /* already done */
-	    continue ;
-	  mm1 = px->mm ;  bitSet (bb, ii) ;
-	  /* find the best score of the read */
-	  for (score = mm1->bestScore - pairTampon, jj = ii, py = px ; jj < ii2 ; jj++, py++)
-	    if (py->mm == mm1)
-	      {
-		if (score < py->score)
-		  {
-		    score = py->score ;
-		    ali = py->ali ;
-		  }
-		else if (score == py->score && ali < py->ali)
-		  ali = py->ali ;
-	      }
-
-	  /* kill the others */
-	  for (jj = ii, py = px ; jj < ii2 ; jj++, py++)
-	    if (py->mm == mm1)
-	      {
-		bitSet (bb, jj) ;
-		if (score > py->score || (score == py->score && ali > py->ali))
-		  py->score = 0 ;
-	      }
-	  /* kill the double hits */
-	  if (! pp->hasPairs) /* delay this choice if pairs */
-	    for (jj = ii, py = px ; jj < ii2 ; jj++, py++)
-	      if (py->score && py->mm == mm1)
+	  int score = 0, ali = 0, target, targetGene, chain, x1, x2 ;
+	  int  bestii = -1 ;
+	  
+      /* find the best score of the read */
+	  for (ii = ii1,  py = px ; ii < ii2 ; py++, ii++)
+	    {
+	      if (! py->score || bit(bb, ii)) /* already done */
+		continue ;
+	      if (score < py->score || (score == py->score && ali < py->ali))
 		{
-		  int j2, nHits = 0 ;
-		  for (j2 = jj+1, px2 = py + 1 ; j2 < ii2 ; j2++, px2++)
-		    {
-		      if (px2->score && px2->target == py->target && px2->mm == mm1) /* double hit in same transcript */
-			px2->score = 10 ;
-		      if (nHits++ && pp->MRNAH)  /* keep only the first target */
-			px2->score = 0 ;
-		    }
+		  score = py->score ;
+		  mm1 = py->mm ;
+		  ali = py->ali ;
+		  x1 = px->x1 ;
+		  x2 = px->x2 ;
+		  chain = py->chain ;
+		  target = py->target ;
+		  targetGene = py->targetGene ;
+		  bestii = ii ;
 		}
-	} 
+	    }
+	  if (bestii < 0)
+	    break ;
+	  
+	  bitSet (bb, bestii) ;
+	  /* kill the others */
+	  for (ii = ii1,  py = px ; ii < ii2 ; py++, ii++)
+	    if (py->score && py->mm == mm1 && ! bit (bb, ii))
+	      {
+		if (
+		    score > py->score ||
+		    (score == py->score && ali > py->ali) ||
+		    (
+		     score == py->score && ali == py->ali && pp->MRNAH && 
+		     targetGene == py->targetGene && 
+		     ( 
+		      target < py->target || (target == py->target && chain != py->chain)
+		       )
+		     )
+		    )
+		  {
+		    int c1 = x1 > py->x1 ? x1 : py->x1 ;
+		    int c2 = x2 < py->x2 ? x2 : py->x2 ;
+		    int dc = 3 *(c2 - c1 + 1) ;
+		    int dy = py->x2 - py->x1 ;
+		    if (dc > dy)       /* good overlap position kill it */
+		      {
+			py->score = 0 ;
+		      }
+		  }
+	      }
+	}
     }
 
   if (debug)
@@ -5484,7 +6925,6 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
      showPexport (pp, singleTarget ? 1 : 0) ;
-     squish (pp,1) ;
     } 
 
  /* construct the true pair score 
@@ -5512,7 +6952,7 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	  for (;;) /* forever */
 	    { 
 	      int pairScore = 0 ;
-	      int minD, iChain, dx, bestiChain, bestjChain, bestTarget, target ;
+	      int minD, iChain, dx, bestiChain, bestjChain, bestTarget, target, s1 ;
 	      PEXPORT *pxa ;
 	      MM *bestMm1 = 0, *bestMm2 = 0, *mm1 = bigArrp (aa, ii1, PEXPORT)->mm ;
 	      
@@ -5561,14 +7001,23 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 			      if (ddx1 > 1000000)  /* limit compatible pairs to 1 Mb */
 				continue ;
 			    }
-			  minD = ddx1 ; bestiChain = px->chain ; bestjChain = py->chain ; /* best pair so far */
-			  pairScore = px->score + py->score ;
-			  bestMm1 = px->mm ; bestMm2 = py->mm ;
-			  foundPair = TRUE ;
-			  px->pairScore = py->pairScore = pairScore ;
+			  s1 = px->score + py->score ; /* - (ddx1/100 < 12 ? ddx1/100 : 12) ; */
+			  if (s1 >=  px->pairScore - px->s1 && s1 >=  py->pairScore - py->s1 )
+			    {
+			      minD = ddx1 ; bestiChain = px->chain ; bestjChain = py->chain ; /* best pair so far */
+			      pairScore = px->score + py->score ;
+			      bestMm1 = px->mm ; bestMm2 = py->mm ;
+			      foundPair = TRUE ;
+			      px->pairScore = py->pairScore = pairScore ;
+			      /*     px->s1 = py->s1 =  (ddx1/100 < 12 ? ddx1/100 : 12) ; */
+			    }
 			}
 		    }
 		}
+	      /*
+		for (ii = ii1, px = bigArrp (aa, ii, PEXPORT)  ; ii < ii2 ; ii++, px++)
+		px->s1 = 0 ;
+	      */
 	      if (! bestiChain) /* no new chain, this phase is over */
 		break ;
 	    
@@ -5622,66 +7071,85 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
     }
    
    
-  if (debug && pp->hasPairs && isTranscript)
+  if (debug) /*  && pp->hasPairs && isTranscript) */
     {
       fprintf (stderr, "-------2-------clipAlignOptimizeOnePair after slection of the best pair scores: %s\n"
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
       showPexport (pp, singleTarget ? 1 : 0) ;
-      squish (pp,1) ;
     } 
 
-  if (! pp->hasPairs)
+  if (! singleTarget)
     {
       /* scan again and reject suboptimal pair scores */
-      int bestPairScore = 1 ;
-      PEXPORT *bestPx ;
-
+       MM *mm1 = 0 ;
       bb = bitSetReCreate (bb, ii2) ;
-      while (bestPairScore)
+      px = bigArrp (aa, ii1, PEXPORT) ;
+
+      for (;;) /* forever */
 	{
-	  bestPairScore = 0 ; bestPx = 0 ;
-	  for (ii = ii1, px = bigArrp (aa, ii, PEXPORT)  ; ii < ii2 ; ii++, px++)
-	    { 
-	      px->pairScore = px->score ;
-	      if (! px->score || ! px->mm ||  bit(bb, ii)) continue ;
-	      if (px->pairScore > bestPairScore)
-		{ bestPairScore = px->pairScore ; bestPx = px ; }
-	      if (px->mm->bestPairScore < bestPairScore)
-		px->mm->bestPairScore = bestPairScore ;
-	    }
+	  int score = 0, ali = 0, target, targetGene, chain, x1, x2 ;
+	  int  bestii = -1 ;
 	  
-	  if (bestPairScore)
+      /* find the best score of the read */
+	  for (ii = ii1,  py = px ; ii < ii2 ; py++, ii++)
 	    {
-	      int x1 = bestPx->x1, x2 = bestPx->x2 ;
-	      for (ii = ii1, px = bigArrp (aa, ii, PEXPORT)  ; ii < ii2 ; ii++, px++)
-		{ 
-		  if (! px->score || ! px->mm ||  bit(bb, ii)) continue ;
-		  if (x2 < px->x1 + 10 || x1 > px->x2 - 10)
-		    continue ;
-		  bitSet (bb, ii) ;
-		  if (px->pairScore < bestPairScore)
-		    px->score = px->pairScore = 0 ;
+	      if (! py->score || bit(bb, ii)) /* already done */
+		continue ;
+	      if (score < py->pairScore || (score == py->pairScore && ali < py->ali))
+		{
+		  score = py->pairScore ;
+		  mm1 = py->mm ;
+		  ali = py->ali ;
+		  x1 = py->s1 ;
+		  x2 = py->s2 ;
+		  chain = py->chain ;
+		  target = py->target ;
+		  targetGene = py->targetGene ;
+		  bestii = ii ;
 		}
 	    }
+	  if (bestii < 0)
+	    break ;
+	  if (px->mm->bestPairScore < score)
+	    px->mm->bestPairScore = score ;
+	  bitSet (bb, bestii) ;
+	  /* kill the others */
+	  for (ii = ii1,  py = px ; ii < ii2 ; py++, ii++)
+	    if (py->pairScore && py->mm == mm1 && ! bit (bb, ii) &&
+		(target != py->target || chain != py->chain)
+		)
+	      {
+		if (
+		    score > py->pairScore ||
+		    (
+		     score == py->pairScore && 
+		     pp->MRNAH && 
+		     targetGene == py->targetGene && 
+		     target < py->target
+		     )
+		    )
+		  {
+		    int c1 = x1 > py->s1 ? x1 : py->s1 ;
+		    int c2 = x2 < py->s2 ? x2 : py->s2 ;
+		    int dc = 3 *(c2 - c1 + 1) ;
+		    int dy = py->s2 - py->s1 ;
+		    if (dc > dy)       /* good overlap position kill it */
+		      {
+			py->score = py->pairScore = 0 ;
+		      }
+		  }
+	      }
 	}
     }
 
-   if (0 && debug && ! isTranscript)
-    {
-      fprintf (stderr, "-------3-------clipAlignOptimizeOnePair after selection of the best chromosome hits: %s\n"
-	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
-	       ) ;
-      showPexport (pp, singleTarget ? 1 : 0) ;
-    } 
-  
+
   if (debug)
     {
       fprintf (stderr, "-------4-------clipAlignOptimizeOnePair: %s\n"
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
      showPexport (pp, singleTarget ? 1 : 0) ;
-     squish (pp,1) ;
     } 
 
 
@@ -5764,31 +7232,13 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	}
     }
  
-  /* compare different genes and discard lower scores */
-  if (! singleTarget &&  
-      (pp->bestHit || (isTranscript && pp->strategy == STRATEGY_RNA_SEQ))
-      )
-    {
-      int bestScore = 0 ;
-      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-	{
-	  if (px->score > bestScore)
-	    bestScore = px->score ;
-	}
-      if (! pp->bestHit && bestScore > maxDiscardableAli) 
-	bestScore = maxDiscardableAli ;
-      for (ii = ii1, px = bigArrp (aa, ii1, PEXPORT) ; ii < ii2 ; px++, ii++)
-	{
-	  if (px->score < bestScore)
-	    px->score = px->pairScore = 0 ;
-	}  
-    }
- 
+ /* compare different genes and discard lower scores */
 
   /* Disfavor genes A-and-B also denoted A--B */
   if (! singleTarget || isTranscript)
     {
       BitSet bdg = pp->doubleGenes ;
+      
       if (bdg)
 	for (ii = ii1, px = bigArrp (aa, ii, PEXPORT)  ; ii < ii2 ; ii++, px++)
 	  {
@@ -5798,14 +7248,14 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	      {
 		mm1 = px->mm ;
 		g1 = px->targetGene ;
-		for (jj = ii, py = px ; jj < ii2 ; jj++, py++)  /* protect against double counting mm */
+		for (jj = ii + 1, py = px + 1 ; jj < ii2 ; jj++, py++)  /* protect against double counting mm */
 		  if (py->mm == mm1 && py->score)
 		    {
-		      g2 = px->targetGene ;
+		      g2 = py->targetGene ;
 		      if (bit (bdg, g1) && ! bit (bdg,g2))
 			{ px->score = 0 ; break ; }
-		    if (bit (bdg, g2) && ! bit (bdg,g1))
-		      py->score = 0 ;
+		      if (bit (bdg, g2) && ! bit (bdg,g1))
+			py->score = 0 ;
 		    }
 	      }
 	  }
@@ -5839,11 +7289,21 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	    int s = 1, nGenePlus = 0,  nGeneMinus = 0, nGenePlusU = 0,  nGeneMinusU = 0, targetGene = 0 ;
 	    MM *mm = px->mm ;
 	    BOOL isGeneSpliced = FALSE ;
+	    int x1 = px->x1 ;
+	    int x2 = px->x2 ;
+	    int dx = x2 - x1 + 1 ;
 	    bitSet (bb, ii) ;
 	    
 	    for (px1 = px , jj = ii ; jj < ii2 ; px1++, jj++)
 	      if (px1->score && px1->mm == mm)
 		{
+		  int c1 = px1->x1 > x1 ? px1->x1 : x1 ;
+		  int c2 = px1->x2 < x2 ? px1->x2 : x2 ;
+		  int dc = 3 *(c2 - c1 + 1) ;
+		  int dx2 = px1->x2 - px1->x1 + 1 ;
+		  if (dc < dx && dc < dx2)
+		    continue ;
+		
 		  bitSet (bb, jj) ;
 		  if (targetGene != px1->targetGene)
 		    {
@@ -5924,7 +7384,6 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
       showPexport (pp, singleTarget ? 1 : 0) ;
-      squish (pp,1) ;
     } 
   
      /* genome  case count the target multiplicity, by counting  the non overlapping best segments*/
@@ -5956,13 +7415,13 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 			       bestScore = px1->pairScore ; 
 			       if (px->mm->pair < -1)
 				 {
-				   if (bestx1 > px1->x1)  bestx1 = px1->x1 ; 
-				   if (bestx2 < px1->x2)  bestx2 = px1->x2 ; 
+				   if (bestx1 > px1->s1)  bestx1 = px1->s1 ; 
+				   if (bestx2 < px1->s2)  bestx2 = px1->s2 ; 
 				 }
 			       else
 				 {
-				   if (besty1 > px1->x1)  besty1 = px1->x1 ; 
-				   if (besty2 < px1->x2)  besty2 = px1->x2 ; 
+				   if (besty1 > px1->s1)  besty1 = px1->s1 ; 
+				   if (besty2 < px1->s2)  besty2 = px1->s2 ; 
 				 }
 			     }
 			 }
@@ -5971,8 +7430,8 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 			   if (bestScore < px1->score)
 			     {
 			       bestScore = px1->score ; 
-			       if (bestx1 > px1->x1)  bestx1 = px1->x1 ; 
-			       if (bestx2 < px1->x2)  bestx2 = px1->x2 ; 
+			       if (bestx1 > px1->s1)  bestx1 = px1->s1 ; 
+			       if (bestx2 < px1->s2)  bestx2 = px1->s2 ; 
 			     }
 			 }
 		     }
@@ -5987,27 +7446,29 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		   if (! px1->score || px1->mm != mm)
 		     continue ;
 		   score = pp->hasPairs ? px1->pairScore : px1->score ;
-		   if (score < bestScore)
+		   if (score < bestScore && score < maxDiscardableAli)
+		     px1->score = px1->pairScore = 0 ;
+		   if (score && score < bestScore)
 		     {
 		       int u1, u2 ;
 		       if (! pp->hasPairs || px->mm->pair < -1)
 			 { u1 = bestx1 ; u2 = bestx2 ; }
 		       else
 			 { u1 = besty1 ; u2 = besty2 ; }
-		       if (u1 < px1->x1) u1 = px1->x1 ;
-		       if (u2 >  px1->x2) u2 = px1->x2 ;
-		       if (2*(u2 - u1) >  px1->x2 - px1->x1) 
+		       if (u1 < px1->s1) u1 = px1->s1 ;
+		       if (u2 >  px1->s2) u2 = px1->s2 ;
+		       if (2*(u2 - u1) >  px1->s2 - px1->s1) 
 			 px1->score = px1->pairScore = 0 ;
 		     }
 		   if (! px1->score)
 		     continue ;
-		    if (! bit (bb, jj))
+		   if (! bit (bb, jj))
 		     {	
 		       for (px2 = px1 , j2 = jj ; j2 < ii2 ; px2++, j2++)
-			 if (px2->score && px2->mm == mm && ! bit (bb, jj))
+			 if (px2->score == px1->score && px2->mm == mm && ! bit (bb, j2))  /* last term was ! bit (bb, jj which seems dubious 2018+03_21 */
 			   {
 			     for (px3 = px2 , j3 = j2 ; j3 < ii2 ; px3++, j3++)
-			       if (px3->mm == mm)
+			       if (px3->mm == mm && px3->score == px1->score)
 				 {
 				   bitSet (bb, j3) ;
 				   if (
@@ -6050,28 +7511,31 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
 	       ) ;
      showPexport (pp, singleTarget ? 1 : 0) ;
-     squish (pp,1) ;
     } 
  
 
    /* clean up the donor/acceptor/introns lists */
-   clipAlignOptimizeIntronCleanUp (pp, aa, ii1, ii2, singleTarget, t0p, w0p, d0p, c0p) ;
+   if (singleTarget)
+     clipAlignOptimizeIntronCleanUp (pp, aa, ii1, ii2, singleTarget, t0p, w0p, d0p, c0p) ;
 
+
+   /* reset the chainAli value */
+   if (singleTarget)
+     clipAlignOptimizeSetChainAli (pp,  aa, ii1, ii2) ;
    if ( debug)
-    {
-      fprintf (stderr, "-------7-------after global gene strand selection: %s\n"
-	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
-	       ) ;
+     {
+       fprintf (stderr, "-------7-------after global gene strand selection: %s\n"
+		,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
+		) ;
      showPexport (pp, singleTarget ? 1 : 0) ;
-     squish (pp,1) ;
-    } 
+     } 
 }  /* clipAlignOptimizeOnePair */
 
 /*************************************************************************************/
 
 static int clipAlignOptimizePairs (CLIPALIGN *pp, BOOL singleTarget)
 {
-  PEXPORT *px ;
+  PEXPORT * Restrict px ;
   BigArray aa = singleTarget ? pp->exportGeneHits : pp->exportHits ;
   int gene = 0, fragment = 0 ;
   int iOld = 0, ii, iMax = bigArrayMax (aa) ;
@@ -6079,18 +7543,22 @@ static int clipAlignOptimizePairs (CLIPALIGN *pp, BOOL singleTarget)
   BOOL debug = FALSE ;
   AC_HANDLE h = ac_new_handle () ;
   BitSet bb = bitSetCreate (iMax, h) ;
-
-  bigArraySort (aa,  pExportPairOrder) ;
-  bitUnSet (bb, iMax) ; /* make room */
+  BitSet bdg = pp->doubleGenes ;
   
-  if (debug)
+  if (bdg)
     {
-      fprintf (stderr, "..clipAlignOptimizePairs: %s\n"
-	       ,  pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : ""
-	       ) ;
-      showPexport (pp, singleTarget) ;
-      squish (pp, singleTarget) ;
+      int n2 = dictMax (pp->targetDict) ;
+      if (pp->doubleGenes && n2 && bitt (pp->doubleGenes, n2)) {} ; /* adjust size of bit array */
     }
+
+  if (iMax)
+    for (ii = 0, px = bigArrp (aa, ii, PEXPORT) ; ii < iMax ; px++, ii++)
+      px->isDown = px->a1 < px->a2 ? 1 : 0 ;
+  bigArraySort (aa,  pExportPairXOrder) ;
+  bigArrayCompress (aa) ; 
+  
+  bitUnSet (bb, iMax) ; /* make room */
+  iMax = bigArrayMax (aa) ;
   for (ii = 0, px = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++, px++)
     {
       if (px->fragment != fragment || (singleTarget && px->targetGene != gene))
@@ -6102,10 +7570,77 @@ static int clipAlignOptimizePairs (CLIPALIGN *pp, BOOL singleTarget)
 	  iOld = ii ;
 	}
     }
+  
 
+ if (! singleTarget)
+    {
+      BigArray dd = pp->exportDoubleIntrons ;
+      BigArray bb = pp->exportIntrons ;
+      BigArray donors = pp->exportDonors ;
+      BigArray ac = pp->exportAcceptors ;
+      int iMax = bigArrayMax (bb) ;
+
+      if  (iMax)
+	for (ii = 0, px = bigArrp (bb, 0, PEXPORT) ; ii < iMax ; ii++)
+	  px[ii].score *= -1 ;
+      
+      iMax =  bigArrayMax (donors) ;
+      if  (iMax)
+	for (ii = 0, px = bigArrp (donors, 0, PEXPORT) ; ii < iMax ; ii++)
+	  px[ii].score *= -1 ;
+
+      iMax =  bigArrayMax (ac) ;
+      if  (iMax)
+	for (ii = 0, px = bigArrp (ac, 0, PEXPORT) ; ii < iMax ; ii++)
+	  px[ii].score *= -1 ;
+
+      iMax =  bigArrayMax (aa) ;
+      if  (iMax)
+	for (ii = 0, px = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++)
+	  {
+	    if (px[ii].score && px[ii].intron)
+	      {
+		PEXPORT *py = bigArrp (bb, px[ii].intron - 1, PEXPORT) ;
+		if (py->score < 0)  py->score *= -1 ;
+	      }     
+ 	    if (px[ii].score && px[ii].donor)
+	      {
+		PEXPORT *py = bigArrp (donors, px[ii].donor - 1, PEXPORT) ;
+		if (py->score < 0)  py->score *= -1 ;
+	      }     
+ 	    if (px[ii].score && px[ii].acceptor)
+	      {
+		PEXPORT *py = bigArrp (ac, px[ii].acceptor - 1, PEXPORT) ;
+		if (py->score < 0)  py->score *= -1 ;
+	      }  
+	  }   
+      iMax =  bigArrayMax (ac) ;
+      if  (iMax)
+	for (ii = 0, px = bigArrp (ac, 0, PEXPORT) ; ii < iMax ; ii++)
+	  if (px[ii].score < 0)
+	    px[ii].score = 0 ;
+      
+      iMax = bigArrayMax (dd) ;
+      if  (iMax)
+	for (ii = 0, px = bigArrp (dd, 0, PEXPORT) ; ii < iMax ; ii++)
+	  {
+	    if (px[ii].intron && px[ii].doubleIntron)
+	      {
+		PEXPORT *py = bigArrp (bb, px[ii].intron - 1, PEXPORT) ;
+		PEXPORT *pz = bigArrp (bb, px[ii].doubleIntron - 1, PEXPORT) ;
+		px[ii].score = (py->score * pz->score  > 0) ? px[ii].score  : 0 ;
+	      }
+	    else
+	      px[ii].score = 0 ;
+	  }
+      return 1 ;
+    }
+ 
   if (ii > iOld) /* last line is always zero, but in genome case nothing happens before here */
     clipAlignOptimizeOnePair (pp, pp->MRNAH, singleTarget, bb, aa, iOld, ii, &t0, &w0, &d0, &c0) ; 
 
+  clipAlignSquish (pp, singleTarget) ;
+  
   if (debug)
     {
       fprintf (stderr, ".....clipAlignOptimizePairs: %s\n"
@@ -6119,7 +7654,7 @@ static int clipAlignOptimizePairs (CLIPALIGN *pp, BOOL singleTarget)
 
 /*************************************************************************************/
 
-static void clipAlignOptimizeGetDonors (CLIPALIGN *pp)
+static void clipAlignGetDonors (CLIPALIGN *pp)
 {						
   int iMax = bigArrayMax (pp->exportGeneHits) ; /* number of objects to copy */
   int ii ;
@@ -6140,9 +7675,12 @@ static void clipAlignOptimizeGetDonors (CLIPALIGN *pp)
 	    { 
 	      int jj = bigArrayMax (pp->geneDonors) ;
 	      px = bigArrayp (pp->geneDonors, jj, PEXPORT) ;
-	      *px = *pxg ; px->score =  pxg->score ;
+	      *px = *pxg ; px->score =  pxg->score ; 
 	      px->type = type ;
 	      px->presuffix =  pxg->suffix ;
+	      px->donor = px->acceptor = 0 ;
+	      if (jj && ! memcmp(px, px-1, sizeof (PEXPORT)))
+		bigArrayMax (pp->geneDonors) = jj-- ;
 	      if (pxg->targetPresuffix)
 		{ 
 		  cp = strstr (dictName(pp->exportDict, pxg->targetPresuffix), "*") ;
@@ -6165,39 +7703,24 @@ static void clipAlignOptimizeGetDonors (CLIPALIGN *pp)
 		  x = px->x1 ; px->x1 = px->mm->probeLength  + mm1->probeLength - px->x2 + 1 ; px->x2 =  px->mm->probeLength  + mm1->probeLength - x + 1 ;
 		  x = px->prefix ; px->prefix = px->suffix ; px->suffix = x ;	
 		  px->mm =  mm1 ;
-		  *py = *px ;
+		  *py = *px ; py->donor = py->acceptor = 0 ;
+		  if (kk && ! memcmp(py, py-1, sizeof (PEXPORT)))
+		    bigArrayMax (pp->geneAcceptors) = kk-- ;
+		  pxg->acceptor = kk + 1 ;
 		  bigArrayMax (pp->geneDonors)-- ;
 		}
+	      else
+		pxg->donor = jj + 1 ;
 	    }
 	}
     }
 
-  bigArraySort (pp->geneDonors, pExportDonorOrder) ;
   return ;
-} /* clipAlignOptimizePairsGetDonors */
+} /* clipAlignGetDonors */
 
 /*************************************************************************************/
 
-static int clipAlignOptimizeMergeDonors (CLIPALIGN *pp)
-{
-  PEXPORT *px, *py ;
-  int ii, iiMax = bigArrayMax (pp->geneDonors) ;
-  int jj = bigArrayMax (pp->exportDonors) ;
-
-  if (iiMax)
-    for (ii = 0, px = bigArrp (pp->geneDonors, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
-      if (px->score)
-	{
-	  py = bigArrayp (pp->exportDonors, jj++, PEXPORT) ;
-	  *py = *px ; 
-	}  
-
-  return jj ;
-} /* clipAlignOptimizePairsMergeDonors */
-
-/*************************************************************************************/
-
-static void clipAlignOptimizeGetAcceptors (CLIPALIGN *pp)
+static void clipAlignGetAcceptors (CLIPALIGN *pp)
 {
   int iMax = bigArrayMax (pp->exportGeneHits) ; /* number of objects to copy */
   int ii ;
@@ -6221,6 +7744,9 @@ static void clipAlignOptimizeGetAcceptors (CLIPALIGN *pp)
 	      *px = *pxg ; px->score =  pxg->score ;
 	      px->type = type ;
 	      px->presuffix =  pxg->prefix ;
+	      px->donor = px->acceptor = 0 ;
+	      if (jj && ! memcmp(px, px-1, sizeof (PEXPORT)))
+		bigArrayMax (pp->geneAcceptors) = jj-- ;
 	      if (pxg->targetPresuffix)
 		{ 
 		  strncpy (buf,  dictName(pp->exportDict, pxg->targetPresuffix), 63 + OVLN) ;
@@ -6240,67 +7766,183 @@ static void clipAlignOptimizeGetAcceptors (CLIPALIGN *pp)
 		  x = px->x1 ; px->x1 = px->mm->probeLength  + mm1->probeLength - px->x2 + 1 ; px->x2 =  px->mm->probeLength  + mm1->probeLength - x + 1 ;
 		  x = px->prefix ; px->prefix = px->suffix ; px->suffix = x ;	
 		  px->mm =  mm1 ;
-		  *py = *px ;
+		  *py = *px ; py->donor = py->acceptor = 0 ;
+		  pxg->donor = kk + 1 ;
 		  bigArrayMax (pp->geneAcceptors)-- ;
 		}
+	      else
+		pxg->acceptor = jj + 1 ;
 	    }
 	}
     } 
-  bigArraySort (pp->geneAcceptors, pExportAcceptorOrder) ;
+
   return ;
-} /* clipAlignOptimizePairsGetAcceptors */
+} /* clipAlignGetAcceptors */
+
+/*************************************************************************************/
+
+static int clipAlignOptimizeMergeDonors (CLIPALIGN *pp)
+{
+   PEXPORT *px, *py, *pz ;
+  int ii, iiMax = bigArrayMax (pp->exportGeneHits) ;
+  int jj = bigArrayMax (pp->exportDonors) ;
+
+  if (iiMax)
+    for (ii = 0, px = bigArrp (pp->exportGeneHits, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
+      if (px->score && px->donor)
+	{ 
+	  py = bigArrp (pp->geneDonors, px->donor - 1, PEXPORT) ;
+	  pz = bigArrayp (pp->exportDonors, jj++, PEXPORT) ;
+	  px->donor = jj ;
+	  *pz = *py ; pz->score = 0 ;
+	}  
+  return jj ;
+} /* clipAlignOptimizeMergeDonors */
 
 /*************************************************************************************/
 
 static int clipAlignOptimizeMergeAcceptors (CLIPALIGN *pp)
 {
-  PEXPORT *px, *py ;
-  int ii, iiMax = bigArrayMax (pp->geneAcceptors) ;
+  PEXPORT *px, *py, *pz ;
+  int ii, iiMax = bigArrayMax (pp->exportGeneHits) ;
   int jj = bigArrayMax (pp->exportAcceptors) ;
 
   if (iiMax)
-    for (ii = 0, px = bigArrp (pp->geneAcceptors, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
-      if (px->score)
-	{
-	  py = bigArrayp (pp->exportAcceptors, jj++, PEXPORT) ;
-	  *py = *px ;
+    for (ii = 0, px = bigArrp (pp->exportGeneHits, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
+      if (px->score && px->acceptor)
+	{ 
+	  py = bigArrp (pp->geneAcceptors, px->acceptor - 1, PEXPORT) ;
+	  pz = bigArrayp (pp->exportAcceptors, jj++, PEXPORT) ;
+	  px->acceptor = jj ;
+	  *pz = *py ; pz->score = 0 ;
 	}  
   return jj ;
-} /* clipAlignOptimizePairsMergeAcceptors */
+} /* clipAlignOptimizeMergeAcceptors */
 
 /*************************************************************************************/
 
 static int clipAlignOptimizeMergeIntrons (CLIPALIGN *pp)
 {
-  PEXPORT *px, *py ;
-  int ii, iiMax = bigArrayMax (pp->geneIntrons) ;
+  const int ipxMax = 32 ;
+  PEXPORT *px, *py, *pz, *pw, *lastPx = 0, *lastPz = 0, *pxs[ipxMax] ;
+  int ii, iiMax = bigArrayMax (pp->geneIntrons), ipx ;
   int jj = bigArrayMax (pp->exportIntrons) ;
+  int kk = bigArrayMax (pp->exportDoubleIntrons) ;
 
+  memset (pxs, 0, sizeof(pxs)) ;
   if (iiMax)
     for (ii = 0, px = bigArrp (pp->geneIntrons, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
+      px->intron = 0 ;
+  
+  iiMax = bigArrayMax (pp->exportGeneHits) ;
+  if (iiMax)
+    for (ii = 0, px = bigArrp (pp->exportGeneHits, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
       {
-	py = bigArrayp (pp->exportIntrons, jj++, PEXPORT) ;
-	*py = *px ;
-      }  
-  return jj ;
-} /* clipAlignOptimizePairsMergeIntrons */
-
-/*************************************************************************************/
-
-static int clipAlignOptimizeMergeDoubleIntrons (CLIPALIGN *pp)
-{
-  PEXPORT *px, *py ;
-  long int ii, iiMax = bigArrayMax (pp->geneDoubleIntrons) ;
-  long int jj = bigArrayMax (pp->exportDoubleIntrons) ;
+	ipx = 0 ;
+	if (px->score)
+	  {
+	    if (px->intron)
+	      { 
+		py = bigArrp (pp->geneIntrons, px->intron - 1, PEXPORT) ;
+		pz = bigArrayp (pp->exportIntrons, jj++, PEXPORT) ;
+		lastPz = ii && jj > 1 ? bigArrayp (pp->exportIntrons, jj - 2, PEXPORT) : 0 ;
+		px->intron = py->intron = jj ;
+		*pz = *py ; pz->chain = px->chain ;
+		if (! strcmp (px->foot, "gt_ag"))
+		  {
+		    if (py->errLeftVal > py->errRightVal)
+		      pp->nIntronPlus += px->mm->mult ;
+		    else
+		      pp->nIntronMinus  += px->mm->mult ;
+		  }
+		for (ipx = 0 ; ipx < ipxMax ; ipx++)
+		  {
+		    lastPx = pxs[ipx] ;
+		    if (lastPx && (px->fragment !=  lastPx->fragment || px->chain !=  lastPx->chain))
+		      break ;
+		    if (lastPx && px->mm == lastPx->mm && ipx)
+		      continue ;
+		    if (lastPx && lastPx->chain == px->chain && lastPx->mm && px->mm && lastPx->mm->fragment == px->mm->fragment)
+		      {
+			if (lastPx->intron && px->intron)
+			  {
+			    lastPx->donor = px->acceptor = 0 ;
+			    lastPz = bigArrayp (pp->exportIntrons, lastPx->intron - 1, PEXPORT) ;
+			    if (lastPz &&
+				lastPz && lastPz->mm && pz->mm && lastPz->mm->fragment == pz->mm->fragment &&
+				lastPz->chain == pz->chain &&
+				(
+				 (pz->a1 < pz->a2 && lastPz->a1 < lastPz->a2 && lastPz->a2 < pz->a1 && lastPz->x2 > pz->x1 - 20) ||			 
+				 (pz->a1 < pz->a2 && lastPz->a1 < lastPz->a2 && pz->a2 < lastPz->a1 && pz->x2 > lastPz->x1 - 20) ||
+				 (pz->a1 > pz->a2 && lastPz->a1 > lastPz->a2 && lastPz->a2 > pz->a1 && lastPz->x2 < pz->x1 + 20) ||			 
+				 (pz->a1 > pz->a2 && lastPz->a1 > lastPz->a2 && pz->a2 > lastPz->a1 && pz->x2 < lastPz->x1 + 20)
+				 ) 
+				)
+			      {
+				pw = bigArrayp (pp->exportDoubleIntrons, kk++, PEXPORT) ;
+				pw->target = pz->target ;
+				pw->score = pz->mm->mult ;
+				pw->intron = lastPz->intron ;
+				pw->doubleIntron = pz->intron ;
+				pw->fragment = pz->fragment ;
+				pw->nN = pz->nN ;          /* strand */
+				strncpy(pw->foot, pz->foot, 6) ;
+				pw->mm = pz->mm ;
+				if (
+				    (lastPz->x1 < lastPz->a1 && lastPz->a2 < pz->a1) ||
+				    (lastPz->x1 > lastPz->a1 && lastPz->a2 > pz->a1)
+				    )
+				  {
+				    pw->a1 = lastPz->x1 ;      /* exon 1: a1-a2 */
+				    pw->a2 = lastPz->a1 ;
+				    pw->x1 = lastPz->a2 ;      /* exon 2: x1-x2 */
+				    pw->x2 = pz->a1 ;     
+				    pw->s1 = pz->a2 ;           /* exon 3: s1-s2 */
+				    pw->s2 = pz->x2 ;
+				  }
+				else
+				  {
+				    pw->a1 = pz->x1 ;      /* exon 1: a1-a2 */
+				    pw->a2 = pz->a1 ;
+				    pw->x1 = pz->a2 ;      /* exon 2: x1-x2 */
+				    pw->x2 = lastPz->a1 ;     
+				    pw->s1 = lastPz->a2 ;           /* exon 3: s1-s2 */
+				    pw->s2 = lastPz->x2 ;
+				  } 
+				if (lastPx && px->mm != lastPx->mm)
+				  break ; /* at most a single read1 to read2 double intron */
+			      }
+			  }
+		      }
+		    else
+		      break ;
+		  }
+	      }
+	  }
+	ipx++ ;
+	if (ipx >= ipxMax)
+	  ipx = ipxMax - 1;
+	  memmove (pxs+1,pxs, ipx * sizeof(PEXPORT*)) ;
+	pxs[0] = px ;
+      }
 
   if (iiMax)
-    for (ii = 0, px = bigArrp (pp->geneDoubleIntrons, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
+    for (ii = 0, px = bigArrp (pp->exportGeneHits, 0, PEXPORT) ; ii < iiMax ; ii++, px++)
       {
-	py = bigArrayp (pp->exportDoubleIntrons, jj++, PEXPORT) ;
-	*py = *px ;
-      }  
+	if (px->score && px->donor)
+	  {
+	    py = bigArrp (pp->exportDonors, px->donor - 1, PEXPORT) ;
+	    py->score = px->mm->mult ;
+	  }
+	if (px->score && px->acceptor)
+	  {	
+	    py = bigArrp (pp->exportAcceptors, px->acceptor - 1, PEXPORT) ;
+	    py->score = px->mm->mult ;
+	  }
+      }
+
   return jj ;
-} /* clipAlignOptimizePairsMergeDoubleIntrons */
+} /* clipAlignOptimizeMergeIntrons */
 
 /*************************************************************************************/
 /* merge the geneHits into the hits, while resetting the donors */
@@ -6312,7 +7954,20 @@ static int clipAlignMergeHits (CLIPALIGN *pp)
   int jMax = bigArrayMax (pp->exportHits) ;
   BOOL debug = FALSE ;
 
-  for (ii = 0,  jj = jMax, pxg = bigArrp (pp->exportGeneHits, ii, PEXPORT) ;
+  /* merge back in the global tables and destroy pp->geneDonors/Acceptors */
+  clipAlignOptimizeMergeDonors (pp) ;
+  clipAlignOptimizeMergeAcceptors (pp) ;
+  bigArrayDestroy (pp->geneDonors) ;
+  bigArrayDestroy (pp->geneAcceptors) ;
+
+  if (pp->splice)
+    {
+      clipAlignOptimizeMergeIntrons (pp) ;
+      bigArrayDestroy (pp->geneIntrons) ;
+    }
+
+
+  for (ii = 0,  jj = jMax, pxg = iMax ? bigArrp (pp->exportGeneHits, ii, PEXPORT) : 0 ;
        ii <  iMax ; ii++, pxg++)
     {
       if (pxg->score)
@@ -6337,20 +7992,6 @@ static int clipAlignMergeHits (CLIPALIGN *pp)
 	}
       if (pxg->mm)
 	pxg->mm->ipxg = 0 ;
-    }
-
-  /* merge back in the global tables and destroy pp->geneDonors/Acceptors */
-  clipAlignOptimizeMergeDonors (pp) ;
-  clipAlignOptimizeMergeAcceptors (pp) ;
-  bigArrayDestroy (pp->geneDonors) ;
-  bigArrayDestroy (pp->geneAcceptors) ;
-
-  if (pp->splice)
-    {
-      clipAlignOptimizeMergeIntrons (pp) ;
-      clipAlignOptimizeMergeDoubleIntrons (pp) ;
-      bigArrayDestroy (pp->geneIntrons) ;
-      bigArrayDestroy (pp->geneDoubleIntrons) ;
     }
 
   if (debug)
@@ -6381,7 +8022,7 @@ static int clipAlignMergeHits (CLIPALIGN *pp)
 
 /*************************************************************************************/
 /* compute the introns one fragment at a time and optimize that fragemnt chain
- * then clean out the sub optomal donor/acceptor/exons/introns
+ * then clean out the sub optimal donor/acceptor/exons/introns
  * before registering them
  */
 
@@ -6390,7 +8031,6 @@ static int clipAlignOptimizeGetIntrons (CLIPALIGN *pp)
   int nn = 0 ;
 
   pp->geneIntrons = bigArrayCreate (1000, PEXPORT) ;
-  pp->geneDoubleIntrons = bigArrayCreate (1000, PEXPORT) ;
   
   nn = clipAlignConstructIntrons (pp,  1, TRUE) ;  /* F read on F strand or R-read on R-strand */
   nn += clipAlignConstructIntrons (pp, -1, TRUE) ; /* F read on R strand or R-read on F-strand */
@@ -6411,8 +8051,8 @@ static int  clipAlignOptimizeFragmentHits (CLIPALIGN *pp)
   pp->geneDonors = bigArrayCreate (100, PEXPORT) ;
   pp->geneAcceptors = bigArrayCreate (100, PEXPORT) ;
 
-  clipAlignOptimizeGetDonors (pp) ;
-  clipAlignOptimizeGetAcceptors (pp) ;
+  clipAlignGetDonors (pp) ;
+  clipAlignGetAcceptors (pp) ;
   
   if (pp->splice)
     nn = clipAlignOptimizeGetIntrons (pp) ;
@@ -6425,7 +8065,7 @@ static int  clipAlignOptimizeFragmentHits (CLIPALIGN *pp)
 /*************************************************************************************/
 /* get donors/acceptors: both functions fill both reads in case of pairs 
  * the results are available in pp->geneDonors geneAcceptors
- * which are soreted by fragment/read/position
+ * which are sorted by fragment/read/position
  * and used in construct introns
  */ 
 static int clipAlignOptimizeGeneHits (CLIPALIGN *pp)
@@ -6436,6 +8076,8 @@ static int clipAlignOptimizeGeneHits (CLIPALIGN *pp)
   PEXPORT *px, *py ;
   BOOL debug = FALSE ;
 
+  clipAlignSquish (pp, 1) ;
+
   if (debug)
      fprintf (stderr, ".....clipAlignOptimizeGeneHits %s  received %ld hits :%s\n"
 	      , pp->previousTargetGene ? dictName(pp->targetDict, pp->previousTargetGene) : dictName(pp->targetDict, pp->previousTarget) 
@@ -6443,11 +8085,64 @@ static int clipAlignOptimizeGeneHits (CLIPALIGN *pp)
 	      , timeShowNow () 
 	      ) ;
   /* process by fragment or by read if there are no pairs */ 
-  aa = pp->exportGeneHits ; pp->exportGeneHits = 0 ;
-  bigArraySort (aa,  pExportPairOrder) ;
+  aa = pp->exportGeneHits ; 
+  bigArraySort (aa,  pExportPairXOrder) ;
   iMax = bigArrayMax (aa) ;
+  for (ii = 0,  px = bigArrp (aa, ii, PEXPORT) ;
+       ii <  iMax ; ii++, px++)
+    {
+      if (px->score)
+	{
+	  int jj ;
+	  MM *mm = px->mm ;
 
-  for (ii = 0, px = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++, px++)
+	  int d0 = px->donor ;
+	  int a0 = px->acceptor ;
+	  
+	  for (jj = ii + 1,  py = px + 1 ; jj <  iMax && py->mm == mm && py->x1 == px->x1 ; jj++, py++)
+	    {
+	      if (! py->score)
+		continue ;
+	      else if (py->a1 == px->a1)
+		{
+		  int d = py->donor ;
+		  int a = py->acceptor ;
+
+		  py->donor = d0 ; 
+		  py->acceptor = a0 ;
+		  if (! memcmp(px, py, sizeof (PEXPORT)))
+		    py->score = 0 ;
+		  else
+		    {
+		      py->donor = d ; 
+		      py->acceptor = a ;
+		    }
+		}
+	    }
+	}
+    }
+  for (ii = 0,  px = bigArrp (aa, ii, PEXPORT) ;
+       ii <  iMax ; ii++, px++)
+    {
+       if (px->score > 60)
+	{
+	  int jj ;
+	  MM *mm = px->mm ;
+	  
+	  for (jj = ii + 1,  py = px + 1 ; jj <  iMax && py->mm == mm && py->x1 <= px->x2 ; jj++, py++)
+	    {
+	      if (py->score &&
+		  py->x2 <= px->x2 && py->score < 30)
+		py->score = 0 ;
+	    }
+	}
+    }
+  clipAlignSquish (pp, 1) ;
+
+  aa = pp->exportGeneHits ; pp->exportGeneHits = 0 ;
+  bigArraySort (aa,  pExportPairAOrder) ;
+  iMax = arrayMax (aa) ;
+  for (ii = jj = 0, px = bigArrp (aa, 0, PEXPORT) ; ii < iMax ; ii++, px++)
     {
       if (! px->score || ! px->mm)
 	continue ;
@@ -6487,6 +8182,45 @@ static int clipAlignOptimizeGeneHits (CLIPALIGN *pp)
  */
 static int clipAlignSearch (CLIPALIGN *pp, Array dna)
 {
+  if (0)
+    { /* a hack to only keep some chromosome in phase 1, all in phase 0 */
+      if ( 
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000007.14") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000008.11") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000019.10") 
+	   )
+	;
+      else if (1 && pp->hashPhase)
+	return 0 ;
+    }
+ 
+  if (0)
+    { /* a hack to only keep some chromosome in phase 1, all in phase 0 */
+      if ( 
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000003.12") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000004.12") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000005.10") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000006.12") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000007.14") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000008.11") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000009.12") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000010.11") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000011.10") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000012.12") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000013.11") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000014.9") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000015.10") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000016.10") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000017.11") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000018.10") ||
+	  ! strcmp (dictName (pp->targetDict, pp->target), "NC_000019.10") 
+	   )
+	;
+      else if (1 && pp->hashPhase)
+	return 0 ;
+    }
+ 
+
   /* static Array previousDna = 0 ; */
   if (!dna ||
       (! pp->targetGene && pp->target != pp->previousTarget)  ||
@@ -6627,39 +8361,6 @@ static BOOL clipAlignIsShortTarget (CLIPALIGN *pp)
 } /* clipAlignIsShortTarget */
 
 /*************************************************************************************/
-/* create a Martian target with the same letter and word statistics */
-static void clipAlignDecoy (CLIPALIGN *pp, Array dna)
-{
-  register int n = arrayMax (dna) ;
-  register char *cp = arrp (dna, 0, char) - 1 ;
-
-  if (pp->solid)
-    {
-      while (cp++, n--)
-	switch ((int)*cp)
-	  {
-	  case A_: *cp = T_ ; break ;
-	  case T_: *cp = G_ ; break ;
-	  case G_: *cp = C_ ; break ;
-	  case C_: *cp = A_ ; break ;
-	  default: break ;
-	  }
-    }
-  else
-    { 
-      while (cp++, n--)
-	switch ((int)*cp)
-	  {
-	  case A_: *cp = T_ ; break ;
-	  case T_: *cp = A_ ; break ;
-	  case G_: *cp = C_ ; break ;
-	  case C_: *cp = G_ ; break ;
-	  default: break ;
-	  }
-    }
-} /* clipAlignDecoy */
-
-/*************************************************************************************/
 
 static int clipAlignRunOne (CLIPALIGN *pp)
 {
@@ -6676,7 +8377,6 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 
   h = ac_new_handle () ;
   s = stackHandleCreate (300, h) ;
-  stackTextOnly (s) ;
   dna = arrayHandleCreate (100000, unsigned char, h) ;
 
   ai = aceInCreate (pp->targetFileName, 0, h) ;
@@ -6689,7 +8389,7 @@ static int clipAlignRunOne (CLIPALIGN *pp)
   while (aceInCard (ai)) /* will close pp->targetFile */
     {
       line++ ;
-      cp = aceInWord (ai) ;
+      cp = aceInWord (ai) ;  /* do NOT accept spaces in target names, this creates havock downstream everywhere */
       if (cp) switch (state)
 	{
 	case 1:
@@ -6720,12 +8420,26 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 		  while (cr++, i--)
 		    if (*cr == A_) *cr = R_ ;
 		}
+	      if (pp->G2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = R_ ;
+		}
 	      if (pp->T2C)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
 		    if (*cr == T_) *cr = Y_ ;
+		}
+	      if (pp->C2T)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == C_) *cr = Y_ ;
 		}
 	      if (pp->A2C)
 		{
@@ -6734,12 +8448,33 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 		  while (cr++, i--)
 		    if (*cr == A_) *cr = M_ ;
 		}
+	      if (pp->C2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == C_) *cr = M_ ;
+		}
 	      if (pp->T2G)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
 		    if (*cr == T_) *cr = K_ ;
+		}
+	      if (pp->G2T)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = K_ ;
+		}
+	      if (pp->G2C)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = S_ ;
 		}
 	      if (pp->C2G)
 		{
@@ -6755,13 +8490,18 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 		  while (cr++, i--)
 		    if (*cr == A_) *cr = W_ ;
 		}
+	      if (pp->T2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == T_) *cr = W_ ;
+		}
 
-	      if (pp->decoy)
-		clipAlignDecoy (pp, dna) ;
-	      cq = strstr(stackText (s, 0), "|Gene|") ;
 	      if (pp->mutantMalus)
 		pp->targetMutantMalus =  strncmp (stackText (s, 0), "M:", 2) ? 0 : pp->mutantMalus ;
 	      pp->targetGene = 0 ;
+	      cq = strcasestr(stackText (s, 0), "|Gene|") ;
 	      if (cq) 
 		{
 		  *cq=0 ;
@@ -6818,9 +8558,10 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 		messcrash ("Target fasta file sorting error\nOption -MRNAH requires that, for a given gene, the target fasta file be sorted in alphabetic order of the transcripts, since this affects the hierarchic mapping of the reads to the alternative transcripts.\n--- Line %d of file %s\n--- In gene: %s,\n--- transcript %s|GENE|%s\n--- wrongly appeared below %s|GENE|%s\nPlease sort the target fasta file in alphabetic order of the transcripts names."
 			   , aceInStreamLine (ai), pp->targetFileName  /* aceInFileName is now null, since ai is closed, but the line number is ok */
 			   , dictName (pp->targetDict, pp->targetGene)
-			   , dictName (pp->targetDict,  pp->targetGene), dictName (pp->targetDict,  pp->target)
-			   , lastGene ? dictName (pp->targetDict,  lastGene) : "-"
+			   , dictName (pp->targetDict,  pp->target)
+			   , dictName (pp->targetDict,  pp->targetGene)
 			   , lastTarget ? dictName (pp->targetDict,  lastTarget) : "-"
+			   , lastGene ? dictName (pp->targetDict,  lastGene) : "-"
 			   ) ;
 	      lastGene = pp->targetGene ;
 	      lastTarget = pp->target ;
@@ -6832,6 +8573,8 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 	    }
       /* fall thru to new sequence */
 	case 0: /* expecting   >target_name */
+	  if (*cp == '#')
+	    break ;
 	  if (*cp != '>' || ! *(cp+1))
 	    {
 	      fprintf (stderr, "// bad character in file %s line %d, expecting a '>', got %s"
@@ -6852,56 +8595,103 @@ static int clipAlignRunOne (CLIPALIGN *pp)
       arrayMax (dna) = n ;
       memcpy (arrp (dna, 0, unsigned char), cq, n) ;
       dnaEncodeArray (dna) ;
-      if (pp->A2G)
+	      if (pp->A2G)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
 		    if (*cr == A_) *cr = R_ ;
 		}
-      if (pp->T2C)
+	      if (pp->G2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = R_ ;
+		}
+	      if (pp->T2C)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
 		    if (*cr == T_) *cr = Y_ ;
 		}
-      if (pp->A2C)
+	      if (pp->C2T)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
+		    if (*cr == C_) *cr = Y_ ;
+		}
+	      if (pp->A2C)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[M_] = B2[A_] ;
+		  B2[K_] = B2[T_] ;
+		  while (cr++, i--)
 		    if (*cr == A_) *cr = M_ ;
 		}
-      if (pp->T2G)
+	      if (pp->C2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[M_] = B2[C_] ;
+		  while (cr++, i--)
+		    if (*cr == C_) *cr = M_ ;
+		}
+	      if (pp->T2G)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
 		  while (cr++, i--)
 		    if (*cr == T_) *cr = K_ ;
 		}
-      if (pp->C2G)
+	      if (pp->G2T)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[K_] = B2[G_] ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = K_ ;
+		}
+	      if (pp->G2C)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[S_] = B2[G_] ;
+		  while (cr++, i--)
+		    if (*cr == G_) *cr = S_ ;
+		}
+	      if (pp->C2G)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[S_] = B2[C_] ;
 		  while (cr++, i--)
 		    if (*cr == C_) *cr = S_ ;
 		}
-      if (pp->A2T)
+	      if (pp->A2T)
 		{
 		  register int i = n ;
 		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[W_] = B2[A_] ;
 		  while (cr++, i--)
 		    if (*cr == A_) *cr = W_ ;
 		}
-
-	      if (pp->decoy)
-		clipAlignDecoy (pp, dna) ;
-	      cq = strstr(stackText (s, 0), "|Gene|") ;
+	      if (pp->T2A)
+		{
+		  register int i = n ;
+		  register char *cr = arrp (dna, 0, char) - 1 ;
+		  B2[W_] = B2[T_] ;
+		  while (cr++, i--)
+		    if (*cr == T_) *cr = W_ ;
+		}
 	      if (! cq) cq = strstr(stackText (s, 0), "|GENE|") ;
 	      if (pp->mutantMalus)
 		pp->targetMutantMalus =  strncmp (stackText (s, 0), "M:", 2) ? 0 : pp->mutantMalus ;
 	      pp->targetGene = 0 ;
+	      cq = strcasestr(stackText (s, 0), "|Gene|") ;
 	      if (cq) 
 		{
 		  *cq=0 ;
@@ -6959,11 +8749,12 @@ static int clipAlignRunOne (CLIPALIGN *pp)
 	      lastTarget = pp->target ;
 
 	      bitUnSet (pp->isSplicedTarget, dictMax (pp->targetDict) + 1) ; /* make room */
-      nHits += clipAlignSearch (pp, dna) ;
-      state = 0 ; /* and fall thru */
+
+	      nHits += clipAlignSearch (pp, dna) ;
+	      state = 0 ; /* and fall thru */
       stackClear (s) ;
     }
-  pp->targetGene = 0 ;
+
 
   bitUnSet (pp->isSplicedTarget, dictMax (pp->targetDict) + 1) ;             /* make room */
   if (bigArrayMax (pp->exportGeneHits) > 1 ||
@@ -7159,6 +8950,7 @@ static int clipAlignHashProbes (CLIPALIGN *pp)
   int delta = pp->seedShift ? pp->seedShift :  pp->probeLengthMax ;
   unsigned long int oligo, oligoB, mask, maskB ;
   char cc, *cp, *cp0 ;
+  BOOL doubleSeed = pp->doubleSeed ;
   MM *mm ;
   BOOL goodName, goodNameB ;
   BOOL is25 = FALSE, debug = FALSE ;
@@ -7275,7 +9067,7 @@ static int clipAlignHashProbes (CLIPALIGN *pp)
 	      cp0 = cp = stackText (pp->probeStack, mm->probeSequence) + gap + phase ;
 	      oligo = 0 ; oligoB = 0 ; i = 0 ;
 	      na = nt = ng = nc = 0 ;
-	      for (i = 0 ;  i < (pp->doubleSeed ? jxB : jx) ; i++)
+	      for (i = 0 ;  i < (doubleSeed ? jxB : jx) ; i++)
 		{
 		  cp = cp0 + i ;
 		  cc = *cp & 0xf ;
@@ -7328,7 +9120,7 @@ static int clipAlignHashProbes (CLIPALIGN *pp)
 			  pp->nOligo++ ;
 			  if (debug) fprintf (stderr, " ass1 ZZ inserted nOligo=%d gap=%d  oligo=%lx\n", pp->nOligo, gap, oligo) ; 
 			}
-		      if (pp->doubleSeed && goodNameB && assInsert (assB1, assVoid(oligoB), assVoid(pp->nOligo)))
+		      if (doubleSeed && goodNameB && assInsert (assB1, assVoid(oligoB), assVoid(pp->nOligo)))
 			{
 			  nWords++ ;
 			  pp->nOligo++ ;
@@ -7344,7 +9136,7 @@ static int clipAlignHashProbes (CLIPALIGN *pp)
 			      (nf = arr (oligoFrequency, nOligo, unsigned char)) &&
 			      nf >= 0)
 			    {
-			      if (nf < 25 || nf <= 2 * pp->maxHit || pp->maxHit > N25)
+			      if (nf < N25 || nf <= 2 * pp->maxHit || pp->maxHit > N25)
 				{
 				  nWords++ ; nw++ ;
 				  assMultipleInsert (ass, assVoid(oligo), assVoid(ii+1+ (((unsigned long int)gap+phase+1) << (is64 ? 32 : 22)))) ;
@@ -7358,7 +9150,7 @@ static int clipAlignHashProbes (CLIPALIGN *pp)
 				is25 = TRUE ;
 			    } 
 			}
-		      if (ok2 == 0 && pp->doubleSeed && assFind (assB1, assVoid(oligoB), &vp))
+		      if (ok2 == 0 && doubleSeed && assFind (assB1, assVoid(oligoB), &vp))
 			{
 			  nOligo = assInt (vp) ;
 			  if (nOligo < arrayMax (oligoFrequencyB) &&
@@ -7566,7 +9358,7 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
   ACEOUT outNoInsert = pp->outNoInsert ;
   int lengthOtherRead = 0 ;
 
-  if (! pp->hasPairs && pass == 1)
+  if (! pp->probeFileName2 && ! pp->hasPairs && pass == 1)
     goto doSortProbes ;
 
   if (!pp->probeFileName)	
@@ -7587,7 +9379,6 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
       pp->probeLengthMin = -1 ;
       
       /* it is imperative that we do not ceclare
-	 stackTextOnly (pp->probeStack) ;
 	 because we want to divide the offsets in pp->parobePir by STACL_ALIGNMENT
 	 this is a horrible hack, we should find a better way to index the pairs 
       */
@@ -7595,14 +9386,16 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
       if (pp->fastQ && (pp->fastQbase || pp->probeQquality > -1000))
 	{
 	  pp->qualityStack = stackHandleCreate (10000000, pp->h) ;
-	  stackTextOnly (pp->qualityStack) ;
 	  pushText (pp->qualityStack, "toto") ; /* avoid 0 */
 	}
     }
 
   if (strstr ( pp->probeFileName, "fastc"))
     isFastc = TRUE ;
-  ai = aceInCreate (pp->probeFileName, 0, h) ;
+  if (pp->probeFileName2 && pass == 1)
+    ai = aceInCreate (pp->probeFileName2, 0, h) ;
+  else 
+    ai = aceInCreate (pp->probeFileName, 0, h) ;
   if (!ai)
     messcrash ("cannot read probe file %s", pp->probeFileName) ;
   aceInSpecial (ai, "\n") ;
@@ -7793,7 +9586,8 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 		  else
 		    {
 		      lengthOtherRead = strlen (cp) ;
-		      cp[1] = 0 ;		  
+		      if (! pp->probeFileName2)
+			cp[1] = 0 ;		  
 		    }
 		}
 	      pushText (pp->probeStack, cp) ;
@@ -7823,6 +9617,17 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 		}
 	      if (!cc)
 		cc = dnaEncodeChar[(int)*cq] ;
+	      if (pp->decoy) /* convert the read to decoy mode */
+		{
+		  switch (cc)
+		    {
+		    case A_: cc = T_ ; break ;
+		    case T_: cc = A_ ; break ;
+		    case G_: cc = C_ ; break ;
+		    case C_: cc = G_ ; break ;
+		    default: ; break ;
+		    }
+		}
 	      if (!cc && pp->solid)
 		cc = A_ ;
 	      if (!cc && *cq == '-')
@@ -7966,6 +9771,27 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 	  sequence += dx ; n -= dx ;
 	  if (quality) quality += dx ;
 	}
+      if (pass == 0 && pp->forceRightClip_1 > 0)
+	{
+	  char *ce = stackText (pp->probeStack, sequence) ;
+	  if (n > pp->forceRightClip_1)
+	    *(ce + pp->forceRightClip_1) = 0 ;
+	  n = strlen (ce) ;
+	}
+      if (pass == 1 && pp->forceRightClip_2 > 0)
+	{
+	  char *ce = stackText (pp->probeStack, sequence) ;
+	  if (n > pp->forceRightClip_2)
+	    *(ce + pp->forceRightClip_2) = 0 ;
+	  n = strlen (ce) ;
+	}
+      if (pass == 0 && pp->UMI > 0)
+	{
+	  char *ce = stackText (pp->probeStack, sequence) ;
+	  if (n > pp->UMI)
+	    *(ce + pp->UMI) = 0 ;
+	  n = strlen (ce) ;
+	}
       if (n>2 && pp->solid)  /* always discard the first letter in solid, probably a T */
 	{                    /* do not count it as a clipping */
 	  sequence++ ; n-- ;
@@ -7983,29 +9809,26 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 	      ce++ ; sequence++ ; n-- ; probeLeftClip++ ;
 	      if (quality) quality++ ;
 	    }
-
           seq1 = sequence ; qual1 = quality ; n1 = n ; pLeftClip = probeLeftClip ;
-	  if (1 || ! pp->hasPairs)
-	    while (1)
-	      {
-		/* accept one non-T every 8 letters */
-		ce++ ; seq1++ ; qual1++ ; n1-- ; pLeftClip++ ;
-		/* scan again */
-		while (n1>5 && *ce == (pp->solid ? A_ : T_))   /* continuation T */
-		  { 
-		    ce++ ; seq1++ ; n1-- ; pLeftClip++ ;
-		    if (quality) qual1++ ;
-		  }
-		
-		if (seq1 > sequence + 8)
-		  {
-		    sequence = seq1 ; 
-		    if (quality) quality = qual1 ;
-		    n = n1 ;  probeLeftClip = pLeftClip ;
-		  }
-		else
-		  break ;
-	      }
+	  while (1)
+	    {
+	      /* accept one non-T every 8 letters */
+	      ce++ ; seq1++ ; qual1++ ; n1-- ; pLeftClip++ ;
+	      /* scan again */
+	      while (n1>5 && *ce == (pp->solid ? A_ : T_))   /* continuation T */
+		{ 
+		  ce++ ; seq1++ ; n1-- ; pLeftClip++ ;
+		  if (quality) qual1++ ;
+		}		
+	      if (seq1 > sequence + 8) /* leftClip no problem it is external to the pairs */
+		{
+		  sequence = seq1 ; 
+		  if (quality) quality = qual1 ;
+		  n = n1 ;  probeLeftClip = pLeftClip ;
+		}
+	      else
+		break ;
+	    }
 	}
 
       if (pp->clipN && ! pp->solid) /* clip n on the right */
@@ -8198,43 +10021,50 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 	    }
 	}
 
-      if (pp->clipPolyA)
+      if (pp->clipPolyA /* 2019/08/07 reactivated polya if pair and nA > 12 */ 
+	  /* && ! pp->hasPairs  2018_01_19 very unlikely a good idea in pair sequencing */
+	  )
 	{ 
 	  int i, j, i2 ;
 	  char *ce = stackText (pp->probeStack, sequence) ;
 	  if (stranded >= 0) /* in solid i do not know which base this is */
 	    {             /* but i tentatively clip any terminal homopolymer */
-	      int n1, pRightClip ;
-	      
+	      int n0, n1 = 0 ;
+	      int bad = 0 ;
+	      int nBad = 0 ;
 	      /* accept exact A */
-	      n = strlen (ce) ;
-	      ce += n - 1 ;
+	      n0 = n1 = n = strlen (ce) ;
+	      ce += n0 - 1 ;
 	      while (n>5 && (*ce & A_))
-		{ ce-- ; n-- ;  probeRightClip++ ; }
-	      *(++ce) = 0 ; ce-- ;
-
-	      n1 = n ; pRightClip = probeRightClip ;
-	      if (1 || ! pp->hasPairs)
-		while (1)
-		  {
-		    /* accept one non-A every 8 letters */
-		    ce-- ; n1-- ; pRightClip++ ;
-		    /* scan again */
-		    while (n1 > 5 && (*ce & A_))
-		      { 
-			ce-- ; n1-- ; pRightClip++ ;
-		      }
-		    
-		    if (n1 + 8 < n)
-		      {
-			n = n1 ; probeRightClip = pRightClip ; 
-			*(++ce) = 0 ; ce-- ;
-		      }
-		    else
-		      break ;
+		{ ce-- ; n-- ;  }
+	      n1 = n ; 
+	      while (bad<3)
+		{
+		  /* accept one non-A every 8 letters */
+		  ce-- ; n1-- ; nBad++ ;
+		  /* scan again */
+		  if (nBad < 3 && n1 > 5 && !  (*ce & A_))
+		    { ce-- ; n1-- ; nBad++ ;}
+		  while (n1 > 5 && (*ce & A_))
+		    { 
+		      ce-- ; n1-- ; 
+		    }
+		  
+		  if (n1 + 8 * nBad < n)
+		    {
+		      n = n1 ; nBad = 0 ;
+		    }
+		  else
+		    bad++ ;
+		}
+	      ce = stackText (pp->probeStack, sequence) ;
+	      if (n0 > n + (pp->hasPairs ? 12 : 0))
+		{
+		  ce[n] = 0 ;
+		  probeRightClip = n0 - n ;
 		}
 	    }
-	  if (probeRightClip && ! pp->solid && ! pp->hasPairs) /* continue clipping while we have 5A/6 */
+	  if (probeRightClip && ! pp->solid) /* continue clipping while we have 5A/6 */
 	    {
 	      ce = stackText (pp->probeStack, sequence) ;
 	      
@@ -8299,7 +10129,7 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 	  mm->probeLength = probeLength ; 
 	  mm->probeLeftClip = probeLeftClip ;
 	  mm->probeRightClip = probeRightClip ;
-	  mm->bestScore = previousScore ;
+	  mm->bestScore[0] = previousScore ;
 	  mm->bestPairScore = previousPairScore ;
 	  mm->probeQuality = quality ;
 	  mm->entropy = entropy ;
@@ -8521,6 +10351,7 @@ static void clipAlignSortProbes (CLIPALIGN *pp, int np0, int np1)
   if (np0 > 0 && np1 > 0)
     {
       Array pairs = arrayCreate (np0 > np1 ? np0 + 1 : np1 + 1, int) ;
+
       for (i = 1, mm = arrp (pp->probes, i, MM) ; i < iMax ; i++, mm++)
 	{
 	  same = array (pairs, mm->fragment, int) ;
@@ -8636,11 +10467,17 @@ static void wordFrequencyReport (CLIPALIGN *pp)
 
 /*************************************************************************************/
 
-static void wordFrequencyExport (CLIPALIGN *pp, ACEOUT ao)
+static void wordFrequencyExport (CLIPALIGN *pp)
 {
   AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreateToFile (pp->wordFrequencyConstructTable, "wb", h) ;
   char buf[64] ; /* title line */
   long  nn ;
+
+  if (! ao)
+    messcrash ("Sorry I cannot open for writing the file wordFrequencyConstructTable %s\n"
+	       , pp->wordFrequencyConstructTable
+	       ) ;
 
   memset (buf, 0, sizeof(buf)) ;
   buf[0] = 0xff & pp->wffSize ;
@@ -8648,9 +10485,10 @@ static void wordFrequencyExport (CLIPALIGN *pp, ACEOUT ao)
   aceOutBinary (ao, buf, 64) ;
 
   nn = 1 << (2*pp->wffSize) ;
-  if (0 && aceOutBinary (ao, (char *)pp->wff, nn))
+  if (aceOutBinary (ao, (char *)pp->wff, nn))
     messcrash ("Cannot write 4^%d bytes in file %s", pp->wffSize, pp->wordFrequencyConstructTable) ;
-  
+  else
+    fprintf (stderr, "# Wrote 4^%d = %ld bytes in file %s\n",  pp->wffSize , nn, aceOutFileName(ao)) ;
   ac_free (h) ;
   return ;  
 } /* wordFrequencyExport */
@@ -8684,18 +10522,13 @@ static void wordFrequencyConstructTable (CLIPALIGN *pp)
   AC_HANDLE h = ac_new_handle () ;
   int n = 0, n1 ;
   Array dna = arrayHandleCreate (1<<30, char, h) ;
-  ACEIN ai = aceInCreateFromStdin (FALSE, 0, h) ;
-  ACEOUT ao = aceOutCreateToFile (pp->wordFrequencyConstructTable, "wb", h) ;
+  ACEIN ai = aceInCreate (pp->targetFileName, pp->gzi, h) ;
   char *cp ;
 
   if (pp->wffSize > 25)
      messcrash ("Sorry you did set the length of the words to a value %d > 25", pp->wffSize) ;
   if (!pp->wffSize)
     messcrash ("Sorry you did not set the length of the words to be tabulated by wordFrequencyConstructTable, i suggest 14") ;
-  if (! ao)
-    messcrash ("Sorry I cannot open for writhing the file wordFrequencyConstructTable %s\n"
-	       , pp->wordFrequencyConstructTable
-	       ) ;
 
   while (aceInCard (ai))
     {
@@ -8716,7 +10549,7 @@ static void wordFrequencyConstructTable (CLIPALIGN *pp)
     }
   wordFrequencyRegister (pp, dna) ;
   wordFrequencyReport (pp) ;
-  wordFrequencyExport (pp, ao) ;
+  wordFrequencyExport (pp) ;
   
   ac_free (h) ;
   return ;
@@ -8774,7 +10607,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
   fprintf (stderr,
 	   "// Usage: clipalign  -t target_fasta_file -i probe_fasta_file [-errMax] -... \n"
 	   "//      try: -h --help --hits_file_caption \n"
-	   "// Example:  clipalign -p tags.fasta -t chromX.fasta -errMax 2\n"
+	   "// Example:  clipalign -i tags.fasta -t chromX.fasta -errMax 2\n"
 	   "// -t fileName : the name of a target fasta file on which we align the tags\n"
 	   "//      this file is read as needed, so there is no limit to its size\n"
 	   "//      all named files will be gzip decompressed if they are called *.gz\n"
@@ -8797,6 +10630,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//          In the -solid option, YOU MUST specify a strategy, because the error detection\n"
 	   "//          fine tunes the cost of the mismatches and of the oo in a rather complex way\n" 
 	   "// -pacbio :  expects long reads with a rather high error rate \n"
+	   "// -nanopore :  expects very long reads with a rather very high error rate \n"
 	   "// -hit fileName : hits file, possibly .gz, output of previous search, to be postprocessed\n"
 	   
 	   "// -o fileName : output file name, equivalent to redirecting stdout\n"
@@ -8819,7 +10653,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//           In all cases, since the 4 bases are mapped to only 3, the seedLength is scaled up by log(4)/log(3)\n"
 	   "//         A2G : edit on the top strand of the genome every A to R == A|G == puRine: analyze top strand RNA-edited genes\n"
 	   "//         T2C : edit on the top strand of the genome every T to Y == T|C == pYrimidine : analyze bottom strand RNA-edited genes\n"
-	   "//  -A2C, -T2G, -C2G, -A2T : idem, used as negative controls to verify they are less abundant than A2G\n"
+	   "//  -G2A, T2C, C2T, A2C, C2A, T2G, G2T, C2G, G2C, -A2T, -T2A : idem, used as negative controls to verify they are less abundant than A2G\n"
 	   "// -probeMinMultiplicity : if this option is specified, the tags under this limit are ignored, only useful if the reads are in tc or fastc input format,\n"
 	   "// -probeMinLength : if this option is specified, the tags shorter than this limit are ignored,\n"
 	   "// -probeMaxLength : if this option is specified, the tags longer than this limit are ignored,\n"
@@ -8857,14 +10691,14 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   
 	   
 	   "// -strategy [ Exome | Genome | RNA_seq ]\n"
-	   "//           Overrides errCost to the recommended values, respectively 4,4,8\n"
-	   "//           and implies a default seed scanning -seedOffset 1 -seedShift 5\n"
+	   "//           Implies a default seed scanning -seedOffset 1 -seedShift 5\n"
+	   "//           Optimizes the treatment of introns and of alignemnts on\n"
+	   "//           multiple transcripts of the same gene\n" 
 
 	   "// -errCost number : used in -minAli mode: cost of an error or mismatch in a local alignment\n"
 	   "//           The cost is the same for an insertion/deletion and a substitution.\n"
-	   "//           The default value is 8bp. When searching for introns, a good strategy is\n"
-	   "//           to search recursively, starting at errCost = 12, down to errCost = 5.\n"
-	   
+	   "//           The default value is 8bp. \n"
+	   "//           Please do not modify this parameter\n"
 	   
 	   "// -targetBonus number : systematic bonus to be added to the score\n"
 	   "//           A negative number is effectivelly a malus\n"
@@ -8902,17 +10736,17 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   
 	   "// -select fileName : name of a file, possibly .gz,  of selected tags, one name per line\n"
 	   "//           any tag not listed in this file will be ignored when reading the tags file\n"
-	   "//           This is very useful to perform a recursive mapping"
+	   "//           This is very useful to perform a recursive mapping\n"
 	   
   
 	   "// -reject fileName : name of a file, possibly .gz,  of rejected tags, one name per line\n"
 	   "//           any tag listed in this file will be ignored when reading the tags file\n"
-	   "//           This is also very useful to perform a recursive mapping"
+	   "//           This is also very useful to perform a recursive mapping\n"
 	   
-	   "// -decimate n : align only one read every n, useful to check the quality of a large set of reads\n"
-	   "//               this parameter may be also assigned using \"setenv MAGIC_DECIMATE n\"\n"
+	   "// -decimate number : align only one read every n, useful to check the quality of a large set of reads\n"
+	   "//               this parameter may be set to say 7 using \"setenv MAGIC_DECIMATE 7\"\n"
   
-           "// -maxDiscardableAli number : (default 130)\n"
+           "// -maxDiscardableAli number : (default 90)\n"
 	   "//         useful to characterize rearrangments, do not discard a secondary chain longer than this limit\n" 
 	   "// -best    : only report hits with the least number of errors\n"
 	   "// -nonBest : report any hit up to the requested maximal number of errors\n"
@@ -8953,46 +10787,53 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//         Format is 2 column: tag_name  previous_score\n"
 	   "// -selectPreviousScore filename : in addition any tag not listed in this file will be ignored\n"
 	   "//         Format is 2 column: tag_name  previous_score\n"
-	   "// -clipN <int> : clip on N not preceded or followed by at least <int> good letters\n"
+	   "// -clipN <int> : clip on N not preceded or followed by at least <int> good letters\n\n"
 
-	   "// -clipPolyA : discard any number of 3'-terminal A, report poly-A tails not matching the target\n"
+	   "// -clipPolyA : discard any number of 3'-terminal A, report poly-A tails not matching the target\n\n"
 	   
   
-	   "// -SclipPolyA : idem, but only if hitting the plus strand of the target"
+	   "// -SclipPolyA : idem, but only if hitting the plus strand of the target\n\n"
 	   
   
-	   "// -clipPolyT : discard any number of 5'-leading T, report poly-T beginning not matching the target\n"
+	   "// -clipPolyT : discard any number of 5'-leading T, report poly-T beginning not matching the target\n\n"
 	   
   
-	   "// -SclipPolyT : idem, but only if hitting the minus strand of the target"
-	   "//            This option is TRUE in -solid mode, to compensate an artefact of that technique\n"
+	   "// -SclipPolyT : idem, but only if hitting the minus strand of the target\n"
+	   "//            This option is TRUE in -solid mode, to compensate an artefact of that technique\n\n"
 	   
-	   "// -avoidPseudoGenes : high level filter specific to the AceView annotation"
+	   "// -avoidPseudoGenes : high level filter specific to the AceView annotation\n"
 	   "//       if all transcripts of a gene are named *unspliced*, hits to this gene are discarded\n"
 	   "//       in favor of hits to other genes on the same strand, exluding the case of antisense pairs of genes\n"
   
 	   "// -slBonus number : C.elegans specific transpliced leader bonus\n"
-	   "//           Triggers SL search and, if successful, contributes to the score\n"
+	   "//           Triggers SL search and, if successful, contributes to the score\n\n"
 	   
   
 	   "// -jump5   number : discard so many bases from the beginning (5' end) of each read 1\n"
-	   "// -jump5_2 number : discard so many bases from the beginning (5' end) of each read 2\n"
-	   "// -clipAt number : clip each tag at this length (estimated before jump5)\n"
+	   "// -jump5_2 number : discard so many bases from the beginning (5' end) of each read 2\n" 
+	   "// -forceRightClip   number : clip read 1 right of this position (short reads followed by an adaptor\n"
+	   "// -forceRightClip_2 number : clip read 2 right of this position (short reads followed by an adaptor\n"
+
+	   "// -clipAt number : clip each tag at this length (estimated before jump5)\n\n"
 	   
-	   "// -entryAdaptor atgcggtatagg,ggttatmaycc: comma delimited list of entry adaptors\n"
+	   "// -entryAdaptor string : comma delimited list of entry adaptors\n"
+	   "//           Example:  -entryAdaptor  atgcggtatagg,ggttatmaycc\n"
 	   "//           Each adaptor must be >= 8bp, ambiguous letters are accepted\n"
 	   "//           Triggers adaptor search upstream of the aligned part of the read\n"
-	   "//           If successful the effective length of the tag is trimmed\n"
-	   "// -exitAdaptor atgcggtatagg,ggttatmaycc: comma delimited list of exit adaptors\n"
+	   "//           If successful the adaptor is trimmed in this particular alignment\n"
+	   "// -exitAdaptor string : comma delimited list of exit adaptors\n"
+	   "//           Example: -exitAdaptor atgcggtatagg,ggttatmaycc\n"
 	   "//           Each adaptor must be >= 8bp, ambiguous letters are accepted\n"
 	   "//           Triggers adaptor search downstream of the aligned part\n"
-	   "//           If successful the effective length of the tag is trimmed\n"
-	   "// -exitAdaptor2 atgcggtatagg,ggttatmaycc: comma delimited list of exit adaptors\n"
+	   "//           and at the same time downstream of read 2, i.e. downstream of the fragment\n"
+	   "//           If successful the adaptor is trimmed in this particular alignment\n"
+	   "// -exitAdaptor2 string: comma delimited list of exit adaptors\n"
 	   "//           Each adaptor must be >= 8bp, ambiguous letters are accepted\n"
 	   "//           Triggers adaptor search downstream of the aligned part of read 2 in paired sequencing\n"
+	   "//           and at the same time upstream of read 1, i.e. upstream of the fragment\n"
 	   "//           If successful the effective length of the tag is trimmed\n"
 	   
-	   
+	   "// -UMI int: length of cell UMI bar code in read 1, export it as column 20\n//             Do not map read 1\n"
 
   	   "// -showTargetPrefix : export 30bp immediatly upstream of the alignment, to study eventual cloning biais\n"
 	   "// -showOverhang : export the sequence bits overhanging out of the aligned segment (implied by -splice)\n"
@@ -9012,7 +10853,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//     Complement the target without reversing it, this creates \"Martian\" DNA with the same statistics\n"
 	   "//     Nothing is expected to align on a decoyed target, this provides a control of the specificity of the alignements\n"
 	   "// -wordFrequencyConstructTable filename : construct a binary table of frequency of short words\n"
-	   "//                     found in the genome sequence given on stdin or in the '-t targetfile'\n"
+	   "//                     found in the '-t targetfile'\n"
 	   "//                     both strands of the starget are used unless you specify '-strand'\n"
 	   "// -wfSize int : size of the words to be tabulated, I suggest 14\n"
 	   "//                     This table is then given as a parameter to the aligner using the option\n"
@@ -9070,7 +10911,7 @@ int main (int argc, const char **argv)
   int nHits = 0, ix, np0, np1 ;
   CLIPALIGN p ;
   AC_HANDLE h = 0 ;
-  char commandBuf [4000] ;
+  char commandBuf [32000] ;
   const char *ccp = 0 ;
 
   freeinit () ; 
@@ -9086,12 +10927,22 @@ int main (int argc, const char **argv)
 
   if (argc < 2)
     usage (commandBuf, argc, argv) ;
-  if (getCmdLineOption (&argc, argv, "-help", 0) ||
-      getCmdLineOption (&argc, argv, "--help", 0)||
-      getCmdLineOption (&argc, argv, "-h", 0)
+  if (getCmdLineBool (&argc, argv, "-help") ||
+      getCmdLineBool (&argc, argv, "-h")
       )
     usage (commandBuf, 1, argv) ;
 
+  if (getCmdLineBool (&argc, argv, "-version"))
+    {
+      fprintf (stderr, "clipalign: 1.3.0\n") ;
+      exit (0) ;
+    }
+
+  if (getCmdLineBool (&argc, argv, "-rna") ||
+      getCmdLineBool (&argc, argv, "-RNA")
+      )
+    p.clipPolyA = p.clipPolyT = TRUE ;
+  
   if (1)
     {
       int ii, jj, mx = 0, mega = 1 << 20 ;
@@ -9129,11 +10980,12 @@ int main (int argc, const char **argv)
        ac_free (h1) ;
     }
 
-  for (ix = 0, cp = commandBuf ;  ix < argc && cp + strlen (argv[ix]) + 1 < commandBuf + 3900 ; cp += strlen (cp), ix++)
+  for (ix = 0, cp = commandBuf ;  ix < argc && cp + strlen (argv[ix]) + 1 < commandBuf + 31000 ; cp += strlen (cp), ix++)
     sprintf(cp, "%s ", argv[ix]) ;
   /* consume optional args */
   getCmdLineOption (&argc, argv, "-o", &(p.outFileName)) ;
   getCmdLineOption (&argc, argv, "-i", &(p.probeFileName)) ;
+  getCmdLineOption (&argc, argv, "-i2", &(p.probeFileName2)) ;
   getCmdLineOption (&argc, argv, "-query", &(p.probeFileName)) ;
   getCmdLineOption (&argc, argv, "-targetMask", &p.targetMaskFileName) ;
 
@@ -9147,8 +10999,8 @@ int main (int argc, const char **argv)
     usage ("-minQuality requires -fastq33 or -fastq64 because there are several conflicting conventions to measure fastqQ qualities", argc, argv) ;
 
   getCmdLineOption (&argc, argv, "-t", &(p.targetFileName)) ;
-  getCmdLineOption (&argc, argv, "-targets", &(p.multiTargetFileNames)) ;
   getCmdLineOption (&argc, argv, "-subject", &(p.targetFileName)) ;
+  getCmdLineOption (&argc, argv, "-targets", &(p.multiTargetFileNames)) ;
 
   if (getCmdLineOption (&argc, argv, "-target2gene", &(p.target2geneFileName)))
     target2GeneParse (&p) ;
@@ -9166,65 +11018,77 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-reject", &(p.rejectedProbeFileName)) ;
 
   p.nReadPlus = p.nReadMinus = 0 ;
-  p.vectorize =  getCmdLineOption (&argc, argv, "-vectorize", 0) ;
-  p.silent = getCmdLineOption (&argc, argv, "-silent", 0) ;
+  p.vectorize =  getCmdLineBool (&argc, argv, "-vectorize") ;
+  p.silent = getCmdLineBool (&argc, argv, "-silent") ;
   if (!p.silent) fprintf (stderr, "// %s start\n", timeShowNow()) ;
-  p.strand = getCmdLineOption (&argc, argv, "-strand", 0) ;
-  p.antistrand = getCmdLineOption (&argc, argv, "-antistrand", 0) ;
-  p.antiprobe = getCmdLineOption (&argc, argv, "-antiprobe", 0) ;
-  p.getTm  = getCmdLineOption (&argc, argv, "-getTm", 0) ;
-  p.solid  = getCmdLineOption (&argc, argv, "-solid", 0) ;
-  p.pacbio  = getCmdLineOption (&argc, argv, "-pacbio", 0) ;
-  if (getCmdLineOption (&argc, argv, "-solidC", 0))
-    p.solid = TRUE ;
+  p.strand = getCmdLineBool (&argc, argv, "-strand") ;
+  p.antistrand = getCmdLineBool (&argc, argv, "-antistrand") ;
+  p.antiprobe = getCmdLineBool (&argc, argv, "-antiprobe") ;
+  p.getTm  = getCmdLineBool (&argc, argv, "-getTm") ;
+  p.solid  = getCmdLineBool (&argc, argv, "-solid") ;
+  p.roche = getCmdLineBool (&argc, argv, "-roche") ;
+  p.pacbio  = getCmdLineBool (&argc, argv, "-pacbio") ;
+  p.nanopore = getCmdLineBool (&argc, argv, "-nanopore") ;
+
+  p.solid |= getCmdLineBool (&argc, argv, "-solidC") ;
    /* it make no sense not to use the correction code */
-  if (getCmdLineOption (&argc, argv, "-SclipPolyA", 0))
+  if (getCmdLineBool (&argc, argv, "-SclipPolyA"))
     p.clipPolyA = p.strandedTarget = TRUE ;
   else
-    p.clipPolyA  = getCmdLineOption (&argc, argv, "-clipPolyA", 0) ;
-  if (getCmdLineOption (&argc, argv, "-SclipPolyT", 0))
+    p.clipPolyA  = getCmdLineBool (&argc, argv, "-clipPolyA") ;
+  if (getCmdLineBool (&argc, argv, "-SclipPolyT"))
     p.clipPolyT = p.strandedTarget = TRUE ;
   else
-    p.clipPolyT  = getCmdLineOption (&argc, argv, "-clipPolyT", 0) ;
+    p.clipPolyT  = getCmdLineBool (&argc, argv, "-clipPolyT") ;
 
   /* intense RNA-editing */
-  p.A2G  = getCmdLineOption (&argc, argv, "-A2G", 0) ;
-  p.T2C  = getCmdLineOption (&argc, argv, "-T2C", 0) ;
+  p.A2G  = getCmdLineBool (&argc, argv, "-A2G") ;
+  p.G2A  = getCmdLineBool (&argc, argv, "-G2A") ;
+  p.T2C  = getCmdLineBool (&argc, argv, "-T2C") ;
+  p.C2T  = getCmdLineBool (&argc, argv, "-C2T") ;
+  p.A2C  = getCmdLineBool (&argc, argv, "-A2C") ;
+  p.C2A  = getCmdLineBool (&argc, argv, "-C2A") ;
+  p.T2G  = getCmdLineBool (&argc, argv, "-T2G") ;
+  p.G2T  = getCmdLineBool (&argc, argv, "-G2T") ;
+  p.C2G  = getCmdLineBool (&argc, argv, "-C2G") ;
+  p.G2C  = getCmdLineBool (&argc, argv, "-G2C") ;
+  p.A2T  = getCmdLineBool (&argc, argv, "-A2T") ;
+  p.T2A  = getCmdLineBool (&argc, argv, "-T2A") ;
 
 
-  p.splice  = getCmdLineOption (&argc, argv, "-splice", 0) ;
-  p.doubleSeed  = getCmdLineOption (&argc, argv, "-doubleSeed", 0) ;
+  p.splice  = getCmdLineBool (&argc, argv, "-splice") ;
+  p.doubleSeed  = getCmdLineBool (&argc, argv, "-doubleSeed") ;
   if (getCmdLineInt (&argc, argv, "-stranded", &p.strandBonus))
     p.stranded = 1 ;
   if (p.strandBonus < 0)
     { p.strandBonus *= -1 ; p.stranded *= -1 ; }
-  p.aceOutGenomic = getCmdLineOption (&argc, argv, "-aceOutGenomic", 0) ;
-  p.aceOutMrna = getCmdLineOption (&argc, argv, "-aceOutMrna", 0) ;
-  p.aceOutNM = getCmdLineOption (&argc, argv, "-aceOutNM", 0) ;
-  p.showTargetPrefix  = getCmdLineOption (&argc, argv, "-showTargetPrefix", 0) ;
-  p.showProbeSequence  = getCmdLineOption (&argc, argv, "-showSequence", 0) ;
-  p.showOverhang  = getCmdLineOption (&argc, argv, "-showOverhang", 0) ;
-  p.MRNAH  = getCmdLineOption (&argc, argv, "-MRNAH", 0) ;
+  p.aceOutGenomic = getCmdLineBool (&argc, argv, "-aceOutGenomic") ;
+  p.aceOutMrna = getCmdLineBool (&argc, argv, "-aceOutMrna") ;
+  p.aceOutNM = getCmdLineBool (&argc, argv, "-aceOutNM") ;
+  p.showTargetPrefix  = getCmdLineBool (&argc, argv, "-showTargetPrefix") ;
+  p.showProbeSequence  = getCmdLineBool (&argc, argv, "-showSequence") ;
+  p.showOverhang  = TRUE ;
+  p.showOverhang  = getCmdLineBool (&argc, argv, "-showOverhang") ;
+  p.MRNAH  = getCmdLineBool (&argc, argv, "-MRNAH") ;
   p.maxHit = 10 ;
   getCmdLineInt (&argc, argv, "-maxHit", &p.maxHit) ;
   getCmdLineInt (&argc, argv, "-errMin", &p.errMin) ;
   getCmdLineInt (&argc, argv, "-errMax", &p.errMax) ;
   getCmdLineInt (&argc, argv, "-errRateMax", &p.errRateMax) ;
-  getCmdLineInt (&argc, argv, "-errCost", &p.errCost) ;
 
+  p.errCost = 8 ;
   p.seedShift = 5 ; p.seedOffset = 1 ; p.seedLength = 16 ;
+
   if (getCmdLineOption (&argc, argv, "-strategy", &ccp))
     {
       if (! strcasecmp (ccp, "Exome") ||
 	  ! strcasecmp (ccp, "Genome")
 	  )
 	{
-	  p.errCost = 4 ;
-	  p.strategy = STRATEGY_GENOME ;
+	  p.strategy = STRATEGY_GENOME ;  
 	}
       else if (! strcasecmp (ccp, "RNA_seq"))
 	{
-	  p.errCost = 8 ;
 	  p.strategy = STRATEGY_RNA_SEQ ;
 	}
       else
@@ -9239,6 +11103,12 @@ int main (int argc, const char **argv)
       exit (1) ;
     }
 
+  if (p.nanopore)
+    { p.errCost =  4; p.seedShift = 2 ;  p.seedLength = 14 ; }
+  if (p.pacbio)
+    p.errCost =  4;
+  getCmdLineInt (&argc, argv, "-errCost", &p.errCost) ;
+
   getCmdLineInt (&argc, argv, "-seedShift", &p.seedShift) ;
   if (! getCmdLineInt (&argc, argv, "-seedOffset", &p.seedOffset))
     getCmdLineInt (&argc, argv, "-seedOffSet", &p.seedOffset) ; /* frequent typo */
@@ -9251,7 +11121,8 @@ int main (int argc, const char **argv)
     p.seedOffset = 3 ;
 
   getCmdLineInt (&argc, argv, "-targetBonus", &p.bonus) ;
-  p.decoy = getCmdLineOption (&argc, argv, "-decoy", 0);
+  p.decoy = getCmdLineBool (&argc, argv, "-decoy");
+  p.sam = getCmdLineBool (&argc, argv, "-sam") ;
   if (getCmdLineInt (&argc, argv, "-slBonus", &p.slBonus))
     slInit (&p) ;
   {
@@ -9263,12 +11134,13 @@ int main (int argc, const char **argv)
     if (getCmdLineOption (&argc, argv, "-exitAdaptor2", &exV2))
       exitAdaptor2Init (&p, exV2) ;
   }
+  p.minAli = 24 ;
   getCmdLineInt (&argc, argv, "-minAli", &p.minAli) ;
   getCmdLineInt (&argc, argv, "-minAliPerCent", &p.minAliPerCent) ;
   getCmdLineInt (&argc, argv, "-clipN", &p.clipN) ;
 
-  p.gzi = getCmdLineOption (&argc, argv, "-gzi", 0);
-  p.gzo = getCmdLineOption (&argc, argv, "-gzo", 0);
+  p.gzi = getCmdLineBool (&argc, argv, "-gzi");
+  p.gzo = getCmdLineBool (&argc, argv, "-gzo") ;
 
   getCmdLineInt (&argc, argv, "-overhangLength", &p.overhangLength) ;
   p.intronMaxLength = 120000 ; p.intronMinLength = 30 ;
@@ -9278,15 +11150,23 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-intronMaxLength", &p.intronMaxLength) ;
   getCmdLineInt (&argc, argv, "-intronMinLength", &p.intronMinLength) ;
 
-  p.maxDiscardableAli = 130 ;  /* do not discard above 70 2015_10_30, was 100 */
+  p.maxDiscardableAli = 40 ;  /* do not discard above 70 2015_10_30, was 130 2018_03_15 */
   getCmdLineInt (&argc, argv, "-maxDiscardableAli", &p.maxDiscardableAli) ;
 
   getCmdLineInt (&argc, argv, "-mutantMalus", &p.mutantMalus) ;
   p.mutantMalus = 0 ; /* this idea is stupid, i realised that while programming it, we lose wild-type == mutant cases */
-  p.avoidPseudoGenes = getCmdLineOption (&argc, argv, "-avoidPseudoGenes", 0) ;
+  p.avoidPseudoGenes = getCmdLineBool (&argc, argv, "-avoidPseudoGenes") ;
 
+  getCmdLineInt (&argc, argv, "-UMI", &p.UMI) ;
+  if (p.UMI > 0) 
+    p.showTargetPrefix = FALSE ;
+  else
+    p.UMI = 0 ;
   getCmdLineInt (&argc, argv, "-jump5", &p.jump5_1) ;
-  getCmdLineInt (&argc, argv, "-jump5_2", &p.jump5_2) ;
+  getCmdLineInt (&argc, argv, "-jump5_2", &p.jump5_2) ; 
+  getCmdLineInt (&argc, argv, "-forceRightClip", &p.forceRightClip_1) ;
+  getCmdLineInt (&argc, argv, "-forceRightClip_2", &p.forceRightClip_2) ; 
+
   getCmdLineInt (&argc, argv, "-clipAt", &p.clipAt) ;
   getCmdLineInt (&argc, argv, "-targetStart", &p.targetStart) ;
   getCmdLineInt (&argc, argv, "-targetStop", &p.targetStop) ;
@@ -9339,8 +11219,9 @@ int main (int argc, const char **argv)
 
 
   p.bestHit = TRUE ;
-  
-  p.bestHit = ! getCmdLineOption (&argc, argv, "-nonBest", 0) ;
+  p.bestHit =  getCmdLineBool (&argc, argv, "-best") ; /* efault, but we need to recognize -best on command line */
+  p.bestHit = ! getCmdLineBool (&argc, argv, "-nonBest") ;
+
   if (p.probeMinLength < p.seedLength + p.seedOffset - 1)
     p.probeMinLength = p.seedLength + p.seedOffset - 1 ;
   if (p.probeMinLength < p.minAli)
@@ -9351,7 +11232,6 @@ int main (int argc, const char **argv)
     p.minEntropy = 1 ;
   if (p.splice)
     p.bestHit = FALSE ;
-  p.bestHit =  getCmdLineOption (&argc, argv, "-best", 0) ; /* recognize ad discard, default option */
   if (p.splice && ! p.minAli)
     p.minAli = 1 ;
   if (p.errCost <= 0)
@@ -9372,12 +11252,16 @@ int main (int argc, const char **argv)
     }
   if (p.solid) 
     aceDnaSetSolidJumper (TRUE) ;
-  else if (0 && p.pacbio) 
+  else if (p.roche)  
+    aceDnaSetRocheJumper (TRUE) ;
+  else if (p.pacbio)  
     aceDnaSetPacBioJumper (TRUE) ;
+  else if (p.nanopore) 
+    aceDnaSetNanoporeJumper (TRUE) ;
   else
     aceDnaSetIlmJumper (TRUE) ;
 
-  if (getCmdLineOption (&argc, argv, "--hits_file_caption", 0))
+  if (getCmdLineBool (&argc, argv, "--hits_file_caption"))
     {
       p.silent = FALSE ;
       p.ao = aceOutCreate (p.outFileName, ".hits_table_caption", 0, h) ;
@@ -9397,7 +11281,7 @@ int main (int argc, const char **argv)
   /* check the absolute args */
   if (! p.errMax && p.errRateMax > 0)
     p.errMax = 1000 ;
-  clipAlignInit () ;
+  clipAlignInitB2 (&p, FALSE) ;
   if (p.wordFrequencyConstructTable)
     { wordFrequencyConstructTable (&p) ; return 0 ; }
 
@@ -9553,7 +11437,7 @@ int main (int argc, const char **argv)
   ac_free (p.previousScores) ;
   ac_free (p.previousScoreDict) ;
 
-  clipAlignOpenOutput( &p, ".hits") ;
+  p.ao = aceOutCreate (p.outFileName, ".hits", p.gzo, h) ;
 
   if (p.antiprobe)
     {
@@ -9607,11 +11491,14 @@ int main (int argc, const char **argv)
 	messcrash ("Please specify a seedLength or a probeMinLength >= 7") ;
 
       if (p.solid) /* sorry, we cannot do this in solid */
-	p.A2G =  p.T2C = p.A2C = p.T2G = p.C2G = p.A2T = p.X2X = FALSE ;
+	p.A2G = p.G2A = p.T2C = p.C2T = p.A2C = p.C2A = p.T2G = p.G2T = p.G2C = p.C2G = p.A2T = p.T2A = p.X2X = FALSE ;
       
-      if (p.A2G || p.T2C || 
-	  p.A2C || p.T2G ||
-	  p.C2G || p.A2T
+      if (p.A2G || p.G2A || 
+	  p.T2C || p.C2T ||
+	  p.A2C || p.C2A ||
+	  p.T2G || p.G2T ||
+	  p.G2C || p.C2G ||
+	  p.A2T || p.T2A
 	  )
 	{
 	  p.X2X = TRUE ; if (1) p.seedLength =  p.seedLength * log(4)/log(3) + .8 ; 
@@ -9775,9 +11662,11 @@ int main (int argc, const char **argv)
 	      nHits = clipAlignRun (&p) ; 
 	      if (p.hashPhase == 0)
 		{
-		  unsigned char c , *cp = arrp (p.oligoFrequency, 1, unsigned char) ;
+		  unsigned char c , *cp = 0 ;
 		  int i = arrayMax (p.oligoFrequency) - 1, nw = p.nOligo, n0 = 0, n12 = 0, n25 = 0 ;
 		  
+		  if (arrayMax (p.oligoFrequency) > 1)
+		    cp = arrp (p.oligoFrequency, 1, unsigned char) ;
 		  if (arrayMax (p.oligoFrequency) > 1)
 		    while (c = *cp++, i--)
 		      {
@@ -9795,7 +11684,7 @@ int main (int argc, const char **argv)
 		       assInserted, assRemoved, assFound, assNotFound, assBounce, assBucketMax) ;
 	    }
 	}
-      clipAlignExportAll (&p) ;
+      clipAlignExportAll (&p, commandBuf) ;
     }
 
   if (1 && p.antiprobe)

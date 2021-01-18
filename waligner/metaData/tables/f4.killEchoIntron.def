@@ -105,7 +105,7 @@ Visible
 Integer
 From 9
 Tag Composite
-Condition [\%10 - 20 * \%4] > 0
+Condition [\%10 - 5 * \%4] > 0
 
 Colonne 11
 Subtitle Column #10

@@ -65,6 +65,17 @@ int iskey (KEY key)
   return  0 ; /* className(key) ; */
 }
 
+int ac_db_nActiveClients (AC_DB db)
+{ 
+  struct ac_db *adb = (struct ac_db *) db ;
+  return adb ? adb->nActiveClients : 0 ;
+}
+
+BOOL acCaseSensitive (KEY key)
+{
+  return TRUE ;
+}
+
 /********************************************************************/
 
 /*
@@ -1405,7 +1416,7 @@ static char* ac_parse_sys (AC_DB db, unsigned char *binaryBuffer, int nn)
   memcpy (&swap_magic, cp, 4) ; cp+= 4 ; nn -= 4 ;
   switch (swap_magic)
     {
-    case 0x12345678:  /* server/client use save byte rules */
+    case 0x12345678:  /* server/client use same byte rules */
       db->swap_needed = FALSE ;
       break ;
     case 0x78563412:  /* server/client disagree */
@@ -1782,6 +1793,7 @@ AC_TABLE ac_aql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
 /****************************************************************/
 /* perform BQL query*/
 
+
 AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, const char* orderBy, const char **error_messages, AC_HANDLE handle)
 {
   AC_TABLE tt = 0 ;
@@ -1792,17 +1804,18 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
     ac_kget (initial_keyset->x) ;
   if (query && *query)
     {
-      char *command = (char *) halloc (strlen (query) + 100, 0) ;
-      sprintf (command, "bql -C %s", query) ;
+      char *command = (char *) halloc (strlen (query) + 100 + (orderBy ? strlen(orderBy) + 12 : 0), 0) ;
+      sprintf (command, "bql -C %s %s %s", query, orderBy ? "order_by" : "", orderBy ? orderBy : "") ;
       binaryBuffer = ac_command (db, command, &nn, handle) ;
       messfree (command) ;
     }
   if (binaryBuffer)
     {
       struct parsing *p ;
-      tt = ac_empty_table (100, 0, handle) ;
+      tt = ac_db_empty_table (db, 100, 0, handle) ;
       p = parse_init (binaryBuffer, nn, db) ;
       parse_table (p, tt, 0) ;
+
       messfree (binaryBuffer) ;
       messfree (p) ;
     }
@@ -3009,19 +3022,19 @@ char *ac_obj_peptide (AC_OBJ obj, AC_HANDLE h)
 {
   int result_length = 0 ;
   return ac_sequence (obj, &result_length, ac_sequence_peptide, 0, 0, h) ;
-}
+} /* ac_obj_peptide */
 
 char *ac_obj_dna (AC_OBJ obj, AC_HANDLE h)
 {
   int result_length = 0 ;
   return ac_sequence (obj, &result_length, ac_sequence_dna, 0, 0, h) ;
-}
+} /* ac_obj_dna */
 
 char *ac_zone_dna (AC_OBJ obj, int x1, int x2, AC_HANDLE h)
 {
   int result_length = 0 ;
   return ac_sequence (obj, &result_length, ac_sequence_dna, x1, x2, h) ;
-}
+} /* ac_zone_dna */
 
 char *ac_longtext (AC_OBJ obj, AC_HANDLE h)
 {
@@ -3047,7 +3060,7 @@ char *ac_longtext (AC_OBJ obj, AC_HANDLE h)
   while ((cp = strchr (cp + 1, '\n'))) *cp= ' ' ;
   messfree (lt) ;
   return cq ;
-}
+} /* ac_longtext */
 
 /******************************************************************/
 /* PUBLIC */

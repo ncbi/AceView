@@ -1,18 +1,21 @@
+
 #include "acedb.h"
 #include "bql.h"
 #include "bs.h"
 #include "bitset.h"
 
 typedef enum {Zero = 0
-	      , SEMICOLUMN, ORDER_BY
+	      , SEMICOLUMN, TITLE, ORDER_BY
 	      , FROM, SELECT, COMA,  WHERE
+	      , WHERE_AVOID, WHERE_IF    /* reserved words */
 	      , IN, SET, SET_EQ
 	      , OR, OR2, XOR, XOR2, AND, AND2, NOT, NOT2
 	      , LIKE2, LIKEREGEXP, LIKE, EQ, NEQ, LEQ, SEQ, LT, ST, LLK, SLK
 	      , ISA
-	      , PLUS, MINUS, MULT, DIVIDE, POWER, MODULO
-	      , DNA, PEPTIDE
+	      , MODULO, PLUS, MINUS, MULT, DIVIDE, POWER
+	      , DNA, PEPTIDE, DATEDIFF
 	      , COUNT, MIN, MAX, AVERAGE, STDEV
+	      , CLNAM, NAM, TIMESTAMP
 	      , TTAG, TAG, HASTAG, MERGETAG
 	      , RIGHTOF   /* square brackets x[2], meaning right of */
 	      , CLASSE   /* , INCLASS */
@@ -28,15 +31,17 @@ typedef enum {Zero = 0
 
 static const char *bqlName[] = { 
   "Zero"
-  , ";", "order_by"
+  , ";", "TITLE", "order_by"
   , "from", "select", ",", "where"
+  , "__where_avoid__", "__where_if__"   /* reserved words */
   , "in" , ":=", "=" 
   , "||", "OR", "^^", "XOR", "&&" , "AND", "!", "NOT"
   , "like", "=~", "~", "==", "!=", ">=", "<=", ">", "<", ">~", "<~"
   , "ISA"
-  , "+", "-", "*", "/", "^", "modulo"
-  , "DNA", "PEPTIDE"
+  , "modulo", "+", "-", "*", "/", "^"
+  , "DNA", "PEPTIDE", "DATEDIFF"
   , "count", "min", "max", "average", "stdev"
+  , ".class", ".name", ".timestamp"
   , ">>", "->", "#", "=>", ":"
   , "class"  /* , ".class" */
   , "number", "$", "var", "key", "@"
@@ -56,15 +61,17 @@ static const int bqlSide[] = {
    * 8   right mandatory
    */
   /* "Zero" */ 0 
-  /* ";", "order_by" */  , 5, 2
-  /* "from", "select", ",", "where" */, 10, 8, 6, 10
+  /* ";", "title", "order_by" */  , 5, 2, 2
+  /* "from", "select", ",", "where" */, 10, 8, 6, 9
+  /* "__where_avoid", "__where_if__" */, 9, 9
   /* , "in" , ":=", "="  */  , 10, 10, 10
   /* , "||", "OR", "^^", "XOR", "&&" , "AND", "!", "NOT" */  , 10, 10, 10, 10, 10, 10, 8, 8
   /* , ISA */ , 1
   /* , "like", "=~", "~", "==", "!=", ">=", "<=", ">", "<", ">~", "<~" */ , 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10
-  /* , "+", "-", "*", "/", "^", "modulo" */ , 10, 9, 10, 10, 10, 10
-  /* , "DNA", "PEPTIDE" */  , 8, 8
+  /* , "modulo" , "+", "-", "*", "/", "^" */ , 10 , 10, 9, 10, 10, 10
+  /* , "DNA", "PEPTIDE", "DATEDIFF" */  , 8, 8, 8
   /* , "count", "min", "max", "average", "stdev" */ , 5, 5, 5, 5, 5
+  /* , ".class", ".name", ".timestamp" */ , 0, 0, 0
   /* , ">>", "->", "#", "=>", ":" */ , 8, 8, 8, 8, 8
   /* , "class"*/ , 1
   /*, "number", "$", "var", "key", "@" */ , 1, 1, 1, 1, 1
@@ -91,12 +98,18 @@ struct bqlNode {
 
   double z ;
   char *txt ;
-  KEY key ;
+  KEY key ; 
+  KEY timeStamp ;
   BSunit uu ;
   KEY uType ;
-  BOOL isNumber, isDate, mandatory, where, myObj, myAa, myBsmark ;
-  OBJ obj ;
+
+  BOOL isBool, isNumber, isText, isDate, isVar, isIter, isSet ;
+
+  BOOL avoid, where, where_if ;
+
   int depth, row, col, nCol ;
+  BOOL myObj, myAa, myBsmark ;
+  OBJ obj ;
   Array aa ;
   Array dnaD, dnaR, pep ;
   Stack dnaStack, pepStack ;
@@ -107,6 +120,7 @@ struct bqlNode {
 
 
 struct bqlStruct {
+  AC_DB db ;
   KEYSET ksIn ;
   KEYSET ksOut ;
   AC_TABLE results ;
@@ -115,9 +129,10 @@ struct bqlStruct {
   BOOL debug ;
   BOOL warning ;
   void *magic ;
-  BOOL where ;
+  BOOL where, where_if ;
   BOOL openObj ;  /* if 0: do not open obj but set mayBe = TRUE  */
-  BOOL mayBe, doNotSort ;
+  BOOL mayBe, isSorted, doNotSort ;
+  BOOL force_zero ;
   Stack s ;
   NODE *node, *from ;
   DICT *dict ;
@@ -132,7 +147,17 @@ struct bqlStruct {
   int minmaxavstdN ;
   int minmaxavstdX ;
   int tableRow ;
+  int inCurly ;
   char *order_by ;
+  char *title_by ;
+} ;
+
+struct bqlIterStruct {
+  AC_HANDLE h ;
+  void *magic ;
+  BQL *bql ;
+  KEYSET ksIn, ksCurrent ;
+  int currentRow ;
 } ;
 
 typedef struct pStruct {
@@ -142,7 +167,7 @@ typedef struct pStruct {
 typedef struct sortStruct {
   BitSet uses, dcls ;
   NODE *node ;
-  int level ;
+  int level, type ;
 } SS ;
 
 
@@ -154,7 +179,8 @@ static BOOL bqlExpandFrom (BQL *bql, NODE *node, NODE *coma) ;
 static BOOL bqlExpandIn (BQL *bql, NODE *node, NODE *coma) ;
 static BOOL bqlParseAcedbQuery (BQL *bql, const char *query) ;
 static void bqlCleanDcls (NODE *node) ;
- 
+static BOOL bqlExpandCurly (BQL *bql, NODE *node) ;
+
 /*************************************************************************************/
 /*************************************************************************************/
 
@@ -248,7 +274,7 @@ static BOOL bqlVar (BQL *bql, NODE *node)
 	    }
 	}
       cp0 = node->mark ? stackText (bql->s, node->mark) : 0 ;
-      if (! cp0 || ! strlen (cp0) > 0)
+      if (! cp0 || strlen (cp0) == 0)
 	{
 	  node->type = ROUND ;
 	  node->mark = 0 ;
@@ -342,33 +368,38 @@ static BOOL bqlGetTypes (BQL *bql, NODE *node, BOOL *okp)
 
   while (*okp && node)
     {
-      if (node->type == LIKE2) node->type = LIKE ;
-      if (node->type == AND2) node->type = AND ;
-      if (node->type == OR2) node->type = OR ;
-      if (node->type == XOR2) node->type = XOR ;
-      if (node->type == NOT2) node->type = NOT ;
-      if (node->type != DOLLAR && node->type != QUOTE)
+       if (node->type != DOLLAR && node->type != QUOTE)
 	{
 	  if (node->type == RAW && node->mark)
 	    {
-	      float z = 0 ;
+	      double z = 0 ;
 	      char cc ;
 	      const char **nam = bqlName ; 
 	      char *cp = stackText (bql->s, node->mark) ;
 	      for (type = 0 ; *nam ; nam++, type++)
 		if (! strcasecmp (cp, *nam) &&
+		    (strcasecmp (cp, "TITLE") || ! strcmp (cp, "TITLE")) &&
 		    (strcasecmp (cp, "DNA") || ! strcmp (cp, "DNA")) &&
-		    (strcasecmp (cp, "PEPTIDE") || ! strcmp (cp, "PEPTIDE"))
+		    (strcasecmp (cp, "PEPTIDE") || ! strcmp (cp, "PEPTIDE")) &&
+		    (strcasecmp (cp, "DATEDIFF") || ! strcmp (cp, "DATEDIFF"))
 		    )
 		  { 
 		    node->type = type ; ok = TRUE ; 
+		    if (node->type == LIKE2) node->type = LIKE ;
+		    if (node->type == AND2) node->type = AND ;
+		    if (node->type == OR2) node->type = OR ;
+		    if (node->type == XOR2) node->type = XOR ;
+		    if (node->type == NOT2) node->type = NOT ;
+
+		    if (node->type == NOT && node->up && node->up->type == WHERE)
+		      node->type = WHERE_AVOID ;
 		    if (node->type == SET_EQ) 
 		      {
 			NODE *up, *node2 = node ;
 			node->type = SET ; 
 			while ((up = node2->up) && up->down == node2 && up->type != COMA)
 			  { /* if we are inside a where, we rather want EQ */
-			    if (up->type == WHERE)
+			    if (up->type == WHERE || up->type == WHERE_IF)
 			      {
 				node->type = EQ ; /* if we are inside a where, we rather want EQ */
 				break ;
@@ -379,7 +410,7 @@ static BOOL bqlGetTypes (BQL *bql, NODE *node, BOOL *okp)
 		      }
 		    break ;
 		  }
-	      if (sscanf (cp, "%g%c", &z, &cc) == 1)
+	      if (sscanf (cp, "%lg%c", &z, &cc) == 1)
 		{ node->type = NUMBER ; node->z = z ; }
 	    }
 	  if (node->type == RAW && ! node->mark)
@@ -545,8 +576,10 @@ static BOOL bqlSpaceProtectSymbols (BQL *bql, NODE *node, BOOL *okp)
 		  *cq++ = ' ' ;
 		  break ;
 		case '.':
-		  if (0 &&
-		      (!strncasecmp(cp, ".class ",7) || !strcasecmp(cp, ".class"))
+		  if (
+		      (!strncasecmp(cp, ".class ",7) || !strcasecmp(cp, ".class")) ||
+		      (!strncasecmp(cp, ".name ",6) || !strcasecmp(cp, ".name")) ||
+		      (!strncasecmp(cp, ".timestamp ",11) || !strcasecmp(cp, ".timestamp"))
 		      )
 		    {
 		      n++ ;
@@ -932,6 +965,170 @@ static KEY goodClass (KEY classe, unsigned char *classFilterp)
 } /* goodClass */
 
 /*************************************************************************************/
+/* WHERE_AVOID xxx   become  COUNT { 1 where xxx} == 0 */
+static BOOL bqlSetAvoid (BQL *bql, NODE *node)
+{
+  NODE *up = node->up ;
+
+  if (up && node->type == WHERE_AVOID && up->type != WHERE)
+    node->type = ROUND ; /* do nothing */
+  if (node->type == WHERE_AVOID && ! node->right)
+     node->type = NOT ; /* no neeed for complications */
+  if (node->type == WHERE_AVOID && (node->right->type == SET || node->right->type >= ISA))
+     node->type = NOT ; /* no neeed for complications */
+  if (up && node->type == WHERE_AVOID && up->type == WHERE && up->up)
+    {
+      NODE *stuffNode = up ;
+      NODE *eqNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *zeroNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *countNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *curlyNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *fromNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *selectNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *comaNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *oneNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *whereNode = node ;  /* WHERE_AVOID becomes the where inside COUNT { 1 WHERE ..} == 0 */
+
+      /* new top WHERE node */
+      whereNode->type = WHERE ;  
+      whereNode->up = up->up ;
+      up->up->down = whereNode ;
+
+      if (whereNode->down == 0 &&
+	  up->up && up->up->type == COMA &&
+	  up->up->up && up->up->up->type == COMA &&
+	  up->up->up->down && up->up->up->down->type != WHERE
+	  )
+	{
+	  whereNode->down =  up->up->up->down ;
+	  whereNode->down->up = whereNode ;
+	  up->up->up->down = whereNode ;
+	  whereNode->up = up->up->up ;
+	  up->up->up->right = up->up->right ;
+	  if (up->up->right)
+	    up->up->right->up = up->up->up ;
+	}
+
+      if (0 && stuffNode->down)
+	{
+	  whereNode->down = stuffNode->down ;
+	  stuffNode->down->up = whereNode ;
+	  stuffNode->down = 0 ;
+	}
+
+      /* disconnect the WHERE_AVOID node */
+      if (node->right)
+	node->right->up = up ;
+      if (node == up->right)
+	up->right = node->right ;
+      if (node == up->down)
+	up->down = node->right ;
+
+   
+      eqNode->type = EQ ;
+      whereNode->right = eqNode ;
+      eqNode->up = whereNode ;
+      
+      countNode->type = COUNT ;
+      eqNode->down = countNode ;
+      countNode->up = eqNode ;
+      eqNode->right = zeroNode ;
+      zeroNode->up = eqNode ;
+
+      curlyNode->type = CURLY ;
+      countNode->right = curlyNode ;
+      curlyNode->up = countNode ;
+
+      fromNode->type = FROM ;
+      curlyNode->down = fromNode ;
+      fromNode->up = curlyNode ;
+
+      comaNode->type = COMA ;
+      fromNode->right = comaNode ;
+      comaNode->up = fromNode ;
+
+      comaNode->down = stuffNode ;
+      stuffNode->up = comaNode ;
+
+      selectNode->type = SELECT ;
+      fromNode->down = selectNode ;
+      selectNode->up = fromNode ;
+      selectNode->right = oneNode ;
+      oneNode->up = selectNode ;
+
+      oneNode->type = NUMBER ;
+      oneNode->isNumber = TRUE ;
+      oneNode->uu.i = 0 ;
+      oneNode->uType = ac_type_int ;
+      oneNode->z = 1 ;
+  
+      zeroNode->type = NUMBER ;
+      zeroNode->isNumber = TRUE ;
+      zeroNode->uu.i = 0 ;
+      zeroNode->uType = ac_type_int ;
+      zeroNode->z = 0 ;
+   }
+
+  if (node->right)
+    bqlSetAvoid (bql, node->right) ;
+  if (node->down)
+    bqlSetAvoid (bql, node->down) ;
+  
+  return TRUE ;
+}  /* bqlSetAvoid */
+
+/*************************************************************************************/
+/* COUNT { xxx } becomes COUNT {select 1 where xxx } */
+static BOOL bqlSetCurly (BQL *bql, NODE *node)
+{
+  NODE *up = node->up ;
+
+  if (0 &&
+      up && node->type == CURLY && node->down && node->down->type != WHERE)
+    {
+      NODE *stuffNode = node->down ;
+      NODE *fromNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *selectNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *oneNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *comaNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+      NODE *whereNode = (NODE *) halloc (sizeof (NODE), bql->h) ;
+
+      fromNode->type = FROM ;
+      fromNode->up = node ;
+      node->down = fromNode ;
+
+      selectNode->type = SELECT ;
+      fromNode->down = selectNode ;
+      selectNode->up = fromNode ;
+      selectNode->right = oneNode ;
+      oneNode->up = selectNode ;
+
+      comaNode->type = COMA ;
+      comaNode->up = fromNode ;
+      fromNode->right = comaNode ;
+
+      whereNode->type = WHERE ;  
+      whereNode->up = comaNode ;
+      comaNode->down = whereNode ;
+      whereNode->right = stuffNode ;
+      stuffNode->up = whereNode ;
+
+      oneNode->type = NUMBER ;
+      oneNode->isNumber = TRUE ;
+      oneNode->uu.i = 0 ;
+      oneNode->uType = ac_type_int ;
+      oneNode->z = 1 ;
+     }
+
+  if (node->right)
+    bqlSetCurly (bql, node->right) ;
+  if (node->down)
+    bqlSetCurly (bql, node->down) ;
+  
+  return TRUE ;
+}  /* bqlSetCurly */
+
+/*************************************************************************************/
 
 static BOOL bqlCleanParenthesis (BQL *bql, NODE *node)
 {
@@ -1124,6 +1321,11 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
       return TRUE ;
     }
   
+  if (node->type == CLNAM || node->type == NAM || node->type == TIMESTAMP)
+    {
+	  node->dclNode = node ;
+    }
+
   if ((node->type == QUOTE || node->type == DOLLAR) && node->up && node->up->type == CLASSE)
     {
       KEY classe ;
@@ -1268,6 +1470,7 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
 	}
       else if ( 
 	       ( node == up->right && (up->type == TAG || up->type == TTAG || up->type == HASTAG || up->type == MERGETAG)) ||
+	       ( node == up->down && up->up && (up->type == TAG || up->type == TTAG || up->type == HASTAG || up->type == MERGETAG) && (up->up->type == TAG || up->up->type == TTAG || up->up->type == HASTAG || up->up->type == MERGETAG || up->up->type == CLASSE)) ||
 	       ( node == up->down && (up->type == RIGHTOF && (up->up->type == TAG || up->type == TTAG || up->up->type == MERGETAG) ))
 		)
 	{
@@ -1279,8 +1482,9 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
 	    { node->key = tag ; node->type = TAGKEY ; }
 	  else
 	    {
-	      vtxtPrintf (bql->errTxt, "// ... tag %s unknown\n", cp0 ? cp0 : "NULL") ;
-	      return FALSE ;
+	      bql->warning = TRUE ;
+	      vtxtPrintf (bql->errTxt, "// ... WARNING: tag %s unknown\n", cp0 ? cp0 : "NULL") ; 
+	      node->key = 0 ; node->type = TAGKEY ;
 	    }
 	}
       else if ( 
@@ -1320,12 +1524,16 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
  */
 static BOOL bqlCheckOrderBy (BQL *bql)
 {
-  char *cp, *cp0 = bql->order_by ;
+  char cc, *cp, *cp0 = bql->order_by, *cr, *cs ;
   BOOL ok = TRUE ;
+  int var = 0 ;
+  char *bb, *buf = 0 ;
 
   if (! cp0)
     return TRUE ;
   
+  cp = cp0 + strlen (cp0) - 1 ;
+  while (cp > cp0 && *cp == ' ') *cp-- = 0 ;
   for (cp = cp0 ; ok && *cp ; cp++)
     switch (*cp)
       {
@@ -1348,11 +1556,102 @@ static BOOL bqlCheckOrderBy (BQL *bql)
       }
   if (ok) /* we are already in column number format */
     return TRUE ;
+  ok = TRUE ;
+  bb = buf = strnew (bql->order_by, bql->h) ;
+  for (cp = cp0 ; ok && *cp ; cp++)
+    switch (*cp)
+      {
+      case '+':
+      case '-':
+	*bb++ = *cp ;
+	break ;
+      default:
+	cr = cp ;
+	while (*cr && *cr != '+' && *cr != '-')
+	  cr++ ;
+	cc = *cr ;
+	*cr = 0 ;
+	var = 0 ;
+	dictFind (bql->dict, cp, &var) ;
+	*cr = cc ;
+	if (! var)
+	  {
+	    ok = FALSE ;
+	    break ;
+	  } 
+	cs = hprintf (bql->h, "%d", var) ;
+	while (*cs) *bb++ = *cs++ ;
+	cp = cr - 1 ; *cr = cc ;
+      }
+  if (ok) /* all named variables are known */
+    {
+      *bb++ = 0 ;
+      bql->order_by = buf ;
+      return TRUE ;
+    }
 
   vtxtPrintf (bql->errTxt, "// BQL ERROR 100\n// Sorry, bql cannot parse :\n//                  order_by %s\n", bql->order_by) ;
   vtxtPrintf (bql->errTxt, "// ...  The expected syntax is:\n// -either          order_by +3+4-2+5\n// -or              order_by -x+y-z+t\n// where the +- signs mean ascending or descending order (the leading + is optional)\n// and apply to exported variables refered by their names or their column numbers\n") ;
   return FALSE ;
 } /* bqlCheckOrderBy */
+
+/*************************************************************************************/
+/* translate variable names into column numbers
+ *  x+y-z   -> 1+2-3
+ */
+static BOOL bqlCheckTitleBy (BQL *bql)
+{
+  char *cp, *cp0 = bql->title_by, *cr, *cs, *ct ;
+  int var = 0 ;
+
+  if (! cp0)
+    return TRUE ;
+
+  cp0 = strnew (cp0, bql->h) ;
+  cp = cp0 + strlen (cp0) - 1 ;
+  while (cp > cp0 && *cp == ' ') *cp-- = 0 ;
+  
+  while (cp0)
+    {
+      /* split on , */
+      cp = cp0 ;
+      cr = strchr (cp, ',') ;
+      if (cr) *cr = 0 ;
+    
+      /* split on : */
+      cs = strchr (cp, ':') ;
+      var = 0 ;
+      if (cs)
+	{
+	  *cs = 0 ;
+	  while (*cp == ' ') 
+	    cp++ ;
+	  ct = cs ;
+	  while (ct > cp && *ct == ' ') 
+	    ct-- ;
+	  /* recognize the numbers of the variable names before the : */
+	  if (sscanf (cp, "%d", &var) == 1)
+	    ;
+	  else
+	    dictFind (bql->dict, cp, &var) ;
+
+	  if (var && var > 0 && var <= dictMax (bql->dict))
+	    {
+	      /* store the tite in the titles array */
+	      array (bql->titles, var - 1, const char*) = strnew (cs + 1, bql->h) ;
+	    }
+	  else
+	    {
+	      vtxtPrintf (bql->errTxt, "// BQL ERROR 110\n// Sorry, the variable name  or column number %s is not recognized in TITLE %s\n"
+			  , cs, bql->title_by) ;
+	      return FALSE ;
+	    } 
+	}
+      cp0 = cr ? cr + 1 : 0 ;
+    }
+
+  return TRUE ;
+} /* bqlCheckTitleBy */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -1383,8 +1682,58 @@ static BOOL bqlSplitOnSemicolumn (BQL *bql, NODE *node0)
     goto done ;
 
   cr = cp ?  strchr (cp, ';') : 0 ;
+ again:
   if (cr)
     {
+      /* check if we are inside a ' */
+      if (1)
+	{
+	  char *cs = cp ;
+	  int i = 0 ;
+	  for (;cs < cr ; cs++)
+	    if (*cs == '\'' && cs[-1] != '\\')
+	      i++ ;
+	  if (i % 2)
+	    {
+	      cr = strchr (cr + 1, ';') ;
+	      goto again ;
+	    }
+	}
+      /* check if we are inside a " */
+      if (1)
+	{
+	  char *cs = cp ;
+	  int i = 0 ;
+	  for (;cs < cr ; cs++)
+	    if (*cs == '"' && cs[-1] != '\\')
+	      i++ ;
+	  if (i % 2)
+	    {
+	      cr = strchr (cr + 1, ';') ;
+	      goto again ;
+	    }
+	}
+      /* check if we are inside a ( */
+      if (1)
+	{
+	  char *cs = cp ;
+	  int i = 0, j = 0, k = 0 ;
+	  for (;cs < cr ; cs++)
+	    switch ((int) *cs)
+	      {
+	      case '(': i++ ; break ; 
+	      case '[': j++ ; break ; 
+	      case '{': k++ ; break ; 
+	      case ')': i-- ; break ; 
+	      case ']': j-- ; break ; 
+	      case '}': k-- ; break ;
+	      } 
+	  if (i != 0 || j != 0 || k != 0)
+	    {
+	      cr = strchr (cr + 1, ';') ;
+	      goto again ;
+	    }
+	}
       *cr++ = 0 ;
       while (cp && *cp == ' ') cp++ ;
       while (cr && *cr == ' ') cr++ ;
@@ -1571,7 +1920,7 @@ static BOOL bqlAtomize (BQL *bql, NODE * node, Array aa, BQLTYPE type)
   BOOL ok = FALSE ;
 
   if (node->type == CURLY) return FALSE ;
-  if (node->type == type && node->down && type == WHERE)
+  if (node->type == type && node->down && (type == WHERE || type == WHERE_IF))
     {
       NODE *up = node->up ;
       NODE *down = node->down ;
@@ -1579,7 +1928,7 @@ static BOOL bqlAtomize (BQL *bql, NODE * node, Array aa, BQLTYPE type)
       SS *ss = arrayp (aa, arrayMax(aa), SS) ;
 
       ok = TRUE ;
-      ss->node = right ; ss->node->up = 0 ;
+      ss->node = right ; ss->node->up = 0 ; ss->type = type ;
       *node = *down ;
       node->up = up ; ss->node->up = 0 ;
     }
@@ -1670,6 +2019,7 @@ static BOOL bqlAtomizeWhere (BQL *bql, Array froms, NODE *node)
       break ;
     case DNA:
     case PEPTIDE:
+    case DATEDIFF:
     case TAG:
       if (node->up)
 	switch (node->up->type)
@@ -1755,6 +2105,7 @@ static BOOL bqlAtomizeFrom (BQL *bql, Array froms, NODE *node)
       return ok ;
     case DNA:
     case PEPTIDE:
+    case DATEDIFF:
       if (node->right && node->right->type == COMA)
 	{
 	  bqlDoAtomizeFrom (bql, froms, node->right->down) ; 
@@ -1881,24 +2232,28 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
       ok |= bqlAtomize (bql, node0, selects, SELECT) ;
       ok |= bqlAtomize (bql, node0, froms, FROM) ;
       ok |= bqlAtomize (bql, node0, wheres, WHERE) ;
+      ok |= bqlAtomize (bql, node0, wheres, WHERE_IF) ;
 
       for (i = 0 ; i < arrayMax (selects) ; i++)
 	{
 	  ok |= bqlAtomize (bql, arrayp (selects, i, SS)->node, selects, SELECT) ;
 	  ok |= bqlAtomize (bql, arrayp (selects, i, SS)->node, froms, FROM) ;
 	  ok |= bqlAtomize (bql, arrayp (selects, i, SS)->node, wheres, WHERE) ;
+	  ok |= bqlAtomize (bql, arrayp (selects, i, SS)->node, wheres, WHERE_IF) ;
 	}
       for (i = 0 ; i < arrayMax (froms) ; i++)
 	{
 	  ok |= bqlAtomize (bql, arrayp (froms, i, SS)->node, selects, SELECT) ;
 	  ok |= bqlAtomize (bql, arrayp (froms, i, SS)->node, froms, FROM) ;
 	  ok |= bqlAtomize (bql, arrayp (froms, i, SS)->node, wheres, WHERE) ;
+	  ok |= bqlAtomize (bql, arrayp (froms, i, SS)->node, wheres, WHERE_IF) ;
 	}
       for (i = 0 ; i < arrayMax (wheres) ; i++)
 	{
 	  ok |= bqlAtomize (bql, arrayp (wheres, i, SS)->node, selects, SELECT) ;
 	  ok |= bqlAtomize (bql, arrayp (wheres, i, SS)->node, froms, FROM) ;
 	  ok |= bqlAtomize (bql, arrayp (wheres, i, SS)->node, wheres, WHERE) ;
+	  ok |= bqlAtomize (bql, arrayp (wheres, i, SS)->node, wheres, WHERE_IF) ;
 	}
   
       /* creata a new variable for all the dummy cases inside the selects
@@ -1970,6 +2325,7 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 	  SS *ss = arrayp (wheres, i, SS) ; 
 	  if (ss->node)
 	    bqlAtomizeWhere (bql, froms, ss->node) ;
+	  ss->type = WHERE ;
 	}
     }
 
@@ -2022,7 +2378,7 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 
   /* order the froms by level */
   nn = 1 ; level = 0 ;
-  while (level++, nn)
+  while (level++, level < 128 && nn)
     {
       int ii, jj ;
       nn = 0 ;
@@ -2096,10 +2452,10 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 
 	  if (! s1->node)
 	    continue ;
-	  if (s1->node->type != WHERE)
+	  if (s1->node->type != WHERE && s1->node->type != WHERE_IF)
 	    {
 	      NODE *where = (NODE *) halloc (sizeof (NODE), bql->h) ;
-	      where->type = WHERE ;
+	      where->type = s2->type ; /* WHERE ; */
 	      where->down = s1->node ;
 	      where->right = s2->node ;
 	      if (where->right)  where->right->up = where ;
@@ -2179,7 +2535,8 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 
 static BOOL bqlDezingue (BQL *bql, NODE* node)
 {
-  if (node->type == WHERE &&
+  if (
+      (node->type == WHERE || node->type == WHERE_IF) &&
       node->right &&
       node->right->type == COUNT
       )
@@ -2439,7 +2796,7 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
 	  *cq = cc ;
 	  if (cp[1] && lexword2key(ccl, &classe, _VClass))  
 	    {
-	      int ntilde = 0 ;
+	      int ntilde = 0, nT = 0 ;
 	      char *ncoma = 0 ;
 	      cr = cq ;
 	      ncoma = strchr (cq, ',') ;
@@ -2455,12 +2812,36 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
 	      if (*cr) 
 		{ 
 		  nw = 1 ;
-		  while (*cr && (isalnum(*cr) || *cr == '_' || *cr == '*' || *cr == '?')) cr++ ;
-		  while (*cr == ' ') cr++ ;
+		  while (1)
+		    {
+		      while (*cr && (isalnum(*cr) || *cr == '_' || *cr == '*' || *cr == '?')) cr++ ;
+		      while (*cr == ' ') cr++ ;
+		      if (*cr && 
+			  (
+			   (cr[0] == '-' && cr[1] =='>') ||
+			   (cr[0] == '>' && cr[1] =='>') ||
+			   (cr[0] == '#') 
+			   )
+			  )
+			{ cr += 2 ;nT = 1; }
+		      else break ;
+		    }
 		  if (*cr) nw++ ;
 		}
 	      node0->mark = stackMark (bql->s) ;
-	      if (ncoma == 0 && ntilde == 0 && nw == 1 && !strstr (cq, "where"))
+	      if (ncoma == 0 && ntilde == 0 && nT == 1)
+		{
+		  while (*cq == ' ') cq++ ;
+		  if (*cr)
+		    {
+		      char *cr2 = strnew (cr, bql->h) ;
+		      *cr = 0 ;
+		      cz = messprintf ("select _%d from _%d in  class %s where _%d ~ %s", nsc, nsc, cp+1, nsc, ac_protect (lexcleanup (cr2, bql->h), bql->h)) ;
+		    }
+		  else
+		    cz = messprintf ("select _%d from _%d in  class %s", nsc, nsc, cp+1) ;
+		}
+	      else if (ncoma == 0 && ntilde == 0 && nw == 1 && !strstr (cq, "where"))
 		{
 		  KEY tag = 0 ;
 		  while (*cq == ' ') cq++ ;
@@ -2482,13 +2863,66 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
 		cz = messprintf ("select _%d from _%d in class %s where _%d %s", nsc, nsc, ccl, nsc, cq) ;
 	      else
 		{
-		  char *cw, *cs, *ct ;
+		  char *cw, *cs, *ct, *cfrom, *newDna = "" ;
+		  int k = 0;
+		  /* after the coma we want to edit ', >tag' into ', ?->tag' */
+		  if (0 && ncoma)
+		    {
+		      cs = cr + 1 ;
+		      while (*cs == ' ' ) cs++ ;
+		      if (*cs == '>')
+			{
+			  cr = hprintf (bql->h, ", ?-%s", cs) ;
+			}
+		      else if (*cs == '#')
+			{
+			  cr = hprintf (bql->h, ", ?%s", cs) ;
+			}
+		    }
+
 		  /* we need to edit @ into _%d */
-		  ct = cs = halloc (1 + 5 * strlen(cq), bql->h) ; /* room to add the nsc numbers after each occurence of @ */
+		  ct = cs = halloc (1 + 5 * strlen(cq), bql->h) ; /* room to add the nsc numbers after each occurence of ? */
+		  
+		  cfrom = strcasestr (cr, "from") ;
 		  cr-- ;
 		  while (*++cr)
 		    switch ((int)*cr)
 		      {
+		      case ',':
+			k = 0 ; 
+			*ct++ = *cr ;
+			break ;
+		      case '>':
+			if (k == 0 && (cr < cfrom || ! cfrom))
+			  {
+			    *ct++ = '_' ; 
+			    {
+			      char *cv = messprintf ("%d", nsc) ;
+			      while (*cv)
+				*ct++ = *cv++ ;
+			    } 
+			    *ct++ = '-' ;
+			    *ct++ = '>' ;
+			  }
+			else 
+			  *ct++ = *cr ;
+			k = 1 ;
+			break ;
+		      case '#':
+			if (k == 0 && (cr < cfrom || ! cfrom))
+			  {
+			    *ct++ = '_' ; 
+			    {
+			      char *cv = messprintf ("%d", nsc) ;
+			      while (*cv)
+				*ct++ = *cv++ ;
+			    } 
+			    *ct++ = '#' ;
+			  }
+			else 
+			  *ct++ = *cr ;
+			k = 1 ;
+			break ;
 		      case '?':
 			*ct++ = '_' ; 
 			{
@@ -2496,9 +2930,46 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
 			  while (*cv)
 			    *ct++ = *cv++ ;
 			} 
+			k = 1 ;
+			break ;
+		      case 'D':
+			if (k == 0 && (cr < cfrom || ! cfrom) && cr[1] == 'N' && cr[2] == 'A' )
+			  {
+			    char *ct1 = ct ;
+			    char *ct2 = cr ;
+			    char cc3, *ct3 = strchr (cr, ',') ;
+			    
+			    if (ct3 && cfrom && ct3 > cfrom)
+			      ct3 = cfrom ;
+			    if (!ct3 && cfrom)
+			      ct3 = cfrom ;
+			    if (ct3)
+			      { cc3 = *ct3 ; *ct3 = 0 ; }
+			    *ct++ = '_' ; 
+			    *ct++ = 'd' ;
+			    {
+			      char *cv = messprintf ("%d", nsc) ;
+			      while (*cv)
+				*ct++ = *cv++ ;
+			    } 
+			    newDna = hprintf (bql->h, "%s , %s in %s (_%s)", newDna, ct1, ct2, ct1+2) ;
+			    if (ct3)
+			      { *ct3 = cc3 ; cr = ct3 ; }
+			    else
+			      cr += 2 ;
+			    k = 1 ;
+			    break ;
+			  }
+			else 
+			  *ct++ = *cr ;
+			k = 1 ;
+			break ;
+		      case ' ':
+			*ct++ = *cr ;
 			break ;
 		      default:
 			*ct++ = *cr ;
+			k = 1 ;
 			break ;
 		      }
 		  *ct = 0 ;
@@ -2509,7 +2980,7 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
 		  if (ncoma == 0)
 		    cz = messprintf ("select _%d from _%d in class %s %s %s", nsc, nsc, ccl, cq, cw) ;
 		  else
-		    cz = messprintf ("select _%d %s from _%d in class %s %s", nsc, cq, nsc, ccl, cw) ;
+		    cz = messprintf ("select _%d %s from _%d in class %s %s %s", nsc, cq, nsc, ccl, cw, newDna) ;
 		}
 	      pushText (bql->s, cz) ;
 	      
@@ -2577,7 +3048,13 @@ static BOOL bqlCreatePhonyVariables  (BQL *bql, NODE *node0)
     }
       
   cp = stackText (bql->s, node0->mark) ;
-  if (debug && cz)
+  if (cp && cp == strstr (cp,"select ") &&  /* 2018_09_03 protect  select ?paper ; "k*" */
+      node0->type == DOLLAR &&
+      node0->up &&
+      node0->up->type == SEMICOLUMN)
+    node0->type = RAW ;
+
+ if (debug && cz)
     fprintf (stderr, "....... %s\n", cz) ;
   return TRUE ;
 } /* bqlCreatePhonyVariables */
@@ -2740,18 +3217,6 @@ static BOOL bqlSetDclNodeDepth (BQL *bql, NODE *node)
   NODE *down = node ? node->down : 0 ;
   BOOL ok = TRUE ;
 
-#ifdef JUNK
-  if ((node->type == FROM || node->type == COMA) && right && right->type != COMA)
-    { /* simplify exapand by insuring
-       * FROM->COMA->COMA ...  NULL when moving right 
-       */
-      NODE *new = (NODE *) halloc (sizeof (NODE), bql->h) ;
-      new->down = right ; right->up = new ;
-      node->right = new ; new->up = node ;
-      new->type = COMA ;
-      right = new ;
-    }
-#endif
   if (node && node->type == VAR)
     {   
       node->nCol = 1 ;
@@ -2797,6 +3262,9 @@ static BOOL bqlSetDclNodeDepth (BQL *bql, NODE *node)
 		 *      by b in a[1], c in b[1]
 		 */
 	      NODE *parent ;
+
+	      if (! varNode->dclNode)
+		messcrash ("no dclNode") ;
 	      varNode->dclNode->col = depth ;
 	      parent = tagNode->dclNode ;
 	      if (parent)
@@ -2842,7 +3310,8 @@ static BOOL bqlSort (BQL *bql)
 {
   BOOL ok = FALSE ;
   if (bql && bql->results)
-    ok = ac_table_sort_compress (bql->results, bql->order_by, bql->errTxt) ;
+    ok = ac_table_sort_compress (bql->results, bql->order_by, bql->errTxt) ; 
+  bql->isSorted = TRUE ;
   return ok ;
 }
 
@@ -2850,22 +3319,25 @@ static BOOL bqlSort (BQL *bql)
 
 BOOL bqlExport (BQL *bql, char beauty, BOOL showTitle, int beginLine, int maxLine, ACEOUT ao) 
 {
-  int colorControlColumn = 0 ;
   int col ;
   Array cols = arrayHandleCreate (12, int, bql->h) ;
   const char *more = 0 ;
   vTXT txt = vtxtHandleCreate (0) ;
   const char **titles = bql->titles ? arrayp (bql->titles, 0, const char*) : 0 ;
 
+  if (! bql->isSorted && ! bql->doNotSort)
+    bqlSort (bql) ;
+
   for (col = 0 ; titles[col] && col < arrayMax (bql->titles) ; col++)
     array (cols, col, int) = col + 1 ;
-  array (cols, col, int) = 0 ; /* zero terminate */
+  array (cols,  bql->results->cols, int) = 0 ; /* zero terminate */
 
+  
   if (bql->results->rows && bql->results->cols)
     ac_table_display (txt, bql->results
 		      , showTitle ? titles : 0
 		      , arrayp (cols, 0, int)
-		      , colorControlColumn 
+		      , 0
 		      , beginLine, maxLine, more
 		      , beauty
 		      ) ;
@@ -2896,6 +3368,21 @@ void uBqlDestroy (void *vp)
 } /* uBqlDestroy */
 
 /*************************************************************************************/
+
+void uBqlIterDestroy (void *vp)
+{
+  BQL_ITER *iter = (BQL_ITER *) vp ;
+  if (iter)
+    {
+      if (iter->magic == uBqlIterDestroy)
+	iter->magic = NULL ;
+      else
+	messcrash ("bqlDestroy received a non BQL_ITER pointer") ;
+      ac_free (iter->h) ;
+    }
+} /* uBqlIterDestroy */
+
+/*************************************************************************************/
 /*************************************************************************************/
 
 static void bqlClean (BQL *bql, NODE *node)
@@ -2921,6 +3408,7 @@ static void bqlClean (BQL *bql, NODE *node)
       stackDestroy (node->pepStack) ;
       ac_free (node->br) ;
       node->key = node->uu.k = 0 ;
+      node->timeStamp = 0 ;
       node->uType = 0 ;
       node->z = 0 ;
       node->isNumber = FALSE ; 
@@ -2968,7 +3456,11 @@ static BOOL bqlDoExportLine (BQL *bql, BOOL test)
 	   if (var->dclNode)
 	     { 
 	       if (row == 0)
-		 array (bql->titles, col + 1, char*) = stackText (bql->s, var->dclNode->mark) ;
+		 {
+		   char *cr = array (bql->titles, col + 1, char*) ;
+		   if (! cr || ! *cr)
+		     array (bql->titles, col + 1, char*) = stackText (bql->s, var->dclNode->mark) ;
+		 }
 	       if (!test)
 		 ac_table_insert_type (table, row, ++col, 0, ac_type_empty) ;
 	       if (debug) fprintf (stderr, "\t") ;
@@ -2982,17 +3474,33 @@ static BOOL bqlDoExportLine (BQL *bql, BOOL test)
 		 }
 	       else if (var->dclNode->isNumber)
 		 {
-		   int x1 = var->dclNode->z ;
-		   float z1 = var->dclNode->z ;
-		   if (x1 == var->dclNode->z)
+		   int z1 = var->dclNode->z ;
+		   float z2 = var->dclNode->z ;
+		   long long int z3 = var->dclNode->z ;
+		   double z4 = var->dclNode->z ;
+		   if (z1 == var->dclNode->z)
 		     {
 		       if (test) return TRUE ;
-		       ac_table_insert_type (table, row, col, &x1, ac_type_int) ;
+		       ac_table_insert_type (table, row, col, &z1, ac_type_int) ;
 		     }
-		   else
+		   else if (z2 == var->dclNode->z)
 		     {
 		       if (test) return TRUE ;
-		       ac_table_insert_type (table, row, col, &z1, ac_type_float) ;
+		       ac_table_insert_type (table, row, col, &z2, ac_type_float) ;
+		     }
+		   else if (z3 == var->dclNode->z)
+		     {
+		       char buf[256] ;
+		       if (test) return TRUE ;
+		       sprintf (buf, "%lld",  z3) ;
+		       ac_table_insert_text (table, row, col, buf) ;
+		     }
+		   else if (z4 == var->dclNode->z)
+		     {
+		       char buf[256] ;
+		       if (test) return TRUE ;
+		       sprintf (buf, "%lg",  z4) ;
+		       ac_table_insert_text (table, row, col, buf) ;
 		     }
 		   if (debug) fprintf (stderr, "%g", var->dclNode->z) ;
 		 }
@@ -3035,6 +3543,8 @@ static BOOL bqlDoExportLine (BQL *bql, BOOL test)
 		       ac_table_insert_type (table, row, col, &(uu.f), ac_type_float) ;
 		       if (debug) fprintf (stderr, "%g", uu.f);
 		       break ;
+		     case _LongInt:
+		     case _LongFloat:
 		     case _Text:
 		       if (uu.s)
 			 { 
@@ -3130,7 +3640,7 @@ static BOOL bqlExpandNext (BQL *bql, NODE *coma)
       if (bql->counting)
 	{
 	  ok = TRUE ;
-	  bql->counting++ ;
+	  if(bql->inCurly) bql->counting++ ;
 	}
       else if (bql->mayBe)
 	return TRUE ;
@@ -3154,7 +3664,7 @@ static BOOL bqlExpandClass (BQL *bql, NODE *node, NODE *coma)
   KEY classe = right->key ;
   KEY classFilter = right->uType ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
   
   for (i = 1 ; i < lexMax (classe) ; i++)
@@ -3329,6 +3839,33 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
   
   switch (node->type)
     {
+    case NOT:
+      *zp = 0 ;
+      if (! right)
+	return 0 ;
+      ccp = bqlExpandEquation (bql, right, pass, zp) ;
+      if (ccp == assVoid (1))  /* a number */
+	{
+	  if (*zp == 0) /* FALSE */ 
+	    *zp = 1 ;   /* return TRUE */
+	  else       
+	    *zp = 0 ;   /* TRUE */
+	  *zp = 1 ;     /* return FALSE */
+	  return ccp ;  /* return a number */
+	}
+      else if (ccp)   /* TRUE, a text or the name of a variable */
+	{
+	   *zp = 0 ;   /* return FALSE */
+	   ccp = assVoid (1) ; /* a number */
+	   return ccp ;  /* return a number */
+	}
+      else /* !ccp || ! *ccp : i.e.  FALSE */
+	{
+	  *zp = 1 ;   /* return TRUE */
+	  ccp = assVoid (1) ; /* a number */
+	  return ccp ;  /* return a number */
+	}
+      break ;
     case ROUND:
     case CURLY:
     case SET:
@@ -3374,6 +3911,16 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 	  if (zp) *zp = node->z ;
 	  ccp = assVoid (2) ;
 	} 
+      else if (node && node->dnaStack)
+	{
+	  ccp = stackText (node->dnaStack, 0) ;
+	}
+       else if (node && node->pepStack)
+	{
+	  ccp = stackText (node->pepStack, 0) ;
+	}
+      else if (node && node->type == VAR && ! node->key)
+	ccp = node->dclNode->uu.s ; /* 2020_10_06, was ccp = 0 */
       else if (node)
 	{     
 	  if (node->dclNode->uType == _Text)
@@ -3381,7 +3928,7 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 	  else if (node->dclNode->key)
 	    ccp = name (node->dclNode->key) ;
 	  else if (node->dclNode->uType >= _LastC)
-	    ccp = name (node->dclNode->uu.k) ;
+	    ccp = node->dclNode->uu.k ? name (node->dclNode->uu.k) : (bql->counting ? 0 : (char *)1) ;
 	} 
       return ccp ;
       break ;
@@ -3405,17 +3952,7 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 	  {
 	    if (node->right->type == CURLY)
 	      {
-		NODE *from ;
-		if (node->right->right == 0 &&
-		    node->right->down &&
-		    node->right->down->type == FROM
-		    )
-		  {
-		    from = node->right->down ;
-		    from->up = node ;
-		    node->right = from ;
-		    bqlExpandFrom (bql, node, 0) ;
-		  }
+		bqlExpandCurly (bql, node->right) ;
 	      }
 	    else if (node->right->type == FROM)
 	      bqlExpandFrom (bql, node, 0) ;
@@ -3430,7 +3967,7 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 	    node->down = 0 ;
 	    ac_free (new) ;
 	  } 
-	ccp = assVoid (1) ;
+	ccp = assVoid (1) ;  /* return a number */
 	return ccp ;
       }
       break ; 
@@ -3579,10 +4116,10 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 		  *zp = 0 ;
 		else
 		  {
-		    if (k1 < 0)
+		    if (k1 <= 0)
 		      {
 			int k3 = -k1/k2 ;
-			k1 += (k3 +1) * k2 ;
+			k1 = z1 + .5 + (k3 +1) * k2 ;
 		      }
 		    *zp = k1 % k2 ;
 		  }
@@ -3653,7 +4190,8 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 		  {
 		    if (var->dclNode->nCol)
 		      {
-			var->bsMark = bsHandleMark (obj, var->bsMark, bql->h) ;  
+			var->bsMark = bsHandleMark (obj, var->bsMark, bql->h) ; 
+			var->timeStamp = bsGetTimeStamp (obj) ;
 			var->myBsmark = TRUE ; 
 		      }
 		    var->parent = var->dclNode ;
@@ -3689,6 +4227,26 @@ static const char *bqlExpandEquation (BQL *bql, NODE *node, int pass, double *zp
 		    var->isNumber = TRUE ;
 		    var->isDate = FALSE ;
 		    var->z = var->uu.f ; 
+		    ccp = assVoid(1) ;  
+		    if (zp) *zp = var->z ;
+		  }
+		else if (var->uType == _LongInt)
+		  {
+		    long long int lli = 0 ;
+		    var->isNumber = TRUE ;
+		    var->isDate = FALSE ;
+		    var->z = 0 ;
+		    if (var->uu.s) sscanf (var->uu.s, "%lli", &(lli)) ;
+		    var->z = lli ;
+		    ccp = assVoid(1) ;  
+		    if (zp) *zp = var->z ;
+		  }
+		else if (var->uType == _LongFloat)
+		  {
+		    var->isNumber = TRUE ;
+		    var->isDate = FALSE ;
+		    var->z = 0 ;
+		    if (var->uu.s) sscanf (var->uu.s, "%lf", &(var->z)) ; 
 		    ccp = assVoid(1) ;  
 		    if (zp) *zp = var->z ;
 		  }
@@ -3738,7 +4296,7 @@ static BOOL bqlExpandObject (BQL *bql, NODE *node, NODE *coma)
   KEYSET ks = keySetCreate () ;
   NODE *where = node->up ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
   
   if (objClass && down3)
@@ -3844,8 +4402,8 @@ static BOOL bqlExpandObject (BQL *bql, NODE *node, NODE *coma)
 /*************************************************************************************/
 /*************************************************************************************/
 /* syntax
-   select s,dna from s in class sequence, dna in PEPTIDE(s)
-   select s,dna from s in class sequence, dna in PEPTIDE(s,x, x+7) or any equation
+   select s,pep from s in class sequence, pep in PEPTIDE(s)
+   select s,pep from s in class sequence, pep in PEPTIDE(s,x, x+7) or any equation
 */
 
 
@@ -3863,7 +4421,7 @@ static BOOL bqlExpandPeptide (BQL *bql, NODE *node, NODE *coma)
   NODE *dna2Node = dna2Coma ? dna2Coma->down : 0 ;
   int dna1 = -99999999, dna2 =  -99999999 ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
 
   if (! dnaVar && dnaVarComa->type == VAR)
@@ -3893,7 +4451,7 @@ static BOOL bqlExpandPeptide (BQL *bql, NODE *node, NODE *coma)
     }
   if (ok && dnaVar->type == VAR && dnaVar->dclNode && dnaVar->dclNode->key)
     {
-      var->dnaD = peptideTranslate (dnaVar->dclNode->key, TRUE) ;
+      var->dnaD = peptideTranslate (dnaVar->dclNode->key, FALSE) ;
     }
   if (ok && var->dnaD)
     {
@@ -3911,29 +4469,40 @@ static BOOL bqlExpandPeptide (BQL *bql, NODE *node, NODE *coma)
       else
 	{ d1 = dna2 ; d2 = dna1 ; reverse = TRUE ; }
       
-      if (d1 > 0 && d1 >  arrayMax (dna)) /* attention because arrayMax is unsigned int */
-	d1 = arrayMax (dna) ;
-      if (d2 > 0 && d2 >  arrayMax (dna))
-	d2 = arrayMax (dna) ;
-      if (d1 < 1) d1 = 1 ;
-      if (d2 < 1) d2 = 1 ;
-      if (d1 <= d2 && d1 > 0 && !reverse)  /* we cannot reverse a peptide */
-	{
-	  int i ;
-	  unsigned char *cp, *cq ;
-	  Array pepPiece ;
-	  
-	  dna1 = d1 ;
-	  pepPiece = arrayCreate (d2 - d1 + 2, char) ;
-	  array (pepPiece, d2 - d1 + 1, unsigned char) = 0 ; /* zero terminate */
-	  arrayMax (pepPiece) = d2 - d1 + 1 ; /* restore */
-	  for (i = 0, cp = arrp (pepPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
-	       i < d2 - d1 + 1 ; cp++, cq++, i++)
-	    *cp = pepDecodeChar [ (int)*cq] ;
-	  var->pepStack = stackCreate (0) ;
-	  pushText (var->pepStack, arrp (pepPiece, 0, char)) ;
-	  arrayDestroy (pepPiece) ;
-	  ok = TRUE ;
+      if ( 
+	  (
+	   d1 > 0 && d1 >  arrayMax (dna) && /* attention because arrayMax is unsigned int */
+	   d2 > 0 && d2 >  arrayMax (dna)
+	   ) ||
+	  ( d1 < 1 && d2 < 1)
+	   )
+	;
+      else
+	{	
+	  if (d1 > 0 && d1 >  arrayMax (dna)) /* attention because arrayMax is unsigned int */
+	    d1 = arrayMax (dna) ;
+	  if (d2 > 0 && d2 >  arrayMax (dna))
+	    d2 = arrayMax (dna) ;
+	  if (d1 < 1) d1 = 1 ;
+	  if (d2 < 1) d2 = 1 ;
+	  if (d1 <= d2 && d1 > 0 && !reverse)  /* we cannot reverse a peptide */
+	    {
+	      int i ;
+	      unsigned char *cp, *cq ;
+	      Array pepPiece ;
+	      
+	      dna1 = d1 ;
+	      pepPiece = arrayCreate (d2 - d1 + 2, char) ;
+	      array (pepPiece, d2 - d1 + 1, unsigned char) = 0 ; /* zero terminate */
+	      arrayMax (pepPiece) = d2 - d1 + 1 ; /* restore */
+	      for (i = 0, cp = arrp (pepPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
+		   i < d2 - d1 + 1 ; cp++, cq++, i++)
+		*cp = pepDecodeChar [ (int)*cq] ;
+	      var->pepStack = stackCreate (0) ;
+	      pushText (var->pepStack, arrp (pepPiece, 0, char)) ;
+	      arrayDestroy (pepPiece) ;
+	      ok = TRUE ;
+	    }
 	}
       arrayDestroy (var->dnaD) ;
       arrayDestroy (var->dnaR) ;
@@ -3977,7 +4546,7 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
   NODE *dna2Node = dna2Coma ? dna2Coma->down : 0 ;
   int dna1 = -99999999, dna2 =  -99999999 ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
 
   if (! dnaVar && dnaVarComa && dnaVarComa->type == VAR)
@@ -4025,35 +4594,47 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
 	{ d1 = dna2 ; d2 = dna1 ; reverse = TRUE ; }
       if (reverse)
 	{
-	  dna = var->dnaR = arrayCopy (var->dnaD) ;
+	  dna = var->dnaR = dnaCopy (var->dnaD) ;
 	  reverseComplement (var->dnaR) ;
 	}
       
-      if (d1 > 0 && d1 >  arrayMax (dna)) /* attention because arrayMax is unsigned int */
-	d1 = arrayMax (dna) ;
-      if (d2 > 0 && d2 >  arrayMax (dna))
-	d2 = arrayMax (dna) ;
-      if (d1 < 1) d1 = 1 ;
-      if (d2 < 1) d2 = 1 ;
-      if (d1 <= d2 && d1 > 0)
-	{
-	  int i ;
-	  unsigned char *cp, *cq ;
-	  Array dnaPiece ;
-	  
-	  if (reverse) 
-	    dna1 = arrayMax (dna) - d2 + 1 ; 
-	  else
-	    dna1 = d1 ;
-	  dnaPiece = arrayCreate (d2 - d1 + 2, char) ;
-	  array (dnaPiece, d2 - d1 + 1, unsigned char) = 0 ; /* zero terminate */
-	  arrayMax (dnaPiece) = d2 - d1 + 1 ; /* restore */
-	  for (i = 0, cp = arrp (dnaPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
-	       i < d2 - d1 + 1 ; cp++, cq++, i++)
-	    *cp = dnaDecodeChar [ (int)*cq] ;
-	  var->dnaStack = stackCreate (0) ;
-	  pushText (var->dnaStack, arrp (dnaPiece, 0, char)) ;
-	  arrayDestroy (dnaPiece) ;
+     
+      if (
+	  (
+	   d1 > 0 && d1 >  arrayMax (dna) && /* attention because arrayMax is unsigned int */
+	   d2 > 0 && d2 >  arrayMax (dna)
+	   ) ||
+	  ( d1 < 1 && d2 < 1)
+	  )
+	;
+      else
+	{	
+	  if (d1 > 0 && d1 >  arrayMax (dna)) /* attention because arrayMax is unsigned int */
+	    d1 = arrayMax (dna) ;
+	  if (d2 > 0 && d2 >  arrayMax (dna))
+	    d2 = arrayMax (dna) ;
+	  if (d1 < 1) d1 = 1 ;
+	  if (d2 < 1) d2 = 1 ;
+	  if (d1 <= d2 && d1 > 0)
+	    {
+	      int i ;
+	      unsigned char *cp, *cq ;
+	      Array dnaPiece ;
+	      
+	      if (reverse) 
+		dna1 = arrayMax (dna) - d2 + 1 ; 
+	      else
+		dna1 = d1 ;
+	      dnaPiece = arrayCreate (d2 - d1 + 2, char) ;
+	      array (dnaPiece, d2 - d1 + 1, unsigned char) = 0 ; /* zero terminate */
+	      arrayMax (dnaPiece) = d2 - d1 + 1 ; /* restore */
+	      for (i = 0, cp = arrp (dnaPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
+		   i < d2 - d1 + 1 ; cp++, cq++, i++)
+		*cp = dnaDecodeChar [ (int)*cq] ;
+	      var->dnaStack = stackCreate (0) ;
+	      pushText (var->dnaStack, arrp (dnaPiece, 0, char)) ;
+	      arrayDestroy (dnaPiece) ;
+	    }
 	}
       arrayDestroy (var->dnaD) ;
       arrayDestroy (var->dnaR) ;
@@ -4078,6 +4659,187 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
 } /* bqlExpandDNA */
 
 /*************************************************************************************/
+/* syntax
+   select dd from dd in DATEDIFF(unit,date_1, date_2)
+   unit is one of year, month, day, hour, minute, second
+                  y, m, d, h, n, s  
+                              n is for miNute as is SQL
+select p1, p2, d1, d2 from a in class author where a == tom, p1 in a->papers, p2 in a->papers, d1 in p1->published, d2 in p2->published where DATEDIFF('year',d1,d2)> 0
+*/
+static BOOL bqlExpandDateDiff (BQL *bql, NODE *node, NODE *coma)
+{
+  BOOL ok = FALSE, ok2 ;
+  NODE *var = node->down ;
+  NODE *where = node->up ;
+  NODE *dd = node->right ; /* DATEDIFF */
+  NODE *ddComa = dd ? dd->right : 0 ;
+  /*  NODE *unit = ddComa ? ddComa->down : 0 ;  $year */
+  NODE *d1Coma = ddComa ? ddComa->right : 0 ;
+  NODE *d1Node = d1Coma ? d1Coma->down : 0 ;   /* date1 */
+  NODE *d2Node = d1Coma ? d1Coma->right : 0 ;  /* date2 */
+
+  if (where && where->type != WHERE && where->type != WHERE_IF)
+    where = 0 ;
+
+  if (d2Node)
+    ok = TRUE ;
+  if (ok && ! d1Node->dclNode)
+    ok = FALSE ;
+  if (ok && ! d2Node->dclNode)
+    ok = FALSE ;
+  if (ok && ! d1Node->dclNode->isDate)
+    ok = FALSE ;
+  if (ok && ! d2Node->dclNode->isDate)
+    ok = FALSE ;
+
+  ok = TRUE ;
+  if (ok)
+    {
+      var->uType = _Int ;
+      var->dclNode->uType = _Int ;
+      var->dclNode->isNumber = TRUE ;
+      var->z = d1Node->dclNode->uu.time - d2Node->dclNode->uu.time ;
+    }
+  ok = TRUE ;
+  if (where)
+    {
+      bql->where = TRUE ;
+      ok = bqlExpandWhere (bql, where, coma) ;
+      bql->where = FALSE ;
+    }
+  if (ok)
+    ok = bqlExpandNext (bql, coma) ; 
+  ok2 = ok ;
+
+  bqlClean (bql, var) ;
+
+  return ok2 ;
+} /* bqlExpandDateDiff */
+
+/*************************************************************************************/
+/* syntax
+   select a from a in @, n in a.name, t in a.timetamp
+*/
+static BOOL bqlExpandName (BQL *bql, NODE *node, NODE *coma)
+{
+  BOOL ok = FALSE, ok2 = FALSE ;
+  NODE *where = node->up ;
+  NODE *dd = node->right ; /* DATEDIFF */
+  NODE *var = node->down ;
+  NODE *dd1 = dd ? dd->down : 0 ;
+
+  if (where && where->type != WHERE && where->type != WHERE_IF)
+    where = 0 ;
+
+  if (var &&  dd1->dclNode && dd1->dclNode->key)
+    {
+      ok = TRUE ;
+      var->uType = _Text ;
+      var->uu.s = name (dd1->dclNode->key) ;
+    }
+
+ if (! ok2)
+    {
+      if (!bql->counting) ok = TRUE ;
+      if (where)
+	{
+	  bql->where = TRUE ;
+	  ok = bqlExpandWhere (bql, where, coma) ;
+	  bql->where = FALSE ;
+	}
+      if (ok)
+	ok = bqlExpandNext (bql, coma) ; 
+      ok2 |= ok ;
+    }
+
+  bqlClean (bql, var) ;
+
+  return ok2 ;
+} /* bqlExpandName */
+
+/*************************************************************************************/
+/* syntax
+   select a from a in @, n in a.name, t in a.timetamp
+*/
+static BOOL bqlExpandClassName (BQL *bql, NODE *node, NODE *coma)
+{
+  BOOL ok = FALSE, ok2 = FALSE ;
+  NODE *where = node->up ;
+  NODE *dd = node->right ; /* DATEDIFF */
+  NODE *var = node->down ;
+  NODE *dd1 = dd ? dd->down : 0 ;
+
+  if (where && where->type != WHERE && where->type != WHERE_IF)
+    where = 0 ;
+
+  if (var &&  dd1->dclNode && dd1->dclNode->key)
+    {
+      ok = TRUE ;
+      var->uType = _Text ;
+      var->uu.s = className (dd1->dclNode->key) ;
+    }
+
+ if (! ok2)
+    {
+      if (!bql->counting) ok = TRUE ;
+      if (where)
+	{
+	  bql->where = TRUE ;
+	  ok = bqlExpandWhere (bql, where, coma) ;
+	  bql->where = FALSE ;
+	}
+      if (ok)
+	ok = bqlExpandNext (bql, coma) ; 
+      ok2 |= ok ;
+    }
+
+  bqlClean (bql, var) ;
+
+  return ok2 ;
+} /* bqlExpandClassName */
+
+/*************************************************************************************/
+/* syntax
+   select a from a in @, n in a.name, t in a.timetamp
+*/
+static BOOL bqlExpandTimeStamp (BQL *bql, NODE *node, NODE *coma)
+{
+  BOOL ok = FALSE, ok2 = FALSE ;
+  NODE *where = node->up ;
+  NODE *dd = node->right ; /* DATEDIFF */
+  NODE *var = node->down ;
+  NODE *dd1 = dd ? dd->down : 0 ;
+
+  if (where && where->type != WHERE && where->type != WHERE_IF)
+    where = 0 ;
+
+  if (var &&  dd1->dclNode && dd1->dclNode->timeStamp)
+    {
+      ok = TRUE ;
+      var->uType = _Text ;
+      var->uu.s = name (dd1->dclNode->timeStamp) ;
+    }
+
+ if (! ok2)
+    {
+      if (!bql->counting) ok = TRUE ;
+      if (where)
+	{
+	  bql->where = TRUE ;
+	  ok = bqlExpandWhere (bql, where, coma) ;
+	  bql->where = FALSE ;
+	}
+      if (ok)
+	ok = bqlExpandNext (bql, coma) ; 
+      ok2 |= ok ;
+    }
+
+  bqlClean (bql, var) ;
+
+  return ok2 ;
+} /* bqlExpandTimeStamp */
+
+/*************************************************************************************/
 
 static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 {
@@ -4092,7 +4854,7 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
   NODE *where = node->up ;
   int rightOf = 0 ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
 
   if (tagTag && tagTag->type == RIGHTOF && 
@@ -4256,7 +5018,7 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 	      var->parent = tagVar->dclNode ;
 	      if (tagNode->type == HASTAG)
 		{
-		  var->isNumber = FALSE ;
+		  var->isNumber = FALSE ; /* bs->timeStamp */
 		  var->isDate = FALSE ;
 		  var->key = var->uType = tag ; 
 		  var->row = 0 ; 
@@ -4350,6 +5112,27 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 			  var->z = var->uu.f ; 
 			  var->key = 0 ;
 			}
+		      else if (var->uType == _LongFloat)
+			{
+			  var->isNumber = TRUE ;
+			  var->isDate = FALSE ;
+			  var->z = 0 ;
+			  if (var->uu.s) sscanf (var->uu.s, "%lf", &(var->z)) ; 
+			  var->key = 0 ;
+			}
+		      else if (var->uType == _LongInt)
+			{
+			  var->isNumber = TRUE ;
+			  var->isDate = FALSE ;
+			  var->z = 0 ;
+			  if (var->uu.s) 
+			    {
+			      long long int lli = 0 ;
+			      sscanf (var->uu.s, "%lli", &(lli)) ;
+			      var->z = lli ;
+			    }
+			  var->key = 0 ;
+			}
 		      else if (var->uType == _DateType)
 			{
 			  var->isNumber = FALSE ;
@@ -4396,7 +5179,7 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
     }
   if (! ok2)
     {
-      ok = TRUE ;
+      if (!bql->counting) ok = TRUE ;
       if (where)
 	{
 	  bql->where = TRUE ;
@@ -4427,7 +5210,7 @@ static BOOL bqlExpandTTag (BQL *bql, NODE *node, NODE *coma)
   int ii3, n3 = 0 ;
   KEYSET ks1 = 0, ks2 = 0, ks3 = 0 ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
 
   if (! tag && tagTag)
@@ -4489,7 +5272,8 @@ static BOOL bqlExpandTTag (BQL *bql, NODE *node, NODE *coma)
       keySetCompress (ks3) ;
       n3 = keySetMax (ks3) ;
       i = keySetMax (ks2) ;
-      keySetMax (ks1) = i ;
+      if (keySetMax (ks1) > i)
+	keySetMax (ks1) = i ;
       while (i--)
 	keySet (ks1, i) = keySet (ks2, i) ;
     }
@@ -4575,7 +5359,7 @@ static BOOL bqlExpandRightOf (BQL *bql, NODE *node, NODE *coma)
   NODE *tagVar = tag ? tag->down : 0 ;
   NODE *dcl = tagVar ? tagVar->dclNode : 0 ;
   NODE *where = node->up ;
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
 
   if (dcl && dcl->aa)
@@ -4640,6 +5424,27 @@ static BOOL bqlExpandRightOf (BQL *bql, NODE *node, NODE *coma)
 		      var->isDate = FALSE ;
 
 		      var->z = var->uu.f ; 
+		      var->key = 0 ;
+		    }
+		  else if (var->uType == _LongFloat)
+		    {
+		      var->isNumber = TRUE ;
+		      var->isDate = FALSE ;
+		      var->z = 0 ;
+		      if (var->uu.s) sscanf (var->uu.s, "%lf", &(var->z)) ; 
+		      var->key = 0 ;
+		    }
+		  else if (var->uType == _LongInt)
+		    {
+		      var->isNumber = TRUE ;
+		      var->isDate = FALSE ;
+		      var->z = 0 ;
+		      if (var->uu.s) 
+			{
+			  long long int lli = 0 ;
+			  sscanf (var->uu.s, "%lli", &(lli)) ;
+			  var->z = lli ;
+			}
 		      var->key = 0 ;
 		    }
 		  else if (var->uType == _DateType)
@@ -4734,7 +5539,7 @@ static BOOL bqlExpandActive (BQL *bql, NODE *node, NODE *coma)
   KEYSET ks = 0 ;
   int i ;
   NODE *where = node->up ;
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
   
   ks = bql->ksIn ;
@@ -4782,6 +5587,31 @@ static BOOL bqlExpandActive (BQL *bql, NODE *node, NODE *coma)
 } /* bqlExpandActive */
 
 /*************************************************************************************/
+/* return the number of line of the curly table implicitelly inside bql->counting */
+static BOOL bqlExpandCurly (BQL *bql, NODE *node)
+{
+  NODE *down = node->down ;
+  NODE *right = node->right ;
+
+  bql->inCurly++ ;
+  if (right)
+    {
+      bqlExpandFrom (bql, node, 0) ; 
+    }
+  else if (down)
+    {
+      node->right = down ;
+      node->down = 0 ;
+      bqlExpandFrom (bql, node, 0) ; 
+      node->down = down ;
+      node->right = right ; 
+    }
+  bql->inCurly-- ;
+
+  return TRUE ;
+} /* bqlExpandCurly  */
+
+/*************************************************************************************/
 
 static BOOL bqlExpandSet (BQL *bql, NODE *node, NODE *coma)
 {
@@ -4792,7 +5622,7 @@ static BOOL bqlExpandSet (BQL *bql, NODE *node, NODE *coma)
   double z = 0 ;
   NODE *where = node->up ;
 
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
   
   var->isNumber = var->isDate = FALSE ;
@@ -4880,9 +5710,9 @@ static BOOL bqlExpandFrom (BQL *bql, NODE *node, NODE *coma)
 
   /* reinitialise bql registers */
   bql->h = ac_new_handle () ;
-  bql->results = ac_empty_table (128, 1, bql->h) ;
+  bql->results = ac_db_empty_table (bql->db, 128, 1, bql->h) ;
   bql->tableRow = 0 ;
-  bql->titles = arrayHandleCreate (12, char *, bql->h) ;
+  
   bql->ksOut = 0 ;
   bql->where = FALSE ;
 
@@ -4899,6 +5729,8 @@ static BOOL bqlExpandFrom (BQL *bql, NODE *node, NODE *coma)
       else if (rr->type == COMA && rr->down && rr->down->type == IN)
 	ok = bqlExpandIn (bql, rr->down, rr) ;
       else if (rr->type == COMA && rr->down && rr->down->type == WHERE && rr->down->down && rr->down->down->type == IN)
+	ok = bqlExpandIn (bql, rr->down->down, rr) ;
+      else if (rr->type == COMA && rr->down && rr->down->type == WHERE_IF && rr->down->down && rr->down->down->type == IN)
 	ok = bqlExpandIn (bql, rr->down->down, rr) ;
     }
 
@@ -4937,11 +5769,23 @@ static BOOL bqlExpandIn (BQL *bql, NODE *node, NODE *coma)
       case COUNT:
 	ok = bqlExpandCount (bql, node, coma) ;
 	break ;
+      case CLNAM:
+	ok = bqlExpandClassName (bql, node, coma) ;
+	break ;
+       case NAM:
+	ok = bqlExpandName (bql, node, coma) ;
+	break ;
+      case TIMESTAMP:
+	ok = bqlExpandTimeStamp (bql, node, coma) ;
+	break ;
       case DNA:
 	ok = bqlExpandDNA (bql, node, coma) ;
 	break ;
       case PEPTIDE:
 	ok = bqlExpandPeptide (bql, node, coma) ;
+	break ;
+      case DATEDIFF:
+	ok = bqlExpandDateDiff (bql, node, coma) ;
 	break ;
       case MIN:
       case MAX:
@@ -4959,6 +5803,9 @@ static BOOL bqlExpandIn (BQL *bql, NODE *node, NODE *coma)
       case RIGHTOF:
 	ok = bqlExpandRightOf (bql, node, coma) ;
 	break ;
+      case CURLY:
+	ok = bqlExpandCurly (bql, right) ;
+	break ;
       default:
 	ok = bqlExpandSet (bql, node, coma) ;
 	break ;
@@ -4974,7 +5821,7 @@ static BOOL bqlExpandCount (BQL *bql, NODE *node, NODE *coma)
   NODE *countTag = node->right ;
   BOOL ok = FALSE ;
   NODE *where = node->up ;
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
  
   if (countTag && countTag->type == COUNT && var && var->type == VAR)
@@ -5024,7 +5871,7 @@ static BOOL bqlExpandMinMax (BQL *bql, NODE *node, NODE *coma)
   NODE *countTag = node->right ;
   BOOL ok = FALSE ;
   NODE *where = node->up ;
-  if (where && where->type != WHERE)
+  if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
  
   if (countTag && 
@@ -5092,12 +5939,20 @@ static BOOL bqlExpandCondition (BQL *bql, NODE *node)
   
   switch (node->type)
     {
+    case ROUND:
+      return left ? bqlExpandCondition (bql, left) : FALSE ;
+    case WHERE_AVOID:
+      return right ? bqlExpandCondition (bql, right) : TRUE ;
     case NUMBER:
       return node->z == 0 ? FALSE : TRUE ;
     case VAR: 
       node = node->dclNode ;
+      if ((node->uType && node->uu.i)  || node->key || node->txt || node->isNumber || node->isDate || node->pepStack || node->dnaStack)
+	return TRUE ;
+      else
+	return FALSE ;
     case DATE:
-      if (node->uType || node->key || node->txt || node->isNumber || node->isDate)
+      if ((node->uType && node->uu.i)  || node->key || node->txt || node->isNumber || node->isDate)
 	return TRUE ;
       else
 	return FALSE ;
@@ -5108,7 +5963,7 @@ static BOOL bqlExpandCondition (BQL *bql, NODE *node)
 	KEY subClass = node->var ;
 
 	if (!left || !lexIsKeyVisible(left->dclNode->key) ||
-	    ! class(key) == node->key ||
+	    ! (class(key) == node->key) ||
 	    (classFilter && ! lexIsInClass(key, subClass))
 	    )
 	  return FALSE ;
@@ -5154,7 +6009,13 @@ static BOOL bqlExpandCondition (BQL *bql, NODE *node)
     {
       KEY key = left && left->dclNode ? left->dclNode->key : 0 ;
       KEY tag = right ? right->key : 0 ;
-      return key && tag && keyFindTag (key, tag) ;
+      if (0) { return key && tag && keyFindTag (key, tag) ;}
+      if (key && tag && keyFindTag (key, tag))
+ 	{
+	  return keyGetKey (key,tag) ;
+	}
+      return FALSE ;
+
     }
   else 
     {
@@ -5182,14 +6043,18 @@ static BOOL bqlExpandCondition (BQL *bql, NODE *node)
 		    }
 		  else
 		    {
-		      sprintf (buf1, "%g", z1) ;
+		      sprintf (buf1, "%lli", (long long int)z1) ;
 		      ccp1 = buf1 ;
+		      if (left->mark)
+			ccp1 = stackText (bql->s, left->mark) ;
 		    }
 		}
 	      else if (ccp2 == assVoid(1))
 		{
-		  sprintf (buf2, "%g", z2) ;
+		  sprintf (buf2, "%lli", (long long int)z2) ;
 		  ccp2 = buf2 ;
+		  if (right->mark)
+		    ccp2 = stackText (bql->s, right->mark) ;
 		}
 	      else if (ccp1 == assVoid(2) && ccp2 == assVoid(2))
 		{
@@ -5283,6 +6148,8 @@ static BOOL bqlExpandWhere (BQL *bql, NODE *node, NODE *coma)
 	  default:
 	    break ;
 	  }
+      if (node->type == WHERE_IF && ! ok)
+	ok = bqlExpandNext (bql, coma) ;
     }
 
   return ok ;
@@ -5307,6 +6174,11 @@ static BOOL bqlExpandComa (BQL *bql, NODE *node)
     case WHERE:
       if (bql->where)
 	 messcrash ("where inside where") ;
+      ok = bqlExpandWhere (bql, node, coma) ;
+      break ;
+    case WHERE_IF:
+      if (bql->where)
+	 messcrash ("where_if inside where") ;
       ok = bqlExpandWhere (bql, node, coma) ;
       break ;
     case IN:
@@ -5353,7 +6225,12 @@ const char *bqlError (BQL *bql)
 AC_TABLE bqlResults (BQL *bql)
 {
   if (bql &&  bql->results)
-    return bql->results ;
+    {
+      if (! bql->isSorted && ! bql->doNotSort)
+	bqlSort (bql) ;
+      
+      return bql->results ;
+    }
   return 0 ;
 } /* bqlResults */
 
@@ -5362,11 +6239,10 @@ AC_TABLE bqlResults (BQL *bql)
 BQL *bqlCreate (BOOL debug, AC_HANDLE h) 
 {
   BQL *bql = (BQL *) halloc (sizeof (BQL), h) ;
-  
   /* As these structure are availablemade  to the caller, 
    * they are allocated on the parent handle 
    */
-  bql->results = ac_empty_table (128, 1, h) ;
+  bql->results = ac_db_empty_table (bql->db, 128, 1, h) ;
   bql->tableRow = 0 ;
   bql->errTxt = vtxtHandleCreate (h) ;
   
@@ -5377,7 +6253,6 @@ BQL *bqlCreate (BOOL debug, AC_HANDLE h)
   bql->froms = arrayHandleCreate (128, NODE*, bql->h) ;
   bql->wheres = arrayHandleCreate (128, NODE*, bql->h) ;
   bql->s = stackHandleCreate (1024, bql->h) ;
-  stackTextOnly (bql->s) ;
   pushText (bql->s, "Zero") ;
   
   
@@ -5390,6 +6265,84 @@ BQL *bqlCreate (BOOL debug, AC_HANDLE h)
   blockSetFinalise (bql, uBqlDestroy) ;
   return bql ;
 } /* bqlCreate */
+
+/********************************************/
+
+BQL *bqlDbCreate (AC_DB db, BOOL debug, AC_HANDLE h) 
+{
+  BQL *bql = bqlCreate (debug, h) ;
+  bql->db = db ;
+  return bql ;
+} /* bqlDbCreate  */
+
+/********************************************************************/
+/* To manipulate large tables you may optionally
+ * process table one KEY at a time
+ * 1: iter = bqlIterCreate ("bql query", ksIn, &errors, h) ;
+ * 2: while ((mini_table = bqlIterTable (iter)) 
+ *        { do_something_with_the_mini_table ; }
+ *     The mini table corresponds to the next key producing some data
+ *     returns NULL when no more key produces a non empty mini_table
+ *     DO NOT free the mini_table, it is freed internally on each iteration
+ * 3: Call ac_free (iter) OR ac_free (h) ;
+ */
+BQL_ITER *bqlIterCreate (const char *bqlQuery, KEYSET ksIn, const char **errors, AC_HANDLE h) 
+{
+  BOOL debug = FALSE ;
+  BQL_ITER *iter = (BQL_ITER *) halloc (sizeof (BQL_ITER), h) ;
+
+  iter->magic = uBqlIterDestroy ;
+  blockSetFinalise (iter, uBqlIterDestroy) ;
+
+  iter->h = ac_new_handle () ;
+  iter->bql = bqlCreate (debug, iter->h) ;
+
+  if (!bqlParse (iter->bql, bqlQuery, FALSE))
+    {
+      const char *ccp = bqlError (iter->bql) ;
+      if (ccp) *errors = strnew (ccp, h) ;
+      else *errors = strnew ("Unknown error in bqlParse", h) ;
+      ac_free (iter) ;
+    }
+  if (! ksIn)
+    messcrash ("bqlIterCreate received a NULL ksIn") ;
+  
+  if (iter)
+    {
+      iter->currentRow = 0 ;
+      iter->ksIn = arrayHandleCopy (ksIn, iter->h) ;/* make a private copy */
+      iter->ksCurrent = keySetHandleCreate (iter->h) ;
+    }
+  return iter ;
+} /* bqlIterCreate  */
+
+/*************************************************************************************/
+
+AC_TABLE bqlIterTable (BQL_ITER *iter)
+{
+  int nn = 0 ;
+
+  if (! iter)
+    messcrash ("bqlIterTable received a NULL iter") ;
+  if (iter->magic != uBqlIterDestroy)
+    messcrash ("bqlIterTable received an invalid iter") ;
+
+  ac_free (iter->bql->results) ;
+  while (nn == 0 && iter->currentRow < keySetMax (iter->ksIn))
+    {
+      ac_free (iter->bql->results) ;
+      keySet (iter->ksCurrent, 0) = keySet (iter->ksIn, iter->currentRow++) ;
+      bqlRun (iter->bql, iter->ksCurrent, 0) ;
+      nn = iter->bql->results ? iter->bql->results->rows : 0 ;
+    }
+
+  if (nn == 0)
+    {
+      ac_free (iter->h) ;
+      return 0 ;
+    }
+  return iter->bql->results ;
+} /* bqlIterTable */
 
 /*************************************************************************************/
 
@@ -5412,9 +6365,12 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
       return FALSE ;
     }
   
+  bql->titles = arrayHandleCreate (12, char *, bql->h) ;
+
   if (acedbQuery)
     return bqlParseAcedbQuery (bql, query) ;
   
+
   vtxtClear (bql->errTxt) ;
   vtxtPrintf (bql->errTxt, "// ... BQL query : \n// ...  %s\n\n", query) ;
   
@@ -5432,11 +6388,37 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
       pushText (bql->s, cp) ;
     }
 
+  /* split out the terminal FORCE_ZERO */
+  if (1)
+    {
+      char *cp = stackText (bql->s, bql->node->mark) ;
+      char *cq = strstr (cp, "FORCE_ZERO") ;
+      
+      if (cq)
+	{
+	  memset (cq, ' ', 10) ;
+	  bql->force_zero = TRUE ;
+	}
+    }
+
   /* back compatibility with aql */
   {
     char *cp = stackText (bql->s, bql->node->mark) ;
     char *cq = cp ;
-    
+
+    cq = cp - 1;
+    while ((cq = strstr (cq + 1, "elect ")))
+      {
+	if (! strncasecmp (cq - 1, "select ", 7))
+	  {
+	    cq += 6 ;
+	    while (*cq == ' ') cq++ ;       /* replace 'select all ' by 'select' */
+	    if (! strncmp (cq, "all ", 4))
+	      memset (cq, ' ', 4) ;
+	  }
+      }
+
+    cq = cp ;
     while ((cq = strstr (cq, "@active:1")))
       memset (cq+1, ' ', 8) ; 
     cp = cq = stackText (bql->s, bql->node->mark) ;
@@ -5452,19 +6434,37 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
     while ((cq = strstr (cq, "->DNA")))
       cq[2] = 'd' ;  /* prevent recognizing tag DNA as function DNA */
     cp = cq = stackText (bql->s, bql->node->mark) ;
+    while ((cq = strstr (cq, ">TITLE")))
+      cq[1] = 't' ;  /* prevent recognizing tag TITLE as function TITLE */
+    cp = cq = stackText (bql->s, bql->node->mark) ;
     while ((cq = strstr (cq, "->PEPTIDE")))
       cq[2] = 'p' ;  /* prevent recognizing tag PEPTIDE as function PEPTIDE */
+    cp = cq = stackText (bql->s, bql->node->mark) ;
+    while ((cq = strstr (cq, "->DATEDIFF")))
+      cq[9] = 'f' ;  /* prevent recognizing tag DATEDIFF as function DATEDIFF */
     cp = cq = stackText (bql->s, bql->node->mark) ;
     while ((cq = strstr (cq, "#DNA")))
       cq[1] = 'd' ;  /* prevent recognizing tag DNA as function DNA */
     cp = cq = stackText (bql->s, bql->node->mark) ;
     while ((cq = strstr (cq, "#PEPTIDE")))
       cq[1] = 'p' ;  /* prevent recognizing tag PEPTIDE as function PEPTIDE */
+    cp = cq = stackText (bql->s, bql->node->mark) ;
+    while ((cq = strstr (cq, "#DATEDIFF")))
+      cq[8] = 'f' ;  /* prevent recognizing tag DATEDIFF as function DATEDIFF */
  }
   
   /* order by == order   by = order_by */
-  if (strstr (cp, "no_order"))
-    bql->doNotSort = TRUE ; 
+  if (1)
+    {
+      char *cp = stackText (bql->s, bql->node->mark) ;
+      char *cq = strstr (cp, "no_order") ;
+      if (cq)
+	{
+	  bql->doNotSort = TRUE ; 
+	  memset (cq, ' ', 8) ;
+	}
+    }
+
   {
     char *cp = stackText (bql->s, bql->node->mark) ;
     while ((cp = strstr (cp, "order")))
@@ -5483,6 +6483,29 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
       }
   }
   
+  /* split out the terminal title command */
+  if (1)
+    {
+      char *cp = stackText (bql->s, bql->node->mark) ;
+      char *cq = strstr (cp, "TITLE") ;
+      char *cr ;
+      
+      while (cq && (cr = strstr (cq + 1, "TITLE")))
+	cq = cr ;
+      if (cq && strchr (cq, ';'))
+	cq = 0 ;
+      if (cq)
+	{
+	  cr = cq ;
+	  cq += 5 ;
+	  while (*cq == ' ') cq++ ;
+	  if (cq && *cq) 
+	      bql->title_by = strnew (cq, bql->h) ;
+	  while (*cr) *cr++ = ' ' ;
+	}
+    }
+
+
   /* split out the terminal order_by command */
   if (1)
     {
@@ -5505,12 +6528,20 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
 	}
     }
   
+ if (1)
+    {
+      char *cp = stackText (bql->s, bql->node->mark) ;
+      char *cq = cp + strlen (cp) - 1 ;
+      while (cq > cp && *cq == ' ') *cq-- = 0 ;
+    }
+
   ok = TRUE ;
+  if (1) bqlSplitOnSemicolumn (bql, bql->node) ; 
   while (ok && bqlGetBrackets (bql, bql->node, &ok)) {} ;
   while (ok && bqlCheckForExtraBrackets (bql, bql->node, &ok)) {} ;
   while (ok && bqlGetQuotes (bql, bql->node, &ok)) {} ;
 
-  if (1) bqlSplitOnSemicolumn (bql, bql->node) ; 
+
   if (1) bqlCreatePhonyVariables (bql, bql->node) ;  /* may create new "" */
   while (ok && bqlGetBrackets (bql, bql->node, &ok)) {} ;
   while (ok && bqlCheckForExtraBrackets (bql, bql->node, &ok)) {} ;
@@ -5530,15 +6561,20 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
     ok = bqlCheckSyntax (bql, bql->node, 0) ;
   if (ok)
     ok =  bqlCheckVariableDeclarations (bql, 0, 0) ;
-
+ 
   bqlSetSemiCols (bql) ;
   bqlSetComas (bql) ;
 
-  if (1)
+  if (ok && bqlSetCurly (bql, bql->node)) {} ;
+  if (ok && bqlSetAvoid (bql, bql->node)) {} ;
+
+  if (ok)
     ok = bqlSetDclNodeDepth(bql, bql->node) ; /* set node->dclNode and add a coma in FROM clause */
  
   if (ok)
     ok = bqlCheckOrderBy (bql) ;
+  if (ok)
+    ok = bqlCheckTitleBy (bql) ;
   if (bql->debug)
     showBql (bql) ;
 
@@ -5547,10 +6583,7 @@ BOOL bqlParse (BQL *bql, const char *query, BOOL acedbQuery)
       if (bql->debug)
 	fprintf (stderr, "BQL ERROR :\n%s\n", bqlError (bql));
     }
-  if (ok)
-    bql->titles = arrayHandleCreate (12, char *, bql->h) ;
-
-
+ 
   return ok ;
 } /* bqlParse */
 
@@ -5714,17 +6747,22 @@ static BOOL bqlParseAcedbQuery (BQL *bql, const char *query)
 
 /*************************************************************************************/
 
-BOOL bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
+int bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
 {
+  int nn = 0 ;
   BOOL ok = TRUE ;
   BOOL debug = bql->debug ;
-  NODE *node = bql->node ;
+  NODE *node ;
+  NODE *node0 = bql->node ;
+  NODE *from0 = bql->from ;
 
   bql->ksIn =  activeKeyset ;
   bql->ksOut = resultKeyset ?  resultKeyset : keySetHandleCreate (bql->h) ;
+  keySetMax (bql->ksOut) = 0 ;
 
   bql->openObj = TRUE ;
 
+  node = node0 ;
   while (ok && node)
     {
       NODE *down = node ;
@@ -5743,19 +6781,21 @@ BOOL bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
 	}
       bql->node = down ;
       bql->from = down ;
-      bql->results = ac_empty_table (128, 1, bql->h) ;
+      bql->results = ac_db_empty_table (bql->db, 128, 1, bql->h) ;
       bql->tableRow = 0 ;
       ok = bqlExpand (bql, down) ;
+      bql->isSorted = FALSE ;
       if (! ok)
 	continue ;
       keySetSort (bql->ksOut) ;
       keySetCompress (bql->ksOut) ;
       bql->ksIn = bql->ksOut ;
       node = node->right ;
+      nn = bql->results->rows ;
     }
 
-  if (ok && ! bql->doNotSort)
-    bqlSort (bql) ;
+  bql->node = node0 ;
+  bql->from = from0 ;
 
   if (! ok)
     {
@@ -5763,7 +6803,7 @@ BOOL bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
 	fprintf (stderr, "BQL ERROR : %s\n", bqlError (bql));
     }
   
-  return ok ;
+  return nn ;
 } /* bqlRun */
 
 /*************************************************************************************/
@@ -5981,4 +7021,98 @@ bql select s,m,x,y,z from s in @, m in s->map, x in m[1], y in m[2],z in m[3]
 bql select s,m,x,y,z from s in @, m in s->map, x in m[1], y in m[2],z in y[1]
 
 
+// on human 37a_1 this code is much slower than the equivalent table-maker
+query find mrna  "UBR4.aAug10" ; >cdna_clone
+select c,r,c,m,a1,a2, x1,x2,len,ali,err,prod,c,inv,ano,ref_seq, tiling, hlib, gene from c in @active:1, m in c->in_mrna where exists m, tg in m->from_gene, gene in tg->gene  where gene like "UBR4" , r in c->read, t in r->tissue, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where !r1 OR r1 == r, x1 in r1[1], x2 in x1[1], tg1 in r->from_gene where ! tg1 OR  tg1 == tg, len in tg1[1], ali in len[2], err in ali[1], inv in r->inverted[0] , ano in c->anomalous_clone[0], prod in m->product where ! prod OR prod#best_product,  ref_seq in r->ref_seq[0], tiling in r->mRNA_tiling[0], hlib in c->hinv_libs 
+
+no_order
+
+
+find MRNA G_t_14_0_1477.a
+select m,s,e,n from m in @, s in m#splicing, e in s[5], n in s[8] where n < 1000  // OK
+
 */
+
+#ifdef JUNK
+
+/* example of a code checking the input more carefully
+ *  provided by Nicolas.Thierry-Mieg@univ-grenoble-alpes.fr
+ * 2017_10_12
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+#include <string.h>
+
+#define BUFFSIZE 64
+
+/* 
+   The string str should hold a positive long int value.
+   If it does, return the value.
+   Otherwise, print an error message to stdout and return -1.
+*/
+long get_long_from_str(char *str)
+{
+    char *endptr;
+    long val;
+
+    val = strtol(str, &endptr, 10);
+
+    /* Check for various possible errors */
+    if ((val == LONG_MAX) || (val < 0)) {
+	printf("value is out of range or negative, try again\n");
+	return (-1);
+    } else if (endptr == str) {
+	printf
+	    ("Not a number (no leading digits), try again and type just a number\n");
+	return (-1);
+    } else if (*endptr != '\0') {
+	printf
+	    ("Not a number (trash after digits), try again and type just a number\n");
+	return (-1);
+    } else
+	// AOK, we got a positive long int and nothing else
+	return (val);
+}
+
+/*
+  read lines from stdin until a line is entered that holds 
+  a positive long int and nothing else.
+  Complain whenever the line holds something else and loop.
+  Return the positive long int value when the input is correct.
+*/
+long read_long_from_stdin(void)
+{
+    char buffer[BUFFSIZE];
+    long value = -1;
+
+    do {
+	char *gets_retval = fgets(buffer, BUFFSIZE, stdin);
+	if (gets_retval != buffer)
+	    printf("some kind of read error, please try again\n");
+	else if (buffer[strlen(buffer) - 1] != '\n') {
+	    // flush remaining chars from stdin
+	    while (getchar() != '\n') {
+	    }
+	    printf("too many characters, please try again\n");
+	} else {
+	    // remove final newline
+	    buffer[strlen(buffer) - 1] = '\0';
+	    value = get_long_from_str(buffer);
+	}
+    } while (value == -1);
+
+    return (value);
+}
+
+int main(void)
+{
+    long value;
+    printf("please type a positive long int\n");
+    value = read_long_from_stdin();
+    printf("OK, found a positive long int: %li\n", value);
+    return (0);
+}
+
+#endif

@@ -25,16 +25,13 @@ Xt_LIBS = -L/usr/X11R6/lib /usr/X11R6/lib/libX11.so.6 \
 			   /usr/X11R6/lib/libXt.so.6 \
 			   /usr/X11R6/lib/libXmu.so.6 \
 			   /usr/X11R6/lib/libXext.so.6
-LEX_LIBS = -lfl
 
-### flex -l emulates AT&T lex as accurately as possible
-LEX = flex
-LEX_OPTIONS = -l
-
-
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS =
+#################################################################
+###################### Lex Libraries ############################
+#################################################################
+# The acedb dependency on LEX/YACC/BISON
+# has been removed
+#################################################################
 
 #RPCGEN_FLAGS = -b -I -K -1
 RPCGEN_FLAGS = -Y /usr/local/gcc-3.4.1/bin/ -b -I -K -1

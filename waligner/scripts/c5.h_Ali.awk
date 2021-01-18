@@ -12,16 +12,36 @@ BEGIN {
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["seqc"] = it ; i2nam[nt] = "Magic_reannotation" ; ok[it] = 1 ;
   m = "ET_av" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["av"] = it ; i2nam[nt] = "AceView_2011" ;
+  m = "FT_av2008" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["av"] = it ; i2nam[nt] = "AceView_2008" ;
+  m = "FT_extra" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["av"] = it ; i2nam[nt] = "extra" ;
+  m = "FT_simul" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["av"] = it ; i2nam[nt] = "Simul" ;
+  m = "FT_cloud" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["av"] = it ; i2nam[nt] = "Cloud" ;
   m = "KT_RefSeq" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["RefSeq"] = it  ; i2nam[nt] = "RefSeq_37.104_models" ;
+  m = "KT_RefSeqCurrent" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["RefSeq"] = it  ; i2nam[nt] = "RefSeq_37.104_models" ;
   m = "LT_seqc" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["seqc"] = it ; i2nam[nt] = "SEQC_Transcriptome_2013" ;
+  m = "LT_magic" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["seqc"] = it ; i2nam[nt] = "magic reconstruction" ;
   m = "LT_UCSC" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ;  tt2i["UCSC"] = it  ; i2nam[nt] = "ucscGene_Nov_2011" ;
   m = "MT_EBI" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ;  tt2i["EBI"] = it  ; i2nam[nt] = "Encode.37.70_Jan2013" ;
   m = "NT_MiT" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; i2nam[nt] = "MichiganFeb2015" ;
+  m = "NT_miRNA" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; i2nam[nt] = "MichiganFeb2015" ;
+  m = "NT_HINV" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; i2nam[nt] = "HINV" ;
+  m = "NT_FBK" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; i2nam[nt] = "FBK" ;
+  m = "NT_FlyBase" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; i2nam[nt] = "FlyBase" ;
   m = "OT_rnaGene" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i[ "rnaGene"] = it ; i2nam[nt] = "RNA_genes" ;
   m = "PT_tRNA" ;
@@ -46,6 +66,8 @@ BEGIN {
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["DNASpikeIn"] = it ; i2nam[nt] = "DNA_SpikeIn" ;
   m = "X_Bamy" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["Bamy"] = it ; i2nam[nt] = "Bacillus amyloliquefaciens" ; ok[it] = 1 ;
+  m = "W_Line" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["Line"] = it ; i2nam[nt] = "LINE repeats" ; ok[it] = 1 ;
   m = "Y_Pfluo" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["Pfluo"] = it ; i2nam[nt] = "Pseudomonas fluorescens" ; ok[it] = 1 ;
   m = "Z_genome" ;
@@ -53,7 +75,9 @@ BEGIN {
   m = "z_gdecoy" ;
   t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["gdecoy"] = it ; i2nam[nt] = "Imaginary_genome_specificity_control" ;
   m = "b_bacteria" ;
-  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["bacteria"] = it ; i2nam[nt] = "Trypanosoma brucei gambiense and Paenibacillus polymixa"; ok[it] = 1 ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["bacteria"] = it ; i2nam[nt] = "bacterial collection"; ok[it] = 1 ;
+  m = "v_virus" ;
+  t = m ;  nt++; it = nt ;t2i[t] = nt ; i2t[nt]=t ; tt2i["virus"] = it ; i2nam[nt] = "virus collection"; ok[it] = 1 ;
 }
 /^ZZZZZ/{zz++ ; if(zz==2){  RR = nr ; } next;}
 {

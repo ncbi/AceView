@@ -27,11 +27,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: dnacpt.c,v 1.25 2017/03/18 15:30:56 mieg Exp $ */
-/*
-#define ARRAY_CHECK 
-#define MALLOC_CHECK 
-*/
+/* $Id: dnacpt.c,v 1.26 2020/05/30 16:50:33 mieg Exp $ */
 
 #include "acedb.h"
 #include "graph.h"
@@ -2946,7 +2942,7 @@ static void dnacptPhrapRepeats(char target)
 	{ messout("First select a keyset containing sequences") ;
 	  return ;
 	}
-      bb = query (aa, "CLASS Sequence DNA AND NEXT") ;
+      bb = query (aa, "CLASS Sequence ; DNA ") ;
       if (!keySetMax(bb))
 	{ messout("First select a keyset containing sequences") ;
 	  return ;

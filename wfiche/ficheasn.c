@@ -1387,11 +1387,11 @@ char *fAsnGenerateMRNA (vTXT blkp, GMP *gmp, char * ficheComments, int isHeader)
   vTXT buf ;
   AC_HANDLE h = handleCreate () ;
   int		ir, isComma = 0 ;
-  int		Total_length, Length_5prime_UTR, Length_3prime_UTR, Longest_ORF ;
+  int		Total_length, Length_5prime_UTR, Length_3prime_UTR ;
   AC_OBJ oNM = 0 ;
   AC_OBJ  oTranscribed_gene, oProduct = 0, oGene, oMrna ;
   AC_TABLE  oTmp, gPolyA_Signal, gSplicing, gcDNA_clone ;
-  const char *ccp, *extName, *NewName = 0, *geneLoc, *tNam = 0 ;
+  const char *ccp, *extName, *NewName = 0, *tNam = 0 ;
   char *ptr, *descrCompletness[4] = {"no-ends", "no-right", "no-left", "complete"} ;
   char geneName[1024] ;
   char PolyA_Signal[1024], mrnaName[1024], prRealName[1024] ;
@@ -1441,8 +1441,8 @@ char *fAsnGenerateMRNA (vTXT blkp, GMP *gmp, char * ficheComments, int isHeader)
   Total_length = strlen (sDna) ;
   Length_5prime_UTR = ac_tag_int (oMrna, "Length_5prime_UTR", 0) ;
   Length_3prime_UTR = ac_tag_int (oMrna, "Length_3prime_UTR", 0) ;
-  Longest_ORF = ac_tag_int (oMrna, "Longest_ORF", 0) ;
-  geneLoc = ac_tag_printable (oTranscribed_gene, "Gene", 0) ;
+  /* Longest_ORF = ac_tag_int (oMrna, "Longest_ORF", 0) ; */
+  /*  geneLoc = ac_tag_printable (oTranscribed_gene, "Gene", 0) ; */
   
   gPolyA_Signal = ac_tag_table (oMrna, "PolyA_Signal", h) ;
   if (gPolyA_Signal)
@@ -3381,6 +3381,7 @@ and so on using any of the one-char classic amino acid code
 		  : gtMrnaName (buf, gmp)) ; 
     }
 #endif
+  if (pseudo || poor) pseudo = poor = FALSE ; /* for compiler happiness */
   vtxtPrintf (blkp, "}") ;
   
   vtxtDestroy (buf) ;
@@ -3393,7 +3394,7 @@ and so on using any of the one-char classic amino acid code
 /* type 1: predicted_gene, 2: mRNA, 3: product*/
 static char* ficheAsnMrnaLocation (vTXT  blkp, GMP *gmp, int type)
 {
-  int ir, isAny, x1, x2, a1, a2, p1, p2, c1, c2, u1, u2 ; 
+  int ir, isAny, x1, x2, a1, p1, p2, c1, c2, u1, u2 ; 
   AC_TABLE oChrom = 0 ;
   const char *oChromName = 0 ;
   int start = 0 ;
@@ -3445,7 +3446,7 @@ static char* ficheAsnMrnaLocation (vTXT  blkp, GMP *gmp, int type)
     for (isAny = 0, ir = 0 ;ir < gSpli->rows ; ir++)
       {
 	a1 = c1 = ac_table_int (gSpli, ir, 0, 0) ;
-	a2 = c2 = ac_table_int (gSpli, ir, 1, 0) ;
+	c2 = ac_table_int (gSpli, ir, 1, 0) ;
 	is5p = is3p = FALSE ;
 
 	switch (type)
@@ -4188,7 +4189,6 @@ static int fichePerGeneLocationDump (vTXT  blkp, AC_DB db, GMP *gmp, char *asnTa
 static void ficheAsnSeqSetAllGenes (vTXT blkp, AC_DB db, AC_OBJ oMap, char *testGene, char style)
 {
   int iG, nn = 0 ;
-  const char *ccp ;
   AC_OBJ oGene ; 
   AC_HANDLE h = handleCreate () ;
   AC_TABLE gGene = ac_tag_table (oMap, "Gene_i", h) ;
@@ -4198,7 +4198,7 @@ static void ficheAsnSeqSetAllGenes (vTXT blkp, AC_DB db, AC_OBJ oMap, char *test
       oGene = ac_table_obj (gGene, iG, 0, h) ;
       if (testGene && strcasecmp (testGene, ac_name (oGene))) continue ;
       if (0 && strcasecmp ("5M", ac_name (oGene)) > 0) continue ;
-      ccp = ac_name (oGene) ; /* for debugging */
+      /* ccp = ac_name (oGene) ;  for debugging */
       /* if (*cp+3 == '-' && strstr (cp+3, ".")) continue ; */
       fichePerGeneSeqSetDump (blkp, db, oGene, 0, style) ;
     }
@@ -4538,7 +4538,6 @@ static void ficheAsnAnnotOne (vTXT blkp, AC_DB db, AC_OBJ obj, int type, char st
 static void ficheAsnAnnotAllGenes (vTXT blkp, AC_DB db, AC_OBJ oMap, char *testGene, int isAny, char style)
 {
   int iG, nn = 0  ;
-  const char *ccp ;
   AC_HANDLE h = handleCreate () ;
   AC_OBJ oGene ;
   AC_TABLE gGene = ac_tag_table (oMap, "Gene_i", h) ;
@@ -4547,7 +4546,6 @@ static void ficheAsnAnnotAllGenes (vTXT blkp, AC_DB db, AC_OBJ oMap, char *testG
     {
       oGene = ac_table_obj (gGene, iG, 0, h) ;
       if (testGene && strcasecmp (testGene, ac_name (oGene)))continue ; 
-      ccp = ac_name (oGene) ;
       if (isAny++) vtxtPrintf (blkp, ", ") ;
       ficheAsnAnnotOne (blkp, db, oGene, 2, style) ;
       nn++ ;

@@ -237,7 +237,6 @@ static int aceKog2aceSplit (ACEIN fi, BOOL isN)
   int nn = 0, line = 0 ;
   char *cp, *prefix = "<b>Query=" ;
 
-  stackTextOnly (s) ;
   while (TRUE) 
     {
       if (aceInCard (fi))

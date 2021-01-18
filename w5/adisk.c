@@ -1447,14 +1447,16 @@ BOOL aDiskArrayGet (KEY key, KEY *pp, Array *ap, Array *bp)
       cp = a->base ;
     }
   if (n2*s2)
-    { b = uArrayCreate (n2, s2, 0) ;
-    arrayForceFeed (b, n2) ;
-    cq = b->base ;
+    { 
+      b = uArrayCreate (n2, s2, 0) ;
+      arrayForceFeed (b, n2) ;
+      cq = b->base ;
     }
   aDiskReadData (d, cp, n1, s1, cq, n2, s2) ;
 
   if (swapData && s1==4) 
-    { int i = n1 ;
+    { 
+      int i = n1 ;
       while (i--) arr(a,i,KEY) = swapKEY(arr(a,i,KEY)) ;
     }
 

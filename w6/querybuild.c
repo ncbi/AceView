@@ -25,9 +25,6 @@
  *-------------------------------------------------------------------
  */
 
-#define MALLOC_CHECK
-#define ARRAY_CHECK
-
 #include <ctype.h>
 #include "acedb.h"
 #include "lex.h"

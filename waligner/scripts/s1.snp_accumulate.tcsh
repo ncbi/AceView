@@ -44,7 +44,11 @@ echo ZZZZZ | gzip > $mytmp/ZZZZZ.gz
 
 setenv ZONE ZONE
 
+set dropMultiplicity=""
+if ($?snpDropMultiplicity == 1) set dropMultiplicity="-dropMultiplicity"
+
 if ($justMito == 1) goto laba
+if ($Strategy == RNA_seq) goto phaseRNA
 
   if (! -e tmp/SNP_ZONE/_allG && ($Strategy == Exome || $Strategy == Genome)) then
     set strategyOk=1
@@ -52,12 +56,16 @@ if ($justMito == 1) goto laba
     if (! -d  tmp/SNP_ZONERUN/$run) mkdir tmp/SNP_ZONERUN/$run 
     setenv ZONE ZONERUN/$run
     if (! -e tmp/SNP_$ZONE/_allg) then
+      set runS=$run
+      if (-e MetaDB/$MAGIC/r2sublib) then
+        set runS=`cat MetaDB/$MAGIC/r2sublib | gawk '{if($2==run)runS=$1;}END{if(runS)print runS;else print run;}' run=$run`
+      endif
       foreach chrom ($chromSetAll)
-        if (! -e tmp/WIGGLERUN/$run/$chrom/coverome.$minCoveron.u.peaks) then
-          echo "missing file  tmp/WIGGLERUN/$run/$chrom/coverome.$minCoveron.u.peaks"
+        if (! -e tmp/WIGGLERUN/$runS/$chrom/coverome.$minCoveron.u.peaks) then
+          echo "missing file  tmp/WIGGLERUN/$runS/$chrom/coverome.$minCoveron.u.peaks"
           continue
         endif
-        cat tmp/WIGGLERUN/$run/$chrom/coverome.$minCoveron.u.peaks | gawk '/^#/{next;}{print}' | cut -f 1,2,3 | sort -k 1,1 -k 2,2n | gawk -F '\t' '{a1=$2;a2=$3;if($1 != old)olda2=0;if(a1+0>10+olda2)a1-=10;a2+=10;olda2=a2;old=$1;printf("%s\t%09d\t%09d\n",$1,a1,a2);}' >> tmp/SNP_$ZONE/_allg
+        cat tmp/WIGGLERUN/$runS/$chrom/coverome.$minCoveron.u.peaks | gawk '/^#/{next;}{print}' | cut -f 1,2,3 | sort -k 1,1 -k 2,2n | gawk -F '\t' '{a1=$2;a2=$3;if($1 != old)olda2=0;if(a1+0>10+olda2)a1-=10;a2+=10;olda2=a2;old=$1;printf("%s\t%09d\t%09d\n",$1,a1,a2);}' >> tmp/SNP_$ZONE/_allg
       end
 
       set n=`cat tmp/SNP_$ZONE/_allg | gawk '/^#/{next}{dx=$3-$2+1;n+=dx;}END{print n;}'`
@@ -94,8 +102,6 @@ if (-e tmp/SNP_$ZONE/_allg && ! -e $mytmp/$run/all_zoneg) then
   cat tmp/SNP_$ZONE/zoneg.*.txt | sort -k 1,1 -k 2,2n > $mytmp/$run/all_zoneg
 endif
 
-set dropMultiplicity=""
-if ($?snpDropMultiplicity) set dropMultiplicity="-dropMultiplicity"
 
 if (-e tmp/SNP_ZONE/_allG) then
   set ff1=zoneG.
@@ -114,6 +120,9 @@ if (-e tmp/SNP_ZONE/_allg) then
           bin/snp -minAliPerCent 90 --ventilate --run $run -o $mytmp/$lane/zoneg -i tmp/COUNT/$lane.hits.gz  --select $mytmp/$run/all_zoneg 
   end
 endif
+goto laba
+
+phaseRNA:
 
 if (-e tmp/SNP_$ZONE/_allr && ! -e $mytmp/$run/all_zoner) then
 
@@ -143,17 +152,20 @@ echo -n "snp accumulate: ventilation done "
 date
 echo "start count"
 
-if (-e tmp/SNP_$ZONE/_allr) then
-  set ff1=zoner.
-  cat tmp/SNP_ZONE/ZoneList > $mytmp/$run/ZoneList
-endif
-if (-e tmp/SNP_$ZONE/_allG) then
-  set ff1=zoneG.
-  cat tmp/SNP_ZONE/ZoneList > $mytmp/$run/ZoneList
-endif
-if (-e tmp/SNP_$ZONE/_allg)  then
-  set ff1=zoneg.
-  ls $mytmp/$run/*/zoneg.*.hits.u | gawk '{n=split($1,aa,"/");split(aa[n],bb,".");printf ("%s.%s\n",bb[1],bb[2]);}' | sort -u  >> $mytmp/$run/ZoneList
+if ($Strategy == RNA_seq) then
+  if (-e tmp/SNP_$ZONE/_allr) then
+    set ff1=zoner.
+    cat tmp/SNP_ZONE/ZoneList > $mytmp/$run/ZoneList
+  endif
+else
+  if (-e tmp/SNP_$ZONE/_allG) then
+    set ff1=zoneG.
+    cat tmp/SNP_ZONE/ZoneList > $mytmp/$run/ZoneList
+  endif
+  if (-e tmp/SNP_$ZONE/_allg)  then
+    set ff1=zoneg.
+    ls $mytmp/$run/*/zoneg.*.hits.u | gawk '{n=split($1,aa,"/");split(aa[n],bb,".");printf ("%s.%s\n",bb[1],bb[2]);}' | sort -u  >> $mytmp/$run/ZoneList
+  endif
 endif
 
 # SpikeIn rrna
@@ -221,6 +233,42 @@ echo hello3 $target $zone $rr
       endif
 end
 
+# avoid double counting
+ # $mytmp/$run/ZoneList
+if (0 && -e tmp/SNP_$ZONE/_allG) then
+
+  foreach zone (`cat $mytmp/$run/ZoneList`)
+
+    set z=`echo $zone | sed -e 's/zoneG.//'`
+    set uu=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if($4 == z){c=$1;a1=$2;a2=$3;ok=1;next;}if(ok==1 && c==$1 && $2<a2){ok=2;a11=$2;z2=$4;}}END{if(ok==2)printf("%s#%d#zoneG.%s\n",z,a11,z2);else print z;}' z=$z`
+    echo "uu=$uu"
+    set a11=`echo $uu | gawk '{split($1,aa,"#");print aa[2]+0;}'`
+    if ($a11 == 0) continue 
+    set zone2=`echo $uu | gawk '{split($1,aa,"#");print  aa[3];}'`
+    echo "$zone $zone2 split at $a11"
+
+    set uu=u
+    gunzip -c $mytmp/$run/$zone.BRS.$uu.gz | gawk -F '\t' '/^#/{print > f2".1";next;}{if($2+0<a11 || $1 != "~")print > f2".1"; else print > f2".2"}' a11=$a11 f2=$mytmp/$run/$zone.BRS.x
+    mv $f2.1  $mytmp/$run/$zone.BRS.$uu.new
+    \rm  $mytmp/$run/$zone.BRS.$uu.gz 
+    gzip $mytmp/$run/$zone.BRS.$uu.new
+
+    set f3=$mytmp/$run/$zone2.BRS.x
+    gunzip -c   $mytmp/$run/$zone2.BRS.$uu.gz > $f3.1
+    cat $f3.1 | gawk '/^# Target/{print ;exit;}{print}' > $f3.2
+    cat $f3.1 | gawk '/^# Target/{ok=1;next;}{if(ok==1)print}' > $f3.3
+    cat $f2.2 $f3.3 |  sort -k 2,2n -k 4,4 -k 3,3r > $f3.4
+   
+    cat $f3.4 ZZZZZ | gawk -F '\t' '{if($2 != old[2] || $3 != old[3] || $4 != old[4]){if(old[2]>0){printf("%s",old[1]);for(i=2;i<=9;i++)printf("\t%s",old[i]);printf("\n");}for(i=1;i<=5;i++)old[i]=$i;for(i=6;i<=9;i++)old[i]=0;}for(i=6;i<=9;i++)old[i]+=$i;}' >> $f3.2
+    mv $f3.2  $mytmp/$run/$zone2.BRS.$uu.new2
+    gzip  $mytmp/$run/$zone2.BRS.$uu.new2
+    \rm $f2.* $f3.*
+
+  end
+
+endif
+
+
 #############################################################################
 ## cleanup
 
@@ -232,7 +280,7 @@ cleanup:
 echo "clean up: $mytmp"
 
 ls -ls  $mytmp/$run/*/*.gz
-mv $mytmp/$run/*.gz  $mytmp/$run/*.out  $mytmp/$run/*.err tmp/SNP_BRS/$run
+mv $mytmp/$run/*  $mytmp/$run/*.out  $mytmp/$run/*.err tmp/SNP_BRS/$run
 ls -ls  tmp/SNP_BRS/$run/*.gz
 
 \rm -rf $mytmp

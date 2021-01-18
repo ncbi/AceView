@@ -16,7 +16,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: asubs.c,v 1.9 2015/09/18 22:13:45 mieg Exp $ */
+/* $Id: asubs.c,v 1.12 2017/10/02 19:48:53 mieg Exp $ */
 
 #define DEF_BP /* avoid typedefing it as void* in disk.h */
 typedef struct ablock *ABLOCK ;
@@ -248,7 +248,7 @@ Array uArrayHandleGet(KEY key, int size, char *format, AC_HANDLE handle)
   if (size != -1 && bp->hat.size != size)
     messcrash("arrayGet(%s) read an array of incorrect size %d != %d",
 	      name(key),bp->hat.size,size);
-  a =  uArrayCreate(bp->hat.max,bp->hat.size, handle);
+  a =  uArrayCreate(bp->hat.max + (bp->hat.size == 1 ? 1 : 0) ,bp->hat.size, handle);
   arrayMax(a) = bp->hat.max;
   while (TRUE)
     {
@@ -271,17 +271,14 @@ Array uArrayHandleGet(KEY key, int size, char *format, AC_HANDLE handle)
 #endif  
 }
 
-Array uArrayGet(KEY key, int size, char *format)
-{ return uArrayHandleGet (key, size, format, 0) ; }
-  
-
 BigArray uBigArrayHandleGet(KEY key, int size, char *format, AC_HANDLE h)
 {
   BigArray b = 0 ;
   Array a = uArrayHandleGet (key, size, format, 0) ; 
   if (a && arrayMax (a))
     {
-      b = uBigArrayCreate (arrayMax (a), size, h) ;
+      int dx = size == 1 ? 1 : 0 ; /* zero terminate the dna */
+      b = uBigArrayCreate (arrayMax (a) + dx, size, h) ;
       bigArrayMax (b) = arrayMax (a) ;
       memcpy(b->base, a->base, a->max * a->size) ;
     }

@@ -41,7 +41,7 @@
  * Created: Wed Oct 16 17:41:46 1991 (rd)
  *-------------------------------------------------------------------
  *
- * $Id: treedisp.c,v 1.33 2016/03/29 22:37:14 mieg Exp $
+ * $Id: treedisp.c,v 1.36 2020/05/30 16:50:33 mieg Exp $
  */
 
 
@@ -841,7 +841,7 @@ static void lookMenu (KEY k)
       Stack h = stackCreate (50) ;
       KEYSET ks1 = keySetCreate () ;
       KEY k1 ;
-      
+
       if (look->activebox) 
 	{
 	  bs = arr(look->content,look->activebox,BS) ;
@@ -2521,7 +2521,11 @@ BOOL treeChooseTagFromModel(int *type, int *targetClass, int classe,
     *type = 't' ;
   else if (bs->key == _Int)
     *type = 'i' ;
+  else if (bs->key == _LongInt)
+    *type = 'i' ;
   else if (bs->key == _Float)
+    *type = 'f' ;
+  else if (bs->key == _LongFloat)
     *type = 'f' ;
   else if (bs->key == _DateType)
     *type = 'd' ;

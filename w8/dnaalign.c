@@ -17,12 +17,6 @@
 
 /* @(#)dnaalign.c	1.18 11/12/96 */
 
-/*
-#define CHRONO
-
-#define ARRAY_CHECK 
-#define MALLOC_CHECK
-*/
 #include <ctype.h>
 #include "acedb.h"
 #include "topology.h"
@@ -42,7 +36,7 @@
 #include "display.h"
 #include "aligntools.h"
 #include "call.h"
-
+#include "restriction.h"
 #include "acembly.h"
 #include "mytime.h"
 
@@ -51,6 +45,8 @@ typedef struct { KEY k1, k2 ; } KEY_KEY ;
 static KEYSET ksstep = 0 ;
 static char u[9] ;
 static KEY dnaAlignPaires (DEFCPT look, KEY key1, KEY key2, int *taux) ;
+
+extern void fMapReDrawWindow (void) ;
 
 /***************************************************************/
 /*************************** Divers ****************************/
@@ -1495,7 +1491,7 @@ KEYSET dnaAlignMakeSubSequence (KEY link, KEYSET reads, char *cp)
 	  bsDestroy (obj) ;
 	}
       else clip = 1 ; /* should not happen */
-      dna2 = arrayCopy (dna) ;
+      dna2 = dnaCopy (dna) ;
       max = arrayMax (dna2) ;
       while (lexword2key(messprintf("%s.%d", buf, j), &dummy, _VSequence)) 
 	j++ ;
@@ -1893,7 +1889,7 @@ static KEY dnaAlignPaires (DEFCPT look, KEY key1, KEY key2, int *taux)
     x += dx ;
   localCptErreur(dna1, x1, y1, psta, dna2, x2, y2, x, sens, &n, &x2, &y2, &i, erreur) ;
   *taux = (arrayMax(erreur) - n) * 100 / i ;
-  newdna = arrayCopy(dna1) ;
+  newdna = dnaCopy(dna1) ;
   dnaAddPiece(newdna, dna2, erreur, sens, &x2, &y2, &shift) ;
   arrayDestroy (erreur) ;
   x1 += shift ; y1 += shift ; /* x1, y1 position de dna1 dans bilan */
@@ -2092,7 +2088,8 @@ void dnaAlignRecale (Array longDna, int *xl, int *yl, Array shortDna,
   amax = arrayMax (longDna) ;
   isUp = a1 < a2 ? FALSE : TRUE ;
   if (isUp)
-    { dna = arrayCopy (longDna) ;
+    { 
+      dna = dnaCopy (longDna) ;
       reverseComplement (dna) ;
       a1 = amax - a1 - 1 ;
       a2 = amax - a2 - 1 ;
@@ -2344,7 +2341,8 @@ BOOL dnaAlignAsmbPaireDna (Array dna1, Array dna2, int taille, int max, int zone
 	  if (ok && !tryboth)
 	    break ;
 	  if (!dna2rr)
-	    { dna2r = dna2rr = arrayCopy (dna2) ;
+	    { 
+	      dna2r = dna2rr = dnaCopy (dna2) ;
 	      reverseComplement (dna2r) ;
 	    }
 	}
@@ -2450,7 +2448,8 @@ KEY  dnaAlignAsmbPaire21 (KEY key1, KEY key2, int id, int isTour, int taille,
   lexaddkey(messprintf("%s.%d", nom, i), &seqKey, _VSequence) ;
 
   if (sens == -1)
-    { reverseComplement (dna2) ;
+    { 
+      reverseComplement (dna2) ;
       u2 = arrayMax (dna2) - u2 - 1 ;
     }
   i = arrayMax(dna1) + arrayMax(dna2) ;

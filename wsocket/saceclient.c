@@ -12,7 +12,7 @@
  * HISTORY:
  * Last edited: Feb  5 16:17 2001 (edgrif)
  * Created: Thu Jan  6 21:16:11 2000 (edgrif)
- * CVS info:   $Id: saceclient.c,v 1.2 2011/10/09 03:13:28 mieg Exp $
+ * CVS info:   $Id: saceclient.c,v 1.3 2020/05/30 16:50:36 mieg Exp $
  *-------------------------------------------------------------------
  */
 #include <wh/regular.h>
@@ -992,7 +992,6 @@ static char *makeCmdFromFile(char *filename)
   infile = aceInCreateFromFile(filename, "r", "", 0) ;
 
   file_text = stackCreate(2000) ;
-  stackTextOnly(file_text) ;
 
   pushText(file_text, "") ;
   while ((next_line = aceInCard(infile)) != NULL)

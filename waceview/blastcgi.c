@@ -226,7 +226,7 @@ int main()
     }
   else
     {
-      strcpy(blast_host,"ace11");
+      strcpy(blast_host,"ace01");
       blast_port=3001;
     }
   

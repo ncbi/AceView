@@ -18,7 +18,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: status.c,v 1.4 2015/09/18 22:05:16 mieg Exp $ */
+/* $Id: status.c,v 1.5 2020/01/12 13:36:52 mieg Exp $ */
  
 #include "acedb.h"
 #include "aceversion.h"					    /* For version reporting. */
@@ -245,8 +245,8 @@ void acedbstatus (void)
    ("Arrays (Including the lexiques):"),
 	   2, line++) ;
  graphText(messprintf
-   ("%d made, %d current, %d Kb allocated, %d Kb used (0: unknown)",
-		      aMade, aUsed, aAlloc/1024, aReal/1024),
+   ("%ld made, %ld current, %ld Kb allocated, %ld Kb used (0: unknown)",
+		      (long)aMade, (long)aUsed, (long)aAlloc/1024, (long)aReal/1024),
 	   4, line++) ;
 
  line ++ ;

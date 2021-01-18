@@ -37,8 +37,10 @@ typedef struct zoneStruct {
   DICT *ignoredProbeDict, *mapDict, *remapDict ;
   Array chromDnaD, chromDnaR, introns ;
   const char *outFileName ;
+  const char *strategy ;
+  BOOL RNA_seq ;
   BOOL plot, wordProfile, venn, intron, count, exp, cmp, nPlatform, hammer, stranded, mrnaWiggle, hits2composite
-    , strand, antistrand, intronSpongeMerge, gs2index, unique, exomeDosage, geneDosage, variantDosage, spongeWindow
+    , strand, antistrand, intronSpongeMerge,gs2index, unique, exomeDosage, geneDosage, variantDosage, spongeWindow
     , ventilate, newIntrons, newDoubleIntrons, newExons, flagTranscriptEnds, gzi, gzo ;} SX ;
 
 typedef struct pfStruct { int probe, nerr, nN, nhit, targetHit[6], targetErr[5], isUp ; } PF ;
@@ -207,7 +209,6 @@ static void sxHits2composite (SX *sx)
   DICT *dict = dictHandleCreate (10000, sx->h) ;
   Stack s = stackHandleCreate (10000, sx->h) ;
 
-  stackTextOnly (s) ;
   /* parse the fasta */
   if (!sx->target)
     messcrash ("argument -t target_fasta_file is missing") ;
@@ -2274,7 +2275,7 @@ static BOOL sxGetTargetFasta (SX *sx)
       dnaD = sxParseFasta (sx) ;
       if (dnaD)
 	{
-	  dnaR = arrayHandleCopy (dnaD, sx->h) ;
+	  dnaR = dnaHandleCopy (dnaD, sx->h) ;
 	  reverseComplement (dnaR) ;
 	  dnaDecodeArray (dnaD) ;
 	  dnaDecodeArray (dnaR) ;
@@ -3434,6 +3435,7 @@ static int sxNewIntrons (SX *sx)
 	switch (pass)
 	  {
 	  case 0: 
+	  case 3:
 	    donors = trueDonors ;
 	    acceptors = trueAcceptors ;
 	    break ;
@@ -3486,7 +3488,7 @@ static int sxNewIntrons (SX *sx)
 		    if  (da->chrom > ddChrom || da->isDown > ddDown || da->a1 > ddA1 + intronMaxLength)
 		      break ;
 		    if  (da->chrom < ddChrom || da->isDown <  ddDown || da->a1 < ddA1 - 20)
-		      { ja = ia ; continue ; } /* start next acceptor os dame chrm same strand donor at this position ; */
+		      { ja = ia ; continue ; } /* start next acceptor on same chrm same strand donor at this position ; */
 		  }
 		else if (pass < 3) /* same strand, same chrom */
 		  {
@@ -3594,7 +3596,7 @@ static int sxNewIntrons (SX *sx)
 		foot[0] = '-' ; foot[1] = 0 ;
 		f1[2] = '_' ; f1[5] = 0 ;
 		f2[2] = '_' ; f2[5] = 0 ;
-                if (type == 3)
+                if (type == 3 && sx->RNA_seq)
 		  {
 		    for (i = 0 ; i <= dx1 - 2 ; i++)
 		      {
@@ -3736,33 +3738,46 @@ static int sxNewIntrons (SX *sx)
       for (i = 0, vp = 0 ; i < arrayMax (exportIntrons) ; i++)
 	{
 	  up = arrp (exportIntrons, i, IXP) ;
-	  if (! up->chrom) continue ;
+	  if (! up->chrom) continue ; 
+	  if (up->u1 < up->u2)
+	    up->du = up->u2 - up->u1 + 1 ;
+	  else
+	    up->du = up->u1 - up->u2 + 1 ;
 	  switch (up->type)
 	    {
 	    case 2: /* MICRODELETION */
 	    case 3: /* DELETION */
+
 	      if (up->u1 < up->u2)
-		{ up->u1++ ; up->u2-- ; up->du = up->u2 - up->u1 + 1 ; }
+		{ up->u1++ ; up->u2-- ; }
 	      else
-		{ up->u1-- ; up->u2++ ; up->du = up->u1 - up->u2 + 1 ; }
+		{ up->u1-- ; up->u2++ ; }
 	      break ;
 	    case 4: /* MICRODUPLICATION */
 	    case 5: /* DUPLICATION */
 	      if (up->u1 < up->u2)
-		{ up->u1++ ; up->u2-- ; up->du = up->u2 - up->u1 + 1 ; }
+		{ 
+		  up->u1++ ; up->u2-- ; 
+		  if (up->u1 == 1) up->type = 9 ; /* CIRCLE */
+		}
 	      else
-		{ up->u1-- ; up->u2++ ; up->du = up->u1 - up->u2 + 1 ; }
+		{ 
+		  int u ;
+		  up->u1-- ; up->u2++ ; 
+		  if (up->u2 == 1) up->type = 9 ; /* CIRCLE */
+		  u = up->u1 ; up->u1 = up->u2 ; up->u2 = u ;
+		}
 	      break ;
 	    case 6: /* INVERSION */
 	    case 7: /* PALINDROME */
 	      if (up->u1 < up->u2)
 		{ 
-		  up->u1-- ; up->u2++ ; up->du = up->u2 - up->u1 + 1 ; 
+		  up->u1-- ; up->u2++ ; 
 		  if (up->u2 == 1) up->type = 9 ; /* CIRCLE */
 		}
 	      else
 		{ 
-		  up->u1++ ; up->u2-- ; up->du = up->u1 - up->u2 + 1 ; 
+		  up->u1++ ; up->u2-- ;
 		  if (up->u1 == 1) up->type = 9 ; /* CIRCLE */
 		}
 	      break ;
@@ -4222,11 +4237,23 @@ static Array sxNewExonsGetWiggle (SX *sx, const char *fileName, AC_HANDLE h0)
 
   if (fileName)
     {
+      char *cp, *cq, *buf ;
+      cp = buf = strnew (fileName, h) ;
+      
       if (! strstr (fileName, ".BF.") && ! strstr (fileName, ".bf.") &&
 	  (strstr (fileName, ".BV.") || ! strstr (fileName, ".bv."))
 	  )
 	type = "BV" ;
-      aa = sxGetWiggleZone (fileName, type, SOLEXA_STEP, 0, 0, 0, h) ;
+    
+      /* parse a collection of sponge files */
+      while (cp)
+	{
+	  cq = strstr (cp, ",") ;
+	  if (cq)
+	    *cq++ = 0 ;
+	  aa = sxGetWiggleZone (aa, cp, type, SOLEXA_STEP, 0, 0, 0, h) ;
+	  cp = cq ;
+	}
     }
   if (aa && arrayMax (aa))
     {
@@ -8894,6 +8921,10 @@ int main (int argc, const char **argv)
   sx.antistrand = getCmdLineOption (&argc, argv, "-antistrand", 0);
   sx.unique = getCmdLineOption (&argc, argv, "-u", 0);
   getCmdLineOption (&argc, argv, "-cosmidWiggle", &(sx.cosmidWiggle));
+  if (getCmdLineOption (&argc, argv, "-strategy", &(sx.strategy)) &&
+      ! strcasecmp (sx.strategy, "RNA_seq"))
+    sx.RNA_seq = TRUE ;
+  
   getCmdLineOption (&argc, argv, "-wiggleDir", &sx.wiggleDir) ;
   getCmdLineOption (&argc, argv, "-feature", &sx.wiggleFeature) ;
   getCmdLineOption (&argc, argv, "-trackName", &(sx.trackName));

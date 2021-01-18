@@ -5,6 +5,8 @@ set run=$2
 set type=$3
 set type2=$4
 
+echo $task $run
+
 set solid="cat"
 foreach run2 (`cat MetaDB/$MAGIC/RunSolidList`)
   if ($run == $run2) set solid=" dna2dna -I csfastc -O fastc "
@@ -13,17 +15,43 @@ end
 if ($task == telomere) then
 
   if ($type == any) then
-    echo "gunzip -c Fastc/$run/"'*'".fastc.gz | $solid | bin/dnabloom -telomere -run $run -max_threads 4 -o tmp/Bloom/$run/a0B"
-    gunzip -c Fastc/$run/*.fastc.gz | $solid | bin/dnabloom -telomere -max_threads 1  -run $run -o tmp/Bloom/$run/a0B
+    echo "gunzip -c Fastc/$run/"'*'".fastc.gz | $solid | bin/dnabloom -telomere -run $run -max_threads 8 -o tmp/Bloom/$run/a0B"
+    gunzip -c Fastc/$run/*.fastc.gz | $solid | bin/dnabloom -telomere -max_threads 8  -run $run -o tmp/Bloom/$run/a0B
   endif
   if ($type == unaligned) then
-    echo "gunzip -c tmp/Unaligned/$run/"'*'".fastc.gz  $solid | bin/dnabloom -telomere -run $run -max_threads 4 -o tmp/Bloom/$run/a0B"
-    gunzip -c tmp/Unaligned/$run/*.fastc.gz  $solid | bin/dnabloom -telomere -max_threads  1 -run $run -o tmp/Bloom/$run/a0B.unaligned
+    echo "gunzip -c tmp/Unaligned/$run/"'*'".fastc.gz | $solid | bin/dnabloom -telomere -run $run -max_threads 8 -o tmp/Bloom/$run/a0B"
+    gunzip -c tmp/Unaligned/$run/*.fastc.gz | $solid | bin/dnabloom -telomere -max_threads  8 -run $run -o tmp/Bloom/$run/a0B.unaligned
   endif
   exit 0
 endif
 
 if ($task == telomereReport) then
+
+  # regroup the sublibs
+  foreach run (`cat MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
+    if (! -d tmp/Bloom/$run) then
+      $mkDir Bloom $run
+    endif
+
+    if ($type == any) then
+      set ff=tmp/Bloom/$run/a0B.telomere_distribution.txt
+    endif
+    if ($type == unaligned) then
+      set ff=tmp/Bloom/$run/a0B.unaligned.telomere_distribution.txt
+    endif
+    touch $ff.1
+    \rm $ff.1
+    foreach sublib (`cat  MetaDB/$MAGIC/r2sublib | gawk '{if($1 == run)print $2;}' run=$run`)
+      if ($type == any) then
+        set ff1=tmp/Bloom/$sublib/a0B.telomere_distribution.txt
+      endif
+      if ($type == unaligned) then
+        set ff1=tmp/Bloom/$sublib/a0B.unaligned.telomere_distribution.txt
+      endif
+      cat $ff1 | gawk '/^#/{next;}{print}' > $ff.1 
+    end
+    cat $ff.1 | gawk -F '\t' '{if(NF>nf)nf=NF;t=$2;n=t2n[t]; if(t2n[t]<1){nt++;t2n[t]=nt;n=nt;n2t[nt]=t;}for(i=3;i<=NF;i++)z[n,i]=$i;}END{for (n=1;n<=nt;n++){printf("%s\t%s",run,n2t[n]);for (i=3 ; i <= nf ; i++) printf("\t%s",z[n,i]);printf("\n");}}' run=$run > $ff
+  end
 
   if ($type == any) then
     set toto=RESULTS/Mapping/$MAGIC.telomere.txt
@@ -33,6 +61,8 @@ if ($task == telomereReport) then
     set toto=RESULTS/Mapping/$MAGIC.unaligned.telomere.txt
     set toto=tmp/Bloom/$MAGIC.unaligned.telomere.txt
   endif
+  touch $toto.1
+  \rm $toto.[0123]
   echo -n "## $toto : " > $toto.0
   date >> $toto.0
   
@@ -45,9 +75,12 @@ if ($task == telomereReport) then
   endif
   echo "## A fragment is either a read-pair (in case of paired end sequencing) or a read (in case of single end sequencing)."  >> $toto.0
   echo "## The characteristic telomeric motif is the homopolymer (TTAGGG/CCCTAA)n, poly-A is (A/T)n" >> $toto.0
+  echo "## A G>C variation is allowed in the variant telomeric motifs" >> $toto.0 
   echo "## This analysis is non stranded: the motif and its complement are both counted." >> $toto.0
   echo "## The maximal number of motifs is dictated by the sequencing length. In a pure poly-A 100+100 read pair, there would be 88+88=176 (A)13 motifs" >> $toto.0
-  echo "## Therefore fragments with 11 motifs could either include 11 isolated 13-mers, or a single 23-mer motif, or a 19-mer (counting 7) and a 16-mer (counting 4) etc." >> $toto.0
+  echo "## Therefore fragments with 11 A13 motif could either include 11 isolated polyA[13] motifs, or a single 23-mer polyA motif, or a polyA[19] (counting 7) and a polyA[16] (counting 4) etc." >> $toto.0
+  echo "## A fragment with 11 telomeric motifs has necessarilly 11 distinct motifs occupying at least 66 bases, sinc e the telomere motif is non-sliding" >> $toto.0
+  echo "## Each very long reads is cut in regular fragments of around 1000 bases, then the counts are normalized per million such fragments. e.g. 7 segments of length 1050 for a read of length 7350" >> $toto.0
   echo "## The number of fragments in a given run with the given number of motifs is reported in the table, as cumuls showing fragments with at least so many motifs." >> $toto.0
   
   echo >> $toto.0
@@ -65,7 +98,7 @@ if ($task == telomereReport) then
     set ff=tmp/Bloom/$MAGIC.telomere.$type.ace  
     echo " " > $ff
   echo > $toto.1
-  foreach run ( `cat MetaDB/$MAGIC/RunListSorted`)
+  foreach run ( `cat MetaDB/$MAGIC/RunList`)
     set ff="x"
     if ($type == any) then
       set ff=tmp/Bloom/$run/a0B.telomere_distribution.txt
@@ -74,46 +107,79 @@ if ($task == telomereReport) then
       set ff=tmp/Bloom/$run/a0B.unaligned.telomere_distribution.txt
     endif
     # echo $ff
-    if (-e $ff) cat $ff | gawk -F '\t' '{printf("%s",run);for(i=2;i<=NF;i++)printf ("\t%s",$i);printf("\n");}' run=$run >> $toto.1
+    if (-e $ff) then
+      cat $ff | gawk -F '\t' '/^$/{next;}{printf("%s",run);for(i=2;i<=NF;i++)printf ("\t%s",$i);printf("\n");}' run=$run | sed -e 's/per_fragment/per_read_or_read_pair/g' | sed -e 's/per_kb/per_1_kb_fragment/g'  >> $toto.1
+    endif
   end
 
   ls -ls $toto.?
 
-  echo -n "#Type\tRun\tIndex:FPM for at least 3 motifs\tNumber of fragments\tAt least one motif" > $toto.2
-  echo $nn | gawk '{for(i=2;i<=$1;i++)printf ("\t%d motifs",i);printf("\n");}' >> $toto.2
-  cat $toto.1 | gawk  -F '\t' '/^#/{next}{if($3+0<3)next;n=0;for(i=0;i<=NF;i++)if(0+$i>0)n=i;printf("%s\t%s",$2,$1);x=1000000.0*$6/($3+1);printf("\t%.2f",x);for(i=3;i<=n;i++)printf("\t%s",$i);for(i=n+1;i<=nn;i++)printf("\t");printf("\n");}' nn=$nn > $toto.3
-  
-  foreach motif (`cat $toto.3 | cut -f 1 | grep cumul | sort -u`)
-    echo $motif
-    cat $toto.3 | gawk -F '\t' '{if($1==motif) print}' motif="$motif"  >> $toto.2
-    echo "\n\n\n\n\n\n\n\n\n\n"  >> $toto.2
+  cat $toto.1  | gawk  -F '\t' '/^#/{next}{if($3+0<3)next;n=0;for(i=0;i<=NF;i++)if(0+$i>0)n=i;printf("%s\t%s",$2,$1);x=1000000.0*$6/($3+1);printf("\t%.2f",x);for(i=3;i<=n;i++)printf("\t%s",$i);for(i=n+1;i<=nn;i++)printf("\t");printf("\n");}' nn=$nn > $toto.3
+
+   foreach fp (per_read_or_read_pair per_1_kb_fragment)
+    foreach motif (A13-$fp-cumul Telomeric_6-$fp-cumul Tel_C_6-$fp-cumul imagT_6-$fp-cumul imagC_6-$fp-cumul)
+      echo $motif.$fp
+      echo -n "#Type\tRun\tIndex:FPM $fp for at least 3 motifs\tNumber of fragments\tAt least one motif" >> $toto.2
+      echo $nn | gawk '{for(i=2;i<=$1;i++)printf ("\t%d motifs",i);printf("\n");}' >> $toto.2
+      cat $toto.3 | gawk -F '\t' '{if($1==motif) print}' motif="$motif"  >> $toto.2
+      echo "\n\n\n"  >> $toto.2
+    end
   end
 
+  cat $toto.1 | sed -e 's/per_1_kb_fragment/per_million_1_kb_fragments/g' | gawk  -F '\t' '/^#/{next}{if($3+0<3)next;n=0;for(i=0;i<=NF;i++)if(0+$i>0)n=i;printf("%s\t%s",$2,$1);x=1000000.0*$6/($3+1);printf("\t%.2f",x);z=1000000.00/$3;for(i=3;i<=n;i++)printf("\t%.2f",z*$i);for(i=n+1;i<=nn;i++)printf("\t");printf("\n");}' nn=$nn > $toto.3
+
+  foreach fp (per_million_1_kb_fragments)
+    foreach motif (A13-$fp-cumul Telomeric_6-$fp-cumul Tel_C_6-$fp-cumul imagT_6-$fp-cumul imagC_6-$fp-cumul)
+      echo $motif.$fp
+      echo -n "#Type\tRun\tIndex:FPM Normalized for at least 3 motifs\tNumber of fragments\tAt least one motif" >> $toto.2
+      echo $nn | gawk '{for(i=2;i<=$1;i++)printf ("\t%d motifs",i);printf("\n");}' >> $toto.2
+      cat $toto.3 | gawk -F '\t' '{if($1==motif) { print}}' motif="$motif"  >> $toto.2
+      echo "\n\n\n"  >> $toto.2
+    end
+  end
   cat $toto.0 $toto.2 > $toto
 
-  if (1) then
-    set ff=tmp/Bloom/$MAGIC.telomere.$type.ace  
-    foreach motif (`cat $toto.3 | cut -f 1 | grep cumul | sort -u`)
+  set fface=tmp/Bloom/$MAGIC.telomere.$type.ace  
+  touch $fface
+  \rm $fface
+  if (! -e $fface) then
+  foreach motif (`cat $toto | cut -f 1 | grep cumul | sort -u`)
       echo $motif 
-      cat $toto.3 | grep -v _1 | gawk -F '\t' '{if($1==motif) print}' motif="$motif" | gawk -F '\t' '{run=$2; if($4<1000)next ;printf("Ali %s\nBloom \"%s.%s\" %f %d %d %d %d %d  %d %d %d %d %d\n\n",run,type,$1,$3,$4,$5,$6,$7,$8,$9,$14,$24,$54,$104);}' type=$type  >> $ff
+      cat $toto | gawk -F '\t' '{if($1==motif) print}' motif="$motif" | gawk -F '\t' '{run=$2; if($4<1000)next ;printf("Ali %s\nBloom \"%s.%s\" %f %d %d %d %d %d  %d %d %d %d %d\n\n",run,type,$1,$3,$4,$5,$6,$7,$8,$9,$14,$24,$54,$104);}' type=$type  >> $fface
     end
-
     echo bb
     ls -ls $toto.? $ff
       tbly MetaDB << EOF
         read-models
-        parse  $ff
+        parse  $fface
         save
         quit
 EOF
   endif
 
-  \rm $toto.[0123]
-  
+  # \rm $toto.[0123]
+  if (! -d RESULTS/Bloom) mkdir RESULTS/Bloom
+  foreach run ( `cat MetaDB/$MAGIC/RunListSorted`)
+    \cp tmp/Bloom/$run/a0B.telomere_distribution.txt RESULTS/Bloom/a0B.$run.telomere_distribution.txt
+  end
+  \cp $toto RESULTS/Bloom
+  \cp $toto RESULTS/Mapping
+  echo $toto
    exit 0
 endif
   
-#######
+###########################################################################################
+if ($task == telomereRemap) then
+   echo -n  "a0B.Bloom telomereRemap :"
+   date
+# construct a fasta file
+    cat tmp/Bloom/$run/a0B.telomere_hits.txt | gawk -F '\t' '/^#/{next}{k++;z=$2 "__" $3 "__" k "#" $4;printf(">%s\n%s\n",z,$5);}' | gzip > tmp/Bloom/$run/a0m.fastc.gz
+    bin/clipalign -i tmp/Bloom/$run/a0m.fastc.gz -t TARGET/Targets/$species.genome.fasta.gz -minAli 30 -maxHit 30 -gzo -o tmp/Bloom/$run/a0m
+
+   exit 0
+endif
+
+###########################################################################################
 ## genome loop
 
 if ($task == METADATA) then
@@ -203,15 +269,53 @@ if ($task == fastq) then
     set run=`echo $ff | gawk '{i = index($1,"_1.fastq.gz");print substr($1,1,i-1);}'`
     set ff2=`echo $ff | sed -e 's/_1\.fastq.gz/_2.fastq.gz/'`
 
-    scripts/submit Bloom/$run "scripts/a0B.Bloom.tcsh  fastq $run $ff $ff2"  UGE4
+    scripts/submit Bloom/$run "scripts/a0B.Bloom.tcsh  fastq $run $ff $ff2"  32G
     
   end
 
 endif 
   
-  
 ##############################################
-## preselection des enes A* et B* et des reads qui vont dans A* et B*
+## motif distribution along the chromosomes
+
+cat /home/mieg/SEQC2_2020/TARGET/CHROMS/Centromere_telomeres.ace | gawk '/^Map/{gsub(/\"/,"",$2);chrom=$2;}/^Centromere_telomeres/{t1=$2;t2=$5;c=($3+$4)/2;chLn[chrom]=t2;chCtr[chrom]=c;printf("%s\t%d\t%d\n",chrom,t2,c);}' | gzip > tmp/METADATA/chrom2centre2length.txt.gz
+  
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+
+  if (-e tmp/Bloom/$run/a0m.hits.gz && ! -e tmp/Bloom/$run/chrom2motif.txt) then
+    zcat tmp/METADATA/chrom2centre2length.txt.gz ZZZZZ.gz  tmp/Bloom/$run/a0m.hits.gz | gawk -F '\t' '/^#/{next}/^ZZZZZ/{zz++;next;}{if(zz<1){if ($2+0>0){c=$1;ctr[c]=$2;cLn[c]=$3;}next;}{NN=10;split($1,aa,"__");type=aa[1];chrom=$11;n=$2; a=($12+$13)/2;if(cLn[chrom]+0==0)next;split($1,bb,"#");mult=0+bb[2];s=int(NN*a/cLn[chrom]);cc[chrom]++;nn[chrom,s,type]+=n*mult;types[type]+=n*mult;}END{printf("#Run\tType");for(c in cLn)for(i=0;i<NN;i++)printf("\t%s.%d",c,i+1);for(t in types){printf("\n%s\t%s",run,t);for(c in cLn)for(i=0;i<NN;i++)printf("\t%d",nn[c,i,t]);}printf("\n");}' run=$run > tmp/Bloom/$run/chrom2motif.txt
+  endif
+
+end
+
+cat /home/mieg/SEQC2_2020/TARGET/CHROMS/Centromere_telomeres.ace | gawk '/^Map/{gsub(/\"/,"",$2);chrom=$2;}/^Centromere_telomeres/{t1=$2;t2=$5;c=($3+$4)/2;chLn[chrom]=t2;chCtr[chrom]=c;printf("%s\t%d\t%d\n",chrom,t2,c);}' > tmp/METADATA/chrom2centre2length.txt
+  
+set toto=RESULTS/Bloom/$MAGIC.chrom2motif.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+echo "## The reads containing at least 3 telomeric motifs were selected and remapped"
+foreach run (`cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted`)
+
+  echo $run
+  echo ' ' > tmp/Bloom/_a
+  foreach run2 (`cat MetaDB/$MAGIC/g2r | gawk '{if ($1==run)print $2}END{print run}' run=$run`)
+    if (-e tmp/Bloom/$run2/a0m.hits.gz) then
+      zcat tmp/Bloom/$run2/a0m.hits.gz | gawk -F '\t' '/^#/{next;}{p=$1;gsub(/>/,"",p);gsub(/</,"",p);if(p==old)next;old=p;print}' >> tmp/Bloom/_a
+      echo -n ".. $run2  "
+      ls -ls tmp/Bloom/_a
+    endif
+  end
+
+  cat tmp/METADATA/chrom2centre2length.txt ZZZZZ tmp/Bloom/_a | gawk -F '\t' '/^#/{next}/^ZZZZZ/{zz++;next;}{if(zz<1){if ($2+0>0){c=$1;nC++;CC[nC]=c;ctr[c]=$3;cLn[c]=$2;}next;}{NN=10;split($1,aa,"__");type=aa[1];chrom=$11;n=aa[2]; a=($12+$13)/2;if(cLn[chrom]+0==0)next;split($1,bb,"#");mult=0+bb[2];s=int(NN*a/cLn[chrom]);cc[chrom]++;nn[chrom,s,type]+=n*mult;types[type]+=n*mult;if(0)print chrom,s,type,n,mult;}}END{printf("#\t\t");for(iC=1;iC<=nC;iC++){c=CC[iC];printf("\t");for(i=0;i<NN;i++)printf("\tchrom %s part %d",c,i+1);}printf("#Run\tType\tNumber of motifs in mapped telomeric reads");for(iC=1;iC<=nC;iC++){c=CC[iC];printf("\t");for(i=0;i<NN;i++)printf("\tfrom %d to %d",1+(i)*cLn[c]/10,(i+1)*cLn[c]/10);}for(t in types){printf("\n%s\t%s\t%d",run,t,types[t]);for(iC=1;iC<=nC;iC++){c=CC[iC];printf("\t");for(i=0;i<NN;i++)printf("\t%d",nn[c,i,t]);}}printf("\n");}' run=$run >>  $toto
+ ls -ls tmp/Bloom/_a
+end
+mv $toto _a 
+cat _a | gawk '/^#/{print;}' | sort -u > $toto
+cat _a | gawk '/^#/{next;}{print;}' |  sort -k 2,2 -k 1,1 >> $toto
+
+
+##############################################
+## preselection des genes A* et B* et des reads qui vont dans A* et B*
 
 ## select gene A*
 

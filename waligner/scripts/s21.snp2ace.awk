@@ -1,4 +1,4 @@
-/^Run/{for(i=2;i<=NF;i++)runs[i]=$i;next;}
+/^Average allele frequency/{for(i=2;i<=NF;i++)runs[i]=$i;next;}
 { t = 0 ; k = 0 ;}
 
 /^All sites/{t="All_sites";k=0;}

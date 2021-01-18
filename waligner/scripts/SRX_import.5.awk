@@ -1,4 +1,6 @@
 
+{ gsub (/''/,"'",$0); }
+{ gsub (/\\\"/,"\"",$0); }
 { gsub (/\"/,"\\\"",$0); }
 { gsub (/http:\//,"http:\\/",$0) ;}
 
@@ -160,6 +162,8 @@
 	    if (z == "unspecified") z = "" ;
 	    if (z == "Gene Expression Omnibus (GEO)") z = "" 
 	    if (z == "UC SANTA CRUZ") z = "" ;
+	    if (z == "NCBI (GEO)") z = "" ;
+	    if (z == "GEO") z = "" ;
 	}
 	
 	if (length (z) > 1)

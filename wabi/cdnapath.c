@@ -476,7 +476,7 @@ static int getPleaseAcceptNegativeIntron (void)
  * 1: huge intron, accept extension and at the same time split
  * 2: extend previous path
  */
-#define BIGINTRON 100000
+#define BIGINTRON 1000000
 
 static int cPathIsCompatible (PP pp, int ii, int jj)
 {

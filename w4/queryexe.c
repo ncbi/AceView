@@ -36,7 +36,7 @@
  */
 
 
-/* $Id: queryexe.c,v 1.44 2016/01/26 04:02:34 mieg Exp $ */
+/* $Id: queryexe.c,v 1.48 2020/05/30 16:50:31 mieg Exp $ */
 
 #define CONDITION_DEFINED
 typedef struct condition *COND ;
@@ -1268,7 +1268,7 @@ static CDT cdtConstructLevel (char *text, Stack s, int context)
 	     into class zero. Hence we don't look for tags
 	     until after we've looked from numbers. 
 	  */
-	  else if (sscanf (item,"%lf%c",&xx,&dummy) == 1)
+	  else if (sscanf (item,"%lg%c",&xx,&dummy) == 1)
                   /* dummy trick checks no unmatched characters */
 	    { cdt->qop = NUMBER;
 	      cdt->x = xx ;
@@ -1855,9 +1855,22 @@ static BindexFindResult condMatch(Stack s, KEY key, OBJ* objp, CDT cdt)
 		      return BINDEX_TAG_ABSENT ;
 		    }   
 	      }
-	    else if (k <= _LastC)
+	    else if (k == _LongInt || k == _LongFloat)
 	      { if (bsGetData(*objp, _bsHere, k, &cp))
 		  { if (isNumber(cdt->right->qop))
+		      { double xx ;
+			if (sscanf(cp, "%lg",&xx) &&
+			    condCheck(xx,cdt->qop,cdt->right->x))
+			  return BINDEX_TAG_PRESENT ;
+		      }
+		    if (condCheckText(cp,cdt->qop,
+				      stackText(s,cdt->right->mark)))
+		      return BINDEX_TAG_PRESENT ;
+		  }
+	      }
+	    else if (k <= _LastC)
+	      { if (bsGetData(*objp, _bsHere, k, &cp))
+		  { if (0 && isNumber(cdt->right->qop))
 		      { double xx ;
 			if (sscanf(cp, "%lf",&xx) &&
 			    condCheck((float)xx,cdt->qop,cdt->right->x))
@@ -1872,7 +1885,8 @@ static BindexFindResult condMatch(Stack s, KEY key, OBJ* objp, CDT cdt)
 	      { 
 		ccp = 0 ;
 		while (nextName(k, &ccp))
-		  { if (isNumber(cdt->right->qop))
+		  { if (0 && /* 2017_10_12 do not force conversion to a number because of rounding errors */
+			isNumber(cdt->right->qop))
 		      { double xx ;
 			if (sscanf(ccp, "%lf",&xx) &&
 			    condCheck((float)xx,cdt->qop,cdt->right->x))

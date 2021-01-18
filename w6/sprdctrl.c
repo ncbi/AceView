@@ -129,7 +129,7 @@ void spreadInitColonne (SPREAD spread)
   spread->activeColonne = max ;
 
   c = arrayp(spread->colonnes, spread->activeColonne, COL) ;  
-  if (c) ; /* for compiler happiness */
+  if (c) {} ; /* for compiler happiness */
   spreadDoInitColonne (spread, max) ;
 
   return;
@@ -1278,7 +1278,7 @@ static void spreadExportBql (void)
   if (!c || !c->type)
     return ; 
  
-  spreadDoExportBql (spread) ;
+  spreadDoExportBql (spread, 0, TRUE) ;
 } /* spreadExportBql */
 
 /************/

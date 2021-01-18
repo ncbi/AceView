@@ -724,21 +724,7 @@ char *ficheMrnaDNA (vTXT blkp, AC_DB db, AC_OBJ oMrna, char style, char *param)
   ac_free (h) ;
   return vtxtPtr (blkp) ;
 }
-/*
-find tg lipj.*
-follow cdna_clone
 
-bql -active select c,r,c,m,a1,a2, x1,x2,len,ali,err,prod,inv,ano from c in @, r in c->read, t in r->tissue, m in c->in_mrna where  m, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where r1 == r, x1 in r1[1], x2 in x1[1], tg in m->from_gene, tg1 in r->from_gene where tg1 == tg, len in tg1[1], ali in len[2], err in ali[1], c1 in m->cdna_clone, inv in r->inverted[0] , ano in c->anomalous_clone[0], prod in m->product where (prod#best_product) or (prod ~ "LIPJ.aApr07"), prod2 in r->covers_product where not  r#covers_product or prod2 == prod, var in prod2[type], gene in tg->gene  where gene like "LIPJ"
-
-
-
-
-bql -active select c,r,c,m,a1,a2, x1,x2,len,ali,err from c in @active:1, r in c->read, t in r->tissue, m in c->in_mrna where exists m, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where r1 == r, x1 in r1[1], x2 in x1[1], tg in m->from_gene, tg1 in r->from_gene where tg1 == tg, len in tg1[1], ali in len[2], err in ali[1], c1 in m->cdna_clone
-
-
-bql -active select c,r,c,m,a1,a2, x1,x2,len,ali,err,prod2,var,inv,ano,ref_seq, tiling, hlib, gene from c in @, r in c->read, t in r->tissue, m in c->in_mrna where m, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where r1 == r, x1 in r1[1], x2 in x1[1], tg in m->from_gene, tg1 in r->from_gene where tg1 == tg, len in tg1[1], ali in len[2], err in ali[1], c1 in m->cdna_clone, inv in r->inverted[0] , ano in c->anomalous_clone[0], prod in m->product where (prod#best_product) or (prod like "LIPJ.aApr07"), prod2 in r->covers_product where not r#covers_product or prod2 == prod, var in prod2[type], gene in tg->gene  where gene == "LIPJ" , ref_seq in r->ref_seq[0], tiling in r->mRNA_tiling[0], hlib in c->hinv_libs where gene == "LIPJ" 
-
-*/
 static char *fichePEP (vTXT vtxt, AC_DB db, AC_OBJ oProduct, char style, char *param)
 {
   char *sPep, *cp ;
@@ -986,7 +972,7 @@ static void ficheGeneDo (vTXT blkp, GMP *gmp, int chapter)
 
 /******************************************************************************/
 
-char *ficheGeneFiche (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style, int chapter)
+static char *ficheGeneFiche (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style, int chapter)
 {
   GMP *gmp ;
   
@@ -1020,8 +1006,90 @@ static char *ficheGeneSection (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style, ch
 } /* ficheGeneSection */
 
 /******************************************************************************/
+/******************************************************************************/
 
-char *ficheGene (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style)
+static void ficheGenomeDo (vTXT blkp, AC_DB db, GMP *gmp, int chapter)
+{
+  AC_HANDLE h = ac_new_handle () ;
+
+  if (gmp->markup) 
+    vtxtMarkup (blkp) ;  
+   
+  if (chapter == 100000)
+    {
+      vtxtPrintf (blkp, "%6d.<br>", 100001) ; /* essential in main.js file downloader */
+      gmp->superDiv = 2 ;   /* so that the chapters are loaded as blocked */
+      
+      gmpBlockStart (blkp, gmp, "Genome_summary") ;
+      ficheGenomeSummaryChapter (blkp, gmp) ;
+      gmpBlockClose (blkp, gmp, "Genome_summary") ;
+
+      gmpBlockStart (blkp, gmp, "Genome_plot") ;
+      ficheGenomePlotChapter (blkp, db, gmp, TRUE) ;
+      ficheGenomePlotChapter (blkp, db, gmp, FALSE) ;
+      gmpBlockClose (blkp, gmp, "Genome_plot") ;
+
+      gmpJumpPointShow (blkp, gmp, FALSE, FALSE) ;
+    } 
+  else
+    {
+      /* title info */  
+      if (gmp->markup) vtxtPrint (blkp, "<a href='#' name='top'></a>\n") ;
+      
+      if (chapter == 0) chapter = 1 ;
+
+      gmp->requestedChapter = chapter ;
+      switch (chapter)
+	{
+	case 1: /* summary */
+	  ficheNewGeneTitleParagraph (blkp, gmp) ;   
+	  gmpBlockInit (blkp, gmp, TRUE, chapter) ;
+	  ficheGenomeSummaryChapter (blkp, gmp) ;
+	  break ;
+	case 2: /* plot */
+	  ficheGenomePlotChapter (blkp, db, gmp, FALSE) ;	  
+	  ficheGenomePlotChapter (blkp, db, gmp, TRUE) ;	  
+	  break ;
+	}
+    }
+  ac_free (h) ;
+} /* ficheGenomeDo */
+
+/******************************************************************************/
+
+static char *ficheGenomeFiche (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style, int chapter)
+{
+  GMP *gmp ;
+  
+  /* initialise */
+  gmp = gmpCreate (db, oGene, 0, 0, 0, 0, style, 'g') ;
+ 
+  if (!gmp)
+    {
+      vtxtPrint (vtxt, 
+		  "\nSorry, I do not find the details on this gene.\n\n"
+		  " It is possible that it was filtered at the last step"
+		  "because its quality was not good enough.\n") ;
+    }
+  else
+    {
+      ficheGenomeDo (vtxt, db, gmp, 1) ;
+      ficheGenomeDo (vtxt, db, gmp, 2) ;
+    }
+  gmpDestroy (gmp) ;
+  return vtxtPtr (vtxt) ;
+} /* ficheGenomeFiche */				
+
+/****************/
+
+static char *ficheGenome (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style)
+{
+  return ficheGenomeFiche (vtxt, db, oGene, style, 0) ;
+} /* ficheGene */
+
+/******************************************************************************/
+
+static char *ficheGene (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style)
 {
   return ficheGeneFiche (vtxt, db, oGene, style, 0) ;
 } /* ficheGene */
@@ -1110,6 +1178,7 @@ struct
   {"Gene", "FMOL", 'x', (ficheFUNCTION) ficheGeneMolecules},  /* done */
   {"Gene", "FEXP", 'x', (ficheFUNCTION) ficheGeneExpression},  /* done */
   {"Gene", "FFUNC", 'x', (ficheFUNCTION) ficheGeneFunction},  /* done */
+  {"Gene", "GENOME", 'x', (ficheFUNCTION) ficheGenome},  /* done */
 
   {"Gene", "SECTION", 'x', (ficheFUNCTION) ficheGeneSection},  /* done */
 

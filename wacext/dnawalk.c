@@ -34,7 +34,7 @@
  *     if non stranded, use an odd length and reverse the read if the central base is T or G
  *   sort the words by their number of occurence
  *   for all unflagged words
- *     If its one-base left of right extension has same prevalence n up to +- 20%, chainandnx flag
+ *     If its one-base left of right extension has same prevalence n up to +- 60%, chainandnx flag
  *    Report the sufficiently prevalent sufficiently long chains
 
  *    Prefixes (bar codes) are found by counting all prefixes of length 1 2 3 4 ... 8
@@ -224,8 +224,8 @@ void dwReportWalk (void *vp)
 
 		  if (vp->flag) continue ;
 		  if (
-		      (vp->n < n0 && 4 * vp->n > 3 * n0) ||
-		      (vp->n > n0 && 3 * vp->n < 4 * n0)
+		      (vp->n < n0 && 16 * vp->n > 7 * n0) ||
+		      (vp->n > n0 && 7 * vp->n < 16 * n0)
 		      )
 		    {  /* found a left extension */
 		       if (! bestVp || vp->n > bestVp->n)
@@ -488,7 +488,7 @@ void dwParse (void *vp)
   int nLine = 0 ;
 
   if (pp->doCount || pp->doWalk) nx = 8888888 ;
-  ii = channelGet (pp->inChan, &ii, int) ; /* will block until things a re ready */
+  ii = channelGive (pp->inChan, &ii, int) ; /* will block until things a re ready */
   ai = aceInCreate (pp->inFileName, pp->gzi, h) ;
   tp = arrayp (pp->tps, ii, TP) ;
   tp->buffer = halloc (nMax, 0) ;
@@ -516,7 +516,7 @@ void dwParse (void *vp)
 		{
 		  int i4 = 0 ;
 		  TP *tp4 = 0 ;
-		  i4 = channelGet (pp->inChan, &i4, int) ; 
+		  i4 = channelGive (pp->inChan, &i4, int) ; 
 		  tp4 = arrayp (pp->tps, i4, TP) ;
 		  tp4->buffer = tp->buffer ;
 		  tp4->pp = pp ;
@@ -557,7 +557,7 @@ void dwParse (void *vp)
 	  memcpy (bb, cp, n) ; bb += n ; nFree -= n ;
 	}
     }    
-  ii = channelGet (pp->inChan, &ii, int) ; 
+  ii = channelGive (pp->inChan, &ii, int) ; 
   channelPut (pp->prefixChanIn, &(tp->id), int) ;
   channelClose (pp->prefixChanIn) ;
   channelMultiGet (pp->prefixChanOut, &ii, 1, int) ;  /* dwPrefix is closed */

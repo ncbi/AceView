@@ -6,7 +6,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@sanger.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.cnrs-mop.fr
  *
- * SCCS: $Id: table.c,v 1.18 2015/09/25 17:29:10 mieg Exp $
+ * SCCS: $Id: table.c,v 1.19 2020/01/12 12:58:51 mieg Exp $
  * Description:
  * Exported functions:
  * HISTORY:
@@ -1432,7 +1432,7 @@ int tableSliceOut (int begin,
 	  xi = t->ncol-1 ;
 	  while (xi > 0 && xi > 255)
 	    {
-	      bfret[1]= 255; freeOutBinary (bfret, 2) ;
+	      bfret[1]= (char)255; freeOutBinary (bfret, 2) ;
 	      xi -= 255;
 	    }
 

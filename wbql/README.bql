@@ -1,13 +1,31 @@
-# The acedb query language
+#### The acedb query language
+#### last edited auguts 2019
 
 Acedb is an object oriented database, which can manipulate complex objects defined as structured trees, with leaves composed of tags, numbers, object references, texts, together with DNA and protein sequences. This document defines and describes the latest version of the acedb query language. It unifies several previously competing methods, keeping the best aspects of each, resulting in a terse yet unambiguous syntax, a user friendly graphic interface helping write complex queries, and an improved faster implementation of the query engine.
 
 ===========
+ to test the code please cd to the source code directory (just above w1 w2 ... wbql ... ) and type
+    tcsh wbql/bqltest.tcsh
+this will create a directory ACEDB_QUERY_LANGUAGE_TEST and a file ACEDB_QUERY_LANGUAGE_TEST/test.diff which should be empty
+The command
+   tace ACEDB_QUERY_LANGUAGE_TEST
+will let you experiment with the queries discribed in test.cmd and in the pdf documentation
+
+===========
+The syntax of the query language is defined in the latex/pdf documentation
+It is summarized here for convenience to let you copy paste the commands
+but the layout is way more readable in the pdf 
+
+Please adress any question to 
+   mieg@ncbi.nlm.nih.gov
+
+=====================================================================
+=====================================================================
 
 The syntax of a complex query is reminescent of SQL, it takes the form
    select x, z from x in ..., y in ..., z in ... where .... order ...
 
-In SQL, the variables would iterate though tables. In an object oriented database like acedb, the first variable x should typically iterate accross all the members of a given class, then y would be derived from x, then z would be derived from x and/or y. The resulting (x, y, z) tuples would be filtered by the where condition. Finally, only the (x,z) columns specified in the select clause, with lines sorted according to the order clause, would be exported.
+In SQL, the variables would iterate through tables. In an object oriented database like acedb, the first variable x would typically iterate accross all the members of a given class, then y would be derived from x, then z would be derived from x and/or y. The resulting (x, y, z) tuples would be filtered by the where condition. Finally, only the (x,z) columns specified in the select clause, with lines sorted according to the order clause, would be exported.
 
 We will explain below the full syntax, but we first start with simple examples, and the acceptable short cuts.
 
@@ -74,13 +92,13 @@ which is developped into
 
 Finally, in very short queries containing a single word, the like and the tag operators can be suppressed. As a result, in the short chained query
     select ?author ; k* ; paper
-paper is recognized as a tag in the schema of class author, king is not, and the query is developped into
+paper is recognized as a tag in the schema of class author and the query is developped into
     select a in class "author"      // select all authors
     select a in @ where a ~ "k*"    // members of previous list called k*
     select a in @ where a#paper     // limit to authors with a paper 
 As a result, this query chain may first select "king" and "kong", then only keep "king" assuming that "kong" is not known in the database as the author of a paper.
 
-Finally, for convenience, on the acedb command line, the keyword 'select' can be abbreviated as 'Q`.
+Finally, for convenience, on the acedb command line, the keyword 'select' can be abbreviated as 'S'.
 
 All these shortcuts allow to type quickly terse queries on the command line interface, which map in a well defined way into a full query. In practice these shortcut map the terse query language of the acedb graphic interface, firt released in 1990, into a (modification of) the full fledged AQL queries developped at the Sanger around year 2002. As a result, these 2 types of queries, and table constructed via the acedb graphic table maker interface, can all be expressed in this unified syntax and the database exploration can be executed using a single highly optimized query engine.
 
@@ -135,8 +153,8 @@ We can get to a tag using #, and get the value behind a tag using ->. For exampl
    select p in ?Paper, a in p->Author, dr in a#PhD, z in a->Affiliation
 will produce the 4 column table
    p1  Jim  NULL London
-   p1  Tom  Dr   Paris
-   p1  Tom  Dr   Tokyo
+   p1  Tom  PhD  Paris
+   p1  Tom  PhD  Tokyo
    p2  Jim  NULL London
 
 Reporting the pages creates a new challenge. According to the schema, tha page tag supports a 2 column table of integers. To access the 2 columns, one must use square brackets, meaning move right from this position.
@@ -193,9 +211,9 @@ the >> operator is used iterativelly. For example grand_ma -> child would
  list all the direct children of grand_ma, but gran_ma >> child would give 
 her children, grand_children, grand_grand_children ... 
 For example, the whole familly of Eva would be
-   select ?woman Eva ; >>child
+   select ?Person Eva ; >>child
 which is a short form of the equivalent query
-   select c from w in class "woman" where w == "Eva", c in w >> child 
+   select c from w in class "Person" where w == "Eva", c in w >> child 
 
 ==================
 ==================
@@ -209,7 +227,7 @@ These cosntants can then be used in calculations and filters
 
 The numerical operators are (plus, minus, multiply, divide, modulo) denoted (+, -, *, /, %) with the usual precedence rules. In contradisticntion to the C language, our implementation of modulo follows the usual mathematical convention that the modulo of a negative number is positive. For example
            7 % 3  == -2 % 3 == 1 
-Parenthesis can bu used freely
+Parenthesis can be used freely
      select x = (1 + 2) * (3 - ( 4 + 5)) 
 returns (3) * (-6) = -18
 All numerical calculations are performed using 64 bits float numbers.

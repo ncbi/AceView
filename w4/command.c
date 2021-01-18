@@ -17,7 +17,7 @@
 		       funcion we want to get at the help.
 		       The default is obviously a textual dump.
  * * Aug 14 12:26 1998 (fw): AQL: context var for active keyset @active
- * * Aug  5 17:18 1998 (fw): added AQL functionality
+ * * Aug  5 17:18 1998 (fw): added AQL functionality, replaced by BQL in 2017
  * * Nov 18 19:27 1997 (rd)
  *		- Read .zip files Assumes that xyz.zip file (only) 
  *		  contains a xyz.ace file; minor menu changes for "p" option
@@ -29,7 +29,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: command.c,v 1.132 2017/05/01 23:57:12 mieg Exp $ */
+/* $Id: command.c,v 1.152 2020/06/07 15:36:51 mieg Exp $ */
 
 
 /********************* MAIN LOOP *****************************/
@@ -37,13 +37,13 @@
 
 #include "ac.h"
 #include "call.h"
+#include "a.h"
 #include "../w4/command7_.h"
 #include "command.h"
 #include "spread_.h"		/* YUCK!!! HACK HACK HACK */
 #include "freeout.h"
 #include "java.h"		/* for freejavaprotect() */
 #include "session.h"
-#include "a.h"
 #include "dna.h"
 #include "peptide.h"
 #include "dump.h"
@@ -67,6 +67,7 @@
 #include "chrono.h"		/* for longGrep */
 #include <ctype.h>		/* for isdigit */
 #include "whooks/classes.h"
+#include "acembly.h"
 
 /************************************************************/
 
@@ -105,7 +106,7 @@ static CHOIX choixMenu [] =
 { 1,  'r', "Remove template : removes from list those objects whose name match the template"},
 { 1,  'x', "Query query_string : performs a complex query - 'help query_syntax' for further info"},
 { 1,  'x', "Where query_string : same as Query, kept for backwards  compatibility, do NOT use"},
-{ 1,  'T', "Table-Maker [-active] [-a | -h | -j | -p | -x | -C] [-b begin] [-c count] [-title] [-href www...] [-o output_file] [-s name:save definition loaded via -f as an internal object] [-n name |  [-f] table_def_file | = command\ncommand] [params] : \n\t[Search active list] [ace,human,java,perl,C style] table_definition_file [parameters (noted %%d in the def]"},
+{ 1,  'T', "Table-Maker [-active] [-a | -h | -j | -p | -x | -C] [-b begin] [-c count] [-title] [-href www...] [-i bql_query_file] [-o output_file] [-bqlo file_name: export bql query] [-s name:save definition loaded via -f as an internal object] [-n name |  [-f] table_def_file | = command\ncommand] [params] : \n\t[Search active list] [ace,human,java,perl,C style] table_definition_file [parameters (noted %%d in the def]"},
 { 1,  'b', "Biblio [-abstracts] : shows the associated bibliography [including the abstracts]"},
 { 1,  'd', "Dna [-mismatch] [-p | -C | -B] [file] [-x1 u1 -x2 u2] [[-f] [-noClassName] outputfile]: Fasta [or perl or C style]\n// dump of related dna sequences  [allowing mismatches], \n//the values u1 and u2 of the -x1 -x2 options may be the word \"begin\" OR the word \"end\" OR a positive number between 1 and dna length,\n// if u1 > u2, the dna is reverse complemented"},
 { 1,  'v', "Peptide [file] : Fasta dump of related peptide sequences"},
@@ -136,11 +137,11 @@ static CHOIX choixMenu [] =
 { 8,  'p', "Parse : [-NOXREF] parse a file defined on the server, \n\trun aceclient -ace_in to parse a file or stdin defined on the client side"},
 { 8,  'P', "PParse [-NOXREF] [file] : as above, but dont stop on first error"},  
 { 8,  '_', "serverparse : parse files in server mode"},  
-{ 1,  'w', "Write filename : acedump current list to file"},
+{ 1,  'w', "Write -f filename : acedump current list to file"},
 { 1,  'e', "Edit ace_file_command : Apply the command to every member of the activelist"},
 { 1,  'E', "EEdit ace_file_command : idem No Check"},
 { 1,  'O', "Comment [comment] : Export a comment to the log file"},
-{ 8,  'U', "Shutdown [now] : Closes the server (you need special priviledge)"},
+{ 8,  'U', "Shutdown : Closes the server (you need special priviledge)"},
 { 8,  'W', "Who : who is connected now (you need special priviledge)"},
 { 8,  'X', "Data_Version : data served now, as stated in wspec/server.wrm"},
 { 0,  'm', "More : If there are more objects to list"}, 
@@ -156,11 +157,11 @@ static CHOIX choixMenu [] =
 { 1,  'I', "Time_Stamps {on | off} : toggle time stamps creation"},
 { 1,  'H', "Chrono {start | stop | show} built in profiler of chrono aware routines"},
 { 5,  300, "Test : test subroutine, may vary"},
-/* { 1,  450, "Q [-s | -a | -j | -J | -C] [-o outfile]  : AQL: Acedb Query Language [silent | ace | java | Java | C  style] <aql query>"}, */
-{ 1,  451, "Q [-o outfile] [-s] [-h | -a | -j | -J | -C]  [-b begin] [-c count] [-title] [-q] <query>: Acedb Query Language\n\tType q -help to see the syntax\n\t-s: silent, do not export, but modify the active list\n\toutfile: name of the output file, relative to $ACEDB\n\t ahjJC: different output formats adapted to different acedb clients\n-b 3 -c 12: data exploration tool, export 12 lines, starting approximately at line 3, the edges depend on the size of the objects\n-title export a title line prefixed with #\n-q old acedb syntax Find ...\n-v verbose (for debugging purpose)\n\tsize of the objects, useful only to explore the datacount: ext[output] [silent] {format:human,ace,java,Java,C style.\n"}, 
-{ 1,  452, "AQL : alias of Q, same parameters\n"},
-{ 1,  453, "BQL : alias of Q, same parameters\n"},
-{ 1,  454, "Select : alias of Q, same parameters\n"},
+/* { 1,  450, "S  [-a | -j | -J | -C] [-o outfile]  : AQL: Acedb Query Language [silent | ace | java | Java | C  style] <aql query>"}, */
+{ 1,  451, "Select [-o outfile] [-s] [-h | -a | -j | -J | -C]  [-b begin] [-c count] [-title] [-q] <query>: Acedb Query Language\n  For the syntac see:  ftp://ftp.ncbi.nlm.nih.gov/repository/acedb/ACeDB_NCBI/acedb.query_language.pdf\n\tif the query ends with a ;  (silent mode) do not export, but modify the active list\n\toutfile: name of the output file, relative to $ACEDB\n\t ahjJC: different output formats adapted to different acedb clients\n-b 3 -c 12: data exploration tool, export 12 lines, starting approximately at line 3, the edges depend on the size of the objects\n-title export a title line prefixed with #\n-q old acedb syntax Find ...\n-v verbose (for debugging purpose)\n\tsize of the objects, useful only to explore the datacount: ext[output] [silent] {format:human,ace,java,Java,C style.\n"}, 
+{ 1,  452, "AQL : alias of Select, same parameters\n"},
+{ 1,  453, "BQL : alias of Select, same parameters\n"},
+{ 1,  454, "S : alias of Select, same parameters\n"},
 { 1,  'F', "New Class Format : i.e New Plate ya\\%dx.y creates ya8x.y if ya7x.y exists"},
 { 1,  'N', "Count : number of objects in active keyset"},
 { 1,  'C', "Clear : Clear current keyset"},
@@ -359,8 +360,8 @@ void tStatus (void)
    ("Arrays (Including the lexiques):"),
 	   2, line++) ;
  myText(messprintf
-   ("%d made, %d current, %d Kb allocated, %d Kb used (0: unknown)",
-		      aMade, aUsed, aAlloc/1024, aReal/1024),
+   ("%ld made, %ld current, %ld Kb allocated, %ld Kb used (0: unknown)",
+		      (long)aMade, (long)aUsed, (long)aAlloc/1024, (long)aReal/1024),
 	   4, line++) ;
 
  line++ ;
@@ -526,6 +527,21 @@ static BOOL cFlashImage (KEY gene, char style, Stack s, char *view, char *params
       width = 1200 ;
       isVGene = TRUE ;
     }
+  else if (!strcmp (view, "av_tg"))
+    { 
+      height =1200 ; /* not a parameter because we want to can the images */
+      width = 1200 ;
+    }
+  else if (!strcmp (view, "av_tg_whole"))
+    { 
+      height =1200 ; /* not a parameter because we want to can the images */
+      width = 1200 ;
+    }
+  else if (0 && !strcmp (view, "av_mrna_whole"))
+    { 
+      height =1200 ; /* not a parameter because we want to can the images */
+      width = 600 ;
+    }
 
   vtxtPrint (txt, "gif ; "); 
   vtxtPrintf (txt, " dimensions %d %d ;", width, height) ;
@@ -584,11 +600,11 @@ static BOOL cFlashImage (KEY gene, char style, Stack s, char *view, char *params
 	  bsDestroy (Gene) ;
 	}
       }
-  if (style == 'f')  vtxtPrintf (txt, "  ;  swfdump -compile -") ;
+  if (style == 'v')  vtxtPrintf (txt, "  ; svgdump -") ;
+  else if (style == 'f')  vtxtPrintf (txt, "  ;  swfdump -compile -") ;
   else  vtxtPrintf (txt, "  ;  swfdump  -") ;
   level = freesettext (vtxtPtr (txt), 0) ;
 
-  stackTextOnly (s) ;
   commandExecute (level, TRUE, FALSE, 0, s, 16, 0) ; 
   freeclose (level) ;
   if (stackMark (s))
@@ -683,7 +699,7 @@ static BOOL cWebBoxes (KEY key, char style, char *view, char *params)
 
 static BOOL cFicheLazyView (KEY key, char style, char *view, char *params, int preview, int iKeySet, int mask) 
 {
-  BOOL lazy = (style == 'x' || style == 'f' || style == 'F') ? TRUE : FALSE  ;
+  BOOL lazy = (style == 'x' || style == 'f' || style == 'F' || style == 'v') ? TRUE : FALSE  ;
   char *cp, buf[1000], buffer[6] ;
   KEY lazyKey = 0 ;
   Stack s = 0 ;
@@ -727,14 +743,13 @@ static BOOL cFicheLazyView (KEY key, char style, char *view, char *params, int p
   if (!ok)
     {
       s = stackCreate (64000) ;
-      stackTextOnly (s) ;
       if (0) freeOutf ("%s \n", name(key)) ;
 
       level = freeOutSetStack (s) ;
       freeOutf("%06d",VERSION) ;
       jump6 = 6 ;
 
-      if (style == 'f' || style == 'F')
+      if (style == 'f' || style == 'F' || style == 'v')
 	{
 	  ok = cFlashImage (key, style, s, view, params) ;
 	}
@@ -755,7 +770,7 @@ static BOOL cFicheLazyView (KEY key, char style, char *view, char *params, int p
   
   /* if mask, never save directly */
   if (0 && mask) preview &= ~ 0x1 ;
-  if ((preview & 0x1) && lazyKey && ok == 1 && sessionGainWriteAccess() && s && stackMark(s) > 2000)
+  if (style != 'v' && (preview & 0x1) && lazyKey && ok == 1 && sessionGainWriteAccess() && s && stackMark(s) > 2000)
     stackStore (lazyKey, s) ;
   
   if (preview == 1) /* simply store in the local database */
@@ -859,6 +874,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
   BOOL oldIsInteractive ;
   FREEOPT *qmenu = arrp (look->aMenu, 0, FREEOPT) ;
   SPREAD spread = 0 ;
+  const char *bqlo = 0 ;
+  static int isView = 0 ;
 
   if (look->magic != COMMAND_MAGIC)
     messcrash ("Bad look in commandDoExecute") ;
@@ -1571,6 +1588,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	  int oLevel = 0 ;
 	  BOOL ficheOk = FALSE ;
 	  int preview = 0 ;
+	  
+	  isView = 1 ;
 
 	  freenext() ; key = 0 ;
 	  preview = 2 ; /* default behaviour is to dump for the web */
@@ -1701,6 +1720,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		    }
 		  goto viewDone ;
 		}
+	      else if (!strcasecmp(cp, "svg"))
+	  	style = 'v' ;
 	      else if (!strcasecmp(cp, "flash"))
 	  	style = 'f' ;
 	      else if (!strcasecmp(cp, "tc"))
@@ -1769,6 +1790,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	      freeOutClose (oLevel) ;
 	      filclose (ff) ; ff = 0 ;
 	    }
+	  isView = 2 ;
+
 	  break ;
 	}
 
@@ -1791,7 +1814,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 #endif
 
       case 'T':
-	kk = 0 ; cp = 0 ; 
+	kk = 0 ; cp = 0 ; f = 0 ;
 	exportedColumn = 1 ;
 	tableKey = 0 ;  /* indicates to save the table def as an object in _VTable */
 	look->minN = 0 ;
@@ -1845,6 +1868,16 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		else if (cp)
 		  lexaddkey (cp, &tableKey, _VTable) ;
 	      }
+	    else if (!strcasecmp(cp, "f"))
+	      { 
+		if ((cp = freepath ()) &&
+		    (!(f = filopen(cp, 0, "r")))
+		    )
+		  { 
+		    freeOutf ("// -f %s failed\n",cp ? cp : "Missing Filename") ;
+		    while (freeword()) ; /* empty the line, this will create another error */
+		  }
+	      }
 	    else if (!strcasecmp(cp, "o"))
 	      { 
 		if ((cp = freepath ()) &&
@@ -1853,6 +1886,19 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		  { 
 		    freeOutf ("// out_fileopen %s failed\n",cp ? cp : "Missing Filename") ;
 		    while (freeword()) ; /* empty the line, this will create another error */
+		  }
+	      }
+	    else if (!strcasecmp(cp, "bqlo"))
+	      { 
+		if ((cp = freepath ()))
+		  {
+		    if (!(look->outfile = fopen(cp,"w")))
+		      { 
+			freeOutf ("// bqlo fileopen %s failed\n",cp ? cp : "Missing Filename") ;
+			while (freeword()) ; /* empty the line, this will create another error */
+		      }
+		    else
+		      bqlo = strnew (cp, 0) ;
 		  }
 	      }
 	    else if (!strcasecmp(cp, "href"))
@@ -1866,7 +1912,6 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    
 	    freenext () ;
 	  }      
-	
         cp = freeword() ;
 	if (cp && !strcmp (cp,"="))
 	  { 
@@ -1880,7 +1925,6 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 
 	    spread = spreadCreate() ;
 	    ss1 = stackCreate(100) ;
-	    stackTextOnly (ss1) ;
 	    pushText (ss1,cr) ;
 
 	    spreadDoReadDefinitions (spread, 0, 0, ss1, 0, FALSE) ; 
@@ -1908,7 +1952,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    goto readDirectTableDef ;
 	  }
 	
-	if (!cp || !*cp)
+	if (!f && (!cp || !*cp))
 	  { freeOut ("// Table-Maker  [-active] [-a | -h | -j | -p | -C] [-b begin] [-c count] [-title] [-o output_file] [-n name |  [-f] table_def_file | = command\ncommand] [params] : \n\t[Search active list] [ace,human,java,perl,C style] table_defition_file [parametrs (noted %%d in the def]") ;
 	  break ;	  
 	  }
@@ -1916,7 +1960,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	if (look->spread)
 	  spreadDestroy(look->spread);
 
-	f = 0 ; key = 0 ;
+	key = 0 ;
 	if (kk & 64)
 	  {  if (!lexword2key (cp, &key, _VTable) ||
 		 iskey (key) != 2)
@@ -1926,7 +1970,6 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	  }
 	else
 	{ 
-	  f = filopen(cp, 0, "r") ; 
 	  if (!f) 
 	    { 
 	      freeOutf ("Sorry, I could not open file %s\n", cp) ;
@@ -1959,6 +2002,18 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    option = 'T' ;
 	    break ;
 	  }
+		
+	if (bqlo)
+	  {
+	    spreadDoReadDefinitions (spread, key, f, 0, cr, FALSE) ; /* will close f */
+	    if (spread)
+	      { 
+		spreadDoExportBql (spread, bqlo, TRUE) ;
+		spreadDestroy (spread);
+	      }
+	    option = 'T' ;
+	    break ;
+	  }
 	
 	spread->exportedColumn = exportedColumn ;
 	spread->exportedKeySet = keySetCreate () ;
@@ -1987,29 +2042,30 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    keySetDestroy (ksTmp) ;
 	  }
 	else /* ! -active */
-	  { UNDO ;
-	  kA = spreadGetPrecalculatedKeySet (spread, key, cr) ;
-	  if (!kA)
-	    { 
-	      if (key || f || cr)  /* f == 0 in case of direct table */
-		spreadDoReadDefinitions (spread, key, f, 0, cr, FALSE) ;
-	      kA = spreadGetKeyset (spread) ;
-	    }
-	  else
-	    { filclose (f) ; f = 0 ; }
-	  if (!kA)
-	    { freeOut ("// This table has a problem, please debug it in graphic mode") ;
-	    kA = arrayHandleCreate (50, KEY, look->h) ;
-	    }
-	  ksNew = arrayHandleCopy (kA, look->h) ;
-	  keySetSort (ksNew) ;
+	  { 
+	    UNDO ;
+	    kA = spreadGetPrecalculatedKeySet (spread, key, cr) ;
+	    if (!kA)
+	      { 
+		if (key || f || cr)  /* f == 0 in case of direct table */
+		  spreadDoReadDefinitions (spread, key, f, 0, cr, FALSE) ;
+		kA = spreadGetKeyset (spread) ;
+	      }
+	    else
+		filclose (f) ; f = 0 ;
+	    if (!kA)
+	      { freeOut ("// This table has a problem, please debug it in graphic mode") ;
+		kA = arrayHandleCreate (50, KEY, look->h) ;
+	      }
+	    ksNew = arrayHandleCopy (kA, look->h) ;
+	    keySetSort (ksNew) ;
 	  }
 	
 	look->spread = spread ;
 	look->lastSpread = look->minN > 0 ? look->minN  : 1 ;
 	if (look->maxN >= 0) look->maxN += look->minN ;
 	look->cumulatedTableLength  = 0 ;
-
+	
 	messfree (cr) ;
 	look->lastCommand = 'B' ;
 	/* fall thru to case encore */
@@ -2242,7 +2298,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	  if (class(keySet(ksOld,i)) == _VKeySet) 
 	    { KEY k = keySet (ksOld, i) ;
 	      int i1 = 0 ;
-	      KEYSET ks = arrayGet (k, KEY, "k") ;
+	      KEYSET ks = arrayGet (k, KEY, "k") ; 
 	      
 	      if (ks)
 		{
@@ -2483,10 +2539,15 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	}
 	break ;
 	
-      case 'w': /* write, now synonym to show -a -f */
-	freeforcecard (messprintf ("-a -f %s", freepos())) ;
-		/* fall through setting "-a -f <rest of old line>" */
-	   
+      case 'w': /* wrtie with no argument is synonymous to show -a
+		*/
+	cp = freepos () ; /* optional filename */
+	if (cp && *cp)
+	  freeforcecard (messprintf ("-a %s ", cp)) ;
+	else
+	  freeforcecard ("-a ") ;
+	/* fall through setting "-a -f <rest of old line>" */
+
       case 's':   /* Show [-p | -j | -a | -h | -C] [-f filename] [tag]*/
 	/*
 	* must look for -ml-test before it breaks out on empty keyset
@@ -2585,7 +2646,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		    nn = 1 ;
 		    break ;
 		  }
-		if (!(look->outfile = fopen(cp,"w")))
+		if (strcmp (cp, "stdout") && !(look->outfile = fopen(cp,"w")))
 		  { freeOutf ("// Error: file open failed for %s\n",cp) ;
 		    nn = 1 ;
 		    break ;
@@ -2615,7 +2676,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 
 	    cp = freeword(); 
 	  }
-
+	if (0) freeOutf ("// Ready to predump %d objects\n", keySetMax(kA)) ;
 	if (nn) /* error in command line */
 	  break ;
 	look->lastCommand = 'M' ;
@@ -2633,7 +2694,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	freeOut ("\n") ;
 
 	classe = 0 ;
-
+	if (0) freeOutf ("// Ready to dump %d objects\n", keySetMax(kA)) ;
 	ii = freeOutByte ()  + maxChar ;
 	dumpTimeStamps = look->dumpTimeStamps ;
 	dumpComments = look->dumpComments ;
@@ -2648,7 +2709,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		tStatus () ;
 		freeOutClose (ll) ;
 	      }
-
+	    if (0) freeOutf ("// ....  dump %s\n", name (keySet (kA, i))) ;
 	    dumpKeyBeautifully (keySet(kA,i), look->beauty, look->showCond) ;
 	  }
 	dumpTimeStamps = FALSE ;
@@ -3239,7 +3300,6 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	{ 
 	  BOOL oldIsTS = isTimeStamps ;
 	  BOOL oldIsIntr = isInteractive ;
-	  extern void defComputeTace (int level, KEYSET ks) ;
 
 	  isTimeStamps  = FALSE ;   /* to accelerate the code */
 	  i = freesetfile (f, cr) ;
@@ -3278,7 +3338,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    else if (!strncmp(cp, "-o", 2))
 	      { 
 		cp = freepath () ;
-		if (!(look->outfile = fopen(cp,"w")))
+		if (!(look->outfile = filopen(cp,"w")))
 		  { freeOutf ("// out_fileopen %s failed\n",cp ? cp : "Missing Filename") ;
 		    break ;
 		  }
@@ -3356,12 +3416,17 @@ KEY aceCommandDoExecute (AceCommand look, int level,
       case 452: /* BQL */
       case 453: /* BQL */
       case 454: /* BQL */
+      case 455: /* BQL */
 	{
 	  AC_HANDLE h = ac_new_handle () ;
 	  ACEOUT ao = 0 ;
+	  ACEIN ai = 0 ;
+	  vTXT txt = 0 ;
+	  Stack bqlStack = 0 ;
 	  BOOL ok = TRUE ;
+	  BOOL setOutFile = FALSE ;
 	  BOOL debug = FALSE ;
-	  BOOL silent = FALSE ;
+	  BOOL silent = (option == 455 ? TRUE : FALSE) ;
 	  BOOL showTitle = FALSE ;
 	  BOOL acedbQuery = FALSE ;
 	  int maxLine = 0 ;
@@ -3369,20 +3434,19 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	  freenext() ;
 	  look->beauty = 'h' ;
 	  look->outfile = 0 ;
-	  while ((cp = freeword()))   /* get aql options */
+
+	  while ((cp = freeword()))   /* get bql options */
 	    {
 	      if (*cp != '-')
 		{ freeback () ; break ; }
 	      else if (!strncmp (cp, "-title", 6))
 		{ showTitle = TRUE ; }
-	      else if (!strncmp (cp, "-s", 2))
-		{ silent = TRUE ; }
-	      else if (!strncmp (cp, "-silent", 7))
-		{ silent = TRUE ; }
 	      else if (!strncmp (cp, "-a", 2))
 		{ look->beauty = 'a' ; }
 	      else if (!strncmp (cp, "-h", 2))
 		{ look->beauty = 'h' ; }
+	      else if (!strncmp (cp, "-s", 2))
+		{ silent = TRUE ; }
 	      else if (!strncmp (cp, "-C", 2))
 		{ look->beauty = 'C' ; }
 	      else if (!strncmp (cp, "-j", 2))
@@ -3399,6 +3463,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		{ freeint (&beginLine) ; }
 	      else if (!strncmp(cp, "-o", 2))
 		{ 
+		  setOutFile = TRUE ;
 		  ao = aceOutCreate (freepath (), 0, FALSE, h) ; 
 		  if (! ao)
 		    { 
@@ -3407,41 +3472,82 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		      break ;
 		    }
 		}
+	      else if (!strncmp(cp, "-i", 2))
+		{ 
+		  ai = aceInCreate (freepath (), FALSE, h) ; 
+		  if (! ai)
+		    { 
+		      freeOutf ("// bql -i %s failed, please edit the file name\n",cp ? cp : "Missing Filename") ;
+		      ok = FALSE ;
+		      break ;
+		    }
+		}
 	      else 
 		{ freeback () ; break ; }
 	    }
-	  if (0 && ! ao)
-	    ao = aceOutCreate (0, 0, FALSE, h) ;  /* export to stdout */
-	  cp = freepos () ;         /* get aql query */	 
-	  if (cp)
+	  if (look->outLevel && !setOutFile)
 	    {
-	      while (*cp == ' ') cp++ ;
-	      if (!strncasecmp (cp, "select ", 7))
-		cp += 7 ;
-	      
-	      cq = hprintf (h, "%s%s", acedbQuery ? "" : "select ", cp) ;
+	      bqlStack = stackHandleCreate (100000, h) ;
+	      ao = aceOutCreateToStack (bqlStack, h) ;     /* export to the freeOutf stack */
+	    }
+	  if (! ao)
+	    ao = aceOutCreate (0, 0, FALSE, h) ;  /* export to stdout */
+	  if (ai)
+	    {
+	      txt = vtxtHandleCreate (h) ;
+	      while (aceInCard (ai))
+		{
+		  cp = aceInPos (ai) ;
+		  if (cp)
+		    vtxtPrintf (txt, " %s ", cp) ;
+		}
+	      cq = vtxtPtr (txt) ;
 	    }
 	  else
 	    {
-	      freeOutf ("// bql : no query was provided, try bql -help\n") ;
-	      ok = FALSE ;
+	      cp = freepos () ;         /* get bql query */	 
+	      if (cp)
+		{
+		  while (*cp == ' ') cp++ ;
+		  if (!strncasecmp (cp, "select ", 7))
+		    cp += 7 ;
+		  
+		  cq = hprintf (h, "%s%s", acedbQuery ? "" : "select ", cp) ;
+		}
+	      else
+		{
+		  freeOutf ("// bql : no query was provided, try bql -help\n") ;
+		  ok = FALSE ;
+		}
 	    }
 	  
 	  if (ok)
 	    {
 	      BQL *bql = 0 ;
+	      int nn = 0 ;
 	      ksOld = look->ksNew ;
 	      ksNew = arrayHandleCreate (50, KEY, look->h) ;
 	      
 	      bql = bqlCreate (debug, h) ;
-	      bqlMaxLine (bql, maxLine) ;
+	      if (beginLine < 1)
+		beginLine = 1 ;
+	      if (0) /* to trim we need to work off keySetAlpha and have normal sort */
+		bqlMaxLine (bql, maxLine) ;
+	      if (cq)
+		{
+		  char *cr = cq + strlen(cq) - 1 ;
+		  while (*cr == ' ' && cr > cq)
+		    cr-- ;
+		  if (*cr == ';')
+		    silent = TRUE ;
+		}
 	      if (!bqlParse (bql, cq, acedbQuery))
 		{
 		  const char *ccp = bqlError (bql) ;
 		  freeOutf ("// bql parse error\n%s\n", ccp ? ccp : "") ;
 		  ok = FALSE ;
 		}
-	      else if (!bqlRun (bql, ksOld, ksNew))
+	      else if (! (nn = bqlRun (bql, ksOld, ksNew)))
 		{
 		  if (0) freeOutf ("// bql run error\n%s\n", bqlError (bql)) ;
 		  keySetDestroy (look->ksOld) ;
@@ -3458,9 +3564,15 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		  keySetDestroy (look->ksOld) ;
 		  look->ksOld = look->ksNew ;
 		  look->ksNew = ksNew ;
-		  if (beginLine < 0) beginLine = 0 ;  /* do not Plato, to have the same interface -b -c as list and show */
+		  if (beginLine < 1) beginLine = 1 ;  /* do not Plato, to have the same interface -b -c as list and show */
 		  if (! silent) /* in silent mode, the active keyset is modified */
-		    bqlExport (bql, look->beauty, showTitle, beginLine, maxLine, ao) ;
+		    bqlExport (bql, look->beauty, showTitle, beginLine - 1, maxLine, ao) ;
+		  if (bqlStack)
+		    {
+		      freeOut (stackText (bqlStack, 0)) ;
+		      stackDestroy (bqlStack) ;
+		    }
+		  freeOutf ("// %d lines\n", nn) ;
 		}	
 	    }	
 
@@ -3490,8 +3602,11 @@ KEY aceCommandDoExecute (AceCommand look, int level,
     case 'B': case 'm': case 'M': case 'D': case 'V' :
       break ;
     default:
+      if (! isView)
         freeOutf ("// %d Active Objects\n", 
 		  keySetCountVisible(look->ksNew)) ;
+      else if (isView == 2)
+	isView = 0 ;
     } 
   if (0) printf("command ends, before restoring isInteractive=%d\n",  isInteractive) ;
   isInteractive = oldIsInteractive ; 
@@ -3655,8 +3770,6 @@ Stack commandStackExecute (AceCommand look, const char *command)
   int maxChar = 0 ;
 
   Stack s = stackCreate (3000) ;
-
-  stackTextOnly (s) ;
 
   freespecial ("\n\t\"\\/%") ;  /* forbid sub shells and includescommand_ct*/
 

@@ -5,6 +5,7 @@
 # Human gene groups are below
 # in TARGET/GENES
 
+# 2019_03_27   add 6 groups for SEQC2 to differentiate samples ACEDB
 ## gene groups tiles 
 set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/gene_group_fb_HGNC_fb_2016_02.tsv
 set ff=/home/mieg/ACEVIEWHELP/Droso/DATA/FlyBase.2016_03/gene_group_fb_HGNC_fb_2016_03.tsv.gz

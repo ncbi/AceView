@@ -537,10 +537,10 @@ static BOOL mhmGeneSetCreate (MHM look, KEYSET ks0, char *title)
     {
       look->captions = arrayHandleCreate (32, MHMCAPTION, look->handle) ;
       gc = arrayp (look->captions, 0, MHMCAPTION) ; /* avoid 0 */
-      memset (buf, 1024, 0) ;
+      memset (buf, 0, 1024) ;
     }
   if (! messPrompt ("Caption", buf, "w"))
-    memset (buf, 1024, 0) ;
+    memset (buf, 0, 1024) ;
   else
     {
       cp = freepos () ;
@@ -1310,13 +1310,15 @@ BOOL mhmpDrawGif (KEYSET ks)
 	if (!strcmp (word, "colour"))
 	  {
 	    word = freeword() ;
-	    if (word && *word == '-')
-	      freeback () ;
-	    else if (word)
-	      if (lexword2key (word, &nnc, 0) &&
-		  nnc > _WHITE &&
-		  nnc < _WHITE + NUM_TRUECOLORS) ;
-	    colour= WHITE + nnc - _WHITE ;
+	    if (word)
+	      {
+		if (*word == '-')
+		  freeback () ;
+		else if (lexword2key (word, &nnc, 0) &&
+			  nnc > _WHITE &&
+			  nnc < _WHITE + NUM_TRUECOLORS) 
+		  colour= WHITE + nnc - _WHITE ;
+	      }
 	  }
       }
 	

@@ -224,6 +224,8 @@ void ac_db_refresh (AC_DB db) ;
  * ac_db_refresh should be called after a call to ac_parse
  * to be sure that the modified data will be visible on the client side
  */
+int ac_db_nActiveClients (AC_DB db) ;
+
 /**********************************************************************
 * Keyset operations - note that keysets exist inside a database.
 * You can't move a keyset from one database to another, but you
@@ -340,6 +342,14 @@ int ac_keyset_count (AC_KEYSET aks);
 	* return the number of keys in a keyset
 	*/
 
+BOOL acCaseSensitive (KEY key) ;
+        /* 
+	 * used by actable 
+	 * if false, merge TOM, Tom, tom in tables
+	 * valid inside acedb, always true in client case
+	 * since in client we rely on acedb to export a unique spelling
+	 */
+
 /**********************************************************************/
 /***********************************************************************
 * Iterator functions
@@ -409,6 +419,13 @@ BOOL ac_iter_rewind (AC_ITER i) ;
 *
 * These function may be used independantly of the database
 */
+
+AC_TABLE ac_table_paragraph (AC_TABLE table, int *rowp, AC_HANDLE handle) ;
+       /*
+	* export in a new mini table the lines of the intput table
+	* starting at ropw *rowp, with the same entry in colun 1
+	* updates *rowp
+	*/
 
 AC_TABLE ac_empty_table( int rows, int cols, AC_HANDLE handle) ;
 	/*
@@ -481,7 +498,7 @@ int ac_table_display (vTXT blkp
 * Four constructors:
 *	empty_table
         tablemaker query
-*	aql query
+*	aql/bql query
 *	extract data from object
 */
 AC_TABLE ac_db_empty_table (AC_DB db, int rows, int cols, AC_HANDLE handle) ;
@@ -542,7 +559,7 @@ AC_TABLE ac_tablemaker_table (AC_DB db, const char *query, AC_KEYSET initial_key
 AC_TABLE ac_aql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset,
 		       const char* orderBy, const char **error_messages, AC_HANDLE handle) ;
 	/*
-	* perform AQL query
+	* perform AQL query  DEPRECATED, please use ac_bql_table
 	*	db is the database
 	* 	query is the query (CF www.acedb.org for the AQL language definition)
 	*	initial_keyset is a keyset to begin the query from
@@ -558,7 +575,7 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset,
 		       const char* orderBy, const char **error_messages, AC_HANDLE handle) ;
 
 	/*
-	* perform ligh AQL query, reimplemented using the ac interface
+	* perform AQL/BQL query, reimplemented using the BQL interface
 	*    the syntax is identical to AQL but only simple concepts have been implemented
 	*	db is the database
 	* 	query is the query (CF www.acedb.org for the AQL language definition)

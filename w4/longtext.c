@@ -15,7 +15,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: longtext.c,v 1.11 2016/02/04 16:56:16 mieg Exp $ */
+/* $Id: longtext.c,v 1.13 2020/05/30 16:50:31 mieg Exp $ */
 
 #include "acedb.h"
 #include "a.h"
@@ -162,9 +162,7 @@ BOOL longTextParse (int level, KEY key)
   Stack s = stackCreate(500) ;
   BOOL foundEnd = FALSE ;
 
-#ifdef ACEDB4
-  stackTextOnly(s); /* since we save it. */
-#endif
+
 
   freespecial ("\n\\") ;
   while ((cp = freecard(level)))

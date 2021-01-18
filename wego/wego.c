@@ -2,7 +2,7 @@
 ************************************************************************
 *** wego - an easy library for simple SMP/multithreading in C
 ************************************************************************
-* $Header: /home/mieg/aa/CVS_ACEVIEW/ace/wego/wego.c,v 1.32 2017/02/20 01:27:15 mieg Exp $
+* $Header: /home/mieg/aa/CVS_ACEVIEW/ace/wego/wego.c,v 1.37 2020/06/29 01:20:13 mieg Exp $
 */
 
 #ifdef SUN
@@ -320,9 +320,8 @@ static CHAN *wego_log_channel = 0 ;
 
 void wego_log (const char *text)
 {
-  const char **cpp = malloc (sizeof (char**)) ;
-  *cpp = text ;
-  channelMultiPut (wego_log_channel, cpp, 1, const char*) ;
+  char *cp = strnew (text, 0) ;
+  channelPut (wego_log_channel, &cp, const char**) ;
 } /* wego_log  */
 
 /************************************************************************/
@@ -331,8 +330,11 @@ static void wego_export_logs (void *vp)
 {
   const char *text = 0 ;
   while (channelMultiGet (wego_log_channel, &text, 1, const char*))
-    if (text && *text)
-      if (*text) fprintf (stderr, "// %s: %s\n", timeShowNow (), text) ;
+    if (text)
+      {
+	fprintf (stderr, "// %s: %s\n", timeShowNow (), text) ;
+	ac_free (text) ;
+      }
 } /* wego_export_logs */
 
 /************************************************************************/
@@ -760,6 +762,7 @@ static void wego_schedule (void)
 static void wego_do_max_threads (int max)
 {
   int n;
+  extern void memSetIsMultiThreaded (void) ;
 
   if (max_threads)
     {
@@ -768,12 +771,13 @@ static void wego_do_max_threads (int max)
       return ;
     }
   max_threads = max ;
+  memSetIsMultiThreaded () ; /* set memsubs in thread-safe mode */
   arrayReport (-2) ;   /* blocks static array counts */
   n = pthread_key_create (&threadrunner_key, NULL );
   if (n < 0)
     perror ("pthread_key_create");
   pthread_setspecific (threadrunner_key, &main_thread);
-  
+  aceInWaitAndRetry (1) ;
   wego_log_channel = channelCreate (256, char *, 0) ;
   wego_go (wego_export_logs, &n, int) ;
   return ;

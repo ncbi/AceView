@@ -48,7 +48,7 @@ void acedbtest(void)
 
   if (messQuery ("Do you want to compute the clones genetic position by interpolation ?"))
     {
-      gMapPhysNameClones () ;
+      /* gMapPhysNameClones () ; */
       messout("See $ACEDB/clone_full_name.ace") ;
     }
   /*

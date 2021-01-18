@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: fmapfeatures.c,v 1.34 2017/02/15 20:36:38 mieg Exp $ */
+/* $Id: fmapfeatures.c,v 1.36 2019/03/04 22:44:17 mieg Exp $ */
 
 #include "fmap_.h"
 #include "call.h"
@@ -68,7 +68,7 @@ static void   bcCheck (BoxCol *bc);   /* checks before using a column */
 static BoxCol *bcFromName (LOOK look, char *name) ;
 static BOOL   bcTestMag (BoxCol *bc, float mag) ;
 static int    bcDrawBox (BoxCol *bc, SEG *seg, float score) ;
-
+extern void mrnaTransferPg2PredictedMrna (KEYSET ks) ;
 static void addVisibleInfo (LOOK look, int i) ;
 
 /*************************************/
@@ -229,8 +229,6 @@ static void showInPepDisp (int box)
   else
     messerror ("Can't generate protein sequence") ;
 }
-
-
 
 void fMapShowcDNA (int box)
 {

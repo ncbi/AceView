@@ -14,7 +14,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: sprdop.c,v 1.49 2016/11/09 23:26:16 mieg Exp $ */
+/* $Id: sprdop.c,v 1.54 2020/01/12 12:58:02 mieg Exp $ */
 
 
 #include "acedb.h"
@@ -318,60 +318,66 @@ int spreadOrder (const void *x, const void *y)
   const Array a = * (const Array*)x, b = * (const Array*)y ;
   int i, j, max = arrayMax (colonnes), r ;
   COL *c ;
-  BSunit *u, *v ;
+  SPCELL *su, *sv ;
+  BSunit u, v ;
 
 
   if (sortColonne >= 0)  /* if -1 sort all columns in natural order */
-    { j = sortColonne ;
-      if (arr (a,j,SPCELL).empty && !arr (b,j,SPCELL).empty) return -1 ;
-      if (arr (b,j,SPCELL).empty && !arr (a,j,SPCELL).empty) return  1 ;
+    {
+      j = sortColonne ;
+      su = arrp (a,j,SPCELL) ;
+      sv = arrp (b,j,SPCELL) ;
+      if (su->empty && ! sv->empty) return -1 ;
+      if (sv->empty && ! su->empty) return  1 ;
       c = arrp (colonnes,j,COL) ;
       if (c->type /* && !c->hidden */) 	
 				/* RD 990311 - comment out && !c->hidden to allow sorting on hidden columns */
 				/* I see no reason why not and it is clearly useful and used */
-	{ u = & (arr (a,j,SPCELL).u) ;
-	  v = & (arr (b,j,SPCELL).u);
+	{ 
+	  u = su->u ;
+	  v = sv->u ;
 	  
-	  if (!arr (b,j,SPCELL).empty && !arr (a,j,SPCELL).empty && (u->k != v->k))
+	  if (!arr (b,j,SPCELL).empty && !arr (a,j,SPCELL).empty && (u.k != v.k))
 	    {
 	      if (c->showType == SHOW_MULTI) 
 		{
 		  r = lexstrcmp
-		    (stackText (c->text, u->i),
-		     stackText (c->text, v->i)) ;
+		    (stackText (c->text, u.i),
+		     stackText (c->text, v.i)) ;
 		  if (r)
 		    return r ;
 		}
 	      else switch (c->type)
 		{
 		case 'b':
-		  return u->k ? -1 : 1 ;
-		case 'i': case 'c':
-		  return u->i > v->i ? 1 : -1 ;
+		  return u.k ? -1 : 1 ;
+		case 'c':
+		  return u.i > v.i ? 1 : -1 ;
+		case 'i':
 		case 'f':
-		  return u->f > v->f ? 1 : -1 ;
+		  return su->z > sv->z ? 1 : -1 ;
 		case 'd':
-		  return u->time > v->time ? 1 : -1 ;
+		  return u.time > v.time ? 1 : -1 ;
 		case 'k': case 'K': case 'n':
-		  return keySetAlphaOrder (&u->k, &v->k) ;
+		  return keySetAlphaOrder (&u.k, &v.k) ;
 		case 't':
 		  r = lexstrcmp
-		    (stackText (c->text, u->i),
-		     stackText (c->text, v->i)) ;
+		    (stackText (c->text, u.i),
+		     stackText (c->text, v.i)) ;
 		  if (r)
 		    return r ;
 		  break ;
 		case 'D':
 		  r = lexstrcmp
-		    (stackText (c->dnaStack, u->k),
-		     stackText (c->dnaStack, v->k)) ;
+		    (stackText (c->dnaStack, u.k),
+		     stackText (c->dnaStack, v.k)) ;
 		  if (r)
 		    return r ;
 		  break ;
 		case 'P':
 		  r = lexstrcmp
-		    (stackText (c->pepStack, u->k),
-		     stackText (c->pepStack, v->k)) ;
+		    (stackText (c->pepStack, u.k),
+		     stackText (c->pepStack, v.k)) ;
 		  if (r)
 		    return r ;
 		  break ;
@@ -383,55 +389,61 @@ int spreadOrder (const void *x, const void *y)
     }
 
   for (i = 0 ; i < max ; i++)
-    { j = arr (pos2col,i, int) ;
+    {
+      j = arr (pos2col,i, int) ;
       if (j == sortColonne) continue ;
       c = arrp (colonnes,j,COL) ;
       if (c->type && !c->hidden)
-	{ u = & (arr (a,j,SPCELL).u) ;
-	  v = & (arr (b,j,SPCELL).u);
-	  if (arr (b,j,SPCELL).empty && arr (a,j,SPCELL).empty) continue ;
-	  if (arr (a,j,SPCELL).empty) return -1 ;
-	  if (arr (b,j,SPCELL).empty) return  1 ;
-	  if (u->k != v->k)
+	{ 
+	  su = arrp (a,j,SPCELL) ;
+	  sv = arrp (b,j,SPCELL) ;
+	  u = su->u ;
+	  v = sv->u ;
+
+	  if (su->empty && sv->empty) continue ;
+	  if (su->empty) return -1 ;
+	  if (sv->empty) return  1 ;
+	  if (u.k != v.k)
 	    {
 	      if (c->showType == SHOW_MULTI) 
 		{
 		  r = lexstrcmp
-		    (stackText (c->text, u->i),
-		     stackText (c->text, v->i)) ;
+		    (stackText (c->text, u.i),
+		     stackText (c->text, v.i)) ;
 		  if (r)
 		    return r ;
 		}
 	      else switch (c->type)
 		{
 		case 'b':
-		  return u->k ? -1 : 1 ;
-		case 'i': case 'c':
-		  return u->i > v->i ? 1 : -1 ;
+		  return u.k ? -1 : 1 ;
+		case 'c':
+		  return u.i > v.i ? 1 : -1 ;
+		case 'i': 
 		case 'f':
-		  return u->f > v->f ? 1 : -1 ;
+		  return su->z > sv->z ? 1 : -1 ;
 		case 'd':
-		  return u->time > v->time ? 1 : -1 ;
+		  return u.time > v.time ? 1 : -1 ;
 		case 'k': case 'K': case 'n': 
-		  return keySetAlphaOrder (&u->k, &v->k) ;
+		  return keySetAlphaOrder (&u.k, &v.k) ;
 		case 't':
 		  r = lexstrcmp
-		    (stackText (c->text, u->i),
-		     stackText (c->text, v->i)) ;
+		    (stackText (c->text, u.i),
+		     stackText (c->text, v.i)) ;
 		  if (r)
 		    return r ;
 		  break ;
 		case 'D':
 		  r = lexstrcmp
-		    (stackText (c->dnaStack, u->k),
-		     stackText (c->dnaStack, v->k)) ;
+		    (stackText (c->dnaStack, u.k),
+		     stackText (c->dnaStack, v.k)) ;
 		  if (r)
 		    return r ;
 		  break ;
 		case 'P':
 		  r = lexstrcmp
-		    (stackText (c->pepStack, u->k),
-		     stackText (c->pepStack, v->k)) ;
+		    (stackText (c->pepStack, u.k),
+		     stackText (c->pepStack, v.k)) ;
 		  if (r)
 		    return r ;
 		  break ;
@@ -443,7 +455,7 @@ int spreadOrder (const void *x, const void *y)
     }
   return 0 ;
 } /* spreadOrder */
- 
+
 /*********************/
 
 void spreadReorder (SPREAD spread)
@@ -752,8 +764,7 @@ BOOL spreadCheckConditions (SPREAD spread)
 	}
       else if (!colonne->condHasParam)
 	{
-	  if (colonne->conditionBuffer &&
-	      *colonne->conditionBuffer)
+	  if (*colonne->conditionBuffer)
 	    {
 	      /* allow condition on Text to unify syntax
                if ( ace_lower (colonne->type) != 'k' &&
@@ -797,6 +808,7 @@ static BOOL scMatch (SPREAD spread, SC sc, OBJ *objp, KEY key)
 {  
   COL *col = sc->col ; SC cc ;
   int mine, n0, n1, n2 ;
+  long int li ;
   BOOL found = FALSE ;
   static Stack s = 0 ; char *cp = 0 ;
   char timeBuf[25] ;
@@ -804,10 +816,11 @@ static BOOL scMatch (SPREAD spread, SC sc, OBJ *objp, KEY key)
   switch (sc->col->type)
     {
     case 'i': case 'c':
-      cp = strnew (messprintf ("%d", sc->u.i), 0) ; key = _Text ;
+      li = sc->z ;
+      cp = strnew (messprintf ("%ld", li), 0) ; key = _Text ;
       break ;
     case 'f':
-      cp = strnew (messprintf ("%f", sc->u.f), 0)  ; key = _Text ;
+      cp = strnew (messprintf ("%lg", sc->z), 0)  ; key = _Text ;
       break ;
     case 'd':
       cp = strnew (messprintf ("\"%s\"", timeShow (sc->u.time, timeBuf, 25)), 0) ; key = _Text ;
@@ -874,10 +887,11 @@ static BOOL scMatch (SPREAD spread, SC sc, OBJ *objp, KEY key)
 	switch (cc->col->type)
 	  {
 	  case 'i': case 'c':
-	    catText (s,messprintf ("%d", cc->u.i) ) ;
+	    li = cc->z ;
+	    catText (s,messprintf ("%ld", li) ) ;
 	    break ;
 	  case 'f':
-	    catText (s,messprintf ("%f", cc->u.f) ) ;
+	    catText (s,messprintf ("%lg", cc->z) ) ;
 	    break ;
 	  case 'd':
 	    catText (s,messprintf ("\"%s\"", timeShow (cc->u.time, timeBuf, 25))) ;
@@ -896,7 +910,6 @@ static BOOL scMatch (SPREAD spread, SC sc, OBJ *objp, KEY key)
 	    catText (s, freeprotect (name (cc->u.k))) ;
 	    break ;
 	  }
-
     }
   
   /* rely on freesubs to actually substitute the param in the query */
@@ -1001,11 +1014,14 @@ static BOOL scDnaBounds (SC sc, char *buffer, int *dnap, float *fdnap)
 	  else /* we only which to substitute numbers, not text */
 	    switch (cc->col->type) /* mhmp 12.07.02  %d -> (%d)  et %f -> (%f)*/
 	      {
-	      case 'i': case 'c':
+	      case 'c':
 		catText (s,messprintf ("(%d)", cc->u.i) ) ;
 		break ;
+	      case 'i': 
+		catText (s,messprintf ("(%lld)", (long long int)cc->z) ) ;
+		break ;
 	      case 'f':
-		catText (s,messprintf ("(%f)", cc->u.f) ) ; /* DO NOT use %g, because 1e+06 is parsed as an addition */
+		catText (s,messprintf ("(%lf)", cc->z) ) ; /* DO NOT use %g, because 1e+06 is parsed as an addition */
 		break ;
 	      case 'd':
 		catText (s,"0") ; /*messprintf ("\"%s\"", timeShow (cc->u.time, timeBuf, 25)) ; */
@@ -1056,8 +1072,9 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 {
   KEY k = 0, direction = _bsRight ;
   OBJ obj = s2->obj ;
-  int nn = 0 , xi, xxi = 0, xxi2 = 0 ;
-  float xf = 0, xxf = 0, xxf2 = 0  ;
+  int nn = 0, type = _Int ;
+  double xf = 0, xxf = 0, xxf2 = 0  ;
+  long long int xi, xxi = 0, xxi2 = 0 ;
   mytime_t xtm , xxtm = 0 ;
   char *xt ;
 
@@ -1126,7 +1143,7 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 		{
 		  if (!s2->col->dnaR)
 		    {
-		      s2->col->dnaR = arrayCopy (dna) ;
+		      s2->col->dnaR = dnaCopy (dna) ;
 		      reverseComplement (s2->col->dnaR) ;
 		    }
 		  dna = s2->col->dnaR ;
@@ -1303,14 +1320,42 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	    return nn ? TRUE : FALSE ; 
 	  sc->u.k = sc->key = k ;
 	  break ;
-	case 'i':
-	  if (!bsGetData (obj, direction, _Int, &xi))
-	    return nn ? TRUE : FALSE ;
+	case 'i': /* LongInt */
+	  type = bsType (obj, direction) ;
+	  if (type == _LongInt)
+	    {
+	      if (!bsGetData (obj, direction, type, &xt) ||
+		  ! sscanf (xt, "%lli", &(xi))
+		  )
+		return nn ? TRUE : FALSE ;
+	    }
+	  else
+	    {
+	      int x ;
+	      if (!bsGetData (obj, direction, _Int, &x))
+		return nn ? TRUE : FALSE ;
+	      xi = x ;
+	    }
+	  sc->z = xi ;
 	  sc->u.i = xi ;
 	  break ;
 	case 'f':
-	  if (!bsGetData (obj, direction, _Float, &xf))
-	    return nn ? TRUE : FALSE ;
+	  type = bsType (obj, direction) ;
+	  if (type == _LongFloat)
+	    {
+	      if (!bsGetData (obj, direction, type, &xt) ||
+		  ! sscanf (xt, "%lg", &(xf))
+		  )
+		return nn ? TRUE : FALSE ;
+	    }
+	  else
+	    {
+	      float x ;
+	      if (!bsGetData (obj, direction, _Float, &x))
+		return nn ? TRUE : FALSE ;
+	      xf = x ;
+	    }
+	  sc->z = xf ;
 	  sc->u.f = xf ;
 	  break ;
 	case 'd':
@@ -1343,10 +1388,11 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	    case 'i':
 	      if (!nn || xxi > xi) xxi = xi ;
 	      sc->u.i = xxi ; /* reset */
+	      sc->z = xxi ; /* reset */
 	      break ;
 	    case 'f':
 	      if (!nn || xxf > xf) xxf = xf ;
-	      sc->u.f = xxf ;
+	      sc->u.f = sc->z = xxf ;
 	      break ;
 	    case 'd':
 	      if (!nn || xxtm > xtm) xxtm = xtm ;
@@ -1361,11 +1407,12 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	    {
 	    case 'i':
 	      if (!nn || xxi < xi) xxi = xi ;
+	      sc->z =  xxi ;
 	      sc->u.i = xxi ; /* reset */
 	      break ;
 	    case 'f':
 	      if (!nn || xxf < xf) xxf = xf ;
-	      sc->u.f = xxf ;
+	      sc->u.f = sc->z = xxf ;
 	      break ;
 	    case 'd':
 	      if (!nn || xxtm < xtm) xxtm = xtm ;
@@ -1381,12 +1428,13 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	    case 'i':
 	      if (!nn) xxi = 0 ;
 	      xxi += xi ;
+	      sc->z = xxi/ (nn + 1) ; /* reset */
 	      sc->u.i = xxi/ (nn + 1) ; /* reset */
 	      break ;
 	    case 'f':
 	      if (!nn) xxf = 0 ;
 	      xxf += xf ;
-	      sc->u.f = xxf/ (nn + 1) ;
+	      sc->u.f = sc->z = xxf/ (nn + 1) ;
 	      break ;
 	    default: /* undefined on other types */
 	      return FALSE ;
@@ -1399,13 +1447,13 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	      if (!nn) { xxi = 0 ; xxi2 = 0 ; sc->u.i = 0 ; }
 	      xxi += xi ; xxi2 += xi * xi ;
 	      if (nn > 1)
-		sc->u.i = (xxi2  - (xxi*xxi/ ((float)nn)))/ (nn - 1.0); /* reset */
+		sc->u.i = sc->z = (xxi2  - (xxi*xxi/ ((float)nn)))/ (nn - 1.0); /* reset */
 	      break ;
 	    case 'f':
 	      if (!nn) { xxf = 0 ; xxf2 = 0 ; sc->u.f = 0 ; }
 	      xxf += xf ; xxf2 += xf * xf ;
 	      if (nn > 1)
-		sc->u.f = (xxf2 - xxf*xxf/nn)/ (nn - 1.0) ;
+		sc->u.f = sc->z = (xxf2 - xxf*xxf/nn)/ (nn - 1.0) ;
 	      break ;
 	    default: /* undefined on other types */
 	      return FALSE ;
@@ -1417,12 +1465,13 @@ static BOOL scQuery (SPREAD spread, SC s2, SC sc)
 	    case 'i':
 	      if (!nn) xxi = 0 ;
 	      xxi += xi ;
+	      sc->z = xxi ; /* reset */
 	      sc->u.i = xxi ; /* reset */
 	      break ;
 	    case 'f':
 	      if (!nn) xxf = 0 ;
 	      xxf += xf ;
-	      sc->u.f = xxf ;
+	      sc->u.f = sc->z = xxf ;
 	      break ;
 	    default: /* undefined on other types */
 	      return FALSE ;
@@ -1469,11 +1518,14 @@ static BOOL scCondition (SPREAD spread, SC sc)
     case 'K':  /* no class check in case K */
       key = sc->key ;
       break ;
-    case 'i': case 'c':
+    case 'c':
        cp = strnew (messprintf ("%d", sc->u.i),0 ) ; key = _Text ;
       break ;
+    case 'i': 
+      cp = strnew (messprintf ("%lld", (long long int)sc->z),0 ) ; key = _Text ;
+      break ;
     case 'f':
-       cp = strnew (messprintf ("%f", sc->u.f),0 ) ; key = _Text ;
+       cp = strnew (messprintf ("%lf", sc->z),0 ) ; key = _Text ;
       break ;
     case 'd':
       cp = strnew (messprintf ("\"%s\"", timeShow (sc->u.time, timeBuf, 25)),0) ; key = _Text ;
@@ -1578,7 +1630,7 @@ static void scExport (SPREAD spread, SC sc)
       if (!stackEmpty (scStack))
 	{ cc = pop (scStack, SC) ;
 	sp->empty = cc->empty ;
-	sp->u = cc->u ;
+	sp->u = cc->u ;sp->z = cc->z ;
 	sp->parent = cc->parent ;
 	sp->grandParent = cc->scFrom ?  cc->scFrom->key : cc->key ;
 	}	
@@ -1679,7 +1731,7 @@ KEY spreadRecomputeKeySet (SPREAD spread, KEYSET ks, int last, int minx, int max
       return 0 ;
     }
 
-  if (last == 1 && !minx==1) last = 0 ;
+  if (last == 1 && ! (minx == 1)) last = 0 ;
   scStack = stackReCreate (scStack, 16) ;
 
   spread->interrupt = FALSE ;
@@ -1805,6 +1857,7 @@ static void spreadTable2Tableau (SPREAD spread, TABLE *tt)
   COL *c ;  
   int  maxCol = arrayMax (spread->colonnes) ;
   Array a = 0 ;
+  SPCELL *su ;
   BSunit *u ;
   char *cp ;
 
@@ -1829,7 +1882,8 @@ static void spreadTable2Tableau (SPREAD spread, TABLE *tt)
 	      array (a,j1,SPCELL).empty = TRUE ;
 	      continue ;
 	    }
-	  u = & (array (a, j1,SPCELL).u) ;
+	  su = arrayp (a, j1,SPCELL) ;
+	  u = &(su->u) ;
 	  if (c->showType == SHOW_MULTI) 
 	    {
 	      cp =  tabString (tt,nn,j1) ;
@@ -1847,11 +1901,14 @@ static void spreadTable2Tableau (SPREAD spread, TABLE *tt)
 	    {
 	    case 0:
 	      break ;
-	    case 'i': case 'c':
+	    case 'c':
 	      u->i = tabInt (tt,nn,j1) ;
 	      break ;
+	    case 'i': 
+	      su->z = u->i = tabInt (tt,nn,j1) ;
+	      break ;
 	    case 'f': 
-	      u->f = tabFloat (tt,nn,j1) ;
+	      su->z = u->f = tabFloat (tt,nn,j1) ;
 	      break ;
 	    case 't':
 	      cp =  tabString (tt,nn,j1) ;
@@ -1976,6 +2033,7 @@ static void spreadAscii (SPREAD spread,
 { 
   int j, j1, x=0, colMax = 0 , iCol ;
   COL *c ;
+  SPCELL *su ;
   BSunit *u ;
   char sep[2], *cp = 0, oldType ;
   BOOL empty, NEW_JAVA = FALSE ;
@@ -2094,7 +2152,8 @@ static void spreadAscii (SPREAD spread,
 		freeOut ( sep) ;
 	    }	
 
-	  u = & (arr (lineArray, j1,SPCELL).u) ;
+	  su = arrp (lineArray, j1,SPCELL) ;
+	  u = & (su->u) ;
 	  empty = arr (lineArray, j1,SPCELL).empty ;
 	  if (!NEW_JAVA) lastPrintedCol = -1 ;
 	  x = 0 ;
@@ -2203,11 +2262,11 @@ static void spreadAscii (SPREAD spread,
 		case 'j': 
 		  if (! NEW_JAVA || j > lastPrintedCol)
 		    { 
-		      cp = messprintf ("?int?%d?", u->i) ; 
+		      cp = messprintf ("?int?%lli?", (long long int) su->z) ; 
 		      lastPrintedCol = j ;
 		    }
 		  else
-		    cp = messprintf ("#%d?", u->i) ; 
+		    cp = messprintf ("#%lld?", (long long int) su->z) ; 
 		  freeOut (cp) ;
 		  x = strlen (cp) ;
 		  break ;
@@ -2227,11 +2286,11 @@ static void spreadAscii (SPREAD spread,
 		{
 		case 'j': 
 		  if (! NEW_JAVA || j > lastPrintedCol)
-		    { cp = messprintf ("?float?%g?", u->f) ; 
+		    { cp = messprintf ("?float?%lg?", su->z) ; 
 		    lastPrintedCol = j ;
 		    }
 		  else
-		    cp = messprintf ("#%g?", u->f) ; 
+		    cp = messprintf ("#%lg?", su->z) ; 
 		  freeOut (cp) ;
 		  x = strlen (cp) ;
 		  break ;
@@ -2416,7 +2475,7 @@ static void spreadAscii (SPREAD spread,
       colMax-- ;
       while (colMax > 255)
 	{
-	  bfret[1]= 255; freeOutBinary (bfret, 2) ;
+	  bfret[1]= (char)255; freeOutBinary (bfret, 2) ;
 	  colMax -= 255;
 	}
       
@@ -2621,7 +2680,8 @@ TABLE *spreadToTable (SPREAD spread, AC_HANDLE h)
   int ii, j, j1, j2, nLines, maxCol = arrayMax (spread->colonnes) ;
   Array lineArray , oldLineArray = 0 ; 
   TABLE *table ;
-  BSunit * u ;
+  SPCELL * su ;
+  BSunit u ;
   BOOL empty ;
   COL *c ;
   char *types  ;
@@ -2650,26 +2710,53 @@ TABLE *spreadToTable (SPREAD spread, AC_HANDLE h)
 	      c = arrp (spread->colonnes,j1 = arr (pos2col,j, int) ,COL) ;
 	      if (!c->hidden)
 		{
-		  u = & (arr (lineArray, j1,SPCELL).u) ;
+		  su = arrp (lineArray, j1,SPCELL) ;
+		  u = su->u ;
 		  empty = arr (lineArray, j1,SPCELL).empty ;
 		  if (!empty && c->showType == SHOW_MULTI)
-		    tableSetString (table, ii, j2, stackText (c->text, u->i)) ;
+		    tableSetString (table, ii, j2, stackText (c->text, u.i)) ;
 		  else if (!empty) switch (c->type)
 		    {
-		    case 'i': case 'c': tableInt (table,ii,j2) = u->i ; break ;
-		    case 'f': tableFloat (table,ii,j2) = u->f ; break ;
-		    case 'd': tableDate (table,ii,j2) = u->time ; break ;
+		    case 'c': tableInt (table,ii,j2) = u.i ; break ;
+		    case 'i':
+		      {
+			int xi = su->z ;
+			long long int lli = su->z ;
+			if (xi == lli)
+			  tableInt (table,ii,j2) = xi ;
+			else
+			  {
+			    char buf[128] ;
+			    sprintf (buf, "%lld", lli) ;
+			    tableSetString (table, ii, j2, buf) ;
+			  }
+			break ;
+		      }
+		    case 'f': 
+		      {
+			int xf = su->z ;
+			if (xf == su->z)
+			  tableFloat (table,ii,j2) = xf ; 
+			else
+			  {
+			    char buf[128] ;
+			    sprintf (buf, "%lg", su->z) ;
+			    tableSetString (table, ii, j2, buf) ;
+			  }
+			break ;
+		      }
+		    case 'd': tableDate (table,ii,j2) = u.time ; break ;
 		    case 'k': case 'K': case 'n': case 'b':
-		       tableKey (table,ii,j2) = u->k ; break ;
+		       tableKey (table,ii,j2) = u.k ; break ;
 		    case 't':  /* text */
-		      tableSetString (table, ii, j2, stackText (c->text, u->i)) ;
+		      tableSetString (table, ii, j2, stackText (c->text, u.i)) ;
 		      break ;
 		    }
 		  else switch (c->type)
 		    {
 		    case 'i': case 'c': tableInt (table,ii,j2) = UT_NON_INT ; break ;
 		    case 'f': tableFloat (table,ii,j2) = UT_NON_FLOAT ; break ;
-		    case 'd': tableDate (table,ii,j2) = u->time ; break ;
+		    case 'd': tableDate (table,ii,j2) = u.time ; break ;
 		    case 'k': case 'K': case 'n': case 'b': case 't':
 		      tableKey (table,ii,j2) = 0 ; break ;
 		    }

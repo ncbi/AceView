@@ -7,23 +7,30 @@ set useMagicBlastTag=$4
 
 set mIL=""
 if ( $minInsertLength > 0) set mIL="-Remove_inserts_shorter_than $minInsertLength"
-set COUNT=$MAGIC_COUNT_DIR
+set COUNT=COUNT
 
 set lane_clean=`echo $lane | sed -e 's/\//_/g'`
 set mytmp=$TMPDIR/aceview.a123.$lane_clean.$$
 set cleanUp=1
 if (0) then
   set mytmp=/export/home/TMP/aceview.a123.1
-  set mytmp=tmp/TMP
+  set mytmp=tmp/TMP/$MAGIC
+  mkdir tmp/TMP 
   set cleanUp=0
 else
   if (-d $mytmp) \rm -rf $mytmp
 endif
+echo "$mytmp"
+
   mkdir $mytmp
   mkdir $mytmp/MetaDB
   mkdir $mytmp/MetaDB/$MAGIC
   mkdir $mytmp/COUNT
   mkdir $mytmp/COUNT/$run
+
+if (! $?targets) then
+  setenv targets "$DNAtargets $RNAtargets"
+endif
 
 echo "$mytmp\ntarget=$targets"
 \cp MetaDB/$MAGIC/*  $mytmp/MetaDB/$MAGIC
@@ -40,9 +47,10 @@ foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunPairedList`)
   endif
 end
 
+# 2020_04_03: isMir kills -MRNAH whihc is annoying and small reads are aligned in a different way, nit using the present script
 set isMir=0
 foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunSmallRnaList`)
-  if ($run == $run2) then
+  if (0 && $run == $run2) then
     set isMir=1
   endif
 end
@@ -54,6 +62,15 @@ foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunSolidList`)
 end
 if ($iiSolid == 1) set isSolid="-solidC"
 
+set isLong=""
+foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunNanoporeList`)
+  if ($run == $run2) set isLong="-nanopore"
+end
+
+foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunPacBioList`)
+  if ($run == $run2) set isLong="-pacbio"
+end
+
 set dna2dnaFormat=fastc
 if ($iiSolid == 1) set dna2dnaFormat=csfastc
 
@@ -64,6 +81,9 @@ if ($iiSolid == 1) set dna2dnaFormat=csfastc
 
 set hitfiles = ""
 
+if (-e tmp/Unaligned/$lane.fastc.gz)  then
+  \rm  tmp/Unaligned/$lane.*
+endif
 
 printf "dummy\t1\n" | gzip >  $mytmp/COUNT/$lane.best_score.gz
 if (-e tmp/COUNT/$lane.hits.gz)  then
@@ -84,6 +104,12 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
   if (-e $mytmp/PHITS_$target/$lane.hits.gz) then
     continue  
   endif
+  if (-e tmp/PHITS_$target/$lane.done && -e tmp/PHITS_$target/$lane.hits.gz) then
+    if (! -d $mytmp/PHITS_$target/$run) mkdir $mytmp/PHITS_$target/$run
+    \cp tmp/PHITS_$target/$lane.*  $mytmp/PHITS_$target/$run
+    goto plusbas
+    continue
+  endif
   if (-e $mytmp/PHITS_$target/$lane.done || -e tmp/PHITS_$target/$lane.done || -e tmp/PHITS_$target/$lane.hits.gz) continue
   # only compute requested targets
   set ok=0
@@ -98,6 +124,13 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
   source scripts/target2target_class.txt
   set targetFasta=$target
   if ($target == gdecoy) set targetFasta=genome
+  if ($target == SpikeIn) then
+    foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunSequinList`)
+      if ($run == $run2) then
+        set targetFasta=SpikeInSequin
+      endif
+    end
+  endif
 
   if (! -e TARGET/Targets/$species.$targetFasta.fasta.gz) then
     echo "Missing file  TARGET/Targets/$species.$targetFasta.fasta.gz"
@@ -128,7 +161,7 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
 # if($8=="A_mito" || $8 == "B_rrna")s--;
   if ($target == gdecoy) set bonus=2
   if ($target == genome) set bonus=0
-  if ($target =~ chrom*) set bonus=0;
+  if ($target =~ chrom*) set bonus=0
   if ($target == cloud)  set bonus=-6
   if ($target == snp)    set bonus=-6
   if ($target == introns)    set bonus=-6
@@ -148,8 +181,8 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
 
     set clipPolyA=" "
     set clipPolyT=" "
-    foreach run2 (`cat $mytmp/MetaDB/$MAGIC/RunRnaList`)
-      if ($isMir == 0 && $run == $run2) then
+    if ($Strategy == RNA_seq) then
+      if ($isMir == 0) then
         if ($target_class =~ [A-Z]T_*) then
           set clipPolyA="-SclipPolyA"
           set clipPolyT="-SclipPolyT"
@@ -158,10 +191,12 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
           set clipPolyT="-clipPolyT"
         endif
       endif
-    end
+    endif
    if ($?NoPolyA) then
-      set clipPolyA=" "
-      set clipPolyT=" "
+     if ($NoPolyA == 1) then
+       set clipPolyA=" "
+       set clipPolyT=" "
+     endif
    endif
 
   set isStranded=" "
@@ -238,6 +273,8 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
 
 set jump5=""
 set jump5=`cat $mytmp/MetaDB/$MAGIC/runs.ace | gawk '{gsub(/\"/,"",$0);}/^Run/{ok=0;if($2 == run)ok=1;}/^Jump5/{if(ok==1){ if(0+$2>0 && 0+$2 < 6)printf(" -jump5 %d", 0+$2);if(0+$3>0 && 0+$3 < 6)printf(" -jump5_2 %d", 0+$3);}}' run=$run`
+set forceRightClip=""
+set forceRightClip=`cat $mytmp/MetaDB/$MAGIC/runs.ace | gawk '{gsub(/\"/,"",$0);}/^Run/{ok=0;if($2 == run)ok=1;}/^ForceRightClip/{if(ok==1){ if(0+$2>20)printf(" -forceRightClip %d", 0+$2);if(0+$3>0 && 0+$3 < 6)printf(" -forceRightClip_2 %d", 0+$3);}}' run=$run`
 set adaptor1=""
 set adaptor2=""
 
@@ -250,18 +287,18 @@ set adaptor2=`cat $mytmp/MetaDB/$MAGIC/run2machine2adaptors.txt | gawk -F '\t' '
 set v1=""
 set v2=""
 if ("$adaptor1" != "" && "$adaptor1" != "NULL") then
-  if ("$v11" == "" ) then
-    set v1="-exitAdaptor $adaptor1"
-  else
-    set v1="-exitAdaptor $adaptor1,$v11"
+  set v1="-exitAdaptor $adaptor1"
+else
+  if ("$v11" != "" ) then
+    set v1="-exitAdaptor $v11"
   endif
 endif
 
 if ("$adaptor2" != "" && "$adaptor2" != "NULL") then
-  if ("$v22" == "" ) then
-    set v2="-exitAdaptor2 $adaptor2"
-  else
-    set v2="-exitAdaptor2 $adaptor2,$v22"
+  set v2="-exitAdaptor2 $adaptor2"
+else
+  if ("$v22" != "" ) then
+    set v2="-exitAdaptor2 $v22"
   endif
 endif
 
@@ -290,19 +327,31 @@ echo "align "
 date
 # if ($target == bacteria)set prevScore=""
  
+set overh='-showOverhang -showTargetPrefix'
+if ($target == bacteria || $target == virus)set overh=""
+if ($VIRUS_PROJECT == 1 || $target == virus) set overh="-showSequence"
+
+set SAM=""
+if ($MAGIC_SAM == 1) set SAM="-sam"
+
 set targetMask=""
 if (-e TARGET/Targets/$species.$target.mask.txt) set targetMask="-targetMask TARGET/Targets/$species.$target.mask.txt"
 
-         echo "bin/clipalign -i Fastc/$lane.fastc.gz  $isSolid -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength -showTargetPrefix -target_class $target_class $t2g $jump5 -showOverhang -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane"
+         echo "bin/clipalign -best -i Fastc/$lane.$dna2dnaFormat.gz  $isSolid $isLong -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength -target_class $target_class $t2g $jump5 $forceRightClip $overh -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane $SAM"
 
-  (bin/time -p bin/clipalign -i Fastc/$lane.fastc.gz  $isSolid -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength -showTargetPrefix -target_class $target_class $t2g $jump5  -showOverhang -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane ) >& $mytmp/PHITS_$target/$lane.err
+  (bin/time -p bin/clipalign -best -i Fastc/$lane.$dna2dnaFormat.gz  $isSolid  $isLong -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength  -target_class $target_class $t2g $jump5 $forceRightClip $overh -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane $SAM) >& $mytmp/PHITS_$target/$lane.err
 
  if ($status > 0) then
+    set sss=$status
     date
-    echo "FATAL ERROR bin/clipalign $target exited with non-zero status"
+    echo "FATAL ERROR bin/clipalign $target exited with non-zero status $sss"
+    if (! -d tmp/PHITS_$target/$run) mkdir tmp/PHITS_$target/$run
+    \mv $mytmp/PHITS_$target/$run/* tmp/PHITS_$target/$run
     ls -ls core.* | tail -1
     exit 1
  endif
+
+plusbas:
   echo -n  "clipalign $target done : "
   ls -ls core.*
   date   
@@ -369,12 +418,20 @@ endif
   if (-e TARGET/Targets/$species.av.signature_transcripts_list.txt) set sig="-sigTargets  TARGET/Targets/$species.av.signature_transcripts_list.txt"
   echo "hitfiles= # $hitfiles #"
   echo "gunzip -c $hitfiles | bin/bestali  -filter $filter  $mIL $geneRemap -maxHit $maxHit -countBest -seqc -strategy $Strategy -exportBest  -exportSuffix -exportVenn -errorProfile $pair -aliProfile -exportMito $sig -gzo -o $mytmp/COUNT/$lane"
-  (bin/time -p gunzip -c $hitfiles | bin/bestali  -filter  $filter   $mIL $geneRemap -maxHit $maxHit -countBest -seqc -strategy $Strategy -exportBest  -exportVenn -exportSuffix -errorProfile $pair -aliProfile -exportMito $sig -gzo -o $mytmp/COUNT/$lane) >&  $mytmp/COUNT/$lane.err
+  (bin/time -p gunzip -c $hitfiles | sort -k 1,1 -k 2,2nr | bin/bestali  -filter  $filter   $mIL $geneRemap -maxHit $maxHit -countBest -seqc -strategy $Strategy -exportBest  -exportVenn -exportSuffix -errorProfile $pair -aliProfile -exportMito $sig -gzo -o $mytmp/COUNT/$lane) >&  $mytmp/COUNT/$lane.err
   touch $mytmp/COUNT/$lane.mrnaOrder.done
   echo -n "bestali done : "
   date
-  if (1 && -e tmp/COUNT/$lane.hits.1.gz) \rm  tmp/COUNT/$lane.hits.1.gz
+  if ($cleanUp == 1 && -e tmp/COUNT/$lane.hits.1.gz) \rm  tmp/COUNT/$lane.hits.1.gz
   
+    set ff=$mytmp/COUNT/$lane.hits.gz
+    if (-e $ff) then
+      mv $ff $ff.old
+      gunzip -c $ff.old | scripts/tab_sort -k 1,1 -k 2,2nr -k 8,8 -k 11,11 -k 26,26  -k 6,6n -k 7,7n  | gzip > $ff 
+      \rm $ff.old
+    endif
+    touch  tmp/COUNT/$run/snp1_sorting.done
+
 # recover the original identifiers
 # since it is really costly i blank out this option
 set needAlias=0
@@ -405,7 +462,7 @@ date
 
 # extract the fasta file of unaligned sequences
 
-if (! -e tmp/Unaligned/$lane.fastc.gz) then
+if (! -e tmp/Unaligned/$lane.$dna2dnaFormat.gz) then
   echo "extract the fasta file of unaligned sequences"
   echo "//" > $mytmp/COUNT/$lane.ok
   if (-e $mytmp/COUNT/$lane.hits.gz ) then
@@ -414,8 +471,8 @@ if (! -e tmp/Unaligned/$lane.fastc.gz) then
   if (-e tmp/COUNT/$lane.noInsert.gz) then
     gunzip -c tmp/COUNT/$lane.noInsert.gz | cut -f 1  | gawk '{gsub (/>$/,"",$1);gsub (/<$/,"",$1);if($1 != old) print $1;old=$1;}' >>  $mytmp/COUNT/$lane.ok
   endif
-  echo "bin/dna2dna -I $dna2dnaFormat -i Fastc/$lane.fastc.gz -gzi -gzo  -minEntropy $minEntropy -reject   $mytmp/COUNT/$lane.ok -O fastc -count -o tmp/Unaligned/$lane "
-        bin/dna2dna -I $dna2dnaFormat -i Fastc/$lane.fastc.gz -gzi -gzo  -minEntropy $minEntropy -reject   $mytmp/COUNT/$lane.ok -O fastc -count -o tmp/Unaligned/$lane 
+  echo "bin/dna2dna -I $dna2dnaFormat -i Fastc/$lane.$dna2dnaFormat.gz -gzi -gzo  -minEntropy $minEntropy -reject   $mytmp/COUNT/$lane.ok -O $dna2dnaFormat -count -o tmp/Unaligned/$lane "
+        bin/dna2dna -I $dna2dnaFormat -i Fastc/$lane.$dna2dnaFormat.gz -gzi -gzo  -minEntropy $minEntropy -reject   $mytmp/COUNT/$lane.ok -O $dna2dnaFormat -count -o tmp/Unaligned/$lane 
   \rm  $mytmp/COUNT/$lane.ok
 endif
 
@@ -443,6 +500,9 @@ foreach target ($targets)
   if (! -d tmp/PHITS_$target/$run) source scripts/mkDir PHITS_$target $run
 
 
+  if (-e $mytmp/PHITS_$target/$lane.sam.gz) then
+    mv $mytmp/PHITS_$target/$lane.sam.gz tmp/PHITS_$target/$lane.sam.gz
+  endif
   if (-e $mytmp/PHITS_$target/$lane.hits.gz) then
     if (0 && $Strategy == RNA_seq && $target == genome ) then 
        echo -n "a3: ventilate the genome hits in BG format $run $lane "
@@ -450,6 +510,7 @@ foreach target ($targets)
        (bin/time -p bin/wiggle -ventilate -I BHIT -O BHIT -i $mytmp/PHITS_genome/$lane.hits.gz -o tmp/PHITS_genome/$lane -gzo) >& tmp/PHITS_genome/$lane.BG.err
        echo  "a3: ventilate done "
     endif
+    # mv $mytmp/PHITS_$target/$lane.hits.gz tmp/PHITS_$target/$lane.hits.gz
     if ($cleanUp == 1) \rm $mytmp/PHITS_$target/$lane.hits.gz
   endif
   if ($target == gdecoy) \rm  $mytmp/PHITS_$target/$run/*overhang*
@@ -471,7 +532,65 @@ date
   if (-d tmp/GENERUNS/$run) \rm -rf  tmp/GENERUNS/$run
   if (-d tmp/GENELANES/$run) \rm tmp/GENELANES/$lane.*
   if (-e tmp/$COUNT/$run/c2.alistats.ace) \rm tmp/$COUNT/$run/c2.alistats.ace
+
+ls -ls TARGET/Targets/$species.virus.fasta.gz TARGET/Targets/$species.bacteria.fasta.gz > tmp/$COUNT/$run/virus_bacteria.date
+
 exit 0
 
 
 ##############################################################
+
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  set n=`cat Fastc/$run/LaneList | wc -l`
+  if ($n < 150) continue
+  foreach ii (`seq 0 1 9`)
+    mkdir Fastc/$run.$ii
+    mv Fastc/$run/f2.*$ii.* Fastc/$run.$ii 
+  end
+end
+
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  set n=`cat Fastc/$run/LaneList | wc -l`
+  if ($n < 150) continue
+  foreach ii (`seq 0 1 9`)
+    \cp Fastc/$run/*.ace Fastc/$run/Max_probe_length Fastc/$run/first_line.txt Fastc/$run/original.count Fastc/$run.$ii 
+    pushd Fastc/$run.$ii 
+      ls *.fastc.gz | gawk '{gsub(/.fastc.gz/,"",$1); printf("%s.%d/%s\n",run,ii,$1);}' run=$run ii=$ii > LaneList
+    popd
+  end
+end
+
+echo ' ' > subsublib.ace
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  set n=`cat Fastc/$run/LaneList | wc -l`
+  if ($n < 150) continue
+  foreach ii (`seq 0 1 9`)
+    echo "$run $ii" | gawk '{printf("Run %s.%d\nRNA\nIllumina\nSublibrary_of %s\nPaired_end\nProject %s\n\n", run,ii,run,magic);}' run=$run ii=$ii magic=$MAGIC >>  subsublib.ace
+  end
+end
+
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  set n=`cat Fastc/$run/LaneList | wc -l`
+  if ($n < 150) continue
+  \rm Fastc/$run/LaneList
+end
+
+foreach run (`cat tutu`)
+  foreach ii (0 1 2 3 4 5 6 7 8 9)
+  cat Fastc/$run/original_counts.ace | gawk '/^Raw_data/{printf ("%s %d %s %d %s %d %s\n",$1,$2/10,$3,$4/10,$5,$6/10,$7);next;}' > Fastc/$run.$ii/original_counts.ace
+  end
+end
+
+foreach ff (`ls Fastc/SRR1000*.?/original_counts.ace`)
+  set run=`echo $ff | gawk '{split($1,aa,"/");print aa[2];}'`
+  cat $ff | gawk '/^Raw_data/{printf ("Ali %s\n",run);print;printf("\n");}' run=$run  >_f
+  mv _f $ff
+end
+
+# for some reason i doubled the LaneList files
+foreach run (`cat tutu`)
+  foreach ii (0 1 2 3 4 5 6 7 8 9)
+    cat Fastc/$run.$ii/LaneList | sort -u | sort -V > _f
+    mv _f Fastc/$run.$ii/LaneList
+  end
+end

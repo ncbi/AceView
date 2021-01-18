@@ -102,17 +102,18 @@ static void gLocShowSegs (Array segs)
   SEG *seg ;
   int ii ;
   
-  if (arrayExists (segs))
-    for (ii = 0 ; ii < arrayMax (segs) ; ii++)
-      {
-	seg = arrp (segs, ii, SEG) ;
-	printf ("%4d %s %12s%12d%12d cl=%d\n"
-		, ii
-		, seg->isDown ? "+" : "-"
-		, ac_key_name(seg->gene), seg->a1, seg->a2
-		, seg->cloud
-		) ;
-      }
+  if (segs)
+    if (arrayExists (segs))
+      for (ii = 0 ; ii < arrayMax (segs) ; ii++)
+	{
+	  seg = arrp (segs, ii, SEG) ;
+	  printf ("%4d %s %12s%12d%12d cl=%d\n"
+		  , ii
+		  , seg->isDown ? "+" : "-"
+		  , ac_key_name(seg->gene), seg->a1, seg->a2
+		  , seg->cloud
+		  ) ;
+	}
   return ;
 }
 
@@ -129,6 +130,7 @@ static GLMap *gLocMapCurrent (char *caller)
   if (map->magic != &GLMap_MAGIC)
     messcrash("%s() received non-magic GLMap pointer", caller);
   
+  gLocShowSegs (0) ; /* for compiler happiness */
   return map ;
 } /* gLocMapCurrent */
 
@@ -513,7 +515,7 @@ static BOOL  gLocGeneConvert (GLoc look)
     }
 
   newName = ac_tag_printable (Gene, "Newname", 0) ;
-  if (!newName || strlen (newName) < 3)
+  if (!newName || strlen (newName) < 3 || strlen (newName) > 11)
     goto abort ;
 
   look->map->segs = arrayHandleCreate (600, SEG, look->h) ;
@@ -930,6 +932,7 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
   SEG *seg ;
   float u0, u1, u2, y, old, ymax = 0 ;
   const char *ccp ;
+  BOOL ok ;
   vTXT buf = vtxtHandleCreate (h) ;
 
   for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG) ; iSeg  < arrayMax(look->map->segs) ; iSeg++, seg++) 
@@ -943,6 +946,7 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
       
       u1 = HMAP2GRAPH (look->map, seg->a1) ;
       u2 = HMAP2GRAPH (look->map, seg->a2) ; 
+      ok = FALSE ;
       box = graphBoxStart() ;
       if (isDown)
 	{
@@ -975,7 +979,7 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
 		y += .8 ;
 	    }
 
-	  gLocDrawArrow (look, seg, y) ;
+	  ok |= gLocDrawArrow (look, seg, y) ;
 	  y += look->map->dh ;
 	  if (ymax < y) ymax = y ;
 	}
@@ -984,15 +988,19 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
 	  y = look->map->yChrom + look->map->dh * seg->iy1 ;
 	  if (gLocDrawArrow (look, seg, y))
 	    {
+	      int ddy = 0 ;
+
+	      ok = TRUE ;
 	      y += look->map->dh ;
-	      
+	      ddy +=  look->map->dh ;
 	      if (seg->boxNeeded)
 		{ 
-		  y += .4 ;
+		  y += .4 ; ddy += .4 ;
 		  u0 = (u1 + u2)/2.0 ;
 		  if (gLocDrawPastilles (look, seg, u0, y))
-		    y += .8 ;
+		    y += .8 ;ddy += .8 ;
 		}
+	      if (0) gLocDrawArrow (look, seg, y - ddy) ;
 	      if (seg->gid >= 2)
 		{
 		  ccp = ac_key_name (seg->gene) ;
@@ -1013,31 +1021,25 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
 	  if (ymax < y) ymax = y ;
 	}
       graphBoxEnd () ;
-      array (look->map->boxIndex, box, int) = iSeg ;
-      vtxtClear (buf) ;
-      vtxtPrintf (buf, "%s, %d accession%s"
-		  , ac_key_name(seg->gene)
-		  , seg->nClones
-		  , seg->nClones > 1 ? "s" : ""
-		  ) ;
-     
-      mrnas = queryKey (seg->gene, ">transcribed_gene; > mrna") ;
-      if (mrnas && keySetMax (mrnas) > 1)
-	vtxtPrintf (buf, ", %d variants", keySetMax (mrnas)) ;
-      keySetDestroy (mrnas) ;
       
-#ifdef JUNK
-      if (0)  /* trop long de calculer les tissus */
+      if (ok)
 	{
-	  AC_KEYSET clones = ac_objquery_keyset (Gene, ">transcribed_gene ; >cdna_clone", h) ;
-	  AC_KEYSET reads = ac_ksquery_keyset (clones, ">read ; tissue", h) ;
-	  AC_TABLE cTbl = clones ? ac_keyset_table (reads, 0, -1, 0, h) : 0  ;
+	  ok = FALSE ;
+	  array (look->map->boxIndex, box, int) = iSeg ;
+	  vtxtClear (buf) ;
+	  vtxtPrintf (buf, "%s, %d accession%s"
+		      , ac_key_name(seg->gene)
+		      , seg->nClones
+		      , seg->nClones > 1 ? "s" : ""
+		      ) ;
 	  
-	  ficheNewGeneExpressionTissue (buf, 0, cTbl, 3, 3, 0, ac_keyset_count (clones)) ;
+	  mrnas = queryKey (seg->gene, ">transcribed_gene; > mrna") ;
+	  if (mrnas && keySetMax (mrnas) > 1)
+	    vtxtPrintf (buf, ", %d variants", keySetMax (mrnas)) ;
+	  keySetDestroy (mrnas) ;
+	  
+	  graphBubbleInfo (box, seg->gene, "Gene", vtxtPtr (buf)) ;
 	}
-#endif
-
-      graphBubbleInfo (box, seg->gene, "Gene", vtxtPtr (buf)) ;
     }
   ac_free (h) ;
   return ymax ;
@@ -1143,7 +1145,7 @@ static void gLocDraw (void)
       gLocBumpGene (look, bumper, TRUE, FALSE, &n4) ; /* non-cloud up */
  
       /* actually draw */
-      look->map->yChrom = 0 ;
+      look->map->yChrom = 4 ;  /* top margin, room for the bubbles */
 
       if (n2)
 	{
@@ -1173,6 +1175,7 @@ static void gLocDraw (void)
     }
   if (n3 + n4 > 0 && isGifDisplay) /* adapt the height of the gif/flash screen */
    {
+     svgGraphResize (look->map->graphWidth, ymax+2) ;
      swfGraphResize (look->map->graphWidth, ymax+2) ;
      graphFitBounds (&look->map->graphWidth,&look->map->graphHeight) ;
    }

@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: model.c,v 1.9 2015/08/18 14:33:42 mieg Exp $ */
+/* $Id: model.c,v 1.12 2020/05/30 16:50:31 mieg Exp $ */
 
 #define DEFINE_OBJ
 typedef struct sobj *OBJ ;
@@ -168,7 +168,7 @@ pass2:
         default: /* this includes the inQuotes modified characters */
 	  c &= 127 ;
 	  if (old != '\\' && c == '\"') 
-	    inQuotes = inQuotes ? 0 : 128 ; /* toggle */
+	    inQuotes = inQuotes ? 0 : (char)128 ; /* toggle */
 	  if (!inword)
 	    { if (!iNode)	/* find level */
 		{ for (level = 0 ; level < arrayMax(levelCount) ; level++)
@@ -766,7 +766,6 @@ static void checkRecurse (KEY model, BS bs, BOOL inTags,
 			  Associator tag2right)
 {
   char *zero = 0 ;
-
 #ifdef DEBUG
   { int i ;
     for (i = 2*depth ; i-- ;)
@@ -850,7 +849,9 @@ static void checkRecurse (KEY model, BS bs, BOOL inTags,
 	messerror ("Model error: duplicate tag %s in model %s",
 		   name(bs->key), name(model)) ;
       else if (!bs->right || (bs->right->key == _UNIQUE && !bs->right->right))
-	assInsert (tag2right, zero + bs->key, zero) ;
+	{
+	  assInsert (tag2right, zero + bs->key, zero) ;
+	}
       else if (bs->right->key != _UNIQUE)
 	assInsert (tag2right, zero + bs->key, zero + bs->right->key) ;
       else
@@ -981,7 +982,6 @@ static KEYSET checkModelSyntax (void)
 		   name(toModel)) ;
     }
 
-
   /* Any errors in the model file and we exit..no save attempted.            */
   if (messErrorCount() != errorCount) messExit ("Errors in model file") ;
 
@@ -991,7 +991,6 @@ static KEYSET checkModelSyntax (void)
     assDestroy (array (tagsInModel, i, Associator)) ;
   arrayDestroy (xinfo) ;
   arrayDestroy (tagsInModel) ;
-
   return ks ;
 } /* checkModelSyntax */
 

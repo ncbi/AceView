@@ -6,7 +6,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@sanger.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@crbm.cnrs-mop.fr
  *
- * SCCS: $Id: gifacemain.c,v 1.29 2014/09/08 04:20:13 mieg Exp $ 
+ * SCCS: $Id: gifacemain.c,v 1.33 2020/05/30 16:50:31 mieg Exp $ 
  * Description:
  * Exported functions:
  * HISTORY:
@@ -133,13 +133,14 @@ int main (int argc, char **argv)
 #include "pick.h"
 
 static FREEOPT options[] =
-{ { 27, "giface" },
+{ { 28, "giface" },
   { '?', "? : this list of commands.  Multiple commands ';' separated accepted" },
 
   { 'd', "dimensions x y : in pixels" }, 
   { 'D', "display [-D displaytype] [class key] : graphic display [for the current key]" },
   { 'B', "psdump filename : save active graph as postscript" },
   { 'A', "gifdump [-nobox] filename : save active graph as a gif" },
+  { 'T', "svgdump  filename : save active graph as a svg" },
   { 'V', "swfdump [-nobox] filename : save active graph as a swf" },
   { 'W', "jsdump [-nobox] filename : save active graph as a js" },
   { 'b', "bubbledump filename : dump bubble infoof current graph" },
@@ -152,7 +153,7 @@ static FREEOPT options[] =
   { 'h', "mhmap [-glyph glyph_number] [-colour colour] [-noNT] : multiple IntMap display" }, 
 
   { 'S', "seqget [-class <class>] <sequence> [-coords x1 x2] [-origin x0] [-view view]: sets current sequence and  origin of coords  for future ops on same line" },
-  { 'X', "seqdisplay [-visible_coords v1 v2] [-view view]: works on current sequence, use gif or ps to actually dump the display" },
+  { 'X', "seqdisplay [-visible_coords v1 v2] [-view view]: works on current sequence, use svg, gif or ps to actually dump the display" },
   { 'n', "seqdna [-file fname] <-coords x1 x2> : works on current sequence <coords deprecated - use seqget>" },
   { 'f', "seqfeatures [-file fname] [-version 1|2] [-list] [-source source(s)] [-feature feature(s)] <-coords x1 x2> : works on current sequence, source(s)/feature(s) are '|' separated lists, <coords deprecated - use seqget>" },
   { 'g', "seqactions  [-dna] [-gf_features] [-hide_header] [-rev_comp] : works on current sequence" },
@@ -221,10 +222,10 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 	      KEY classKey = 0, displayKey = 0, view = 0 ;
 	      char *cp ;
 	      KEY _VView, mm;
-
+	      
 	      lexaddkey("View", &mm, _VMainClasses);
 	      _VView = KEYKEY(mm);
-
+	      
 	      while ((cp = freeword()))
 		{
 		  if (*cp != '-')
@@ -234,7 +235,7 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 			{ freeOut ("// Error: -D must be followed by a display type\n") ;
 			  break ;
 			}
-		      if (!lexword2key(cp, &displayKey, _VDisplay))
+		      if (!lexword2key(cp, &displayKey, _VDisplay) && !lexword2key (cp, &view, _VView))
 			{ freeOutf ("// Error: bad display type %s\n", cp) ;
 			  break ;
 			}
@@ -244,10 +245,13 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 			{ freeOut ("// Error: -view must be followed by a view name\n") ;
 			  break ;
 			}
-		      if (!lexword2key (cp, &view, _VView))
+		      if (!lexword2key (cp, &view, _VView)  && !lexword2key(cp, &displayKey, _VDisplay) )
 			{ freeOutf ("// Error: unknown view %s\n", cp) ;
 			  break ;
 			}
+		    }
+		  if (view)
+		    {
 		      gMapSelectView (view) ;
 		      isGifDisplay = view ;
 		    }
@@ -310,6 +314,7 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 	    break;
 	    
 	  case 'A':   /* dump as GIF of the active graph */
+	  case 'T':   /* dump as SVG of the active graph */
 	  case 'V':   /* dump as SWF of the active graph */
 	  case 'W':   /* dump as JS of the active graph */
 	    word = freeword() ;
@@ -331,12 +336,16 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 		AC_HANDLE h = handleCreate () ;
 		Stack gifStack = stackHandleCreate (100000, h) ;
 		ACEOUT fo ;
-		stackTextOnly(gifStack) ;
 		fo = aceOutCreateToStack (gifStack, h) ;
 		switch (key)
 		  {
 		    case 'A': 
 		      graphGIF (graphActive(), fo, 0) ; 
+		      freeOutBinary (stackText(gifStack, 0), stackMark (gifStack)) ;
+		      break ;
+		    case 'T': 
+		      svgGraphExport (graphActive(), fo, dumpBox) ; 
+		      dumpBox = FALSE ; /* done internally */
 		      freeOutBinary (stackText(gifStack, 0), stackMark (gifStack)) ;
 		      break ;
 		    case 'V': 
@@ -349,12 +358,14 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 			  int nn = 0 ;
 			  Stack swfStack =  stackHandleCreate (100000, h) ;
 			  ACEOUT foTmp = aceOutCreateToStack (swfStack, h) ;
-			  stackTextOnly(swfStack) ;
 
-			  if (1)
-			    nn = callPipe ("../bin/swfc -o - -" /* "grep flash" */, stackText(gifStack, 0), stackMark (gifStack), foTmp) ;
-			  else
-			    nn = callPipe ("swfc -o stdout " /* "old 32 bit version grep flash" */, stackText(gifStack, 0), stackMark (gifStack), foTmp) ;
+			  if (filName ("../bin/swfc",0, "x"))
+			    {
+			      if (1)
+				nn = callPipe ("../bin/swfc -o - -" /* "grep flash" */, stackText(gifStack, 0), stackMark (gifStack), foTmp) ;
+			      else
+				nn = callPipe ("swfc -o stdout " /* "old 32 bit version grep flash" */, stackText(gifStack, 0), stackMark (gifStack), foTmp) ;
+			    }
 			  if (nn > 0)
 			    freeOutBinary (stackText(swfStack, 0), nn) ;
 			  else
@@ -386,6 +397,17 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 		    if ((fo = aceOutCreateToFile (messprintf ("%s%s", word, end), "wb", 0))) 
 		      {
 			error = graphGIF (graphActive(), fo, 0) ;
+			aceOutDestroy (fo) ;
+		      }
+		    break ;
+		  case 'T':
+		    if (!strcmp (end, ".svg"))
+		      end = "" ;
+		    else
+		      end = ".svg" ;
+		    if ((fo = aceOutCreateToFile (messprintf ("%s%s", word, end), "wb", 0))) 
+		      {
+			    error = svgGraphExport (graphActive(), fo, dumpBox) ;
 			aceOutDestroy (fo) ;
 		      }
 		    break ;
@@ -427,7 +449,6 @@ void gifControl (KEYSET ks, int level, BOOL isInteractive)  /* public, called by
 			    else
 			      pipe = popen (messprintf ("swfc -o %s ", fNam), "w") ; /*old 32 bit code  grep flash */
 			    
-			    stackTextOnly(gifStack) ;
 			    fo1 = aceOutCreateToStack (gifStack, h) ;
 			    swfGraphExport (graphActive(), fo1, 0) ; 
 			    fwrite (stackText(gifStack, 0), 1, stackMark (gifStack), pipe) ; 

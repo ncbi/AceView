@@ -1,6 +1,5 @@
 #!bin/tcsh -f
 
-set reserve_unit=""
 set out_err="$1"
 set pgm="$2"
 set farm_requested="$3"
@@ -16,6 +15,7 @@ set farm=ZERO
 # set farm=local
 # set farm=MULTICORE
  set farm=UGE
+# set farm=BIOWULF
 # set farm=SGE
 # set farm=LSF
 # set farm=PARASOL
@@ -34,29 +34,54 @@ endif
 if ($farm == ZERO) then
   echo "FATAL ERROR: please edit the first few lines of script subnit as documented in that file to specify your hardware"
 endif
-if ($farm != local && $farm != MULTICORE && $farm != UGE && $farm != TH2 && $farm != SLURM && $farm != FUDAN) then
+if ($farm != local && $farm != MULTICORE && $farm != UGE && $farm != BIOWULF &&$farm != TH2 && $farm != SLURM && $farm != FUDAN) then
   echo 'FATAL ERROR: sorry, the only allowed value for $MAGIC_SUBMIT are'
   echo '       local     : single threading on local machine'
   echo '       MULTICORE : mutithreading on local machine, please configure NCORE (default 8) in scripts/submit'
   echo '       UGE       : unified grid engine, successor to SGE: Sun Grid Engine, please cofigure the queue name (default unified) in  scripts/submit'
-  echo '       SLURM     : slurm clusters, tested on NIH/helix'
+  echo '       SLURM     : slurm clusters'
+  echo '       BIOWULF   : NIH Helix/Biowulf'
   echo '       FUDAN     : ad-hoc for Fudan university'
   echo "    currently you are requesting the unknown value: $farm"
   echo '    Please configure scripts/submit or define $MAGIC_SUBMIT properly, nay help on new config for additional hardware would be welcome, thank you'
   exit 1
 endif
 
-set NCORE=16  # number of jobs to run in parallel in MULTICORE case
+set NCORE=8  # number of jobs to run in parallel in MULTICORE case
+set mem_free="16G"
 set mem_requested="16G"
-set reserve_mem=8
+set request_multicore=""
 if ($farm_requested == "32G") then
   set farm_requested=""
+  set mem_free="32G"
   set mem_requested="32G"
-  set reserve_mem=16
+else if ($farm_requested == "64G") then
+  set farm_requested=""
+  set mem_free="64G"
+  set mem_requested="64G"
+else if ($farm_requested == "128G") then
+  set farm_requested=""
+  set mem_free="128G"
+  set mem_requested="128G"
+else if ($farm_requested == "32G4T") then
+  set farm_requested=""
+  set mem_free="8G"
+  set mem_requested="32G"
+  set request_multicore="-pe multicore 4  -R y"
 else if ($farm_requested == "1G") then
   set farm_requested=""
+  set mem_free="1G"
   set mem_requested="1G"
-  set reserve_mem=1
+else if ($farm_requested == "BLASTP") then
+  set farm_requested=""
+  set mem_requested="128G"
+  set mem_free="32G"
+  set farm=UGE4
+else if ($farm_requested == "UGE4") then
+  set farm_requested=""
+  set mem_requested="32G"
+  set mem_free="8G"
+  set farm=UGE4
 else
   if ($farm_requested != "") set farm=$3
 endif
@@ -173,6 +198,7 @@ endif # MULTICORE
 # after implementing the modifs, we fall thru on SGE case
 if ($farm == UGE || $farm == UGE4) then
   # source /netopt/uge/ncbi/common/settings.csh
+  unsetenv LD_RUN_PATH
   unsetenv LD_LIBRARY_PATH
   unsetenv DYLD_LIBRARY_PATH
   set reserve_unit=G
@@ -202,13 +228,11 @@ if ($farm == SGE || $farm == UGE || $farm == UGE4) then
     echo "SGE submit: pgm=###$pgm###    stdout/err=###$out_err.out/err### queue=###$queue### isBlasp=###$isBlastp###"
 
     if ($queue == profiling) then
-      set numero=`qsub -V -b y -j n -N $MAGIC -P unified $isBlastp -l  h_rt=86400,h_vmem=64G,mem_free=64G,reserve_mem=32G,cputype="*E5-2650*",m_core=16,mem_total=125G   -o $out_err.out -e $out_err.err "./bin/time -p $pgm"`
-    else if ($farm == UGE4) then
-      echo qsub -V -b y -j n -N $MAGIC -P  $queue -pe multicore 4  -R y $isBlastp -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_requested,reserve_mem=$reserve_mem$reserve_unit$xx  -o $out_err.out -e $out_err.err \"./bin/time -p $pgm\"
-      set numero=`qsub -V -b y -j n -N $MAGIC -P  $queue -pe multicore 4  -R y $isBlastp -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_requested,reserve_mem=$reserve_mem$reserve_unit$xx  -o $out_err.out -e $out_err.err "./bin/time -p $pgm"`
+      set numero=`qsub -V -b y -j n -N $MAGIC -P unified $isBlastp  $request_multicore -l  h_rt=86400,h_vmem=64G,mem_free=32G,m_mem_free=32G,cputype="*E5-2650*",m_core=16,mem_total=125G   -o $out_err.out -e $out_err.err "./bin/time -p $pgm"`
     else
-      echo qsub -V -b y -j n -N $MAGIC -P  $queue  $isBlastp -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_requested,reserve_mem=$reserve_mem$reserve_unit$xx  -o $out_err.out -e $out_err.err \"./bin/time -p $pgm\"
-      set numero=`qsub -V -b y -j n -N $MAGIC -P  $queue  $isBlastp -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_requested,reserve_mem=$reserve_mem$reserve_unit$xx  -o $out_err.out -e $out_err.err "./bin/time -p $pgm"`
+# new syntax as of 2018 on UGE_ncbi qsub -l m_mem_free=4G,h_rt=14400,h_vmem=10G <other options> <job>
+             echo qsub -V -b y -j n -N $MAGIC -P  $queue  $isBlastp  $request_multicore -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_free,m_mem_free=$mem_requested$xx  -o $out_err.out -e $out_err.err \"./bin/time -p $pgm\"
+      set numero=`qsub -V -b y -j n -N $MAGIC -P  $queue  $isBlastp  $request_multicore -l h_rt=86400,h_vmem=$mem_requested,mem_free=$mem_free,m_mem_free=$mem_requested$xx  -o $out_err.out -e $out_err.err "./bin/time -p $pgm"`
     endif
 
 # multithreaded tasks
@@ -256,6 +280,56 @@ if ($farm == SLURM) then
    else
      echo "srun -J $MAGIC  -o $out_err.out -e $out_err.err $pgm"
            srun  -J $MAGIC  -o $out_err.out -e $out_err.err $pgm
+     set Status=$status
+   endif
+   if ($Status != 0) then
+     sleep 5
+     goto yhresubmit
+   endif
+
+    # limit the speed of submissions to 1 per second, 14s is nice for ALIGN phase in SEQC_main
+    if (1) sleep .1
+    if ($?MAGIC_SUBMIT_DELAY) then
+      if ($MAGIC_SUBMIT_DELAY > 0) sleep $MAGIC_SUBMIT_DELAY
+    else
+      echo sleep .1
+    endif
+ 
+  endif
+
+  exit 0
+
+endif
+
+##############################################
+## Submit a program to the BIOWULF cluster
+
+# BIOWULF 
+
+if ($farm == BIOWULF) then
+  setenv farm BIOWULF
+  # setenv TMPDIR "/lscratch/magic.$MAGIC"
+  # setenv TMPDIR "/lscratch/$SLURM_JOBID"
+# partition: norm (normal) quick (<4h) 
+  set partition=quick
+  if ("$out_err" == run || "$pgm" == run) exit 0
+
+  if ("$out_err" == wait || "$pgm" == wait || "$out_err" == wait5 || "$pgm" == wait5) then
+    if ("$out_err" == wait5 || "$pgm" == wait5) then
+      $scripts/qusage 5
+    else
+      $scripts/qusage 1
+    endif
+  else
+   set isShell=`echo $pgm | gawk '{if(substr($1,1,8) == "scripts/" || index($1,".tcsh")>0)n=1;}END{print n+0;}'`
+  yhresubmit:
+   if ($isShell == 1) then
+   echo "sbatch --ntasks 1 -J $MAGIC --share --gres=lscratch:100 --mem=24g --time-min=120 --distribution=cyclic --partition=$partition --output $out_err.out --error $out_err.err $pgm"
+   sbatch --ntasks 1 -J $MAGIC --share --gres=lscratch:100 --mem=24g --time-min=120 --distribution=cyclic --partition=$partition --output $out_err.out --error $out_err.err $pgm
+     set Status=$status
+   else
+     echo "srun -J $MAGIC  -o $out_err.out -e $out_err.err $pgm"
+           srun -J $MAGIC  -o $out_err.out -e $out_err.err $pgm
      set Status=$status
    endif
    if ($Status != 0) then

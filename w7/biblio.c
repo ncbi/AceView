@@ -17,7 +17,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: biblio.c,v 1.13 2014/05/31 01:31:02 mieg Exp $ */
+/* $Id: biblio.c,v 1.14 2017/06/05 20:59:26 mieg Exp $ */
 
 #include "acedb.h"
 
@@ -934,7 +934,7 @@ static void biblioDoReDraw (BIBLIO biblio)
 	else
 		tip = 4 ;
 	biblio->line2 += tip ;
-	if (biblio->mot && *biblio->mot)
+	if (*biblio->mot)
 		{
 			length = strlen (biblio->mot) ;
 			strncpy (buf, "*", 1);
@@ -1169,7 +1169,7 @@ static void biblioDoReDraw (BIBLIO biblio)
       graphText ("Genes & Development", 10.0, 4.4) ;
       break ;
     }
-	if (biblio->mot && biblio->dep) {
+	if (*biblio->mot && biblio->dep) {
 		if (biblio->search)
 			biblio->nbLightBis = biblio->nbLight -1 ;
 		biblio->search = 0 ;

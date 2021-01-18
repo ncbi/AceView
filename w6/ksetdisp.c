@@ -24,7 +24,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: ksetdisp.c,v 1.23 2014/11/30 03:20:41 mieg Exp $ */
+/* $Id: ksetdisp.c,v 1.25 2020/05/30 16:50:32 mieg Exp $ */
 
 #include "acedb.h"
 
@@ -631,6 +631,7 @@ static void editSelected(void)
 
   i = max ;
   localStack = stackCreate (40*i) ;
+
   kp = arrp (look->selected, 0, KEY) - 1 ;
   while (kp++, i--)
     if (pickType(*kp) == 'B')  /* don t edit array this way */
@@ -772,7 +773,6 @@ static void follow(void)
   { int type, tcl ;
     KEY tag ;
     Stack sta = stackCreate (50) ;
-    
     if (treeChooseTagFromModel (&type, &tcl, class(key), &tag, sta, 0))
       { KEYSET tmp = query(look->kSet, messprintf(">%s",stackText (sta, 0))) ;
 

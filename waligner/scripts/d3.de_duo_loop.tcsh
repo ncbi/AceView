@@ -6,7 +6,6 @@ set section=$3
 set minX=$4
 set maxX=$5
 set Strategy=$6
-set justpApT=$7
 
 
       foreach ii (50 20 10 8 5 2 1)
@@ -17,10 +16,8 @@ set justpApT=$7
         endif
         set isany=0
 # $tissues any
-        foreach dd (OR pA pT SL1 SL2 SL3 SL4 SL5 SL6 SL7 SL8 SL9 SL10 SL11 SL12 Transloc) 
+        foreach dd (OR Transloc) 
 
-          if ($justpApT == justpApT && $dd == OR) continue
-          if ($justpApT == justpApT && $dd == Transloc) continue
           if ($Strategy != RNA_seq && $dd != OR) continue 
           if ($Strategy != RNA_seq && $ii != 8) continue 
           if ($species != worm && $dd =~ SL*) continue
@@ -42,9 +39,6 @@ set justpApT=$7
         end
       end
 
-if ($justpApT == justpApT) then
-  touch  tmp/OR/$run/$chrom/d3.de_duo_loop.$run.$section.pApT.done
-else
   if (-e tmp/introns/$run/d4.discovery.counts) \rm  tmp/introns/$run/d4.discovery.counts*
   touch  tmp/OR/$run/$chrom/d3.de_duo_loop.$run.$section.all.done
-endif
+

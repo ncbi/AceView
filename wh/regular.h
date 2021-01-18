@@ -46,8 +46,11 @@
 #ifndef DEF_REGULAR_H
 #define DEF_REGULAR_H
 
-/* #define MEM_DEBUG */
-/* #define MALLOC_CHECK */
+
+/*
+#define MEM_DEBUG 
+#define MALLOC_CHECK 
+*/
 				/* library EXPORT/IMPORT symbols */
 #if defined (WIN32)
 #include "win32libspec.h"  /* must come before mystdlib.h...*/
@@ -57,6 +60,8 @@
 #endif
 
 #include <limits.h>
+#include <strings.h>
+#include <stdio.h>
 #include <float.h>
 #include <stdlib.h>
 #include "mystdlib.h"    /* contains full prototypes of system calls */
@@ -300,7 +305,7 @@ char *strnew(const char *old, AC_HANDLE handle) ;
 #else		/* MEM_DEBUG from rbrusk */
 
 void *halloc_dbg(mysize_t size, AC_HANDLE handle, const char *hfname, int hlineno) ;
-void *handleAlloc_dbg(void (*final)(void *), AC_HANDLE handle, int size,
+void *handleAlloc_dbg(void (*final)(void *), AC_HANDLE handle, mysize_t size,
 					  const char *hfname, int hlineno) ;
 char *strnew_dbg (const char *old, AC_HANDLE handle, const char *hfname, int hlineno) ;
 #define halloc(_s, _h) halloc_dbg(_s, _h, __FILE__, __LINE__)

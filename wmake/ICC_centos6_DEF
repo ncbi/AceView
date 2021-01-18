@@ -22,16 +22,7 @@ LINKER = icc
 LIBS = -lm
 Xt_LIBS = -L/usr/X11R6/lib64  -L/usr/lib64 -lXaw -lXt -lXmu -lXext -lX11 
 
-LEX_LIBS = -lfl
-
-### flex -l emulates AT&T lex as accurately as possible
-LEX = flex
-LEX_OPTIONS = -l
-
 ALIGNMENT_64_BIT = 1
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS =
 
 RPCGEN_FLAGS = -b -I -K -1
 

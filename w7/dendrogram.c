@@ -3303,7 +3303,7 @@ static BOOL parseList(char **lpTreeList,char *name)
 		fprintf(ttfil,"Tree \"%s\"\n",treeObjName) ;
 		if(parent)
 		{
-			if(parent->name)
+			if(parent->name[0])
 				fprintf(ttfil,"Parent \"%s\"\n",parent->name) ;
 			else
 				fprintf(ttfil,"Parent \"%s%d\"\n",treeObjName,parent->id) ;

@@ -372,7 +372,7 @@ static void gxdShowSegs (Array segs)
   SEG *seg ;
   int ii ;
   
-  if (arrayExists (segs))
+  if (segs && arrayExists (segs))
     for (ii = 0 ; ii < arrayMax (segs) ; ii++)
       {
 	seg = arrp (segs, ii, SEG) ;
@@ -583,12 +583,13 @@ static void gxdDestroy (void)
       look->magic = 0 ;
       ac_free (look) ;
     }
+  if (0) gxdShowSegs (0) ; /* for compiler happiness */
 
   return;
 } /* gxdDestroy */
 
 /*************************************************************/
-
+/*
 static void gXdRecalculate(void)
 {
   GXD look = currentGxd("gXdRecalculate") ;
@@ -600,7 +601,7 @@ static void gXdRecalculate(void)
       look->map->mapDraw () ;
     } 
 }
-
+*/
 /*************************************************************/
 /************************************************************/
 
@@ -852,8 +853,8 @@ static void gxdDraw (void)
 
     float old = graphTextHeight (0) ;
     graphTextHeight (1.2 * old ) ;
-    graphText (name(look->gene), 1, 1) ;
-    graphText (messprintf(" Gene expression in %d primates, %d tissues, from the NHPRTR project in sFPKM",  bitSetCount(bx), bitSetCount (by)), 20,1) ;
+    graphText (name(look->gene), 1, 3) ;
+    graphText (messprintf(" Gene expression in %d primates, %d tissues, from the NHPRTR project in sFPKM",  bitSetCount(bx), bitSetCount (by)), 20,3) ;
     graphTextHeight (old ) ;
   }
   graphBoxEnd () ;
@@ -888,7 +889,7 @@ static void gxdDraw (void)
 	  if (x > 3) x-- ;
 
  	  box = graphBoxStart () ;
-	  graphText (species , titleWidth + xWidth * x, 2) ;
+	  graphText (species , titleWidth + xWidth * x, 4) ;
 	  graphBoxEnd () ;
 
 	  graphBoxColor (box, color, WHITE) ;
@@ -918,7 +919,7 @@ static void gxdDraw (void)
 	  if (y >= 4) y-= 2 ;
 
 	  box = graphBoxStart () ; 
-	  graphText (ccp + 10 , 3, 2 + y) ;
+	  graphText (ccp + 10 , 3, 4 + y) ;
 	  graphBoxEnd () ;  
 
 	  graphBoxColor (box, color, WHITE) ;
@@ -931,7 +932,7 @@ static void gxdDraw (void)
 
   for (run = 1 ; run < gxData->runMax ; run++)
     {
-      if (0) graphText (dictName (gxData->runDict, run), 4, 1 + run) ;
+      if (0) graphText (dictName (gxData->runDict, run), 4, 3 + run) ;
       title = keySet (gxData->run2title, run) ;
       ccp = dictName (gxData->titleDict, title) ;
       
@@ -975,10 +976,10 @@ static void gxdDraw (void)
 	      else if (z1 < 100) ff = "%.1f";
 	      else if (z1 < 100) ff = "%.1f";
 	      else if (z1 < 1000) ff = " %.0f";
-	      graphText (messprintf (ff,  z1), titleWidth + xWidth * x, 2 + y) ;
+	      graphText (messprintf (ff,  z1), titleWidth + xWidth * x, 4 + y) ;
 	    }
 	  else
-	    graphText ("    ", titleWidth + xWidth*x, 2 + y) ;
+	    graphText ("    ", titleWidth + xWidth*x, 4 + y) ;
 	  graphBoxEnd () ;
 	  if (x > xMax) xMax = x ;
 	  if (y > yMax) yMax = y ;
@@ -987,9 +988,9 @@ static void gxdDraw (void)
 	}
     }
 
-  gxColorScale (titleWidth + xWidth*xMax + 8, 3) ;
-  if (0) gxIndexFpkmScale (titleWidth + xWidth*xMax + 22, 2) ;
-  gxPlotDistrib (titleWidth + xWidth*xMax +18, 2, look) ;
+  gxColorScale (titleWidth + xWidth*xMax + 8, 5) ;
+  if (0) gxIndexFpkmScale (titleWidth + xWidth*xMax + 22, 4) ;
+  gxPlotDistrib (titleWidth + xWidth*xMax +18, 4, look) ;
 
   graphBoxEnd () ; /* globalBox */
 
@@ -997,7 +998,8 @@ static void gxdDraw (void)
     {
       float x1, x2, y1, y2 ;
       graphBoxDim (globalBox, &x1, &y1, &x2, &y2) ;
-       if (isGifDisplay) swfGraphResize (x2 - x1 + 2, y2 - y1 + 2) ;
+       if (isGifDisplay) swfGraphResize (x2 - x1 + 2, y2 - y1 + 4) ;
+       if (isGifDisplay) svgGraphResize (x2 - x1 + 2, y2 - y1 + 4) ;
       graphFitBounds (&look->map->graphWidth,&look->map->graphHeight) ;
     }
 

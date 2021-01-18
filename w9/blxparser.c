@@ -1,6 +1,6 @@
 /*  Last edited: Aug 10 14:50 1996 (esr) */
 
-/* $Id: blxparser.c,v 1.8 2016/06/13 23:01:22 mieg Exp $ */
+/* $Id: blxparser.c,v 1.10 2020/05/30 16:50:34 mieg Exp $ */
 
 /* blxparser - parses MSPcrunch output for blixem
  *

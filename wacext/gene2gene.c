@@ -2177,7 +2177,7 @@ int main(int argc, char **argv)
     }
 
   messcrash ("This code is obsolete, use gene2chrom2 or tacembly->assembly->cdna_21 / cdna_50") ;
-  showExons(0) ; /* to plese the compiler */
+  showExons(0) ; /* to please the compiler */
   if (0) matchTr_Rnai (0, 0) ;  /* to plese the compiler */
   if ((DB = ac_open_db (argv[1], &error)))
     {

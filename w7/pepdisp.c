@@ -6,7 +6,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@mrc-lmb.cam.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.cnrs-mop.fr
  *
- * $Id: pepdisp.c,v 1.4 2016/11/23 19:15:12 mieg Exp $
+ * $Id: pepdisp.c,v 1.5 2017/06/05 20:59:30 mieg Exp $
  * Description: peptide display - using colcontrol.c
  * Exported functions:
  * HISTORY:
@@ -34,7 +34,7 @@
 #include "a.h"
 #include "pepdisp.h"
 #include "dotter.h"
-
+#include "graphAcedbInterface.h"
 
 static MAPCONTROL pepMapDoMap(COLCONTROL control, KEY key, KEY from, int nmaps);
 

@@ -25,6 +25,7 @@
               SRP ?SRP XREF SRR @T
               Magic_author UNIQUE ?Text
               Magic_author2 UNIQUE ?Text
+              Magic_sample2 UNIQUE ?Text
               Species ?Species  @Title 
               SRX ?SRX XREF SRR @T
       Comment ?Text
@@ -71,6 +72,12 @@
                Recons Recons_str
       Origin Date_received UNIQUE DateType  Text    
              Submission_date UNIQUE DateType    
+      Taxonomy Archea      Text Text UNIQUE Float
+               Bacteria    Text Text UNIQUE Float
+               Eukaryota   Text Text UNIQUE Float
+               Viruses     Text Text UNIQUE Float
+               Unassigned  Text Text UNIQUE Float
+               Minor_branches  Text Text UNIQUE Float
       Sample_builder Biosample UNIQUE ?Biosample XREF SRR @T  // Precise sample identifier, please document the sample object (see below)             
                      Sex Male    UNIQUE Text
                          Female  UNIQUE Text
@@ -111,6 +118,7 @@
                             Pupa UNIQUE ?Text
                             Adult UNIQUE  ?Text
                             Mixed_stages UNIQUE   UNIQUE ?Text
+                            Age UNIQUE Text 
                             No_stage  // non applicable, example in Cell lines samples
                      Bio Control UNIQUE  ?Text
                          Treatment UNIQUE  ?Text
@@ -122,6 +130,7 @@
                                Driver_gene ?Gene XREF SRR_driver UNIQUE ?Text
                          Genotype UNIQUE  ?Text
                          Phenotype ?Text ?Text UNIQUE Float UNIQUE Float
+                         Strain ?Strain
       Author_builder Center_name ?Author
       Reference ?Paper XREF SRR
       Nucleic_Acid_Extraction RNA Unspecified_RNA  UNIQUE ?Text
@@ -184,10 +193,12 @@
                                  PGM UNIQUE Text        // Lif personal genome machine, successor of ion torrent 
                                  PacBio UNIQUE Text
                                  Oxford_nanopore  UNIQUE Text
+                                 Nanopore  UNIQUE Text
                                  Capillary   UNIQUE Text
                                  Complete_genomics  UNIQUE Text
                   Flowcell_lane_index UNIQUE ?Text                   //   goes to Library
-                  Spots  UNIQUE Int UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text UNIQUE Text   // <#spots> bases_in_SRA <Mb> Average_length  <n> Insert_size <n> +- <delta> spots_with_mate <n>
+                  Spots  UNIQUE Int UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Text UNIQUE Text UNIQUE Int   // <#spots> bases_in_SRA <Mb> Average_length  <n> Insert_size <n> +- <delta> spots_with_mate <n>
+                  Single_end
                   Paired_end Remove_inserts_shorter_than UNIQUE Int
                   Sequencing_laboratory ?Author
                   Sequencing_date UNIQUE DateType
@@ -259,7 +270,7 @@
        Submitted_by UNIQUE ?Author
      SRR ?SRR XREF SRX
      SRP ?SRP XREF SRX
-     Sequencing Spots  UNIQUE Int UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text UNIQUE Text   // <#spots> bases_in_SRA <Mb> Average_length  <n> Insert_size <n> +- <delta> spots_with_mate <n>
+     Sequencing Spots  UNIQUE Int UNIQUE Text UNIQUE Text UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Text UNIQUE Text UNIQUE Int   // <#spots> bases_in_SRA <Mb> Average_length  <n> Insert_size <n> +- <delta> spots_with_mate <n>
 
 ?SRP T Title UNIQUE ?Text
        Species ?Species  @Title 
@@ -295,6 +306,7 @@
              Description ?Text
              Population_description ?Text
              Submission ?Author XREF Biosample
+             Submission_date DateType
              Reference ?Paper XREF Biosample
              NLM N_Stage UNIQUE Text
                  N_CellLine UNIQUE Text

@@ -1,4 +1,4 @@
-	 # $Id: MAC_X_DEF,v 1.7 2016/02/21 03:36:28 mieg Exp $
+	 # $Id: MAC_X_DEF,v 1.8 2018/08/20 21:49:57 mieg Exp $
 
 #################################################################
 ############### acedb: R.Durbin and J.Thierry-Mieg ##############
@@ -21,16 +21,6 @@ COMPILER = cc -g -DACEDB4 -I/usr/X11R6/include -DDARWIN  -Wno-unused-value
 LINKER = cc -L/usr/X11R6/lib
 
 LIBS = -lm 
-#LEX_LIBS = -lfl
-
-### flex -l emulates AT&T lex as accurately as possible
-LEX = flex
-LEX_OPTIONS = -l
-
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS =
-
 
 #################################################################
 #################################################################

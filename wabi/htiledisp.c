@@ -14,6 +14,7 @@
  *-------------------------------------------------------------------
  */
 
+
 /*
 #define ARRAY_CHECK
 #define MALLOC_CHECK
@@ -39,10 +40,12 @@ static AC_DB ac_db = 0 ;
 
 #define NSMAX 100
 #define SOLEXAVERSION 2
-#define SOLEXAMAX 80
-#define SOLEXAMAX2 160 
+#define SOLEXAMAX 300
+#define SOLEXAMAX2 600
 #define slxFormatNint 162
 #define slxFormatNfloat SOLEXAMAX2
+
+static int solexaStep = 10 ;
 
 typedef struct HtileStruct *Htile ;
 
@@ -108,7 +111,6 @@ typedef struct HtileStruct {
   BOOL showGenome, showGenes, showGeneSignal, showMask, showRZones ;
   int romainSmoothing ;
   float zoom ;
-  int gaussSmoother ;
   int gaussWidth ;
   Array wallBufs, mask[256] ;
   char geneSearchBuf[301] ;
@@ -188,11 +190,13 @@ static BOOL htileSmoothing (Htile look) ;
 static void htileGroupAction (KEY key, int box) ;
 static void htileGroupActionButton (void *v) ;
 static void htileDrawSolexa (Htile look, float offset, float probeOffset, ACEOUT ao) ;
-static void htileDrawRZone (Htile look, float offset) ;
-static void htileCreateRZone (void) ;
+#ifdef BOU_DEF
+ static void htileDrawRZone (Htile look, float offset) ;
+ static void htileCreateRZone (void) ;
+#endif
 static void htileDrawProbes (Htile look, float offset, float probeOffset, ACEOUT ao) ;
 static void htileGetMask (Htile look, int maskLength) ;
-#define BOUBOUALL
+#define BOU_PNS
 #include "../wabi/boubou.h"
  
 /************************************************************/
@@ -244,7 +248,6 @@ static void tmapResize (void)
       map->mag *= 8 ; 
       x2 = TGRAPH2MAP (map, map->graphWidth/2.0);
       map->offset += look->from - x2 ;
-      if (0) look->from = 0 ;  
     }
   map->mapDraw () ;
 } /* tmapResize */
@@ -652,7 +655,7 @@ static void htileDestroy (void)
 
 static void htileForceRecalculate(void)
 {
-  Htile look = currentHtile("htileRecalculate") ;
+  Htile look = currentHtile("htileForceRecalculate") ;
 
   if (!messQuery ("Are you sure, this may be very slow, it is better to do it in batch mode"))
     return ;
@@ -773,7 +776,7 @@ static void htileAddWallComment (void)
 } /* htileAddWallComment */
 
 /*************************************************************/
-
+/*
 static void htileRecalculate(void)
 {
   Htile look = currentHtile("htileRecalculate") ;
@@ -785,8 +788,7 @@ static void htileRecalculate(void)
       look->map->mapDraw () ;
     } 
 }
-
-/*************************************/
+*/
 /*************************************************************/
 /************************************************************/
 
@@ -795,14 +797,14 @@ static int htileShowSegs (Array segs)
   SEG *ss ;
   int ii;
 
-  for (ii = 0, ss = arrp (segs, 0, SEG) ; ii < arrayMax (segs) ; ss++, ii++)
-    {
-      printf ("%3d\t%12s\tbump=%d\ta=\t%5d %5d\tb=\t%5d %5d\tx=\t%5d %5d\tnclo=%5d\t%s\n"
-	      , ii, htileType[ss->type], ss->bumpy, ss->a1, ss->a2, ss->b1, ss->b2, ss->x1, ss->x2
-	      , ss->nClo, name(ss->mrna)
-	      ) ;
-    }
-  if (0) htileShowSegs(0) ;
+  if (segs)
+    for (ii = 0, ss = arrp (segs, 0, SEG) ; ii < arrayMax (segs) ; ss++, ii++)
+      {
+	printf ("%3d\t%12s\tbump=%d\ta=\t%5d %5d\tb=\t%5d %5d\tx=\t%5d %5d\tnclo=%5d\t%s\n"
+		, ii, htileType[ss->type], ss->bumpy, ss->a1, ss->a2, ss->b1, ss->b2, ss->x1, ss->x2
+		, ss->nClo, name(ss->mrna)
+		) ;
+      }
   return 0 ;
 } /* htileExonsOrder */
 
@@ -925,7 +927,7 @@ static BOOL  htileCosmidConvert (Htile look, KEY cosmid, KEYSET knownProbes)
 	      int p, ndna, ng, nc, na, nt, ngc, ncg, ncc, ngg, zdna ;
 
 	      p = ndna = na = nt = ng = nc = ngg = ncc = ngc = ncg = zdna = 0 ;
-	      if (0) /* denstite a/t/g/c around the probe */
+	      if (0) /* density a/t/g/c around the probe */
 		{
 		  int idna = ac_table_int (tbl2, 0, 1, 0) - dna1, dna3 ;
 		  dna3 = idna + 200 ;
@@ -1350,23 +1352,25 @@ static void htileInit (void)
 static void htileRemoveMedian (Htile look)
 {
   int iSeg, ns ;
+  int iSegMax = arrayMax(look->map->segs) ;
   SEG *seg ;
   double fakezero ;
 
   fakezero = FAKEZERO ;
-  for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < arrayMax(look->map->segs) ; iSeg++, seg++)
-    {
-      for (ns = 0 ; ns < NSMAX ; ns++)
-	{
-	  if (seg->signal [ns] != -1000)
-	    {
-	      if (pnsAll[ns].isRna==9)
-		seg->signal [ns] -= 10.0 - fakezero ;
-	      else
-		seg->signal [ns] -= pnsAll[ns].av - fakezero ;
-	    }
-	}
-    }
+  if (iSegMax)
+    for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < iSegMax ; iSeg++, seg++)
+      {
+	for (ns = 0 ; ns < NSMAX ; ns++)
+	  {
+	    if (seg->signal [ns] != -1000)
+	      {
+		if (pnsAll[ns].isRna==9)
+		  seg->signal [ns] -= 10.0 - fakezero ;
+		else
+		  seg->signal [ns] -= pnsAll[ns].av - fakezero ;
+	      }
+	  }
+      }
 } /* htileRemoveMedian */
 
 /************************************************************/
@@ -1385,202 +1389,227 @@ static PGN *pnsPgn (BOOL ratio, PNS *pns)
 
 static BOOL htileSmoothing (Htile look)
 {
+  AC_HANDLE h = ac_new_handle () ;
   int i, j, k, iSeg, sens ;
   double ss[NSMAX] ;
-  int NN = look->smoothing == 1 ? look->gaussSmoother : 10 ;
+  int NN = 1 ;
   int width = look->gaussWidth ;
-  int lastPos, lastiSeg ;
-  double nn[NN+1];
+  int lastPos, lastiSeg ; 
+  int iSegMax = arrayMax (look->map->segs) ;
   double n[NSMAX] ;
   Array aaa[NSMAX] ;
   PNS *pns ;
   PGN *pgn ;
   SEG *seg, *seg1 ;
-  double w, sigma2 = (double)width * width * 2 ;
-
-  for (k = 0 ; k <= NN ; k++)
+  double w, sigma = width ;
+  double sigma2 = 2 * sigma * sigma ;
+  
+  switch (look->smoothing)
     {
-      if (look->smoothing == 1)
-	nn[k] = (NN*NN - k*k)/2 ;
-      else
-	nn[k] = 1 ;
+    case 1:
+      NN = 3 * width/solexaStep  ; 
+      if (NN < 1) NN = 1 ;
+      break ;
+    case 2:
+    case 3:
+    case 4:
+      NN = (width/solexaStep - 1) * 2  ;
+      if (NN < 1) NN = 1 ;
+      break ;
+    case 0:
+    case 5:
+    case 6:
+    case 7:
+    default:
+      NN = 1 ;
+      break ;
     }
-
-  if (look->smoothing == 4)
-    for (k = 0 ; k < NSMAX ; k++)
-      aaa[k] = arrayCreate (1000, double) ;
+  if (NN > 1 && look->smoothing == 4)
+    for (k = 0, pns = pnsAll ; pns->p && k < NSMAX ; pns++, k++)
+      aaa[k] = NN > 1  ? arrayHandleCreate (2 * NN + 1, double, h) : 0 ;
 
   lastiSeg = lastPos = -1000000 ;
-  for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < arrayMax(look->map->segs) ; iSeg++, seg++)
-    {
-      if (look->smoothing > 1 && seg->a1 < lastPos +  width/10 && look->map->mag * (seg->a1 - lastPos) < 1)
-	{ /* no need to show too many data points inside the same smoothing window */
-	  for (k = 0 ; k < NSMAX ; k++)
-	    seg->gaussSignal[k] = -1000 ;
-	  continue ;
-	}
-      if (look->smoothing == 1 && iSeg - lastiSeg < NN/4 && look->map->mag * (seg->a1 - lastPos) < 1)
-	{ /* no need to show too many data points inside the same smoothing window */
-	  for (k = 0 ; k < NSMAX ; k++)
-	    seg->gaussSignal[k] = -1000 ;
-	  continue ;
-	}
-      if (messIsInterruptCalled())
-	goto done ;
-      memset (ss, 0, sizeof(ss)) ;
-      memset (n, 0, sizeof(n)) ;
-      lastiSeg = iSeg ;
-      lastPos = seg->a1 ;
-      if (
-	  (look->rejectAmbiguous < seg->ambiguous) ||
-	  (look->tmFilter == 1 && seg->tm > 72.2) ||
-	  (look->tmFilter == 2 && seg->tm < 75) ||
-	  (look->filter99 == 2 && (seg->flag & MOTIF_FILTER)) ||
-	  (look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
-	  (look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
-	  (look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
-	  (look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
-	  (look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
-	  )
-	{ 
-	  for (k = 0 ; k < NSMAX ; k++)
-	    {  n[k] = 0 ; ss[k] = -1000 ; seg->gaussSignal[k] = -1000 ; }
-	  continue ;
-	}
-      for (k = 0, pns = pnsAll ; pns->p && k < NSMAX ; pns++, k++)
-	{
-	  if (1 && look->isSmoothed[k])
+  if (iSegMax)
+    for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < iSegMax ; iSeg++, seg++)
+      {
+	if (look->smoothing > 1 && seg->a1 < lastPos +  width/10 && look->map->mag * (seg->a1 - lastPos) < 1)
+	  { /* no need to show too many data points inside the same smoothing window */
+	    for (k = 0 ; k < NSMAX ; k++)
+	      seg->gaussSignal[k] = -1000 ;
 	    continue ;
-	  if (!pns->p)
-	    break ;
-	  pgn = pnsPgn (look->ratio, pns) ;
-	  if (
-	      (!look->ratio && look->isClosed [k]) ||
-	      (look->ratio && ! (k & 1) && look->isClosed [k]) ||
-	      (look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
-	      seg->signal[k] == -1000 ||
-	      (pgn && look->filter99 == 3 && !look->ratio && seg->signal[k] + 10 > pgn->s99) ||
-	      (pgn && look->filter99 == 3 && look->ratio &&
-	       seg->signal[k] - seg->signal[k+1] > pgn->s99
-	       )
-	      )
-	    { n[k] = 0 ; ss[k] = -1000 ; }
-	  else if ((pns->flag & PGG_NOZOOM) || look->smoothing == 4)
-	    {
-	      n[k] = 0 ;
-	      arrayMax(aaa[k]) = 0 ; 
-	      array(aaa[k],n[k]++,double) = seg->signal[k] ;
-	    }
-	  else
-	    {  n[k] = nn[0] ; ss[k] = seg->signal[k] * nn[0] ; }
-	}
-      for (sens = -1 ; sens < 2 ; sens += 2)
-	for (j = 0, i = iSeg + sens, seg1 = seg + sens ; i >= 0 && i < arrayMax(look->map->segs)  ;
-	     i += sens, seg1 += sens)
+	  }
+	if (look->smoothing == 1 && iSeg - lastiSeg < NN/4 && look->map->mag * (seg->a1 - lastPos) < 1)
+	  { /* no need to show too many data points inside the same smoothing window */
+	    for (k = 0 ; k < NSMAX ; k++)
+	      seg->gaussSignal[k] = -1000 ;
+	    continue ;
+	  }
+	if (messIsInterruptCalled())
+	  goto done ;
+	memset (ss, 0, sizeof(ss)) ;
+	memset (n, 0, sizeof(n)) ;
+	lastiSeg = iSeg ;
+	lastPos = seg->a1 ;
+	if (
+	    (look->rejectAmbiguous < seg->ambiguous) ||
+	    (look->tmFilter == 1 && seg->tm > 72.2) ||
+	    (look->tmFilter == 2 && seg->tm < 75) ||
+	    (look->filter99 == 2 && (seg->flag & MOTIF_FILTER)) ||
+	    (look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
+	    (look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
+	    (look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
+	    (look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
+	    (look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
+	    )
+	  { 
+	    for (k = 0 ; k < NSMAX ; k++)
+	      {  n[k] = 0 ; ss[k] = -1000 ; seg->gaussSignal[k] = -1000 ; }
+	    continue ;
+	  }
+	for (k = 0, pns = pnsAll ; pns->p && k < NSMAX ; pns++, k++)
 	  {
-	    if (look->rejectAmbiguous < seg1->ambiguous)
-	      continue ; 
+	    if (1 && look->isSmoothed[k])
+	      continue ;
+	    if (!pns->p)
+	      break ;
+	    pgn = pnsPgn (look->ratio, pns) ;
 	    if (
-		(look->tmFilter == 1 && seg1->tm > 72) ||
-		(look->tmFilter == 2 && seg1->tm < 75) ||
-		(look->filter99 == 2  && (seg1->flag & MOTIF_FILTER)) ||
-		(look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
-		(look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
-		(look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
-		(look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
-		(look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
+		(!look->ratio && look->isClosed [k]) ||
+		(look->ratio && ! (k & 1) && look->isClosed [k]) ||
+		(look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
+		seg->signal[k] == -1000 ||
+		(pgn && look->filter99 == 3 && !look->ratio && seg->signal[k] + 10 > pgn->s99) ||
+		(pgn && look->filter99 == 3 && look->ratio &&
+		 seg->signal[k] - seg->signal[k+1] > pgn->s99
+		 )
 		)
-	      continue ;
-
-	    if (seg1->map != seg->map)
-	      continue ;
-
-	    /* reject on probe counting argument */
-	    if (look->smoothing == 1 && sens == -1 &&
-		( j >= NN || seg1->a1 < seg->a1 - 100000)
-		)
-	      break ;
-	    if (look->smoothing == 1 && sens == 1 &&
-		( j >= NN || seg1->a1 > seg->a1 + 100000)
-		)
-	      break ;
-	    j++ ; /* accepted probe */
-
-	    /* reject on distance argument */
-	    if (look->smoothing >= 2 &&  sens == -1 &&
-		(seg1->a1 < seg->a1 - 2*width)
-		)
-	      break ;
-	    if (look->smoothing >= 2 &&  sens == 1 &&
-		(seg1->a1 > seg->a1 + 2*width)
-		)
-	      break ;
-
-	    for (k = 0, pns = pnsAll ; pns->p && k < NSMAX ; pns++, k++)
+	      { n[k] = 0 ; ss[k] = -1000 ; }
+	    else if (pns->flag & PGG_NOZOOM)
 	      {
-		if (
-		    (!look->ratio && look->isClosed [k]) ||
-		    (look->ratio && ! (k & 1) && look->isClosed [k]) ||
-		    (look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
-		    (1 && look->isSmoothed[k])
-		    )
-		  continue ;
-		if (!n[k] || seg1->signal[k]==-1000)
-		  continue ;
-		pgn = pnsPgn (look->ratio, pns) ;
-		if (pns->flag & PGG_NOZOOM)
-		  continue ;
-		if (pgn && look->filter99 == 3 && pgn && seg1->signal[k] + (look->ratio ? 0 : 10) > pgn->s99)
-		  continue ;
+		arrayMax(aaa[k]) = 0 ; 
+		array(aaa[k],0,double) = seg->signal[k] ;
+		n[k] = 1 ;
+	      } 
+	    else
+	      {
 		switch (look->smoothing)
 		  {
-		  case 1:
-		    n[k] += nn[j] ;
-		    ss[k] += seg1->signal[k] * nn[j] ;
-		    break ;
 		  case 2:
-		    w = seg->a1 - seg1->a1 ; 
-		    w = w * w / sigma2 ;
-		    w = exp(-w) ;
-		    n[k] += w ;
-		    ss[k] += seg1->signal[k] * w ;
+		    w = NN * NN ;
+		    n[k] = w ;
+		    ss[k] = seg->signal[k] * w ;
 		    break ;
-		  case 3:
-		    n[k]++ ;
-		    ss[k] += seg1->signal[k] ;
+		  case 4: 
+		    n[k] = 1 ;
+		    if (NN > 1)
+		      {
+			arrayMax(aaa[k]) = 0 ; 
+			array(aaa[k],0,double) = seg->signal[k] ;
+		      }
+		    else
+		       seg->gaussSignal[k] = seg->signal[k] ;
 		    break ;
-		  case 4:
-		    array(aaa[k],n[k]++,double) = seg1->signal[k] ;
+		  default:
+		    n[k] = 1 ;
+		    ss[k] = seg->signal[k] ;
 		    break ;
 		  }
 	      }
 	  }
-      for (k = 0 ; k < NSMAX ; k++)
-	{
-	  if (
-	      (!look->ratio && look->isClosed [k]) ||
-	      (look->ratio && ! (k & 1) && look->isClosed [k]) ||
-	      (look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
-	      (1 && look->isSmoothed[k])
-	      )
-	    continue ;
-	  if (n[k] > 0)
-	    ss[k] /= n[k] ;
-	  
-	  if (pnsAll[k].isRna == 92)
-	    seg->gaussSignal[k] = seg->signal[k] ;
-	  else
+	for (sens = -1 ; sens < 2 ; sens += 2)
+	  for (j = 1, i = iSeg + sens, seg1 = seg + sens ; j < NN && i >= 0 && i < arrayMax(look->map->segs)  ;
+	       j++, i += sens, seg1 += sens)
 	    {
-	      if (look->smoothing == 4)
+	      if (look->rejectAmbiguous < seg1->ambiguous)
+		continue ; 
+	      if (
+		  (look->tmFilter == 1 && seg1->tm > 72) ||
+		  (look->tmFilter == 2 && seg1->tm < 75) ||
+		  (look->filter99 == 2  && (seg1->flag & MOTIF_FILTER)) ||
+		  (look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
+		  (look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
+		  (look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
+		  (look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
+		  (look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
+		  )
+		continue ;
+	      
+	      if (seg1->map != seg->map)
+		continue ;
+	      
+	      for (k = 0, pns = pnsAll ; pns->p && k < NSMAX ; pns++, k++)
 		{
-		  arraySort (aaa[k], doubleOrder) ;
-		  seg->gaussSignal[k] = array (aaa[k], n[k]/2, double) ;
-		}
-	      else 
-		seg->gaussSignal[k] = ss[k] ;
+		  if (
+		      (!look->ratio && look->isClosed [k]) ||
+		      (look->ratio && ! (k & 1) && look->isClosed [k]) ||
+		      (look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
+		      (1 && look->isSmoothed[k])
+		      )
+		    continue ;
+		  if (!n[k] || seg1->signal[k]==-1000)
+		    continue ;
+		  pgn = pnsPgn (look->ratio, pns) ;
+		  if (pns->flag & PGG_NOZOOM)
+		    continue ;
+		  if (pgn && look->filter99 == 3 && pgn && seg1->signal[k] + (look->ratio ? 0 : 10) > pgn->s99)
+		    continue ;
+		  switch (look->smoothing)
+		    {
+		    case 1:
+		      w = seg->a1 - seg1->a1 ; 
+		      w = w * w / sigma2 ;
+		      w = exp(-w) ;
+		      n[k] += w ;
+		      ss[k] += seg1->signal[k] * w ;
+		      break ;
+		    case 2:
+		      w = i - iSeg ;
+		      w = NN * NN - w * w ;
+		      n[k] += w ;
+		      ss[k] += seg1->signal[k] * w ;
+		      break ;
+		    case 3:
+		      n[k]++ ;
+		      ss[k] += seg1->signal[k] ;
+		      break ;
+		    case 4:
+		      array(aaa[k],n[k],double) = seg1->signal[k] ;
+		      n[k]++ ;
+		      break ;
+		    }
+	      }
 	    }
-	}
-    }
+	for (k = 0 ; k < NSMAX ; k++)
+	  {
+	    if (
+		(!look->ratio && look->isClosed [k]) ||
+		(look->ratio && ! (k & 1) && look->isClosed [k]) ||
+		(look->ratio &&   ( k& 1) && look->isClosed [k-1]) ||
+		(1 && look->isSmoothed[k])
+		)
+	      continue ;
+
+	    if (pnsAll[k].isRna == 92)
+	      seg->gaussSignal[k] = seg->signal[k] ;
+	    else if (n[k] > 0)
+	      {
+		if (look->smoothing == 4)
+		  {
+		    if (NN > 1)
+		      {
+			arraySort (aaa[k], doubleOrder) ;
+			seg->gaussSignal[k] = array (aaa[k], n[k]/2, double) ;
+		      }
+		    else
+		      seg->gaussSignal[k] = seg->signal[k] ;
+		  }
+		else 
+		  seg->gaussSignal[k] = ss[k]/n[k] ;
+	      }
+	    else
+	      seg->gaussSignal[k] = 0 ;
+	  }
+      }
  
   if (look->ratio && look->smoothing)
     for (k = 0 ; k < NSMAX ; k += look->ratio ? 2 : 1)
@@ -1594,11 +1623,7 @@ static BOOL htileSmoothing (Htile look)
     look->isSmoothed[k] = FALSE ;
   */
  done:
-  for (k = 0 ; k <= NSMAX ; k++)
-    {
-      if (look->smoothing == 4)
-	arrayDestroy (aaa[k]) ;
-    }
+  ac_free (h) ;
 
   return TRUE ;
 } /* htileSmoothing */
@@ -1611,23 +1636,16 @@ static BOOL htileSolexaSmoothing (Htile look)
   int i, j, k, iSlx, sens ;
   double ss[SOLEXAMAX2] ;
   int width = look->gaussWidth ;
-  int NN = look->smoothing == 1 ? look->gaussSmoother :  (look->smoothing == 2 ? /* was 12 */ 96*width/SOLEXA_STEP  : 30) ;
+  int NN = 1 ;
   int lastPos, lastiSlx ;
-  double nn[NN+1];
   double n[SOLEXAMAX2] ;
   Array mask = 0, aaa[SOLEXAMAX2] ;
   MASK *mm ;
   PNX *pnx ;
   SLX *slx, *slx1 ;
-  double w, wx, sigma2 = (double)width * width * 2 ;
+  double w, sigma = width ;
+  double sigma2 = 2 * sigma * sigma ;
 
-  for (k = 0 ; k <= NN ; k++)
-    {
-      if (look->smoothing == 1)
-	nn[k] = (NN*NN - k*k)/2 ;
-      else
-	nn[k] = 1 ;
-    }
   mask = 0 ;
   if (look->doMask && ! look->isMasked)
     {
@@ -1652,11 +1670,29 @@ static BOOL htileSolexaSmoothing (Htile look)
       look->isMasked = TRUE ;
     }
     
-  if (look->smoothing == 4)
+  switch (look->smoothing)
+    {
+    case 1:
+      NN = 3 * width/solexaStep  ; 
+      if (NN < 1) NN = 1 ;
+      break ;
+    case 2:
+    case 3:
+    case 4:
+      NN = (width/solexaStep - 1) * 2  ;
+      if (NN < 1) NN = 1 ;
+      break ;
+    case 0:
+    case 5:
+    case 6:
+    case 7:
+    default:
+      NN = 1 ;
+      break ;
+    }
+  if (NN > 1 && look->smoothing == 4)
     for (k = 0, pnx = arrp(look->solexaAll, 0, PNX) ; pnx->p &&  k < SOLEXAMAX ; pnx++, k++)
-      {
-	aaa[k] = arrayHandleCreate (1000, double, h) ;
-      }
+      aaa[k] = NN > 1  ? arrayHandleCreate (2 * NN + 1, double, h) : 0 ;
 
   lastiSlx = lastPos = -1000000 ;
   for (iSlx = 1, slx = arrp (look->map->solexa, 1, SLX); iSlx < arrayMax(look->map->solexa) ; iSlx++, slx++)
@@ -1681,6 +1717,8 @@ static BOOL htileSolexaSmoothing (Htile look)
       if (lastPos == slx->a1)
 	continue ;
       lastPos = slx->a1 ;
+
+
       if (
 	  (look->exonicFilter == 1 && !(slx->flag & EXONIC_FILTER)) ||
 	  (look->exonicFilter == 2 && !(slx->flag & NEW_EXONIC_FILTER)) ||
@@ -1706,52 +1744,38 @@ static BOOL htileSolexaSmoothing (Htile look)
 	      (slx->signal[k] == -1000)
 	      )
 	    { n[k] = 0 ; ss[k] = -1000 ; }
-	  else if (look->smoothing == 4)
+	  else 
 	    {
-	      n[k] = 0 ;
-	      arrayMax(aaa[k]) = 0 ; 
-	      array(aaa[k],n[k]++,double) = slx->signal[k] ;
+	      switch (look->smoothing)
+		  {
+		  case 2:
+		    w = NN * NN ;
+		    n[k] = w ;
+		    ss[k] = slx->signal[k] * w ;
+		    break ;
+		  case 4:
+		    n[k] = 1 ;
+		    if (NN > 1)
+		      {
+			arrayMax(aaa[k]) = 0 ; 
+			array(aaa[k],0,double) = slx->signal[k] ;
+		      }
+		    else
+		       slx->gaussSignal[k] = slx->signal[k] ;
+		    break ;
+		  default:
+		    n[k] = 1 ;
+		    ss[k] = slx->signal[k] ;
+		    break ;
+		  }
 	    }
-	  else
-	    {  n[k] = nn[0] ; ss[k] = slx->signal[k] * nn[0] ; }
 	}
       for (sens = -1 ; sens < 2 ; sens += 2)
-	for (j = 0, i = iSlx + sens, slx1 = slx + sens ; i >= 1 && i < arrayMax(look->map->solexa)  ;
-	     i += sens, slx1 += sens)
+	for (j = 1, i = iSlx + sens, slx1 = slx + sens ; j < NN && i >= 1 && i < arrayMax(look->map->solexa)  ;
+	     j++, i += sens, slx1 += sens)
 	  {
 	    if (look->doMask && (slx1->flag & MASK_FILTER)) continue ;
-	    /* reject on probe counting argument */
-	    if (look->smoothing == 1 && sens == -1 &&
-		( j >= NN || slx1->a1 < slx->a1 - 100000)
-		)
-	      break ;
-	    if (look->smoothing == 1 && sens == 1 &&
-		( j >= NN || slx1->a1 > slx->a1 + 100000)
-		)
-	      break ;
-	    j++ ; /* accepted probe */
 
-	    /* reject on distance argument */
-	    if (look->smoothing == 2 &&  sens == -1 &&
-		(slx1->a1 < slx->a1 - 5*width)
-		)
-	      break ;
-	    if (look->smoothing == 2 &&  sens == 1 &&
-		(slx1->a1 > slx->a1 + 5*width)
-		)
-	      break ;
-	    if (look->smoothing > 2 &&  sens == -1 &&
-		(slx1->a1 < slx->a1 - 2*width)
-		)
-	      break ;
-	    if (look->smoothing > 2 &&  sens == 1 &&
-		(slx1->a1 > slx->a1 + 2*width)
-		)
-	      break ;
-
-	    wx = slx->a1 - slx1->a1 ; /* must use a double here because we square it */ 
-	    wx = wx * wx / sigma2 ;
-	    w = exp(-wx) ;
 	    for (k = 0,  pnx = arrp(look->solexaAll, 0, PNX) ; pnx->p &&  k < SOLEXAMAX ; pnx++, k++)
 	      {
 		if (
@@ -1766,10 +1790,15 @@ static BOOL htileSolexaSmoothing (Htile look)
 		switch (look->smoothing)
 		  {
 		  case 1:
-		    n[k] += nn[j] ;
-		    ss[k] += slx1->signal[k] * nn[j] ;
+		    w = slx1->a1 - slx->a1 ; 
+		    w = w * w / sigma2 ;
+		    w = exp(-w) ;
+		    n[k] += w ;
+		    ss[k] += slx1->signal[k] * w ;
 		    break ;
 		  case 2:
+		    w = i - iSlx ;
+		    w = NN * NN - w * w ;
 		    n[k] += w ;
 		    ss[k] += slx1->signal[k] * w ;
 		    break ;
@@ -1778,7 +1807,8 @@ static BOOL htileSolexaSmoothing (Htile look)
 		    ss[k] += slx1->signal[k] ;
 		    break ;
 		  case 4:
-		    array(aaa[k],n[k]++,double) = slx1->signal[k] ;
+		    array(aaa[k],n[k],double) = slx1->signal[k] ;
+		    n[k]++ ;
 		    break ;
 		  }
 	      }
@@ -1792,17 +1822,26 @@ static BOOL htileSolexaSmoothing (Htile look)
 	      (1 && look->isSolexaSmoothed[k])
 	      )
 	    continue ;
-	  if (n[k] > 0)
+
+	  if (pnsAll[k].isRna == 92)
+	    slx->gaussSignal[k] = slx->signal[k] ;
+	  else if (n[k] > 0)
 	    {
-	      ss[k] /= n[k] ;
 	      if (look->smoothing == 4)
 		{
-		  arraySort (aaa[k], doubleOrder) ;
-		  slx->gaussSignal[k] = array (aaa[k], n[k]/2, double) ;
+		  if (NN > 1)
+		    {
+		      arraySort (aaa[k], doubleOrder) ;
+		      slx->gaussSignal[k] = array (aaa[k], n[k]/2, double) ;
+		    }
+		  else
+		    slx->gaussSignal[k] = slx->signal[k] ;
 		}
 	      else 
-		slx->gaussSignal[k] = ss[k] ;
+		slx->gaussSignal[k] = ss[k]/n[k] ;
 	    }
+	  else
+	    slx->gaussSignal[k] = 0 ;
 	}
     }
  
@@ -2201,9 +2240,9 @@ static BOOL htileConvert (Htile look, BOOL force, ACEOUT ao)
   htileRemoveMedian (look) ;
   switch (look->smoothing)
     {
-    case 1: /* gauss N smoohing */
-    case 2: /* gauss bp smoohing */
-    case 3: /* square window smoohing */
+    case 1: /* gauss smoohing */
+    case 2: /* parabolic smoohing */
+    case 3: /* square smoohing */
     case 4: /* median smoohing */
       htileSmoothing (look) ;
       if (look->map->solexa)
@@ -2443,6 +2482,7 @@ static void htileDrawProbes (Htile look, float offset, float probeOffset, ACEOUT
   PGN *pgn ;
   float s, x, y, yy[NSMAX], oldx[NSMAX], zoom, oldWidth = 0, oldWidth1 ;
   int i, np1[NSMAX], iao = 0 ;
+  int iSegMax = arrayMax (look->map->segs) ;
   float mxMx = -1000, mxMy = -1000, mxDelta = 2 ;
   BOOL mxUp = TRUE ;
   float mxMy1 = probeOffset + 1, mxMy2 = look->map->graphHeight - .5 ;
@@ -2453,175 +2493,177 @@ static void htileDrawProbes (Htile look, float offset, float probeOffset, ACEOUT
 
   if (!ao)
     oldWidth = graphLinewidth (.6) ;
-  for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < arrayMax(look->map->segs) ; iSeg++, seg++)
-    {
-      x = TMAP2GRAPH (look->map, seg->a1) ;
-      if (x < 0 || x > look->map-> graphWidth)
-	continue ;
-      if (seg->chip == 1) npp1++ ; 
-      else if (seg->chip == 2) npp2++ ;
-      if (look->rejectAmbiguous < seg->ambiguous)
-	{ npf++ ; continue ; }
-      switch (look->tmFilter)
-	{
-	case 1: 
-	  if (seg->tm > 72.2)
-	    { npf++ ; continue ; }
-	  break ;
-	case 2: 
-	  if (seg->tm < 75)
-	    { npf++ ; continue ; }
-	  break ;
-	}
-      switch (look->filter99)
-	{
-	case 2:
-	  if (seg->flag & MOTIF_FILTER)
-	    { npfm++ ; continue ; }
-	  break ;
-	}
-      if (
-	  (look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
-	  (look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
-	  (look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
-	  (look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
-	  (look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
-	  )
-	continue ;
+  if (iSegMax)
+    for (iSeg = 0, seg = arrp (look->map->segs, 0, SEG); iSeg < iSegMax ; iSeg++, seg++)
+      {
+	x = TMAP2GRAPH (look->map, seg->a1) ;
+	if (x < 0 || x > look->map-> graphWidth)
+	  continue ;
+	if (seg->chip == 1) npp1++ ; 
+	else if (seg->chip == 2) npp2++ ;
+	if (look->rejectAmbiguous < seg->ambiguous)
+	  { npf++ ; continue ; }
+	switch (look->tmFilter)
+	  {
+	  case 1: 
+	    if (seg->tm > 72.2)
+	      { npf++ ; continue ; }
+	    break ;
+	  case 2: 
+	    if (seg->tm < 75)
+	      { npf++ ; continue ; }
+	    break ;
+	  }
+	switch (look->filter99)
+	  {
+	  case 2:
+	    if (seg->flag & MOTIF_FILTER)
+	      { npfm++ ; continue ; }
+	    break ;
+	  }
+	if (
+	    (look->exonicFilter == 1 && !(seg->flag & EXONIC_FILTER)) ||
+	    (look->exonicFilter == 2 && !(seg->flag & NEW_EXONIC_FILTER)) ||
+	    (look->exonicFilter == 3 && !(seg->flag & (EXONIC_FILTER | NEW_EXONIC_FILTER))) ||
+	    (look->exonicFilter == 4 && !(seg->flag & INTRONIC_FILTER)) ||
+	    (look->exonicFilter == 5 && !(seg->flag & INTERGENIC_FILTER))
+	    )
+	  continue ;
+	
+	if (!ao)
+	  {
+	    graphColor (BLACK) ;
+	    if (! look->smoothing)
+	      {
+		array (look->map->boxIndex, graphBoxStart (), int) = iSeg ;
+		graphText ("*", x-.5, probeOffset) ;
+		graphBoxEnd () ;
+	      }
+	  }
+	if (ao)
+	  iao = 0 ;
+	for (ns = 0, pns = pnsAll ; pns->p && ns < NSMAX  ; ns += look->ratio ? 2 : 1, pns += look->ratio ? 2 : 1)
+	  {
+	    if (look->isClosed[ns]) continue ;
+	    if (!look->ratio && *pns->nam == '.') continue ;
+	    pgn = pnsPgn (look->ratio, pns) ;
+	    if (look->filter99 == 3)
+	      {
+		if (pgn && ! look->ratio && 
+		    seg->signal[ns] + 10 > pgn->s99
+		    )
+		  continue ;
+		if (pgn && look->ratio && 
+		    seg->signal[ns+1] - seg->signal[ns] > pgn->s99
+		    )
+		  continue ;
+	      }
+	    zoom = look->zoom ;
+	    if (!strcmp (pns->nam, "TM")) zoom = 2 ;
+	    else if (!strcmp (pns->nam2, "G+C")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "G")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "C")) zoom = 1 ;
+	    else if (!strcmp (pns->nam2, "A+T")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "T")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "A")) zoom = 1 ;
+	    else if (!strcmp (pns->nam2, "G-C")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "G.")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "C.")) zoom = 1 ;
+	    else if (!strcmp (pns->nam2, "A-T")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "T.")) zoom = 1 ;
+	    else if (!strcmp (pns->nam, "A.")) zoom = 1 ;
+	    else  if (pgn && look->index)  /* so that if zoom == 20, and s == max zoom*s = 10 chars */
+	      {
+		float zmax ;
+		if (pns->flag & (PGG_NUC | PGG_TOTAL))
+		  zmax = pgn->s99 ;
+		else 
+		  zmax = pgn->s80 ;
+		zoom *= 1.0/(zmax - 10.0) ;
+	      }
+	    if (seg->signal[ns]==-1000)
+	      continue ;
+	    if (look->ratio && *(pns+1)->p != '.' && seg->signal[ns+1]==-1000)
+	      continue ; 
+	    if (look->smoothing && seg->gaussSignal[ns] == -1000)
+	      continue ;
+	    if (look->smoothing) 
+	      {
+		if (look->ratio && *(pns+1)->p != '.' )
+		  {
+		    if (!strcmp (pns->nam2, "G+C") || !strcmp (pns->nam2, "A+T")) 
+		      s = seg->gaussSignal[ns] + seg->gaussSignal[ns+1] ;
+		    else
+		      s = seg->gaussSignal[ns] - seg->gaussSignal[ns+1] ;
+		  }
+		else
+		  s = seg->gaussSignal[ns] ;
+	      }
+	    else
+	      {
+		if (look->ratio && *(pns+1)->p != '.' )
+		  { 
+		    if (!strcmp (pns->nam2, "G+C") || !strcmp (pns->nam2, "A+T")) 
+		      s = seg->signal[ns] + seg->signal[ns+1] ;
+		    else
+		      s = seg->signal[ns] - seg->signal[ns+1] ;
+		  }
+		else
+		  s = seg->signal[ns] ;
+	      }
+	    if (0 && look->index && pgn) /* mieg 2008_04_03 :  0 && :: do NOT modify the manual base line pns->av */
+	      s -= pgn->s20 - 10 ; /* 10, since the pgn histos are computed after shifting pns->av to 10 */
+	    y = offset - zoom * s ;
+	    if (ao)
+	      {
+		if (!iao++)
+		  aceOutf (ao, "\n%d", seg->a1) ;
+		aceOutf (ao, "\t%g", -y) ;
+	      }
+	    else
+	      {  
+		if (y < 2) y = 2 ;
+		
+		graphColor (pnsAll[ns].col) ;
+		if (1) 
+		  {
+		    if (look->showDot == 1)
+		      graphCircle (x, y, .2) ;
+		    else if (look->showDot == 2)
+		      graphLine (x, offset, x, y) ;
+		    else if (look->showDot == 3)
+		      graphLine (x, offset + yy[ns], x, y + yy[ns]) ;
+		    else if (oldx[ns] > 0 &&  np1[ns])
+		      graphLine (oldx[ns], yy[ns], x, y) ;
+		    np1[ns]++ ;
+		    oldx[ns] = x ;
+		    yy[ns] = (look->showDot == 3 ? y + yy[ns] : y) ;
+		  }
+		graphColor (BLACK) ;
+		
+		/* show lines at extremal points */
+		if (look->showExtrema && (!strcmp (pns->nam,"S=31ES") || (ns && look->mxShowNs == ns)))
+		  {
+		    if ((mxUp && mxMy < y) || (!mxUp && mxMy > y)) { mxMx = x ; mxMy = y ; }
+		    else if ((mxUp && mxMy > y + mxDelta) ||
+			     (!mxUp && mxMy < y - mxDelta)
+			     ) /* report previous */
+		      {
+			mxUp = !mxUp ;
+			if (mxMx > 0) 
+			  {
+			    graphColor (LIGHTMAGENTA) ;
+			    oldWidth1 = graphLinewidth (.2) ;
+			    graphLine (mxMx, mxMy1, mxMx, mxMy2) ;
+			    graphLinewidth (oldWidth1) ;
+			  }
+			mxMx = x ; mxMy = y ;
+		      }
+		  } 	    /* end of drawing extremal points */
+	      }
+	  }
+      }
 
-      if (!ao)
-	{
-	  graphColor (BLACK) ;
-	  if (! look->smoothing)
-	    {
-	      array (look->map->boxIndex, graphBoxStart (), int) = iSeg ;
-	      graphText ("*", x-.5, probeOffset) ;
-	      graphBoxEnd () ;
-	    }
-	}
-      if (ao)
-	iao = 0 ;
-      for (ns = 0, pns = pnsAll ; pns->p && ns < NSMAX  ; ns += look->ratio ? 2 : 1, pns += look->ratio ? 2 : 1)
-	{
-	  if (look->isClosed[ns]) continue ;
-	  if (!look->ratio && *pns->nam == '.') continue ;
-	  pgn = pnsPgn (look->ratio, pns) ;
-	  if (look->filter99 == 3)
-	    {
-	      if (pgn && ! look->ratio && 
-		  seg->signal[ns] + 10 > pgn->s99
-		  )
-		continue ;
-	      if (pgn && look->ratio && 
-		  seg->signal[ns+1] - seg->signal[ns] > pgn->s99
-		  )
-		continue ;
-	    }
-	  zoom = look->zoom ;
-	  if (!strcmp (pns->nam, "TM")) zoom = 2 ;
-	  else if (!strcmp (pns->nam2, "G+C")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "G")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "C")) zoom = 1 ;
-	  else if (!strcmp (pns->nam2, "A+T")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "T")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "A")) zoom = 1 ;
-	  else if (!strcmp (pns->nam2, "G-C")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "G.")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "C.")) zoom = 1 ;
-	  else if (!strcmp (pns->nam2, "A-T")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "T.")) zoom = 1 ;
-	  else if (!strcmp (pns->nam, "A.")) zoom = 1 ;
-	  else  if (pgn && look->index)  /* so that if zoom == 20, and s == max zoom*s = 10 chars */
-	    {
-	      float zmax ;
-	      if (pns->flag & (PGG_NUC | PGG_TOTAL))
-		zmax = pgn->s99 ;
-	      else 
-		zmax = pgn->s80 ;
-	      zoom *= 1.0/(zmax - 10.0) ;
-	    }
-	  if (seg->signal[ns]==-1000)
-	    continue ;
-	  if (look->ratio && *(pns+1)->p != '.' && seg->signal[ns+1]==-1000)
-	    continue ; 
-	  if (look->smoothing && seg->gaussSignal[ns] == -1000)
-	    continue ;
-	  if (look->smoothing) 
-	    {
-	      if (look->ratio && *(pns+1)->p != '.' )
-		{
-		 if (!strcmp (pns->nam2, "G+C") || !strcmp (pns->nam2, "A+T")) 
-		   s = seg->gaussSignal[ns] + seg->gaussSignal[ns+1] ;
-		 else
-		   s = seg->gaussSignal[ns] - seg->gaussSignal[ns+1] ;
-		}
-	      else
-		s = seg->gaussSignal[ns] ;
-	    }
-	  else
-	    {
-	      if (look->ratio && *(pns+1)->p != '.' )
-		{ 
-		  if (!strcmp (pns->nam2, "G+C") || !strcmp (pns->nam2, "A+T")) 
-		    s = seg->signal[ns] + seg->signal[ns+1] ;
-		  else
-		    s = seg->signal[ns] - seg->signal[ns+1] ;
-		}
-	      else
-		s = seg->signal[ns] ;
-	    }
-	  if (0 && look->index && pgn) /* mieg 2008_04_03 :  0 && :: do NOT modify the manual base line pns->av */
-	    s -= pgn->s20 - 10 ; /* 10, since the pgn histos are computed after shifting pns->av to 10 */
-	  y = offset - zoom * s ;
-	  if (ao)
-	    {
-	      if (!iao++)
-		aceOutf (ao, "\n%d", seg->a1) ;
-	      aceOutf (ao, "\t%g", -y) ;
-	    }
-	  else
-	    {  
-	      if (y < 2) y = 2 ;
-	      
-	      graphColor (pnsAll[ns].col) ;
-	      if (1) 
-		{
-		  if (look->showDot == 1)
-		    graphCircle (x, y, .2) ;
-		  else if (look->showDot == 2)
-		    graphLine (x, offset, x, y) ;
-		  else if (look->showDot == 3)
-		    graphLine (x, offset + yy[ns], x, y + yy[ns]) ;
-		  else if (oldx[ns] > 0 &&  np1[ns])
-		    graphLine (oldx[ns], yy[ns], x, y) ;
-		  np1[ns]++ ;
-		  oldx[ns] = x ;
-		  yy[ns] = (look->showDot == 3 ? y + yy[ns] : y) ;
-		}
-	      graphColor (BLACK) ;
-	      
-	      /* show lines at extremal points */
-	      if (look->showExtrema && (!strcmp (pns->nam,"S=31ES") || (ns && look->mxShowNs == ns)))
-		{
-		  if ((mxUp && mxMy < y) || (!mxUp && mxMy > y)) { mxMx = x ; mxMy = y ; }
-		  else if ((mxUp && mxMy > y + mxDelta) ||
-			   (!mxUp && mxMy < y - mxDelta)
-			   ) /* report previous */
-		    {
-		      mxUp = !mxUp ;
-		      if (mxMx > 0) 
-			{
-			  graphColor (LIGHTMAGENTA) ;
-			  oldWidth1 = graphLinewidth (.2) ;
-			  graphLine (mxMx, mxMy1, mxMx, mxMy2) ;
-			  graphLinewidth (oldWidth1) ;
-			}
-		      mxMx = x ; mxMy = y ;
-		    }
-		} 	    /* end of drawing extremal points */
-	    }
-	}
-    }
   if (!ao)
     {
       graphLinewidth (oldWidth) ;
@@ -2646,7 +2688,7 @@ static int htileWiggleConvert (Htile look, PNX *pnx, int ns, Array wpArray)
   Array slxs2 = 0 ;
   WIGGLEPOINT *wp ;
   SLX *slx ;
-  int step = SOLEXA_STEP ; /* resolution of this experiment */
+  int step = solexaStep ; /* resolution of this experiment */
 
   /* in old method we parse at actual positions, so the tads have random positions
    * in new method we systematically create a tag every 10bp
@@ -2722,9 +2764,13 @@ static void htileSolexaEndRatios (Htile look, PNX *pnx0, int ns, int NF)
     {
       unsigned int iMax =  arrayMax (look->map->solexa) ;
       SLX *slx, *slx1, *slx2 ;
-      for (i = 2, slx = arrayp (look->map->solexa, i, SLX), slx1 = slx - 1, slx2 = slx + 1 ; i < iMax - 1 ; i++, slx++, slx1++, slx2++)
+      int ii, NN = 5 ; 
+      float uu[NN], median = 0 ;
+      memset (uu, 0, sizeof (uu)) ;
+
+      for (ii = 3, slx = arrayp (look->map->solexa, ii, SLX), slx1 = slx - 1, slx2 = slx + 1 ; ii < iMax - 1 ; ii++, slx++, slx1++, slx2++)
 	{
-	  float x, y, z, t, u, damper = 5 ;
+	  float x, y, z, t, u ;
 	  x = slx1->signal[ns1] + 2 * slx->signal[ns1] + slx2->signal[ns1] ;
 	  y = slx1->signal[ns2] + 2 * slx->signal[ns2] + slx2->signal[ns2] ;
 	  /* substract leak from other strand */
@@ -2733,8 +2779,54 @@ static void htileSolexaEndRatios (Htile look, PNX *pnx0, int ns, int NF)
 
 	  x = x - .04 * z ; if (x < 0) x = 0 ; x /= 4 ; 
 	  y = y - .04 * t ; if (y < 0) y = 0 ; y /= 4 ;
-	  u =  damper * (x + damper) / (y + damper) - damper ; if (u < 0) u = 0 ;
-	  slx->signal[ns] = u ;
+	  /* old code damper = 5 ; u =  damper * (x + damper) / (y + damper) - damper ;  */
+	  u = x / (100 * y + x + 20) ; /* 2017_08_01 */
+
+	  if (u < 0) u = 0 ;
+	  slx->signal[ns] = 100000 * u * u ;
+	  
+	  /* take the median of the last 3 points */
+	  if (0) /* rolling median */
+	    {
+	      float x, old, new ;
+	      int i, j, jj = ii % NN ;
+	      new =  slx->signal[ns] ;
+	      old = uu[jj] ;
+	      uu[jj] = new ;
+	      if (old != new) 
+		{
+		  /* delete old */
+		  if (ii >= NN)
+		    for (i = 0 ; i < NN ; i++)
+		      {
+			x = uu[i] ;
+			if (x == old)
+			  {
+			    for (j = i ; j < NN - 1 ; j++)
+			      uu[j] = uu[j+1] ;
+			    break ;
+			  }
+		      }
+		  /* insert */
+		  if (new >= uu[NN-2])
+		    uu[NN-1] = new ;
+		  else
+		    for (i = 0 ; i < NN - 1 ; i++)
+		      {
+			x = uu[i] ;
+			if (x > new)
+			  {
+			    for (j = NN - 1 ; j > i ; j--)
+			      uu[j] = uu[j-1] ;
+			    uu[j] = new ;
+			    break ;
+			  }
+		      }
+		  if (ii >= NN)
+		    median  = uu[NN/2] ;
+		}
+	      if (1 && ii > (NN-1)/2) (slx - (NN-1)/2)->signal[ns] = median ;
+	    }
 	}
       look->isClosed[ns] = look->isSolexaClosed[ns] = 2 ;
       pnx0->signal = w1 ;
@@ -2817,7 +2909,7 @@ static void htileSolexaConvert (Htile look, BOOL force, ACEOUT ao)
 		    }
 		  if (1 && filCheckName(fNam, 0, "r"))
 		    {
-		      Array aa = sxGetWiggleZone (fNam, "TABIX", SOLEXA_STEP, name(look->intMap), look->a1, look->a2, h) ;
+		      Array aa = sxGetWiggleZone (0, fNam, "TABIX", solexaStep, name(look->intMap), look->a1, look->a2, h) ;
 		      if (aa && arrayMax (aa))
 			htileWiggleConvert (look, pnx, ns, aa) ;
 		    }
@@ -2883,15 +2975,10 @@ static void htileDrawSolexa (Htile look, float offset, float probeOffset, ACEOUT
 	zoom1 = 1 ;
 
       zoom = look->zoom ;
-      if (!pnx->noSmoothing && look->smoothing && look->gaussWidth > SOLEXA_STEP)
-	{
-	  zoom *= look->gaussWidth/SOLEXA_STEP ;
-	  zoom *= (10.0 * look->gaussWidth)/(4.0 * (look->gaussWidth + SOLEXA_STEP)) ;
-	}
-
+ 
       for (iSlx = 1, slx = arrp (look->map->solexa, 1, SLX); iSlx < arrayMax(look->map->solexa) ; iSlx++, slx++)
 	{
-	  x = TMAP2GRAPH (look->map, slx->a1 + SOLEXA_STEP) ;
+	  x = TMAP2GRAPH (look->map, slx->a1 + solexaStep) ;
 	  if (x < 0 || x > look->map-> graphWidth)
 	    continue ;
 	  if (look->doMask && (slx->flag & MASK_FILTER)) continue ;
@@ -3159,7 +3246,7 @@ static void htileDrawTileButtons (Htile look, float *offsetp)
   PNX *pnx ;
   const char *ccp ;
 
-  for (ns = 0, pns = pnsAll ; pns->p ; ns += look->ratio ? 2 : 1, pns += look->ratio ? 2 : 1)
+  for (ns = 0, pns = pnsAll ; pns->p && nt1 < SOLEXAMAX ; ns += look->ratio ? 2 : 1, pns += look->ratio ? 2 : 1)
     {
       ccp =  look->ratio ? pns->nam2 : pns->nam ;
       if (*ccp == '.') continue ; 
@@ -3172,7 +3259,7 @@ static void htileDrawTileButtons (Htile look, float *offsetp)
       bb[nt1].next = 0 ;
       nt1++ ;
     }
-  for (ccp = 0, pnx = arrp(look->solexaAll, 0, PNX), nt = 0 ; pnx->p ; nt ++, pnx++)
+  for (ccp = 0, pnx = arrp(look->solexaAll, 0, PNX), nt = 0 ; pnx->p && nt1 < SOLEXAMAX ; nt ++, pnx++)
     {
       if (!pnx->signal)
 	continue ;
@@ -3489,81 +3576,41 @@ static void htileFilterProbes (void *v)
       htileConvert (look, FALSE, 0) ;
       break ;
     case 70:
-      if (0 && look->smoothing)
-	{
-	  look->zoom /= 5 ;
-	  look0->zoom /= 5 ;
-	}
       look->smoothing = 0 ;
       look0->smoothing = 0 ;  
       htileConvert (look, FALSE, 0) ;
       break ;
     case 71:
-      if (0 && !look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
       look->smoothing = 1 ;
       look0->smoothing = 1 ;
       htileConvert (look, FALSE, 0) ;
       break ;
     case 72: 
-      if (0 && !look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
       look->smoothing = 2 ;
       look0->smoothing = 2 ;
       htileConvert (look, FALSE, 0) ;
       break ;
-    case 73:
-      if (!look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
-      look->smoothing = 3 ;
+    case 73: /* apparently never used */
+     look->smoothing = 3 ;
       look0->smoothing = 3 ;
       htileConvert (look, FALSE, 0) ;
       break ;
     case 74:
-      if (!look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
-      look->smoothing = 4 ;
+     look->smoothing = 4 ;
       look0->smoothing = 4 ;
       htileConvert (look, FALSE, 0) ;
       break ;
     case 75:
-      if (!look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
       look->smoothing = 5 ;
       look0->smoothing = 5 ;
       htileConvert (look, FALSE, 0) ;
       break ;
     case 76:
-      if (!look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
-      look->smoothing = 6 ;
+     look->smoothing = 6 ;
       look0->smoothing = 6 ;
       htileConvert (look, FALSE, 0) ;
       break ;
     case 77:
-      if (!look->smoothing)
-	{
-	  look->zoom *= 5 ;
-	  look0->zoom *= 5 ;
-	}
       look->smoothing = 7 ;
       look0->smoothing = 7 ;
       htileConvert (look, FALSE, 0) ;
@@ -3579,29 +3626,25 @@ static void htileFilterProbes (void *v)
     case 10:
       {
 	int w, i, i0 = 1, j, jj[3] = {1,2,5} ;
-	if (look->smoothing == 1) w = look->gaussSmoother ;
-	else w = look->gaussWidth ;
+	w = look->gaussWidth ;
 	for (i = 1 ; i0 && i < 1000000 ; i *= 10)
 	  for (j = 0 ; i0 && j < 3 ; j++)
 	    if (w == i * jj[j]) 
 	      { w = j < 2 ? i * jj[j+1] : 10*i ; i0 = 0 ;}
-	if (look->smoothing == 1) look->gaussSmoother = look0->gaussSmoother = w ;
-	else look->gaussWidth = look0->gaussWidth = w ;
+	look->gaussWidth = look0->gaussWidth = w ;
       }
       htileConvert (look, FALSE, 0) ;
       break ;
     case 11:
       {
 	int w, i, i0 = 1, j, jj[3] = {1,2,5} ;
-	if (look->smoothing == 1) w = look->gaussSmoother ;
-	else w = look->gaussWidth ;
+	w = look->gaussWidth ;
 	for (i = 1 ; i0 && i < 1000000000 ; i *= 10)
 	  for (j = 0 ; i0 && j < 3 ; j++)
 	    if (w == i * jj[j]) 
 	      { w = j > 0 ? i * jj[j-1] : i/2 ; i0 = 0 ; }
-	if (w < 2) w = 2 ;
-	if (look->smoothing == 1) look->gaussSmoother = look0->gaussSmoother = w ;
-	else look->gaussWidth = look0->gaussWidth = w ;
+	if (w < 10) w = 10 ;
+	look->gaussWidth = look0->gaussWidth = w ;
       }
       htileConvert (look, FALSE, 0) ;
       break ;
@@ -3661,8 +3704,7 @@ static void htileFilterProbes (void *v)
 	  case 9065: w = 5000000 ; break ;
 	  }
 	if (!look->smoothing) look->smoothing = look0->smoothing ;
-	if (look->smoothing == 1) look->gaussSmoother = look0->gaussSmoother = w ;
-	else look->gaussWidth = look0->gaussWidth = w ;
+	look->gaussWidth = look0->gaussWidth = w ;
       }
       htileConvert (look, FALSE, 0) ;
       break ;
@@ -3697,10 +3739,11 @@ static void htileFilterProbes (void *v)
 /************************************************************/
 
 static FREEOPT htileSmootherMenu[] = {
-  { 7, "Smoother menu"},
+  { 8, "Smoother menu"},
   {70, "No smoothing"},
-  {71, "Gauss N smoothing"},
-  {72, "Gauss bp smoothing"},
+  {71, "Gaussian smoothing"},
+  {72, "Parabolic smoothing"},
+  {73, "Square smoothing"},
   {74, "Median smoothing"},
   {75, "Gene smoothing up"},
   {76, "Gene smoothing down"},
@@ -3729,10 +3772,12 @@ static void htileRatioAction (KEY key, int box)
 /************************************************************/
 
 static FREEOPT htileVppMenu[] = {
-  { 21, "Ratio menu"},
+  { 19, "Ratio menu"},
   {9000, "No smoothing"},
-  {9002, "  2"},
-  {9005, "  5"},
+  /*
+    {9002, "  2"},
+    {9005, "  5"},
+  */
   {9011, " 10"},
   {9012, " 20"},
   {9015, " 50"},
@@ -4008,9 +4053,7 @@ static void htileDrawActionButtons (Htile look, float *offsetp)
   bb[ns].next = 0 ;
   ns++ ;
 
-  if (look->smoothing < 2)
-    sprintf(buf1, "v++:%d", look->gaussSmoother) ; 
-  else
+  if (1)
     {
       int w = look->gaussWidth ;
       if (w < 1000)
@@ -4241,16 +4284,16 @@ static void htileDrawActionButtons (Htile look, float *offsetp)
       bb[ns].arg = assVoid(71) ;
       break ;
     case 1:
-      bb[ns].text = "Gauss N smoothing..." ;
+      bb[ns].text = "Gaussian smoothing..." ;
       bb[ns].arg = assVoid(72) ;
       break ;
     case 2:
-      bb[ns].text = "Gauss bp smoothing..." ;
-      bb[ns].arg = assVoid(75) ;
+      bb[ns].text = "Parabolic smoothing..." ;
+      bb[ns].arg = assVoid(73) ;
       break ;
     case 3:
-      bb[ns].text = "Square bp smoothing..." ;
-      bb[ns].arg = assVoid(70) ;
+      bb[ns].text = "Square smoothing..." ;
+      bb[ns].arg = assVoid(74) ;
       break ;
     case 4:
       bb[ns].text = "Median smoothing..." ;
@@ -5024,6 +5067,8 @@ static void htileDrawPBS (Htile look, float offset, BOOL isUp)
 
 /************************************************************/
 /************************************************************/
+#ifdef BOU_DEF
+
 /* draw replication start site */
 FREEOPT htileRZoneMenu[] = {
   { 2, "R-zone menu"},
@@ -5065,6 +5110,7 @@ static void htileRZoneAction (KEY k, int box)
 } /* htileWallAction */
 
 /************************************************************/
+
 static void htileDoDrawRZone (Htile look, float offset, AC_OBJ Pbs, 
 			      AC_TABLE mm, int type)
 {
@@ -5166,6 +5212,7 @@ static void htileCreateRZone (void)
   htileDoCreateRZone (graphEventX) ;
 } /* htileCreateRZone */
 
+
 /************************************************************/
 
 static void htileDrawRZone (Htile look, float offset)
@@ -5206,8 +5253,8 @@ static void htileDrawRZone (Htile look, float offset)
   ac_free (h1) ;
   ac_free (h) ;
   arraySort (look->map->genes, htileSegOrder) ;
-} /* htileRZone */
-
+} /* htileDrawRZone */
+#endif
 /************************************************************/
 /************************************************************/
 
@@ -5538,6 +5585,7 @@ static void htileGetMask (Htile look, int maskLength)
 } /* htileGetMask */
 
 /************************************************************/
+#ifdef BOU_DEF
 
 static void htileDrawMaskLength (Htile look, float offset, int maskLength)
 {
@@ -5641,7 +5689,7 @@ static void htileDrawMask (Htile look, float offset)
 
   graphColor (BLACK) ;
 } /* htileDrawMask */
-
+#endif
 /************************************************************/
 FREEOPT htileWallMenu[] = {
   { 3, "Create zone"},
@@ -5860,19 +5908,16 @@ static void hTileGeneSearch (char *gene)
   if (gene && *gene)
     {
       ks = ac_dbquery_keyset (look->db, messprintf ("Find Locus %s ; >gene ; IS \"%s\"" 
-
 						    , ac_protect (name (look->locus), h)
 						    , gene
 						    ), h) ;
       if (!ac_keyset_count (ks))
 	ks = ac_dbquery_keyset (look->db, messprintf ("Find Locus %s ; >gene ; IS \"%s*\"" 
-
 						    , ac_protect (name (look->locus), h)
 						    , gene
 						    ), h) ;
       if (!ac_keyset_count (ks))
 	ks = ac_dbquery_keyset (look->db, messprintf ("Find Locus %s ; >gene ; IS \"*%s*\"" 
-
 						    , ac_protect (name (look->locus), h)
 						    , gene
 						    ), h) ;
@@ -6203,18 +6248,18 @@ BOOL htileDisplay (KEY key, KEY from, BOOL isOldGraph)
   if (firstPass)
     {
       firstPass = FALSE ;
+      look0->smoothing = 0 ;
       look0->ratio = 0 ;
       look0->showDot = 3 ;
       look0->showExtrema = FALSE ;
       look0->rejectAmbiguous = 0 ;
       look0->romainSmoothing = 0 ;
-      look0->gaussSmoother = 100 ;
       if (!strcasecmp(className (from)," PBS"))
 	{ look0->gaussWidth = 200 ;  look0->zoom = 5 ; }
       else if (from && class (from) == 0)
 	{ look0->gaussWidth = 10 ;  look0->zoom = 5/32.0  ; }
       else if (class (key) == _VSequence)
-	{ look0->gaussWidth = 2000 ;  look0->zoom = 5 ; }
+	{ look0->gaussWidth = 1000 ;  look0->zoom = 5 ; }
       else if (class (key) == _VmRNA)
 	{ look0->gaussWidth = 20 ;  look0->zoom = 5 ; }
       else
@@ -6222,13 +6267,13 @@ BOOL htileDisplay (KEY key, KEY from, BOOL isOldGraph)
       if (isGifDisplay)
 	{ 
 	  look0->showRZones = FALSE ; 
-	  look0->gaussWidth = 5 ; 
+	  look0->gaussWidth = 10 ; 
 	  look0->zoom = 10.0/128 ; 
 	  oldHideHeader = TRUE ; 
 	  oldLnWidth = .3 ;
 	} 
       look0->unique = 1 ;
-      look0->smoothing = 2 ;
+      look0->smoothing = 0 ;
       look0->index = FALSE ;
       look0->tmFilter = 1 ;
       look0->exonicFilter = 0 ;
@@ -6294,6 +6339,8 @@ BOOL htileDisplay (KEY key, KEY from, BOOL isOldGraph)
   tmapGraphAssociate (look->map) ;
   tmapResize () ; /* redraws */
 
+  htileShowSegs(0) ; /* for compiler happiness */
+
   return TRUE ;
 } /* htileDisplay */
 
@@ -6327,8 +6374,8 @@ void htilePrecompute (KEYSET ks0)
       look->h = ac_new_handle () ;
       solexaAllInit (look) ;
       look->map = tmapCreate (look, look->h, 0) ;
-      look->smoothing = 2 ;
-      look->gaussWidth = 50000 ;
+      look->smoothing = 0 ;
+      look->gaussWidth = 1000 ;
       if (htileConvert (look, TRUE, ao))
 	nn++ ;
       ac_free (look->h) ;

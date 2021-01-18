@@ -9,7 +9,7 @@
  * Description: Draws an acedb image for the web in svg format
  *              
  * Exported functions: 
- *      svgGraph2html : active graph exported as a full fledged html document
+ *      svgGraphExport : active graph exported as a full fledged html document
  * HISTORY:
  * Created Sept 3 2004 (mieg)
  *
@@ -21,59 +21,57 @@
 #include "graph_.h"
 #include "aceio.h" 
 #include "whooks/systags.h"
+#include "colorRGB.h"
+
 
 static float XFac, YFac ;
 #define MAXCOL 16
-static char* svgCol[MAXCOL + 1] ;
+
 static BOOL DEBUG = FALSE ;
 
 typedef struct { int x, y ; } svgPOINT ;
 
+static char *svgColour (char *buf, int colour) ;
+
 /*******************************************************************************/
 
-void svgColorInit (void)
+static char *svgColour (char *buf, int colour)
 {
-  int i ;
-
-  for (i = 0 ; i <= MAXCOL ; i++)
-    svgCol [i] = "000000" ; /* black */
-  svgCol [0] = "ffffff" ; /* white */
-} /* svgColorInit */
-
-/*******************************************************************************/
-
-static int  svgSetColour (ACEOUT out, int colour)
-{
-  static int lastColour ;
-  int col ;
-
-  if (colour < 0 || colour > MAXCOL) colour = 1 ;
-
-  if (0)
-    {aceOutf (out, "<stroke=\"%s\">", name(_WHITE + colour - WHITE)) ; /* example 0000ff */
-    col = lastColour ;
-    lastColour = colour ;
-    }
-  return col ;
-}
+  if (colour >= 0 && colour < NUM_TRUECOLORS)
+    sprintf (buf, "rgb(%d,%d,%d)"
+	     , colorRGB [3 * colour + 0]
+	     , colorRGB [3 * colour + 1]
+	     , colorRGB [3 * colour + 2]
+	     ) ;
+  else
+    strcpy (buf, "svg(255, 255, 255)") ;
+  
+  return buf ;
+} /* svgColour */
 
 /*******************************************************************************/
 
-static int svgUnSetColour (ACEOUT out)
-{
-  if (0) aceOutf (out, "</stroke>") ;
-  return 0 ;
-}
-
-/*******************************************************************************/
-
-static void svgSetLineWidth (ACEOUT out, int new)
+static int svgSetLineWidth (ACEOUT out, int new)
 {
   static int old = -1 ;
   if (0 && old != new)
     aceOutf (out, " ???????? \n", new) ;
   old = new ;
-}
+  
+  return old ;
+} /* svgSetLineWidth */
+
+/*******************************************************************************/
+
+static int svgSetTextHeight (ACEOUT out, int new)
+{
+  static int old = -1 ;
+  if (0 && old != new)
+    aceOutf (out, " ???????? \n", new) ;
+  old = new ;
+  
+  return old ;
+} /* svgSetTextHeight */
 
 /*******************************************************************************/
 
@@ -89,50 +87,209 @@ static void svgSetFormat (ACEOUT out, int new)
 
 static void svgFillBox (ACEOUT out, Box box)
 {
-  if (0) aceOutf (out, " ????????? \n") ;
+  int  x1,x2,y1,y2 ;
+  char bufBC[128], bufC[128] ;
+  
+  if (box->bcol && box->bcol < NUM_TRUECOLORS)
+    {
+      x1 = XFac * box->x1 ;
+      x2 = XFac * box->x2 ;
+      y1 = YFac * box->y1 ;
+      y2 = YFac * box->y2 ;
+      aceOutf (out, "<rect x=\"%d\" y=\"%d\" height=\"%d\" width=\"%d\" style=\"stroke:%s;fill:%s;stroke-width:%d\"/>\n"
+	       , x1, y1, y2 - y1, x2 - x1
+	       , svgColour (bufC, box->fcol)
+	       , svgColour (bufBC, box->bcol)
+	       , 0
+	       ) ;
+    }
+  return ;
+}
+
+/*******************************************************************************/
+
+static BOOL svgAction (ACEOUT out, Box box, int iBox)
+{
+  BUBBLEINFO *bubble = gActive->bubbleInfo && gActive->bubbleDict ? arrayp(gActive->bubbleInfo, iBox, BUBBLEINFO) : 0 ;  
+  KEY key = bubble ? bubble->key : 0 ;
+  BOOL hasAction = FALSE ;
+
+  if (key)
+    {
+      if (0 && key == 1)
+	aceOutf (out, " onclick=\"_root.OpenAnchor(0, \"%s\")\n\""
+			      , dictName (gActive->bubbleDict, bubble->fName)
+			      ) ;
+      else if (0)
+	aceOutf (out, " onclick=\"alert('%s')\" ", name(key)) ;
+      else if (1)
+	{
+	  aceOutf (out, " onclick=\"javascript:openAceViewLink('%s','%s'); \"  "
+		   , className(key), name(key) /* dictName (gActive->bubbleDict, bubble->fName) */
+		   ) ;
+	  hasAction = TRUE ;
+	}
+      else 
+	{
+	  aceOutf (out, " ><a href=\"javascript:openAceViewLink('%s','%s'); \"  "
+		   , className(key), name(key) /* dictName (gActive->bubbleDict, bubble->fName) */
+		   ) ;
+	  hasAction = TRUE ;
+	}
+    }
+
+  return hasAction ;
+}  /* svgAction */
+
+/*******************************************************************************/
+
+static void svgBubble (ACEOUT out, Box box, int iBox)
+{
+  BUBBLEINFO *bubble = gActive->bubbleInfo && gActive->bubbleDict ? arrayp(gActive->bubbleInfo, iBox, BUBBLEINFO) : 0 ;  
+  const char *bubbleInfo = bubble && bubble->bName ? dictName (gActive->bubbleDict, bubble->bName) : 0 ;
+  Box box0 = gBoxGet (0) ;
+  int xMax = XFac * box0->x2 - 4 ;
+  static int kk = 0 ;
+
+  if (bubbleInfo)
+    {
+      int x1 = XFac * box->x1 ;
+      int x2 = XFac * box->x2 ;
+      int y1 = YFac * box->y1 ;
+      int y2 = YFac * box->y2 ;
+
+      if (x1 > x2) { int dummy = x1 ; x1 = x2 ; x2 = dummy ; }
+      if (y1 > y2) { int dummy = y1 ; y1 = y2 ; y2 = dummy ; }
+      aceOutf (out, "<rect x=\"%d\" y=\"%d\" height=\"%d\" width=\"%d\" opacity=0 \" />\n"
+	       , x1, y1, y2 - y1, x2 - x1
+	       ) ;
+    }
+  if (bubbleInfo)
+    {
+      int dx = 2, dy = -1 ; 
+      int x1 = XFac * ((box->x1 + box->x2)/2.0 + dx) ;
+      int y1 = YFac * ((box->y1 + box->y2)/2.0 + dy) ;
+      int lineHeight = .8 * YFac ;
+      int ddx = 8 ;
+      int ddy = 10 ;
+      int width = 0 ;
+      int height = YFac + 2 ;
+      int nLines =  0 ;
+      char *buf = strnew (bubbleInfo, 0) ;
+      char *cq, *cp = buf ;
+
+      if (0) buf[0] += (kk++) % 6 ;
+      while (cp)
+	{         /*  count the lines in the bubble */
+	  int w ;
+	  cq = strchr (cp, '\n') ;
+	  if (cq)
+	    { 
+	      if (cq > cp)
+		{
+		  nLines++ ;
+		  cq++ ;
+		  y1 -= lineHeight ;
+		  height += .94 * lineHeight ;
+		  w = cq - cp ;
+		}
+	      cq++ ;
+	    }
+	  else
+	    w = strlen(cp) ;
+	  if (w > width)
+	    width = w ;
+	  cp = cq ;
+	}
+
+      if (y1 < height + ddy + 2)
+	y1 = height + ddy + 2 ;
+
+      width = XFac * 0.42 * width + 16 ;
+      x1 -= width/2 + 0.4 * 3 * XFac ;
+
+      if (x1 < 10)
+	x1 = 10 ;
+      if (x1 + width > xMax)
+	x1 -= (x1 + width - xMax) ;
+      aceOut (out, "<g  class='bubble'>\n") ;
+      aceOutf (out, "<rect class='bubbleFrame' x=\"%d\" y=\"%d\" rx=\"3\" ry=\"3\"  height=\"%d\" width=\"%d\"  style=\"fill:#ffffef\"/>"
+	       , x1 - ddx
+	       , y1 - ddy 
+	       , height 
+	       , width + ddx
+	       ) ;
+
+      nLines =  0 ; cp = buf ;
+      while (cp)
+	{         /*  export each line */
+	  cq = strchr (cp, '\n') ;
+	  if (cq)
+	    *cq++ = 0 ;
+	  if (cp && *cp) /* !cq || cq > cp */
+	    {
+	      aceOutf (out, "<text  class='bubbleText' x='%d' y='%d'  ;>\n%s\n</text>\n"
+		       , x1, y1 + lineHeight * nLines
+		       , cp
+		       ) ;				
+	      nLines++ ;
+	    }
+	  cp = cq ;
+	}
+
+      aceOut (out, "</g>") ;
+      messfree (buf) ;
+    }
   return ;
 }
 
 /*******************************************************************************/
 /* exports recursivelly the internal boxes
  */
-static void svgDrawBox (ACEOUT out, Box box)
+static void svgDrawBox (ACEOUT out, Box box, int iBox, int draw)
 {
   int    i1 ;
   int  x1,x2,y1,y2 ;
-  int  colour = 0,  lineWidth, format, currHeight ;
+  int  colour = 0,  bgcolour = 0, lineWidth, format, currHeight ;
   int    action ;
   Box	 nextbox ;
-  
+  char bufBC[128], bufC[128] ;
+ 
   lineWidth = 1;
   colour = box->fcol ;
-  svgSetColour (out, colour) ;
+  bgcolour = box->bcol ;
+
   
   stackCursor (gStk, box->mark) ;
   
+  if (iBox)
+    {
+      aceOutf (out, "<g class='bubbly' iBox='%d' ", iBox) ;
+      if (!draw)
+	svgAction (out, box, iBox) ;
+      aceOut (out, ">\n") ;
+    }
   while (!stackAtEnd (gStk))
     switch (action = stackNext (gStk, int))
       {
       case BOX_END:           /* exit point */
-	aceOutf (out, "</g>\n") ;
+	if (! draw) svgBubble (out, box, iBox) ;
+	aceOutf (out, "</g iBox='%d'>\n", iBox) ;
         return ;                        
       case BOX_START:          /* recursion */
-	aceOutf (out, "<g>\n") ;
         i1 = stackNext (gStk, int) ;
 	if(DEBUG) fprintf(stderr,"BOX_START %d\n",i1);
 	nextbox = gBoxGet (i1) ;
-	svgFillBox (out, nextbox) ;
-	svgDrawBox (out, nextbox) ;           
+	if (draw) svgFillBox (out, nextbox) ;
+	svgDrawBox (out, nextbox, i1, draw) ;           
 	
 	/* restore current box settings */
-	svgSetColour (out, colour) ;
 	svgSetLineWidth (out, lineWidth) ;
 	svgSetFormat (out, format) ;
 	break ;
       case COLOR:
         i1 = stackNext (gStk,int) ;
 	colour = i1;
-	svgSetColour (out, colour) ;
         break ;
       case TEXT_FORMAT:
         format = stackNext (gStk,int) ;
@@ -146,6 +303,7 @@ static void svgDrawBox (ACEOUT out, Box box)
         break ;
       case TEXT_HEIGHT:
 	currHeight = stackNext (gStk,float) ;
+	svgSetTextHeight (out, currHeight) ;
 	/*********/
         break ;
       case POINT_SIZE:
@@ -155,31 +313,46 @@ static void svgDrawBox (ACEOUT out, Box box)
 	  if(DEBUG) fprintf(stderr,"POINT_SIZE %f\n",psize);
 	}
         break ;
-      case LINE: case RECTANGLE: case FILL_RECTANGLE:
+      case LINE: 
         x1 = (int)(XFac * stackNext (gStk,float));
         y1 = (int)(YFac * stackNext (gStk,float));
         x2 = (int)(XFac * stackNext (gStk,float));
         y2 = (int)(YFac * stackNext (gStk,float));
-	switch (action)
-	  {
-	  case LINE:
-	    aceOutf (out, "<svg:line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" style=\"stroke:rgb(99,99,99);stroke-width:%d\"/>\n"
-		      , x1,y1,x2,y2, lineWidth);
-	    break ;
-	  case RECTANGLE:
-	    aceOutf (out, "<svg:rect  stroke=\"%s\" x=\"%d\"  y=\"%d\" height=\"%d\" width=\"%d\" style=\"stroke-width:%d\"/>\n"
-		     , name (colour - BLACK + _BLACK)
-		     , x1, y1, y2 - y1, x2 - x1, lineWidth
-		     ) ;
-	    break ;
-	  case FILL_RECTANGLE:
-	    aceOutf (out, "<svg:rect fill=\"%s\"  stroke=\"%s\" x=\"%d\" y=\"%d\" height=\"%d\" width=\"%d\" style=\"stroke-width:%d\"/>\n"
-		     , name (colour - BLACK + _BLACK)
-		     , name (box->bcol - BLACK + _BLACK)
-		     , x1, y1, y2 - y1, x2 - x1, lineWidth
-		     ) ;
-	    break ;
-	  }
+	if (draw)
+	  aceOutf (out, "<line x1=\"%d\" y1=\"%d\" x2=\"%d\" y2=\"%d\" style=\"stroke-width:%d;stroke:%s;\"/>\n"
+		 , x1,y1,x2,y2
+		 , lineWidth
+		 , svgColour (bufC, colour)
+		 );
+	break ;
+      case RECTANGLE: case FILL_RECTANGLE:
+        x1 = (int)(XFac * stackNext (gStk,float));
+        y1 = (int)(YFac * stackNext (gStk,float));
+        x2 = (int)(XFac * stackNext (gStk,float));
+        y2 = (int)(YFac * stackNext (gStk,float));
+	if (x1 > x2) { int dummy = x1 ; x1 = x2 ; x2 = dummy ; }
+	if (y1 > y2) { int dummy = y1 ; y1 = y2 ; y2 = dummy ; }
+	if (draw)
+	  switch (action)   /* fill:rgb(255,0,0) */
+	    {
+	    case RECTANGLE:
+	      aceOutf (out, "<rect x=\"%d\" y=\"%d\" height=\"%d\" width=\"%d\" style=\"stroke-width:%d;stroke:%s;fill:%s; \" />\n"
+		       , x1, y1, y2 - y1, x2 - x1
+		       , lineWidth
+		       , svgColour(bufC, colour)
+		       , svgColour (bufBC, bgcolour)
+		       ) ;
+	      break ;
+	    case FILL_RECTANGLE:
+	      svgColour (bufC, colour) ;
+	      aceOutf (out, "<rect x=\"%d\" y=\"%d\" height=\"%d\" width=\"%d\" style=\"stroke-width:%d;stroke:%s;fill:%s; \" />\n"
+		       , x1, y1, y2 - y1, x2 - x1
+		       , lineWidth
+		       , bufC
+		       , bufC
+		       ) ;
+	      break ;
+	    }
 	break ;
       case PIXELS: case PIXELS_RAW:
 	{
@@ -189,16 +362,20 @@ static void svgDrawBox (ACEOUT out, Box box)
 	  x1 = (int)stackNext (gStk,float) ;
 	  y1 = (int)stackNext (gStk,float) ;
 	  pixels = stackNext (gStk, unsigned char*) ;
+	  if (0) fprintf (stderr, "%s", pixels) ; /* for compiler happiness */
 	  w = stackNext (gStk, int) ;
 	  h = stackNext (gStk, int) ;
-	  line = stackNext (gStk, int) ;
+	  line = stackNext (gStk, int) ; 
+	  x2 = x2 + w + h - w - h + line - line  ;
 	  if (action == PIXELS)
-	    { x2 = (int)stackNext (gStk,float) ;
-	    y2 = (int)stackNext (gStk,float) ;
+	    {
+	      x2 = (int)stackNext (gStk,float) ;
+	      y2 = (int)stackNext (gStk,float) ;
 	    }
 	  else
-	    { x2 = x1 + XtoUrel(w) ;
-	    y2 = x2 + YtoUrel(w) ;
+	    { 
+	      x2 = x1 + XtoUrel(w) ;
+	      y2 = x2 + YtoUrel(w) ;
 	    }
 	  
 	}
@@ -208,30 +385,24 @@ static void svgDrawBox (ACEOUT out, Box box)
 	  int n = stackNext (gStk, int) ;
 	  if (n > 2) 
 	    {
-	      int x,y,i;
+	      int i;
 	      
-	      aceOutf (out, "<svg:polyline fill=\"%s\" stroke=\"%s\" stroke-width=\"%d\" points=\""
-		       , action == POLYGON ? name (box->bcol - BLACK + _BLACK) : "none"
-		       , name (colour - BLACK + _BLACK)
-		       , lineWidth
-		       ) ;
-	      for(i=0;i<n-1;i++)
+	      if (draw)
+		aceOutf (out, "<polyline style=\"stroke-width:%d;stroke:%s;fill:%s;\" points=\""
+			 , lineWidth
+			 , svgColour (bufC, colour) 
+			 , svgColour (bufBC, bgcolour) 
+			 ) ;
+	      for(i=0;i<n;i++)
 		{
 		  x1 = (int)(XFac * stackNext (gStk, float));
 		  y1 = (int)(YFac * stackNext (gStk, float));
-		  aceOutf (out, " %d , %d ", x1, y1) ;
+		  if (draw)
+		    aceOutf (out, " %d , %d ", x1, y1) ;
 		}
-	      aceOutf (out, "\"/>\n") ;
-	      
-	      /*
-		<rect fill="red" stroke="black" x="15" y="15" width="100" height="50"/>
-		<rect fill="blue" stroke="black" x="150" y="15" width="100" height="50" rx="12" ry="18"/>
-		<circle fill="yellow" stroke="black" cx="62" cy="135" r="20"/>
-		<ellipse fill="green" stroke="black" cx="200" cy="135" rx="50" ry="20"/>
-		<polyline fill="none" stroke="red" stroke-width="2" points="160,200 180,230 200,210 234,220"/>
-		<polygon fill="yellow" stroke="black" stroke-width="1" points="49,272 57,297 "/>
-	    */
-	  }
+	      if (draw)
+		aceOutf (out, "\"/>\n") ;
+	    }
 	  break ;
 	}
       case CIRCLE: case POINT: 
@@ -241,33 +412,37 @@ static void svgDrawBox (ACEOUT out, Box box)
         y1 = (int)(YFac * stackNext (gStk,float));
         switch (action)
 	  {
-	    int r, a1, a2, dep, arr;
+	    int r, a1, a2, dep ;
 	    
 	  case CIRCLE:
 	    r = (int)(XFac * stackNext(gStk,float));
-	    aceOutf (out, "<svg:circle stroke=\"%s\" cx=\"%d\" cy=\"%d\" r=\"%d\"/>"
-		     , name (colour - BLACK + _BLACK)
-		     , x1,y1, r
-		     ) ;
+	    if (draw)
+	      aceOutf (out, "<circle style=\"stroke-width:%d;stroke:%s;fill:%s\" cx=\"%d\" cy=\"%d\" r=\"%d\"/>"
+		       , lineWidth
+		       , svgColour (bufC, colour)  
+		       , svgColour (bufBC, bgcolour)  
+		       , x1,y1, r
+		       ) ;
 	    break ;
 	  case FILL_ARC: case ARC:
 	    r = (int)(2.0 * XFac * stackNext(gStk,float));
 	    a1 = (int)stackNext(gStk,float);
 	    a2 = (int)stackNext(gStk,float);
 	    dep = a1 + a2;
-	    arr = a1;
 	    if(dep < 0) dep += 360;
-	    /*
-	      svgImageArc(out, im,x1,y1,r,r,dep,arr,alloca_colours[colour]);
+	    /* int arr = a1;
+	       if (draw)
+	       svgImageArc(out, im,x1,y1,r,r,dep,arr,alloca_colours[colour]);
 	    */
 	    break ;
 	  case POINT:
-	    {
+	    { 
 	      int psize2 = 1 ;
 	      int pszx = (int)(XFac * psize2);
 	      int pszy = (int)(YFac * psize2);
 	      
-	      aceOutf (out, " ????? (%d, %d, %d, %d);\n", x1-pszx,y1-pszy, 2*pszx, 2*pszy) ;
+	      if (draw)
+		aceOutf (out, " ????? (%d, %d, %d, %d);\n", x1-pszx,y1-pszy, 2*pszx, 2*pszy) ;
 	    }
 	    break ;
 	  case TEXT:
@@ -283,7 +458,7 @@ static void svgDrawBox (ACEOUT out, Box box)
 		{ 
 		case TEXT_UP: 
 		  text = stackNextText (gStk) ; 
-		  text = 0 ; /* i do not yet know how to diaply that */
+		  text = 0 ; /* i do not yet know how to display that */
 		  break ;
 		case TEXT: text = stackNextText (gStk) ; break ;
 		case TEXT_PTR: text = stackNext (gStk, char *) ; break ;
@@ -291,30 +466,11 @@ static void svgDrawBox (ACEOUT out, Box box)
 		case TEXT_EXTERNAL: 
 		  text = *stackNext(gStk, char **) ; 
 		  len = *stackNext(gStk, int *) ; /* consume len */
+		  x1 = x1 + len - len ;
 		  break ;
 		}
-	      if (text && *text)
-		{ 
-		  char *cp, *cq, *text2 ;
-		  
-		  text2 = messalloc (2 * strlen (text) + 1) ;
-		  cp = text - 1; cq = text2 ;
-		  
-		  while (*++cp) /* may be this is the same as the function javaprotect ? */
-		    switch (*cp)
-		      {
-		      case '&': break ;   /* ?????? kills svg */
-		      case '\"':
-		      case '\'':
-		      case '\\':
-			*cq++ = '\\' ; *cq++ = *cp ; break ;
-		      default: *cq++ = *cp ; break ; 
-		      }
-		  *cq = 0 ;
-		  
-		  aceOutf (out, "<svg:text x=\"%d\" y=\"%d\">%s</svg:text>\n", x1, y1, text2) ;
-		  messfree (text2) ;
-		}
+	      if (draw && text && *text)
+		aceOutf (out, "<text x=\"%d\" y=\"%d\" fill=\"%s\">%s</text>\n", x1, y1+12, svgColour (bufC, colour), text) ;
 	    }
 	    break;
 	  case COLOR_SQUARES:
@@ -341,9 +497,12 @@ static void svgDrawBox (ACEOUT out, Box box)
 		    case -1:
 		    default:col = WHITE; break;
 		    }
-		  /* svgImageFilledRectangle (out, im,x1,y1,x2,y2,alloca_colours[col]); */
+		  /* 
+		     svgImageFilledRectangle (out, im,x1,y1,x2,y2,alloca_colours[col]); 
+		     svgColour (bufC, colour) ;
+		  */
 		  text += iskip ;
-		  x1 += XFac ; x2 += XFac ;
+		  x1 += XFac ; x2 += XFac + col - col ; /* compiler happiness */
 		}
 	    }
 	    break ;
@@ -353,29 +512,23 @@ static void svgDrawBox (ACEOUT out, Box box)
 	    break ;     
 	  }
       }
+
 } /* svgDrawBox */
 
 /*******************************************************************************/
 
-static void svgDoBox (ACEOUT out, int k, int fcol, int bcol)
+static void svgDoBox (ACEOUT out, int iBox, int fcol, int bcol)
 {
-  Box box = gBoxGet (k) ;
+  Box box = gBoxGet (iBox) ;
 
-  /*
-    currFormat = box->format ;
-    currHeight = uToYrel(box->textheight) ;
-    fontSet () ;
-    psize = gActive->pointsize ;
-    psize2 = psize/2 ;
-  */
   if (fcol >= 0)
     box->fcol = fcol ;
   if (bcol >= 0)
     box->bcol = bcol ;
 
-  if (0) svgColorInit () ;
-  if (0) svgFillBox (out, box) ;	/* does background */
-  svgDrawBox (out, box) ;
+  svgFillBox (out, box) ;	/* does background */
+  if (1) svgDrawBox (out, box, iBox, 1) ;
+  svgDrawBox (out, box, iBox, 0) ;
 } /* svgDoBox (int box) */
 
 /*******************************************************************************/
@@ -384,19 +537,40 @@ static void svgDoBox (ACEOUT out, int k, int fcol, int bcol)
 static void svgOuterBox (ACEOUT out, int box)
 {
   float x1, y1, x2, y2, w, h ; 
-
+  
   XFac = gActive->xFac ;
   YFac = gActive->yFac ;
-
+  
   graphBoxDim (0, &x1, &y1, &x2, &y2) ;
-  w = XFac * (x2 - x1) ; h = YFac * (y2 - y1) ;
+  w = XFac * (x2 - x1) ; h = YFac * (y2 - y1 + 4) ;
   if (gActive->h < h) h = gActive-> h ;
   if (gActive->w < w) w = gActive-> w ;
+  
+  aceOutf (out, "<svg class='ace_wide' viewBox='%f %f %f %f'  margin-top: 2px; >\n"
+	   , x1, y1 - .05 * (y2 - y1), 1.1 * w , 1.1 * h ) ;
 
   svgDoBox (out, 0, -1, -1) ;  
 
+  aceOut (out, "</svg>\n") ;
   return ;
 } /* svgOuterBox */
+
+/*******************************************************************************/
+/* resize the SVG window before exportation */
+BOOL svgGraphResize (float width, float height)
+{
+  if (1)
+    {
+      gActive->w = gActive->xFac * width ;
+      gActive->h = gActive->yFac * height ;
+    }
+  gActive->uw = width ;
+  gActive->uh = height ;
+  graphFacMake() ;
+  gUpdateBox0 () ;
+
+  return TRUE ; 
+}
 
 /*******************************************************************************/
 /* exports the active window using aceOut 
@@ -405,108 +579,31 @@ static void svgOuterBox (ACEOUT out, int box)
  */
 BOOL svgGraphExport (Graph gId, ACEOUT out, BOOL do_size)
 {
-
-  aceOut (out, "<?xml version=\"1.0\" encoding=\"iso-8859-1\" standalone=\"no\"?>\n"
-	   "<!DOCTYPE svg PUBLIC \"-//W3C//DTD SVG 1.1//EN\" "
-	  "\"http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd\">\n"
-
-	   "<svg xml:space=\"preserve\" width=\"2000\" height=\"3000\"\n"
-	   "xmlns=\"http://www.w3.org/2000/svg\">\n"
-	  "<style type=\"text/css\">"
-	  ".redbox{fill:#FF0000;}"  
-	  ".whitewords{font-family:Times-Bold;font-size:36;fill:#FFFFFF;}"
-	  "</style>"
-
-
-	  "<g>"
-	  "  <rect class=\"redbox\" x=\"100\" y=\"100\" width=\"460\" height=\"50\" /> \n"
-	  "  <text class=\"whitewords\" x=\"120\" y=\"120\" >\n"
-	  "    This site is powered by AceView/SVG.</text>"
-	  "</g>"
+  aceOut (out, "<defs>\n"
+	  "  <style type='text/css'>\n"
+	  "    .ace_wide {width:100% ; height:auto ;}\n"
+	  "    .bubbleText { font-size:8 ; stroke:none ; fill: black; text-align:center; position:relative;overflow-wrap: break-word;}\n"
+	  "    .bubble {pointer-events: none; stroke:black ; opacity:0; }\n"
+	  "    .bubbly {pointer-events: unset;  }\n"
+	  "    .bubbly:hover .bubble { opacity:1;}  \n"
+	  
+	  "  </style>\n"
+	  " </defs>\n"
 	  ) ;
-  /* 
-	  "<svg width=\"100%\" height=\"100%\" version=\"1.1\"\n"
-	  "xmlns=\"http://www.w3.org/2000/svg\">\n"
-
-	   "<svg xml:space=\"preserve\" width=\"2000\" height=\"3000\"\n"
-	   "xmlns=\"http://www.w3.org/2000/svg\">\n"
-	  "<style type=\"text/css\">"
-	  ".redbox{fill:#FF0000;}"  
-	  ".whitewords{font-family:Times-Bold;font-size:36;fill:#FFFFFF;}"
-	  "</style>"
-
-
-	  "<g>"
-	  "  <rect class=\"redbox\" x=\"10\" y=\"0\" width=\"460\" height=\"50\" /> \n"
-	  "  <text class=\"whitewords\" x=\"20\" y=\"40\" >\n"
-	  "    This site is powered by SVG.</text>"
-	  "</g>"
-
- */
 
   svgOuterBox (out, 0) ;
-
-  aceOut (out, "</svg>\n") ;
-
+  
   return TRUE ;
 } /* svgActiveWindow */
- 
+
+/*
+"<div class="speech-bubble">
+    <p><strong>Demo speech bubble</strong></p>
+    <p>This is a simple CSS speech bubble.</p>
+</div>
+*/
 /*******************************************************************************/
 /*******************************************************************************/
 /*******************************************************************************/
-
-#ifdef JUNK
-
-example of a full document
-
-<?xml version="1.0" encoding="iso-8859-1"?>
-2 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 12August 1999//EN" "http://www.w3.org/Graphics/SVG/SVG-19990812.dtd">
-3 <svg xml:space="preserve" width="1000" height="1000" >
-4 <style type="text/css">
-5 .redbox{fill:#FF0000;}   ///  define style 1
-6 .whitewords{font-family:Times-Bold;font-size:36;fill:#FFFFFF;} ///  define style 2
-7 </style>
-8 <g>
-9 <rect class="redbox" x="10" y="0" width="460" height="50" />   /// use style redbox
-10 <text class="whitewords" x="20" y="40" >This site is powered by SVG.</text>
-11 </g>
-12 </svg>
-
-
-OTHER example 
-<?xml version="1.0" encoding="iso-8859-1" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/SVG/DTD/svg10.dtd">
-<svg viewBox="0 0 270 400" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-	<g id="mainlayer">
-		<rect fill="red" stroke="black" x="15" y="15" width="100" height="50"/>
-		<rect fill="blue" stroke="black" x="150" y="15" width="100" height="50" rx="12" ry="18"/>
-		<circle fill="yellow" stroke="black" cx="62" cy="135" r="20"/>
-		<ellipse fill="green" stroke="black" cx="200" cy="135" rx="50" ry="20"/>
-		<polyline fill="none" stroke="red" stroke-width="2" points="160,200 180,230 200,210 234,220"/>
-		<polygon fill="yellow" stroke="black" stroke-width="1" points="49,272 57,297 114,282 63,314 71,339 49,324 27,339 35,314 13,297 40,297"/>
-
-		<path stroke="black" fill="none" stroke-width="3" d="M150 280l19,10 -22,33 40,3c12,43 44,-83 83,20"/>
-		<g stroke="green" fill="none">
-			<line x1="15" y1="240" x2="30" y2="200" stroke-width="2"/>
-			<line x1="30" y1="240" x2="45" y2="200" stroke-width="4"/>
-			<line x1="45" y1="240" x2="60" y2="200" stroke-width="8"/>
-			<line x1="60" y1="240" x2="75" y2="200" stroke-width="10"/>
-			<line x1="75" y1="240" x2="90" y2="200" stroke-width="12"/>
-		</g>
-		<g font-size="20px">
-
-			<text x="44" y="88">rect</text>
-			<text x="140" y="88">rect (rounded)</text>
-			<text x="36" y="180">circle</text>
-			<text x="170" y="180">ellipse</text>
-			<text x="36" y="263">line</text>
-			<text x="156" y="255">polyline</text>
-
-			<text x="16" y="363">polygon</text>
-			<text x="140" y="363">path:<tspan x="140" y="383">simple + bezier</tspan></text>
-		</g>
-	</g>
-</svg
-
-#endif
-
+/*******************************************************************************/
+/*******************************************************************************/

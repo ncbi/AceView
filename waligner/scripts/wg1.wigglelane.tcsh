@@ -63,6 +63,7 @@ echo $mytmp/$run
  if ($paired == pairs)  set pair="-pair 500"
 
 set isIlm=`cat  MetaDB/$MAGIC/runs.ace | gawk '/^Run /{gsub(/\"/,"",$2);ok=0;if($2==run)ok=1;}/^Illumina/{if(ok==1)okk=1;}END{print 0+okk;}' run=$run`
+set isNanopore=`cat  MetaDB/$MAGIC/runs.ace | gawk '/^Run /{gsub(/\"/,"",$2);ok=0;if($2==run)ok=1;}/anopore/{if(ok==1)okk=1;}/PacBio/{if(ok==1)okk=1;}END{print 0+okk;}' run=$run`
 if ($isIlm == 1) then
   set maxWigErr=3
   set maxWigErrRate=3
@@ -80,11 +81,13 @@ endif
    if ($uu == u) set filter="-unique"
    if ($uu == nu) set filter="-non_unique"
    if ($uu == pp) set filter="-partial"
+   if ($isNanopore == 1 && $uu == pp) continue
+   if ($isNanopore == 1) set filter="$filter -noPartial"
   ## split recursivelly the hits so we scan once the big file and split it per chromosome or per target
   ## ATTENTION do nor -gzo: there would be to many gzip pipes generated on the computer
     # if we set -minErrRate 7, we obtain in addition a second set of K7 wiggle using only error rich reads
-    echo "$mytmp/wiggle -ventilate $filter $stranded $remapon -i tmp/COUNT/$lane.hits.gz -o $mytmp/$lane -minErrRate 0  -minAliRate 70 -minAliLength 70 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair -I BHIT -O BG"
-          $mytmp/wiggle -ventilate $filter $stranded $remapon -i tmp/COUNT/$lane.hits.gz -o $mytmp/$lane -minErrRate 0  -minAliRate 70 -minAliLength 70 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair -I BHIT -O BG
+    echo "$mytmp/wiggle -strategy $Strategy -ventilate $filter $stranded $remapon -i tmp/COUNT/$lane.hits.gz -o $mytmp/$lane -minErrRate 0  -minAliRate 70 -minAliLength 70 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair -I BHIT -O BG"
+          $mytmp/wiggle -strategy $Strategy -ventilate $filter $stranded $remapon -i tmp/COUNT/$lane.hits.gz -o $mytmp/$lane -minErrRate 0  -minAliRate 70 -minAliLength 70 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair -I BHIT -O BG
   end
 
 echo -n "splitting done tralala"
@@ -168,8 +171,8 @@ if ($Strategy == RNA_seq) set frs="f r ELF ELR ERF ERR"
                set x2=`echo $fff | gawk -F _ '{print $2}'`
                set x3=`echo $fff | gawk -F _ '{print $3}'`
                if (-e $mytmp/$lane/$x1.$map.$chrom.$uu.BV || -e $mytmp/$lane/$x2.$map.$chrom.$uu.BV || -e $mytmp/$lane/K.$map.$chrom.$uu.$x3.BV) then
-                  echo "cat $mytmp/$lane/$x1.$map.$chrom.$uu.BV  $mytmp/$lane/$x2.$map.$chrom.$uu.BV $mytmp/$lane/K.mapped.$chrom.$uu.$x3.BV |  $mytmp/wiggle -I BV -O BV $out_step -gzo -o $mytmp/$lane/K.$map.$chrom.$uu.$x3"
-                        cat $mytmp/$lane/$x1.$map.$chrom.$uu.BV  $mytmp/$lane/$x2.$map.$chrom.$uu.BV $mytmp/$lane/K.mapped.$chrom.$uu.$x3.BV |  $mytmp/wiggle -I BV -O BV $out_step -gzo -o $mytmp/$lane/KK.$map.$chrom.$uu.$x3
+                  echo "cat $mytmp/$lane/$x1.$map.$chrom.$uu.BV  $mytmp/$lane/$x2.$map.$chrom.$uu.BV  |  $mytmp/wiggle -I BV -O BV $out_step -gzo -o $mytmp/$lane/K.$map.$chrom.$uu.$x3"
+                        cat $mytmp/$lane/$x1.$map.$chrom.$uu.BV  $mytmp/$lane/$x2.$map.$chrom.$uu.BV  |  $mytmp/wiggle -I BV -O BV $out_step -gzo -o $mytmp/$lane/KK.$map.$chrom.$uu.$x3
                         mv  $mytmp/$lane/KK.$map.$chrom.$uu.$x3.BV.gz  $mytmp/$lane/K.$map.$chrom.$uu.$x3.BV.gz 
                 endif
              end
@@ -182,6 +185,7 @@ if ($Strategy == RNA_seq) set frs="f r ELF ELR ERF ERR"
   ####################
 gzip  $mytmp/$lane/K.mapped.*.BV
 mv $mytmp/$lane/K.*.gz tmp/WIGGLELANE/$lane
+# optionally
 # mv $mytmp/$lane/* tmp/WIGGLELANE/$lane
 
 end  # chrom/target

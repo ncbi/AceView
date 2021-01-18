@@ -26,7 +26,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: fmapcontrol.c,v 1.69 2017/02/24 15:46:20 mieg Exp $ */
+/* $Id: fmapcontrol.c,v 1.77 2019/09/26 20:38:10 mieg Exp $ */
 
 /* #define ARRAY_CHECK */
 
@@ -46,6 +46,7 @@
 #include "query.h"
 #include "freeout.h"
 #include "orepeats.h"
+#include "pref.h"
 
 /********************** globals ******************************/
 
@@ -996,6 +997,9 @@ void fMapDraw (LOOK look, KEY from)
   graphMenu (fMapMenu) ;
   if (!look->isOspSelecting)
     graphRegister (PICK, (GraphFunc) fMapPick) ;
+
+  if (look->view) /* impose a minimal width to the graph */
+    graphText (".", 1, 60) ; 
 
   arrayMax (look->segs) = look->lastTrueSeg ;
   look->boxIndex = arrayReCreate (look->boxIndex,200,int) ;
@@ -3105,7 +3109,7 @@ BOOL fMapConvert (LOOK look, BOOL force)
       if (( (seg->type | 0x1) == PMRNA_UP || (seg->type | 0x1) == MRNA_UP) &&
 	  bsGetArray (obj, str2tag ("Coding"), units, 5))
 	{ 
-	  char bestP[8], *bp, *cp ;
+	  char bestP[1024], *bp, *cp ;
 	  int ibp = 0, nbp = 0, isExon ;
 	  KEY prod ;
 	  BSunit *uu ;
@@ -3135,8 +3139,9 @@ BOOL fMapConvert (LOOK look, BOOL force)
 		    if ((*cp == '3' || *cp == '5') && (*++cp)) ;
 		    else 
 		      {
+			int i = 1023 ;
 			bp = bestP ;
-			while (*bp) 
+			while (i-- && *bp) 
 			  if (*bp++ == *cp)
 			    isExon++ ;
 		      }
@@ -4145,7 +4150,7 @@ void fMapReportLine (LOOK look, SEG *seg, BOOL isGIF, float x)
   if (isGIF)
     *look->segTextBuf = 0 ;
   else if (iskey (seg->key))
-    strncpy (look->segTextBuf, name (seg->key), 40) ;
+    strncpy (look->segTextBuf, name (seg->key), 40) ; 
   else if (seg->parent && iskey (seg->parent))
     strncpy (look->segTextBuf, name (seg->parent), 40) ;
   else
@@ -4927,13 +4932,6 @@ static void fMapCompHelp (void)
 "Complement DNA in place: Don't change coords or\n"
 "    direction.  DNA display swaps G-C, A-T.  Now\n"
 "    the sequence reads 3' to 5' left to right.") ;
-  if (0) 
-    { /* keep compiler happy */
-      fMapCompHelp () ;
-      fMapComplement () ;
-      fMapComplementSurPlace () ;
-      fMapToggleTranslation () ;
-    }
 }
 
 static void fMapComplementSurPlace (void)
@@ -4963,6 +4961,11 @@ void fMapRC (LOOK look)
   char *ci, *cj, ctmp ;
   float *ftmp ;
 
+  if (look->dna && ! look->dnaR)
+    {
+      look->dnaR = arrayCopy (look->dna) ;
+      reverseComplement (look->dnaR) ;
+    }
   for (i = 1 ; i < arrayMax (look->segs) ; ++i)
     { seg = arrp (look->segs, i, SEG) ;
       tmp = seg->x1 ;
@@ -5771,7 +5774,7 @@ static void fMapDumpAlign (LOOK look, BOOL isPep)
 	  if (first)
 	    {
 	      first = FALSE ;
-	      dna = arrayCopy (look->dna) ;
+	      dna = dnaCopy (look->dna) ;
 	      x = look->zoneMin ;
 	      y = look->zoneMax ;  
 	      memset (buf, (int)'.', bufMax) ;
@@ -5897,8 +5900,8 @@ static void geneStats (void)
   messout ("Sorry, this does nothing on a macintosh "
            " (you aren't missing much - it was a quick hack)") ;
 #endif
-  if (0) geneStats () ; /* keep compiler happy */
 }
+
 
 #ifndef ACEMBLY			/* trace, assembly stuff */
 void fMapTraceDestroy (LOOK look) { ;}
@@ -5914,7 +5917,7 @@ void fMapSelectVirtualMultiplet (LOOK look, SEG *seg) { ; }
 
 void* fMapGifGet (void *opaqueLook)
 {
-  KEY key, classKey, view = 0 ;
+  KEY key, classKey, classSeq, view = 0 ;
   int x1, x2, origin ;
   char *word ;
   LOOK look = (LOOK) opaqueLook ;
@@ -5930,8 +5933,9 @@ void* fMapGifGet (void *opaqueLook)
   if (! (word = freeword ()))
     goto usage ;
 
+  lexword2key ("Sequence", &classSeq, _VClass);
   if (strcmp (word, "-class")) {
-    lexword2key ("Sequence", &classKey, _VClass);
+    classKey = classSeq ;
   } else {
     if (! (word = freeword ()) || !lexword2key (word, &classKey, _VClass)
 	|| ! (word = freeword ())) 
@@ -5949,7 +5953,7 @@ void* fMapGifGet (void *opaqueLook)
       goto usage ;
     }
 
-  if (!classKey == _VSequence && ! keyFindTag (key, _DNA) && !  keyFindTag (key, str2tag ("SMAP"))) {
+  if (classKey != classSeq && ! keyFindTag (key, _DNA) && !  keyFindTag (key, str2tag ("SMAP"))) {
     freeOutf ("// gif sequence error : %s \"%s\" contains no DNA or SMAP\n", name (classKey), word) ;
     goto usage ;
   }
@@ -6120,9 +6124,12 @@ void fMapGifDisplay (void *opaqueLook)
     float xx2 = look->map->centre + 0.5*d ;
     x1 = (int) (xx2 - d + 0.5) ;
     x2 = (int) (xx2 + 0.5) ;
-    freeOutf ("// FMAP_COORDS %s %d %d", 
-	      freeprotect (name (look->seqKey)), x1, x2) ;
-    freeOutf (" -visible_coords %d %d\n", COORD (look,x1), COORD (look, x2)) ;
+    if (0)  /* this kills the svg exportation */
+      {
+	freeOutf ("// FMAP_COORDS %s %d %d", 
+		  freeprotect (name (look->seqKey)), x1, x2) ;
+	freeOutf (" -visible_coords %d %d\n", COORD (look,x1), COORD (look, x2)) ;
+      }
   }
 
   fMapGifLook = 0 ; mapGifMap = 0 ; 
@@ -6398,6 +6405,15 @@ static void fMapZoneKeySet (void)
   int i, n = 0 ;
   KEYSET ks = keySetCreate () ;
   FMAPLOOKGET ("zoneKeySet") ;
+
+  if (0) 
+    { /* keep compiler happy */
+      fMapCompHelp () ;
+      fMapComplement () ;
+      fMapComplementSurPlace () ;
+      fMapToggleTranslation () ;
+      geneStats () ; /* keep compiler happy */
+    }
 
   for (i = 0 ; i < arrayMax (look->segs) ; ++i)
     { seg = arrp (look->segs, i, SEG) ;

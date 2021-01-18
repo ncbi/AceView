@@ -7,6 +7,22 @@ set snp_type=".filtered"
 set snp_type=".differential"
 set snp_type=""
 
+# phase s22 of MAGIC script
+if ($Strategy == s22) then
+       bin/snp -db tmp/SNP_DB/$zone -db_translate
+       bin/tacembly tmp/SNP_DB/$zone <<EOF
+         read-models
+         key  tmp/SNP_DB/$MAGIC.snp.selected.list
+         edit Selected
+         save
+         Find variant
+         show -a -f  tmp/SNP_DB/$zone/all_snp.ace
+         quit
+EOF
+       touch  tmp/SNP_DB/$zone/$MAGIC.selected.done
+       exit 0
+endif
+
 
 if (! -e tmp/SNP_DB/$zone/snp.parseChrom.done) then
 
@@ -19,21 +35,41 @@ if (! -e tmp/SNP_DB/$zone/snp.parseChrom.done) then
         whoami >> wspec/passwd.wrm
         echo y | ../../../bin/tacembly .
     popd
+
     if (-e TARGET/CHROMS/Centromere_telomeres.ace) then
       echo "pparse TARGET/CHROMS/Centromere_telomeres.ace" | bin/tacembly tmp/SNP_DB/$zone -no_prompt
+    endif
+
+    if (! -e TARGET/CHROMS/Centromere_telomeres.ace && -e TARGET/CHROMS/GCF_report.txt) then
+       cat GCF_000001405.22_GRCh37.p10_assembly_report.txt | grep assembled-molecule | cut -f 1,7 | sed -e 's/MT/mito/' | gawk '{printf("Map %s\nTitle %s\n\n",$1,$2);}' >  Chromosome_official_name.ace
+       # find Map ; list -a -f titi.list
+       cat titi.list | grep NT_ | gawk '/NT_/{print ;split($2,aa,"|");printf("Title \"%s\n\n",aa[2]);}' > titi2
+       cat titi2 >> Chromosome_official_name.ace
+
+    endif
+
+    if (-e TARGET/CHROMS/Chromosome_official_name.ace) then
+      # expecting  Map chr11 \n  Title NC_0012345.11 \n\n
+      # this title will be used in the VCF and the HGVS Human Genome Variation Society full name
+      echo "pparse TARGET/CHROMS/Chromosome_official_name.ace" | bin/tacembly tmp/SNP_DB/$zone -no_prompt
     endif
   endif
   echo "read-models" > tmp/SNP_DB/$zone/_rs3.$zone
 
-  foreach target (mito SpikeIn $Etargets)
+  foreach target (mito SpikeIn $Etargets $Ttargets)
     if (-e  tmp/METADATA/$target.MRNA.info.ace) then
       # gene gene_type geneId mrna mrna-length GC
       echo "pparse  tmp/METADATA/$target.GENE.info.ace" >> tmp/SNP_DB/$zone/_rs3.$zone
       echo "pparse  tmp/METADATA/$target.MRNA.info.ace" >> tmp/SNP_DB/$zone/_rs3.$zone
+      echo "pparse  tmp/METADATA/$target.MRNA.splicing.ace" >> tmp/SNP_DB/$zone/_rs3.$zone
     endif 
     if (-e tmp/METADATA/gtf.$target.goodProduct.ace) then
       # mrna -> product -> good/best product 
       echo "pparse   tmp/METADATA/gtf.$target.goodProduct.ace"  >> tmp/SNP_DB/$zone/_rs3.$zone
+    endif
+    if (-e TARGET/GTF/$species.magic.good_product.ace.gz) then
+      # mrna -> product -> good/best product 
+      echo "pparse TARGET/GTF/$species.magic.good_product.ace.gz"  >> tmp/SNP_DB/$zone/_rs3.$zone
     endif
     if (-e  tmp/SNP_DB/$species.$target.mrna.fasta.gz) then
       echo "pparse tmp/SNP_DB/$species.$target.mrna.fasta.gz"  >> tmp/SNP_DB/$zone/_rs3.$zone
@@ -144,6 +180,36 @@ if (! -e  tmp/SNP_DB/$zone/snp.remap.done) then
   touch tmp/SNP_DB/$zone/snp.remap.done 
 endif
 
+if (! -e   tmp/SNP_DB/$zone/snp.Genome_51mer_repeats.ace && -e TARGET/Genome_repeats/Genome_51mer_repeats.gz) then
+
+   bin/tacembly tmp/SNP_DB/$zone <<EOF
+     q -o tmp/SNP_DB/$zone/snp_positions.txt select snp,chrom,pos from snp in ?variant, chrom in snp->IntMap, pos in chrom[1] where pos order_by +2+3
+EOF
+   gzip tmp/SNP_DB/$zone/snp_positions.txt
+   date
+
+   gunzip -c tmp/SNP_DB/$zone/snp_positions.txt.gz ZZZZZ.gz TARGET/Genome_repeats/Genome_51mer_repeats.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){z=$2 "\t" $3;chrom[$2]=1;snp[z]=$1;next;}}{if(chrom[$1]<1)next;for (i=$3;i<=$4;i++){z=$1 "\t" i;s=snp[z];if(s)printf("Variant %s\nGenome_51mer_repeats %d\n\n",s,$5);}}' >  tmp/SNP_DB/$zone/snp.Genome_51mer_repeats.ace
+   gunzip -c tmp/SNP_DB/$zone/snp_positions.txt.gz ZZZZZ.gz TARGET/Genome_repeats/Genome_101mer_repeats.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){z=$2 "\t" $3;chrom[$2]=1;snp[z]=$1;next;}}{if(chrom[$1]<1)next;for (i=$3;i<=$4;i++){z=$1 "\t" i;s=snp[z];if(s)printf("Variant %s\nGenome_101mer_repeats %d\n\n",s,$5);}}' >  tmp/SNP_DB/$zone/snp.Genome_101mer_repeats.ace
+ 
+if (0) then
+  gunzip -c ALL_SNP/snp_positions.txt ZZZZZ.gz TARGET/Genome_repeats/Genome_51mer_repeats.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){z=$2 "\t" $3;chrom[$2]=1;snp[z]=$1;next;}}{if(chrom[$1]<1)next;for (i=$3;i<=$4;i++){z=$1 "\t" i;s=snp[z];if(s)printf("Variant %s\nGenome_51mer_repeats %d\n\n",s,$5);}}' > ALL_SNP/snp.Genome_51mer_repeats.ace
+  gunzip -c ALL_SNP/snp_positions.txt ZZZZZ.gz TARGET/Genome_repeats/Genome_101mer_repeats.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){z=$2 "\t" $3;chrom[$2]=1;snp[z]=$1;next;}}{if(chrom[$1]<1)next;for (i=$3;i<=$4;i++){z=$1 "\t" i;s=snp[z];if(s)printf("Variant %s\nGenome_101mer_repeats %d\n\n",s,$5);}}' > ALL_SNP/snp.Genome_101mer_repeats.ace
+endif
+
+   date
+   bin/tacembly tmp/SNP_DB/$zone <<EOF
+     read-models
+     pparse tmp/SNP_DB/$zone/snp.Genome_51mer_repeats.ace
+     save
+     quit
+EOF
+  date
+  
+endif
+
+
+
+
 if (! -e  tmp/SNP_DB/$zone/snp.translate.done) then
   echo -n "snp.translate  $zone "
   date
@@ -168,6 +234,7 @@ EOF
 endif
 
 if (! -e  tmp/SNP_DB/$zone/snp.differential.done2 && -e tmp/SNPH/$zone/$MAGIC.differential_snps ) then
+  
   cat  tmp/SNPH/$zone/$MAGIC.differential_snps | gawk -F '\t' '/^#/{next}{split($1,aa,":"); f1=$5;f2=$12;if (f1<f2){if(f1<1)typ="Gained_in"; else typ="Up_in";}else{if(f2<1)typ="Lost_in";else typ="Down_in";}printf ("Variant \"%s:%s:%s\"\nDifferential %s \"%s\" \"%s\" %s %s\n\n",aa[1],aa[2],aa[3], typ, $9, $2, f1, f2);}' | grep -v "D_HR_surv_noMYCNA_NB399_exome_Normal" | grep -v Ghs3987 | grep -v Ghs4007 >  tmp/SNP_DB/$zone/snp.differential.ace
   bin/tacembly tmp/SNP_DB/$zone <<EOF
    query find variant Differential
@@ -184,7 +251,7 @@ if (! -e  tmp/SNP_DB/$zone/snp.differential.done2 && -e tmp/SNPH/$zone/$MAGIC.di
    list -a -f tmp/SNP_DB/$zone/$MAGIC.differential_snp2gene.Down.list
    query find variant Lost_in  ; >Gene
    list -a -f tmp/SNP_DB/$zone/$MAGIC.differential_snp2gene.Lost.list
-  save
+   save
    quit
 EOF
   touch  tmp/SNP_DB/$zone/snp.differential.done
@@ -196,12 +263,16 @@ if (-e RESULTS/StLouisSNP/zone.stl.ace) then
 endif
 echo "bin/snp -i tmp/SNPH/$zone/$MAGIC.snp.sorted$snp_type -db tmp/SNP_DB/$zone -project $MAGIC -db_frequencyTable -db_frequencyHisto -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC -Reference_genome  $Reference_genome"
       bin/snp -i tmp/SNPH/$zone/$MAGIC.snp.sorted$snp_type -db tmp/SNP_DB/$zone -project $MAGIC -db_frequencyTable -db_frequencyHisto -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC -Reference_genome  "$Reference_genome" 
-      bin/snp -i tmp/SNPH/$zone/$MAGIC.snp.sorted$snp_type -db tmp/SNP_DB/$zone -project $MAGIC -db_frequencyTable -db_frequencyHisto -dropMonomodal -differential -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC.differential -Reference_genome  "$Reference_genome "
 
+if (-e tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt) \rm tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt
 
 echo 'bin/snp -i tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt              -db tmp/SNP_DB/$zone -project $MAGIC -db_prevalenceTable -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC -Reference_genome   "$Reference_genome "' 
       bin/snp -i tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt              -db tmp/SNP_DB/$zone -project $MAGIC -db_prevalenceTable -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC -Reference_genome   "$Reference_genome " 
-      bin/snp -i tmp/SNP_DB/$zone/$MAGIC.differential.snp_list_with_allele_frequency_per_sample.txt -db tmp/SNP_DB/$zone -project $MAGIC -db_prevalenceTable -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC.differential -Reference_genome   "$Reference_genome" 
+
+if ( -e tmp/SNPH/$zone/$MAGIC.differential_snps ) then
+  bin/snp -i tmp/SNPH/$zone/$MAGIC.snp.sorted$snp_type -db tmp/SNP_DB/$zone -project $MAGIC -db_frequencyTable -db_frequencyHisto -dropMonomodal -differential -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC.differential -Reference_genome  "$Reference_genome "
+  bin/snp -i tmp/SNP_DB/$zone/$MAGIC.differential.snp_list_with_allele_frequency_per_sample.txt -db tmp/SNP_DB/$zone -project $MAGIC -db_prevalenceTable -dropMonomodal -o  `pwd`/tmp/SNP_DB/$zone/$MAGIC.differential -Reference_genome   "$Reference_genome" 
+endif
 
 mv  tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt     tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt.1
 cat tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt.1 | gawk '/^#/{print;next;}' > tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt
@@ -283,7 +354,7 @@ echo "# Only read pairs aligning uniquely, over at least 90% of their length and
 echo "# To call a SNP or a 1 to 3 bases insertion or deletion, the variant has to be seen in at least one sample, where the variant allele frequency is above $minSnpFrequency %, the coverage above $minSnpCover fold and the variant has at least $minSnpCount supporting reads." >> $toto
 
 
-cat MetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ  tmp/SNP_DB/*/snp.translated.ace | gawk -f scripts/snp.translated.awk minSnpCover=$minSnpCover  >  $toto.1
+cat MetaDB/$MAGIC/RunListSorted  MetaDB/$MAGIC/GroupSnpAdditiveList ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ  tmp/SNP_DB/*/snp.translated.ace | gawk -f scripts/snp.translated.awk minSnpCover=$minSnpCover  >  $toto.1
 cat $toto.1 | head -20 | gawk '/^#/{print}' >> $toto
 cat  $toto.1 | gawk '/^#/{next;}{print}' | sort -k 14,14nr -k 15,15nr -k 16,16nr | sed -e 's/UUUU//g'  >> $toto
 \rm $toto.1

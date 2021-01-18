@@ -1,5 +1,5 @@
 // Spread sheet definition for the ACeDB software 
-// Date: 2016-06-28_21:42:00
+// Date: 2019-11-09_19:00:34
 
 // %n (%%n in the graphic)  are parameter to be given on the command line in tace
 // or by default by the Parameters given in this file
@@ -17,7 +17,6 @@ Optional
 Visible
 Class
 Class Ali
-Condition COUNT {>run ; Is_run } == 1
 
 Colonne 2
 Subtitle Column #2
@@ -85,7 +84,7 @@ Visible
 Float
 Right_of 7
 Tag HERE:1
-Condition [\%7 + \%8] >[ .3 * (\%3+\%4)]
+Condition [\%7 + \%8] >[ .1 * (\%3+\%4)] || [\%7 + \%8] > 10000
 
 Colonne 9
 Subtitle Column #9

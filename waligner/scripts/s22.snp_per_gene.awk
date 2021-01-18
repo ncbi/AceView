@@ -1,14 +1,14 @@
-/^#/{ line++ ; if(aceOut < 1) print ; if (iMin > 1) next ; for (i = 1 ; i <= NF ; i++) { if ($i == "Run") iMin = i + 2 ; if ($i == "SNV type") iType = i; run[i] = $i; if(i > iMin) print iMin,i,run[i];;}iMax = NF ; }
+/^#/{ line++ ; if(aceOut < 1) print ; if (iMin > 1) next ; for (i = 1 ; i <= NF ; i++) { if ($i == "Run") iMin = i + 2 ; if ($i == "SNV type") iType = i; run[i] = $i; if(i > iMin) print iMin,i,run[i];}iMax = NF ; }
 	{ last;
     if (protein)
     {
 	ok = 0 ;
-	split ($iType, bb, " ") ; w = bb[1] ;
-	k = index ("AA_sub AA_to_Stop Frame_preserving_indel Frameshift Met1_gained Stop_to_AA", w) ;
+	split ($iType, bb, " ") ; w = bb[1] ; if(substr(w,1,3)=="Ter") w="Ter";
+	k = index ("AA_substitution AA_to_Stop Frame_preserving_indel Extension Frameshift Met1del Met1_lost Met1_gained Stop_to_AA Ter", w) ;
 	if (k < 1)
 	    next ;
     }
-    k = split ($8, aa, ":") ; 
+    k = split ($10, aa, ":") ; 
     gene = aa[1] ; if (gene == "") next; 
     genes[gene] = 1; 
     af = $(iMin-3) ; # allele frequency in cohort

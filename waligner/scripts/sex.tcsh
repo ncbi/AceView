@@ -69,6 +69,44 @@ goto phaseLoop
 
 dosage:
 
+# plot the dosage per run 
+  cat tmp/SPONGE/EXOME/exomeDosage.txt | bin/histo -plot -o tmp/SPONGE/EXOME/geneDosagePlot -columns 4-12 -plain
+
+# transpose the matrix
+  cat tmp/SPONGE/EXOME/exomeDosage.txt | gawk -f scripts/transpose.awk > tmp/SPONGE/EXOME/exomeDosageT.txt
+
+  set n=`grep -n Chromosome tmp/SPONGE/EXOME/exomeDosage.txt | gawk '{n=$1}END{i=index(n,":");print substr(n,1,i-1)}'`
+tail -n +$n geneDosage.txt | bin/histo -plot -o geneDosagePlot -columns 4-12 -plain
+
+cat  geneDosage.txt | gawk -F '\t' '/^Chromosome/{n++;}{if(n<2)next;n1=3;}/^Chromosome/{n1=4;}/Number of genes/{next;}{if(NF<3)next;}{if(n1==3){printf("%s",$3);}for(i=4;i<=NF;i++)printf("\t%s",$i);printf("\n");next;}' > geneDosageR.txt
+
+cat  exomeDosage.txt | gawk -F '\t' '/^Chromosome/{n++;}{if(n<1)next;n1=3;}/^Chromosome/{n1=4;}/Number of genes/{next;}{if(NF<3)next;}{if(n1==3){printf("%s",$3);}for(i=4;i<=NF;i++)printf("\t%s",$i);printf("\n");next;}' > exomeDosageR.txt
+
+# PCA and heat map, construction of the file exomeDosageLegend.txt
+cat  tmp/SPONGE/EXOME/exomeDosage.index.txt | gawk -F '\t' '/^Chromosome/{n++;}{if(n<1)next;n1=3;}/^Chromosome/{n1=4;}/Number of genes/{next;}{if(NF<3)next;}{if(n1==3){printf("%s",$3);}for(i=4;i<=NF;i++)printf("\t%s",$i);printf("\n");next;}' > tmp/SPONGE/EXOME/exomeDosageR.index.txt
+
+R <<EOF
+genes = read.table("tmp/SPONGE/EXOME/exomeDosageR.index.txt",sep='\t')
+gg=as.matrix(genes)
+d2=dim(gg)
+gg2=gg[3:d2[1],6:d2[2]]
+rownames(gg2)=gg[3:d2[1],1]
+colnames(gg2)=gg[1,6:d2[2]]
+cc=cor(gg2)
+
+colnames(gg2)[hh$rowInd]
+pdf ("exomeDosage.correl.pdf")
+hh=heatmap(cc)
+
+write(colnames(gg2)[hh$rowInd],"exomeDosageLegend.txt")
+quit()
+EOF
+
+\cp exomeDosage.correl.pdf exomeDosageLegend.txt ~/ACEVIEWHELP
+
+
+######
+
 cat TARGET/GENES/RefSeq.gene_model.txt | gawk -F '\t' '{g=$2;chrom=$6;pos=($7+$8)/2;if(gg[g])next;gg[g]=pos;printf("%s\t%d\t%s\n",chrom,pos,g);}' | sort -k 1,1 -k2,2n |  gzip > geneDosage.intmap.gz
 
 gunzip -c geneDosage.intmap.gz tmp/GENERUNS/RefSeq.u.geneSupport.ace.gz | bin/geneelements -geneDosage -o geneDosage

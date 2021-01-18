@@ -325,7 +325,7 @@ static BOOL spreadHistoFillArray (SPREAD spread, int col, Array a,
   n = arrayMax (tt) ;
   switch (c1->realType)
     {
-    case 'i':  case 'c': /*mhmp 22.02.99 + 'c' */
+    case 'c': /*mhmp 22.02.99 + 'c' */
       scale = 0 ; xmin = 1; xmax = 0 ;
       while (n--) 
 	{ 
@@ -349,11 +349,12 @@ static BOOL spreadHistoFillArray (SPREAD spread, int col, Array a,
 	  array(a, n1, int)++ ;
 	}
       break ;
+    case 'i':
     case 'f':
       scale = 0 ; xmin = 1; xmax = 0 ;
       while (n--) 
 	{ 
-	  x = (arr (arr(spread->tableau, n, Array), col, SPCELL)).u.f ;
+	  x = (arr (arr(spread->tableau, n, Array), col, SPCELL)).z ;
 	  if (xmin > xmax) xmin = xmax = x ;
 	  else { if (xmin > x) xmin = x ; if(xmax < x) xmax = x ; } 
 	}
@@ -376,10 +377,11 @@ static BOOL spreadHistoFillArray (SPREAD spread, int col, Array a,
       n = arrayMax(tt) ;
       while (n--)
 	{
-	  x = arr (arr(spread->tableau, n, Array), col, SPCELL).u.f ;
+	  x = arr (arr(spread->tableau, n, Array), col, SPCELL).z ;
 	  x *= xfac ;
 	  n1 = (x - xmin ) * scale ;
-	  array(a, n1, int)++ ;
+	  if (n1 >= 0)
+	    array(a, n1, int)++ ;
 	}
       break ;
     default:
@@ -528,20 +530,20 @@ static void spread2DHistoCreate (void)
 	switch (c1->realType)
 	  {
 	  case 'i': case 'c':
-	    pp->x = sp1->u.i ;
+	    pp->x = sp1->z ;
 	    break ;
 	  case 'f':
-	    pp->x = sp1->u.f ;
+	    pp->x = sp1->z ;
 	    break ;
 	  }
       if (!sp2->empty) 
 	switch (c2->realType)
 	  {
 	  case 'i': case 'c':
-	    pp->y = sp2->u.i ;
+	    pp->y = sp2->z ;
 	    break ;
 	  case 'f':
-	    pp->y = sp2->u.f ;
+	    pp->y = sp2->z ;
 	    break ;
 	  }
     }
@@ -753,21 +755,23 @@ static void spreadSmoothHistoCreate (void)
       if (!sp1->empty) 
 	switch (c1->realType)
 	  {
-	  case 'i': case 'c':
+	  case 'c':
 	    pp->x = sp1->u.i ;
 	    break ;
+	  case 'i':
 	  case 'f':
-	    pp->x = sp1->u.f ;
+	    pp->x = sp1->z ;
 	    break ;
 	  }
       if (!sp2->empty) 
 	switch (c2->realType)
 	  {
-	  case 'i': case 'c':
+	  case 'c':
 	    pp->y = sp2->u.i ;
 	    break ;
+	  case 'i':
 	  case 'f':
-	    pp->y = sp2->u.f ;
+	    pp->y = sp2->z ;
 	    break ;
 	  }
     }
@@ -922,6 +926,7 @@ void spreadDisplayData(SPREAD spread)
   int i , j , j1, jj, maxCol , box, color = 0, col = 4 , line , nn = 0 , oldFormat = 0 ;
   COL *c ;
   Array lineArray , oldLineArray = 0 ; 
+  SPCELL *su ;
   BSunit *u, *uOld = 0 ;
   char *cp ;
   char small[130] ;
@@ -1011,7 +1016,9 @@ void spreadDisplayData(SPREAD spread)
 	  for(j = jj = 0,  col = 4; j < maxCol; j++)
 	    { c = arrp(spread->colonnes,j1 = arr(pos2col,j, int) ,COL) ;
 	      if (!c->hidden)
-		{ u = &(arr(lineArray, j1,SPCELL).u) ;
+		{ 
+		  su = arrp(lineArray, j1,SPCELL) ;
+		  u = &(su->u) ;
 		box = graphBoxStart(); 
 		if (!jj++) 
 		  {
@@ -1030,17 +1037,20 @@ void spreadDisplayData(SPREAD spread)
 		      {
 		      case 0:
 			break ;
-		      case 'i': case 'c':
+		      case 'c':
 			graphText(messprintf("%d", u->i), col, line) ;
+			break ;
+		      case 'i': 
+			graphText(messprintf("%lld", (long long int)su->z), col, line) ;
 			break ;
 		      case 'f':
 			{
-			  float zf = u->f > 0 ? u->f : -u->f ;
-			  int izf = u->f + .1 ;
+			  double zf = su->z > 0 ? su->z : - su->z ;
+			  long long int izf = su->z ;
 			  if (izf > 0 && zf - izf < ACE_FLT_RESOLUTION)
-			    graphText(messprintf("%d", u->f > 0 ? izf : -izf), col, line) ;
+			    graphText(messprintf("%lld", su->z > 0 ? izf : -izf), col, line) ;
 			  else
-			    graphText(messprintf("%6g", u->f), col, line) ;
+			    graphText(messprintf("%6lg", su->z), col, line) ;
 			}		
 			break ;
 		      case 'd':
@@ -1125,7 +1135,8 @@ static void spreadSelect(SPREAD spread, int box)
     max = spread->numberDisplayedColonnes ,
     maxCol = arrayMax(spread->colonnes) ;
   COL *c ;
-  BSunit *u ;
+  SPCELL *su ;
+  BSunit u ;
   char timeBuf[25] ;
   char *cp ;
 
@@ -1158,28 +1169,29 @@ static void spreadSelect(SPREAD spread, int box)
     }
 	  
   c = arrp( spread->colonnes, spread->activeColonne, COL) ;
-  u = &(arr(spread->activeLine, spread->activeColonne, SPCELL).u) ; 
+  su = arrp (spread->activeLine, spread->activeColonne, SPCELL) ;
+  u = su->u ;
   
    if (c->showType == SHOW_MULTI)
-     graphPostBuffer (stackExists(c->text) && u->i ? stackText(c->text, u->i) : " " ) ;
+     graphPostBuffer (stackExists(c->text) && u.i ? stackText(c->text, u.i) : " " ) ;
    else switch (c->type)
     {
     case 'b':
       break ;
     case 'k': case'n': case 'K':
-      graphPostBuffer (name(u->k)) ;
+      graphPostBuffer (name(u.k)) ;
       break ;
     case 'i':
-      graphPostBuffer (messprintf("%d", u->i)) ;
+      graphPostBuffer (messprintf("%lld", (long long int) su->z)) ;
       break ;
     case 'f':
-      graphPostBuffer (messprintf("%g", u->f)) ;
+      graphPostBuffer (messprintf("%lg", su->z)) ;
       break ;
     case 'd':
-      graphPostBuffer (timeShow (u->time, timeBuf, 25)) ;
+      graphPostBuffer (timeShow (u.time, timeBuf, 25)) ;
       break ;
     case 't':
-      graphPostBuffer (stackExists(c->text) && u->i ? stackText(c->text, u->i) : " " ) ;
+      graphPostBuffer (stackExists(c->text) && u.i ? stackText(c->text, u.i) : " " ) ;
       break ;
     default:
       break ;
@@ -1306,7 +1318,8 @@ static void sprdAddKeyByName (void)
 static void spreadFollow (SPREAD spread, int box)
 {
   COL* c = arrp( spread->colonnes, spread->activeColonne, COL) ;
-  BSunit *u = &(arr(spread->activeLine, spread->activeColonne, SPCELL).u) ; 
+  SPCELL *su = arrp(spread->activeLine, spread->activeColonne, SPCELL) ;
+  BSunit *u = &(su->u) ;
   BOOL touched = FALSE ;
 
   if (spread->editMode)
@@ -1325,12 +1338,12 @@ static void spreadFollow (SPREAD spread, int box)
 	graphRegister (MESSAGE_DESTROY, sprdAddKeyByName) ;
 	return ;
       case 'i':
-        if (messPrompt("New value ", messprintf("%d",u->i),"i"))
+        if (messPrompt("New value ", messprintf("%lld",(long long int)su->z),"i"))
 	  freeint(&(u->i)) ;
 	touched = TRUE ;
 	break ;
       case 'f':
-        if (messPrompt("New value ", messprintf("%g",u->f),"f"))
+        if (messPrompt("New value ", messprintf("%lg",su->z),"f"))
 	  freefloat(&(u->f)) ;
 	touched = TRUE ;
 	break ;

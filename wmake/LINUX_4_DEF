@@ -1,4 +1,4 @@
-# $Id: LINUX_4_DEF,v 1.11 2016/02/21 03:36:27 mieg Exp $ #
+# $Id: LINUX_4_DEF,v 1.12 2018/08/20 21:49:56 mieg Exp $ #
 
 #################################################################
 ############### acedb: R.Durbin and J.Thierry-Mieg ##############
@@ -21,15 +21,13 @@ LINKER = g++ -g
 
 LIBS = -lm 
 Xt_LIBS = -L/usr/X11R6/lib -lXaw -lXt -lXmu -lXext -lX11
-LEX_LIBS = -lfl
 
-### flex -l emulates AT&T lex as accurately as possible
-LEX = flex
-LEX_OPTIONS = -l
-
-### linux may use bison with flag -y if yacc doesn't exist
-YACC = bison
-YACC_OPTIONS =
+#################################################################
+###################### Lex Libraries ############################
+#################################################################
+# The acedb dependency on LEX/YACC/BISON
+# has been removed
+#################################################################
 
 RPCGEN_FLAGS = -b -I -K -1
 #RPCGEN_FLAGS = -Y /usr/local/gcc-3.4/bin/ -b -I -K -1

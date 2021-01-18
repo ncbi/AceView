@@ -561,7 +561,6 @@ int main (int argc, const char **argv)
     }
   else if (cs.project)
     {
-      const char *order = 0 ;
       char qq[1024] ;
       AC_TABLE t ; 
       int i ;
@@ -570,7 +569,7 @@ int main (int argc, const char **argv)
       if (cs.debug)
 	wego_log (hprintf (h,"query : %s\n", qq)) ;
       errors = 0 ;
-      t = ac_bql_table (cs.db, qq, 0, order, &errors, 0) ;
+      t = ac_bql_table (cs.db, qq, 0, 0, &errors, 0) ;
       if (errors)
 	messcrash ("Bad query %s\n", qq) ;
       if (cs.debug)
@@ -593,14 +592,13 @@ int main (int argc, const char **argv)
 
       while (channelMultiGet (cs.inChan, &sin, 1, SIN))
 	{
-	  const char *order = 0 ;
 	  char qq[1024] ;
 	  
 	  sprintf (qq, "select r,s from r in class run where r == \"%s\", s in r->sublibraries", sin.buf) ; 
 	  if (cs.debug)
 	    wego_log (hprintf (h,"query : %s\n", qq)) ;
 	  errors = 0 ;
-	  ain.t = ac_bql_table (cs.db, qq, 0, order, &errors, 0) ;
+	  ain.t = ac_bql_table (cs.db, qq, 0, 0, &errors, 0) ;
 	  if (errors)
 	    messcrash ("Bad query %s\n", qq) ;
 	  if (cs.debug)

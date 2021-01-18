@@ -30,11 +30,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: pmapdisp.c,v 1.3 2017/03/18 15:30:57 mieg Exp $ */
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
+/* $Id: pmapdisp.c,v 1.4 2020/05/30 16:50:33 mieg Exp $ */
 
 #include "acedb.h"
 

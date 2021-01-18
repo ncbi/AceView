@@ -35,7 +35,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: aceserver.c,v 1.17 2016/03/21 22:26:23 mieg Exp $ */
+/* $Id: aceserver.c,v 1.19 2020/05/30 16:50:36 mieg Exp $ */
 
 #include "acedb.h"
 #include "sysclass.h"
@@ -382,7 +382,6 @@ Stack processQueries(int *clientIdp, int *clientMagic, char *question, int maxCh
   alarm((unsigned int)0);
 
   s = stackReCreate(s, 20000) ;
-  stackTextOnly (s) ;
   nTransactions++ ;
 
   if (!*clientIdp)
@@ -691,7 +690,7 @@ int main (int argc, char **argv)
   char *cp ;
   /* Declarations for inetd detection LDS 7/2/98 */
   struct sockaddr_in saddr;
-  unsigned int asize = sizeof (saddr);
+  socklen_t asize = sizeof (saddr);
 
 
 #ifdef GIFACESERVER

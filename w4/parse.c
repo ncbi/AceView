@@ -35,7 +35,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: parse.c,v 1.25 2014/11/19 22:20:16 mieg Exp $ */
+/* $Id: parse.c,v 1.28 2019/04/20 00:26:00 mieg Exp $ */
 
 #include "acedb.h"
 #include "freeout.h"		/* for freeOutf */
@@ -867,7 +867,7 @@ done :
     }
 #else  /* NON_GRAPHIC */
   if (!recursion && !silent)
-    freeOutf("// %d objects read with %d errors\n", nob, nerror) ;
+    freeOutf("// %d object%s read with %d error%s\n", nob, nob > -1 ? "s" : "", nerror, nerror > -1 ? "s" : "") ;
 #endif /* NON_GRAPHIC */
   parseErrorsLastParse = nerror;
   return ;
@@ -1259,7 +1259,7 @@ static BOOL doParseLevel (int mylevel, KEYSET ks,  KEYSET ksDirty, BOOL silent)
 {
   int oldNerror = nerror, oldNob = nob, oldParseShow = parseShow ;
   FILE *oldFil = parseFil ;
-  int oldlevel = level ;
+  int oldlevel = level, line = 0 ;
 #ifndef NON_GRAPHIC
   int oldItemBox = itemBox, oldLineBox = lineBox, oldNerrorBox = nerrorBox ;
 
@@ -1271,14 +1271,14 @@ static BOOL doParseLevel (int mylevel, KEYSET ks,  KEYSET ksDirty, BOOL silent)
   state = OUTSIDE ;
   parseShow = 0 ;		/* no status drawing */
 
-  do { parseLine (FALSE, ks, ksDirty, TRUE) ;  /* silent */
+  do { line++ ; parseLine (FALSE, ks, ksDirty, TRUE) ;  /* silent */
      } while (!isError && state != REF_BLOCKED && state != DONE) ;
   if (isError)
-    { messout ("// Some sort of parse error") ;
+    { messout ("// Some sort of parse error at line %d", line) ;
       goto abort ;
     }
   if (state == REF_BLOCKED)
-    { messout ("Parsing blocked by locked object") ;
+    { messout ("Parsing blocked by locked object at line %d", line) ;
       goto abort ;
     }
   nerror = oldNerror ; nob = oldNob ; parseShow = oldParseShow ; parseFil = oldFil ;

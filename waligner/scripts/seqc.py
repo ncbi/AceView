@@ -26,8 +26,6 @@ import sys
 import string
 import time
 
-# vim: set ts=4 sw=4 noexpandtab :
-
 ###############################################################################################
 # print usage message and exit
 def usage():
@@ -92,427 +90,429 @@ def calc_seqc( a ):
 
 	# global variables (to accumulate totals across all alignments)
 	# global aligned_count # now counted in main loop (jfm 9/28/2012)
-	global read1_plus_strand_count
-	global read1_minus_strand_count
-	global read2_plus_strand_count
-	global read2_minus_strand_count
+        global read1_plus_strand_count
+        global read1_minus_strand_count
+        global read2_plus_strand_count
+        global read2_minus_strand_count
 
-	global perfect
-	global perfect1
-	global perfect2
+        global perfect
+        global perfect1
+        global perfect2
 
-	global perfect_clipped
-	global perfect_clipped1
-	global perfect_clipped2
+        global perfect_clipped
+        global perfect_clipped1
+        global perfect_clipped2
+        
+        global nInsertions
+        global nInsertions1
+        global nInsertions2
+        global deletions
+        global deletions1
+        global deletions2
 
-	global nInsertions
-	global nInsertions1
-	global nInsertions2
-	global deletions
-	global deletions1
-	global deletions2
+        global doublet_insertions
+        global doublet_insertions1
+        global doublet_insertions2
 
-	global doublet_insertions
-	global doublet_insertions1
-	global doublet_insertions2
+        global doublet_deletions
+        global doublet_deletions1
+        global doublet_deletions2
 
-	global doublet_deletions
-	global doublet_deletions1
-	global doublet_deletions2
+        global triplet_insertions
+        global triplet_insertions1
+        global triplet_insertions2
 
-	global triplet_insertions
-	global triplet_insertions1
-	global triplet_insertions2
+        global triplet_deletions
+        global triplet_deletions1
+        global triplet_deletions2
 
-	global triplet_deletions
-	global triplet_deletions1
-	global triplet_deletions2
-
-	global aligned_length_hist
-	global aligned_length_hist1
-	global aligned_length_hist2
-	global read_bp
-	global read_1_bp
-	global read_2_bp
-	global ali_bp
-	global ali_1_bp
-	global ali_2_bp
-	global mismatch_rate_hist
-	global mismatch_rate_hist1
-	global mismatch_rate_hist2
-	global insert_type_hist
-	global insert_type_hist1
-	global insert_type_hist2
-	global delete_type_hist
-	global delete_type_hist1
-	global delete_type_hist2
-	global base_matrix_total
-	global base_matrix_total1
-	global base_matrix_total2
-	global err_pos
-	global err_pos1
-	global err_pos2
-	global err_N1
-	global err_N2
-	global bad_base_count
-	global valid_bases
-	global every_base_flag
-
-	# local variables (for this particular alignment)
-	verbose = False
-	insert_char = "I" # jfm 10/5/2012 changed to uppercase for counting inserts after ref converted to uppercase
-	soft_clip = "s"	
-	mapped_ref = ""
-	introns = 0
-	soft_clips = 0
-	aligned_length = 0
-	mismatch_rate = 0
-	oldInsertPos = -1
-	perfect_map = True	# jfm 10/10/2012 Indicates a map with no mismatches, insertions, deletions, introns
+        global aligned_length_hist
+        global aligned_length_hist1
+        global aligned_length_hist2
+        global read_bp
+        global read_1_bp
+        global read_2_bp
+        global ali_bp
+        global ali_1_bp
+        global ali_2_bp
+        global mismatch_rate_hist
+        global mismatch_rate_hist1
+        global mismatch_rate_hist2
+        global insert_type_hist
+        global insert_type_hist1
+        global insert_type_hist2
+        global delete_type_hist
+        global delete_type_hist1
+        global delete_type_hist2
+        global base_matrix_total
+        global base_matrix_total1
+        global base_matrix_total2
+        global err_pos
+        global err_pos1
+        global err_pos2
+        global err_N1
+        global err_N2
+        global bad_base_count
+        global valid_bases
+        global every_base_flag
+        
+        # local variables (for this particular alignment)
+        verbose = False
+        insert_char = "I" # jfm 10/5/2012 changed to uppercase for counting inserts after ref converted to uppercase
+        soft_clip = "s"	
+        mapped_ref = ""
+        introns = 0
+        soft_clips = 0
+        aligned_length = 0
+        mismatch_rate = 0
+        oldInsertPos = -1
+        perfect_map = True	# jfm 10/10/2012 Indicates a map with no mismatches, insertions, deletions, introns
 				#                Soft Clips are OK.
 
 	# complement and reverse_complement 
-	complement = { 'A':'T', 'T':'A', 'G':'C', 'C':'G', 'N':'N' }  # dictionary used to complement bases
-	def reverse_complement( seq ):
-		rc = ""
-		for c in seq[::-1]: 		# step thru seq in reverse order
-			rc += complement[c]	# taking the complement of each bae	
-		return rc
+        complement = { 'A':'T', 'T':'A', 'G':'C', 'C':'G', 'N':'N' }  # dictionary used to complement bases
+        def reverse_complement( seq ):
+                rc = ""
+                for c in seq[::-1]: 		# step thru seq in reverse order
+                        rc += complement[c]	# taking the complement of each bae	
+                return rc
 
 	# reverse complement reads on the reverse strand so they will match the reference
-	if a.iv.strand == "-":
-		if a.pe_which == "first":
-			read1_minus_strand_count += 1
-		elif a.pe_which == "second":
-			read2_minus_strand_count += 1
-		mapped_read = str(a.read.get_reverse_complement())  # Use the (possibly optimized) HTSeq reverse complement
-	else:
-		if a.pe_which == "first":
-			read1_plus_strand_count += 1
-		elif a.pe_which == "second":
-			read2_plus_strand_count += 1
-		mapped_read = str(a.read)
+        if a.iv.strand == "-":
+                if a.pe_which == "first":
+                        read1_minus_strand_count += 1
+                elif a.pe_which == "second":
+                        read2_minus_strand_count += 1
+                mapped_read = str(a.read.get_reverse_complement())  # Use the (possibly optimized) HTSeq reverse complement
+        else:
+                if a.pe_which == "first":
+                        read1_plus_strand_count += 1
+                elif a.pe_which == "second":
+                        read2_plus_strand_count += 1
+                mapped_read = str(a.read)
 
-	# Loop through the CIGAR objects to get counts and build the mapped reference string (mapped_ref)
-	for i in range(0, len(a.cigar)):
-		cigarType = a.cigar[i].type
-		if cigarType == "M": # Alignment match (can be a sequence match or mismatch)
-			mapped_ref += str(seq[a.cigar[i].ref_iv.chrom][ a.cigar[i].ref_iv.start : a.cigar[i].ref_iv.end ].seq)
-			#  aligned_length += a.cigar[i].size
-		elif cigarType == "D": # Deletion from the reference
-			perfect_map = False # jfm 10/10/2012
-			delstr = string.upper( str(seq[a.cigar[i].ref_iv.chrom][ a.cigar[i].ref_iv.start : a.cigar[i].ref_iv.end ].seq) )
-			#
-			# Count deletion events, doublet deletions and triplet deletions (jfm 10/10/2012)
-			#
-			deletions += 1 # a.cigar[i].size
-			delete_len = a.cigar[i].size
-			# aligned_length += delete_len # jfm 10/19/2012 Aligned length should be number of bases on the genome covered by alignment
-			if delete_len == 2:
-				doublet_deletions += 1
-			elif delete_len == 3:
-				triplet_deletions += 1
-			#
-			# count deletion events as errors at this position (jfm 10/5/2012)
-			#
-			pos = len(mapped_ref)   # we are building the mapped reference, so current position is it's length
-			if a.iv.strand == "-":  # unless we're on the minus strand 
-				pos = len(mapped_read) - pos - 1 + 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
-				if err_pos.has_key( pos ):
-					err_pos[pos] += 1  # mieg: single event, do not count len(delstr)
-				else:
-					err_pos[pos] = 1
-				# 
-				# Count deletions on first and second fragments
-				#
-				if a.paired_end:
-					# first and second fragment alignments  
-					if a.pe_which == "first":
-						deletions1 += 1
-						if delete_len == 2:
-							doublet_deletions1 += 1
-						elif delete_len == 3:
-							triplet_deletions1 += 1
-						# Count mismatches at this position
-						if err_pos1.has_key( pos ):
-							err_pos1[pos] += 1
-						else:
-							err_pos1[pos] = 1
-					elif a.pe_which == "second":
-						deletions2 += 1   # a.cigar[i].size
-						if delete_len == 2:
-							doublet_deletions2 += 1
-						elif delete_len == 3:
-							triplet_deletions2 += 1
-						# Count mismatches at this position
-						if err_pos2.has_key( pos ):
-							err_pos2[pos] += 1
-						else:
-							err_pos2[pos] = 1
-					# 
-					# count deletion types
-					#
-					#for c in delstr:
-					#	k = c
-					if len(delstr) < 4:			# jfm 10/10/2012 Capture single, doublet and triplet deletions
-						mismatch_rate += 1
-						if a.iv.strand == "-": 					# complement deleted bases on the minus strand
-							k = reverse_complement(delstr)			# to reflect what should have been read
-					else:
-						k = delstr
-						if delete_type_hist.has_key( k ):
-							delete_type_hist[k] += 1
-						else:
-							delete_type_hist[k] = 1
-						if a.paired_end:
-							# first and second fragment alignments  
-							if a.pe_which == "first":
-								if delete_type_hist1.has_key( k ):
-									delete_type_hist1[k] += 1
-								else:
-									delete_type_hist1[k] = 1
-							elif a.pe_which == "second":
-								if delete_type_hist2.has_key( k ):
-									delete_type_hist2[k] += 1
-								else:
-									delete_type_hist2[k] = 1
-
-		elif cigarType == "N": # Skipped region from the reference (for mRNA to genome alignment, represents an intron) 
-			perfect_map = False # jfm 10/10/2012
-			introns += 1
-		elif cigarType == "I": # Insertion to the reference
-			perfect_map = False # jfm 10/10/2012
-			#
-			# count insertion events as errors at this position (jfm 10/5/2012)
-			# do this before adding to mapped_ref to preserve correct position (jfm 10/16/2012)
-			#
-			pos = len(mapped_ref)   # we are building the mapped reference, so current position is it's length
-			if a.iv.strand == "-":  # unless we're on the minus strand 
-				pos = len(mapped_read) - pos - 1 - 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
-			if err_pos.has_key( pos ):
-				err_pos[pos] += 1  # mieg: single event, do not count len(delstr)
-			else:
-				err_pos[pos] = 1
-
-			mapped_ref = mapped_ref + ( insert_char * a.cigar[i].size )
-			insstr = string.upper( mapped_read[a.cigar[i].query_from : a.cigar[i].query_to ] )
-
-			# Count insertion events doublet insertions and triplet insertions (jfm 10/10/2012)
-			nInsertions += 1   # single event do not add a.cigar[i].size
-			insert_len = a.cigar[i].size
-			if insert_len == 2:
-				doublet_insertions += 1
-			elif insert_len == 3:
-				triplet_insertions += 1
-			# 
-			# Count insertions on first and second fragments
-			#
-			if a.paired_end:
-				# first and second fragment alignments  
-				if a.pe_which == "first":
-					nInsertions1 += 1
-					if insert_len == 2:
-						doublet_insertions1 += 1
-					elif insert_len == 3:
-						triplet_insertions1 += 1
+        # Loop through the CIGAR objects to get counts and build the mapped reference string (mapped_ref)
+        for i in range(0, len(a.cigar)):
+                type = a.cigar[i].type
+                if type == "M": # Alignment match (can be a sequence match or mismatch)
+                        mapped_ref += str(seq[a.cigar[i].ref_iv.chrom][ a.cigar[i].ref_iv.start : a.cigar[i].ref_iv.end ].seq)
+                        #  aligned_length += a.cigar[i].size
+                elif type == "D": # Deletion from the reference
+                        perfect_map = False # jfm 10/10/2012
+                        delstr = string.upper( str(seq[a.cigar[i].ref_iv.chrom][ a.cigar[i].ref_iv.start : a.cigar[i].ref_iv.end ].seq) )
+                        #
+                        # Count deletion events, doublet deletions and triplet deletions (jfm 10/10/2012)
+                        #
+                        deletions += 1 # a.cigar[i].size
+                        delete_len = a.cigar[i].size
+                        # aligned_length += delete_len # jfm 10/19/2012 Aligned length should be number of bases on the genome covered by alignment
+                        if delete_len == 2:
+                                doublet_deletions += 1
+                        elif delete_len == 3:
+                                triplet_deletions += 1
+                        #
+                        # count deletion events as errors at this position (jfm 10/5/2012)
+                        #
+                        pos = len(mapped_ref)   # we are building the mapped reference, so current position is it's length
+                        if a.iv.strand == "-":  # unless we're on the minus strand 
+                                pos = len(mapped_read) - pos - 1 + 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
+                        if err_pos.has_key( pos ):
+                                err_pos[pos] += 1  # mieg: single event, do not count len(delstr)
+                        else:
+                                err_pos[pos] = 1
+                        # 
+                        # Count deletions on first and second fragments
+                        #
+                        if a.paired_end:
+                                # first and second fragment alignments  
+                                if a.pe_which == "first":
+                                        deletions1 += 1
+                                        if delete_len == 2:
+                                                doublet_deletions1 += 1
+                                        elif delete_len == 3:
+                                                triplet_deletions1 += 1
 					# Count mismatches at this position
-					if err_pos1.has_key( pos ):
-						err_pos1[pos] += 1
-					else:
-						err_pos1[pos] = 1
-				elif a.pe_which == "second":
-					nInsertions2 += 1   # a.cigar[i].size
-					if insert_len == 2:
-						doublet_insertions2 += 1
-					elif insert_len == 3:
-						triplet_insertions2 += 1
-						# Count mismatches at this position
-						if err_pos2.has_key( pos ):
-							err_pos2[pos] += 1
-						else:
-							err_pos2[pos] = 1
-			# 
-			# count insertion types
-			#
-			if len(insstr) < 4:			# jfm 10/10/2012 Capture single, doublet and triplet deletions
-				mismatch_rate += 1
+                                        if err_pos1.has_key( pos ):
+                                                err_pos1[pos] += 1
+                                        else:
+                                                err_pos1[pos] = 1
+                                elif a.pe_which == "second":
+                                        deletions2 += 1   # a.cigar[i].size
+                                        if delete_len == 2:
+                                                doublet_deletions2 += 1
+                                        elif delete_len == 3:
+                                                triplet_deletions2 += 1
+                                        # Count mismatches at this position
+                                        if err_pos2.has_key( pos ):
+                                                err_pos2[pos] += 1
+                                        else:
+                                                err_pos2[pos] = 1
+                        # 
+                        # count deletion types
+                        #
+                        #for c in delstr:
+                        #	k = c
+                        if len(delstr) < 4:			# jfm 10/10/2012 Capture single, doublet and triplet deletions
+                                mismatch_rate += 1
+                                if a.iv.strand == "-": 					# complement deleted bases on the minus strand
+                                        k = reverse_complement(delstr)			# to reflect what should have been read
+                                else:
+                                        k = delstr
+                                if delete_type_hist.has_key( k ):
+                                        delete_type_hist[k] += 1
+                                else:
+                                        delete_type_hist[k] = 1
+                                if a.paired_end:
+                                        # first and second fragment alignments  
+                                        if a.pe_which == "first":
+                                                if delete_type_hist1.has_key( k ):
+                                                        delete_type_hist1[k] += 1
+                                                else:
+                                                        delete_type_hist1[k] = 1
+                                        elif a.pe_which == "second":
+                                                if delete_type_hist2.has_key( k ):
+                                                        delete_type_hist2[k] += 1
+                                                else:
+                                                        delete_type_hist2[k] = 1
+                                                        
+                elif type == "N": # Skipped region from the reference (for mRNA to genome alignment, represents an intron) 
+                        perfect_map = False # jfm 10/10/2012
+                        introns += 1
+                elif type == "S": 
+                        # Soft Clip (clipped sequences present in SEQ)
+                        soft_clips += a.cigar[i].size 
+                        mapped_ref = mapped_ref + ( soft_clip * a.cigar[i].size )
+                elif type == "I": # Insertion to the reference
+                        perfect_map = False # jfm 10/10/2012
+                        #
+                        # count insertion events as errors at this position (jfm 10/5/2012)
+                        # do this before adding to mapped_ref to preserve correct position (jfm 10/16/2012)
+                        #
+                        pos = len(mapped_ref)   # we are building the mapped reference, so current position is it's length
+                        if a.iv.strand == "-":  # unless we're on the minus strand 
+                                pos = len(mapped_read) - pos - 1 - 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
+                        if err_pos.has_key( pos ):
+                                err_pos[pos] += 1  # mieg: single event, do not count len(delstr)
+                        else:
+                                err_pos[pos] = 1
 
-				if a.iv.strand == "-": 					# complement deleted bases on the minus strand
-					k = reverse_complement(insstr)			# to reflect what should have been read
-				else:
-					k = insstr
-				if insert_type_hist.has_key( k ):
-					insert_type_hist[k] += 1
-				else:
-					insert_type_hist[k] = 1
-				if a.paired_end:
-					# first and second fragment alignments  
-					if a.pe_which == "first":
-						if insert_type_hist1.has_key( k ):
-							insert_type_hist1[k] += 1
-						else:
-							insert_type_hist1[k] = 1#	print ("  -r r | --run r   # run identifier, mandatory except if a group file is provided" )
-					elif a.pe_which == "second":
-						if insert_type_hist2.has_key( k ):
-							insert_type_hist2[k] += 1
-						else:
-							insert_type_hist2[k] = 1
-		elif cigarType == "S": # Soft Clip (clipped sequences present in SEQ)
-			soft_clips += a.cigar[i].size 
-			mapped_ref = mapped_ref + ( soft_clip * a.cigar[i].size )
-		else: # Something completely different
-			print ("# Unexpected type:",a.cigar[i].type, a.cigar[i].size, a.cigar[i].ref_iv.chrom,a.cigar[i].ref_iv.strand)
+                        mapped_ref = mapped_ref + ( insert_char * a.cigar[i].size )
+                        insstr = string.upper( mapped_read[a.cigar[i].query_from : a.cigar[i].query_to ] )
 
-		if verbose:
-			print (a.cigar[i].type, a.cigar[i].size, a.cigar[i].ref_iv.chrom,a.cigar[i].ref_iv.strand)
+                        # Count insertion events doublet insertions and triplet insertions (jfm 10/10/2012)
+                        nInsertions += 1   # single event do not add a.cigar[i].size
+                        insert_len = a.cigar[i].size
+                        if insert_len == 2:
+                                doublet_insertions += 1
+                        elif insert_len == 3:
+                                triplet_insertions += 1
+                        # 
+                        # Count insertions on first and second fragments
+                        #
+                        if a.paired_end:
+                                # first and second fragment alignments  
+                                if a.pe_which == "first":
+                                        nInsertions1 += 1
+                                        if insert_len == 2:
+                                                doublet_insertions1 += 1
+                                        elif insert_len == 3:
+                                                triplet_insertions1 += 1
+                                        # Count mismatches at this position
+                                        if err_pos1.has_key( pos ):
+                                                err_pos1[pos] += 1
+                                        else:
+                                                err_pos1[pos] = 1
+                                elif a.pe_which == "second":
+                                        nInsertions2 += 1   # a.cigar[i].size
+                                        if insert_len == 2:
+                                                doublet_insertions2 += 1
+                                        elif insert_len == 3:
+                                                triplet_insertions2 += 1
+                                        # Count mismatches at this position
+                                        if err_pos2.has_key( pos ):
+                                                err_pos2[pos] += 1
+                                        else:
+                                                err_pos2[pos] = 1
+                        # 
+                        # count insertion types
+                        #
+                        if len(insstr) < 4:			# jfm 10/10/2012 Capture single, doublet and triplet deletions
+                                mismatch_rate += 1
+
+                                if a.iv.strand == "-": 					# complement deleted bases on the minus strand
+                                        k = reverse_complement(insstr)			# to reflect what should have been read
+                                else:
+                                        k = insstr
+                                if insert_type_hist.has_key( k ):
+                                        insert_type_hist[k] += 1
+                                else:
+                                        insert_type_hist[k] = 1
+                                if a.paired_end:
+                                        # first and second fragment alignments  
+                                        if a.pe_which == "first":
+                                                if insert_type_hist1.has_key( k ):
+                                                        insert_type_hist1[k] += 1
+                                                else:
+                                                        insert_type_hist1[k] = 1
+                                        elif a.pe_which == "second":
+                                                if insert_type_hist2.has_key( k ):
+                                                        insert_type_hist2[k] += 1
+                                                else:
+                                                        insert_type_hist2[k] = 1
+                else:
+                        # Something completely different
+                        print ("# Unexpected type:",a.cigar[i].type, a.cigar[i].size, a.cigar[i].ref_iv.chrom,a.cigar[i].ref_iv.strand)
+
+                if verbose:
+                        print (a.cigar[i].type, a.cigar[i].size, a.cigar[i].ref_iv.chrom,a.cigar[i].ref_iv.strand)
 		
-	if verbose:
+        if verbose:
                 print ("# mapped_ref")
                 print ("# mapped_read")
                 print ()
 
-	# Update aligned length histogram (Total of CIGAR M sizes)
-	# if aligned_length == 1:
-	#	for i in range(0, len(a.cigar)):
-	#		print (a.cigar[i].size, a.cigar[i].type, a.cigar[i].ref_iv.chrom, a.cigar[i].ref_iv.strand)
-	#	print (mapped_ref)
-	#	print (mapped_read)
+        # Update aligned length histogram (Total of CIGAR M sizes)
+        # if aligned_length == 1:
+        #	for i in range(0, len(a.cigar)):
+        #		print (a.cigar[i].size, a.cigar[i].type, a.cigar[i].ref_iv.chrom, a.cigar[i].ref_iv.strand)
+        #	print (mapped_ref)
+        #	print (mapped_read)
 
-	# k = aligned_length
-	k = len(a.read) - soft_clips
-	# print ("Len", k)
-	k1 = len(a.read)
-	ali_bp += long(k)
-	read_bp += long(k1)
-	if aligned_length_hist.has_key( k ):
-		aligned_length_hist[k] += 1
-	else:
-		aligned_length_hist[k] = 1
-	if a.paired_end:
-		# first and second fragment alignments  
-		if a.pe_which == "first":
-			ali_1_bp +=  k
-			read_1_bp += k1
-			if aligned_length_hist1.has_key( k ):
-				aligned_length_hist1[k] += 1
-			else:
-				aligned_length_hist1[k] = 1
-		elif a.pe_which == "second":
-			ali_2_bp +=  k
-			read_2_bp += k1
-			if aligned_length_hist2.has_key( k ):
-				aligned_length_hist2[k] += 1
-			else:
-				aligned_length_hist2[k] = 1
+        # k = aligned_length
+        k = len(a.read) - soft_clips
+        # print ("Len", k)
+        k1 = len(a.read)
+        ali_bp += long(k)
+        read_bp += long(k1)
+        if aligned_length_hist.has_key( k ):
+                aligned_length_hist[k] += 1
+        else:
+                aligned_length_hist[k] = 1
+        if a.paired_end:
+                # first and second fragment alignments  
+                if a.pe_which == "first":
+                        ali_1_bp +=  k
+                        read_1_bp += k1
+                        if aligned_length_hist1.has_key( k ):
+                                aligned_length_hist1[k] += 1
+                        else:
+                                aligned_length_hist1[k] = 1
+                elif a.pe_which == "second":
+                        ali_2_bp +=  k
+                        read_2_bp += k1
+                        if aligned_length_hist2.has_key( k ):
+                                aligned_length_hist2[k] += 1
+                        else:
+                                aligned_length_hist2[k] = 1
 
-	# convert mapped_read and mapped_ref to upper case to look for mismatches
-	mapped_read = string.upper(mapped_read)
-	mapped_ref = string.upper(mapped_ref)
+        # convert mapped_read and mapped_ref to upper case to look for mismatches
+        mapped_read = string.upper(mapped_read)
+        mapped_ref = string.upper(mapped_ref)
 
-	# Calculate mismatch rate and build base matrix
-	assert len(mapped_read) == len(mapped_ref)
-	if every_base_flag or mapped_read != mapped_ref:
-		for i in range( len(mapped_read) ):
+        # Calculate mismatch rate and build base matrix
+        assert len(mapped_read) == len(mapped_ref)
+        if every_base_flag or mapped_read != mapped_ref:
+                for i in range( len(mapped_read) ):
 
-			# Determine position of base in physical read (jfm 10/4/2012)
-			pos = i
-			if a.iv.strand == "-":
-				pos = len(mapped_read) - i - 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
+                        # Determine position of base in physical read (jfm 10/4/2012)
+                        pos = i
+                        if a.iv.strand == "-":
+                                pos = len(mapped_read) - i - 1 # base 0 of 100 becomes (100 - 0 - 1) = 99, zero based coordinates
 
-			# Count N's at this position (jfm 10/4/2012) 
-			if mapped_read[i] == 'N':
-				if a.paired_end:
-					if a.pe_which == "first":
-						if err_N1.has_key(pos):
-							err_N1[pos] += 1
-						else:
-							err_N1[pos] = 1
-					elif a.pe_which == "second":
-						if err_N2.has_key(pos):
-							err_N2[pos] += 1
-						else:
-							err_N2[pos] = 1
+                        # Count N's at this position (jfm 10/4/2012) 
+                        if mapped_read[i] == 'N':
+                                if a.paired_end:
+                                        if a.pe_which == "first":
+                                                if err_N1.has_key(pos):
+                                                        err_N1[pos] += 1
+                                                else:
+                                                        err_N1[pos] = 1
+                                        elif a.pe_which == "second":
+                                                if err_N2.has_key(pos):
+                                                        err_N2[pos] += 1
+                                                else:
+                                                        err_N2[pos] = 1
 
-			if (mapped_read[i] in valid_bases) and (mapped_ref[i] in valid_bases):
+                        if (mapped_read[i] in valid_bases) and (mapped_ref[i] in valid_bases):
 
-				# Build base matrix key = base in reference + base in read
-				# reverse complement the bases if they are on the reverse strand (9/7/2012)
-				if a.iv.strand == "-":
-					k = complement[mapped_ref[i]] + complement[mapped_read[i]]
-				else:
-					k = mapped_ref[i] + mapped_read[i]
+                                # Build base matrix key = base in reference + base in read
+                                # reverse complement the bases if they are on the reverse strand (9/7/2012)
+                                if a.iv.strand == "-":
+                                        k = complement[mapped_ref[i]] + complement[mapped_read[i]]
+                                else:
+                                        k = mapped_ref[i] + mapped_read[i]
 
-				base_matrix_total[k] += 1
+                                base_matrix_total[k] += 1
 
-				# first and second fragment alignments  
-				if a.paired_end:
-					if a.pe_which == "first":
-						base_matrix_total1[k] += 1
-					elif a.pe_which == "second":
-						base_matrix_total2[k] += 1
+                                # first and second fragment alignments  
+                                if a.paired_end:
+                                        if a.pe_which == "first":
+                                                base_matrix_total1[k] += 1
+                                        elif a.pe_which == "second":
+                                                base_matrix_total2[k] += 1
 
-				# Count mismatches and error positions in this read
-				if (mapped_read[i] != mapped_ref[i]):
-					perfect_map = False # jfm 10/10/2012
-					mismatch_rate += 1
+                                # Count mismatches and error positions in this read
+                                if (mapped_read[i] != mapped_ref[i]):
+                                        perfect_map = False # jfm 10/10/2012
+                                        mismatch_rate += 1
 
-					if err_pos.has_key( pos ):
-						err_pos[pos] += 1
-					else:
-						err_pos[pos] = 1
+                                        if err_pos.has_key( pos ):
+                                                err_pos[pos] += 1
+                                        else:
+                                                err_pos[pos] = 1
 
-					if a.paired_end:
-						# first and second fragment alignments  
-						if a.pe_which == "first":
-							# Count mismatches at this position
-							if err_pos1.has_key( pos ):
-								err_pos1[pos] += 1
-							else:
-								err_pos1[pos] = 1
-						elif a.pe_which == "second":
-							# Count mismatches at this position
-							if err_pos2.has_key( pos ):
-								err_pos2[pos] += 1
-							else:
-								err_pos2[pos] = 1
+                                        if a.paired_end:
+                                                # first and second fragment alignments  
+                                                if a.pe_which == "first":
+                                                        # Count mismatches at this position
+                                                        if err_pos1.has_key( pos ):
+                                                                err_pos1[pos] += 1
+                                                        else:
+                                                                err_pos1[pos] = 1
+                                                elif a.pe_which == "second":
+                                                        # Count mismatches at this position
+                                                        if err_pos2.has_key( pos ):
+                                                                err_pos2[pos] += 1
+                                                        else:
+                                                                err_pos2[pos] = 1
 
 
-			else:
-				bad_base_count += 1
+                        else:
+                                bad_base_count += 1
 
-	# Update mismatch rate histogram and perfect map counters
-	if perfect_map:
-		if soft_clips == 0:
-			perfect += 1
-		else:
-			perfect_clipped += 1
-	k = mismatch_rate
-	if mismatch_rate_hist.has_key( k ):
-		mismatch_rate_hist[k] += 1
-	else:
-		mismatch_rate_hist[k] = 1
-	if a.paired_end:
-		# first and second fragment alignments  
-		if a.pe_which == "first":
-			if perfect_map:
-				if soft_clips == 0:
-					perfect1 += 1
-				else:
-					perfect_clipped1 += 1
-			if mismatch_rate_hist1.has_key( k ):
-				mismatch_rate_hist1[k] += 1
-			else:
-				mismatch_rate_hist1[k] = 1
-		elif a.pe_which == "second":
-			if perfect_map:
-				if soft_clips == 0:
-					perfect2 += 1
-				else:
-					perfect_clipped2 += 1
-			if mismatch_rate_hist2.has_key( k ):
-				mismatch_rate_hist2[k] += 1
-			else:
-				mismatch_rate_hist2[k] = 1
+        # Update mismatch rate histogram and perfect map counters
+        if perfect_map:
+                if soft_clips == 0:
+                        perfect += 1
+                else:
+                        perfect_clipped += 1
+        k = mismatch_rate
+        if mismatch_rate_hist.has_key( k ):
+                mismatch_rate_hist[k] += 1
+        else:
+                mismatch_rate_hist[k] = 1
+        if a.paired_end:
+                # first and second fragment alignments  
+                if a.pe_which == "first":
+                        if perfect_map:
+                                if soft_clips == 0:
+                                        perfect1 += 1
+                                else:
+                                        perfect_clipped1 += 1
+                        if mismatch_rate_hist1.has_key( k ):
+                                mismatch_rate_hist1[k] += 1
+                        else:
+                                mismatch_rate_hist1[k] = 1
+                elif a.pe_which == "second":
+                        if perfect_map:
+                                if soft_clips == 0:
+                                        perfect2 += 1
+                                else:
+                                        perfect_clipped2 += 1
+                        if mismatch_rate_hist2.has_key( k ):
+                                mismatch_rate_hist2[k] += 1
+                        else:
+                                mismatch_rate_hist2[k] = 1
 
 
 ###############################################################################################	
@@ -655,29 +655,29 @@ def phase2(run, input_stream, tsv_file,nReadsGiven  ):
 ###############################################################################################	
 
 def viewHtmlMetaInfo (f) :
-	f.write ( "  <META NAME=\"title\"\n")
-	f.write (    " CONTENT=\"\n")
-	f.write (  "Alignment statistics in next-generation sequencing\">\n\n")
-
-	f.write ( "<META NAME=\"keywords\"\n")
-	f.write (  " CONTENT=\"\n")
-	f.write ( "Quality control BAM SAM")
-	f.write (  "\">\n" )
+        f.write ( "  <META NAME=\"title\"\n")
+        f.write (    " CONTENT=\"\n")
+        f.write (  "Alignment statistics in next-generation sequencing\">\n\n")
+        
+        f.write ( "<META NAME=\"keywords\"\n")
+        f.write (  " CONTENT=\"\n")
+        f.write ( "Quality control BAM SAM")
+        f.write (  "\">\n" )
 	
-	# this text is duplicated in index.html 
-	f.write ( "<META NAME=\"Description\" \n")
-	f.write ( " CONTENT= \"\n")
-	f.write ( "seqc.py is an open source script to generate alignemnt statistics from BAM/SAM files")
-	f.write ( "\">\n")
-	f.write ( "<meta http-equiv=\"content-type\" content=\"text/html;charset=iso-8859-1\">\n")
+        # this text is duplicated in index.html 
+        f.write ( "<META NAME=\"Description\" \n")
+        f.write ( " CONTENT= \"\n")
+        f.write ( "seqc.py is an open source script to generate alignemnt statistics from BAM/SAM files")
+        f.write ( "\">\n")
+        f.write ( "<meta http-equiv=\"content-type\" content=\"text/html;charset=iso-8859-1\">\n")
 
-	f.write ( "<meta name=\"author\"\n")
-	f.write ( " content=\"Joe Meehan, Danielle Thierry-Mieg and Jean Thierry-Mieg,\n")
-	f.write ( "\">\n")
-
+        f.write ( "<meta name=\"author\"\n")
+        f.write ( " content=\"Joe Meehan, Danielle Thierry-Mieg and Jean Thierry-Mieg,\n")
+        f.write ( "\">\n")
+        
 	# content privacy policy needed to be able to set a cookie 
-	f.write ( "<meta http-equiv=\"P3P\" content='CP=\"IDC DSP COR CURa ADM OUR IND PHY ONL COM STA\"'>")
-
+        f.write ( "<meta http-equiv=\"P3P\" content='CP=\"IDC DSP COR CURa ADM OUR IND PHY ONL COM STA\"'>")
+        
 def viewOpenDocument (f, view_type, title):
 	if view_type == "html" :
 		f.write ("<html>\n")
@@ -718,7 +718,7 @@ def viewTableBreak (f, view_type):
 		f.write ("\n</tr>\n")
 	else:
 		f.write ("\n")
-
+  
 def viewTableCell (f, view_type, txt) :
 	if view_type == "html" :
 		f.write ("\t<td>"+txt+"</td>\n")
@@ -727,14 +727,14 @@ def viewTableCell (f, view_type, txt) :
 
 # if f == 0, we can use this call to get the numerical value of the tag
 def viewTag (tag,f,run,tag_runs,tag_val,n) :
-	z = "0"
-	tag_run = tag + tab + run
-	if tag_runs.has_key (tag_run)  and tag_runs[tag_run] > 0 :
-		tag2 = tag_run + "#" + str(n)
-		z = str(tag_val[tag2])
-	if f :
-		viewTableCell (f,view_type,z)
-	return long(z)
+        z = "0"
+        tag_run = tag + tab + run
+        if tag_runs.has_key (tag_run)  and tag_runs[tag_run] > 0 :
+                tag2 = tag_run + "#" + str(n)
+                z = str(tag_val[tag2])
+        if f :
+                viewTableCell (f,view_type,z)
+        return long(z)
 
 def vBreak (f, view_type, txt) :
 	if view_type == "html" :
@@ -743,398 +743,398 @@ def vBreak (f, view_type, txt) :
 		f.write ("\n")
 
 def phase3ExportStrand(f,pp,strand,view_type,runs, tags,tag_runs,tags2,tag_val,various,nReadsGiven ) :
-
-	subkeys = ["AG","TC","GA","CT","AT","TA","GC","CG","AC","TG","GT","CA"]
-	indelkeys = ["A", "T", "G", "C"]
+ 
+        subkeys = ["AG","TC","GA","CT","AT","TA","GC","CG","AC","TG","GT","CA"]
+        indelkeys = ["A", "T", "G", "C"]
 	
-	if (pp == 3 or pp == 4) and strand > 0:
-		return
+        if (pp == 3 or pp == 4) and strand > 0:
+                return
 
-	if strand == 0 :
-		viewTableOpen (f, view_type)
+        if strand == 0 :
+                viewTableOpen (f, view_type)
 
-		if pp >= 3 and strand == 0 :
-			f.write("* In paired end sequencing, the position of the mismatches in the first and second read are given in succession. ")
-			f.write("This table may evidence cycles where the base call quality is poor and the mismatches are concentrated. ")
-			f.write("Althougth this is not apparent in the fastQ quality scores, this is frequently the case in Illumina sequencing, ")
-			f.write("and one could consider replacing the a-priori fastQ quality coefficient by an a-posteriori probability derived from the present table, as done by Magic, with good impact on SNP calling.\n")
-		elif pp < 3 and strand == 0 :
-			f.write("All reads, single or paired end.")
-		elif strand == 1 :
-			f.write("First reads in pairs.")
-		elif strand == 2 :
-			f.write("Second reads in pairs.")
+                if pp >= 3 and strand == 0 :
+                        f.write("* In paired end sequencing, the position of the mismatches in the first and second read are given in succession. ")
+                        f.write("This table may evidence cycles where the base call quality is poor and the mismatches are concentrated. ")
+                        f.write("Althougth this is not apparent in the fastQ quality scores, this is frequently the case in Illumina sequencing, ")
+                        f.write("and one could consider replacing the a-priori fastQ quality coefficient by an a-posteriori probability derived from the present table, as done by Magic, with good impact on SNP calling.\n")
+                elif pp < 3 and strand == 0 :
+                        f.write("All reads, single or paired end.")
+                elif strand == 1 :
+                        f.write("First reads in pairs.")
+                elif strand == 2 :
+                        f.write("Second reads in pairs.")
 		
-			if pp == 2:
-				f.write(" The mismatches are given in the orientation of the read.")
+                        if pp == 2:
+                                f.write(" The mismatches are given in the orientation of the read.")
 
 
-	n = viewTableNewLine (f, view_type, 0)
+        n = viewTableNewLine (f, view_type, 0)
 
-	if strand == 0 :
-		viewTableCell (f, view_type, "Read")
-		viewTableCell (f, view_type, "Run")
-		viewTableCell (f, view_type, "Method")
-		if pp == 1 :
-			viewTableCell (f, view_type, "% aligned reads")
-			viewTableCell (f, view_type, "% bases aligned")
-			viewTableCell (f, view_type, "% mapped pairs")
-			viewTableCell (f, view_type, "% compatible pairs*")
-			viewTableCell (f, view_type, "% fragments mapped on plus strand**")
-			viewTableCell (f, view_type, "% aligned reads with unique alignments")
-			viewTableCell (f, view_type, "% aligned reads with multiple alignments")
+        if strand == 0 :
+                viewTableCell (f, view_type, "Read")
+                viewTableCell (f, view_type, "Run")
+                viewTableCell (f, view_type, "Method")
+                if pp == 1 :
+                        viewTableCell (f, view_type, "% aligned reads")
+                        viewTableCell (f, view_type, "% bases aligned")
+                        viewTableCell (f, view_type, "% mapped pairs")
+                        viewTableCell (f, view_type, "% compatible pairs*")
+                        viewTableCell (f, view_type, "% fragments mapped on plus strand**")
+                        viewTableCell (f, view_type, "% aligned reads with unique alignments")
+                        viewTableCell (f, view_type, "% aligned reads with multiple alignments")
 			
-			viewTableCell (f, view_type, "Reads in run or in file")
-			viewTableCell (f, view_type, "Reads unaligned")
-			viewTableCell (f, view_type, "Reads aligned")
+                        viewTableCell (f, view_type, "Reads in run or in file")
+                        viewTableCell (f, view_type, "Reads unaligned")
+                        viewTableCell (f, view_type, "Reads aligned")
 			
-		elif pp == 2 :
-			viewTableCell (f, view_type, "Reads in run or in file")
-			viewTableCell (f, view_type, "% Perfect reads exactly matching over their entire length")
-			viewTableCell (f, view_type, "% reads aligned with no mismatch")
-			viewTableCell (f, view_type, "% reads with 0 or 1 mismatch")
+                elif pp == 2 :
+                        viewTableCell (f, view_type, "Reads in run or in file")
+                        viewTableCell (f, view_type, "% Perfect reads exactly matching over their entire length")
+                        viewTableCell (f, view_type, "% reads aligned with no mismatch")
+                        viewTableCell (f, view_type, "% reads with 0 or 1 mismatch")
 
-		if pp == 1 :
-			viewTableCell (f, view_type, "Reads with several alignments***")
-			imax= various["maxMultiAli"]
-			viewTableCell (f, view_type, "Reads with unique alignments")
-			for i in range(1,imax)  :
-				viewTableCell (f, view_type, "Reads with " +  str(i+1) + " alignments")
+                if pp == 1 :
+                        viewTableCell (f, view_type, "Reads with several alignments***")
+                        imax= various["maxMultiAli"]
+                        viewTableCell (f, view_type, "Reads with unique alignments")
+                        for i in range(1,imax)  :
+                                viewTableCell (f, view_type, "Reads with " +  str(i+1) + " alignments")
 				
-			viewTableCell (f, view_type, "Fragments aligned on plus strand**")
-			viewTableCell (f, view_type, "Fragments aligned on minus strand**")
-			viewTableCell (f, view_type, "Pairs with both ends aligned")
-			viewTableCell (f, view_type, "Compatible pairs")
+                        viewTableCell (f, view_type, "Fragments aligned on plus strand**")
+                        viewTableCell (f, view_type, "Fragments aligned on minus strand**")
+                        viewTableCell (f, view_type, "Pairs with both ends aligned")
+                        viewTableCell (f, view_type, "Compatible pairs")
 			
-			viewTableCell (f, view_type, "Raw bases in unaligned reads present in the file")
-			viewTableCell (f, view_type, "Raw bases in aligned reads")
+                        viewTableCell (f, view_type, "Raw bases in unaligned reads present in the file")
+                        viewTableCell (f, view_type, "Raw bases in aligned reads")
 		
-		viewTableCell (f, view_type, "Aligned bases")
+                viewTableCell (f, view_type, "Aligned bases")
 
-		if pp == 2 :
-			viewTableCell (f, view_type, "mismatches per kb aligned")
-			viewTableCell (f, view_type, "substitutions per kb")
-			viewTableCell (f, view_type, "transitions per kb")
-			viewTableCell (f, view_type, "transversions per kb")
-			viewTableCell (f, view_type, "insertions per kb")
-			viewTableCell (f, view_type, "deletions per kb")
+                if pp == 2 :
+                        viewTableCell (f, view_type, "mismatches per kb aligned")
+                        viewTableCell (f, view_type, "substitutions per kb")
+                        viewTableCell (f, view_type, "transitions per kb")
+                        viewTableCell (f, view_type, "transversions per kb")
+                        viewTableCell (f, view_type, "insertions per kb")
+                        viewTableCell (f, view_type, "deletions per kb")
 			
-			viewTableCell (f, view_type, "Perfect reads exactly matching over their entire length")
-			viewTableCell (f, view_type, "Reads with 0 mismatch")
-			imax= various["maxError"]
-			if imax > 0 :
-				viewTableCell (f, view_type, "1 mismatch")
-			for i in range(1,imax)  :
-				viewTableCell (f, view_type, str(i+1) + " mismatches")
-			viewTableCell (f, view_type, "Mismatches")
-			viewTableCell (f, view_type, "Substitutions")
-			viewTableCell (f, view_type, "Transitions")
-			viewTableCell (f, view_type, "Transversions")
-			viewTableCell (f, view_type, "Insertions")
-			viewTableCell (f, view_type, "Deletions")
-			for k in subkeys:
-				viewTableCell (f,view_type, k[0]+">"+k[1])
-			for k in indelkeys:
-				viewTableCell (f,view_type, "Ins "+k)
-			for k in indelkeys:
-				viewTableCell (f,view_type, "Del "+k)
+                        viewTableCell (f, view_type, "Perfect reads exactly matching over their entire length")
+                        viewTableCell (f, view_type, "Reads with 0 mismatch")
+                        imax= various["maxError"]
+                        if imax > 0 :
+                                viewTableCell (f, view_type, "1 mismatch")
+                        for i in range(1,imax)  :
+                                viewTableCell (f, view_type, str(i+1) + " mismatches")
+                        viewTableCell (f, view_type, "Mismatches")
+                        viewTableCell (f, view_type, "Substitutions")
+                        viewTableCell (f, view_type, "Transitions")
+                        viewTableCell (f, view_type, "Transversions")
+                        viewTableCell (f, view_type, "Insertions")
+                        viewTableCell (f, view_type, "Deletions")
+                        for k in subkeys:
+                                viewTableCell (f,view_type, k[0]+">"+k[1])
+                        for k in indelkeys:
+                                viewTableCell (f,view_type, "Ins "+k)
+                        for k in indelkeys:
+                                viewTableCell (f,view_type, "Del "+k)
 
-		if pp == 1 :
-			imin= various["minAliLn"]
-			imax= various["maxAliLn"]+1
-			if imin < imax :
-				viewTableCell (f, view_type, "Aligned length")
-				for i in range(imin,imax) :
-					viewTableCell (f, view_type, str(imax + imin - i -1)+" nt")
+                if pp == 1 :
+                        imin= various["minAliLn"]
+                        imax= various["maxAliLn"]+1
+                        if imin < imax :
+                                viewTableCell (f, view_type, "Aligned length")
+                                for i in range(imin,imax) :
+                                        viewTableCell (f, view_type, str(imax + imin - i -1)+" nt")
 
-		if pp >= 3 :
-			imax= various["maxErrPos"] ;
-			imax1= various["maxErrPos1"]
-			imax2= various["maxErrPos2"]
-			if imax > 0 :
-				aliB1 = viewTableCell (f, view_type, "Aligned bases in read 1")
-				aliB2 = viewTableCell (f, view_type, "Aligned bases in read 2")
-			if pp == 3 :
-				viewTableCell (f, view_type, "Mismatch per sequencing cycle in read 1")
-			if pp == 4 :
-				viewTableCell (f, view_type, "Rate of Mismatch per Mb per sequencing cycle in read 1")
-			for i in range(imax+5)  :
-				viewTableCell (f, view_type, "Cycle " + str(i+1))
-			if imax2 > 0 :
-				if pp == 3 :
-					viewTableCell (f, view_type, "Mismatch per sequencing cycle in read 2")
-				if pp == 4 :
-					viewTableCell (f, view_type, "Rate of Mismatch per Mb per sequencing cycle in read 2")
-				for i in range(imax2+5)  :
-					viewTableCell (f, view_type, "Cycle " + str(i+1))
+                if pp >= 3 :
+                        imax= various["maxErrPos"] ;
+                        imax1= various["maxErrPos1"]
+                        imax2= various["maxErrPos2"]
+                        if imax > 0 :
+                                aliB1 = viewTableCell (f, view_type, "Aligned bases in read 1")
+                                aliB2 = viewTableCell (f, view_type, "Aligned bases in read 2")
+                        if pp == 3 :
+                                viewTableCell (f, view_type, "Mismatch per sequencing cycle in read 1")
+                        if pp == 4 :
+                                viewTableCell (f, view_type, "Rate of Mismatch per Mb per sequencing cycle in read 1")
+                        for i in range(imax+5)  :
+                                viewTableCell (f, view_type, "Cycle " + str(i+1))
+                        if imax2 > 0 :
+                                if pp == 3 :
+                                        viewTableCell (f, view_type, "Mismatch per sequencing cycle in read 2")
+                                if pp == 4 :
+                                        viewTableCell (f, view_type, "Rate of Mismatch per Mb per sequencing cycle in read 2")
+                                for i in range(imax2+5)  :
+                                        viewTableCell (f, view_type, "Cycle " + str(i+1))
 
-	for run in sorted(runs):
-		if strand > 0 : 
-			tag2 = "Reads_in_file" + tab + run + "#3"
-			nrf = 0
-			if tag_val.has_key (tag2):
-				nrf = tag_val[tag2]
-				if nrf == 0 :
-					continue
+        for run in sorted(runs):
+                if strand > 0 : 
+                        tag2 = "Reads_in_file" + tab + run + "#3"
+                        nrf = 0
+                        if tag_val.has_key (tag2):
+                                nrf = tag_val[tag2]
+                                if nrf == 0 :
+                                        continue
 
-		viewTableBreak (f, view_type)
-		n = viewTableNewLine (f, view_type, n)
+                viewTableBreak (f, view_type)
+                n = viewTableNewLine (f, view_type, n)
 
 
-		if strand == 0 :
-			viewTableCell (f, view_type, "Any")
-		elif strand == 1 :
-			viewTableCell (f, view_type, "R1")
-		elif strand == 2 :
-			viewTableCell (f, view_type, "R2")
+                if strand == 0 :
+                        viewTableCell (f, view_type, "Any")
+                elif strand == 1 :
+                        viewTableCell (f, view_type, "R1")
+                elif strand == 2 :
+                        viewTableCell (f, view_type, "R2")
 
-		runBuf = run.split(".")
-		ndot= len(runBuf)
-		if (ndot == 1) :
-			viewTableCell (f, view_type, runBuf[0])
-			viewTableCell (f, view_type, "0")
-		if (ndot == 2) :
-			viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
-			viewTableCell (f, view_type, "0")
-		if (ndot == 3) :
-			viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
-			viewTableCell (f, view_type, runBuf[2])
-		if (ndot >= 4) :
-			viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
-			viewTableCell (f, view_type, runBuf[2] + "." + runBuf[3])
+                runBuf = run.split(".")
+                ndot= len(runBuf)
+                if (ndot == 1) :
+                        viewTableCell (f, view_type, runBuf[0])
+                        viewTableCell (f, view_type, "0")
+                if (ndot == 2) :
+                        viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
+                        viewTableCell (f, view_type, "0")
+                if (ndot == 3) :
+                        viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
+                        viewTableCell (f, view_type, runBuf[2])
+                if (ndot >= 4) :
+                        viewTableCell (f, view_type, runBuf[0] + "." + runBuf[1])
+                        viewTableCell (f, view_type, runBuf[2] + "." + runBuf[3])
 
-		if pp == 1 :
-			r1 = viewTag ("Reads_in_file",0,run,tag_runs,tag_val,1+strand)
-			r1a = viewTag ("Reads_in_run",0,run,tag_runs,tag_val,1+strand)
-			if nReadsGiven :
-				r1a = nReadsGiven
-				if strand > 0 :
-					r1a /= 2 
-			if r1a > 0 :
-				r1 = r1a
-			r2 = viewTag ("Reads_Mapped",0,run,tag_runs,tag_val,1+strand)
-			if r1 == 0 :
-			    r1 = 1
-			r = 100.0 * r2/r1
-			viewTableCell (f, view_type, "%.2f" % (r))
+                if pp == 1 :
+                        r1 = viewTag ("Reads_in_file",0,run,tag_runs,tag_val,1+strand)
+                        r1a = viewTag ("Reads_in_run",0,run,tag_runs,tag_val,1+strand)
+                        if nReadsGiven :
+                                r1a = nReadsGiven
+                                if strand > 0 :
+                                        r1a /= 2 
+                        if r1a > 0 :
+                                r1 = r1a
+                        r2 = viewTag ("Reads_Mapped",0,run,tag_runs,tag_val,1+strand)
+                        if r1 == 0 :
+                                r1 = 1
+                        r = 100.0 * r2/r1
+                        viewTableCell (f, view_type, "%.2f" % (r))
 			
-			r3 = viewTag ("Cumulated_read_length",0,run,tag_runs,tag_val,1+strand)
-			r4 = viewTag ("Aligned_bases",0,run,tag_runs,tag_val,1+strand)
-			if r3 == 0 :
-			    r3 = 1
-			r = 100.0 * r4/r3
-			r = r * r2/r1
-			viewTableCell (f, view_type, "%.2f" % (r))
+                        r3 = viewTag ("Cumulated_read_length",0,run,tag_runs,tag_val,1+strand)
+                        r4 = viewTag ("Aligned_bases",0,run,tag_runs,tag_val,1+strand)
+                        if r3 == 0 :
+                                r3 = 1
+                        r = 100.0 * r4/r3
+                        r = r * r2/r1
+                        viewTableCell (f, view_type, "%.2f" % (r))
 
-			sp0 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 0)
-			sp1 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 1)
-			sp2 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 2)
-			sm0 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 0)
-			sm1 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 1)
-			sm2 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 2)
+                        sp0 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 0)
+                        sp1 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 1)
+                        sp2 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 1 + 2 * 2)
+                        sm0 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 0)
+                        sm1 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 1)
+                        sm2 = viewTag ("Reads_Mapped_per_strand",0,run,tag_runs,tag_val, 2 + 2 * 2)
+                
+                        if sp1 + sp2 == 0 :
+                                sp1 = sp0
+                        if sm1 + sm2 == 0 :
+                                sm1 = sm0
 
-			if sp1 + sp2 == 0 :
-				sp1 = sp0
-			if sm1 + sm2 == 0 :
-				sm1 = sm0
+                        if strand == 0 :
+                                sx = sp1 + sm2
+                                sy = sm1 + sp2
+                        elif strand == 1 :
+                                sx = sp1
+                                sy = sm1
+                        elif strand == 2 :
+                                sx = sm2
+                                sy = sp2
 
-			if strand == 0 :
-				sx = sp1 + sm2
-				sy = sm1 + sp2
-			elif strand == 1 :
-				sx = sp1
-				sy = sm1
-			elif strand == 2 :
-				sx = sm2
-				sy = sp2
+                        if strand == 0 :
+                                r5 = viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,1)/2
+                                r = 200.0 * r5/(r1)
+                                viewTableCell (f, view_type, "%.2f" % (r))
+                                r6 = viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,2)/2
+                                r = 200.0 * r6/(r1)
+                                viewTableCell (f, view_type, "%.2f" % (r))
+                        else:
+                                viewTableCell (f, view_type, "-")
+                                viewTableCell (f, view_type, "-")
 
-			if strand == 0 :
-				r5 = viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,1)/2
-				r = 200.0 * r5/(r1)
-				viewTableCell (f, view_type, "%.2f" % (r))
-				r6 = viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,2)/2
-				r = 200.0 * r6/(r1)
-				viewTableCell (f, view_type, "%.2f" % (r))
-			else:
-				viewTableCell (f, view_type, "-")
-				viewTableCell (f, view_type, "-")
+                        if sx == 0 :
+                                r = 0
+                        else :
+                                r = 100.0 * sx/(sx + sy)
+                        viewTableCell (f, view_type, "%.4f" % (r))
 
-			if sx == 0 :
-				r = 0
-			else :
-				r = 100.0 * sx/(sx + sy)
-			viewTableCell (f, view_type, "%.4f" % (r))
+                        r7 = viewTag (("MultiAli:%03d" % (1)),0,run,tag_runs,tag_val,1+strand) 
+                        if r2 == 0 :
+                                ua = 0
+                                una = 0
+                        else :
+                                ua = 100.0 * r7/r2
+                                una = 100 - ua
 
-			r7 = viewTag (("MultiAli:%03d" % (1)),0,run,tag_runs,tag_val,1+strand) 
-			if r2 == 0 :
-				ua = 0
-				una = 0
-			else :
-				ua = 100.0 * r7/r2
-				una = 100 - ua
+                        viewTableCell (f, view_type, "%.2f" % (ua))
+                        viewTableCell (f, view_type, "%.2f" % (una))
 
-			viewTableCell (f, view_type, "%.2f" % (ua))
-			viewTableCell (f, view_type, "%.2f" % (una))
-
-			viewTableCell (f, view_type, "%d" % (r1))
-			r = r1 - r2
-			viewTableCell (f, view_type, "%d" % (r))	
-			# viewTag ("Unaligned_reads",f,run,tag_runs,tag_val,1+strand) 
+                        viewTableCell (f, view_type, "%d" % (r1))
+                        r = r1 - r2
+                        viewTableCell (f, view_type, "%d" % (r))	
+                        # viewTag ("Unaligned_reads",f,run,tag_runs,tag_val,1+strand) 
+                        
+                        
+                        viewTag ("Reads_Mapped",f,run,tag_runs,tag_val,1+strand)
 
 
-			viewTag ("Reads_Mapped",f,run,tag_runs,tag_val,1+strand)
+                        r = r2 - r7
+                        viewTableCell (f, view_type, "%d" % (r))	
+                        # viewTag ("Alignments",f,run,tag_runs,tag_val,1+strand)
+                        viewTableCell (f, view_type, "%d" % (r7))	
+                        imax= various["maxMultiAli"]
+                        for i in range(1,imax) :
+                                viewTag (("MultiAli:%03d" % (i+1)),f,run,tag_runs,tag_val,1+strand) 
 
-
-			r = r2 - r7
-			viewTableCell (f, view_type, "%d" % (r))	
-			# viewTag ("Alignments",f,run,tag_runs,tag_val,1+strand)
-			viewTableCell (f, view_type, "%d" % (r7))	
-			imax= various["maxMultiAli"]
-			for i in range(1,imax) :
-				viewTag (("MultiAli:%03d" % (i+1)),f,run,tag_runs,tag_val,1+strand) 
-
-			viewTableCell (f, view_type, "%d" % (sx))
-			viewTableCell (f, view_type, "%d" % (sy))
+                        viewTableCell (f, view_type, "%d" % (sx))
+                        viewTableCell (f, view_type, "%d" % (sy))
 			
-			if strand == 0 :
-				r = int(viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,1)/2)
-				viewTableCell (f, view_type, str(r))
-				r = int (viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,2)/2)
-				viewTableCell (f, view_type, str(r))
-			else:
-				viewTableCell (f, view_type, "-")
-				viewTableCell (f, view_type, "-")
-			r = viewTag ("Unaligned_bases",0,run,tag_runs,tag_val,1+strand)
-			if r == 0 :
-				viewTableCell (f, view_type, "-")
-			else:
-				viewTag ("Unaligned_bases",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Cumulated_read_length",f,run,tag_runs,tag_val,1+strand)
+                        if strand == 0 :
+                                r = int(viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,1)/2)
+                                viewTableCell (f, view_type, str(r))
+                                r = int (viewTag ("Both_Reads_Mapped",0,run,tag_runs,tag_val,2)/2)
+                                viewTableCell (f, view_type, str(r))
+                        else:
+                                viewTableCell (f, view_type, "-")
+                                viewTableCell (f, view_type, "-")
+                        r = viewTag ("Unaligned_bases",0,run,tag_runs,tag_val,1+strand)
+                        if r == 0 :
+                                viewTableCell (f, view_type, "-")
+                        else:
+                                viewTag ("Unaligned_bases",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Cumulated_read_length",f,run,tag_runs,tag_val,1+strand)
 
-		if pp == 2 :
-			zr = viewTag ("Reads_in_file",0,run,tag_runs,tag_val,1+strand)
-			zr2 = viewTag ("Reads_in_run",0,run,tag_runs,tag_val,1+strand)
-			if nReadsGiven :
-				zr2 = nReadsGiven
-				if strand > 0 :
-					zr2 /= 2 
-			if zr2 > 0 :
-				zr = zr2
-			viewTableCell (f, view_type, "%d" % (zr))
-			if zr == 0 :
-				zr = 1
-			z = viewTag ("Perfect_reads",0,run,tag_runs,tag_val,1+strand)
-			r = 100.0 * z/zr
-			viewTableCell (f, view_type, "%.2f" % (r))
-			z0 = viewTag (("MismatchPerRead:%03d" % (0)),0,run,tag_runs,tag_val,1+strand)
-			r = 100.0 * z0/zr
-			viewTableCell (f, view_type, "%.2f" % (r))
-			z1 = viewTag (("MismatchPerRead:%03d" % (1)),0,run,tag_runs,tag_val,1+strand)
-			r = 100.0 * (z0 + z1)/zr
-			viewTableCell (f, view_type, "%.2f" % (r))
+                if pp == 2 :
+                        zr = viewTag ("Reads_in_file",0,run,tag_runs,tag_val,1+strand)
+                        zr2 = viewTag ("Reads_in_run",0,run,tag_runs,tag_val,1+strand)
+                        if nReadsGiven :
+                                zr2 = nReadsGiven
+                                if strand > 0 :
+                                        zr2 /= 2 
+                        if zr2 > 0 :
+                                zr = zr2
+                        viewTableCell (f, view_type, "%d" % (zr))
+                        if zr == 0 :
+                                zr = 1
+                        z = viewTag ("Perfect_reads",0,run,tag_runs,tag_val,1+strand)
+                        r = 100.0 * z/zr
+                        viewTableCell (f, view_type, "%.2f" % (r))
+                        z0 = viewTag (("MismatchPerRead:%03d" % (0)),0,run,tag_runs,tag_val,1+strand)
+                        r = 100.0 * z0/zr
+                        viewTableCell (f, view_type, "%.2f" % (r))
+                        z1 = viewTag (("MismatchPerRead:%03d" % (1)),0,run,tag_runs,tag_val,1+strand)
+                        r = 100.0 * (z0 + z1)/zr
+                        viewTableCell (f, view_type, "%.2f" % (r))
 
-		viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+strand)
+                viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+strand)
 
-		if pp == 1 :
-			imin= various["minAliLn"]
-			imax= various["maxAliLn"]+1
-			if imin < imax :
-				viewTableCell (f, view_type, run)
-				for i in range(imin,imax) :
-					viewTag (("AliLn:%04d" % (imax+imin-i-1)),f,run,tag_runs,tag_val,strand+1) 
+                if pp == 1 :
+                        imin= various["minAliLn"]
+                        imax= various["maxAliLn"]+1
+                        if imin < imax :
+                                viewTableCell (f, view_type, run)
+                                for i in range(imin,imax) :
+                                        viewTag (("AliLn:%04d" % (imax+imin-i-1)),f,run,tag_runs,tag_val,strand+1) 
 
-		if pp == 2 :
-			zab = viewTag ("Aligned_bases",0,run,tag_runs,tag_val,1+strand)
-			if zab == 0 :
-				zab = 1
-			z = viewTag ("Mismatches",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
-			z = viewTag ("Substitutions",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
-			z = viewTag ("Transitions",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
-			z = viewTag ("Transversions",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
-			z = viewTag ("Insertions",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
-			z = viewTag ("Deletions",0,run,tag_runs,tag_val,1+strand)
-			r = 1000.0 * z/zab
-			viewTableCell (f, view_type, "%.3f" % (r))
+                if pp == 2 :
+                        zab = viewTag ("Aligned_bases",0,run,tag_runs,tag_val,1+strand)
+                        if zab == 0 :
+                                zab = 1
+                        z = viewTag ("Mismatches",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
+                        z = viewTag ("Substitutions",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
+                        z = viewTag ("Transitions",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
+                        z = viewTag ("Transversions",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
+                        z = viewTag ("Insertions",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
+                        z = viewTag ("Deletions",0,run,tag_runs,tag_val,1+strand)
+                        r = 1000.0 * z/zab
+                        viewTableCell (f, view_type, "%.3f" % (r))
 
-			viewTag ("Perfect_reads",f,run,tag_runs,tag_val,1+strand)
-			imax= various["maxError"]
-			for i in range(imax+1)  :
-				viewTag (("MismatchPerRead:%03d" % (i)),f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Mismatches",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Substitutions",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Transitions",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Transversions",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Insertions",f,run,tag_runs,tag_val,1+strand)
-			viewTag ("Deletions",f,run,tag_runs,tag_val,1+strand)
-			for k in subkeys:
-				viewTag (("Sub:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
-			for k in indelkeys:
-				viewTag (("Ins:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
-			for k in indelkeys:
-				viewTag (("Del:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Perfect_reads",f,run,tag_runs,tag_val,1+strand)
+                        imax= various["maxError"]
+                        for i in range(imax+1)  :
+                                viewTag (("MismatchPerRead:%03d" % (i)),f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Mismatches",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Substitutions",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Transitions",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Transversions",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Insertions",f,run,tag_runs,tag_val,1+strand)
+                        viewTag ("Deletions",f,run,tag_runs,tag_val,1+strand)
+                        for k in subkeys:
+                                viewTag (("Sub:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
+                        for k in indelkeys:
+                                viewTag (("Ins:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
+                        for k in indelkeys:
+                                viewTag (("Del:%s" % (k)),f,run,tag_runs,tag_val,1+strand)
 
-		if pp >= 3 :
-			imax = various["maxErrPos"]
-			imax1 = various["maxErrPos1"]
-			imax2 = various["maxErrPos2"]
-			aliB1 = 1
-			aliB2 = 1
-			hack = 0
-			if imax > 0 :
-				aliB1 = viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+1)
-				aliB2 = viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+2)
-			if (aliB1 == 0) :
-				aliB1 = 1
-			if (aliB2 == 0) :
-				aliB2 = 1
-			viewTableCell (f, view_type, "")
-			for i in range(imax + 5) :
-				if hack == 1 :
-					z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+0)
-				else :
-					z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+1)
-				if (pp == 3):
-					viewTableCell (f,view_type, ("%d" % (z)))
-				if (pp == 4):
-					viewTableCell (f,view_type, ("%.2f" % (1000000.0*z/aliB1)))
-			if imax2 > 0 :
-				viewTableCell (f, view_type, "")
-				for i in range(imax2 + 5) :
-					z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+2)
-					if (pp == 3):
-						viewTableCell (f,view_type, ("%d" % (z)))
-					if (pp == 4):
-						viewTableCell (f,view_type, ("%.2f" % (1000000.0*z/aliB1)))
+                if pp >= 3 :
+                        imax = various["maxErrPos"]
+                        imax1 = various["maxErrPos1"]
+                        imax2 = various["maxErrPos2"]
+                        aliB1 = 1
+                        aliB2 = 1
+                        hack = 0
+                        if imax > 0 :
+                                aliB1 = viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+1)
+                                aliB2 = viewTag ("Aligned_bases",f,run,tag_runs,tag_val,1+2)
+                        if (aliB1 == 0) :
+                                aliB1 = 1
+                        if (aliB2 == 0) :
+                                aliB2 = 1
+                        viewTableCell (f, view_type, "")
+                        for i in range(imax + 5) :
+                                if hack == 1 :
+                                        z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+0)
+                                else :
+                                        z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+1)
+                                if (pp == 3):
+                                        viewTableCell (f,view_type, ("%d" % (z)))
+                                if (pp == 4):
+                                        viewTableCell (f,view_type, ("%.2f" % (1000000.0*z/aliB1)))
+                        if imax2 > 0 :
+                                viewTableCell (f, view_type, "")
+                                for i in range(imax2 + 5) :
+                                        z = viewTag (("Err_pos:%04d" % (i)),0,run,tag_runs,tag_val,1+2)
+                                        if (pp == 3):
+                                                viewTableCell (f,view_type, ("%d" % (z)))
+                                        if (pp == 4):
+                                                viewTableCell (f,view_type, ("%.2f" % (1000000.0*z/aliB1)))
 
-	viewTableBreak (f, view_type)
+        viewTableBreak (f, view_type)
 
-	if strand == 2 :
-		footnote = "* The definition of a compatible pair depends on the aligner, it has no absolute meaning"	
-		if view_type == "html" :
-			footnote = footnote + "<br>"
-		footnote = footnote + "\n** In paired end sequencing, the strand specificity of the fragments is evaluated after complementing the R2 read, since the R1 and R2 reads face each other"
-		if view_type == "html" :
-			footnote = footnote + "<br>"
-		footnote = footnote + "\n*** A read may have several alignments, but each read contributes only once to the other columns of this table, on its first occurence in the alignment file"
-		viewTableClose (f, view_type,footnote)
+        if strand == 2 :
+                footnote = "* The definition of a compatible pair depends on the aligner, it has no absolute meaning"	
+                if view_type == "html" :
+                        footnote = footnote + "<br>"
+                footnote = footnote + "\n** In paired end sequencing, the strand specificity of the fragments is evaluated after complementing the R2 read, since the R1 and R2 reads face each other"
+                if view_type == "html" :
+                        footnote = footnote + "<br>"
+                footnote = footnote + "\n*** A read may have several alignments, but each read contributes only once to the other columns of this table, on its first occurence in the alignment file"
+                viewTableClose (f, view_type,footnote)
 	
 
 def phase3date (f) :
-	txt = time.strftime ("%Y-%m-%d %H:%M:%S")
-	if view_type == "html" :
-		f.write ("#<i> "+txt+"</i><br>\n")
-	else :
-		f.write ("# "+txt+"\n")
+        txt = time.strftime ("%Y-%m-%d %H:%M:%S")
+        if view_type == "html" :
+                f.write ("#<i> "+txt+"</i><br>\n")
+        else :
+                f.write ("# "+txt+"\n")
 				
 
 def phase3Export(f,view_type,runs, tags,tag_runs,tags2,tag_val,various,nReadsGiven,multi_file) :
@@ -1568,109 +1568,109 @@ every_base_flag = False # jfm 10/12/2012 When False, skip base by base compariso
 try:
 	opts, args = getopt.gnu_getopt(sys.argv[1:], '?ho:i:I:f:h:r:ameBSg:',['BAM','SAM','magic','merge', 'split', 'view=','group=','fasta=','run=','nreads=','help'])
 except getopt.GetoptError as err:
-	print (str(err))
-	print ("try --help")
-	sys.exit(2)
+        print (str(err))
+        print ("try --help")
+        sys.exit(2)
 
 if len(args) > 0:
-	print ("unknown argument "+args[0])
-	print ("try --help")
-	sys.exit(2)
+        print ("unknown argument "+args[0])
+        print ("try --help")
+        sys.exit(2)
 
 for o, a in opts:
-	if o  == "-?" or o == "-h" or o == "--help":
-		usage()
-	elif o == "-o":
-		out_prefix = a
-	elif o == "-i":
-		input_file = a
-	elif o == "-r" or o == "--run":
-		run_id = a
-	elif o == "-m" or o == "--merge":
-		doMerge = 1
-		phase = 2
-		nphase = nphase + 1 
-	elif o == "-f" or  o == "--fasta":
-		fasta_file = a
-	elif o == "-a" or o == "--magic":
-		file_type = "Magic"
-		phase = 1
-		nphase = nphase + 1 
-	elif o == "-S" or o == "--SAM":
-		file_type = "SAM"
-		phase = 1
-		nphase = nphase + 1 
-	elif o == "-B" or  o == "--BAM":
-		file_type = "BAM"
-		phase = 1
-		nphase = nphase + 1 
-	elif o == "--view":
-		view_type = a
-		phase = 3
-		nphase = nphase + 1 
-	elif o == "--nreads":
-		nReadsGiven = long(a)
-	elif o == "-g" or o == "--group":
-		group_file = a
-	elif o == "-e":
-		every_base_flag = True
-	elif o == "--split":
-		multi_file = 1
+        if o  == "-?" or o == "-h" or o == "--help":
+                usage()
+        elif o == "-o":
+                out_prefix = a
+        elif o == "-i":
+                input_file = a
+        elif o == "-r" or o == "--run":
+                run_id = a
+        elif o == "-m" or o == "--merge":
+                doMerge = 1
+                phase = 2
+                nphase = nphase + 1 
+        elif o == "-f" or  o == "--fasta":
+                fasta_file = a
+        elif o == "-a" or o == "--magic":
+                file_type = "Magic"
+                phase = 1
+                nphase = nphase + 1 
+        elif o == "-S" or o == "--SAM":
+                file_type = "SAM"
+                phase = 1
+                nphase = nphase + 1 
+        elif o == "-B" or  o == "--BAM":
+                file_type = "BAM"
+                phase = 1
+                nphase = nphase + 1 
+        elif o == "--view":
+                view_type = a
+                phase = 3
+                nphase = nphase + 1 
+        elif o == "--nreads":
+                nReadsGiven = long(a)
+        elif o == "-g" or o == "--group":
+                group_file = a
+        elif o == "-e":
+                every_base_flag = True
+        elif o == "--split":
+                multi_file = 1
 
 
 ###############################################################################################	
 # validate the parameters 
 
 if nphase == 0:
-	print ("# no action specified, please try --help")
-	sys.exit(1)
+        print ("# no action specified, please try --help")
+        sys.exit(1)
 if nphase > 1:
-	print ("# incompatible arguments, only one phase should be specified, please try --help")
-	sys.exit(2)
+        print ("# incompatible arguments, only one phase should be specified, please try --help")
+        sys.exit(2)
 	
 if phase == 1:
-	if run_id == "":
-		print ("# In phase 1, it is mandatory to specify --run run_id, please try --help")
-		sys.exit(3)
-	if fasta_file == "":
-		print ("# In phase 1, it is mandatory to specify --fasta target.fa, please try --help")
-		sys.exit(4)
+        if run_id == "":
+                print ("# In phase 1, it is mandatory to specify --run run_id, please try --help")
+                sys.exit(3)
+        if fasta_file == "":
+                print ("# In phase 1, it is mandatory to specify --fasta target.fa, please try --help")
+                sys.exit(4)
 elif phase == 2:
-	if group_file == "" and run_id == "":
-		print ("# In phase 2, it is mandatory to specify either --run or --group,  please try --help")
-		sys.exit(5)
+        if group_file == "" and run_id == "":
+                print ("# In phase 2, it is mandatory to specify either --run or --group,  please try --help")
+                sys.exit(5)
 elif phase == 3:
-	if run_id == "":
-		run_id = "any"
-	if 0 and out_prefix == "":
-		print ("# In phase 3, it is mandatory to specify -o file_prefix, please try --help")
-		sys.exit(6)
-	if view_type != "table"	and view_type != "html" :
-		print ("# In phase 3, currently the only known formats are 'table' and 'html', please try --help")
-		print ("# for the moment only the phase2 output is completed")
-		print ("# the table output is very preliminary and incomplete")
-		print ("# if you sort it, it will look a bit nicer")
-		print ("# we will have better displays in the next few days")
-		sys.exit(6)
+        if run_id == "":
+                run_id = "any"
+        if 0 and out_prefix == "":
+                print ("# In phase 3, it is mandatory to specify -o file_prefix, please try --help")
+                sys.exit(6)
+        if view_type != "table"	and view_type != "html" :
+                print ("# In phase 3, currently the only known formats are 'table' and 'html', please try --help")
+                print ("# for the moment only the phase2 output is completed")
+                print ("# the table output is very preliminary and incomplete")
+                print ("# if you sort it, it will look a bit nicer")
+                print ("# we will have better displays in the next few days")
+                sys.exit(6)
 
 ###############################################################################################
 # Select the input stream
 if input_file == "":
-	input_stream = os.popen( " sort -k 1,1 ")
-	# sys.stdin
+        input_stream = os.popen( " sort -k 1,1 ")
+        # sys.stdin
 else:
-	if file_type == "BAM":
-		input_stream = os.popen( "samtools view -h "+input_file + " | sort -k 1,1 ")
-	else:
-		input_stream = os.popen( "cat " + input_file+ " | sort -k 1,1 ")
+        if file_type == "BAM":
+                input_stream = os.popen( "samtools view -h "+input_file + " | sort -k 1,1 ")
+        else:
+                input_stream = os.popen( "cat " + input_file+ " | sort -k 1,1 ")
 
 ###############################################################################################		
 # Define paths and filenames
 
 if out_prefix == "" and phase < 3:
-	tsv_file = ""
+        tsv_file = ""
 else:
-	tsv_file = out_prefix + ".seqc.tsv"
+        tsv_file = out_prefix + ".seqc.tsv"
 summary_file = out_prefix + ".summary.tsv"
 mismatch_rate_file = out_prefix + ".mismatch_rate_hist.tsv"
 mismatch_type_file = out_prefix + ".mismatch_type_hist.tsv"
@@ -1702,14 +1702,14 @@ newline = "\n"
 ###############################################################################################		
 # in merge case, parse the group file, cumulate and reexport
 if phase == 2:
-	phase2(run_id,input_stream, out_prefix,nReadsGiven)
-	sys.exit(0)
+        phase2(run_id,input_stream, out_prefix,nReadsGiven)
+        sys.exit(0)
 
 ###############################################################################################		
 # in merge case, parse the group file, cumulate and reexport
 if phase == 3:
-	phase3(input_stream, view_type, out_prefix,nReadsGiven,multi_file)
-	sys.exit(0)
+        phase3(input_stream, view_type, out_prefix,nReadsGiven,multi_file)
+        sys.exit(0)
 
 ###############################################################################################		
 # In phase 1, we want to process a BAM file, using the HTseq library
@@ -1863,9 +1863,9 @@ aliHisto1 = {}
 aliHisto2 = {}
 
 for n in range(100):
-	aliHisto[n] = 0
-	aliHisto1[n] = 0
-	aliHisto2[n] = 0
+        aliHisto[n] = 0
+        aliHisto1[n] = 0
+        aliHisto2[n] = 0
 
 
 # Process each record in the SAM file
@@ -1873,126 +1873,126 @@ print ("BAM/SAM processing starts " + time.asctime(time.localtime(time.time())))
 
 for a in HTSeq.SAM_Reader( input_stream ):
 
-	record_count += 1
+        record_count += 1
 
 
-	if a.aligned:
-		alignment_count += 1
+        if a.aligned:
+                alignment_count += 1
 
-			# if a.not_primary_alignment: # jfm 10/18/2012 Skip secondary alignments
-			# continue
+                # if a.not_primary_alignment: # jfm 10/18/2012 Skip secondary alignments
+                # continue
+                
+                first_alignment = False	# jfm 10/1/2012 Only do statistics on the first alignment for each end
 
-		first_alignment = False	# jfm 10/1/2012 Only do statistics on the first alignment for each end
+                # count read1 and read2
+                if 0 :
+                        if a.paired_end:
+                                if a.pe_which == "first":
+                                        read1_alignment_count += 1
+                                        if alignments_per_read1.has_key( a.read.name ):
+                                                alignments_per_read1[ a.read.name ] += 1
+                                        else:
+                                                alignments_per_read1[ a.read.name ] = 1
+                                                first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
+                                elif a.pe_which == "second":
+                                        read2_alignment_count += 1
+                                        if alignments_per_read2.has_key( a.read.name ):
+                                                alignments_per_read2[ a.read.name ] += 1
+                                        else:
+                                                alignments_per_read2[ a.read.name ] = 1
+                                                first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
+                                                # mapped_read = str(a.read)
 
-		# count read1 and read2
-		if 0 :
-			if a.paired_end:
-				if a.pe_which == "first":
-					read1_alignment_count += 1
-					if alignments_per_read1.has_key( a.read.name ):
-						alignments_per_read1[ a.read.name ] += 1
-					else:
-						alignments_per_read1[ a.read.name ] = 1
-						first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
-				elif a.pe_which == "second":
-					read2_alignment_count += 1
-					if alignments_per_read2.has_key( a.read.name ):
-						alignments_per_read2[ a.read.name ] += 1
-					else:
-						alignments_per_read2[ a.read.name ] = 1
-						first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
-						# mapped_read = str(a.read)
+                                # count alignments per read
+                                if alignments_per_read.has_key( a.read.name ):
+                                        if not a.paired_end:
+                                                alignments_per_read[ a.read.name ] += 1
+                        else:
+                                if not a.paired_end:
+                                        alignments_per_read[ a.read.name ] = 1
+                                        first_alignment = True # jfm 10/2/2012 Do stattistics on the first single-end alignment, too
 
-				# count alignments per read
-				if alignments_per_read.has_key( a.read.name ):
-					if not a.paired_end:
-						alignments_per_read[ a.read.name ] += 1
-			else:
-				if not a.paired_end:
-					alignments_per_read[ a.read.name ] = 1
-					first_alignment = True # jfm 10/2/2012 Do stattistics on the first single-end alignment, too
-
-		else:
-			if a.read.name != old :
-				old = a.read.name
+                else:
+                        if a.read.name != old :
+                                old = a.read.name
 			
-				registerAli (ali,ali1,ali2,aliHisto,aliHisto1,aliHisto2)
+                                registerAli (ali,ali1,ali2,aliHisto,aliHisto1,aliHisto2)
 				
-				ali = 0
-				ali1 = 0
-				ali2 = 0
+                                ali = 0
+                                ali1 = 0
+                                ali2 = 0
 
-				primary = 0
-				primary1 = 0
-				primary2 = 0
+                                primary = 0
+                                primary1 = 0
+                                primary2 = 0
 
-			if a.paired_end:
-				if a.pe_which == "first":
-					read1_alignment_count += 1
-					ali1 += 1
-					if not a.not_primary_alignment:
-						primary1 += 1
-						if primary1 == 1:
-							first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
-				elif a.pe_which == "second":
-					read2_alignment_count += 1
-					ali2 += 1
-					if not a.not_primary_alignment:
-						primary2 += 1
-						if primary2 == 1:
-							first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
-			else:
-				ali += 1
-				if not a.not_primary_alignment:
-					primary += 1
-					if primary == 1:
-						first_alignment == True
+                        if a.paired_end:
+                                if a.pe_which == "first":
+                                        read1_alignment_count += 1
+                                        ali1 += 1
+                                        if not a.not_primary_alignment:
+                                                primary1 += 1
+                                                if primary1 == 1:
+                                                        first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
+                                elif a.pe_which == "second":
+                                        read2_alignment_count += 1
+                                        ali2 += 1
+                                        if not a.not_primary_alignment:
+                                                primary2 += 1
+                                                if primary2 == 1:
+                                                        first_alignment = True # jfm 10/1/2012 Only do statistics on the first alignment for each end
+                        else:
+                                ali += 1
+                                if not a.not_primary_alignment:
+                                        primary += 1
+                                        if primary == 1:
+                                                first_alignment == True
 		
-		# mieg: do basic alignment statistics ONLY for first alignment
-		# we want to count the aligned reads and their mismatches not the alignments,
-		# otherwise a bugged code aligning each read at 10000 different places will
-		# seem to align more sequences than a correct aligner
-		# jfm 10/1/2012 Do statistics on the first alignment for each end
-		if ( first_alignment ):
-			calc_seqc(a)
-			reads_in_file += 1
-			# get paired end counts
-			if a.paired_end:
-
-				# first and second fragment alignments  
-				if a.pe_which == "first":
-					reads_1_in_file += 1		    
-					read1_mapped_count += 1
-				elif a.pe_which == "second":
-					reads_2_in_file += 1		    
-					read2_mapped_count += 1
+                # mieg: do basic alignment statistics ONLY for first alignment
+                # we want to count the aligned reads and their mismatches not the alignments,
+                # otherwise a bugged code aligning each read at 10000 different places will
+                # seem to align more sequences than a correct aligner
+                # jfm 10/1/2012 Do statistics on the first alignment for each end
+                if ( first_alignment ):
+                        calc_seqc(a)
+                        reads_in_file += 1
+                        # get paired end counts
+                        if a.paired_end:
+		
+                                # first and second fragment alignments  
+                                if a.pe_which == "first":
+                                        reads_1_in_file += 1		    
+                                        read1_mapped_count += 1
+                                elif a.pe_which == "second":
+                                        reads_2_in_file += 1		    
+                                        read2_mapped_count += 1
 				
-                        # with itself and mate mapped
-			if a.mate_aligned:
-				pair_mapped_count += 1
+                                # with itself and mate mapped
+                                if a.mate_aligned:
+                                        pair_mapped_count += 1
 
-			# proper pairs
-			if a.proper_pair:
-				proper_pair_count += 1
+                                # proper pairs
+                                if a.proper_pair:
+                                        proper_pair_count += 1
 
-	else:
-		unaligned_count += 1
-		reads_in_file += 1
-		k1 = len(a.read)
-		if k1 == 1 :
-			k1 = 0  # it is not interesting to count the length of a pseudo-read == "*"
-		readU_bp += long(k1)
+        else:
+                unaligned_count += 1
+                reads_in_file += 1
+                k1 = len(a.read)
+                if k1 == 1 :
+                        k1 = 0  # it is not interesting to count the length of a pseudo-read == "*"
+                readU_bp += long(k1)
 
-		if a.paired_end:
-			if a.pe_which == "first":
-				read1_unaligned_count += 1
-				reads_1_in_file += 1
-				readU_1_bp += long(k1)
-			elif a.pe_which == "second":
-				read2_unaligned_count += 1
-				reads_2_in_file += 1
-				readU_2_bp += long(k1)
-	# del(a)
+                if a.paired_end:
+                        if a.pe_which == "first":
+                                read1_unaligned_count += 1
+                                reads_1_in_file += 1
+                                readU_1_bp += long(k1)
+                        elif a.pe_which == "second":
+                                read2_unaligned_count += 1
+                                reads_2_in_file += 1
+                                readU_2_bp += long(k1)
+        # del(a)
 
 registerAli (ali,ali1,ali2,aliHisto,aliHisto1,aliHisto2)
 
@@ -2000,7 +2000,20 @@ registerAli (ali,ali1,ali2,aliHisto,aliHisto1,aliHisto2)
 # print ("# Bad bases:", bad_base_count)
 
 # Print (summary file
-exportSummary (tsv_file,run_id, view_type, nReadsGiven) 
+if 1 :
+        if tsv_file == "":
+                f = sys.stdout
+        else:
+                f = open(tsv_file, "w")
+
+        exportSummary(f,run_id,view_type,nReadsGiven)
+        exportAlignedLngths(f,run_id,view_type,aligned_length_hist)
+        exportMismatchRate(f,run_id,view_type,mismatch_rate_hist)
+        exportSubstitutions(f,run_id,view_type,base_matrix_total,base_matrix_total1,base_matrix_total2)
+        exportDeletions(f,run_id,view_type,delete_type_hist, delete_type_hist1, delete_type_hist2)
+        exportInsertion(f,run_id,view_type,insert_type_hist,insert_type_hist1,insert_type_hist2)
+        exportMultiAlignments(f,run_id,view_type,aliHisto,aliHisto1,aliHisto2)
+        exportMismatchPositions(f,run_id,view_type,err_pos,err_pos1,err_pos2,err_N1,err_N2)
 
 print ("processing done " + time.asctime(time.localtime(time.time())))
 
@@ -2013,9 +2026,9 @@ print ("processing done " + time.asctime(time.localtime(time.time())))
 
 
 def parseExportMagicFile (run_id,input_stream, out_prefix) :
-
-	exit (0)
-
+        
+        exit (0)
+        
 ########################################################################################
 ########################################################################################
 ########################################################################################

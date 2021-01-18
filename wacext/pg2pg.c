@@ -49,7 +49,6 @@ static void gxParseInit (GX *gx)
   gx->models = arrayHandleCreate (100000, MM, gx->h) ;
   gx->segs = arrayHandleCreate (100000, SEG, gx->h) ;
   gx->info = stackHandleCreate (10000, gx->h) ;
-  stackTextOnly (gx->info) ;
   pushText (gx->info, "toto") ;
  
 } /* gxParseInit */

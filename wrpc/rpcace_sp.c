@@ -16,7 +16,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: rpcace_sp.c,v 1.7 2016/09/01 17:39:48 mieg Exp $ */
+/* $Id: rpcace_sp.c,v 1.9 2017/08/04 01:39:42 mieg Exp $ */
 
 /* 
  * RPC_SVC_FG prevent forking on solaris
@@ -25,6 +25,8 @@
  */
 #define RPC_SVC_FG
  
+#include <string.h> /* needed to compile with cc on the alpha - srk */
+
 
 #if defined (ALPHA ) || defined(HP)
 #include <stdlib.h>

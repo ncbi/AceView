@@ -32,7 +32,7 @@
  */
 
 
-/* $Id: mainpick.c,v 1.13 2017/04/29 23:05:52 mieg Exp $ */
+/* $Id: mainpick.c,v 1.14 2017/07/23 15:03:18 mieg Exp $ */
 
 /************************************************************/
 
@@ -50,7 +50,8 @@
 #include "pref.h"
 #include "freeout.h"
 #include "help.h"
-
+#include "chrono.h"
+#include "spreaddisp.h"
 #include "model.h"
 
 #include "query.h"
@@ -504,22 +505,6 @@ static int pickClassComplete (char *cp, int len)
 
   return ksetClassComplete (cp, len, 
 		arrp(classLayout, pick->curr, LAYOUT)->key) ;
-}
-
-
-
-static BOOL pickIdle (int box, double x, double y)
-{
-    static int nn = 0 ;
-    static int oldBox = -1 ;
-
-    if (box != oldBox)
-      {
-	printf("pick idling at box %d, %g %g   nn = %d  %s\n", box, x, y, nn++, 
-       name( arrp(classLayout,mainPick->curr,LAYOUT)->key)) ;
-      }
-    return TRUE ;
-/*     printf("picked box %d at %g %g\n", box, x, y) ; */
 }
 
 static void pickModeChoice1 (void) ;
@@ -1230,24 +1215,6 @@ static MENUOPT save[] = {
         {0,0}
 } ;
 
-static void saveButtonFreeAction(KEY key, int box)
-{
-  switch (key)
-    {
-    case 's':
-      saveAndKeepWriteAccess();
-      break ;
-
-    case 't':
-      saveAndLoseWriteAccess();
-      break ;
-
-    default:
-      break;
-    } 
-  pickDoDrawNew() ;
-} /* saveButtonFreeAction */
-
 /***********************************/
 
 void exitButtonAction (void)
@@ -1815,7 +1782,7 @@ Graph pickCreate (void)
     displayCreate (DtMain) ;
   graphAssociate (&PICK_MAGIC, pick) ;
   graphRegister (PICK, pickPick) ;
-  /*   graphRegister (IDLE, pickIdle) ; */
+
   graphRegister (RESIZE, resizeLayout) ;
   graphRegister (DESTROY, pickDestroy) ;
   
@@ -2015,7 +1982,7 @@ static void cApply (void)
 
 static void cSave (void)
 {
-  int i, j, level ;
+  int i, level ;
   FILE *f = 0 ;
   LAYOUT *ll ;  
   static char fileName[FIL_BUFFER_SIZE] , dirName[DIR_BUFFER_SIZE] ;
@@ -2034,7 +2001,7 @@ static void cSave (void)
   if (!f) return ;
   level = freeOutSetFile(f) ;
 
-  for (i = 0 , j = 1 ; i < arrayMax(cLayout) ; i++)
+  for (i = 0 ; i < arrayMax(cLayout) ; i++)
     { 
       ll = arrp(cLayout, i, LAYOUT) ;
       if (bitt(cBs,KEYKEY(ll->key)))
@@ -2350,3 +2317,4 @@ static void classChoice (void)
   cDraw() ;
   graphActivate (old) ;
 }
+

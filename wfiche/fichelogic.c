@@ -12,6 +12,8 @@
 
 #define TABLEBORDER "2"
 
+#define HTML5 1
+
 static void ficheMRNAExpressionProfileParagraphContent (vTXT blkp, GMP *gmp, BOOL isMrna, BOOL isBold) ;
 
 char genomeRelease[1024] ; 
@@ -1394,7 +1396,7 @@ laba:
 		{
 		  char *cq = strstr (txtAccession , ".") ; /* drop pfam version number */
 		  if (cq) *cq = 0 ;
-		  sprintf (linkBuf, "http://pfam.janelia.org/family/%s", txtAccession) ; 
+		  sprintf (linkBuf, "http://pfam.xfam.org/family/%s", txtAccession) ; 
 		  gmpURL (blkp, gmp, linkBuf, familyName) ; 
 		}
 	      else if (*familyName)
@@ -1616,7 +1618,7 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
   const char *ccp ;
   char linkBuf[2000] ;
   char *ccr, *ccg ;
-  const char *cgid ;
+  /*   const char *cgid ; */
   int ir, jr, jr1, row, ng ;
   AC_OBJ obj, obj1, mesh1 ;
   AC_TABLE tbl ;
@@ -1893,7 +1895,8 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
 		gmpURL (bfr, gmp, linkBuf, ac_name (obj1)) ;
 	    }
 	}
-      if (ksGad && ac_keyset_count (ksGad))
+      /* vanished 2016
+	if (ksGad && ac_keyset_count (ksGad))
 	{
 	  if (jr++) vtxtBreak (bfr) ;
 	  tbl = ac_keyset_table (ksGad, 0, 1, 0, h) ;
@@ -1902,7 +1905,7 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
 	  sprintf (linkBuf, GAD_LINK, cgid) ;
 	  gmpURL (bfr, gmp, linkBuf, "GAD") ;
 	}
-      
+      */
       if (ksPaper && ac_keyset_count (ksPaper))
 	{
 	  int ir1 ;
@@ -1976,6 +1979,7 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
 	  gmpURL (bfr, gmp, linkBuf, "KEGG") ;
 	}
 
+      /* vanished 2016
       if (ac_keyset_count (ksGad))
 	{
 	  if (jr++) vtxtBreak (bfr) ;
@@ -1985,7 +1989,7 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
 	  sprintf (linkBuf, GAD_LINK, cgid) ;
 	  gmpURL (bfr, gmp, linkBuf, "GAD") ;
 	}
-      
+      */
       
       ks = ac_objquery_keyset (gmp->gene, messprintf (" >Reference ; COUNT gene < 3 ; COUNT {>Mesh ; {!Hidden_alias_of} $| {>Hidden_alias_of} ; {meshkey || ! alias_of} $| {>alias_of}; {IS *} $| {>meshkey;>parent;>mesh}; {IS *} $| {>meshkey;>parent;>mesh} ; {IS *} $| {>meshkey;>parent;>mesh}; IS %s} > 0", ccr) , h) ;
       if (ac_keyset_count (ks))
@@ -2726,6 +2730,7 @@ static int ficheNewGeneDiseasePathwaysBioProcessTableNew (vTXT blkp, GMP *gmp, B
 /* the same as below product, but this time as a text */
 
 /* the same as above + product, but this time as a table */
+#ifdef JUNK
 static int ficheNewGeneDiseasePathwaysBioProcessTableJUNK (vTXT blkp, GMP *gmp)
 {
   AC_TABLE oTmp, oTmp2, gCogInfo, gProducts ;
@@ -2848,7 +2853,7 @@ static int ficheNewGeneDiseasePathwaysBioProcessTableJUNK (vTXT blkp, GMP *gmp)
 	      }
 	    else
 	      vtxtBreak (tBfr) ;
-	    sprintf (linkBuf, GAD_LINK, ccp) ;
+	    /* sprintf (linkBuf, GAD_LINK, ccp) ;  gone 2016 */
 	    TBB (jt, COL_VALUE) = gmpURL (tBfr, gmp, linkBuf, ptr) ;
 	  }
 	if (ir2) { jt++ ; vtxtPrintf (tBfr, ooo) ; }
@@ -2910,7 +2915,7 @@ static int ficheNewGeneDiseasePathwaysBioProcessTableJUNK (vTXT blkp, GMP *gmp)
 		  *cq = 0 ;
 		  txtAccession = cp ;
 		}
-	      sprintf (linkBuf, "http://pfam.janelia.org/family/%s", txtAccession) ; 
+	      sprintf (linkBuf, "http://pfam.xfam.org/family/%s", txtAccession) ; 
 	      TBB (jt, COL_ORIGIN) = gmpURL (tBfr, gmp, linkBuf, "Pfam"ooo) ; 
 	      messfree (cp) ;
 	    }
@@ -3235,7 +3240,7 @@ static int ficheNewGeneDiseasePathwaysBioProcessTableJUNK (vTXT blkp, GMP *gmp)
 
   return jt > 1 ? 1 : 0 ;
 } /* ficheNewGeneDiseasePathwaysBioProcessTable */
-
+#endif
 /***************************************************************************************/
 /***************************************************************************************/
 
@@ -3318,7 +3323,7 @@ static int ficheGeneExpressionLevelStatement (vTXT blkp, GMP *gmp, int previous)
       if (0) printf ("magic = %g ncl=%d ntg=%d\n", magic, ncl, ntg) ;
     }
   
-  if (magic)
+  if (magic && gmp->gene)
     {
       AC_KEYSET oTmp = 0 ;
 
@@ -4125,7 +4130,7 @@ static void fichePRODUCTPfamParagraphContent (vTXT blkp, GMP *gmp)
     return ;
   h = ac_new_handle () ;
   vtxtPrintf (blkp, "Pfam analysis (") ; 
-  gmpURL (blkp, gmp, "http://pfam.janelia.org", 0) ; 
+  gmpURL (blkp, gmp, "http://pfam.xfam.org", 0) ; 
   vtxtPrintf (blkp, ")") ; 
  
   timeShowFormat (date, "%b %d, %Y", objdate, sizeof (objdate)) ; 
@@ -4182,7 +4187,7 @@ static void fichePRODUCTPfamParagraphContent (vTXT blkp, GMP *gmp)
 	    {
 	      char *cq = strstr (txtAccession , ".") ; /* drop pfam version number */
 	      if (cq) *cq = 0 ;
-	      sprintf (linkBuf, "http://pfam.janelia.org/family/%s", txtAccession) ; 
+	      sprintf (linkBuf, "http://pfam.xfam.org/family/%s", txtAccession) ; 
 	      gmpURL (blkp, gmp, linkBuf, familyName) ; 
 	    }
 	  else vtxtPrint (blkp, familyName) ; 
@@ -5068,14 +5073,17 @@ static int ficheMrnaAnomalousClones (vTXT blkp, GMP *gmp, AC_TABLE oClones)
 
 static void ficheNewGeneCountVariantsStatement (vTXT blkp, GMP *gmp)
 {
-  int nMrna=0,  nKantor ;
+  int nMrna=0,  nKantor = 0 ;
   AC_HANDLE h = ac_new_handle () ;
 
-  nMrna = ac_keyset_count (ac_objquery_keyset (gmp->gene
-			    , "{>Transcribed_gene;>mrna} SETELSE {>Genefinder;>predicted_mrna}"
-			    , h)) ; 
-  nKantor = ac_keyset_count (ac_objquery_keyset (gmp->gene
-			     , " >Product ; >Kantor", h)) ;
+  if (gmp->gene)
+    {
+      nMrna = ac_keyset_count (ac_objquery_keyset (gmp->gene
+						   , "{>Transcribed_gene;>mrna} SETELSE {>Genefinder;>predicted_mrna}"
+						   , h)) ; 
+      nKantor = ac_keyset_count (ac_objquery_keyset (gmp->gene
+						     , " >Product ; >Kantor", h)) ;
+    }
   vtxtBreak (blkp) ;
   if (gmp->tg)
     vtxtPrintf (blkp, "According to our analysis, this gene produces") ; 
@@ -7060,17 +7068,20 @@ static int ficheNewDbXrefParagraphContent (vTXT blkp, GMP *gmp)
     { /************************** GAD *****************************/
        AC_ITER iter = ac_objquery_iter (gmp->gene, ">Extern  GAD AND NOT AntiGad", h) ;
        AC_OBJ gad = 0 ;
-       const char* mygeneid = ac_tag_printable (gmp->gene, "geneid", 0) ;
+
        if (iter)
 	 while (ac_free (gad), (gad = ac_iter_obj (iter))) 
 	   {    
 	     if (! nFunctional++)
 	       vtxtPrint (bfr, ", manual annotations from") ;
-	     if (nn++)
+	     /* GAD as vanished since 2018 
+		const char* mygeneid = ac_tag_printable (gmp->gene, "geneid", 0) ;
+	       if (nn++)
 	       vtxtPrint (bfr, ", ") ;
-	     sprintf (linkBuf,  "http://geneticassociationdb.nih.gov/cgi-bin/tableview.cgi?table=allview&cond=LOCUSNUM=%s"
-		      , mygeneid) ;
-	     gmpURL (bfr, gmp, linkBuf, messprintf (" GAD")) ;
+	       sprintf (linkBuf,  "http://geneticassociationdb.nih.gov/cgi-bin/tableview.cgi?table=allview&cond=LOCUSNUM=%s"
+	       , mygeneid) ;
+	       gmpURL (bfr, gmp, linkBuf, messprintf (" GAD")) ;
+	     */
 	    break ; /* we want only one GAD */
 	   }
        ac_free (gad) ; 
@@ -7187,19 +7198,20 @@ static int ficheNewDbXrefParagraphContent (vTXT blkp, GMP *gmp)
 
 	  sprintf (linkBuf, "https://www.ncbi.nlm.nih.gov/gene/%s", ccp) ;
 	  if (0 && oTmp->rows == 1) /* always show the geneid */
-	    gmpURL (bfr, gmp, linkBuf, " Entrez Gene")  ;
+	    gmpURL (bfr, gmp, linkBuf, " Gene")  ;
 	  else 
-	    gmpURL (bfr, gmp, linkBuf, messprintf ("%s %s", ir > 0 ? "" : " Entrez Gene", ccp))  ;
+	    gmpURL (bfr, gmp, linkBuf, messprintf ("%s %s", ir > 0 ? "" : " Gene", ccp))  ;
 	}
       
       /************************** GeneCard direct *****************************/
       if (gmp->Spc == HUMAN)
 	{ 
+	  /* before 2020: sprintf (linkBuf, "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?gc_id=%s", ccp); */
 	  nn++ ;
 	  if ((ccp = ac_tag_printable (gmp->gene, "GeneCard_id", 0)))
-	    sprintf (linkBuf, "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?gc_id=%s", ccp);
+	    sprintf (linkBuf, "https://www.genecardsorg/cgi-bin/carddisp.pl?gc_id=%s", ccp);
 	  else if ((ccp = ac_tag_printable (gmp->gene, "LocusLink", 0)))
-	    sprintf (linkBuf, "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?%s", ccp) ;
+	    sprintf (linkBuf, "https://www.genecardsorg/cgi-bin/carddisp.pl?gene=%s", ccp) ;
 	  if (ccp)
 	    {
 	      ccp = ac_table_printable (oTmp, ir, 0, 0) ;
@@ -7243,9 +7255,10 @@ static int ficheNewDbXrefParagraphContent (vTXT blkp, GMP *gmp)
       ac_free (iter) ;
     }
 
-  /************************** EC gene *****************************/
+  /************************** EC gene gone as of 2018 *****************************/
   nFunctional = 0 ;
-  if (gmp->Spc == HUMAN && gmp->tg && 
+  if (0 &&   
+      gmp->Spc == HUMAN && gmp->tg && 
       (ccp = ac_tag_printable (gmp->gene, "LocusLink", 0)))
     {
       AC_KEYSET ks = ac_objquery_keyset (gmp->tg, ">mrna; best_in_gene ; >CDS_covered_by ; {ref_mrna} SETELSE {dna}", h) ;
@@ -7262,8 +7275,31 @@ static int ficheNewDbXrefParagraphContent (vTXT blkp, GMP *gmp)
 	}
     }
 
-  /************************** UCnigene *****************************/
-  if (gmp->Spc != WORM && 
+  /************************** GENE (gobbled UniGene in 2018)  *****************************/
+  if (1 &&
+      gmp->Spc != WORM &&
+    (oTmp = ac_tag_table (gmp->gene, "GeneId", h)))
+    {
+      for (ir=0; ir < oTmp->rows && oTmp->cols >= 1;ir++)
+	{
+ 	  
+	  ccp = ac_table_printable (oTmp, ir, 0, 0) ;
+	  if (nn++)
+	    vtxtPrint (bfr, ",") ;
+	  if (! nFunctional++)
+	    vtxtPrint (bfr, " expression data from") ;
+
+	  sprintf (linkBuf, "https://www.ncbi.nlm.nih.gov/gene/%s", ccp) ;
+	  if (0 && oTmp->rows == 1) /* always show the geneid */
+	    gmpURL (bfr, gmp, linkBuf, " Gene")  ;
+	  else 
+	    gmpURL (bfr, gmp, linkBuf, messprintf ("%s %s", ir > 0 ? "" : " Gene", ccp))  ;
+	}
+    }
+
+  /************************** Unigene gone as of 2018  *****************************/
+  if (0 &&
+      gmp->Spc != WORM && 
       (oTmp = ac_tag_table (gmp->gene, "UniGene", h)))
     for (ir=0; ir < oTmp->rows && oTmp->cols >= 1;ir++)
       {
@@ -8133,7 +8169,7 @@ static void ficheNewGeneProductPfamMotifTableTable (AC_TABLE tbl1, GMP *gmp, Arr
 	{
 	  char *cq = strstr (txtAccession , ".") ; /* drop pfam version number */
 	  if (cq) *cq = 0 ;
-	  sprintf (linkBuf, "http://pfam.janelia.org/family/%s", txtAccession) ; 
+	  sprintf (linkBuf, "http://pfam.xfam.org/family/%s", txtAccession) ; 
 	  gmpURL (bfr, gmp, linkBuf, ccp) ; 
 	}
       else
@@ -9025,7 +9061,7 @@ static int ficheNewGenePhenotypeParagraph (vTXT blkp, GMP *gmp)
 } /* ficheNewGenePhenotypeParagraph */
 
 /***************************************************************************************/
-
+#ifdef JUNK
 static int ficheNewGeneGoStatement (vTXT blkp, GMP *gmp)
 {
   int ir,ir2, jr=0, jr2=0, jrgo = 0 ;
@@ -9353,7 +9389,7 @@ static int ficheNewGeneGoStatement (vTXT blkp, GMP *gmp)
 
   return jr2 ;
 }  /* ficheNewGeneGoStatement */
-
+#endif
 /***************************************************************************************/
 
 static BOOL ficheNewGeneDisease (vTXT blkp, GMP *gmp, Array bb)
@@ -10054,13 +10090,13 @@ static int ficheNewGeneExpressionTissueStatement (vTXT blkp, GMP *gmp, BOOL deco
       level = 4 ;
 
       numMrnas = ac_keyset_count (ac_objquery_keyset (gmp->tg, "> mrna ; gt_ag || gc_ag", h)) ;
-      if (gmp->Spc == WORM &&
+      if (gmp->Spc == WORM && gmp->gene &&
 	  ac_has_tag (gmp->gene, "Has_cDNA_clone")) /* priorite au canning */
 	{
 	  numClones = ac_keyset_count (ac_objquery_keyset (gmp->gene, "Follow Has_cDNA_clone", h)) ;
 	  numReads = 0 ;
 	}
-      else
+      else if (gmp->gene)
 	{
 	  AC_KEYSET ksr1 = ac_objquery_keyset (gmp->gene, ">transcribed_gene; >Read ; NOT Composite && NOT IS U*", h) ;
 	  AC_KEYSET ksr2 = ac_ksquery_keyset (ksr1, ">buries;>buried_est;NOT Composite &&  NOT Composite && NOT IS U*", h) ;
@@ -10343,7 +10379,7 @@ static int ficheNewGeneAltVariantStatement (vTXT blkp, GMP *gmp, BOOL decorate)
     }
   */
 
-  if (gmp->tg)
+  if (gmp->tg && gmp->gene)
     {
       level = 4 ;
        
@@ -10351,7 +10387,7 @@ static int ficheNewGeneAltVariantStatement (vTXT blkp, GMP *gmp, BOOL decorate)
       mrnasWithIntron = ac_objquery_keyset (gmp->gene, ">transcribed_gene ;>mrna ; gt_ag || gc_ag", h) ;
       numMrnasWithIntron = ac_keyset_count (mrnasWithIntron) ;
     }
-  else if (gmp->pg && ac_has_tag (gmp->pg, "CDS"))
+  else if (gmp->gene && gmp->pg && ac_has_tag (gmp->pg, "CDS"))
     {
       numMrnas = ac_keyset_count (ac_objquery_keyset (gmp->gene, "Follow Genefinder", h)) ; 
       mrnasWithIntron = ac_objquery_keyset (gmp->gene, "Follow Genefinder; COUNT source_exons > 1", h) ; 
@@ -10609,13 +10645,13 @@ static int ficheNewGeneProteinStatement (vTXT blkp, GMP *gmp, BOOL decorate)
   if (! products)
     goto done ;
 
-  if (gmp->tg)
+  if (gmp->gene && gmp->tg)
     {
       numMrnas = ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene ; >mrna", h)) ;
       mrnasWithIntron = ac_objquery_keyset (gmp->gene, ">transcribed_gene ;>mrna ; gt_ag || gc_ag", h) ;
       numMrnasWithIntron = ac_keyset_count (mrnasWithIntron) ;
     }
-  else if (gmp->pg && ac_has_tag (gmp->pg, "CDS"))
+  else if (gmp->gene && gmp->pg && ac_has_tag (gmp->pg, "CDS"))
     {
       numMrnas = ac_keyset_count (ac_objquery_keyset (gmp->gene, "Follow Genefinder", h)) ; 
       mrnasWithIntron = ac_objquery_keyset (gmp->gene, "Follow Genefinder; COUNT source_exons > 1", h) ; 
@@ -10646,7 +10682,7 @@ static int ficheNewGeneProteinStatement (vTXT blkp, GMP *gmp, BOOL decorate)
       nCoohCompleteProduct = ac_keyset_count (ac_ksquery_keyset (products, "Best_product && COOH_complete && ! Complete ; >kantor", h)) ;
       nPartialProduct = ac_keyset_count (ac_ksquery_keyset (products, "Best_product && ! COOH_complete ; >kantor", h)) ;
     }
-  else
+  else  if (gmp->gene)
     {
       BOOL closeNeeded = FALSE ;
       int n0 = ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene; >mrna", h)) ; 
@@ -10766,7 +10802,7 @@ static int ficheNewGenePfamPsortStatement (vTXT blkp, GMP *gmp, BOOL isCloud, BO
 	      char linkBuf [300] ;
 	      char *cq = strstr (txtAccession , ".") ; /* drop pfam version number */
 	      if (cq) *cq = 0 ;
-	      sprintf (linkBuf, "http://pfam.janelia.org/family/%s", txtAccession) ; 
+	      sprintf (linkBuf, "http://pfam.xfam.org/family/%s", txtAccession) ; 
 	      gmpURL (bfr, gmp, linkBuf, familyName) ; 
 	    }
 	  else if (*familyName)
@@ -12424,6 +12460,83 @@ void ficheListAndMarkUpMrnas (vTXT blkp, GMP *gmp, char type, BOOL fromGene)
 
 /***************************************************************************************/
 
+void ficheGenomeSummaryChapter (vTXT blkp, GMP *gmp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  AC_TABLE tbl = gmp->gene ? ac_tag_table (gmp->gene, "IntMap", h) : 0 ;
+  int a1, a2 ;
+
+  gmpChapter (blkp, gmp, "#*Genome_summary", "Mapping") ;
+  if (tbl && tbl->cols >= 3)
+    {
+      AC_OBJ chrom = ac_table_obj (tbl, 0, 0, h) ;
+      a1 = ac_table_int (tbl, 0, 1, 0) ;
+      a2 = ac_table_int (tbl, 0, 2, 0) ;
+      vtxtPrintf (blkp, "Gene %s maps on %s strand of %s%s from base %d to %d\n"
+		  , ac_name (gmp->gene)  
+		  , a1 < a2 ? "plus" : "minus"
+		  , strncasecmp ("chr", ac_name (chrom), 3) ? "chromosome " : ""
+		  , ac_name (chrom)
+		  , a1
+		  , a2 
+		  ) ;
+    }
+  gmpChapterClose (blkp, gmp,  "Genome_summary", TRUE) ;
+  ac_free (h) ;
+  return ;
+} /* ficheGenomeSummaryChapter */
+
+/***************************************************************************************/
+
+void ficheGenomePlotChapter (vTXT blkp, AC_DB db, GMP *gmp, BOOL isBig)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int len = 0 ;
+  char *qq, *cr ;
+  AC_TABLE tbl = gmp->gene ? ac_tag_table (gmp->gene, "IntMap", h) : 0 ;
+
+  /* obsolete, this was triggering the download 
+ char *cp = messprintf ("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"javascript:openAceViewAction('gene','%s','vgene&v=2&B')\"><font color='red'>Complete gene on genome diagram:</font></a>", ac_name(gmp->gene)) ; 
+  vtxtPrintf (blkp, "%s", cp) ;
+  */
+
+  if (!isBig)
+    gmpChapter (blkp, gmp, "#*Small_Genome_plot", "Show just this gene") ;
+  else
+    gmpChapter (blkp, gmp, "#*Large_Genome_plot", "Show the genomic regiont") ;
+
+  vtxtPrintf (blkp, "This plot is new. It uses HTML5/SVG, if it does not display correctly or if the mouse hover bubbles are not nice please report the problems to mieg@ncbi.nlm.nih.gov, thank you.") ;
+
+
+
+  if (HTML5 && tbl && tbl->cols >= 3)
+    {
+      AC_OBJ chrom = ac_table_obj (tbl, 0, 0, h) ;
+      int a1 = ac_table_int (tbl, 0, 1, 0) ;
+      int a2 = ac_table_int (tbl, 0, 2, 0) ;
+      int da = 300 ;
+
+      da = (a2 - a1)/20 ; 
+      if (isBig)
+	da = 3 * 20 * da ;
+      a1 -= da ; a2 += da ; 
+
+      qq = hprintf (h,   "GIF ; dimensions 3000 500 ; seqget %s -coords %d %d -view av_tg_whole ; seqdisplay ; svgdump -",  ac_protect (ac_name (chrom), h), a1, a2) ;
+      cr = (char *)ac_command (db, qq, &len, h) ;  
+      if (1)  cr = strchr (cr,'<') ;
+      vtxtPrint (blkp, cr) ;
+    }	 
+
+    if (!isBig)
+      gmpChapterClose (blkp, gmp,  "Small_Genome_plot", TRUE) ;
+    else
+      gmpChapterClose (blkp, gmp,  "Large_Genome_plot", TRUE) ;
+  ac_free (h) ;
+  return ;
+} /* ficheGenomePlotChapter */
+
+/***************************************************************************************/
+
 void ficheNewGeneGenomeDiagramChapter (vTXT blkp, GMP *gmp)
 {
   char *cp = messprintf ("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href=\"javascript:openAceViewAction('gene','%s','vgene&v=2&B')\"><font color='red'>Complete gene on genome diagram:</font></a>", ac_name(gmp->gene)) ; 
@@ -12433,7 +12546,7 @@ void ficheNewGeneGenomeDiagramChapter (vTXT blkp, GMP *gmp)
   vtxtPrintf (blkp, "<a href=\"javascript:openAceViewAction('gene','%s','vgene&v=2&B')\">zoomable GIF version</a>."
 	      , ac_name(gmp->gene)) ;
   vtxtPrint (blkp, ", and the ") ;
-  vtxtPrintf (blkp, "<a href=\"javascript:openAceViewAction('gene','%s','vgene&v=2&S')\">Flash version</a>"
+  vtxtPrintf (blkp, "<a href=\"javascript:openAceViewAction('gene','%s','vgene&v=2&S')\">HTML5/SVG version</a>"
 		  , ac_name(gmp->gene)) ;
   vtxtBreak (blkp) ;
   vtxtPrint (blkp, "This diagram shows in true scale the gene on the genome, the mRNAs and the cDNA clones.") ;
@@ -12492,7 +12605,14 @@ void ficheNewGeneCompactDiagramChapter (vTXT blkp, GMP *gmp, int pass)
   /* pass is set to distinguish the header in the cookie list */
   gmpChapter (blkp, gmp, hprintf (h, "#*Gene_compact_diagram_%d", pass), "Compact gene diagram") ;
 
-  if (1) /* end of the diagram proper */
+  if (HTML5)
+    {
+      int len = 0 ;
+      AC_DB db = ac_open_db ("local", 0) ;
+      char *qq = hprintf (h, "view  -c Gene -n %s  -v DtHSEQ -svg", ac_protect (ac_name (gmp->gene), h)) ;
+      vtxtPrint (blkp, (char *)ac_command (db, qq, &len, h)) ;  
+    }
+  else
     {
       vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
 		  "  <!--\n" 
@@ -12639,14 +12759,24 @@ void ficheNewGeneExpressionProfileChapter (vTXT blkp, GMP *gmp)
       gmpSection (blkp, gmp, "Gene_expression_profile_in_primates", "Expression/conservation in primates tissues evaluated by cross-mapping to human.") ;
 
       vtxtPrintf (blkp, "<div class='%s' id='geneExpProfile'>\n", "shown") ;
-      vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
-		  "  <!--\n" 
-		  "  openAceViewElasticImage (\'%s\',\'%s\',\'%s\', 600, 150, 100) ; \n"
-		  "  //-->\n"
-		  "</script>\n" 
-		  , "gene", ac_name (gmp->gene)
-		  , "gxp"
-		  ) ;
+      if (HTML5)
+	{
+	  int len = 0 ;
+	  AC_DB db = ac_open_db ("local", 0) ;
+	  char *qq = hprintf (h, "view  -c Gene -n %s  -v DtGeneExp -svg", ac_protect (ac_name (gmp->gene), h)) ;
+	  vtxtPrint (blkp, (char *)ac_command (db, qq, &len, h)) ;  
+	}
+      else
+	{
+	  vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+		      "  <!--\n" 
+		      "  openAceViewElasticImage (\'%s\',\'%s\',\'%s\', 600, 150, 100) ; \n"
+		      "  //-->\n"
+		      "</script>\n" 
+		      , "gene", ac_name (gmp->gene)
+		      , "gxp"
+		      ) ;
+	}
 
       vtxtBreak (blkp) ;
       vtxtBreak (blkp) ;
@@ -12734,14 +12864,13 @@ void ficheNewGeneLocatorDiagramChapter (vTXT blkp, GMP *gmp, BOOL isSmall)
 	}
 
       vtxtPrintf (blkp, "<div class='%s' id='locatorSmall'>\n", isSmall ? "shown" : "hidden" ) ;
-      vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
-		  "  <!--\n" 
-		  "  openAceViewImage (\'%s\',\'%s\',\'%s\',  145) ; \n"
-		  "  //-->\n"
-		  "</script>\n" 
-		  , "gene", ac_name (gmp->gene)
-		  , "locator"
-		  ) ;
+      if (HTML5)
+	{
+	  int len = 0 ;
+	  AC_DB db = ac_open_db ("local", 0) ;
+	  char *qq = hprintf (h, "view  -c Gene -n %s  -v DtGLOC -svg", ac_protect (ac_name (gmp->gene), h)) ;
+	  vtxtPrint (blkp, (char *)ac_command (db, qq, &len, h)) ;  
+	}
       vtxtBreak (blkp) ;
       vtxtPrint (blkp, "<a href=\"javascript:locatorZoom(2)\">ZOOM OUT</a>\n") ;
       if (1)
@@ -12757,14 +12886,13 @@ void ficheNewGeneLocatorDiagramChapter (vTXT blkp, GMP *gmp, BOOL isSmall)
       vtxtPrint (blkp, "</div>\n") ;    
 
       vtxtPrintf (blkp, "<div class='%s' id='locatorBig'>\n", isSmall ? "hidden" : "shown") ;
-      vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
-		  "  <!--\n" 
-		  "  openAceViewImage (\'%s\',\'%s\',\'%s\', 160) ; \n"
-		  "  //-->\n"
-		  "</script>\n" 
-		  , "gene", ac_name (gmp->gene)
-		  , "locatorbig"
-		  ) ; 
+      if (HTML5)
+	{
+	  int len = 0 ;
+	  AC_DB db = ac_open_db ("local", 0) ;
+	  char *qq = hprintf (h, "view  -c Gene -n %s  -v DtGLOCBIG -svg", ac_protect (ac_name (gmp->gene), h)) ;
+	  vtxtPrint (blkp, (char *)ac_command (db, qq, &len, h)) ;  
+	}
       vtxtBreak (blkp) ;
       vtxtPrint (blkp, "<a href=\"javascript:locatorZoom(1)\">ZOOM IN</a>\n") ;
       if (1)
@@ -13622,22 +13750,22 @@ static int ficheNewGeneAnnotationOfVariantsTable (vTXT blkp, GMP *gmp, BOOL just
 
   if (gmp->tg)
     {
-      AC_KEYSET mKs ;
+      AC_KEYSET mKs = 0 ;
       
       oCosmid = ac_tag_obj (gmp->tg, "Genomic_sequence", h) ;
       if (myMrna)
 	mKs = ac_objquery_keyset (myMrna, "from_gene", h) ;
-      else
+      else if (gmp->gene)
 	mKs = ac_objquery_keyset (gmp->gene, ">transcribed_gene ; > mrna", h) ;
-      gMrna = ac_keyset_table (mKs , 0, -1, 0, h) ;
-      gTGProduct = ac_tag_table (gmp->gene, "Product", h) ; 
+      gMrna = mKs ? ac_keyset_table (mKs , 0, -1, 0, h) : 0 ;
+      gTGProduct = gmp->gene ? ac_tag_table (gmp->gene, "Product", h) : 0 ;
 
       ac_free (mKs) ;
     }
   else if (gmp->pg)
     {
       gMrna = ac_tag_table (gmp->pg, "predicted_mrna", h) ; 
-      gTGProduct = ac_tag_table (gmp->gene, "Product", h) ; 
+      gTGProduct =  gmp->gene ? ac_tag_table (gmp->gene, "Product", h) : 0 ;
     }
   if (gMrna && gTGProduct)
     maxRows= (gMrna->rows)* (gTGProduct->rows) ; 
@@ -14716,7 +14844,7 @@ BOOL ficheNewMrnaSummaryChapter (vTXT blkp, GMP *gmp)
   AC_HANDLE h = ac_new_handle () ;
   
   /* we have to use SUMMARY as first para bacause of main.js */ 
-  if (gmp->variant && ac_keyset_count (ac_objquery_keyset(gmp->gene,">transcribed_gene;>mrna",h)) > 1)
+  if (gmp->variant && gmp->gene && ac_keyset_count (ac_objquery_keyset(gmp->gene,">transcribed_gene;>mrna",h)) > 1)
     gmpChapter (blkp, gmp, "*SUMMARY", messprintf ("mRNA summary: %s, variant %s"
 						   , ac_name(gmp->gene), gmp->variant)) ; 
   else
@@ -14786,15 +14914,32 @@ void ficheNewMrnaFlashDiagramChapter (vTXT blkp, GMP *gmp)
       /* the diagram proper */
       vtxtEmptyLine (blkp, 1) ;
 
-      vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
-		  "  <!--\n" 
-		  "  openAceViewImage (\'%s\',\'%s\',\'%s\', %d) ;\n "
-		  "  //-->\n"
-		  "</script>\n" 
-		  , "mrna", ac_name (gmp->mrna), "vmrna"
-		  , height
-		  ) ;
-      
+      if (HTML5)
+	{
+	  int len = 0 ;
+	  AC_DB db = ac_open_db ("local", 0) ;
+	  char *cr, *qq = 0 ;
+
+
+
+	  qq = hprintf (h,   "GIF ; dimensions 3000 300 ; seqget -class mrna %s -view av_mrna_whole ; seqdisplay ;  svgdump -",  ac_protect (ac_name (gmp->mrna), h)) ;
+	  cr = (char *)ac_command (db, qq, &len, h) ;  
+	  if (0) cr = strchr (cr,'<') ;
+	  vtxtPrint (blkp, cr) ;
+
+	  ac_db_close (db) ;
+	}
+      else
+	{
+	  vtxtPrintf (blkp,"\n<script language = \'JavaScript\' type=\'text/javascript\'>\n "
+		      "  <!--\n" 
+		      "  openAceViewImage (\'%s\',\'%s\',\'%s\', %d) ;\n "
+		      "  //-->\n"
+		      "</script>\n" 
+		      , "mrna", ac_name (gmp->mrna), "vmrna"
+		      , height
+		      ) ;
+	}
       vtxtEmptyLine (blkp, 1) ;
       /* end of the diagram proper */
 
@@ -14930,8 +15075,8 @@ BOOL ficheNewMrnaExpressionCloneSupportChapter (vTXT blkp, GMP *gmp)
   if (gmp->markup) vtxtMarkup (bfr) ;
   if (gmp->markup) vtxtMarkup (bfr1) ;
 
-  nmrna = ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene;>mrna", h)) ;
-  nclo = nmrna > 1 ? ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene;>cdna_clone", h)) : 0 ;
+  nmrna = gmp->gene ? ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene;>mrna", h)) : 0 ;
+  nclo = gmp->gene && nmrna > 1 ? ac_keyset_count (ac_objquery_keyset (gmp->gene, ">transcribed_gene;>cdna_clone", h)) : 0 ;
 
   gmpChapter (bfr1, gmp, "*mRNA_expression", "Expression and GenBank cDNA support") ;
   ficheNewMrnaSupportingClonesParagraphContent (bfr, gmp, tissues) ;
@@ -16049,7 +16194,7 @@ static BOOL ficheNewCloneTableFormat (vTXT blkp, GMP *gmp, AC_TABLE tbl, int max
 	if (vtxtPtr (buf))
 	  ac_table_insert_text (tbl, ir, 1, vtxtPtr (buf)) ;
 
-	/* 2 tissue, DATA;DATA not available in aql but exists in aql */
+	/* 2 tissue, DATA;DATA not available in aql but exists in bql implemented as obj=>tag */
 	vtxtClear (buf) ; 
 	{
 	  AC_KEYSET ksg = ac_objquery_keyset (clone
@@ -16325,16 +16470,22 @@ int ficheNewCloneTable (vTXT blkp, GMP *gmp, AC_KEYSET clones, char orderBy, int
   vtxtPrint (bqlQ,  "select c,r,c,m,a1,a2, x1,x2,len,ali,err,prod,c,inv,ano,ref_seq, tiling, hlib, gene") ;
   vtxtPrint (bqlQ,  " from c in @active:1, m in c->in_mrna where exists m, tg in m->from_gene, gene in tg->gene ") ;
   if (gmp->gene)
-    vtxtPrintf (bqlQ,  " where gene like %s ",  ac_protect (ac_name (gmp->gene), h)) ;
-  vtxtPrint (bqlQ,  ", r in c->read, t in r->tissue, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where r1 == r, x1 in r1[1], x2 in x1[1], tg1 in r->from_gene where tg1 = tg, len in tg1[1], ali in len[2], err in ali[1], c1 in m->cdna_clone, inv in r->inverted[0] , ano in c->anomalous_clone[0], prod in m->product where (prod#best_product) or (prod == ") ;
-  vtxtPrint (bqlQ,  ac_protect (ac_name (gmp->product), h)) ;
-  vtxtPrint (bqlQ,  "),  ref_seq in r->ref_seq[0], tiling in r->mRNA_tiling[0], hlib in c->hinv_libs ") ;
-
+    vtxtPrintf (bqlQ,  " where gene == %s ",  ac_protect (ac_name (gmp->gene), h)) ;
+  vtxtPrint (bqlQ,  ", r in c->read, t in r->tissue, a1 in m->constructed_from, a2 in a1[1], r1 in a2[1] where r1 == r, x1 in r1[1], x2 in x1[1], tg1 in r->from_gene where tg1 == tg, len in tg1[1], ali in len[2], err in ali[1], inv in r#inverted , ano in c#anomalous_clone, prod in m->product where (not prod or prod#best_product)") ;
+  vtxtPrint (bqlQ,  ",  ref_seq in r#ref_seq, tiling in r#mRNA_tiling, hlib in c->hinv_libs ") ;
+ 
   /* prod2 in r->covers_product, var in prod2[type] , */
 
-  vtxtPrint (bqlQ2,  "select c,r,c,inv,ano,ref_seq, hlib, gene") ;
-  vtxtPrint (bqlQ2,  " from c in @active:1 where not c#in_mrna, r in c->read, t in r->tissue, inv in r#inverted , ano in c#anomalous_clone,  ref_seq in r#ref_seq[0],  hlib in c->hinv_libs, tg in c->from_gene, gene in tg->gene") ;
-
+  if (1)
+    {
+      vtxtPrint (bqlQ2,  "select c,r,c,inv,ano,ref_seq, hlib, gene") ;
+      vtxtPrint (bqlQ2,  " from c in @active:1 where not c#in_mrna, r in c->read, t in r->tissue, inv in r#inverted , ano in c#anomalous_clone,  ref_seq in r#ref_seq,  hlib in c->hinv_libs, tg in c->from_gene, gene in tg->gene") ;
+    }
+  else
+    {
+      vtxtPrint (bqlQ2,  "select c,r,c,inv,ano,ref_seq, hlib, gene") ;
+      vtxtPrint (bqlQ2,  " from c in @active:1 where not c#in_mrna, r in c->read, t in r->tissue, inv in r#inverted , ano in c#anomalous_clone,  ref_seq in r#ref_seq[0],  hlib in c->hinv_libs, tg in c->from_gene, gene in tg->gene") ;
+    }
   
   /* auto configure the titles and visible columns using the -: and 4: constructions 
      *  -> separate the table-makewr title from the web title
@@ -16361,20 +16512,10 @@ int ficheNewCloneTable (vTXT blkp, GMP *gmp, AC_KEYSET clones, char orderBy, int
       break ;
     }
   
-  /* contruct the table */
-  if (0) 
-    fprintf (stderr, "%s\n", vtxtPtr(bqlQ)) ;
-  if (0) /* table-maker syntax */
-    {
-      tbl = ac_tablemaker_table (gmp->db, "cloneSupport", clones, ac_tablemaker_db, ac_name(gmp->product), myOrder, &errorMessage, h) ;
-      tbl2 = 0 ;
-    }
-  else /* bql syntax */
-    {
-      if (0) printf ("bql -active %s\n", vtxtPtr(bqlQ)) ;
-     tbl = ac_bql_table (gmp->db, vtxtPtr(bqlQ), clones, myOrder, &errorMessage, h) ;
-      tbl2 = ac_bql_table (gmp->db, vtxtPtr(bqlQ2), clones, 0, &errorMessage, h) ;
-    }
+  /* contruct the table bql syntax */
+  if (0) printf ("bql -active %s\n", vtxtPtr(bqlQ)) ;
+  tbl = ac_bql_table (gmp->db, vtxtPtr(bqlQ), clones, myOrder, &errorMessage, h) ;
+  tbl2 = ac_bql_table (gmp->db, vtxtPtr(bqlQ2), clones, 0, &errorMessage, h) ;
   
    if (tbl2) 
     {  /* cumulate the 2 tables */
@@ -16383,30 +16524,35 @@ int ficheNewCloneTable (vTXT blkp, GMP *gmp, AC_KEYSET clones, char orderBy, int
       const char *ccp ;
       int jj[] = { 0, 1, 2, 13, 14, 15, 17, 18 } ;
 
-      for (ir = 0, jr = tbl->rows  ; ir < tbl2->rows ; jr++, ir++)
+      if (! tbl)
 	{
-	  /* clone read */
-	  for (i = 0 ; i < 2 ; i++)
-	    {
-	      obj = ac_table_obj (tbl2, ir, i, h) ; 
-	      if (obj) 
-		ac_table_insert_type (tbl, jr, jj[i], &obj, ac_type_obj) ;
-	    }
-	  /* t, inv,ano, ref_seq, hlib */
-	  for (i = 2 ; i < 7 ; i++)
-	    {
-	      ccp = ac_table_printable (tbl2, ir, i, 0) ; 
-	      if (ccp)
-		ac_table_insert_text (tbl, jr, jj[i], ccp) ;
-	    }
-	  /* gene */
-	  for (i = 7 ; i < 8 ; i++)
-	    {
-	      obj = ac_table_obj (tbl2, ir, i, h) ; 
-	      if (obj) 
-		ac_table_insert_type (tbl, jr, jj[i], &obj, ac_type_obj) ;
-	    }
+	  tbl = tbl2 ; tbl2 = 0 ;
 	}
+      if (tbl2)
+	for (ir = 0, jr = tbl->rows  ; ir < tbl2->rows ; jr++, ir++)
+	  {
+	    /* clone read */
+	    for (i = 0 ; i < 2 ; i++)
+	      {
+		obj = ac_table_obj (tbl2, ir, i, h) ; 
+		if (obj) 
+		  ac_table_insert_type (tbl, jr, jj[i], &obj, ac_type_obj) ;
+	      }
+	    /* t, inv,ano, ref_seq, hlib */
+	    for (i = 2 ; i < 7 ; i++)
+	      {
+		ccp = ac_table_printable (tbl2, ir, i, 0) ; 
+		if (ccp)
+		  ac_table_insert_text (tbl, jr, jj[i], ccp) ;
+	      }
+	    /* gene */
+	    for (i = 7 ; i < 8 ; i++)
+	      {
+		obj = ac_table_obj (tbl2, ir, i, h) ; 
+		if (obj) 
+		  ac_table_insert_type (tbl, jr, jj[i], &obj, ac_type_obj) ;
+	      }
+	  }
     }      
 
   /* format the table and add the http links */

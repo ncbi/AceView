@@ -27,11 +27,11 @@ static int acetcp_response_length;
 */
 void acetcp_process_incoming( char *s, int n, void *callback_cookie )
 {
-  acetcp_response_length = n-3;
+  acetcp_response_length = n-11;
   acetcp_response = (unsigned char *) malloc(n+1);
   if (! acetcp_response)
     messcrash("malloc failed");
-  acetcp_rp = acetcp_response + 3;	/* skip length, point at type */
+  acetcp_rp = acetcp_response + 11;	/* skip length, point at type */
   memcpy(acetcp_response, s, n);
 }
 
@@ -232,7 +232,14 @@ static char *ac_open_acetcp(AC_DB db, const char *protocol, const char *host, in
   switch (* acetcp_rp)
     {
     case 'C':
-      d->server_challenge = strnew((char *)acetcp_rp,0);
+      {
+	int k, nActiveClients = 0 ;
+	
+	d->server_challenge = strnew((char *)acetcp_rp,0);
+	k = sscanf (d->server_challenge,"C%d-", &nActiveClients) ;
+	if (k >= 1)
+	  db->nActiveClients = 1 + nActiveClients ;
+	}
       break;
     case 'E':
       strncpy(dyn_error,(char *)acetcp_rp+1, 199);

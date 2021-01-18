@@ -547,7 +547,6 @@ int main (int argc, const char **argv)
   else
     p.dict = dictHandleCreate (N, 0) ; ;
   p.seq = stackHandleCreate (100000, 0) ;
-  stackTextOnly(p.seq) ;
 
   p.ccc['a'] = 't' ;
   p.ccc['t'] = 'a' ;

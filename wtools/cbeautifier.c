@@ -21,10 +21,11 @@
 
 static int space_per_level=2;
 
+/*
 static int string_wrap_desire = 80 ;
 static int string_wrap_force = 200;
-
 static int no_tabs = 0;
+*/
 static int debug = 0;
 static int verbose = 1 ;
 static char word [2048] ; /* word buffer */
@@ -42,12 +43,14 @@ static char word [2048] ; /* word buffer */
 * lastspace is true if the last character we output was a space.  This means
 * we can (really must) suppress further consecutive spaces.
 *
-*/
+
 
 static int level=0;
+static int lastspace=0;
+*/
+
 static int neededSpace=0;
 static int c0 ;
-static int lastspace=0;
 static FILE *input = 0 ;
 
 #define GETC(_c) _c=getc(input);if (_c == EOF) return 0 
@@ -124,15 +127,11 @@ static int cGet (void)
 static int beautify (FILE *myInput)
 {
   int c, cTmp, nw = 0, inWord = 0, nBlock = 0 ;
-  int qcount;
   int blocks [200] ;
   int    level = 0 ,
-    nQuote = 0 ,   /* depth inide  ' ' signs */
+    /* nQuote = 0 ,    depth inide  ' ' signs */
     nDoubleQuote = 0 ,   /* depth inide " " signs */
-    nCurly = 0 ,  /* depth inside curly brackets */
-    nPar = 0 ,  /* depth inide () signs */
-    nComments = 0 ,  /* depth inide comments signs */
-    nCComments = 0 ;   /* from double slash to end of line */
+    nPar = 0 ;  /* depth inide () signs */
     
   word [0] = 0 ;
   c0 = ' ' ;
@@ -302,6 +301,7 @@ space_per_level=atoi(cp);
 
 debug=getArg(&argc,argv,"-d");
 
+ if (argc == 1) usage() ;
 if(argv[0])
 {
 while(argv[0])

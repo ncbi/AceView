@@ -26,16 +26,17 @@
  * HISTORY:
  * Last edited: Aug 26 17:05 1999 (fw)
  * Created: Thu Aug 26 17:05:18 1999 (fw)
- * CVS info:   $Id: chrono.h,v 1.2 2003/06/30 03:33:43 mieg Exp $
+ * CVS info:   $Id: chrono.h,v 1.3 2017/07/23 15:03:38 mieg Exp $
  *-------------------------------------------------------------------
  */
 
-/* $Id: chrono.h,v 1.2 2003/06/30 03:33:43 mieg Exp $ */
+/* $Id: chrono.h,v 1.3 2017/07/23 15:03:38 mieg Exp $ */
 
 
 #ifndef ACEDB_CHRONO_H
 #define ACEDB_CHRONO_H
 
+void chronoShow(void) ;
 void chronoDoReturn(void);
 void chronoSwitch(char *procedureName) ;
 BOOL chronoStart(void) ;

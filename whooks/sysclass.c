@@ -428,8 +428,8 @@ void lexDefineSystemTags (void)
   lexHardDefineKey(0,__DNA3,"_DNA3") ; 
   lexHardDefineKey(0,__DNA4,"_DNA4") ; 
   lexHardDefineKey(0,__DNA5,"_DNA5") ; 
-  lexHardDefineKey(0,__DNA6,"_DNA6") ; 
-  lexHardDefineKey(0,__DNA7,"_DNA7") ; 
+  lexHardDefineKey(0,_LongFloat,"LongFloat") ; 
+  lexHardDefineKey(0,_LongInt,"LongInt") ; 
   lexHardDefineKey(0,__RNA1,"_RNA1") ; 
   lexHardDefineKey(0,__RNA2,"_RNA2") ; 
   lexHardDefineKey(0,__RNA3,"_RNA3") ; 
@@ -441,8 +441,8 @@ void lexDefineSystemTags (void)
   lexHardDefineKey(0,_LastC,"LastC") ; 
   lexHardDefineKey(0,_Int,"Int") ; 
   lexHardDefineKey(0,_Unsigned,"Unsigned") ; 
-  lexHardDefineKey(0,_Long,"Long") ; 
-  lexHardDefineKey(0,_Long_Unsigned,"Long_Unsigned") ; 
+  lexHardDefineKey(0,_zLong,"zLong") ; 
+  lexHardDefineKey(0,_zLong_Unsigned,"zLong_Unsigned") ; 
   lexHardDefineKey(0,_Float,"Float") ; 
   lexHardDefineKey(0,_DateType,"DateType") ; 
   lexHardDefineKey(0,_continuationKey,"continuationKey") ; 

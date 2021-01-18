@@ -1,6 +1,6 @@
 /*  Last edited: Sep  8 17:00 1994 (srk) */
 
-/* $Id: homonym.c,v 1.3 2016/01/26 04:02:50 mieg Exp $ */
+/* $Id: homonym.c,v 1.4 2020/05/25 00:59:21 mieg Exp $ */
 
   /* The pupose of this stand alone is to resolve the orthograph conflicts
      in author names. It takes as  arguments, a homonym file of the form
@@ -16,7 +16,7 @@ newalias
    It will act only on the author entries of the ace file and, on these
    will replace the occurences of alias by the correct name 
    */
-#define ARRAY_NO_CHECK
+
 #include "regular.h"
 #include "array.h"
 

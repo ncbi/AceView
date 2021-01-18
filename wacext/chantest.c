@@ -24,9 +24,9 @@ static void update (void *vp)
   
   for (i = 0 ; i < node->k ; i++)
     {
-      z = (channelGet (node->cu, &u, double) 
+      z = (channelGive (node->cu, &u, double) 
 	   +  2 * node->x 
-	   + channelGet (node->cv, &v, double)
+	   + channelGive (node->cv, &v, double)
 	   )/4.0 ; 
       node->x = z ;
       channelMultiPut (node->cx, &z, 1, double) ; 
@@ -164,6 +164,7 @@ int main (int argc, const char *argv[])
   if (argc > 1)
     usage (commandBuf, argc, argv) ;
   
+  aceInWaitAndRetry (0) ; /* does nothink, but triggers the linker on LINUX */
   wego_max_threads (max_threads) ;
 
    ring (N, K, debug) ;

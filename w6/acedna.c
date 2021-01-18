@@ -20,7 +20,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: acedna.c,v 1.51 2017/03/07 22:04:19 mieg Exp $ */
+/* $Id: acedna.c,v 1.71 2020/10/06 11:56:53 mieg Exp $ */
 
 #include "../wac/ac.h"
 #include "dna.h"
@@ -32,28 +32,11 @@ void showDna (Array dna, int n)
   int i = n + 60 ;
   unsigned char *cp ;
 
-  if (n < 0 || !arrayExists(dna) || !dna->size == 1) return ;
+  if (n < 0 || !arrayExists(dna) || dna->size != 1) return ;
   if (i > arrayMax(dna)) i = arrayMax(dna) ;
   cp = arrp(dna, n, unsigned char) ;
-  for (; n < i ; n++, cp++) printf("%c", dnaDecodeChar [*cp]) ;
-  printf("\n") ;
-}
-
-/*************************************************************************/
-/* the idea is to ensure the terminal zero when copying this avoids
-   a frequent subsequenct realloc and doubling of the copied array
-   */
-Array dnaCopy (Array dna)
-{
-  int n = arrayMax(dna) ;
-  Array cc ;
-
-  if (!dna || dna->size != 1)
-    messcrash ("bad call to dnaCopy") ;
-  array (dna, n, unsigned char) = 0 ;
-  cc = arrayCopy(dna) ;
-  arrayMax(dna) = arrayMax(cc) = n ;
-  return cc ;  
+  for (; n < i ; n++, cp++) fprintf(stderr, "%c", dnaDecodeChar [*cp]) ;
+  fprintf(stderr, "\n") ;
 }
 
 /*************************************************************************/
@@ -70,8 +53,12 @@ void reverseComplement (Array dna)
     *cp = complementBase[(int)*cp] ;
 
   /* add a terminal zero, 
-     I do it again here because we often do
+     I do it again here because we might have done
      dnaR = arrayCopy(dna) ; (which looses the terminal zero)
+     please use rather dnaCopy which does not lose the terminal zero
+    note that once the array is allocated at size max+1
+     re-imposing the zero costs nothing
+     but if it is allocated at size max, it implies a new array reallocation
      reverseComplement(dnaR) ;
   */
   array(dna, arrayMax(dna), char) = 0 ;
@@ -415,6 +402,8 @@ Array dnaParseLevel (int level, unsigned char *resultp, char **seqNamep, char **
 }
 
 /************************************************************/
+/************************************************************/
+/************************************************************/
 /* copied from pickMatch and modified to use bit masks */
 /* match to template
    
@@ -474,8 +463,8 @@ void aceDnaShowErr (Array err)
 	    case INSERTION_TRIPLE: printf ("INSERTION_TRIPLE") ; break ;
 	    default: printf ("autre ") ; break ;
 	    }
-	  printf ("iLong=%d iCourt = %d baseShort = %c sens = %d\n",
-		  ep->iLong, ep->iShort, dnaDecodeChar[(int)ep->baseShort], ep->sens ) ;
+	  printf ("iLong=%d iCourt = %d baseShort = %c baseLong = %c sens = %d\n",
+		  ep->iLong, ep->iShort, dnaDecodeChar[(int)ep->baseShort],  dnaDecodeChar[(int)ep->baseLong], ep->sens ) ;
 	}
       aceDnaShowErr (0) ; /* self reference trick to avoid compiler warning */
     }
@@ -483,25 +472,27 @@ void aceDnaShowErr (Array err)
 
 /********************************************************************/
 
-/* in a pdded system, there should be no insert delete ? */
+/* in a padded system, there should be no insert delete ? */
 #ifdef JUNK
 static JUMP paddedJumper [] = {
 { 1, 1, 0, 0 }   /* default is punctual */
 } ;
 #endif
 
-static BOOL useSolidJumper = FALSE ;
-void aceDnaSetSolidJumper (BOOL ok)
-{ useSolidJumper = ok ; }
-static BOOL usePacBioJumper = FALSE ;
-void aceDnaSetPacBioJumper (BOOL ok)
-{ usePacBioJumper = ok ; }
-static BOOL useIlmJumper = FALSE ;
+static int useJumper = 0 ;
+
 void aceDnaSetIlmJumper (BOOL ok)
-{ useIlmJumper = ok ; }
-static BOOL useEditGenomeJumper = FALSE ;
+{ useJumper = ok ? 1 : 0 ; }
+void aceDnaSetSolidJumper (BOOL ok)
+{ useJumper = ok ? 2 : 0 ; }
+void aceDnaSetRocheJumper (BOOL ok)
+{ useJumper = ok ? 3 : 0 ; }
+void aceDnaSetPacBioJumper (BOOL ok)
+{ useJumper = ok ? 4 : 0 ; }
+void aceDnaSetNanoporeJumper (BOOL ok)
+{ useJumper = ok ? 5 : 0 ; }
 void aceDnaSetEditGenomeJumper (BOOL ok)
-{ useEditGenomeJumper = ok ; }
+{ useJumper = ok ? 6 : 0 ; }
 
 static JUMP jumpN [] = {{1000,0,0,0}} ;  /* a kludge, to jump ambiguities */
   /* dna1 = short, dna2 = long */
@@ -513,6 +504,10 @@ JUMP jumper [] = {  /* called from abifix.c */
 
  {1, 0, 8, 0},    /* insert in 1 */
  {0, 1, 8, 0},    /* trou in 1 */
+ {2, 0, 10, 0}, 
+ {0, 2, 10, 0}, 
+ {3, 0, 10, 0}, 
+ {0, 3, 10, 0}, 
  {1, 0, 10, 2},    /* insert in 1 */
  {0, 1, 10, 2},    /* trou in 1 */
  {2, 0, 10, 2}, 
@@ -555,6 +550,10 @@ JUMP ilmJumper [] = {  /* called from abifix.c */
 
  {1, 0, 8, 0},    /* insert in 1 */
  {0, 1, 8, 0},    /* trou in 1 */
+ {2, 0, 10, 0}, 
+ {0, 2, 10, 0}, 
+ {3, 0, 10, 0}, 
+ {0, 3, 10, 0}, 
  {1, 0, 10, 2},    /* insert in 1 */
  {0, 1, 10, 2},    /* trou in 1 */
  {2, 0, 10, 2}, 
@@ -633,7 +632,6 @@ static JUMP insertJumper [] = {
  {1, 1, 0, 0}    /* default is punctual */
 } ;
 
-
 static JUMP deleteJumper [] = {
  {1, 1, 7, 0},    /* ponctuel */
  {1, 0, 2, 0},    /* insert in 1 */
@@ -662,6 +660,131 @@ static JUMP deleteJumper [] = {
  {1, 1, 0, 0}    /* default is punctual */
 } ;
 
+/* 2020_10_04
+ * j'ai deja aligne seqc2 mais je change le
+ * jumper pacbio (voir pacbioJumperOld below)
+ * pour le rendre identique
+ * au jumper nanopore utilise en depuis juin 2020
+ */
+static JUMP pacbioJumper [] = {
+ {1, 0, 10, 0},    /* insert in 1 */
+ {0, 1, 10, 0},    /* trou in 1 */
+ {1, 1, 12, 0},    /* ponctuel */
+
+ {1, 0, 8, 0},    /* insert in 1 */
+ {0, 1, 8, 0},    /* trou in 1 */
+ {1, 1, 7, 0},    /* trou in 1 */
+ {2, 0, 10, 0}, 
+ {0, 2, 10, 0}, 
+ {3, 0, 10, 0}, 
+ {0, 3, 10, 0}, 
+ {1, 0, 10, 2},    /* insert in 1 */
+ {0, 1, 10, 2},    /* trou in 1 */
+ {2, 0, 10, 2}, 
+ {0, 2, 10, 2}, 
+ {3, 0, 13, 2},
+ {0, 3, 13, 2},
+ {4, 0, 15, 3},
+ {0, 4, 15, 3},
+ {5, 0, 15, 3},
+ {0, 5, 15, 3},
+ {6, 0, 15, 3},
+ {0, 6, 15, 3},
+ {7, 0, 15, 3},
+ {0, 7, 15, 3},
+ {8, 0, 15, 3},
+ {0, 8, 15, 3},
+ {9, 0, 15, 3},
+ {0, 9, 15, 3},
+ {10, 0, 15, 3},
+ {0, 10, 15, 3},
+ {1, 1, 6, 0},     /* sub */
+ {1, 0, 6, 0},    /* insert in 1 */
+ {0, 1, 6, 0},    /* trou in 1 */
+ {1, 1, 0, 0}    /* default is punctual */
+} ;
+
+static JUMP pacbioJumperOld
+ [] = {  /* favor insert */
+ {1, 1, 7, 0},    /* ponctuel */
+ {0, 1, 2, 0},    /* trou in 1 */
+ {1, 1, 3, 0},    /* ponctuel */
+ {0, 1, 4, 2},    /* trou in 1 */
+ {1, 0, 5, 1},    /* insert in 1 */
+ {1, 0, 9, 2},    /* insert in 1 */
+ {0, 2, 6, 2}, 
+ {2, 0,11, 2}, 
+ {0, 3, 8, 2},
+ {3, 0, 13, 2},
+ {0, 4, 12, 3},
+ {4, 0, 15, 3},
+ {5, 0, 15, 3},
+ {0, 5, 15, 3},
+ {6, 0, 15, 3},
+ {0, 6, 15, 3},
+ {7, 0, 15, 3},
+ {0, 7, 15, 3},
+ {8, 0, 15, 3},
+ {0, 8, 15, 3},
+ {9, 0, 15, 3},
+ {0, 9, 15, 3},
+ {10, 0, 15, 3},
+ {0, 10, 15, 3},
+ {1, 1, 0, 0}    /* default is punctual */
+} ;
+
+static JUMP nanoporeJumper [] = {
+ {1, 0, 10, 0},    /* insert in 1 */
+ {0, 1, 10, 0},    /* trou in 1 */
+ {1, 1, 12, 0},    /* ponctuel */
+
+ {1, 0, 8, 0},    /* insert in 1 */
+ {0, 1, 8, 0},    /* trou in 1 */
+ {1, 1, 7, 0},    /* trou in 1 */
+ {2, 0, 10, 0}, 
+ {0, 2, 10, 0}, 
+ {3, 0, 10, 0}, 
+ {0, 3, 10, 0}, 
+ {1, 0, 10, 2},    /* insert in 1 */
+ {0, 1, 10, 2},    /* trou in 1 */
+ {2, 0, 10, 2}, 
+ {0, 2, 10, 2}, 
+ {3, 0, 13, 2},
+ {0, 3, 13, 2},
+ {4, 0, 15, 3},
+ {0, 4, 15, 3},
+ {5, 0, 15, 3},
+ {0, 5, 15, 3},
+ {6, 0, 15, 3},
+ {0, 6, 15, 3},
+ {7, 0, 15, 3},
+ {0, 7, 15, 3},
+ {8, 0, 15, 3},
+ {0, 8, 15, 3},
+ {9, 0, 15, 3},
+ {0, 9, 15, 3},
+ {10, 0, 15, 3},
+ {0, 10, 15, 3},
+ {1, 1, 6, 0},     /* sub */
+ {1, 0, 6, 0},    /* insert in 1 */
+ {0, 1, 6, 0},    /* trou in 1 */
+ {1, 1, 0, 0}    /* default is punctual */
+} ;
+
+/* Laxist jumper to fill the holes in nanopore, 2019_02 
+atatcttcaa gtcttcatcctgaatccttcaat    gaaatatgtggaa  gttcacc  caat  gagaactatgttgaa  gttacattatctttag gTatctcttaata taata Caatt atcttaaatggcatttagcatatacacttatttt
+atatcttcaaagtcttcatcctgaatccttcaatatgagaaatatgtggaagagttc ccttcaatatgagaactatgttgaagagttacattatctttagtgcatctcttaatactaataaaaatttatcttaaatggcatttagcatatacacttatttt
+
+*/
+
+static JUMP laxJumper [] = {
+ {1, 1, 3, 0},    /* ponctuel */
+ {0, 1, 3, 0},    /* trou in 1 */
+ {0, 2, 3, 0},    /* trou in 1 */
+ {0, 3, 3, 0},    /* trou in 1 */
+ {0, 4, 3, 0},    /* trou in 1 */
+ {1, 1, 0, 0}    /* default is punctual */
+} ;
 
 JUMP reAligner [] = {  /* called from abifix.c */
  {0, 0, 5, 1},    /* accept current location */
@@ -715,12 +838,38 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
   register int i, n ;
   int sens = 1, nerr = 0, nAmbigue = 0, nExact, maxExact = 0 ;
   register JUMP *jp ;
-  JUMP *activeJumper = useEditGenomeJumper ? editGenomeJumper : ( useIlmJumper ? ilmJumper : ( useSolidJumper ? solidJumper : ( usePacBioJumper ? deleteJumper : jumper))) ; 
+  JUMP *activeJumper = jumper ;
   A_ERR *ep ;
   /* int mask4 = 0xffffffff ; */
   /* static int nnn=0 ; */
   /* on one worm chromo we have 240 M calls to this function, so chrone may be too expansive */
   /* chrono("aceDnaTrackErrors") ; */
+
+  switch (useJumper)
+    {
+    case 1: /* illumina */
+      activeJumper = ilmJumper ;
+      break ;
+    case 2: /* SOLiD */
+      activeJumper = solidJumper ;
+      break ;
+    case 3: /* Roche */
+      activeJumper = nanoporeJumper ;
+      break ;
+    case 4: /* PacBio */
+      activeJumper = pacbioJumper ;
+      break ;
+    case 5: /* Oxford Nanopore Technology ONT: minion, gridion promethion */
+      activeJumper = nanoporeJumper ;
+      if (0) activeJumper = laxJumper ;
+      break ;
+    case 6: /* editGenome */
+      activeJumper = editGenomeJumper ;
+      break ;
+    default:
+      activeJumper = jumper ;
+      break ;
+    }
 
   if (! errArray || ! isErrClean) 
     errArray = arrayReCreate (errArray, 5, A_ERR) ;
@@ -775,6 +924,8 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	    continue ;
 	  n = 0 ; i = jp->ok ;
 	  cp1 = cp + jp->dcp ; cq1 = cq + jp->dcq ; 
+	  if (cp1 >= cpmax || cq1 >= cqmax)
+	    continue ;
 	  b = 0 ; if (jp->dcp >  jp->dcq) { b = *cp1 ; } 
  	  while (i--)
 	    {
@@ -817,6 +968,7 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  nAmbigue++ ;
 	  break ;
@@ -825,6 +977,7 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  break ;
 	case 1:
@@ -832,36 +985,40 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
-	  cp += sens * (1 - jp->dcq) ;
-	  cq -= jp->dcq ;
+	  cp += sens * (1 - jp->dcq) ; cp -= sens ;
+	  cq -= jp->dcq ; cq-- ;
 	  break ;
 	case 2:
 	  ep->type = INSERTION_DOUBLE ;
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
-	  cp += sens * (2 - jp->dcq) ;
-	  cq -= jp->dcq ;
+	  cp += sens * (2 - jp->dcq) ; cp -= sens ;
+	  cq -= jp->dcq ; cq-- ;
 	  break ;
 	case -1:
 	  ep->type = TROU ;
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
-	  cp -= sens * jp->dcp ;
-	  cq += (1 - jp->dcp) ; 
+	  cp -= sens * jp->dcp ; cp -= sens ;
+	  cq += (1 - jp->dcp) ; cq-- ;
 	  break ;
 	case -2:
 	  ep->type = TROU_DOUBLE ;
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
-	  cp -= sens * jp->dcp ;
-	  cq += (2 - jp->dcp) ;
+	  cp -= sens * jp->dcp ; cp -= sens ;
+	  cq += (2 - jp->dcp) ; cq-- ;
 	  break ;
 	default:
 	  if ( jp->dcp > jp->dcq)
@@ -870,9 +1027,10 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	      ep->iShort = cp - cp0 ;
 	      ep->iLong = cq - cq0 ;
 	      ep->sens = sens ;
+	      ep->baseLong = *cq ;
 	      ep->baseShort = *cp ;
-	      cp += sens * (3 - jp->dcq) ;
-	      cq -= jp->dcq ;
+	      cp += sens * (3 - jp->dcq) ; cp -= sens ;
+	      cq -= jp->dcq ; cq-- ;
 	    }
 	  else
 	    {
@@ -881,8 +1039,8 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
 	      ep->iLong = cq - cq0 ;
 	      ep->sens = sens ;
 	      ep->baseShort = '*' ; 
-	      cp -= sens * jp->dcp ;
-	      cq += (3 - jp->dcp) ;
+	      cp -= sens * jp->dcp ; cp -= sens ;
+	      cq += (3 - jp->dcp) ; cq-- ;
 	    }
 	}
       if (/*doStop && */
@@ -901,7 +1059,7 @@ Array aceDnaTrackErrors (Array  dna1, int pos1, int *pp1,
   /*  chronoReturn () ; */
   /*
     printf("\n nnn=%d maxJump=%d\n", ++nnn, maxJump) ;
-    showErr (errArray) ;
+    aceDnaShowErr (errArray) ;
   */
   if (maxExactp && *maxExactp < maxExact) *maxExactp = maxExact ;
   return errArray ;
@@ -979,6 +1137,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  nAmbigue++ ;
 	  break ;
@@ -987,6 +1146,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  break ;
 	case 1:
@@ -994,6 +1154,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 + 1 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  cp -= sens * (1 - jp->dcq) ;
 	  cq += jp->dcq ;
@@ -1003,6 +1164,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 - 1 ;
 	  ep->iLong = cq - cq0 + 1 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  cp -= sens * (2 - jp->dcq) ;
 	  cq += jp->dcq ;
@@ -1012,6 +1174,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 + 1 ; /* +1 because we go backwards */
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
 	  cp += sens * jp->dcp ;
 	  cq -= (1 - jp->dcp) ; 
@@ -1021,6 +1184,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 + 1 ; /* +1 because we go backwards */
 	  ep->iLong = cq - cq0 - 1 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
 	  cp += sens * jp->dcp ;
 	  cq -= (2 - jp->dcp) ;
@@ -1032,6 +1196,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	      ep->iShort = cp - cp0 - 2 ;
 	      ep->iLong = cq - cq0 + 1 ;
 	      ep->sens = sens ;
+	      ep->baseLong = *cq ;
 	      ep->baseShort = *cp ;
 	      cp -= 3*sens ;
 	    }
@@ -1041,6 +1206,7 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 	      ep->iShort = cp - cp0 + 1 ;
 	      ep->iLong = cq - cq0 - 2 ;
 	      ep->sens = sens ;
+	      ep->baseLong = *cq ;
 	      ep->baseShort = '*' ;
 	      cq -= 3 ;
 	    }
@@ -1071,7 +1237,10 @@ Array aceDnaTrackErrorsBackwards (Array  dna1, int pos1, int *pp1,
 static void fuseErr (Array err1, Array err2)
 { int i, n1 = arrayMax(err1), n2 = arrayMax(err2) ;
   for (i = 0 ; i < n2 ; i++)
-    array(err1, n1 + i, A_ERR) = arr(err2, i, A_ERR) ;
+    {
+      if (n1 == 0 || memcmp (arrp (err1, n1 + i - 1, A_ERR), arrp(err2, i, A_ERR), sizeof (A_ERR)))
+	array(err1, n1 + i, A_ERR) = arr(err2, i, A_ERR) ;
+    }
 }
 
 /*********************************************************************/
@@ -1221,6 +1390,12 @@ Array aceDnaDoubleTrackErrors (Array  dna1, int *x1p, int *x2p, BOOL isDown,
 	    ep = arrp (err2, i, A_ERR) ;
 	    if (ep->iShort < *x1p - 1)
 	      continue ;
+	    if (i > 1 && ep->type == ERREUR && (ep->iShort > (ep[-1].iShort-2)))
+	      {
+		if (*x1p < ep->iShort)
+		  { *x1p = ep->iShort ; *a1p = ep->iLong ; }
+		continue ;
+	      }
 	    if ( (NNp && ep->baseShort == N_) || ep->type)
 	      {
 		ep2 = arrayp (err, j++, A_ERR) ;
@@ -1248,6 +1423,11 @@ Array aceDnaDoubleTrackErrors (Array  dna1, int *x1p, int *x2p, BOOL isDown,
 	  for (i = arrayMax (err) - 1, dx = 0 ; i >= 0 ; i--)
 	    { 
 	      ep = arrp (err, i, A_ERR) ;
+	      if (i == arrayMax (err) - 1)
+		{
+		  if ((*x2p > ep->iShort && *x2p < ep->iShort + 5) || (*a2p > ep->iLong && *a2p < ep->iLong +5) )
+		    { *x2p = ep->iShort ; *a2p = ep->iLong ; }
+		}
 	      if (ep->iShort == *x2p - 1)
 		{ 
 		  (*x2p)-- ; (*a2p)-- ; dx++ ; 
@@ -1306,14 +1486,7 @@ Array aceDnaDoubleTrackErrors (Array  dna1, int *x1p, int *x2p, BOOL isDown,
             {
               /* ep is base-0 non-bio coords */
               ep->iLong = nn - ep->iLong - 1 ;
-              switch (ep->baseShort)
-                {
-                case A_: ep->baseShort = T_ ; break ;
-                case T_: ep->baseShort = A_ ; break ;
-                case G_: ep->baseShort = C_ ; break ;
-                case C_: ep->baseShort = G_ ; break ;
-                default: break ;
-                }
+	      ep->baseShort = complementBase[(int)ep->baseShort] ;
             }
         }
       /* reverse the table of errors */
@@ -1441,7 +1614,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  cp1 = cp + jp->dcp ; cq1 = cq + jp->dcq ;
 	  while (i--)
 	    {
-	      if (cp1 == cpmax || cq1 == cqmax)
+	      if (cp1 >= cpmax || cq1 >= cqmax)
 		goto nextjp ;
 	      if (! ((*cp1 & 0x0F) & (*cq1++ & 0x0F)))
 		goto nextjp ;
@@ -1456,7 +1629,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  cp1 = cp + jp->dcp ; cq1 = cq + jp->dcq ;
 	  while (i--)
 	    {
-	      if (cp1 == cpmax || cq1 == cqmax)
+	      if (cp1 >= cpmax || cq1 >= cqmax)
 		goto nextjp ;
 	      if (! ((*cp1 & 0x0F) & (*cq1++ & 0x0F)))
 		if (++n > jp->ok)
@@ -1482,6 +1655,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  nAmbigue++ ;
 	  break ;
@@ -1490,6 +1664,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  break ;
 	case 1:
@@ -1497,6 +1672,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  cp += sens ;
 	  if ((*cp & 0x0f) == N_) { cp -= sens ; cq-- ; }
@@ -1506,6 +1682,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = *cp ;
 	  cp += 2*sens ;
 	  if ((*cp & 0x0f) == N_) { cp -= sens ; cq-- ; }
@@ -1515,6 +1692,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
 	  cq++ ;
 	  if ((*cp & 0x0f) == N_) { cp -= sens ; cq-- ; }
@@ -1524,6 +1702,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	  ep->iShort = cp - cp0 ;
 	  ep->iLong = cq - cq0 ;
 	  ep->sens = sens ;
+	  ep->baseLong = *cq ;
 	  ep->baseShort = '*' ;
 	  cq+=2 ;
 	  if ((*cp & 0x0f) == N_) { cp -= sens ; cq-- ; }
@@ -1535,6 +1714,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	      ep->iLong = cq - cq0 ;
 	      ep->sens = sens ;
 	      ep->baseShort = *cp ;
+	      ep->baseLong = *cq ;
 	      /* insertion accepted, try single insertion */
 	      cp1 = cp + sens ; cq1 = cq ;
 	      if ((*cp1 & 0x0F) & (*cq1 & 0x0F))
@@ -1548,6 +1728,7 @@ Array trackErrors (Array  dna1, int pos1, int *pp1,
 	      ep->iLong = cq - cq0 ;
 	      ep->sens = sens ;
 	      ep->baseShort = '*' ;
+	      ep->baseLong = *cq ;
 	      /* trou accepted, try single trou */
 	      cp1 = cp + 1 ; cq1 = cq ;
 	      if ((*cp1 & 0x0F) & (*cq1 & 0x0F))

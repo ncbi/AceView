@@ -42,11 +42,8 @@
  * kliu 9/2/93   added triangle box for class selection
  */
 
-/* $Id: qbedisp.c,v 1.7 2017/03/18 15:30:51 mieg Exp $ */
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
+/* $Id: qbedisp.c,v 1.8 2020/05/30 16:50:32 mieg Exp $ */
+
 
 #define DEFINE_OBJ
 typedef struct sobj *OBJ ;

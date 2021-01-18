@@ -90,7 +90,7 @@ static Array  chromoRepeatsTabulate (int NN, int w, unsigned int *zz)
 /* count the dna repeats of length up to wMax */
 /* theoretical expectation if dna was fully random */
 
-static mysize_t chromoRepeatsTheory (mysize_t nn, int w)
+static long chromoRepeatsTheory (long nn, int w)
 {
   double p, q, z1, z2, z3, r ;
   
@@ -99,15 +99,15 @@ static mysize_t chromoRepeatsTheory (mysize_t nn, int w)
   z2 = exp (nn * log (q)) ;
   z3 = nn * p * exp ((nn - 1) * log (q)) ;
   r = z1 * (1 - z2 - z3) ;
-  
-  return r >= 0 ? (mysize_t) (r + .49) : 0 ;
+   
+  return r >= 0 ? (long) (r + .49) : 0 ;
 }
 
 /* may only works on a 64 bits machine */
 
 /***********/
 /* most compact algorithm, actually 50% faster than the next one */
-static void* chromoCleanRepeats (unsigned int *probes, int nProbe, char *dna, mysize_t NN, int wMax, int doTabulate)
+static void* chromoCleanRepeats (unsigned int *probes, int nProbe, char *dna, long NN, int wMax, int doTabulate)
 {
   int w ;
   long int i, isNew, nRepeats, nNewRepeats, nComparisons, nJumps ;
@@ -583,7 +583,7 @@ static int chromoRepeatOrder (const void *va, const void *vb)
   return 0 ;  
 }
 
-static void chromoRepeatSort (char *dna, int NN, int wMax)
+static void chromoRepeatSort (char *dna, long NN, int wMax)
 {
   unsigned int i, w, *zp, *tp ;
   unsigned int ia, ib ;
@@ -618,11 +618,12 @@ static void chromoRepeatSort (char *dna, int NN, int wMax)
 /***************************************************************/
 /***************************************************************/
 
-typedef struct offStruct { KEY key ; mysize_t len, offset ; } OFS ;
+typedef struct offStruct { KEY key ; unsigned int len, offset ; } OFS ;
 
 int  chromoRepeatsKeyset (KEYSET ks)
 {
-  mysize_t ii, total = 0 ; KEY key ;
+  mysize_t ii ; KEY key ;
+  unsigned long int total = 0 ;
   Stack s = 0 ;
   Array dna, ofs = 0 ;
   char *cp ;
@@ -638,7 +639,6 @@ int  chromoRepeatsKeyset (KEYSET ks)
 	{
 	  if (!s)
 	    s = stackCreate (arrayMax(dna)) ;
-	  stackTextOnly (s) ;
 	  /* dnaDecodeArray (dna) ; */
 	  up = arrayp (ofs, ii, OFS) ;
 	  up->key = key ; 
@@ -647,7 +647,7 @@ int  chromoRepeatsKeyset (KEYSET ks)
 	  if (ii > 0) up->offset = (up - 1)->offset + (up - 1)->len ;
 	  catBinary (s, arrp(dna, 0, char), up->len) ; 
 	  cp = stackText(s,0) ;
-	  printf("Adding %s (%lu) total length %lu\n", name(key),up->len, total) ;
+	  printf("Adding %s (%d) total length %lu\n", name(key),up->len, total) ;
 	  arrayDestroy (dna) ;
 	}
     }
@@ -806,3 +806,4 @@ int main (int argc, char **argv)
 }
 
 #endif
+

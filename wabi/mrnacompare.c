@@ -99,7 +99,7 @@ static Array mcGetMis (AC_DB db, KEY gene, AC_TABLE mrnas, AC_HANDLE h, BOOL isC
       a2 = ac_table_int (mrnas, ii, 2, -9999) ;
       spl = ac_tag_table (mrna, "Splicing", h) ;
       /*
-      spl =  ac_aql_table (db, messprintf("select  a1, a2, b1, b2, t, fuz from m in class \"mrna\" where m like \"%s\", a1 in m->Splicing, a2 in a1[1],  b1 in a1[2], b2 in a1[3], t in a1[4], fuz in a1[5]", ac_name(mrna)), NULL, h) ;
+      spl =  ac_bql_table (db, messprintf("select  a1, a2, b1, b2, t, fuz from m in class \"mrna\" where m like \"%s\", a1 in m->Splicing, a2 in a1[1],  b1 in a1[2], b2 in a1[3], t in a1[4], fuz in a1[5]", ac_name(mrna)), NULL, h) ;
       */
       if (spl->rows) 
 	ymax = ac_table_int (spl, spl->rows - 1, 3, -9999) ;
@@ -1290,18 +1290,19 @@ static BOOL mcAddAlterSpliceDetails (AC_DB db, KEY gene, RES *res, vTXT blkp, BO
   int nn, nu, nMrna = 0 ;
   BOOL ok = FALSE ;
   Array mis = 0 ;
-  OBJ Gene = 0 ;
   KEY tg = 0 ;
   
   h = handleCreate () ;
   /* 2007_02_13: give priority to the main tg over the shed tg */
-  iter = gene ? ac_dbquery_iter (db, messprintf ("Find gene %s ; {>transcribed_gene gt_ag || gc_ag} SETELSE {>Transcribed_gene}", freeprotect (name(gene))), h) : 0 ;
+  iter = gene ? ac_dbquery_iter (db, messprintf ("Find gene %s ; IS * SETELSE {>transcribed_gene gt_ag || gc_ag} SETELSE {>Transcribed_gene}", freeprotect (name(gene))), h) : 0 ;
 
   while (ac_free (Tg), iter && (Tg = ac_iter_obj (iter)))
     {
       mrnas = ac_tag_table (Tg, "mrna", h) ;
+      if (! mrnas || ! mrnas->rows)
+	mrnas = ac_tag_table (Tg, "mrna_part", h) ;
       /*
-	mrnas = ac_aql_table (db, messprintf("select m, a1, a2 from tg in class \"transcribed_gene\" where tg like \"%s\", m in tg->mrna, a1 in m[1], a2 in m[2]", name(tg)), NULL, h) ;
+	mrnas = ac_bql_table (db, messprintf("select m, a1, a2 from tg in class \"transcribed_gene\" where tg like \"%s\", m in tg->mrna, a1 in m[1], a2 in m[2]", name(tg)), NULL, h) ;
       */
       
       if (mrnas && mrnas->rows)

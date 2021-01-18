@@ -14,10 +14,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: fmapblast.c,v 1.1.1.1 2002/07/19 20:22:59 sienkiew Exp $ */
-
-#define ARRAY_CHECK
-#define MALLOC_CHECK
+/* $Id: fmapblast.c,v 1.2 2020/05/30 16:50:33 mieg Exp $ */
 
 #include "fmap_.h"
 

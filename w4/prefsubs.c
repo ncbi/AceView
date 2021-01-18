@@ -1,4 +1,4 @@
-/* $Id: prefsubs.c,v 1.2 2004/05/08 04:00:31 mieg Exp $ */
+/* $Id: prefsubs.c,v 1.3 2017/05/24 16:33:26 mieg Exp $ */
 /*  Last edited: Nov 19 15:53 1998 (fw) */
 
 #include "acedb.h"
@@ -136,6 +136,12 @@ static void makePrefDefaults(){
 
   prefList  = arrayReCreate (prefList, 10, PREFLIST) ; 
   
+  strcpy(item.name,"LARGER_FONTS");
+  item.type = BOOLEAN; 
+  item.value.bval = FALSE ;
+  item.display = TRUE;
+  array(prefList,arrayMax(prefList),PREFLIST) = item;
+
   strcpy(item.name,"OLD_STYLE_MAIN_WINDOW");
   item.type = BOOLEAN; 
   item.value.bval = FALSE ;
@@ -155,12 +161,6 @@ static void makePrefDefaults(){
   array(prefList,arrayMax(prefList),PREFLIST) = item;
 
   strcpy(item.name,"SHOW_EMPTY_OBJECTS");
-  item.type = BOOLEAN; 
-  item.value.bval = FALSE;
-  item.display = TRUE;
-  array(prefList,arrayMax(prefList),PREFLIST) = item;
-
-  strcpy(item.name,"SHOW_ALIASES");
   item.type = BOOLEAN; 
   item.value.bval = FALSE;
   item.display = TRUE;

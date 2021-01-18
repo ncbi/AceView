@@ -98,11 +98,15 @@ _VGeneId -V
 
 _VIntron -V
 
+_VPaper -V
+
 _VSRR -V
 
 _VSRP -V
 
 _VSRX -V
+
+_VSequence -V
 
 
 

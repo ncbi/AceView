@@ -43,6 +43,9 @@ do
 	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/36a_1
  	sh /home/mieg/SERVER/LOGS/split-weeks 36a_1
 
+	sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/37a_1
+ 	sh /home/mieg/SERVER/LOGS/split-weeks 37a_1
+
 	#sh /home/mieg/SERVER/LOGS/import /home/mieg/SERVER/LOGS/36a_2
  	#sh /home/mieg/SERVER/LOGS/split-weeks 36a_2
 
@@ -82,7 +85,7 @@ do
                 # for 35 i replace 31 by 35
                 # for 35g i alias 35 into 35f		
                 # for 35g i replace 33 by 35g
-                sh /home/mieg/SERVER/LOGS/make-plot 37a_1 36a_1 ara_1 worm_1 mm_37_1
+                sh /home/mieg/SERVER/LOGS/make-plot 37a_1 36a_1 ara_1 worm_1 mm_37_1 rat_1
 		#lp -d color8a -t "AceView Server Activity" plot.ps
 		;;
 	cgi)

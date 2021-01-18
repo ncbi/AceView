@@ -34,7 +34,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: dna.h,v 1.11 2011/02/24 00:43:32 mieg Exp $ */
+/* $Id: dna.h,v 1.12 2017/07/27 00:04:14 mieg Exp $ */
 
 #ifndef DEF_DNA_H
 #define DEF_DNA_H
@@ -71,7 +71,7 @@ BOOL dnaZoneDumpFastAKey (KEY key, FILE *fil, Stack s, char style, int x1, int x
 int dnaDumpFastAKeySet (KEYSET kSet, FILE *fil, Stack s) ;
 				/* if fil==0 these call dnaFileOpen */
 FILE *dnaFileOpen (void) ;
-
+void saucisseTest (KEYSET ks) ;
 
 /*                  NO CODE AFTER THIS                                       */
 #endif

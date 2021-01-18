@@ -8,19 +8,19 @@ set year=$1
 if ($year < 2015) then
   echo "usage :  consolidate year"
   echo "example : consolidate 2015 // will export all stats up of year 2015 up to novembre 2015"
-  echo "example : consolidate 2016  // used in august will export all stats from decembre 2015 up to July 2016
-  echo "example : consolidate 2016  // used in jan 2017 will export all stats from decembre 2015 up to Novembre 2016
-  echo "example : consolidate 2017  // used in jan 2017 will export Decembre 2016
+  echo "example : consolidate 2016  // used in august will export all stats from decembre 2015 up to July 2016"
+  echo "example : consolidate 2016  // used in jan 2017 will export all stats from decembre 2015 up to Novembre 2016"
+  echo "example : consolidate 2017  // used in jan 2017 will export Decembre 2016"
   exit 1
 endif
 
 setenv TMPDIR /tmp
 if (! -d sorted) mkdir sorted
 \rm sorted/*
-../bin/sort_all
+../scripts/sort_all
 \mv sorted/* .
 cat server.log.* >! uu1
-perl ../bin/specialsort.pl < uu1 >! uus
+perl ../scripts/specialsort.pl < uu1 >! uus
 \rm  server.log.*
 
 \cp uus vv

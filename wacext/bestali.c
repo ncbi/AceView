@@ -31,8 +31,6 @@
 #include "acedb.h"
 #include "bitset.h"
 
-/* #define ARRAY_CHECK  */
-
 typedef struct baStruct { 
   AC_HANDLE h ; 
   AC_DB db ;           /* ACEDB database containing the semantics of the experiment */
@@ -59,9 +57,12 @@ typedef struct baStruct {
   DICT *dnaDict ;
   DICT *inFileDict ; 
   const char *selected8kbFileName ;
+  const char *selected5kbFileName ;
+  const char *splitMrnaFileName ;
   KEYSET selected8kbWiggle ;
+  KEYSET selected5kbWiggle ;
   DICT *selected8kbDict ;
-  KEYSET bestScore ;
+  DICT *selected5kbDict ;
   KEYSET sigTargetKs ;
   BOOL gzi, gzo ;
   BOOL checkGroupHierearchy ;
@@ -86,7 +87,9 @@ typedef struct baStruct {
   BOOL addQualityFactors ;
   BOOL RNA_seq ;
   BOOL hasPair ; /* pair info found in input hits file */ 
+  BOOL SAM ;
   int pair ;
+  int lastTranscriptClass ;
   /* filtering */
   int Remove_inserts_shorter_than ;
   const char *filter ; /* apply a named quality filter */
@@ -104,9 +107,12 @@ typedef struct baStruct {
   Array genome2geneAtlas ;
   Array target2intronAtlas ;
   Array target2exonAtlas ;
+  Array splitMrnaArray ;
+  DICT *splitMrnaDict ;
   int maxHit ;      /* only consider alignments with less than this number of targets */
   long int nS, nT ; /* total number of sequences and tags */
   int minAli, errCost ; /* global filtering on aligned length */
+  int minIntronOverlap ; /* default 8: how many overlap bases to confirm an intron seen in a read aligned to a transcript */
   int ventilate ;   /* number of group of original id files */ 
   char *prefixId ;  /* prefix common to all the sequence identifiers */
   const char *project ;
@@ -129,6 +135,7 @@ typedef struct hitStruct3 {
     , prefix, suffix  /* overhangs, read in the tag, on the strand extending the alignment */
     , targetPrefix, targetSuffix  /* 30bp, up and downstream, read on the target in the orientation of the tag */
     , nN, nErr
+    , c1, c2 /* chain start/stop in x coordinates */
     ;
 } HIT3 ;
 
@@ -153,6 +160,7 @@ typedef struct hitStruct {
     , score         /* score of the ali */
     , x1, x2
     , class           /* the first letter of the target class, defining the hierarchy */
+    , chain
     ;
 } HIT ;
 
@@ -163,11 +171,32 @@ typedef struct mhitStruct {
     ;
 } MHIT ;
 
+typedef struct splitMrnaStruct { 
+  int gene, mrna, LL
+    , x1, x2
+    ;
+} SPLITMRNA ;
+
+typedef struct autoStruct { 
+  const char *run ;
+  int target        /* entry in targetDict */
+    , tag           /* identifier of the short sequence tag */
+    , score
+    ;
+  long long int best          /* Best mapping reads, reattributed only to the target with most hits */
+    , tags          /* Best mapping reads, including those mapping equally well to several targets */
+    , seqs          /* distinct sequences */
+    , ali           /* mapped bases */
+    , ln            /* cumulated read length */ 
+    ;
+} AUTOHIT ;
+
 static int badMaxHit, badLnS, badLnT, isLongS, isLongT, badScoreLS, badScoreLT, isPartialS, isPartialT, badScorePS, badScorePT ;
 static int baHit2Exon (BA *ba, HIT *vp, int *exonp, int *genep) ;
 static int baHit2Gene (BA *ba, HIT *vp, int *genep) ;
 extern int atoi(const char *cp) ;
-
+static BOOL baParseOneSamTranscriptHit (ACEIN ai, BA *ba, HIT *up, int nn) ;
+static BOOL baKeepOneHit (BA *ba, HIT *up, const int nn, const int Z_genome) ;
 /*************************************************************************************/
 
 int intronHitOrder (const void *a, const void *b)
@@ -185,19 +214,6 @@ int intronHitOrder (const void *a, const void *b)
 
   return 0 ;
 } /* intronHitOrder */
-
-/*************************************************************************************/
-
-int scoreHitOrder (const void *a, const void *b)
-{
-  const HIT *up = (const HIT *)a, *vp = (const HIT *)b ;
-  int n ;
-
-  n = up->score - vp->score ;  if (n) return -n ;  
-  n = up->target - vp->target ; if (n) return n ;
-
-  return 0 ;
-} /* scoreHitOrder */
 
 /*************************************************************************************/
 
@@ -242,8 +258,8 @@ int baHitOrder (const void *a, const void *b)
 
   n = up->clone - vp->clone ; if (n) return n ;
   n = up->tag - vp->tag ; if (n) return n ;
-  n = up->score - vp->score ; if (n) return -n ;
   n = up->class - vp->class ; if (n) return n ;
+  n = up->score - vp->score ; if (n) return -n ;
   n = up->gene - vp->gene ; if (n) return n ;
   if (up->target && vp->target)
     n = lexstrcmp(dictName(baTargetDict,up->target),dictName(baTargetDict, vp->target)) ; if (n) return n ;
@@ -284,7 +300,7 @@ static void usage (char *message) ;
 /*****************************    Actual work   **************************************/
 /*************************************************************************************/
 
-static void baHitCompress (BA *ba, Array aa)
+static void baHitCompress (BA *ba, Array aa, int  Z_genome)
 {
   int ii, jj, kk, aaMax = arrayMax (aa), tag ;
   HIT *up, *vp ;
@@ -293,6 +309,8 @@ static void baHitCompress (BA *ba, Array aa)
   arrayCompress (aa) ;
   for (ii = kk = 0, up = arrp (aa, 0, HIT) ; ii < aaMax ; ii++, up++)
     {
+      if (! baKeepOneHit (ba,up,ii, Z_genome)) /* will possibly zero the score */
+	continue ;
       tag = up->tag ;
       up2 = arrp (ba->hits2,up->nn, HIT2) ;
       for (jj = ii + 1, vp = up + 1 ;
@@ -364,6 +382,12 @@ static void baExportOneHit (ACEOUT ao, BA *ba, HIT *up)
   else
     aceOutf (ao, "\t0") ;
 
+  aceOutf (ao, "\t-\t-\t-") ;
+
+  if (up->chain)
+    aceOutf (ao, "\tchain %d\t%d\t%d", up->chain, up3->c1, up3->c2) ;
+  else
+    aceOut (ao, "\t") ;
   aceOut (ao, "\n") ;
 } /* baExportOneHit */
 
@@ -371,7 +395,7 @@ static void baExportOneHit (ACEOUT ao, BA *ba, HIT *up)
 
 static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
 { 
-  char *ccp ;
+  char cutter, *ccp ;
   char buf[1000] ;
   static int nTP = 0, nTS = 0, oldTag = 0 ;
   int dummy, dummy2, Z_genome = 0 ;
@@ -379,12 +403,20 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   HIT3 *up3 ;
   int isFirstFragment = 1 ;
   int deltaPair ;
+  int chain = 0 ;
+  int splitMrna = 0 ;
+  int splitMrnaGene = 0 ;
+
+  aceInSpecial (ai, "\n") ;
+
+  if (ba->SAM)
+    return  baParseOneSamTranscriptHit (ai, ba, up, nn) ;
 
   memset (up, 0, sizeof (HIT)) ;
   if (ba->target_classDict) 
     dictFind (ba->target_classDict, "Z_genome", &Z_genome) ;
   strncpy (buf, aceInPos (ai), 999) ;
-  ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp || *ccp == '#')
     return FALSE ;
   dictAdd (ba->tagDict,ccp, &(up->tag)) ;
@@ -410,7 +442,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
 	  if (*ccq == '/')
 	    { ok = TRUE ; }
 	}
-      if (ok) /* if no clone, do not enter it in the cloneDict */
+      if (ba->pair && ok) /* if no clone, do not enter it in the cloneDict */
 	{
 	  cc = *ccq ; *ccq = 0 ;
 	  dictAdd (ba->cloneDict,ccp, &(up->clone)) ;
@@ -422,7 +454,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     int score = 0, mult = 0, ln = 0, ali = 0, x1 = 0, x2 = 0 ;
     
     if (
-	! aceInStep (ai, '\t') || ! aceInInt (ai, &(score)) ||
+	! aceInInt (ai, &(score)) ||
 	! aceInStep (ai, '\t') || ! aceInInt (ai, &(mult)) ||
 	! aceInStep (ai, '\t') || ! aceInInt (ai, &(ln)) || ln < 5 ||
 	! aceInStep (ai, '\t') || ! aceInInt (ai, &(ali)) ||
@@ -435,15 +467,12 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       }
     up->score = score ; up2->mult = mult ; up2->ln = ln ; up2->ali = ali ; up->x1 = x1 ; up->x2 = x2 ;
   }
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  aceInStep (ai, '\t') ; ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read target_class\n") ;
       return FALSE ;
     }
-  if (! strcmp (ccp, "DT_seqc")) ccp = "LT_seqc" ; /* 2013_05_11 modify seqc hierarchy */
-  if (! strcmp (ccp, "QT_seqc")) ccp = "LT_seqc" ; /* 2013_05_11 modify seqc hierarchy */
-  if (! strcmp (ccp, "KT_pg")) ccp = "KT_RefSeq" ; /* 2011_03_28 modify seqc hierarchy */
   if (strcmp (ccp, "-"))
     {
       dictAdd (ba->target_classDict,ccp, &dummy) ;
@@ -451,7 +480,8 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     }
   if (
       (! ba->intergenicSupport && ba->target_class && up2->target_class != ba->target_class) ||
-      (ba->intergenicSupport && ba->target_class && up2->target_class != ba->target_class && 
+      (
+       ba->intergenicSupport && ba->target_class && up2->target_class != ba->target_class && 
        ! (Z_genome &&  up2->target_class == Z_genome && up->tag != oldTag)
        )
       )
@@ -460,7 +490,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     oldTag = up->tag ;
   up->class = *ccp ;
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+   ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read gene\n") ;
@@ -468,8 +498,11 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     }
   if (strcmp (ccp, "-"))
     dictAdd (ba->targetDict,ccp, &(up->gene)) ;
-  
-  if (! aceInStep (ai, '\t') || ! aceInInt (ai, &dummy))
+  splitMrnaGene = 0 ;
+  if (ba->splitMrnaDict)
+    dictFind (ba->splitMrnaDict, ccp, &splitMrnaGene) ;
+
+  if (! aceInInt (ai, &dummy))
     {
       fprintf(stderr, "cannot read uniticity\n") ;
       return FALSE ;
@@ -481,13 +514,16 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     if (ngenes < 0 && ba->pureNsStrand) return FALSE ;
     if ((ngenes > 1 || ngenes < -1 ) && ba->unique) return FALSE ;
   }
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  aceInStep (ai, '\t') ; ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (1 && ccp && !strncmp (ccp,"MRNA:",5))ccp += 5 ;
   if (! ccp || ! *ccp)
     return FALSE ;
   dictAdd (ba->targetDict,ccp, &(up->target)) ;
+  splitMrna = 0 ;
+  if (ba->splitMrnaDict)
+    dictFind (ba->splitMrnaDict, ccp, &splitMrna) ;
   
-  if (! aceInStep (ai, '\t') || ! aceInInt (ai, &(up2->a1)) ||
+  if ( ! aceInInt (ai, &(up2->a1)) ||
       ! aceInStep (ai, '\t') || ! aceInInt (ai, &(up2->a2)) ||
       ! aceInStep (ai, '\t') || ! aceInInt (ai, &dummy) ||
       ! aceInStep (ai, '\t') || ! aceInInt (ai, &dummy2)
@@ -496,12 +532,48 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       fprintf(stderr, "cannot read nErr\n") ;
       return FALSE ;
     }
+
+  if (splitMrnaGene > 0) /* retarget to the correct LocusLink Gene */
+    {
+      BOOL ok = FALSE ;
+      int i ;
+      
+      for (i = 0 ; splitMrna > 0 && i < 10 ; i++)
+	{
+	  SPLITMRNA *mp = arrayp (ba->splitMrnaArray, 10*splitMrna + i, SPLITMRNA) ;
+	  if (! mp->mrna) 
+	    break ;
+	  if (
+	      mp->x1 * mp->x2 == 0 || /* whole mRNA is remapped */
+	      (mp->x1 <= up2->a1 + 7 && mp->x2 >= up2->a2 - 7)  /* just a segment */
+	      )	    
+	    { /* accept this locuslink */
+	      const char *ccp = dictName (ba->splitMrnaDict, mp->LL) ;
+	      dictAdd (ba->targetDict,ccp, &(up->gene)) ;   
+	      ok = TRUE ;
+	      break ;
+	    }
+	  if ( i && mp->mrna && 
+	      mp[-1].x1 < up2->a2 && mp->x2 > up2->a2  /* two segments */
+	      )	    
+	    { /* accept this locuslink */
+	      const char *ccp = hprintf (0, "%s__%s", dictName (ba->splitMrnaDict, mp[-1].LL), dictName (ba->splitMrnaDict, mp->LL)) ;
+	      dictAdd (ba->targetDict,ccp, &(up->gene)) ;   
+	      ac_free (ccp) ;
+	      ok = TRUE ;
+	      break ;
+	    }	  
+	}
+      if (!ok) /* drop this hit */
+	return FALSE ;
+    }
+
   if (! (ba->geneSupport || ba->mrnaSupport) && ba->stranded * isFirstFragment * (up2->a2 - up2->a1) < 0) 
     return FALSE ;
 
   up3->nN = dummy ;
   up3->nErr = dummy2 ;	   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  aceInStep (ai, '\t') ; ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
        fprintf(stderr, "cannot read errTag %s\n", dictName (ba->tagDict,up->tag)) ;
@@ -514,7 +586,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
 	ba->solid = TRUE ;
     }
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read errTarget\n") ;
@@ -523,7 +595,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->errDict,ccp, &(up3->errTarget)) ;
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read prefix\n") ;
@@ -532,7 +604,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->dnaDict,ccp, &(up3->prefix)) ;
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read suffix\n") ;
@@ -543,7 +615,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       dictAdd (ba->dnaDict,ccp, &(up3->suffix)) ;
     }
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
       if (! nTP++) fprintf(stderr, "cannot read targetPrefix\n") ;
@@ -552,7 +624,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->dnaDict,ccp, &(up3->targetPrefix)) ;
   
-  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp)
     {
        if (! nTS++) fprintf(stderr, "cannot read targetSuffix\n") ;
@@ -563,8 +635,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   
   /* if pair == false, do not compute dPair, but if known reexport it */
    deltaPair = 0 ;
-   if (aceInStep (ai, '\t'))
-     aceInInt (ai, & deltaPair)  ;
+   aceInStep (ai, '-') ; aceInInt (ai, & deltaPair)  ; aceInStep (ai, '\t') ;
    if (deltaPair == -14) deltaPair = 0 ;
    if (deltaPair)
     {
@@ -574,9 +645,108 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       if ( deltaPair < 0 && deltaPair >=  NON_COMPATIBLE_PAIR && deltaPair != -2  && deltaPair != -10 &&  deltaPair != -5)
 	up2->badPair = 1 ;
     }
-
+   aceInWordCut (ai, "\t", &cutter) ; /* col 23 */
+   aceInWordCut (ai, "\t", &cutter) ; /* col 24 */
+   aceInWordCut (ai, "\t", &cutter) ; /* col 25 */
+   ccp = aceInWord (ai) ; /* col 26 chain */
+   if (ccp && ! strcasecmp (ccp, "chain") &&
+       aceInInt (ai, &chain))
+     {
+       up->chain = chain ;  
+       aceInStep (ai, '\t') ; aceInInt (ai, &(up3->c1)) ;
+       aceInStep (ai, '\t') ; aceInInt (ai, &(up3->c2)) ;
+     }
+     
   return TRUE ;
 } /* baParseOneHit */
+
+/*************************************************************************************/
+
+static BOOL baParseOneSamTranscriptHit (ACEIN ai, BA *ba, HIT *up, int nn)
+{ 
+  AC_HANDLE h = ac_new_handle () ;
+  char *ccp ;
+  char buf[1000] ;
+  int Z_genome = 0 ;
+  HIT2 *up2 ;
+  HIT3 *up3 ;
+  int flag ;
+  char *cigar ;
+  Array cigarettes = arrayHandleCreate (128, SAMCIGAR, h) ; 
+
+  memset (up, 0, sizeof (HIT)) ;
+  if (ba->target_classDict) 
+    dictFind (ba->target_classDict, "Z_genome", &Z_genome) ;
+  strncpy (buf, aceInPos (ai), 999) ;
+  ccp = aceInWord (ai) ;
+  if (! ccp || ! *ccp || *ccp == '#' || *ccp == '@')
+    goto done  ;
+  dictAdd (ba->tagDict,ccp, &(up->tag)) ;
+  up->nn = nn ;
+  up2 = arrayp (ba->hits2, up->nn, HIT2) ;
+  up3 = arrayp (ba->hits3, up->nn, HIT3) ;
+  memset (up2, 0, sizeof (HIT2)) ;
+  memset (up3, 0, sizeof (HIT3)) ;
+  if (ba->pair)
+    {
+      char cc, *ccq = ccp + strlen (ccp) - 1  ;
+      BOOL ok = TRUE ;
+
+      if (ok) /* if no clone, do not enter it in the cloneDict */
+	{
+	  cc = *ccq ; *ccq = 0 ;
+	  dictAdd (ba->cloneDict,ccp, &(up->clone)) ;
+	  *ccq = cc ;
+	}
+    }
+  aceInStep (ai, '\t') ;   aceInInt (ai, &flag) ;
+ 
+  /*
+    int isFirstFragment = 1 ;
+    if (flag & 128) isFirstFragment = -1 ;
+  */
+
+  aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
+  if (ccp && !strncmp (ccp,"MRNA:",5))ccp += 5 ;
+  if (! ccp || ! *ccp)
+    goto done  ;
+  dictAdd (ba->targetDict,ccp, &(up->target)) ;
+  
+  up2->a1 = 0 ;
+  aceInStep (ai, '\t') ; aceInInt (ai, &(up2->a1)) ;
+  if (up2->a1)
+    goto done  ;
+ 
+  aceInStep (ai, '\t') ; aceInInt (ai, &(up2->a1)) ; /* quality, discard */
+  aceInStep (ai, '\t') ;  cigar = aceInWord (ai) ;
+  samParseCigar (cigar, cigarettes, up2->a1, &(up2->a2), &(up->x1), &(up->x2), 0) ;
+
+  up2->target_class = ba->target_class ;
+  up2->dPair = 0 ;
+  dictAdd (ba->target_classDict,ccp, &(up2->target_class)) ;
+  aceInStep (ai, '\t') ;  aceInWord (ai) ; /* drop */
+  aceInStep (ai, '\t') ;  aceInWord (ai) ; /* drop */
+  aceInStep (ai, '\t') ;  aceInInt (ai, &(up2->dPair)) ;
+  aceInStep (ai, '\t') ;  ccp = aceInWord (ai) ;  /* the actual sequence */
+  if (!ccp)
+    goto done ;
+  up2->ln = strlen (ccp) ;
+
+  up->score = 0 ; up2->mult = 1 ;
+  while (ccp)
+    {
+      aceInStep (ai, '\t') ;  ccp = aceInWord (ai) ;  /* the actual sequence */
+      if (!strncmp (ccp, "AS:", 3))
+	sscanf (ccp+5, "%d", &(up->score)) ;
+    }
+
+  ac_free (h) ;  
+  return TRUE ;
+
+ done:
+  ac_free (h) ;  
+  return FALSE ;
+} /* baParseOneSamTranscriptHit */
 
 /*************************************************************************************/
 
@@ -888,14 +1058,77 @@ static ACEIN baNextInFile (BA *ba, int nn, AC_HANDLE h)
 /*************************************************************************************/
 /*************************************************************************************/
 
+static BOOL baKeepOneHit (BA *ba, HIT *up, const int nn, const int Z_genome)
+{ 
+  Array aa2, aa3 ;
+  HIT *vp ;
+  HIT2 *up2, *vp2 ;
+  HIT3 *up3, *vp3 ; 
+  int iv ;
+  int tag = up->tag ;
+  int score = up->score ;
+
+  aa2 = ba->hits2 ;
+  aa3 = ba->hits3 ;
+
+  up2 = arrayp (aa2, up->nn, HIT2) ;
+  up3 = arrayp (aa3, up->nn, HIT3) ;
+  if (ba->minAli && up2->ali < ba->minAli) /* reject */
+    return FALSE ;
+  
+  /* compare to previous hits and discard if overlap and lower score */
+  for (iv = nn - 1, vp = up - 1 ; iv >= 0 && vp->tag == tag ; iv--, vp--)
+    {
+      if (vp->score != score) /* check overlap */
+	{
+	  vp2 = arrayp (aa2, vp->nn, HIT2) ;
+	  vp3 = arrayp (aa3, vp->nn, HIT3) ;
+	  
+	  /* do not kill big transcript in favor of genome */
+	  if (score > 200 &&
+	      Z_genome &&
+	      vp2->target_class == Z_genome &&
+	      up2->target_class < Z_genome
+	      )
+	    continue ;
+	  if (score > vp->score && vp->score > 200 &&
+	      Z_genome &&
+	      up2->target_class == Z_genome &&
+	      vp2->target_class < Z_genome
+	      )
+	    continue ;
+	  
+	  /* check if real intersect, eliminate loser */
+	  {
+	    int z1 = up3->c1 > vp3->c1 ?  up3->c1 : vp3->c1 ;
+	    int z2 = up3->c2 < vp3->c2 ?  up3->c2 : vp3->c2 ;
+	    int dz = z2 - z1 + 1 ;  /* length of intersect */
+	    int lnu = up3->c2 - up3->c1 + 1 ;
+	    int lnv = vp3->c2 - vp3->c1 + 1 ;
+	    
+	    if (dz > .5 * lnu || dz > .5 * lnv)  /* real intersect */
+	      {
+		if (score < vp->score)
+		  {
+		    score = up->score = 0 ;
+		    break ;
+		  }
+		else if (score > vp->score)
+		  vp->score = 0 ;
+	      }
+	  }
+	}
+    }
+  return score ? TRUE : FALSE ;
+}
+
 static int baParseHits (BA *ba) 
 {
-  Array aa, aa2, aa3 ;
+  Array aa ;
   HIT *up ;
-  HIT2 *up2 ; 
-  int nn = 0, score ;
+  int nn = 0 ;
   int nInFile = 0 ;
-  KEYSET bestScore ;
+  int Z_genome = 0 ;
   ACEIN ai = 0 ;
 
   if (! ba->maxHitOut)
@@ -903,18 +1136,18 @@ static int baParseHits (BA *ba)
       ba->maxHitOut = aceOutCreate (ba->outFileName, ".too_many_hits", ba->gzo, ba->h) ;
       ba->maxHitBitSet = bitSetCreate (10000, ba->h) ;
     }
+  if (ba->target_classDict) 
+    dictFind (ba->target_classDict, "Z_genome", &Z_genome) ;
 
   ba->hits = aa = arrayHandleCreate (1000000, HIT, ba->h) ;
-  ba->hits2 = aa2 = arrayHandleCreate (1000000, HIT2, ba->h) ;
-  ba->hits3 = aa3 = arrayHandleCreate (1000000, HIT3, ba->h) ;
+  ba->hits2 = arrayHandleCreate (1000000, HIT2, ba->h) ;
+  ba->hits3 = arrayHandleCreate (1000000, HIT3, ba->h) ;
   ba->tagDict = dictHandleCreate (10000, ba->h) ;
   if (ba->pair) ba->cloneDict = dictHandleCreate (10000, ba->h) ;
   if (! ba->targetDict)
     ba->targetDict = dictHandleCreate (10000, ba->h) ;
   ba->errDict = dictHandleCreate (10000, ba->h) ;
   ba->dnaDict = dictCaseSensitiveHandleCreate (10000, ba->h) ; /* distinguish aaa from AAA */
-
-  bestScore = ba->bestScore = arrayHandleCreate (1000000, KEY, ba->h) ;
 
   up = arrayp (aa, 0, HIT) ;
 
@@ -928,28 +1161,23 @@ static int baParseHits (BA *ba)
 	ai = baNextInFile (ba, nInFile++, h) ;
       if (ai)
 	while (aceInCard (ai))
-	  if (baParseOneHit (ai, ba, up, nn))
-	    { 
-	      up2 = arrayp (aa2, up->nn, HIT2) ;
-	      score = keySet (bestScore, up->tag) ;
-	      if (score <= up->score  && (!ba->minAli || up2->ali >= ba->minAli))
-		{
-		  keySet (bestScore, up->tag) = up->score ;
-		  up = arrayp (aa, ++nn, HIT) ;
-		}
-	    }
+	  if (baParseOneHit (ai, ba, up, nn) &&
+	      baKeepOneHit (ba,up,nn, Z_genome)
+	      )     /* register new chain */
+	    up = arrayp (aa, ++nn, HIT) ;
+    
       ac_free (h) ; 
       if (!ai || ! ba->inFileList)
 	break ;
     }
   arrayMax (aa) = nn ;
-
   fprintf (stderr, "Parsed %d lines %s\n", nn, timeShowNow ()) ;
 
   baTargetDict = ba->targetDict ;
   arraySort (aa, baHitOrder) ;
-  baHitCompress (ba, aa) ;
+  baHitCompress (ba, aa, Z_genome) ;
   nn = arrayMax (aa) ;
+
   fprintf (stderr, "Sorted %d distinct lines %s\n", nn, timeShowNow ()) ;
 
   return nn ;
@@ -960,12 +1188,11 @@ static int baParseHits (BA *ba)
   /* filter on quality */
 static int baFilter (BA *ba)
 {
-  int ii, jj, nn = 0, score ;
+  int ii, jj, nn = 0 ;
   HIT *up, *vp ;
   HIT2 *up2 ; 
   Array aa = ba->hits ; 
   Array aa2 = ba->hits2 ; 
-  KEYSET bestScore = ba->bestScore ; 
   int tBACTERIA = 0 ;
   int tVIRUS = 0 ;
   int tTRANSPOSON = 0 ;
@@ -978,8 +1205,7 @@ static int baFilter (BA *ba)
     {
       for (ii = jj = 0, up = arrp (aa, 0, HIT), vp = up ; ii < arrayMax (aa) ; up++, ii++)
 	{ 
-	  score = keySet (bestScore, up->tag) ;
-	  if (score > up->score)
+	  if (!up->score)
 	    continue ;
 	  if (baFilterOne (ba, up))
 	    {
@@ -1134,22 +1360,49 @@ static int baPairFilterOne (BA *ba, int iiMin, int iiMax, Array geneLinks)
 	    }
 	 
 	  if (1) /* measure pair distances in good pairs */
-	    for (ii = iiMin, up = arrp (aa, ii, HIT) ; ii < iiMax ; up++, ii++)
-	      { 
-		up2 = arrp (aa2, up->nn, HIT2) ;
-		if (up2->target_class != cl)
-		  continue ;
-		for (i1 = score = 0, wp = arrp (bb, 0, HIT) ; i1 < arrayMax (bb) ; i1++, wp++)
-		  {
-		    if (! wp->score) continue ;
-		    if (wp->x1 == ii)
-		      { score = up->score ; up2->dPair = (wp->nn == 1000000 ? -5 : wp->nn) ; break ; }
-		    if (wp->x2 == ii)
-		      { score = up->score ; up2->dPair = (wp->nn == 1000000 ? -5 : - wp->nn)  ; break ; }
-		  }
-		if (1 || ! ba->geneSupport)  /* 2015_05, delay destruction till after counting all anomalies, a good idea in geneSupport, but not destroying may be bad in case of exportBest */
-		  up->score = score ;  /* if I have at least one pair destroy all other hits */
-	      }
+	    {
+	      for (ii = iiMin, up = arrp (aa, ii, HIT) ; ii < iiMax ; up++, ii++)
+		{ 
+		  up2 = arrp (aa2, up->nn, HIT2) ;
+		  if (up2->target_class != cl)
+		    continue ;
+		  for (i1 = score = 0, wp = arrp (bb, 0, HIT) ; i1 < arrayMax (bb) ; i1++, wp++)
+		    {
+		      if (! wp->score) continue ;
+		      if (wp->x1 == ii)
+			{ score = up->score ; up2->dPair = (wp->nn == 1000000 ? -5 : wp->nn) ; break ; }
+		      if (wp->x2 == ii)
+			{ score = up->score ; up2->dPair = (wp->nn == 1000000 ? -5 : - wp->nn)  ; break ; }
+		    }
+		  if (0) /* 2019_10_10 : this kills the gene fusions in case of single read and anyway we now better trust the clipalign clean up */
+		    if (! ba->geneSupport)  /* 2015_05, delay destruction till after counting all anomalies, a good idea in geneSupport, but not destroying may be bad in case of exportBest */
+		      up->score = score ? score : - up->score ;  /* if I have at least one pair destroy all other hits */
+		}
+	      /* restore the negative scores if we are in a chain, or kill it */
+	      for (ii = iiMin, up = arrp (aa, ii, HIT) ; ii < iiMax ; up++, ii++)
+		{ 
+		  if (up->score >= 0)
+		    continue ;
+		  if (! up->chain)
+		    continue ;
+		  for (jj = iiMin,vp = arrp (aa, jj, HIT) ; jj < iiMax ; vp++, jj++)
+		    {
+		      if (vp->score > 0 && up->tag == vp->tag && up->target == vp->target)
+			{
+			  if (vp->chain == up->chain)
+			    { 
+			      up->score = vp->score ;
+			      up2 = arrp (aa2, up->nn, HIT2) ;
+			      vp2 = arrp (aa2, vp->nn, HIT2) ;
+			      up2->dPair = vp2->dPair ;
+			      break ; 
+			    }
+			}
+		    }
+		  if (up->score < 0)
+		    up->score = 0 ;
+		}
+	    }
 	  /* reevaluate the multiplicities */
 	  for (ii = iiMin, up = arrp (aa, ii, HIT), tag1 = 0 ; ii < iiMax ; up++, ii++)
 	    { 
@@ -1597,7 +1850,6 @@ static int baPairFilter (BA *ba)
 	      nGoodPairs += mult ;
 	      nCloseCisGenes += mult ;
 	      break ;
-
 	    case -4:
 	      nBadPairs += mult ;
 	      nTooFarGenome += mult ;
@@ -1772,21 +2024,34 @@ static int baPairFilter (BA *ba)
 
 /*************************************************************************************/
 /*************************************************************************************/
+
+int bestAutoHitOrder (const void *a, const void *b)
+{
+  const AUTOHIT *up = (const AUTOHIT *)a, *vp = (const AUTOHIT *)b ;
+  long long int n ;
+
+  n = up->best - vp->best ;  if (n) return -n ;  
+  n = up->target - vp->target ; if (n) return n ;
+
+  return 0 ;
+} /* bestAutoHitOrder */
+
+/*************************************************************************************/
  /* Auto-hierarchy sort target by number of hits, keep only hits to top target */
 static Array autoHierarchyOrderCounts = 0 ;
 
 static int autoHierarchyOrder (const void *va, const void *vb)
 {
-  HIT *up = (HIT *)va ;
-  HIT *vp = (HIT *)vb ;
+  AUTOHIT *up = (AUTOHIT *)va ;
+  AUTOHIT *vp = (AUTOHIT *)vb ;
   int nn = 0 ;
 
   nn = up->tag - vp->tag ; if (nn) return nn ;
   nn = up->score - vp->score ; if (nn) return -nn ; /* high score first */
   if (autoHierarchyOrderCounts)
     nn = 
-      arrp (autoHierarchyOrderCounts, up->target, HIT)->x1 - 
-      arrp (autoHierarchyOrderCounts, vp->target, HIT)->x1 ; 
+      arrp (autoHierarchyOrderCounts, up->target, AUTOHIT)->tags - 
+      arrp (autoHierarchyOrderCounts, vp->target, AUTOHIT)->tags ; 
   else
     nn = up->target - vp->target ; 
   
@@ -1794,14 +2059,30 @@ static int autoHierarchyOrder (const void *va, const void *vb)
 } /* autoHierarchyOrder */
 
 /*************************************************************************************/
+/* HACK, may 24 2020, the table seem to eat up a bad value while sorting */
+
+static BOOL baCheckHits (Array hits, int badTarget)
+{
+  AUTOHIT *up ;
+  int jj, jjMax = arrayMax (hits) ;
+  BOOL ok = FALSE ;
+
+  for (jj = 0, up = arrp (hits, jj, AUTOHIT) ; jj < jjMax ; jj++, up++)
+    if (up->target == badTarget)
+      { ok = TRUE ; fprintf (stderr, "...... jj=%d up->target=%d\n",jj,up->target) ; }
+
+  return ok ;
+}
+  
+/*****************************/
 
 static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarchic)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0, jj = 0, jjMax, oldTag, oldScore, oldTarget ;
-  HIT *up = 0 ;
+  AUTOHIT *up = 0 , *vp = 0 ;
   DICT *dict = dictHandleCreate (100000, h) ;
-  Array hits = arrayHandleCreate (100000, HIT, h) ;
+  Array hits = arrayHandleCreate (100000, AUTOHIT, h) ;
 
   while (aceInCard (ai))
     {  
@@ -1828,6 +2109,12 @@ static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarc
 	  fprintf(stderr, "cannot read target_class\n") ;
 	  continue ;
 	}
+      if (ba->target_class)
+	{
+	  int cl = 0 ;
+	  if (! dictFind (ba->target_classDict, ccp, &cl) || cl != ba->target_class)
+	    continue ;
+	}
       aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
       if (! ccp || ! *ccp)
 	{
@@ -1836,7 +2123,7 @@ static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarc
 	}
       if (! aceInStep (ai, '\t') || ! aceInInt (ai, &dummy))
 	{
-	  fprintf(stderr, "cannot read uniticity\n") ;
+	  fprintf(stderr, "cannot read unicity\n") ;
 	  continue ;
 	}
       aceInStep (ai, '\t') ; ccp = aceInWord (ai) ;
@@ -1850,13 +2137,21 @@ static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarc
 	  if (score < up->score || target == up->target)
 	    continue ; 
 	}
-      up = arrayp (hits, jj++, HIT) ;
+      up = arrayp (hits, jj++, AUTOHIT) ;
+      up->target = target ;
+      vp = arrayp (counts, up->target, AUTOHIT) ;
+      vp->target = up->target ;
       up->tag = tag ;
       up->score = score ;
-      up->x1 = mult ;
-      up->target = target ;
+      up->best = 0 ;
+      up->tags = mult ;
+      up->seqs = 1  ;
+      up->ali = mult * ali ;
+      up->ln = mult * ln ;
     }
 
+  if (0 && baCheckHits (hits, 201))
+    invokeDebugger () ;
   if (hierarchic)
     {
       autoHierarchyOrderCounts = counts ;
@@ -1865,12 +2160,16 @@ static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarc
     }
   else
     arraySort (hits, autoHierarchyOrder) ;
+  if (0 && baCheckHits (hits, 201))
+    invokeDebugger () ;
 
   oldTag = oldScore = 0 ; jjMax = arrayMax (hits) ;
-  for (jj = 0, up = arrp (hits, jj, HIT) ; jj < jjMax ; jj++, up++)
+  for (jj = 0, up = arrp (hits, jj, AUTOHIT) ; jj < jjMax ; jj++, up++)
     {
-      HIT *vp ;
-
+      AUTOHIT *vp ;
+      
+      vp = arrayp (counts, up->target, AUTOHIT) ;
+      vp->target = up->target ;
       if (up->tag != oldTag)
 	oldScore = 0 ;
       if (up->score < oldScore)
@@ -1883,15 +2182,18 @@ static int baAutoHierarchyParseOne (BA *ba, ACEIN ai, Array counts, BOOL hierarc
 	  )
 	continue ;
       oldTag = up->tag ; oldTarget = up->target ; oldScore = up->score ;
-      vp = arrayp (counts, up->target, HIT) ;
-      vp->target = up->target ;
-      nn += up->x1 ;
       if (hierarchic)
-	{ vp->score += up->x1 ; vp->x2++ ; }
+	{
+	  vp->best += up->tags ;
+	  vp->seqs += up->seqs ;
+	  vp->ali += up->ali ;
+	  vp->ln += up->ln ;
+	}
       else
-	vp->x1 += up->x1 ;
+	{
+	  vp->tags += up->tags ;
+	}
     }
-
   ac_free (h) ;
   return nn ;
 } /* baAutoHierarchyParseOne */
@@ -1928,43 +2230,47 @@ static int baAutoHierarchy (BA *ba)
   AC_HANDLE h = ac_new_handle () ;
 
   ACEOUT ao = aceOutCreate (ba->outFileName, ".autoHierarchy", FALSE, h) ;
-  HIT *vp ;
+  AUTOHIT *vp ;
   int ii, iiMax ;
-  Array counts = arrayHandleCreate (1000, HIT, h) ;
+  Array counts = arrayHandleCreate (1000, AUTOHIT, h) ;
   
   if (! ba->targetDict)
     ba->targetDict = dictHandleCreate (1000, ba->h) ;
-  baAutoHierarchyParse (ba, counts, FALSE) ; /* nH global target counts */
-  baAutoHierarchyParse (ba, counts, TRUE) ; /*  H global target counts */
+  baAutoHierarchyParse (ba, counts, FALSE) ; /* global hierarchic target counts */
+  baAutoHierarchyParse (ba, counts, TRUE) ; /* global hierarchic target counts */
   
-  arraySort (counts, scoreHitOrder) ;
+  arraySort (counts, bestAutoHitOrder) ;
    
   aceOutDate (ao, "##", "Winners take all: Bayesian read counts across similar targets") ;
   aceOut (ao, "## Column 1: Run name, as declared in the project\n") ;
   aceOut (ao, "## Column 2: Best mapping reads, reattributed only to the target with most hits\n") ;
   aceOut (ao, "## Column 3: Best mapping reads, including those mapping equally well to several targets\n") ;
   aceOut (ao, "## Column 4: Newness of the target, i.e. the percentage of winning hits in the target\n") ;
-  aceOut (ao, "## Column 5: Number of distinct sequences hitting the most likely target\n") ;
+  aceOut (ao, "## Column 5: Number of distinct sequences hitting the target\n") ;
+  aceOut (ao, "## Column 6: Average number of bases aligned on the target\n") ;
+  aceOut (ao, "## Column 7: Average length of the reads hitting the target\n") ;
   aceOut (ao, "##   Each read is counted as 1 hit, a fragment pair count as 2 hits\n") ;
   aceOut (ao, "##   For each read, only the hits with highest score are kept\n") ;
   aceOut (ao, "##   In the first pass, the hits to each targets are counted, then the targets are sorted\n") ;
   aceOut (ao, "##   In the second pass, each read is attributted only to its most likely target,\n") ;
   aceOut (ao, "##   i.e. only to the target winner of the first pass, determined independently for each run\n") ;
-  aceOut (ao, "##   The difference with columns 2 is that in column 5 sets identical reads count as a single hit\n") ;
+  aceOut (ao, "##   In all columns excpet 4, the numbers are evealueted after reattributing\n") ;
 	  
-  aceOutf (ao, "# Run\tTarget\tWinning hits\tBest hits\tNewness\tDistint sequences\n") ;
+  aceOutf (ao, "# Run\tTarget\tWinning hits\tBest hits\tNewness\tDistinct sequences\tAverage aligment\tRead length\n") ;
 
   iiMax = arrayMax (counts) ;
-  for (ii = 0, vp = arrp (counts, 0, HIT) ; ii < iiMax ; vp++, ii++)
+  for (ii = 0, vp = arrp (counts, 0, AUTOHIT) ; ii < iiMax ; vp++, ii++)
     {
       if (vp->target)
-	aceOutf (ao, "%s\t%s\t%d\t%d\t%.2f\t%d\n"
+	aceOutf (ao, "%s\t%s\t%ld\t%ld\t%.2f\t%ld\t%ld\t%ld\n"
 		 , ba->run ? ba->run : "xxx"
 		 , dictName (ba->targetDict, vp->target)
-		 , vp->score
-		 , vp->x1
-		 , 100.0 * vp->score / (vp->x1 ? vp->x1 : 1)
-		 , vp->x2
+		 , vp->best
+		 , vp->tags
+		 , 100.0 * vp->best / (vp->tags ? vp->tags : 1)
+		 , vp->seqs
+		 , vp->ali/(vp->best ? vp->best : 1)
+		 , vp->ln/(vp->best ? vp->best : 1)
 		 ) ;
     }
 
@@ -1974,7 +2280,94 @@ static int baAutoHierarchy (BA *ba)
 
 /*************************************************************************************/
 /*************************************************************************************/
-/* export only the best hits */
+/* count or each read the sum of the scores and ali of non overlapping chains */
+static void baCountBestGetSens (BA *ba, int ii, int cl
+			       , int mult, int isFirstFragment
+			       , int *sensp, int *sensFp, int *sensRp
+				, int *nAp, int *nAFp, int *nARp, int *uup
+			       ) 
+{
+  int jj, oldChain = 0, oldTarget = 0 ;
+  int sens = 0, sensF = 0, sensR = 0 ; 
+  int nA = 0, nAF = 0, nAR = 0, uu = 0, ln = 0 ;
+  HIT *up, *vp ;
+  HIT2 *vp2 ;
+ 
+  up = arrp (ba->hits, ii, HIT) ;
+  for (jj = ii, vp = up ; jj < arrayMax (ba->hits) && vp->tag == up->tag ; vp++, jj++)
+    {
+      int ali = 0 ;
+      vp2 = arrp (ba->hits2, vp->nn, HIT2) ; 
+      if (vp2->target_class != cl)
+	continue ;
+      
+      if (! oldChain)
+	{
+	  uu = vp2->unicity ; 
+	  ln = vp2->ln ;
+	  if (uu == -2) 
+	    uu = 11 ; 
+	  else 
+	    { 
+	      if (uu < 0) 
+		uu = -uu ;
+	      if (uu > 10) 
+		uu = 10 ; 
+	    }
+	}
+      if (vp->chain != oldChain || oldTarget != vp->target)
+	ali = mult * vp2->ali ;
+      oldChain = vp->chain ;
+      oldTarget = vp->target ; 
+      nA += ali ;
+      if (isFirstFragment > 0)
+	{
+	  nAF += ali ;
+	  if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
+	    {
+	      sens |= 1 ;
+	      sensF |= 1 ;
+	    }
+	  else
+	    {
+	      sens |= 2 ;
+	      sensF |= 2 ;
+	    }
+	}
+      else
+	{
+	  nAR += ali ;
+	  if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
+	    {
+	      sens |= 1 ;
+	      sensR |= 1 ;
+	    }
+	  else
+	    {
+	      sens |= 2 ;
+	      sensR |= 2 ;
+	    }
+	}
+    }
+  if (uu != 1)  /* limit the calculatin of stranding to unique alignments */
+    sens = sensF = sensR = 0 ;
+  *sensp = sens ;
+  *sensFp = sensF ;
+  *sensRp = sensR ;
+
+  if (nA > ln) nA = ln ;
+  if (nAF > ln) nAF = ln ;
+  if (nAR > ln) nAR = ln ;
+
+  *nAp =  mult * nA ;
+  *nAFp =  mult * nAF ;
+  *nARp =  mult * nAR ;
+  
+  *uup = uu ;
+
+  return ;
+} /* baCountBestGetSens */
+
 static int baCountBest (BA *ba) 
 {  
   AC_HANDLE h = ac_new_handle () ;
@@ -1984,33 +2377,20 @@ static int baCountBest (BA *ba)
   HIT *up, *vp ;
   HIT2 *up2, *vp2 ;
   int isFirstFragment ;
-  int ii, jj, score = 0, cl, hh0, hh1, ali, ln, uu ;
+  int ii, jj, score = 0, cl, ln, uu ;
   long int mult = 0 ; /* to cast all products to long int */
-  int t, tMin, tMax ; /* tissue tables */
-  int MX = 256 ;      /* target_class tables */
-  int nTi[MX], nnTi[MX], nnTip[MX], nnTim[MX] ;
+  int MX = dictMax (ba->target_classDict) + 5 ;      /* target_class tables */
+  BitSet hasClass = bitSetCreate (MX, h) ;
+  BOOL hasTrClass ;
   long int nnS = 0, nnT = 0, nnA = 0, nnL = 0 , nnTp = 0, nnTm = 0, nnTamb = 0 ;
   long int nnSF = 0, nnTF = 0, nnAF = 0, nnLF = 0, nnTpF = 0, nnTmF = 0, nnTambF = 0 ;
   long int nnSR = 0, nnTR = 0, nnAR = 0, nnLR = 0, nnTpR = 0, nnTmR = 0, nnTambR = 0 ;
-  long int hnnS = 0, hnnT = 0, hnnA = 0, hnnL = 0, hnnTp = 0, hnnTm = 0, hnnTamb = 0 ;
-  long int hnnSF = 0, hnnTF = 0, hnnAF = 0, hnnLF = 0, hnnTpF = 0, hnnTmF = 0, hnnTambF = 0 ;
-  long int hnnSR = 0, hnnTR = 0, hnnAR = 0, hnnLR = 0, hnnTpR = 0, hnnTmR = 0, hnnTambR = 0 ;
   long int nS[MX], nT[MX], nA[MX], nL[MX], nTp[MX], nTm[MX], nTamb[MX] ;
-  long int nntiS[MX], nntiT[MX], nntiA[MX], nntiL[MX], nntiTp[MX], nntiTm[MX], nntiTamb[MX] ;
+  long int ntrS = 0, ntrT = 0, ntrA = 0, ntrL = 0, ntrTp = 0, ntrTm = 0, ntrTamb = 0 ;
   long int hnS[MX], hnT[MX], hnA[MX], hnL[MX], hnTp[MX], hnTm[MX], hnTamb[MX] ;
-  long int hnntiS[MX], hnntiT[MX], hnntiA[MX], hnntiL[MX], hnntiTp[MX], hnntiTm[MX], hnntiTamb[MX] ; ;
 
-  int MX2 = 256*256 ; /* target_class per tissue tables */
-  long int tiS[MX2], tiT[MX2], tiA[MX2], tiL[MX2], tiTp[MX2], tiTm[MX2], tiTamb[MX2] ;
-  long int htiS[MX2], htiT[MX2], htiA[MX2], htiL[MX2], htiTp[MX2], htiTm[MX2], htiTamb[MX2] ;
-  long int multiTargets[2200] ;
-
+  long int multiTargets[15*MX] ;
   memset (multiTargets, 0, sizeof(multiTargets)) ;
-
-  memset (nTi, 0, sizeof(nTi)) ;
-  memset (nnTi, 0, sizeof(nnTi)) ;
-  memset (nnTip, 0, sizeof(nnTip)) ;
-  memset (nnTim, 0, sizeof(nnTim)) ;
 
   memset (nS, 0, sizeof(nS)) ;
   memset (nT, 0, sizeof(nT)) ;
@@ -2020,14 +2400,6 @@ static int baCountBest (BA *ba)
   memset (nTm, 0, sizeof(nTm)) ;
   memset (nTamb, 0, sizeof(nTamb)) ;
 
-  memset (nntiS, 0, sizeof(nntiS)) ;
-  memset (nntiT, 0, sizeof(nntiT)) ;
-  memset (nntiA, 0, sizeof(nntiA)) ;
-  memset (nntiL, 0, sizeof(nntiL)) ;
-  memset (nntiTp, 0, sizeof(nntiTp)) ;
-  memset (nntiTm, 0, sizeof(nntiTm)) ;
-  memset (nntiTamb, 0, sizeof(nntiTamb)) ;
-
   memset (hnS, 0, sizeof(hnS)) ;
   memset (hnT, 0, sizeof(hnT)) ;
   memset (hnA, 0, sizeof(hnA)) ;
@@ -2035,43 +2407,19 @@ static int baCountBest (BA *ba)
   memset (hnTp, 0, sizeof(hnTp)) ;
   memset (hnTm, 0, sizeof(hnTm)) ;
   memset (hnTamb, 0, sizeof(hnTamb)) ;
-
-  memset (hnntiS, 0, sizeof(hnntiS)) ;
-  memset (hnntiT, 0, sizeof(hnntiT)) ;
-  memset (hnntiA, 0, sizeof(hnntiA)) ;
-  memset (hnntiL, 0, sizeof(hnntiL)) ;
-  memset (hnntiTp, 0, sizeof(hnntiTp)) ;
-  memset (hnntiTm, 0, sizeof(hnntiTm)) ;
-  memset (hnntiTamb, 0, sizeof(hnntiTamb)) ;
   
-  memset (tiS, 0, sizeof(tiS)) ;
-  memset (tiT, 0, sizeof(tiT)) ;
-  memset (tiA, 0, sizeof(tiA)) ;
-  memset (tiL, 0, sizeof(tiL)) ;
-  memset (tiTp, 0, sizeof(tiTp)) ;
-  memset (tiTm, 0, sizeof(tiTm)) ;
-  memset (tiTamb, 0, sizeof(tiTamb)) ;
-
-  memset (htiS, 0, sizeof(htiS)) ;
-  memset (htiT, 0, sizeof(htiT)) ;
-  memset (htiA, 0, sizeof(htiA)) ;
-  memset (htiL, 0, sizeof(htiL)) ;
-  memset (htiTp, 0, sizeof(htiTp)) ;
-  memset (htiTm, 0, sizeof(htiTm)) ;
-  memset (htiTamb, 0, sizeof(htiTamb)) ;
-
   for (ii = score = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
     {
-      int oldx1 = 0, oldx2 = 0, oldTarget = 0 ;
+      int uu, bestCl ;
       up2 = arrayp (ba->hits2, up->nn, HIT2) ;
+      /* up3 = arrayp (ba->hits3, up->nn, HIT3) ; */
       score = up->score ; 
-      ali = up2->ali ; ln = up2->ln ;
-      if (score < keySet (ba->bestScore, up->tag))
+      if (!score)
 	continue ;
-      cl = -1 ; hh0 = hh1 = 0 ;
+      ln = up2->ln ;
+      cl = bestCl = -1 ; 
       /* global count */
-      memset (nTi, 0, sizeof (nTi)) ;
-      mult = fastcMultiplicity (dictName (ba->tagDict,up->tag), nTi, MX) ; 
+      mult = fastcMultiplicity (dictName (ba->tagDict,up->tag), 0, 0) ; 
       isFirstFragment = 1 ;
       { 
 	const char *ccp = dictName (ba->tagDict,up->tag) ;
@@ -2080,232 +2428,152 @@ static int baCountBest (BA *ba)
 	if (*ccp == '<')
 	  isFirstFragment = -1 ;
       }
-      tMin = 999 ; tMax = 0 ;
-      for (t = 0 ; t < 256 ; t++)
+      
+      /* jj loop on given tag, detect best score, best class, best unicity */
+      hasClass = bitSetReCreate (hasClass, MX) ;
+      hasTrClass = FALSE ;
+      for (score = uu = 0, cl = -1, jj = ii, vp = up ; jj < arrayMax (ba->hits) && vp->tag == up->tag ; vp++, jj++)
 	{
-	  if (nTi[t] > 0 && tMin == 999) tMin = t ;
-	  if (nTi[t] > 0) tMax = t ;
+	  vp2 = arrp (ba->hits2, vp->nn, HIT2) ; 
+	  bitSet (hasClass, vp2->target_class) ;
+	  if (vp->score > score)
+	    {
+	      score = vp->score ;
+	      vp2 = arrp (ba->hits2, vp->nn, HIT2) ;   
+	      bestCl = vp2->target_class ; 
+	      uu = vp2->unicity ; 
+	      if (uu == -2) uu = 11 ; else { if (uu < 0) uu = -uu ; if (uu > 10) uu = 10 ; }
+	    }
 	}
       
-      /* jj loop on given tag */
-      for (jj = ii, vp = up ; jj < arrayMax (ba->hits) && vp->tag == up->tag ; vp++, jj++)
+      if (score == 0) /* this read is not aligned */
 	{
-	  if (up->score < score)
-	    continue ; /* do not break, we must finish the jj loop */
-	  vp2 = arrp (ba->hits2, vp->nn, HIT2) ;
-	  ali = vp2->ali ;
-	  if (vp2->target_class == cl && vp->target == oldTarget)
-	    {
-	      int u1 = vp->x1 > oldx1 ? vp->x1 : oldx1 ; 
-	      int u2 = vp->x2 < oldx2 ? vp->x2 : oldx2 ; 
-	      int du = u2 - u1 + 1 ;
-	      long int ali2 = ali - (du > 0 ? du : 0 ) ;
-	      if (du <= 0) continue ;
-	      if (3 * du < oldx2 - oldx1 && 3 *du < vp->x2 - vp->x1)
-		{
-		  nnA += mult * ali2 ;
-		  if (isFirstFragment > 0) 
-		    nnAF += mult * ali2 ;
-		  else
-		    nnAR += mult * ali2 ;
-		}
-	      oldx1 = vp->x1 ; oldx2 = vp->x2 ; oldTarget = vp->target ;
-	      continue ;
-	    }
-	  oldx1 = vp->x1 ; oldx2 = vp->x2 ; oldTarget = vp->target ;
+	  ii = jj - 1 ; up = vp - 1 ;
+	  continue ;
+	}
 
-	  if (vp2->target_class == cl) continue ;
-	  cl = vp2->target_class ;
-	  /* number of tags with so many targets in a given class */
-	  uu = vp2->unicity ; if (uu == -2) uu = 11 ; else { if (uu < 0) uu = -uu ;if (uu > 10) uu = 10 ; }
+      /* check the stranding in the best class */
+      for (cl = 0 ; cl < MX ; cl++)
+	{
+	  int unA, unAF, unAR, sens, sensF, sensR ;
+	  if (! bitt (hasClass, cl))
+	    continue ;
 
-	  /* non hierarchic count */
-	  if (!hh0)
-	    {
-	      nnS++ ;
-	      nnT += mult ;
-	      nnA += mult * ali ;
-	      nnL += mult * ln ;
-	      if (vp2->unicity < 0)
-		nnTamb += mult ;
-	      else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		nnTp += mult ;
-	      else
-		nnTm += mult ;
+	  baCountBestGetSens (ba, ii, cl, mult, isFirstFragment, &sens, &sensF, &sensR, &unA, &unAF, &unAR, &uu) ;
+	  if (cl == bestCl)  /* count once per ii read */
+	    {     /* add the data to the global count and to the hierarchic count */
+	      nnS++ ; hnS[cl]++ ;
+	      nnT += mult ; hnT[cl] += mult ;
+	      nnL += mult * ln ;  hnL[cl] += mult * ln ;
+	      nnA +=  unA ; hnA[cl] +=  unA ;
+	      nnAF +=  unAF ; 
+	      nnAR +=  unAR ; 
+	      multiTargets [15 * (0) + uu] += mult ;
+
 	      if (isFirstFragment > 0)
 		{
 		  nnSF++ ;
 		  nnTF += mult ;
-		  nnAF += mult * ali ;
 		  nnLF += mult * ln ;
-		  if (vp2->unicity < 0)
-		    nnTambF += mult ;
-		  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		    nnTpF += mult ;
-		  else
-		    nnTmF += mult ;
+		  multiTargets [15 * (1) + uu] += mult ;
 		}
 	      else
 		{
 		  nnSR++ ;
 		  nnTR += mult ;
-		  nnAR += mult * ali ;
 		  nnLR += mult * ln ;
-		  if (vp2->unicity < 0)
-		    nnTambR += mult ;
-		  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		    nnTpR += mult ;
-		  else
-		    nnTmR += mult ;
+		  multiTargets [15 * (2) + uu] += mult ;
 		}
-	    }
-
-	  nS[cl]++ ;
-	  nT[cl] += mult ;
-	  nA[cl] += mult * ali ;
-	  nL[cl] += mult * ln  ;
-	  if (vp2->unicity < 0)
-	    nTamb[cl] += mult ;
-	  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-	    nTp[cl] += mult ;
-	  else
-	    nTm[cl] += mult ;
-	  for (t = tMin ; t <= tMax ; t++)
-	    {
-	      long int n = nTi[t] ; /* to cast the products */
-	      if (n)
+	      
+	      switch (sens)
 		{
-		  if (!hh0)
-		    {
-		      nntiS[t]++ ;
-		      nntiT[t] += n ;
-		      nntiA[t] += n * ali  ;
-		      nntiL[t] += n * ln  ;
-		      if (vp2->unicity < 0)
-			nntiTamb[t] += n ;
-		      else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-			nntiTp[t] += n ;
-		      else
-			nntiTm[t] += n ; 
-		    }
-		  tiS[256*t + cl]++ ;
-		  tiT[256*t + cl] += n ;
-		  tiA[256*t + cl] += n * ali  ;
-		  tiL[256*t + cl] += n * ln  ;
-		  if (vp2->unicity < 0)
-		    tiTamb[256*t + cl] += n ;
-		  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		    tiTp[256*t + cl] += n ;
-		  else
-		    tiTm[256*t + cl] += n ;
+		case 1:
+		  nnTp += mult ; hnTp[cl] += mult ;
+		  break ;
+		case 2:
+		  nnTm += mult ; hnTm[cl] += mult ;
+		  break ;
+		case 3:
+		  nnTamb += mult ; hnTamb[cl] += mult ;
+		  break ;
 		}
-	    }
-	  hh0 = 1 ;
-	  /* hierarchic count */
-	  if (hh1) continue ;
-
-	  uu = vp2->unicity ; if (uu == -2) uu = 11 ; else { if (uu < 0) uu = -uu ;if (uu > 10) uu = 10 ; }
-
-	  hh1 = 1 ;
-	  hnnS++ ;
-	  hnnT += mult ;
-	  hnnA += mult * ali ;
-	  hnnL += mult * ln ;
-	  if (vp2->unicity < 0)
-	    hnnTamb += mult ;
-	  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-	      hnnTp += mult ;
-	  else
-	    hnnTm += mult ;
-	  if (isFirstFragment > 0)
-	    {
-	      hnnSF++ ;
-	      hnnTF += mult ;
-	      hnnAF += mult * ali ;
-	      hnnLF += mult * ln ;
-	      if (vp2->unicity < 0)
-		hnnTambF += mult ;
-	      else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		hnnTpF += mult ;
-	      else
-		hnnTmF += mult ;
-	      multiTargets [ 22 * 1 + uu] += mult ;
-	    }
-	  else
-	    {
-	      hnnSR++ ;
-	      hnnTR += mult ;
-	      hnnAR += mult * ali ;
-	      hnnLR += mult * ln ;
-	      if (vp2->unicity < 0)
-		hnnTambR += mult ;
-	      else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		hnnTpR += mult ;
-	      else
-		hnnTmR += mult ;
-	      multiTargets [ 22 * 2 + uu] += mult ;
-	    }
-	  /* number of tags with so many targets in best hierarchic class */
-	  multiTargets [ 22 * 0 + uu] += mult ;
-	  multiTargets [ 22 * (cl+2) + uu] += mult ;
-
-	  hnS[cl]++ ;
-	  hnT[cl] += mult ;
-	  hnA[cl] += mult * ali  ;
-	  hnL[cl] += mult * ln  ;
-	  if (vp2->unicity < 0)
-	    hnTamb[cl] += mult ;
-	  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-	    hnTp[cl] += mult ;
-	  else
-	    hnTm[cl] += mult ;
-	  for (t = tMin ; t <= tMax ; t++)
-	    {
-	      long int n = nTi[t] ;
-	      if (n)
+	      
+	      switch (sensF)
 		{
-		  hnntiS[t]++ ;
-		  hnntiT[t] += n ;
-		  hnntiA[t] += n * ali  ;
-		  hnntiL[t] += n * ln  ;
-		  if (vp2->unicity < 0)
-		    hnntiTamb[t] += n ;
-		  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		    hnntiTp[t] += n ;
-		  else
-		    hnntiTm[t] += n ;
-
-		  htiS[256*t + cl]++ ;
-		  htiT[256*t + cl] += n ;
-		  htiA[256*t + cl] += n * ali ;
-		  htiL[256*t + cl] += n * ln ;
-		  if (vp2->unicity < 0)
-		    htiTamb[256*t + cl] += n ;
-		  else if (isFirstFragment * (vp2->a2 - vp2->a1) > 0)
-		    htiTp[256*t + cl] += n ;
-		  else
-		    htiTm[256*t + cl] += n ;
+		case 1:
+		  nnTpF += mult ;
+		  break ;
+		case 2:
+		  nnTmF += mult ;
+		  break ;
+		case 3:
+		  nnTambF += mult ;
+		  break ;
 		}
+	      
+	      switch (sensR)
+		{
+		case 1:
+		  nnTpR += mult ;
+		  break ;
+		case 2:
+		  nnTmR += mult ;
+		  break ;
+		case 3:
+		  nnTambR += mult ;
+		  break ;
+		}
+	    }
+	  if (1) /* for all classes, increase the non hierachic counts */
+	    {
+	      nS[cl]++ ;
+	      nT[cl] += mult ;
+	      nL[cl] += mult * ln ;
+	      nA[cl] += unA ;
+	      multiTargets [15 * (cl+2) + uu] += mult ;
+	      switch (sens)
+		{
+		case 1:
+		  nTp[cl] += mult ;
+		  break ;
+		case 2:
+		  nTm[cl] += mult ;
+		  break ;
+		case 3:
+		  nTamb[cl] += mult ;
+		  break ;
+		}	      
+	    }
+	  if (!hasTrClass && cl <= ba->lastTranscriptClass) /* for the T classes, increase the non hierachic anyTranscript */
+	    { 
+	      hasTrClass = TRUE ;
+	      ntrS++ ;
+	      ntrT += mult ;
+	      ntrL += mult * ln ;
+	      ntrA += unA ;
+	      multiTargets [15 * (cl+2) + uu] += mult ;
+	      switch (sens)
+		{
+		case 1:
+		  ntrTp += mult ;
+		  break ;
+		case 2:
+		  ntrTm += mult ;
+		  break ;
+		case 3:
+		  ntrTamb += mult ;
+		  break ;
+		}	      
 	    }
 	}
       ii = jj - 1 ; up = vp - 1 ;
-    }
-
+    }  
+  
   aceOutf (ao, "\n#Date %s", timeShowNow ()) ; 
   aceOut (ao, "\n#HITS\tTarget\tSample\tSeq\tTag+\tTag-\tTag ambiguous\tTag\tAli\tLn\thSeq\thTag+\thTag-\thTag ambiguous\thTag\thAli\thLn") ;
-  for (cl = 0 ; cl < 256 ; cl++)
+  for (cl = 0 ; cl < MX ; cl++)
     {
       if (!nS[cl]) continue ;
-      for (t = 0 ; t < 256 ; t++)
-	if (tiS[256*t + cl])
-	  {
-	    aceOutf (ao, "\nHITS\t%s", dictName (ba->target_classDict, cl)) ;
-	    aceOutf (ao, "\t%c", t + 'a') ;
-	    aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
-		     , tiS[256*t + cl], tiTp[256*t + cl], tiTm[256*t + cl], tiTamb[256*t + cl], tiT[256*t + cl], tiA[256*t + cl], tiL[256*t + cl]     
-		     , htiS[256*t + cl], htiTp[256*t + cl], htiTm[256*t + cl], htiTamb[256*t + cl], htiT[256*t + cl], htiA[256*t + cl], htiL[256*t + cl] 
-		     ) ;
-	  }
       if (nS[cl])
 	{
 	  aceOutf (ao, "\nHITS\t%s", cl ? dictName (ba->target_classDict, cl) : "any") ;
@@ -2316,30 +2584,25 @@ static int baCountBest (BA *ba)
 		   ) ;
 	}
     } 
-  for (t = 0 ; t < 256 ; t++)
-    if (nntiS[t])
-      {
-	aceOutf (ao, "\nHITS\tany") ;
-	aceOutf (ao, "\t%c", t + 'a') ;
-	aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
-		 , nntiS[t], nntiTp[t], nntiTm[t], nntiTamb[t], nntiT[t], nntiA[t], nntiL[t]     
-		 , hnntiS[t], hnntiTp[t], hnntiTm[t], hnntiTamb[t], hnntiT[t], hnntiA[t], hnntiL[t] 
-		 ) ;
-      }
+  aceOut (ao, "\nHITS\tAnnotated\tany") ;
+  aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
+	   , ntrS, ntrTp, ntrTm,  ntrTamb, ntrT, ntrA, ntrL 
+	   , ntrS, ntrTp, ntrTm,  ntrTamb, ntrT, ntrA, ntrL 
+	   ) ;
   aceOut (ao, "\nHITS\tany\tany") ;
   aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
-	   , hnnS, hnnTp, hnnTm,  hnnTamb, hnnT, hnnA, hnnL 
-	   , hnnS, hnnTp, hnnTm,  hnnTamb, hnnT, hnnA, hnnL 
+	   , nnS, nnTp, nnTm,  nnTamb, nnT, nnA, nnL 
+	   , nnS, nnTp, nnTm,  nnTamb, nnT, nnA, nnL 
 	   ) ;
   aceOut (ao, "\nHITS\tany1\tany") ;
   aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
-	   , hnnSF, hnnTpF, hnnTmF,  hnnTambF, hnnTF, hnnAF, hnnLF 
-	   , hnnSF, hnnTpF, hnnTmF,  hnnTambF, hnnTF, hnnAF, hnnLF 
+	   , nnSF, nnTpF, nnTmF,  nnTambF, nnTF, nnAF, nnLF 
+	   , nnSF, nnTpF, nnTmF,  nnTambF, nnTF, nnAF, nnLF 
 	   ) ;
   aceOut (ao, "\nHITS\tany2\tany") ;
   aceOutf (ao, "\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld"
-	   , hnnSR, hnnTpR, hnnTmR,  hnnTambR, hnnTR, hnnAR, hnnLR 
-	   , hnnSR, hnnTpR, hnnTmR,  hnnTambR, hnnTR, hnnAR, hnnLR 
+	   , nnSR, nnTpR, nnTmR,  nnTambR, nnTR, nnAR, nnLR 
+	   , nnSR, nnTpR, nnTmR,  nnTambR, nnTR, nnAR, nnLR 
 	   ) ;
   aceOut (ao, "\n") ;  
 
@@ -2348,26 +2611,27 @@ static int baCountBest (BA *ba)
   for (uu = 1 ; uu <= 11 ; uu++)
     aceOutf (ao, "\t%d", uu) ;
 
-  for (cl = -2 ; cl <= dictMax (ba->target_classDict) ; cl++)
+  for (cl = -2 ; cl < MX ; cl++)
     {
-      long int n ;
+      long int n ; 
+      if (cl > 0 && !nS[cl]) continue ;
       for (n = uu = 0 ; uu <= 11 ; uu++)
-	n += multiTargets [ 22 * (cl+2) + uu] ;
+	n += multiTargets [ 15 * (cl+2) + uu] ;
       if (n)
 	{
 	  const char *ccp ;
-	  switch (cl + 2)
+	  switch (cl)
 	    {
-	    case 0: ccp = "any" ; break ;
-	    case 1: ccp = "any1" ; break ;
-	    case 2: ccp = "any2" ; break ;
+	    case -2: ccp = "any" ; break ;
+	    case -1: ccp = "any1" ; break ;
+	    case 0: ccp = "any2" ; break ;
 	    default:
-	      ccp = dictName(ba->target_classDict, cl) ;
+	      ccp = dictName(ba->target_classDict,cl) ;
 	      break ;
 	    }
 	  aceOutf (ao, "\nMULT\t%s", ccp) ;
 	  for (uu = 1 ; uu <= 11 ; uu++)
-	    aceOutf (ao, "\t%ld", multiTargets [ 22 * (cl+2) + uu]) ;
+	    aceOutf (ao, "\t%ld", multiTargets [ 15 * (cl+2) + uu]) ;
 	}
     }
   aceOutf (ao, "\n") ;
@@ -2380,18 +2644,17 @@ static int baCountBest (BA *ba)
       for (uu = 1 ; uu <= 11 ; uu++)
 	{
 	  u2 =  uu < 11 ? uu : -2 ;
-	  cl = 0 ;
 	  aceOutf (seqco, "MultiAli:%03d\t%s\t3\t%ld\t%ld\t%ld\n"
 		   , u2 
 		   , ba->lane
-		   , multiTargets [ 22 * (cl+0) + uu]
-		   , multiTargets [ 22 * (cl+1) + uu]
-		   , multiTargets [ 22 * (cl+2) + uu]
+		   , multiTargets [ 15 * (0) + uu]
+		   , multiTargets [ 15 * (1) + uu]
+		   , multiTargets [ 15 * (2) + uu]
 		   ) ;
 	  if (u2 == -2) u2 = 2 ;
-	  nnna  += u2 * multiTargets [ 22 * (cl+0) + uu] ;
-	  nnnaF += u2 * multiTargets [ 22 * (cl+1) + uu] ;
-	  nnnaR += u2 * multiTargets [ 22 * (cl+2) + uu] ;
+	  nnna  += u2 * multiTargets [ 15 * (0) + uu] ;
+	  nnnaF += u2 * multiTargets [ 15 * (1) + uu] ;
+	  nnnaR += u2 * multiTargets [ 15 * (2) + uu] ;
 	}
 	  
       aceOutf (seqco, "Reads_Mapped_per_strand\t%s\t6\t%ld\t%ld\t%ld\t%ld\t%ld\t%ld\n"
@@ -2448,8 +2711,7 @@ static int baCheckUnicity (BA *ba)
 
   for (ii = score = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
     {
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score < score)
+      if (! up->score)
 	continue ;
       up2 = arrp (ba->hits2, up->nn, HIT2) ;
       if (up2->unicity != -2)
@@ -2534,13 +2796,12 @@ static int baExportBest (BA *ba)
   AC_HANDLE h = ac_new_handle () ;
 
   HIT *up ;
-  int ii, score = 0, nn = 0 ;
+  int ii, nn = 0 ;
   ACEOUT ao = aceOutCreate (ba->outFileName, ".hits", ba->gzo, h) ;
 
-  for (ii = score = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
+  for (ii = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
     {
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score >= score)
+      if (up->score)
 	{
 	  nn++ ;
 	  baExportOneHit (ao, ba, up) ;
@@ -2581,9 +2842,8 @@ static int baExportSigHits (BA *ba)
   keySetSort (ks) ; keySetCompress (ks) ; nn = keySetMax (ks) ;
   for (ii = score = 0, up = arrp (hits, 0, HIT) ; ii < iiMax ; up++, ii++)
     {
-      score = keySet (ba->bestScore, up->tag) ;
       up2 = arrp (hits2, up->nn, HIT2) ; 
-      if (up->score >= score && up2->target_class == av &&
+      if (up->score && up2->target_class == av &&
 	  keySetFind (ks, up->target, 0) && 
 	  100 * up2->ali > up2->ln
 	  /* &&	  (! ba->pair || up->badPair) */
@@ -2609,20 +2869,19 @@ static int baExportVenn (BA *ba)
   KEYSET ks1 = keySetHandleCreate (h) ;
   KEYSET ks2 = keySetHandleCreate (h) ;
   KEYSET ks3 = keySetHandleCreate (h) ;
-  int k, t, t1, t2, ii, score = 0, n, nn = 0, tag, MX ;
+  int k, t, t1, t2, ii, n, nn = 0, tag, MX ;
   long unsigned int z ;
   const char *ccp ;
   HIT *up ;
   HIT2 *up2 ;
 
-  for (ii = score = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
+  for (ii = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
     {
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score < score)
+      if (! up->score)
 	continue ;
       up2 = arrayp (ba->hits2, up->nn, HIT2) ;
       n = up2->mult ;
-      for (z = 0, tag = up->tag ; ii < arrayMax (ba->hits) && tag == up->tag && up->score >= score ; ii++, up++)
+      for (z = 0, tag = up->tag ; ii < arrayMax (ba->hits) && tag == up->tag && up->score ; ii++, up++)
 	{
 	  up2 = arrayp (ba->hits2, up->nn, HIT2) ;
 	  if (up2->target_class < 32)
@@ -2888,7 +3147,7 @@ static int baExportErrorProfile (BA *ba)
       HIT2 *up2 ;
 
       score = up->score ;
-      if (score < keySet (ba->bestScore, up->tag)) 
+      if (! score)
 	continue ;
       if (up->tag == oldTag)   /* count each tag only once, but explore all exons */
 	continue ;
@@ -3265,7 +3524,7 @@ static int baExportAliProfile (BA *ba)
   Array nNPercents = arrayHandleCreate (1024, KEYSET, h) ;
   int tr1 = 0, tr2 = 0, genome = 0 ;
   int lnMax = 0, aliMax = 0, alipMax = 0, errpMax = 0, errcMax = 0, errcNMax = 0, nNMax = 0 ;
-  int nPerfect1 = 0, nPerfect2 = 0 ;
+  int nPerfect1 = 0, nPerfect2 = 0, oldPerfectTag = 0 ;
   memset (cumulE, 0, sizeof(cumulE)) ;
   memset (cumulNN, 0, sizeof(cumulNN)) ;
   dictFind (ba->target_classDict, "DT_magic", &tr1) ;      /* first transciptome class */
@@ -3314,47 +3573,31 @@ static int baExportAliProfile (BA *ba)
 	  iTr = kTr ? jTr : 0 ; 
 	  BOOL isFirst = TRUE ;
 
+	  if (oldTag[iTr]) continue ; /* in union mode the tag should only be evaluated once */
 	  if (1)
 	    {
 	      HIT *vp ; HIT2 *vp2 ; HIT3 *vp3 ;
-	      int uUp, vUp ;
-	      int jj, oldx1 = 0, oldx2 = 0, k = 0 ;
-	      
-	      oldx1 = up->x1 ; oldx2 = up->x2 ; 
-	      uUp = up2->a2 < up2->a1 ? 1 : -1 ;
+	      int jj, k = 0 ;
+
 	      for (jj = ii-1, vp = up-1 ; jj >= 0 && vp->tag == up->tag && vp->target == up->target ; vp--, jj--) 
 		{
-		  int u1 = vp->x1 > oldx1 ? vp->x1 : oldx1 ; 
-		  int u2 = vp->x2 < oldx2 ? vp->x2 : oldx2 ; 
-		  int ali2, du = u2 - u1 + 1 ;
-		  
 		  vp2 = arrayp (ba->hits2, vp->nn, HIT2) ;
 		  vp3 = arrayp (ba->hits3, vp->nn, HIT3) ;
-		  ali2 = vp2->ali - (du > 0 ? du : 0 ) ; 
-		  vUp = vp2->a2 < vp2->a1 ? 1 : -1 ;
-		  if (uUp * vUp > 0 && 2* du < oldx2 - oldx1 && 2 *du < vp->x2 - vp->x1 && vp2->target_class == up2->target_class)
-		    {
-		      ali += ali2 ; k++ ; nErr += vp3->nErr ; nN += vp3->nN ;
+		 if ( up->chain == vp->chain  && vp2->target_class == up2->target_class)
+		   {
+		      k++ ; nErr += vp3->nErr ; nN += vp3->nN ;
 		    }
-		  oldx1 = vp->x1 ; oldx2 = vp->x2 ; 
 		}
 	      if (k)  /* this case is already counted */
 		isFirst = FALSE ;
 	      for (jj = ii+1, vp = up+1 ; jj < arrayMax (ba->hits) && vp->tag == up->tag && vp->target == up->target ; vp++, jj++) 
 		{
-		  int u1 = vp->x1 > oldx1 ? vp->x1 : oldx1 ; 
-		  int u2 = vp->x2 < oldx2 ? vp->x2 : oldx2 ; 
-		  int ali2, du = u2 - u1 + 1 ;
-		  
 		  vp2 = arrayp (ba->hits2, vp->nn, HIT2) ;
 		  vp3 = arrayp (ba->hits3, vp->nn, HIT3) ;
-		  ali2 = vp2->ali - (du > 0 ? du : 0 ) ; 
-		  vUp = vp2->a2 < vp2->a1 ? 1 : -1 ;
-		  if (uUp * vUp > 0 && 2 * du < oldx2 - oldx1 && 2 *du < vp->x2 - vp->x1 && vp2->target_class == up2->target_class)
+		  if ( up->chain == vp->chain  && vp2->target_class == up2->target_class)
 		    {
-		      ali += ali2 ; nErr += vp3->nErr ; nN += vp3->nN ;
+		      nErr += vp3->nErr ; nN += vp3->nN ;
 		    }
-		  oldx1 = vp->x1 ; oldx2 = vp->x2 ; 
 		}
 	    }
 	  oldTag[iTr] = up->tag ;
@@ -3403,11 +3646,16 @@ static int baExportAliProfile (BA *ba)
 		keySet (aa2, nErr) += mult ;
 	      if (errcMax < nErr) errcMax = nErr ;
 	      
-	      if (iTr <= 1 && up2->ln == ali && nErr == 0)
+	      if (iTr <= 1 && up2->ln == ali && nErr == 0 && up->tag != oldPerfectTag)
 		{
 		  if (is1) nPerfect1 += mult ;
 		  else nPerfect2 += mult ;
+		  oldPerfectTag = up->tag ;
 		}
+	      else if (0) printf ("%s ln=%d ali=%d nErr=%d\n"
+				  , dictName (ba->tagDict,up->tag)
+				  , up2->ln, ali, nErr
+				  ) ;
 	      aa = array (errPercents,  iTr, KEYSET) ;
 	      n = (ali > 0 ? 100 * (nErr/(double)ali) + .5 : 0) ;
 	      if (! aa)
@@ -3529,6 +3777,9 @@ static int baExportAliProfile (BA *ba)
     aceOutf (ba->seqco, "Perfect_reads\t%s\t3\t%d\t%d\t%d\n"
 		   , ba->lane, nPerfect1 + nPerfect2, nPerfect1, nPerfect2
 		   ) ;
+  aceOutf (ao, "\nPerfect_reads\t%s\t3\t%d\t%d\t%d"
+	   , ba->lane, nPerfect1 + nPerfect2, nPerfect1, nPerfect2
+	   ) ;
   for (ii = 0 ; ii <= errcNMax ; ii++)
     {
       for (n = iTr = 0 ; iTr < 8 ; iTr++)
@@ -3648,11 +3899,12 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
   double uu, uuu, uuCumul ;
   BOOL isFirstMrna = FALSE ;
   ACEOUT ao = aceOutCreate (ba->outFileName, messprintf(".%sSupport.%s", ba->mrnaSupport ? "mrna" : "gene", unique ? "u" : "nu"), ba->gzo, h) ;	
-  ACEOUT wao = 0 ;
+  ACEOUT wao8 = 0 ;
+  ACEOUT wao5 = 0 ;
   int wKeptTranscripts = 0 ;
   int MX = 256 ;      /* target_class tables */
   int nTi[MX] ;
-  KEYSET wiggle, wiggle3p8kb = 0 ;
+  KEYSET wiggle, wiggle3p8kb = 0, wiggle3p5kb = 0 ;
   Array aa = ba->uniqueGeneSupport ;
   Array gsF = arrayHandleCreate (100000, double,h) ;
   Array gsR = arrayHandleCreate (100000, double,h) ;
@@ -3699,19 +3951,36 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
   if (ba->selected8kbDict)
     { 
       int i ;
-      wao = aceOutCreate (ba->outFileName, ".3pHisto.txt", FALSE, h) ;
+      wao8 = aceOutCreate (ba->outFileName, ".3pHisto.8kb.txt", FALSE, h) ;
       wiggle3p8kb = keySetHandleCreate (h) ;
 
-      aceOutDate (wao, "##", ba->run) ;
-      aceOutf (wao, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", dictMax (ba->selected8kbDict)) ;
-      aceOutf (wao,
+      aceOutDate (wao8, "##", ba->run) ;
+      aceOutf (wao8, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", dictMax (ba->selected8kbDict)) ;
+      aceOutf (wao8,
 	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 8kb from the 5' end of the annotated transcript.\n"
 	       "## This implies that the histogram below 8kb represents the 3' biais, and above 8kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
 	       "## The coverage plots were piled up, aligning the maxima at position zero. The x coordinates run 3' to 5' and represent the distance to the 3' end\n"
 	       "# Run\tDistance from 3' end"
 	       ) ;
       for (i = 0 ; i <= 16000 ; i += MRNA_WIGGLE_STEP)
-	aceOutf (wao, "\t%d", i) ;
+	aceOutf (wao8, "\t%d", i) ;
+    }
+  if (ba->selected5kbDict)
+    { 
+      int i ;
+      wao5 = aceOutCreate (ba->outFileName, ".3pHisto.5kb.txt", FALSE, h) ;
+      wiggle3p5kb = keySetHandleCreate (h) ;
+
+      aceOutDate (wao5, "##", ba->run) ;
+      aceOutf (wao5, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", dictMax (ba->selected5kbDict)) ;
+      aceOutf (wao5,
+	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 5kb from the 5' end of the annotated transcript.\n"
+	       "## This implies that the histogram below 5kb represents the 3' biais, and above 5kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
+	       "## The coverage plots were piled up, aligning the maxima at position zero. The x coordinates run 3' to 5' and represent the distance to the 3' end\n"
+	       "# Run\tDistance from 3' end"
+	       ) ;
+      for (i = 0 ; i <= 8000 ; i += MRNA_WIGGLE_STEP)
+	aceOutf (wao5, "\t%d", i) ;
     }
 
 
@@ -3768,7 +4037,6 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
 	  if (*ccp == '<')
 	    isFirstFragment = -1 ;
 	}
-      score = keySet (ba->bestScore, up->tag) ;
       up2 = arrp (ba->hits2, up->nn, HIT2) ;
       up3 = arrp (ba->hits3, up->nn, HIT3) ;
 
@@ -3782,7 +4050,7 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
       if (uu < 0) uu = -uu ;
 
       mult = up2->mult ;
-      if (up->score >= score && tag != up->tag)
+      if (up->score && tag != up->tag)
 	{
 	  tag = up->tag ; /* so we export only once per tag */
 	  isFirstFragment = 1 ;  fromGene = 0 ;
@@ -4051,14 +4319,50 @@ ET_av	PGRMC1	u	Rhs5347	206.0	268.00	26817	592.0	0.0	182.0	0.0	22.0	0.0	590.0	0.0
 		wKeptTranscripts++ ;
 		   if (wDebug) /* debugging */
 		     {
-		       aceOutf (wao, "\n%s\t%s", ba->run, dictName (ba->targetDict, ii)) ;
+		       aceOutf (wao8, "\n%s\t%s", ba->run, dictName (ba->targetDict, ii)) ;
 		       for (i = 0 ; i <= wMaxPos && MRNA_WIGGLE_STEP * i <= 16000 ; i++)
-			 aceOutf (wao, "\t%d",  keySet (wiggle, wMaxPos - i)) ;
+			 aceOutf (wao8, "\t%d",  keySet (wiggle, wMaxPos - i)) ;
 		     }
 		   
 		   /* register the shifted smoothed histo */
 		   for (i = 0 ;  i <= wMaxPos && MRNA_WIGGLE_STEP * i <= 16000 ; i++)
 		     keySet (wiggle3p8kb, i) += keySet (wiggle, wMaxPos - i) ; /* count backwards, starting at the max, which is probably close to the 3' end of the transcript */
+		   
+	      }
+	  }
+	if (wiggle &&
+	    ba->selected5kbDict && 
+	    dictFind (ba->selected5kbDict, dictName (ba->targetDict, ii), 0)
+	    )
+	  {
+	    int kMax = keySetMax (wiggle) ;
+	    int i, nn, wMaxPos ;
+	    KEY wMaxValue, *kp, wCumul = 0 ;
+	    BOOL wDebug = TRUE ;
+	    
+	    /* find the max of the histo under the condition that we eat at most 10% of the total */
+	    wMaxPos = kMax - 1 ; wMaxValue = 0 ;
+	    for (wCumul = 0, i =  wMaxPos, kp = arrp (wiggle, i, KEY) ; i >= 0 ; kp--, i--)
+	      wCumul += *kp ;
+	    for (nn = 0, i =  wMaxPos, kp = arrp (wiggle, i, KEY) ; i >= 0 ; kp--, i--)
+	      {
+		nn += *kp ;
+		if (10 * nn < wCumul && *kp >  wMaxValue)
+		  { wMaxPos = i ; wMaxValue = *kp ;  }
+	      }
+	    if (wMaxPos >= 5000/MRNA_WIGGLE_STEP)
+	      {
+		wKeptTranscripts++ ;
+		   if (wDebug) /* debugging */
+		     {
+		       aceOutf (wao5, "\n%s\t%s", ba->run, dictName (ba->targetDict, ii)) ;
+		       for (i = 0 ; i <= wMaxPos && MRNA_WIGGLE_STEP * i <= 16000 ; i++)
+			 aceOutf (wao5, "\t%d",  keySet (wiggle, wMaxPos - i)) ;
+		     }
+		   
+		   /* register the shifted smoothed histo */
+		   for (i = 0 ;  i <= wMaxPos && MRNA_WIGGLE_STEP * i <= 16000 ; i++)
+		     keySet (wiggle3p5kb, i) += keySet (wiggle, wMaxPos - i) ; /* count backwards, starting at the max, which is probably close to the 3' end of the transcript */
 		   
 	      }
 	  }
@@ -4110,11 +4414,24 @@ ET_av	PGRMC1	u	Rhs5347	206.0	268.00	26817	592.0	0.0	182.0	0.0	22.0	0.0	590.0	0.0
 
       for (i = 0 ; i < keySetMax (wiggle3p8kb) && MRNA_WIGGLE_STEP *  i < 16000 ; i++)
 	wCumul += keySet (wiggle3p8kb, i) ;
-      aceOutf (wao, "\n%s\tKept %d/%d transcripts", ba->run, wKeptTranscripts, dictMax (ba->selected8kbDict)) ;
+      aceOutf (wao8, "\n%s\tKept %d/%d transcripts", ba->run, wKeptTranscripts, dictMax (ba->selected8kbDict)) ;
       for (i = 0 ; i < keySetMax (wiggle3p8kb) && MRNA_WIGGLE_STEP *  i < 16000 ; i++)
-	aceOutf (wao, "\t%d", keySet (wiggle3p8kb, i)) ;
+	aceOutf (wao8, "\t%d", keySet (wiggle3p8kb, i)) ;
 
-      aceOutf (wao, "\n") ;
+      aceOutf (wao8, "\n") ;
+    }
+  if (wiggle3p5kb)
+    {
+      long int wCumul = 0 ;
+      int i ;
+
+      for (i = 0 ; i < keySetMax (wiggle3p5kb) && MRNA_WIGGLE_STEP *  i < 16000 ; i++)
+	wCumul += keySet (wiggle3p5kb, i) ;
+      aceOutf (wao5, "\n%s\tKept %d/%d transcripts", ba->run, wKeptTranscripts, dictMax (ba->selected5kbDict)) ;
+      for (i = 0 ; i < keySetMax (wiggle3p5kb) && MRNA_WIGGLE_STEP *  i < 16000 ; i++)
+	aceOutf (wao5, "\t%d", keySet (wiggle3p5kb, i)) ;
+
+      aceOutf (wao5, "\n") ;
     }
 
 
@@ -4178,7 +4495,7 @@ static void baExportIntergenicSupportRegister (BA *ba, HIT *vp, int isFirstFragm
 /* foreach tag first best alignment
  * if in KT_RefSeq or ET_av or Z_intron
  * check if we overlap an exon (not caring for local errors since we clip) by 8bp using the remap coords
- * we count sequences, tags and bp (adding the aligned bp, counting each tag touching by at least 8bp)
+ * we count sequences, tags and bp (adding the aligned bp, counting each tag touching by at least 8bp CF baHit2Exon)
  */
 static int baExportIntergenicSupport (BA *ba) 
 {  
@@ -4228,8 +4545,7 @@ static int baExportIntergenicSupport (BA *ba)
   for (ii = score = tag = 0, up = arrp (ba->hits, 0, HIT) ; ii < arrayMax (ba->hits) ; up++, ii++)
     {
       up2 = arrp (ba->hits2, up->nn, HIT2) ;
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score >= score && tag != up->tag)
+      if (up->score && tag != up->tag)
 	{
 	  BOOL foundTranscript = FALSE ;
 	  tag = up->tag ; keySetMax (exons) = 0 ;  keySetMax (genes) = 0 ;
@@ -4550,10 +4866,12 @@ static int baCreateAtlas (BA *ba, BOOL getIntrons)
 static int baHit2Intron (BA *ba, HIT *vp, int *intronp, int *z1p, int *z2p, int *zx1p, int *zx2p, int *gDownp)
 {
   int ii, intron = *intronp ;
+  int dx = ba->minIntronOverlap - 1 ;
   HIT2 *vp2 ;
   MHIT *mp ;
   Array atlas, map ;
   
+  if (dx < 0) dx = 0 ;
   vp2 = arrp (ba->hits2, vp->nn, HIT2) ;
   if (vp2->target_class == ba->intronClass)
     {
@@ -4561,9 +4879,12 @@ static int baHit2Intron (BA *ba, HIT *vp, int *intronp, int *z1p, int *z2p, int 
       if (! strncmp(ccp,"ZI_",3)) ccp += 3 ;
       dictAdd (ba->intronDict, ccp, &intron) ;
       *gDownp = 1 ;
+      return intron ;
     }
   else
     {
+      *intronp = 0 ;
+
       if (ba->target2intronAtlas && 
 	  vp2->target_class < arrayMax (ba->target2intronAtlas) &&
 	  (atlas =  arr (ba->target2intronAtlas, vp2->target_class, Array)) &&
@@ -4571,26 +4892,32 @@ static int baHit2Intron (BA *ba, HIT *vp, int *intronp, int *z1p, int *z2p, int 
 	  (map = array (atlas, vp->target, Array))
 	  )
 	{
-	  int a1 = vp2->a1, a2 = vp2->a2 ;
+	  int a1 = vp2->a1, a2 = vp2->a2, x1 = *zx1p, x2 = *zx2p ;
 	  *gDownp = 1 ;
 
 	  if (a1 > a2) {  ii = a1 ; a1 = a2 ; a2 = ii ; *gDownp = -1 ; }
-	  for (ii = 0, mp = arrp (map, 0, MHIT) ; ii < arrayMax (map) ; ii++, mp++)
+	  for (ii = 0, mp = arrp (map, 0, MHIT) ; ii < arrayMax (map) - 1 ; ii++, mp++)
 	    {
-	      if (a1 <= mp->x1 - 7)
+	      if (intron)
 		{
-		  if (a2 >= mp->x2 + 7 && mp->exon > intron)
-		    { intron = mp->exon ; *z1p = mp->a1 ; *z2p = mp->a2 ; *zx1p = mp->x1 ; *zx2p = mp->x2 ; break ; }
+		  if (x1 != mp->x1)
+		    continue ;
+		  else if (x2 != mp->x2)
+		    return 0 ;
+		  mp++ ;
 		}
-	      else if (a2 < mp->x2 + 7)  
+	      if (a1 < mp->x1 - dx && a2 > mp->x2 + dx)
+		{
+		  *intronp = mp->exon ; 
+		  *z1p = mp->a1 ; *z2p = mp->a2 ; *zx1p = mp->x1 ; *zx2p = mp->x2 ; 
+		  return *intronp ;
+		}
+	      if (intron)
 		break ;
 	    }
 	}
     }
-  if (*intronp >= intron)
-    intron = 0 ;
-  *intronp = intron ;
-  return intron ;
+  return 0 ;
 } /* baHit2Intron */
 
 /*************************************************************************************/
@@ -4723,12 +5050,16 @@ static int baIntronSupport (BA *ba, BOOL unique)
   ACEOUT ao = aceOutCreate (ba->outFileName, unique ? ".intronSupport.u" : ".intronSupport.nu", ba->gzo, h) ;
   BOOL debug = FALSE ;
   DICT *doubleIntronDict = dictHandleCreate (100000, h) ;
+
+  int nIntron = 0, ndIntron = 0 ;
+  KEYSET iiF = arrayHandleCreate (100000, KEY, h) ;
+  KEYSET iiTag = arrayHandleCreate (100000, KEY, h) ;
   Array gsF = arrayHandleCreate (100000, double,h) ;
-
   Array aliF = arrayHandleCreate (100000, double,h) ;
-
   Array tagF = arrayHandleCreate (100000, double,h) ;
   
+  KEYSET iidF = arrayHandleCreate (100000, KEY, h) ;
+  KEYSET iidTag = arrayHandleCreate (100000, KEY, h) ;
   Array dgsF = arrayHandleCreate (100000, double,h) ;
   Array dtagF = arrayHandleCreate (100000, double,h) ;
   Array daliF = arrayHandleCreate (100000, double,h) ;
@@ -4748,8 +5079,7 @@ static int baIntronSupport (BA *ba, BOOL unique)
       mDown = (up2->a1 < up2->a2 ? 1 : -1) ; gDown = 1 ; mDown = 1 ;
       if (hasPair &&  up2->dPair > NON_COMPATIBLE_PAIR &&  up2->dPair < 0 &&  up2->dPair != -2 &&  up2->dPair != -5)  /* synchronize to hack these reserved values with bestali.c */
 	continue ;
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score < score || tag == up->tag)
+      if (! up->score || tag == up->tag)
 	continue ;
 
       if (1)
@@ -4793,17 +5123,30 @@ static int baIntronSupport (BA *ba, BOOL unique)
 		    ali = vp2->ali ;
 		    if (uu < 0) uu = -uu ;
 		    if (uu == 0) uu = 1 ;
+		    if (uu > 1) uu = 1 ; /* tant pis, un read map dans 2 genes differents on compte 1 les 2 fois ce qui resoud le fait que les deux genes partagent le meme intron si l'annotation de distingue pas genes et transcripts */
 		    if (str * isFirstFragment * (vp2->a2 - vp2->a1) >= 0)
 		      {
 			if (debug) printf ("###INTRON %s\t%s\t%s\n",  dictName (ba->intronDict, intron), rNam[kk], dictName(ba->tagDict, up->tag)) ;
-			array (gsF, intron, double) += 1/uu ;
-			array (tagF, intron, double) += mult/uu ;
-			array (aliF, intron, double) += ali*mult/uu ;
-			if (oldF && oldF != intron && oldVp && vp->target == oldVp->target &&
+			keySet (iiF, nIntron) = intron ;
+			keySet (iiTag, nIntron) = up->tag ;
+			array (gsF, nIntron, double) += 1/uu ;
+			array (tagF, nIntron, double) += mult/uu ;
+			array (aliF, nIntron, double) += ali*mult/uu ;
+			nIntron++ ;
+			if (oldF && oldF != intron && 
+			    oldVp && 
+			    oldVp == vp  && vp->target == oldVp->target && 
+			    vp->tag == oldVp->tag &&
+			    vp->class == oldVp->class &&
+			    vp->chain == oldVp->chain &&
 			    (
 			     (oldA1 < oldA2 && z1 < z2) ||
 			     (oldA2 < oldA1 && z2 < z1) 
-			    )
+			    ) &&
+			    (
+			     (oldVp->x1 < vp->x2 &&  oldVp->x2 > vp->x1 - 3) ||
+			     (oldVp->x2 > vp->x1 &&  oldVp->x1 < vp->x2 - 3) 
+			     )
 			    )
 			  {
 			    char *cp1 = strstr(dictName (ba->intronDict, intron),"__") ;  
@@ -4816,9 +5159,12 @@ static int baIntronSupport (BA *ba, BOOL unique)
 				  dictAdd (doubleIntronDict, messprintf("%s_%s", dictName (ba->intronDict,intron), cp2), &dIntron) ;
 
 				if (debug) printf ("###DOUBLE_INTRON_uno %s\t%s\n",  dictName (doubleIntronDict, dIntron), rNam[kk]) ;
-				array (dgsF, dIntron, double) += 1/uu ;
-				array (dtagF, dIntron, double) += mult/uu ;
-				array (daliF, dIntron, double) += ali*mult/uu ;
+				keySet (iidF, ndIntron) = dIntron ;
+				keySet (iidTag, ndIntron) = up->tag ;
+				array (dgsF, ndIntron, double) += 1/uu ;
+				array (dtagF, ndIntron, double) += mult/uu ;
+				array (daliF, ndIntron, double) += ali*mult/uu ;
+				ndIntron++ ;
 			      }
 			  }
 			if (! oldF1) oldF1 = intron ;
@@ -4858,15 +5204,18 @@ static int baIntronSupport (BA *ba, BOOL unique)
 				      dictAdd (doubleIntronDict, messprintf("%s_%s", dictName (ba->intronDict,intron), cp2), &dIntron) ;
 				    
 				    if (debug) printf ("###DOUBLE_INTRON_duo %s\t%s\n",  dictName (doubleIntronDict, dIntron), rNam[kk]) ;
-				    array (dgsF, dIntron, double) += 1/uu ;
-				    array (dtagF, dIntron, double) += mult/uu ;
-				    array (daliF, dIntron, double) += ali*mult/uu ;
+				    keySet (iidF, ndIntron) = dIntron ;
+				    keySet (iidTag, ndIntron) = up->tag ;
+				    array (dgsF, ndIntron, double) += 1/uu ;
+				    array (dtagF, ndIntron, double) += mult/uu ;
+				    array (daliF, ndIntron, double) += ali*mult/uu ;
+				    ndIntron++ ;
 				  }
-				oldCloneF = 0 ;
+				if (0) oldCloneF = 0 ;
 			      }
 			  }
 		      }		  
-		    if (! oldCloneF ||  (oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
+		    if (! oldCloneF  || ! oldCloneVp ||  (oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
 		      {
 			oldCloneVp = oldVp ;
 			oldCloneA1 = oldA1 ; oldCloneA2 = oldA2 ; oldCloneX1 = oldX1 ; oldCloneX2 = oldX2 ; oldCloneZX2 = zx2 ;
@@ -4874,8 +5223,10 @@ static int baIntronSupport (BA *ba, BOOL unique)
 		      }
 		    if (debug) fprintf(stderr, "BBB oldClone %d :: %s oldCloneF = %d\n",  oldCloneF,  oldCloneF ? dictName (ba->intronDict, oldCloneF) : "-", oldCloneF) ;
 		  }
+		else
+		  oldVp = 0 ;
 	      if (debug) fprintf(stderr, "DDD1 oldClone %d :: %s oldCloneF = %d\n",  oldCloneF,  oldCloneF ? dictName (ba->intronDict, oldCloneF) : "-", oldCloneF) ;
-	      if (! oldCloneF ||  (oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
+	      if (! oldCloneF  || ! oldCloneVp ||  (oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
 		{
 		  oldCloneVp = oldVp ;
 		  oldCloneA1 = oldA1 ; oldCloneA2 = oldA2 ; oldCloneX1 = oldX1 ; oldCloneX2 = oldX2 ; oldCloneZX2 = zx2 ;
@@ -4885,7 +5236,7 @@ static int baIntronSupport (BA *ba, BOOL unique)
 	    }
 	  ii = jj - 1 ;
 	  nn ++ ;
-	  if (! oldCloneF ||  (oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
+	  if (! oldCloneF || ! oldCloneVp  || (oldCloneVp && oldCloneVp->tag == tag && zx2 - oldCloneZX2) * mDown * gDown > 0)
 	    {
 	      oldCloneVp = oldVp ;
 	      oldCloneA1 = oldA1 ; oldCloneA2 = oldA2 ; oldCloneX1 = oldX1 ; oldCloneX2 = oldX2 ; oldCloneZX2 = zx2 ;
@@ -4900,10 +5251,13 @@ static int baIntronSupport (BA *ba, BOOL unique)
     {
       if (array (gsF, ii, double) > 0)
 	{
-	  aceOutf (ao, "Intron\t%s", dictName (ba->intronDict, ii)) ;
+	  int intron = keySet (iiF, ii) ;
+	  int tag = keySet (iiTag, ii) ;
+	  aceOutf (ao, "Intron\t%s", dictName (ba->intronDict, intron)) ;
 	  aceOutf (ao, "\t%s", unique ? "u" : "nu") ;
 	  aceOutf (ao, "\t%s", ba->run) ;
 	  aceOutf (ao, "\t%.1f\t%.2f\t%.0f", array (gsF, ii, double), array (tagF, ii, double), array (aliF, ii, double)) ;
+	  aceOutf (ao, "\t%s", dictName (ba->tagDict,tag)) ;
 	  aceOutf (ao, "\n") ;
 	}
     } 
@@ -4912,10 +5266,13 @@ static int baIntronSupport (BA *ba, BOOL unique)
     {
       if (array (dgsF, ii, double) > 0)
 	{
-	  aceOutf (ao, "DoubleIntron\t%s", dictName (doubleIntronDict,ii)) ;
+	  int dIntron = keySet (iidF, ii) ;
+	  int tag = keySet (iidTag, ii) ;
+	  if (1) aceOutf (ao, "DoubleIntron\t%s", dictName (doubleIntronDict,dIntron)) ;
 	  aceOutf (ao, "\t%s", unique ? "u" : "nu") ;
 	  aceOutf (ao, "\t%s", ba->run) ;
 	  aceOutf (ao, "\t%.1f\t%.2f\t%.0f", array (dgsF, ii, double), array (dtagF, ii, double), array (daliF, ii, double)) ;
+	  if (1) aceOutf (ao, "\t%s", dictName (ba->tagDict,tag)) ;
 	  aceOutf (ao, "\n") ;
 	}
     }
@@ -5714,7 +6071,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
   AC_ITER iter1 = 0, iter2 = 0 ;
   AC_OBJ Run, Ali, Gr ;
   vTXT txt = vtxtHandleCreate (h) ;
-  int Number_of_lanes, Maximal_read_multiplicity ;
+  int Number_of_lanes, Maximal_read_multiplicity, iPerfect ;
   float raw_seq, raw_tags, raw_kb
     , acc_seq, acc_tags, acc_kb
     , rej_tmh_seq, rej_tmh_tags
@@ -5735,9 +6092,14 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
     , Fragment_length_99
     , intergenic, intergenic_density
     , accLnX, accLnK, accLnD, accLnC
+    , partial3_15, partial5_15
+    , partial3_25, partial5_25
+    , perfect
     ;
+  long int spots1, spots2, spots3 ;
   Array ks = 0, firstBase = 0, lastBase = 0 ;
   DICT *bloomDict = dictHandleCreate (100, h) ;
+  DICT *spongeDict = dictHandleCreate (100, h) ;
   DICT *prefixDict = dictHandleCreate (100, h) ;
   DICT *targetDict = dictHandleCreate (100, h) ;
   DICT *errTypeDict = dictHandleCreate (100, h) ;
@@ -5834,6 +6196,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
   Array orphanArray =  arrayHandleCreate (50, float, h) ;
   char *myquery1, *myquery2 ;
   Array bloomArray =  arrayHandleCreate (50, float, h) ;
+  Array spongeArray =  arrayHandleCreate (50, float, h) ;
 
   dictAdd (errTypeDict, "Any", 0) ;
   for (iu = 0 ; iu < 12 ; iu++)
@@ -5853,9 +6216,9 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 			   , ba->project ? "\"" : ""
 			   ) ;
   else
-    myquery1 = messprintf ("find run group_level = %d %s%s%s"
+    myquery1 = messprintf ("find run group_level == %d %s%s%s"
 			   , groupLevel
-			   , ba->project ? " AND Project = \"" : ""
+			   , ba->project ? " AND Project == \"" : ""
 			   , ba->project ? ba->project : ""
 			   , ba->project ? "\"" : ""
 			   ) ;
@@ -5868,6 +6231,8 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
       ok = TRUE ; /* found at least one group at desired group_level */
       amv_h = ac_new_handle () ;
 
+      perfect = iPerfect = 0 ;
+      spots1 = spots2 = spots3 = 0 ;
       Aligned_fragments = 0 ;
       Fragment_length_1 = 0 ;
       Fragment_length_5 = 0 ;
@@ -5891,6 +6256,8 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
       lastBase = arrayReCreate (lastBase, 1000, float) ;
       raw_seq = raw_tags = raw_kb = acc_seq = acc_tags = acc_kb = rej_seq = rej_tags = rej_kb = rej_tmh_seq = rej_tmh_tags = rej_lqm_seq = rej_lqm_tags = rej_dfm_seq = rej_dfm_tags = rej_ni_seq = rej_ni_tags = rej_ni_kb = rej_unali_seq = rej_unali_tags = rej_unali_kb = adap1_tags = adap1_kb  = adap2_tags = adap2_kb = Number_of_lanes= 0 ;
       intergenic = intergenic_density = 0 ;
+      partial3_15 = partial5_15 = 0 ;
+      partial3_25 = partial5_25 = 0 ;
       stranding_plus = arrayReCreate (stranding_plus,100,float) ;
       stranding_minus = arrayReCreate (stranding_minus,100,float) ;
       stranding_amb = arrayReCreate (stranding_amb,100,float) ;
@@ -5982,7 +6349,8 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
       amv_bp = arrayReCreate (amv_bp, 1000, Array) ;
 
       bloomArray =  arrayReCreate (bloomArray, 30, float) ;
-
+      spongeArray =  arrayReCreate (spongeArray, 30, float) ;
+ 
       compatibleArray = arrayReCreate (compatibleArray, 30, float) ;
       orphanArray = arrayReCreate (orphanArray, 30, float) ;
 
@@ -6062,10 +6430,45 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 	    if (! ac_has_tag (Ali, "Raw_data") && ! ac_has_tag (Ali, "h_Ali"))
 	      badGroup = 2 ;
 
-	  if (1) /* pair fate */
+	  
+	  if (1) /* perfect */
+	    {
+	       if ((let = ac_tag_table (Ali, "Perfect_reads", h1)))
+		 {
+		   perfect += ac_table_float (let, 0, 0, 0) ;
+		   iPerfect += ac_table_int (let, 0, 1, 0) ;
+		 }
+	    }
+
+	  if (1) /* spots */
+	    {
+	       if ((let = ac_tag_table (Run, "Spots", h1)))
+		 {
+		   long int z = 0 ;
+		   const char *ccp ;
+
+		   z = 0 ;
+		   ccp = ac_table_printable (let, 0, 0, "0") ;
+		   sscanf (ccp, "%ld", &z) ;
+		   spots1 += z ;
+
+		   z = 0 ;
+		   ccp = ac_table_printable (let, 0, 2, "0") ;
+		   sscanf (ccp, "%ld", &z) ;
+		   spots2 += z ;
+
+		   z = 0 ;
+		   ccp = ac_table_printable (let, 0, 8, "0") ;
+		   sscanf (ccp, "%ld", &z) ;
+		   spots3 += z ;
+		 }
+	    }
+
+	   if (1) /* pair fate */
 	    {
 	      float z ;
 	      z = ac_tag_float (Ali, "Aligned_fragments", 0) ;
+	     z = ac_tag_float (Ali, "Aligned_fragments", 0) ;
 	      if (z == 0)
 		z = ac_tag_float (Ali, "Aligned_pairs", 0) ; /* old tag name prior to 2014_08_21 */
 	      if (z > 0)
@@ -6115,6 +6518,17 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 			    }
 			}
 		      array (bloomArray, 100 * n + kr,float) += z ;
+		    }
+		}
+
+	      if ((let = ac_tag_table (Ali, "Sponge", h1)))
+		{
+		  for (jr = 0 ; jr < let->rows ; jr++)
+		    {
+		      dictAdd (spongeDict, ac_table_printable (let, jr, 0, "toto"), &n) ;
+		      z = ac_table_float (let, jr, 1, 0) ;
+		      if (z)
+			  array (spongeArray, n,float) += z ;
 		    }
 		}
 
@@ -6179,6 +6593,16 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 	    {
 	      rej_tmh_seq += ac_table_float (let, 0, 0, 0) ;
 	      rej_tmh_tags += ac_table_float (let, 0, 2, 0) ;
+	    }
+	  if ((let = ac_tag_table (Ali, "Partial_5p", h1)))
+	    {
+	      partial5_15 += ac_table_float (let, 0, 0, 0) ;
+	      partial5_25 += ac_table_float (let, 0, 1, 0) ;
+	    }
+	  if ((let = ac_tag_table (Ali, "Partial_3p", h1)))
+	    {
+	      partial3_25 += ac_table_float (let, 0, 0, 0) ;
+	      partial3_25 += ac_table_float (let, 0, 1, 0) ;
 	    }
 	  if ((let = ac_tag_table (Ali, "Diffuse_mapping", h1)))
 	    {
@@ -6469,8 +6893,12 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		}
 	    }
 	}
-      vtxtPrintf (txt, "Run %s\n-D Ali\n\n", ac_name(Gr)) ;
-      vtxtPrintf (txt, "Ali %s\nRun %s\n-D Rejected_alignments\n-D Rejected_too_many_hits\n-D Counts\n-D Pair_fate\n-D Strandedness\n-D Ali\n-D Unicity\n-D Alignments\n-D Letter_profile\n-D ATGC_kb\n-D Errors\n-D Computer_ressource"
+      vtxtPrintf (txt, "Run %s\n-D Ali\n", ac_name(Gr)) ;
+      if (spots1 > 0 && badGroup < 2)
+	{
+	  vtxtPrintf (txt, "Spots %ld bases_in_SRA %ld Average_length %ld Insert_size 0 spots_with_mate %ld\n", spots1, spots2, spots2/spots1, spots3) ;
+	}
+      vtxtPrintf (txt, "\nAli %s\nRun %s\n-D Rejected_alignments\n-D Rejected_too_many_hits\n-D Counts\n-D Pair_fate\n-D Strandedness\n-D Ali\n-D Unicity\n-D Alignments\n-D Letter_profile\n-D ATGC_kb\n-D Errors\n-D Computer_ressource"
 		  , ac_name(Gr)
 		  , ac_name(Gr)
 		  ) ;
@@ -6486,8 +6914,10 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 			, intergenic_density) ;
 
 
+	  vtxtPrintf (txt, "\nPerfect_reads %f %d", perfect, iPerfect) ;
+
 	  vtxtPrintf (txt, "\nNumber_of_lanes %d", Number_of_lanes) ;
-	  vtxtPrintf (txt, "\nRaw_data %f Seq %f Tags %f kb  %d bp_per_tag"
+	  vtxtPrintf (txt, "\nRaw_data %f Id %f Accepted %f kb  %d bp_per_tag"
 		      , raw_seq, raw_tags, raw_kb, raw_kb > 1 ? (int)(.5 + (1000.0 * raw_kb)/raw_tags) : 0);
 	  vtxtPrintf (txt, "\nAccepted %f Seq %f Tags %f kb %d bp_per_tag"
 		      , acc_seq, acc_tags, acc_kb, acc_kb > 1 ? (int)(.5 + (1000.0 * acc_kb)/acc_tags): 0) ;
@@ -6509,6 +6939,9 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		      , adap1_tags, adap1_kb,  adap1_kb > 1 ? (int)(.5 + (1000.0 * adap1_kb)/adap1_tags) : 0) ;
 	  vtxtPrintf (txt, "\nExit_adaptor_clipping %f Tags %f kb %d bp_per_tag"
 		      , adap2_tags, adap2_kb, adap2_kb > 1 ? (int)(.5 + (1000.0 * adap2_kb)/adap2_tags) : 0) ;
+	  vtxtPrintf (txt, "\nPartial_5p %f %f", partial5_15, partial5_25) ;
+	  vtxtPrintf (txt, "\nPartial_3p %f %f", partial3_15, partial3_25) ;
+
 	  for (n = 1 ; n <= arrayMax (errPos)/10 ; n++)
 	    {
 	      vtxtPrintf (txt, "\nError_position %d", n) ;
@@ -6951,6 +7384,17 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		  }
 	    }
 	}
+
+      if (arrayMax (spongeArray))
+	{
+	  for (n = 1 ; n <= dictMax (spongeDict) ; n++)
+	    if (array (spongeArray, n,float) > 0)
+	      vtxtPrintf (txt, "\nSponge %s %f \"Mb aligned\""
+			  ,  dictName (spongeDict, n)
+			  , array (spongeArray, n,float)
+			  ) ;
+	}
+
       if (accLnC > 0)
 	{
 	  int x = accLnX / accLnC ;
@@ -7690,7 +8134,7 @@ static int baGeneIndex2Table (BA *ba, BOOL hasGeneId)
 /*************************************************************************************/
 /*************************************************************************************/
 /* export only the best hits */
-static int baExportReadSuffix (BA *ba, int pass) 
+static int baExportReadSuffix (BA *ba, int pass, int *p5p15, int *p3p15, int *p5p25, int *p3p25) 
 {  
   AC_HANDLE h = ac_new_handle () ;
   DICT *dnaDict = ba->dnaDict ;
@@ -7711,8 +8155,7 @@ static int baExportReadSuffix (BA *ba, int pass)
 	continue ;
       up2 = arrp (ba->hits2, up->nn, HIT2) ;
       up3 = arrp (ba->hits3, up->nn, HIT3) ;
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score >= score && tag != up->tag)
+      if (up->score && tag != up->tag)
 	{
 	  tag = up->tag ; /* so we export only once per tag */
 	  nn ++ ;
@@ -7721,29 +8164,49 @@ static int baExportReadSuffix (BA *ba, int pass)
 	  aos = (ccp && (*ccp == ace_upper(*ccp))) ? aosknown : aosnew ;
 	  for (i = 0 ; i < up2->mult ; i++)
 	    {
-	      if (up3->prefix) aceOutf (aop, "%s\n", dictName (dnaDict, up3->prefix)) ;
-	      if (ccp) aceOutf (aos, "%s\n", ccp) ;
+	      if (up3->prefix) 
+		{ 
+		  ccq =  dictName (dnaDict, up3->prefix) ; 
+		  aceOutf (aop, "%s\n", ccq) ; 
+		  if (ccq && strlen (ccq) >= 15) *(p5p15)+=up2->mult; 
+		  if (ccq && strlen (ccq) >= 25) *(p5p25)+=up2->mult; 
+		}
+	      if (ccp) 
+		{ 
+		  aceOutf (aos, "%s\n", ccp) ; 
+		  if (strlen (ccp) >= 15) (*p3p15)+=up2->mult; 
+		  if (strlen (ccp) >= 25) (*p3p25)+=up2->mult; 
+		}
 	      if (up3->targetPrefix) aceOutf (aotp, "%s\n", dictName (dnaDict, up3->targetPrefix)) ;
 	      if (up3->targetSuffix) aceOutf (aots, "%s\n", dictName (dnaDict, up3->targetSuffix)) ;
 	    }
 	}  
     }
-  
   ac_free (h) ;
 
   return nn ;
-} /* baExportSuffix */
+} /* baExportReadSuffix */
 
 /*************************************************************************************/
 /* export only the suffix, separating the 2 reads in case of paired end sequencing */
 static int baExportSuffix (BA *ba)
 {
   int pass, nn = 0 ;
-  
-  for (pass = 1 ; pass < (ba->pair ? 3 : 2) ; pass++)
-    nn += baExportReadSuffix (ba,  ba->pair ? pass : 0) ;
+  int p5p15 = 0 ;
+  int p5p25 = 0 ;
+  int p3p15 = 0 ;
+  int p3p25 = 0 ;
+  AC_HANDLE h = ac_new_handle () ; 
+  ACEOUT ao = aceOutCreate (ba->outFileName,  ".partial.p3p5", FALSE, h) ;
 
+  for (pass = 1 ; pass < (ba->pair ? 3 : 2) ; pass++)
+    nn += baExportReadSuffix (ba,  ba->pair ? pass : 0, &p5p15, &p3p15, &p5p25, &p3p25) ;
+  aceOutf (ao, "Partial_5p %d %d\tPartial_3p %d %d\n"
+	   , p5p15, p3p15, p5p25, p3p25
+	   ) ;
+ 
   fprintf (stderr, "Suffix done %s\n", timeShowNow ()) ;
+  ac_free (h) ;
   return nn ;
 } /* baExportSuffix */
 
@@ -7768,8 +8231,7 @@ static int baExportMito (BA *ba)
     {
       up2 = arrp (ba->hits2, up->nn, HIT2) ;
       if (up2->target_class != mito && up2->target_class != chloro && up2->target_class != spikeIn  && up2->target_class != virus && up2->target_class != bacteria) continue ;
-      score = keySet (ba->bestScore, up->tag) ;
-      if (up->score >= score)
+      if (up->score)
 	{
 	  nn ++ ;
 	  baExportOneHit (ao, ba, up) ;
@@ -7877,7 +8339,6 @@ static int baParseIdFile (BA *ba, DICT *dict, KEYSET tags, KEYSET tag2names, KEY
       if (pass)
 	{
 	  s = ss[0] = stackHandleCreate (1000000, h0) ;
-	  stackTextOnly (s) ;
 	}
       memset (buf, 0, sizeof(buf)) ;
 
@@ -7942,7 +8403,6 @@ static int baParseIdFile (BA *ba, DICT *dict, KEYSET tags, KEYSET tag2names, KEY
 		    if (pos > 1000000 - 100)
 		      {
 			s = ss[++nStack] = stackHandleCreate (1000000, h0) ;
-			stackTextOnly (s) ;
 			if (nStack > (1 << 12) ) messcrash ("nStack = %d > 4096 in baParseIdFile", nStack) ;
 		      }
 		  }
@@ -8265,6 +8725,83 @@ static void baFastqAnalysis (BA *ba)
   return ;
 } /* baFastqAnalysis */
 
+
+/*************************************************************************************/
+
+static int baSplitMrnaParse (BA *ba)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int i, nn = 0 ;
+  int gene, mrna, LL, x1, x2 ;
+  const char *ccp ;
+  DICT *dict = 0 ;
+  Array aa  = 0 ;
+  ACEIN ai = aceInCreate (ba->splitMrnaFileName, 0, h) ;
+  SPLITMRNA *up ;
+
+  if (! ai)
+    messcrash ("Sorry, i cannot find the -split_mRNAs file : %s", ba->splitMrnaFileName) ;
+  aa = ba->splitMrnaArray = arrayHandleCreate (10000, SPLITMRNA, ba->h) ;
+  dict = ba->splitMrnaDict = dictHandleCreate (100, ba->h) ;
+
+  while (aceInCard (ai))
+    {
+      ccp = aceInWord (ai) ;
+      if (! ccp || *ccp == '#')
+	continue ;
+      dictAdd (dict, ccp, &mrna) ;
+
+      aceInStep (ai, '\t') ;
+      ccp = aceInWord (ai) ;
+      if (! ccp)
+	continue ;
+      dictAdd (dict, ccp, &gene) ;
+
+      x1 = x2 = -1 ;
+      aceInStep (ai, '\t') ;
+      aceInInt (ai, &x1) ;
+      aceInStep (ai, '\t') ;
+      aceInInt (ai, &x2) ;
+
+      if (x2 < 0 || x1 < 0)
+	messcrash ("FATAL ERROR: In -split_mRNAs, missing coordinates in mRNA %s, line %d, file %s"
+		   , dictName (dict, mrna) 
+		   , aceInStreamLine (ai) 
+		   , ba->splitMrnaFileName
+		   ) ;
+    
+      aceInStep (ai, '\t') ;
+      ccp = aceInWord (ai) ;
+      if (! ccp)
+	continue ;
+      dictAdd (dict, ccp, &LL) ; /* a LocusLink name, please create the correspongding gene expression */
+
+
+      for (i = 0 ; i < 10 ; i++)
+	{
+	  up = arrayp (aa, 10*mrna + i, SPLITMRNA) ;
+	  if (! up->mrna)
+	    {
+	      up->gene = gene ;
+	      up->mrna = mrna ;
+	      up->LL = LL ;
+	      up->x1 = x1 ; 
+	      up->x2 = x2  ;
+	      break ;
+	    }
+	}
+      if (i >= 10)
+	messcrash ("FATA ERROR: In -split_mRNAs, more than 10 components to mRNA %s, line %d, file %s"
+		   , dictName (dict, mrna) 
+		   , aceInStreamLine (ai) 
+		   , ba->splitMrnaFileName
+		   ) ;
+    }
+
+  ac_free (h) ;
+  return nn ;
+} /* baSplitMrnaParse */
+
 /*************************************************************************************/
 
 static int baParseSelected8kbTargetFile (BA *ba)
@@ -8287,6 +8824,29 @@ static int baParseSelected8kbTargetFile (BA *ba)
   ac_free (h) ;
   return nn ;
 } /* baParseSelected8kbTargetFile */
+
+/*************************************************************************************/
+
+static int baParseSelected5kbTargetFile (BA *ba)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int nn = 0 ;
+  const char *ccp ;
+  ACEIN ai = aceInCreate (ba->selected5kbFileName, 0, h) ;
+
+  if (! ai)
+    messcrash ("Sorry, i cannot find the -selected5kbList file : %s", ba->selected5kbFileName) ;
+
+  while (aceInCard (ai))
+    {
+      ccp = aceInWord (ai) ;
+      if (ccp && *ccp != '#')
+	dictAdd (ba->selected5kbDict, ccp, &nn) ;
+    }
+
+  ac_free (h) ;
+  return nn ;
+} /* baParseSelected5kbTargetFile */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -8324,7 +8884,7 @@ static BOOL baCheckGroupHierearchy (BA *ba)
   AC_DB db = ba->db ;
   int n, ng, ii ;
 
-  runs = ac_dbquery_keyset (db, hprintf (h, "Find project %s ; follow run ", ba->project), h) ;
+  runs = ac_dbquery_keyset (db, hprintf (h, "Find project IS \"%s\" ; follow run ", ba->project), h) ;
 	  
   n = ac_keyset_count (ac_ksquery_keyset (runs, "Sublibrary_of && In_group", h)) ;
   if (1)
@@ -8347,23 +8907,24 @@ static BOOL baCheckGroupHierearchy (BA *ba)
   baSetGroupLevel (db, -1, ks2, h) ;
   ks2 = ac_ksquery_keyset (runs, "(NOT Sublibrary_of) && (NOT Is_group)", h) ; /* level 0 */
   baSetGroupLevel (db, 0, ks2, h) ;
-  for (ii = 0 ; ii < ng + 1 ; ii++)
+  for (ii = 0 ; ii < ng + 2 ; ii++)
     {
       ks1 = ks2 ;
       ks2 = ac_ksquery_keyset (ks1, hprintf(h, ">group ; project == %s",ba->project) , h) ;
-      if (0)
+      if (ii == ng+1)
 	{
 	  int i ;
 	  AC_TABLE tbl = ac_keyset_table (ks2,0, -1, 0, h) ;
-	  fprintf (stderr, "Level %d\n", ii) ;
+	  fprintf (stderr, "ERROR: Looping on group Level %d\n", ii) ;
 	  for (i = 0 ; i < tbl->rows ; i++)
 	    fprintf (stderr, "... %s\n", ac_table_printable (tbl, i, 0, "")) ;
+	  baCheckGroupHierearchyError ("The group hierarchy should be acyclic: >In_group;>In_group... should converge") ;
 	}
       baSetGroupLevel (db, ii+1, ks2, h) ;
       if (!ac_keyset_count (ks2))
 	break ;
     }
-  if (ii > ng + 1)
+  if (ii >= ng + 1)
     baCheckGroupHierearchyError ("The group hierarchy should b acyclic: >In_group;>In_group... should converge") ;
   return TRUE ;
 } /* baCheckGroupHierearchy */
@@ -8439,11 +9000,11 @@ static void usage (char *message)
 	    "//       If this file is given all reads are counted, otherwise only the unique reads are counted\n"
 	    "//    -maxErr n -maxErrRate x : reaed with nerr > n AND 100*nerr > r * ali are not counted as gene/mrnaSupportn"
 	    "//   -geneSupport2ace \n"
-	    "//   -mrnaSupport2ace [-selected8kbList f8kb]\n"
+	    "//   -mrnaSupport2ace [-selected8kbList f8kb -selected5kbList f5kb]\n"
 	    "//       Read a 10 column tables target_class,gene|mrna,u|nu,run,seq,tag,bp support,err,partial,orphan per tissue\n"
 	    "//       exports a .ace file containing a dummy gene index\n"
 	    "//       for all mRNAs the ace file also contains the mRNA wiggle\n"
-	    "//       for mRNAS in f8Kb 1 column file, export the 3'->5' cumulated wiggle\n"
+	    "//       for mRNAS in f8Kb/f5kb 1 column file, export the 3'->5' cumulated wiggle\n"
 	    "//   -geneRemap fileName\n"
 	    "//       METADATA/mrnaRemap.gz file, here used to characterize fragments bridging genes close in cis\n"
 	    "//   -geneIndex2Table -db db -target_class name -project project_name\n"
@@ -8614,7 +9175,7 @@ static int greg2aceCigarette (int x1, int x2, int a1, int a2, const char *greg, 
     }
   xx-- ; aa -= strand ;
   if (xx != x2 || aa != a2)
-    fprintf (stderr, "ERROR x1=%d x=%d x2=%d a1=%d a=%d a2=%d strand =%d :: %s\n", x1, xx, x2, a1, aa, a2,strand, greg) ;
+    fprintf (stderr, "ERROR greg2aceCigarette x1=%d x=%d x2=%d a1=%d a=%d a2=%d strand =%d :: %s\n", x1, xx, x2, a1, aa, a2,strand, greg) ;
   return nerr ;
 }  /* greg2aceCigarette */
 
@@ -8737,7 +9298,7 @@ int main (int argc, const char **argv)
     {
       char *txt = "select g,r from g in class \"run\", r in g->union_of" ;
       AC_TABLE tbl ;
-      AC_DB db = ac_open_db ("../MagicMiniTest/MetaDB", 0) ;
+      AC_DB db = ac_open_db ("../MagicMiniTest/MetaDB", 0) ; 
       vTXT v = vtxtHandleCreate (h) ;
       const char *errors = 0 ;
 
@@ -8785,11 +9346,14 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-title", &(ba.title)) ;
   getCmdLineInt (&argc, argv, "-maxHit", &(ba.maxHit)) ;
   getCmdLineInt (&argc, argv, "-minAli", &(ba.minAli)) ;
+  ba.minIntronOverlap = 8 ;
+  getCmdLineInt (&argc, argv, "-minIntronOverlap", &(ba.minIntronOverlap)) ;
   getCmdLineInt (&argc, argv, "-ventilate", &(ba.ventilate)) ;
   getCmdLineOption (&argc, argv, "-id_file", &(ba.id_filename)) ;
   getCmdLineOption (&argc, argv, "-inFileList", &(ba.inFileList)) ;
   getCmdLineOption (&argc, argv, "-geneRemap", &(ba.geneRemapFile)) ;
   getCmdLineOption (&argc, argv, "-sigTargets", &(ba.sigTargetFile)) ;
+  getCmdLineOption (&argc, argv, "-split_mRNAs", &(ba.splitMrnaFileName)) ;
   ba.gzi = getCmdLineOption (&argc, argv, "-gzi", 0) ;
   ba.gzo = getCmdLineOption (&argc, argv, "-gzo", 0) ;
   ba.unique = getCmdLineOption (&argc, argv, "-unique", 0) ;
@@ -8834,6 +9398,7 @@ int main (int argc, const char **argv)
     ba.stranded = -1 ;
   
   getCmdLineOption (&argc, argv, "-selected8kbList", &ba.selected8kbFileName) ;
+  getCmdLineOption (&argc, argv, "-selected5kbList", &ba.selected5kbFileName) ;
 
   getCmdLineInt (&argc, argv, "-pureNsStrand", &ba.pureNsStrand) ;
   getCmdLineOption (&argc, argv, "-project" , &ba.project) ;
@@ -8852,14 +9417,19 @@ int main (int argc, const char **argv)
     }
   ba.target_classDict = dictHandleCreate (10000, ba.h) ;
     {
-        /* synchronize with bin/target2target_class.txt with lnAliErr.awk c5.h_Ali.awk and with baExportAliProfile() */
+        /* synchronize with bin/target2target_class.txt with c5.h_Ali.awk and with baExportAliProfile() */
       const char **cl ;
-      const char *classes[] = { "0_SpikeIn", "1_DNASpikeIn", "A_mito", "B_rrna", "C_chloro"
-			       , "DT_magic", "ET_av", "FT_av2008", "FT_cloud", "KT_RefSeq", "LT_RefSeqCurrent",  "LT_seqc","LT_UCSC", "MT_EBI", "MT_Gaj", "NT_MiT",  "NT_HINV", "NT_FBK", "OT_rnaGene", "PT_tRNA"
-				, "S_est", "U_introns", "W_Line", "Z_genome", "v_virus", "b_bacteria", "z_gdecoy"
+      const char *classes[] = { "0_SpikeIn", "1_DNASpikeIn", "A_mito", "B_rrna", "C_chloro", "D_transposon"
+				, "DT_magic", "ET_av", "FT_av2008", "FT_extra", "FT_simul", "FT_cloud", "KT_RefSeq", "LT_RefSeqCurrent",  "LT_seqc", "LT_magic", "LT_UCSC", "MT_EBI", "MT_Gaj", "NT_miRNA", "NT_MiT",  "NT_HINV", "NT_FBK", "NT_FlyBase", "OT_rnaGene", "PT_tRNA", "QT_smallRNA"
+				, "S_est", "U_introns", "W_Line", "X_Bami", "Y_Pfluo", "Z_genome", "b_bacteria", "v_virus", "z_gdecoy"
 			       , 0 } ;
       for (cl = classes ; *cl ; cl++)
-	dictAdd (ba.target_classDict, *cl, 0) ;
+	{
+	  int k = 0 ;
+	  dictAdd (ba.target_classDict, *cl, &k) ;
+	  if ((*cl)[1] == 'T' && (*cl)[2] == '_')
+	    ba.lastTranscriptClass = k ;      
+	}
     }
   if (getCmdLineOption (&argc, argv, "-target_class" , &ccp))
     {
@@ -8882,11 +9452,20 @@ int main (int argc, const char **argv)
   /* init global counters */
   badMaxHit = badLnS = badLnT = isLongS = isLongT = badScoreLS = badScoreLT = isPartialS = isPartialT = badScorePS = badScorePT = 0 ;
 
+  if (ba.splitMrnaFileName)
+    baSplitMrnaParse (&ba) ;
+
   if (ba.selected8kbFileName)
     {
       ba.selected8kbDict = dictHandleCreate (100, ba.h) ;
       ba.selected8kbWiggle = keySetHandleCreate (ba.h) ;
       baParseSelected8kbTargetFile (&ba) ;
+    }
+  if (ba.selected5kbFileName)
+    {
+      ba.selected5kbDict = dictHandleCreate (100, ba.h) ;
+      ba.selected5kbWiggle = keySetHandleCreate (ba.h) ;
+      baParseSelected5kbTargetFile (&ba) ;
     }
 
   /* actions */
@@ -9004,15 +9583,15 @@ int main (int argc, const char **argv)
     {
       int filtered = 0 ;
 
-      baParseHits (&ba) ;
+      baParseHits (&ba) ;  /* rejects on the fly overlapping fragments with lower score */
       if (1 &&
 	  ba.pair && arrayMax (ba.hits))
 	filtered += baPairFilter (&ba) ;
-      if (ba.filter)
-	filtered += baFilter (&ba) ;
+      if (1 || ba.filter)
+	filtered += baFilter (&ba) ;  /* filter the chains independently of each other */
       if (ba.geneRemapFile)
 	baParseGeneRemapFile (&ba) ;
-      if (filtered || ba.gene2map)
+      if (filtered && ba.gene2map)
 	baCheckUnicity (&ba) ;   /* double check that the mult=-2 cases correspond to pairs of genes in antisense */
       if (ba.intergenicSupport)
 	baExportIntergenicSupport (&ba) ; /* must come first after parse to clean up the Z_genome */

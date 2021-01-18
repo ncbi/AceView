@@ -1,57 +1,12 @@
 #include "../wac/ac.h"
 #include "../wfiche/gtitle.h"
 #include "pick.h"
-#include "../wfiche/horribletitle.h"
 
 static BOOL debug = FALSE ;
 static const char *gtGene2Locus (AC_OBJ oGene) ;
 static char *gtProductBaseTitle (vTXT blkp, GMP *gmp, AC_OBJ oProduct, AC_OBJ oGF, BOOL isGene, BOOL *isPutativep) ;
 static char *gtGeneDescriptorTag (vTXT blkp, GMP *gmp) ;
 static char* gtJavaScriptProtect (const char *ptr, AC_HANDLE h) ;
-
-/********************************************************************/
-/************************* COLOR dbXref BOXES *************************/
-
-typedef struct { int used ; char nam[64], color[12], format [1024], param[80], help[64] ; } DBXREFMENU ;
-static char  jumpPointGeneNam[1024], jumpPointMrnaNam[1024] ;
-static DBXREFMENU  dbXrefMenu [] =
-{
-  { 0, "GeneCard", "#ff0000", "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?%s", "", "GeneCard is cool"},
-  { 0, "MapView", "brown", "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?%s", "", "MapView is louzy"},
-  { 0, "", "", "", "", ""}
-} ;
-
-void gmpDbXrefInit (void) 
-{
-  DBXREFMENU *dbx = dbXrefMenu ;
-
-  for (dbx = dbXrefMenu ; *dbx->nam ; dbx++)
-    dbx->used = 0 ;
-}
-
-/*****************************************************************/
-
-void gmpDbXrefDestroy (void)
-{
-  return ;
-}
-
-/*****************************************************************/
-
-void gmpDbXref (vTXT blkp, GMP *gmp, char *externalDbName)
-{
-  DBXREFMENU *dbx = dbXrefMenu ;
-  
-  if (!gmp->markup)
-     return ;
-  for (dbx = dbXrefMenu ; *dbx->nam ; dbx++)
-    if (!strcasecmp (dbx->nam, externalDbName))
-      {
-	dbx->used = 1 ;
-	strncpy (dbx->param, ac_name(gmp->gene), 79) ;
-      }
-  return ;
-} /* gmpDbXref */
 
 /********************************************************************/
 /********************************************************************/
@@ -190,6 +145,11 @@ static JUMPPOINTMENU  jumpPointMenu [] =
     { 0 , 2 , TRUE , 0 , "mRNA AM promotor" ,  "mRNA AM promotor" , "HelpmRNA", "" } ,
   */
 
+  /*** genome svg plot */
+  { 0 , 2 , TRUE , 0 , "Genome_summary" , "" , "HelpGenomeSummary", "" } ,
+  { 0 , 2 , FALSE , 0 , "Large_Genome_plot" , "" , "HelpGenomePlot", "" } ,
+  { 0 , 2 , TRUE , 0 , "Small_Genome_plot" , "" , "HelpGenomePlot", "" } , 
+
   /***********************/
   /****** diagrams *******/
   /***********************/
@@ -218,8 +178,6 @@ void gmpJumpPointInit (void)
     }
   jumpPointGeneNam[0] = 0 ;
   jumpPointMrnaNam[0] = 0 ;
-
-  gmpDbXrefInit () ;
 }
 
 /*****************************************************************/
@@ -235,7 +193,6 @@ static void showJP (void) /* for debugging */
 {
   JUMPPOINTMENU *jmp ;
  
-  if (0) showJP () ; /* for computer happiness */
   for (jmp = jumpPointMenu ; jmp->level ; jmp++)  /* go to last */
     if (jmp->used)
       printf ("index=%d level=%3d: used=%d %s\n", jmp->index, jmp->level, jmp->used, jmp->nam) ;
@@ -249,6 +206,8 @@ void gmpJumpPointShow (vTXT blkp, GMP *gmp, BOOL showNow, BOOL verbose)
   int nCommand = 0 ;
   vTXT commandBuf = vtxtHandleCreate (h) ;
   
+  if (0) showJP () ; /* for computer happiness */
+
   vtxtPrint (commandBuf,  "var cannedCommands = new Array (\n\"toto\"") ;
   
   /* create a special division that will be dynamically transfered to the tabs frame */
@@ -292,7 +251,7 @@ void gmpJumpPointShow (vTXT blkp, GMP *gmp, BOOL showNow, BOOL verbose)
 	  bulle = "Vertical diagram in true scale, with aligned cDNAs and neighbours." ; 
 	  nCommand++ ;
 	  vtxtPrintf(blkp, "    <td>") ;
-	  vtxtPrintf (commandBuf, ", \"openAceViewAction ('gene', '%s','vgene&v=2&B')\""
+	  vtxtPrintf (commandBuf, ", \"openAceViewAction ('gene', '%s','vgene&v=2&S')\""
 		      , gtJavaScriptProtect(ac_name(gmp->gene), h)) ;
 	  vtxtPrintf (blkp, "<a href='javascript:fireCommand (%d)' title='%s'>Gene on genome </a>", nCommand, bulle) ;
 	  vtxtPrint (blkp, "</td>\n") ;
@@ -300,7 +259,7 @@ void gmpJumpPointShow (vTXT blkp, GMP *gmp, BOOL showNow, BOOL verbose)
 
       if (gmp->mrna)
       {
-	AC_KEYSET ksm = ac_objquery_keyset (gmp->gene, ">transcribed_gene;>mrna", h) ;
+	AC_KEYSET ksm = gmp->gene ? ac_objquery_keyset (gmp->gene, ">transcribed_gene;>mrna", h) :  ac_objquery_keyset (gmp->mrna, "IS *", h) ;
 	AC_TABLE tbl = ksm ? ac_keyset_table (ksm, 0, -1, 0, h) : 0 ;
 	int ir ;
 	AC_OBJ mrna = 0 ;
@@ -1424,7 +1383,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
   int jj, ir, nn = 0, n0, n00, n2, n4, n5 ;
   const char *ptr ;
   DICT *dict = 0 ;
-  BOOL isMol = 0, doClean = FALSE, ok = FALSE, isEssential = gtIsEssentialGene (oGene) ;
+  BOOL isMol = 0, doClean = FALSE, isEssential = gtIsEssentialGene (oGene) ;
   const char *molecDescription ;
 
   if (isGene || ! ac_has_tag (oGene, "Complex_locus"))
@@ -1468,7 +1427,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    n0 = ir ; ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    n0 = ir ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  } 
 		break ;
 	      case 1:  /* any other molec */
@@ -1478,7 +1437,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    n0 = ir ; ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    n0 = ir ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  }
 		break ;
 	      case 2: /* true genetic */
@@ -1489,7 +1448,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    n2 = ir ;ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    n2 = ir ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  } 
 		break ;
 	      case 3: /* other genetic */
@@ -1499,7 +1458,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  } 
 		break ;
 	      case 4: /* exact molec !essential */
@@ -1510,7 +1469,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    n4 = ir ; ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    n4 = ir ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  } 
 		break ;
 	      case 5: /* autres molec */
@@ -1520,7 +1479,7 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 		      { vtxtClear (blkp) ; nn = 0 ; }
 		    *isPutativep = FALSE ;
 		    dictAdd (dict, ac_name(oGeneClass), 0) ;
-		    n5 = ir ; ok = TRUE ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
+		    n5 = ir ; gtOneGeneClassDescriptor (blkp, oGene, oLocus, ptr, nn++, isGene) ;
 		  }
 		break ;
 	      }	      
@@ -1532,7 +1491,6 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 	    { 
 	      n0 = -1 ;
 	      n00 = 1 ;
-	      ok = TRUE ; 
 	      if (*isPutativep)
 		doClean = TRUE ;
 	      *isPutativep = FALSE ;
@@ -1551,7 +1509,6 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 	  if (n00 < 0 && n4 < 0 && n5 < 0 && molecDescription)
 	    {
 	      n4 = -1 ; 
-	      ok = TRUE ;
 	      if (*isPutativep)
 		doClean = TRUE ;
 	      *isPutativep = FALSE ;
@@ -1572,22 +1529,6 @@ static char *gtGeneClassDescriptor (vTXT blkp, AC_OBJ oGene, const char *shortKa
 
   return vtxtPtr (blkp) ;
 } /* gtGeneClassDescriptor */
-
-/********************************************************************/
-
-static BOOL isHorribleTitle (const char *title)
-{
-  char **cpp ;
-  
-  if (!title || !*title)
-    return FALSE ;
-   
-  for (cpp = horribleTitlesToKill ; *cpp ; cpp++)
-    if (pickMatch (title, *cpp))
-      return TRUE ;
- 
-  return FALSE ;
-} /* isHorribleTitle */
 
 /********************************************************************/
 
@@ -2976,7 +2917,7 @@ BOOL gmpChapter2 (vTXT blkp, GMP *gmp, const char *header, const char *title, co
 
 	if (1) /* show the up arrow */
 	  vtxtPrint (blkp, "<a href='#top'><img SRC='images/arrowup.gif' border=0 width=14 height=14 ALT='back to top'></a></span>") ;
-	if (jmp && jmp->help && *(jmp->help))  /* show 'explain' if available */
+	if (jmp && *(jmp->help))  /* show 'explain' if available */
 	  {
 	    vtxtPrintf (blkp, "<span class='%s' toggle='_%s'>\n"
 			, ! jmp || jmp->isOpen ? "shown" : "hidden"  
@@ -3058,7 +2999,7 @@ BOOL gmpSection2 (vTXT blkp, GMP *gmp, char *header, const char *title, const ch
 	      vtxtPrint (blkp, "<a href='#top'><img SRC='images/arrowup.gif' border=0 width=14 height=14 ALT='back to top'></a>") ;
 	      vtxtPrintf (blkp, "</span>\n") ;
 	    }
-	  if (jmp && jmp->help && *(jmp->help))  /* show 'explain' if available */
+	  if (jmp && *(jmp->help))  /* show 'explain' if available */
 	    {
 	      vtxtPrintf (blkp, "<span class='%s' toggle='_%s'>\n"
 			  , ! jmp || jmp->isOpen ? "shown" : "hidden"
@@ -3152,7 +3093,7 @@ BOOL gmpSubSection (vTXT blkp, GMP *gmp, char *header, const char *title)
       if (title)
 	{
 	  vtxtPrintf (blkp, "<span class='hh3'>%s</span>\n", title) ;
-	  if (jmp && jmp->help && *(jmp->help))
+	  if (jmp && *(jmp->help))
 	    gmpHelp (blkp, gmp, jmp->file, jmp->help) ;
 	  vtxtPrint (blkp, "<br/>\n") ;
 	}
@@ -3249,3 +3190,4 @@ int gmpObjLinkAnchor (vTXT blkp, GMP *gmp, AC_OBJ obj, const char *anchor, const
 /******************************************************************************/
 /******************************************************************************/
 /******************************************************************************/
+

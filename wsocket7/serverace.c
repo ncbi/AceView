@@ -27,7 +27,7 @@
  * * Feb 25 23:00 1996 (mieg)
  * * Mar 97 (mieg) SIGPIPE handler
  * Created: Wed Nov 25 12:26:06 1992 (mieg)
- * CVS info:   $Id: serverace.c,v 1.4 2006/12/16 05:06:08 mieg Exp $
+ * CVS info:   $Id: serverace.c,v 1.5 2020/05/30 16:50:36 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -243,10 +243,8 @@ static Stack processQueries(AceServ server,
 
   /* We reuse this stack for every request, this means it must be copied     */
   /* each time....                                                           */
-  /* stackTextOnly is vital, otherwise we get funny lengths for messages     */
   /* because of byte padding...                                              */
   s = stackReCreate(s, 20000) ;
-  stackTextOnly(s) ;
 
 
   nTransactions++ ;

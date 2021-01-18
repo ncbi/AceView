@@ -16,10 +16,6 @@
  *-------------------------------------------------------------------
  */
 
-#define MALLOC_CHECK
-#define ARRAY_CHECK
-
-
 #include "acedb.h"
 #include "querydisp.h"
 #include "graph.h"

@@ -21,7 +21,7 @@
    ALLWAYS edit the 2 files in a correlated way.
 */
 
-/* $Id: systags.h,v 1.5 2008/01/20 01:42:17 mieg Exp $ */
+/* $Id: systags.h,v 1.7 2020/01/22 15:38:42 mieg Exp $ */
 #ifndef SYSTAGS_DEF_H
 #define SYSTAGS_DEF_H
 
@@ -37,8 +37,8 @@
 #define __DNA3  10
 #define __DNA4  11
 #define __DNA5  12
-#define __DNA6  13
-#define __DNA7  14
+#define _LongFloat  13		/* 2019 new type of 64bits number */
+#define _LongInt  14	        /* 2019 new type of 64bits number */
 #define __RNA1  15
 #define __RNA2  16
 #define __RNA3  17
@@ -56,8 +56,8 @@
 
 #define _Int  24
 #define _Unsigned  25
-#define _Long  26		/* not supported */
-#define _Long_Unsigned  27	/* not supported */
+#define _zLong  26		/* not supported */
+#define _zLong_Unsigned  27	/* not supported */
 #define _Float  28
 #define _DateType  29
 #define _continuationKey  30

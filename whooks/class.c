@@ -16,7 +16,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: class.c,v 1.6 2014/11/30 03:21:21 mieg Exp $ */
+/* $Id: class.c,v 1.7 2020/05/30 16:50:36 mieg Exp $ */
 
 
 #include <wh/acedb.h>
@@ -142,7 +142,6 @@ static int checkFilters(KEYSET ks, int nn, BOOL makeIt)
     return TRUE ;
 
   new = stackCreate(20) ;
-  stackTextOnly(new); /* since we want to save it */
   pushText(new, "toto") ;
   
       /* asociate a mask to each filter */

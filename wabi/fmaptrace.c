@@ -36,13 +36,12 @@
 #include "dnaalign.h"
 #include "query.h"
 #include "dotter.h"
-#include "acembly.h"
+#include "acembly.h" 
 #include "pick.h"
 #include "session.h"
 
 /************************************************************/
 
-extern void traceGraphDestroy (void) ; /* defined in trace.c */
 
 void fMapTraceSuppress (KEY key, KEY tag, BOOL keep) ; /* also used by trace.c */
 
@@ -52,11 +51,8 @@ static Array findAssemblyErrors (KEY link, KEY contig, KEY key, Array dna, Array
 static void showAssemblyErrors (LOOK look, float x, SEG *seg, BOOL reverse) ;
 static void showVirtualDna(LOOK look, float x, SEG *seg, Array dna, BOOL rev) ;
 
-static void fMapSelectTrace (void) ;
-static void fMapUnSelectTrace (void) ;
 static void fMapTraceAllErrors (void) ;
 static void contigDoMakePair (KEY contig1, KEY contig2) ;
-static void contigMakeDotter (int box) ;
 static void fMapToggleTraceAssembly (void) ;
 static void fMapTraceReAssembleContig (LOOK look, KEY contig) ;
 static void fMapTraceRemoveContig (LOOK look, KEY contig) ;
@@ -102,7 +98,7 @@ static int x1Order (const void *a, const void *b)
 }
 
 /***************************************************************************************/
-
+#ifdef JUNK
 static void fMapUnSelectTrace (void)
 { 
   FMAPLOOKGET("unselectTrace") ;
@@ -149,7 +145,7 @@ static void fMapSelectTrace (void)
   
   mapDrawColumns (look->map) ;
 }
-
+#endif
 /***************************************************************************************/
 
 static void arrow (float x, float y1, float y2, float tp)
@@ -403,7 +399,7 @@ void fMapShowVirtualMultiplets (LOOK look, float *offset)
 	      (y2 > tp && y2 < mapGraphHeight-1))
 	    { foundArrow = TRUE ; break ;}
 	}
-/*       if (!foundArrow) continue ; show red line even if full across screen   */
+      if (!foundArrow) {} ; /* continue ; show red line even if full across screen   */
       ymin = ymin > tp ? ymin : tp ;
       ymax = ymax < mapGraphHeight ? ymax : mapGraphHeight ;
 
@@ -593,7 +589,6 @@ static void fMapDoShowVirtual (LOOK look, float *offset, int type)
   int   i, ibox, dummy ;
   SEG   *seg = 0 ;
   int  virtualParent = 0 ;
-  BOOL isComplement ;
   KEYSET selectedTraces = 0 ;
   Array 
     indices = arrayCreate (32, int) , 
@@ -650,7 +645,7 @@ static void fMapDoShowVirtual (LOOK look, float *offset, int type)
       !arrayMax(indicesR) )
     goto abort ;
     
-  isComplement = look->flag & FLAG_COMPLEMENT ? TRUE : FALSE ;
+  /*   look->flag & FLAG_COMPLEMENT ? TRUE : FALSE ; */
 
   x1Look = look ;
   arraySort (indices, x1Order) ;
@@ -746,7 +741,7 @@ static void showAssemblyErrors (LOOK look, float x, SEG *seg, BOOL reverse)
   Array dna = look->dna, dnaR ;
 
   if (!look->dnaR)
-    { look->dnaR = arrayCopy (look->dna) ;
+    { look->dnaR = dnaCopy (look->dna) ;
       reverseComplement (look->dnaR) ;
     }
   dnaR = look->dnaR ;
@@ -855,7 +850,7 @@ static void showAssemblyErrors (LOOK look, float x, SEG *seg, BOOL reverse)
 
 static Array findAssemblyErrors (KEY link, KEY contig, KEY key, Array dnaD, Array dnaR, int a1, int a2, 
 				 BOOL upSequence)
-{ Array a = 0, mydna = 0, dna ;
+{ Array a = 0, mydna = 0 ;
   OBJ obj ;
   int x1, x2, x3, b1, b2, b3, u ;
   KEY mydnakey = 0 ;
@@ -884,9 +879,9 @@ static Array findAssemblyErrors (KEY link, KEY contig, KEY key, Array dnaD, Arra
 		  if (x1 < x2 && a1 < a2)
 		    { 
 		      if (upSequence) 
-			{ b1 = a2 ; b2 = a1 ; dna = dnaR ; }
+			{ b1 = a2 ; b2 = a1 ; }
 		      else 
-			{ b1 = a1 ; b2 = a2 ; dna = dnaD ; }
+			{ b1 = a1 ; b2 = a2 ; }
 		      b3 = b2 ; x3 = x2 ; x1-- ;
 		      a = baseCallCptErreur (dnaD, dnaR, mydna, upSequence, 
 					     b1, b2, b3,
@@ -1202,8 +1197,8 @@ static void fMapComputeColor (LOOK look, int a1, int a2)
 	    { switch (ep->type)
 		{
 		case ERREUR:
-		case INSERTION: case INSERTION_DOUBLE:
-		case TROU: case TROU_DOUBLE:
+		case INSERTION: case INSERTION_DOUBLE: case INSERTION_TRIPLE:
+		case TROU: case TROU_DOUBLE: case TROU_TRIPLE:
 		  if (reverse)
 		    (qual->bup)++ ;
 		  else
@@ -1214,6 +1209,8 @@ static void fMapComputeColor (LOOK look, int a1, int a2)
 		    (qual->nup)++ ;
 		  else
 		    (qual->ndo)++ ;
+		  break ;
+		case TYPE80:
 		  break ;
 		}
 	      ep++ ;
@@ -1470,7 +1467,7 @@ BOOL fMapFollowVirtualMultiTrace (int box)
   SEG *seg, *s ;
   KEY kk, from ;
   KEYSET aa = 0 ;
-  int i, j, n, n1 ; 
+  int i, j, n ; 
   SEQINFO *sinf ;
   FMAPLOOKGET("showVirtualTrace") ;
   
@@ -1519,14 +1516,15 @@ BOOL fMapFollowVirtualMultiTrace (int box)
 	    s->data.i &&
 	    (sinf = arrayp (look->seqInfo, s->data.i, SEQINFO)) &&
 	    sinf->flags & SEQ_VIRTUAL_ERRORS)
-	  { n1 = from ; /* must cast to int before compare */
-	  n = from - s->x1 ;
-	  if (look->origin != s->x1)
-	    { look->origin = s->x1 ;
-	    fMapDraw (look, 0) ;
-	    }	    
-	  display (kk, n, DtMultiTrace) ;
-	  goto done ;
+	  { 
+	    /* n1 = from ;  must cast to int before compare */
+	    n = from - s->x1 ;
+	    if (look->origin != s->x1)
+	      { look->origin = s->x1 ;
+		fMapDraw (look, 0) ;
+	      }	    
+	    display (kk, n, DtMultiTrace) ;
+	    goto done ;
 	  }
       }
   display (seg->key, look->seqKey,0) ;
@@ -1671,7 +1669,7 @@ static void showVirtualDna(LOOK look, float x,
 			       SEG *seg, Array dna, BOOL upSequence)
 { KEY key = seg->key ; int x1 = seg->x1 , x2 = seg->x2 ;
   char* complement = look->flag & FLAG_COMPLEMENT  ? (char*)0 : ((char*)0) + (1<< 23) ;
-  int i, color, nn , dx ;
+  int i, nn , dx ;
   char *vp = complement + (int)key ;
   void *wp ;
   A_ERR *ep ;
@@ -1692,7 +1690,7 @@ static void showVirtualDna(LOOK look, float x,
     return ;
 	
   if (!look->dnaR)
-    { look->dnaR = arrayCopy (look->dna) ;
+    { look->dnaR = dnaCopy (look->dna) ;
       reverseComplement (look->dnaR) ;
     }
   dnaR = look->dnaR ;
@@ -1766,44 +1764,51 @@ static void showVirtualDna(LOOK look, float x,
       switch(ep->type)
 	{
 	case ERREUR: 
-	  color = RED ; 
+	  /* color = RED ;  */
 	  c = ace_lower(c) ;
 	  ddx = 0 ;
 	  break ;
 	case TROU:
-	  color = BLUE ; 
+	  /* color = BLUE ;  */
 	  c = '*' ;
 	  ddx = 0 ;
 	  break ;
 	case TROU_DOUBLE:
-	  color = BLUE ; 
+	case TROU_TRIPLE:
+	  /* color = BLUE ;  */
 	  c = '#' ;
 	  ddx = 0 ;
 	  break ;
 	case INSERTION: /*_AVANT: */
-	  color = BLUE ;
+	  /* color = BLUE ; */
 	  c = ace_upper(c) ;
 	  ddx = -.5 ;
 	  break ;
-/*	case INSERTION_APRES:
-	  color = BLUE ;
+/*
+	case INSERTION_APRES:
+	// color = BLUE ; 
 	  c = ace_upper(c) ;
 	  ddx = .5 ;
-	  break ;  */
+	  break ;  
+*/
 	case INSERTION_DOUBLE: /* _AVANT: */
-	  color = BLUE ;
+	case INSERTION_TRIPLE: 
+	  /* color = BLUE ; */
 	  c = 'X' ;
 	  ddx = -.5 ;
 	  break ;
 /*	case INSERTION_DOUBLE_APRES:
-	  color = BLUE ;
+	case INSERTION_TRIPLE_APRES:
+	// color = BLUE ; 
 	  c = 'X' ;
 	  ddx = .5 ;
 	  break ;  */
 	case AMBIGUE: 
-	  color = GREEN ; 
+	  /* color = GREEN ;  */
 	  c = ace_lower(c) ;
 	  ddx = 0 ;
+	  break ;
+	case TYPE80:
 	  break ;
 	}
       if (backwards)
@@ -2149,20 +2154,12 @@ static void contigUnclipFair (int box)
 { contigFixExtend (box, 'F') ;
 }
 
-static void contigUnclipAll (int box)
-{ contigFixExtend (box, 'A') ;
-}
-
 static void contigReAssemble (int box)
 { contigFixExtend (box, 'r') ;
 }
 
 static void contigRemove (int box)
 { contigFixExtend (box, 'R') ;
-}
-
-static void contigPurify (int box)
-{ contigFixExtend (box, 'p') ;
 }
 
 static void contigCleanUp (int box)
@@ -2385,7 +2382,7 @@ static void contigForce (int box)
 }
 
 /*****************************************/
-
+#ifdef JUNK
 static void contigDoMakeDotter (KEY key2)
 { KEY key1 = movedContig1 ;
   Array dna1, dna2 ;
@@ -2429,7 +2426,7 @@ static void contigMakeDotter (int box)
 		"Pick a second contig") ;
 
 }
-
+#endif
 static void contigDoMakeCompare (LOOK look, KEY key1, KEY key2)
 { Array dna1 = 0, dna2 = 0 ;
   KEY dnaKey1 = 0, dnaKey2 = 0 ;
@@ -2710,6 +2707,7 @@ static void fMapTraceToggleTrack (void)
   fMapDraw (look, 0) ;
 }
 
+#ifdef JUNK
 static void fMapToggleKb (void)
 {
   FMAPLOOKGET("toggleKb") ;
@@ -2719,6 +2717,7 @@ static void fMapToggleKb (void)
   traceGraphDestroy () ;
   fMapDraw (look, 0) ;
 }
+#endif
 
 static void fMapTraceAddWall (void)
 {
@@ -3288,6 +3287,7 @@ static BOOL fMapTraceShouldRename(KEY key, char *buf)
      strncpy (buf, name(key), 127) ;
   return yes ;
 }
+#ifdef JUNK
 
 static void fMapTraceExplodeAll (void)
 {  FMAPLOOKGET("fMapTraceExplodeAll") ;
@@ -3303,6 +3303,7 @@ static void fMapTraceRemoveTag (KEY key, KEY tag)
       bsSave (obj) ;
     }
 }
+#endif
 
 static void fMapTraceReInsertLoners (void)
 { FMAPLOOKGET("fMapTraceReInsertLoners") ;
@@ -3562,17 +3563,6 @@ static void fMaptraceClipOnHand (void)
   fMapTraceGlobalCommand ("Clip_on H\n", FALSE) ;
 }
 
-static void fMapTraceTrainNeuralNet (void)
-{ Graph old = graphActive () ;
-  messStatus ("Training") ;
-
-  graphMessage ("This takes a few seconds per read, Type F4 to interupt") ;
-
-  fMapTraceGlobalCommand ("TrainNN", FALSE) ;
-  if (graphActivate (old))
-    graphUnMessage () ;
-}
-
 static void fMapTraceCleanUpAssembly (void)
 { 
   FMAPLOOKGET("fMapTraceCleanUpAssembly") ;
@@ -3597,19 +3587,6 @@ static void fMapTraceCopyAssembly (void)
     display (key, 0, 0) ;
 }
 
-static void fMapTraceCleanUp (void)
-{  
-  FMAPLOOKGET("fMapTraceGlobalAction") ;
-
-  messStatus ("Clean up") ;
-  traceGraphDestroy () ;
-
-  fMapTraceCleanAssembly (look->seqKey, 0) ;
-  look->pleaseRecompute = TRUE ;
-  fMapDraw (look, 0) ;
-  sessionDoSave (TRUE) ; /* save */
-}
-
 static void fMapTraceOrderContigsBySize (void)
 { char buf[256] ;
 
@@ -3628,6 +3605,33 @@ static void fMapTraceMeasles (void)
 { FMAPLOOKGET("fMapTraceMeasles") ;
      /* open the assembly window */
   defCptOpen (look->seqKey) ;
+}
+
+#ifdef JUNK
+
+static void fMapTraceTrainNeuralNet (void)
+{ Graph old = graphActive () ;
+  messStatus ("Training") ;
+
+  graphMessage ("This takes a few seconds per read, Type F4 to interupt") ;
+
+  fMapTraceGlobalCommand ("TrainNN", FALSE) ;
+  if (graphActivate (old))
+    graphUnMessage () ;
+}
+
+
+static void fMapTraceCleanUp (void)
+{  
+  FMAPLOOKGET("fMapTraceGlobalAction") ;
+
+  messStatus ("Clean up") ;
+  traceGraphDestroy () ;
+
+  fMapTraceCleanAssembly (look->seqKey, 0) ;
+  look->pleaseRecompute = TRUE ;
+  fMapDraw (look, 0) ;
+  sessionDoSave (TRUE) ; /* save */
 }
 
 static void fMapTraceCompareClip (void)
@@ -3662,6 +3666,7 @@ static void fMapTraceDoAssemblyDotter (KEY key1, KEY key2)
   arrayDestroy (dna1) ;
   arrayDestroy (dna2) ;
 }
+#endif
 
 static void fMapTraceDoAssemblyCompare (KEY key)
 { LOOK look = movedLook ;

@@ -18,7 +18,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: sprddef.c,v 1.20 2016/11/27 00:23:20 mieg Exp $ */
+/* $Id: sprddef.c,v 1.30 2020/05/30 16:50:32 mieg Exp $ */
 
 #include "acedb.h"
 #include "ac.h"
@@ -47,60 +47,63 @@ static FREEOPT showOpts[] = {
 
 /************************************************************/
 
-void spreadDoExportBql (SPREAD spread)
+void spreadDoExportBql (SPREAD spread, const char *obql, BOOL doRun)
 { 
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (0, 0, 0, h) ;
+  vTXT txt = vtxtHandleCreate (h) ;
   int j, kk = 0 , maxCol= arrayMax (spread->colonnes) ;
   COL *c ;
- 
-  aceOutf (ao, "select") ;
+  ACEOUT aobql = aceOutCreate (obql, ".bql", FALSE, h) ;
+
+  vtxtPrintf (txt, "select") ;
   for (j = 0 ; j < maxCol; j++)
     { 
       c = arrp(spread->colonnes,j, COL) ;
       if (!c->type)
 	continue ;
       if (! c->hidden)
-	aceOutf (ao, "%s X%d", kk++ ? "," : "", j+1) ;
+	vtxtPrintf (txt, "%s _%d", kk++ ? "," : "", j+1) ;
     }
-  aceOutf (ao, " from") ;
+  vtxtPrintf (txt, " from") ;
   for (kk = j = 0 ; j < maxCol; j++)
     { 
       c = arrp(spread->colonnes,j, COL) ;
       if (!c->type)
 	continue ;
       
-      aceOutf (ao, "%sX%d"
+      vtxtPrintf (txt, "%s_%d"
 	       , kk++ ? ", " : " "
 	       , j+1
 	       ) ;
       if (j == 0)
 	{
 	  if (c->type == 'k' && c->classp)
-	    aceOutf (ao, " in class \"%s\"",c->classp) ;
+	    vtxtPrintf (txt, " in class \"%s\"",c->classp) ;
+	  else if (c->type == 'k' && c->classe)
+	    vtxtPrintf (txt, " in class \"%s\"", name(c->classe)) ;
 	}
       else if (c->showType == SHOW_COPY)
 	{
-	  aceOutf (ao, " = X%d", c->from) ;
+	  vtxtPrintf (txt, " = _%d", c->from) ;
 	}
       else if (c->showType == SHOW_COMPUTE)
 	{
 	  char *cr, *cq = hprintf(h, "%s", c->tagp ? c->tagp : "") ;
 	  for (cr = cq ; *cr ; cr++)
 	    if (*cr == '%' && (cr == cq || *(cr-1) == ' ') && cr[1] >= '0' && cr[1] <= '9')
-	      *cr = 'X' ;
-	  aceOutf (ao, " = %s", cq) ;
+	      *cr = '_' ;
+	  vtxtPrintf (txt, " = %s", cq) ;
 	}
       else if (c->tagp && *c->tagp && (! strcmp (c->tagp, "HERE ") ||  ! strcmp (c->tagp, "HERE # ")))
 	{
 	  if (c->typep && ! strcmp (c->typep, "Next_Tag"))
-	    aceOutf (ao, " in X%d[2]", c->from) ;
-	  else if (c->typep)
-	    aceOutf (ao, " in X%d[1]", c->from) ;
+	    vtxtPrintf (txt, " in _%d[2]", c->from) ;
+	  else if (c->type || c->typep)
+	    vtxtPrintf (txt, " in _%d[1]", c->from) ;
 	}
       else if (c->tagp && *c->tagp && c->typep && ! strcmp (c->typep, "Show_Tag"))
 	{
-	  aceOutf (ao, " in X%d->%s[0]", c->from, c->tagp) ;
+	  vtxtPrintf (txt, " in _%d->%s[0]", c->from, c->tagp) ;
 	}
       else if (c->tagp && *c->tagp)
 	{
@@ -116,37 +119,59 @@ void spreadDoExportBql (SPREAD spread)
 	      cq = hprintf(h, "%s[%d]", cq, k) ;
 	    }
 	  if (! strncmp (cq, "HERE",4))
-	    aceOutf (ao, " in X%d[1]", c->from) ;
+	    vtxtPrintf (txt, " in _%d[1]", c->from) ;
+	  else if (! strncmp (cq, "NEXT",4))
+	    vtxtPrintf (txt, " in _%d[2]", c->from) ;
 	  else
-	    aceOutf (ao, " in X%d->%s", c->from, cq) ;
+	    vtxtPrintf (txt, " in _%d->%s", c->from, cq) ;
 	  if (c->typep && k == 0 &&  ! strcmp (c->typep, "Next_Tag"))
-	    aceOutf (ao, "[1]") ;	 
+	    vtxtPrintf (txt, "[1]") ;	 
+	}
+      else if (c->showType == SHOW_DNA)
+	{
+	  if (c->dna1 || c->dna2)
+	    vtxtPrintf (txt, " in DNA (_%d, %s, %s)", c->from, c->dna1Buffer, c->dna2Buffer) ;
+	  else
+	    vtxtPrintf (txt, " in DNA (_%d)", c->from) ;
+	}
+       else if (c->showType == SHOW_PEP)
+	{
+	  if (c->dna1 || c->dna2)
+	    vtxtPrintf (txt, " in PEPTIDE (_%d, %s, %s)", c->from, c->dna1Buffer, c->dna2Buffer) ;
+	  else
+	    vtxtPrintf (txt, " in PEPTIDE (_%d)", c->from) ;
 	}
       else
 	{
-	  aceOutf (ao, " BQL definition NOT IMPLEMENTED for This table type") ;
+	  vtxtPrintf (txt, " BQL definition NOT IMPLEMENTED for This table type") ;
 	}
 
       if (c->mandatory != 1 ||
-	  (c->conditionBuffer && *c->conditionBuffer)
+	  (*c->conditionBuffer)
 	  )
 	{
-	  aceOutf (ao, " where ") ;
+	  vtxtPrintf (txt, " where ") ;
 	  if (c->mandatory == 2)
-	    aceOutf (ao, "X%d  ", j+1) ;
+	    vtxtPrintf (txt, "_%d  ", j+1) ;
 	  if (c->mandatory == 0)
-	    aceOutf (ao, " NOT X%d ", j+1) ;
+	    vtxtPrintf (txt, " NOT _%d ", j+1) ;
 	  if (c->mandatory != 1 &&
-	      (c->conditionBuffer && *c->conditionBuffer)
+	      (*c->conditionBuffer)
 	      )
-	    aceOutf (ao, " AND ( ") ;
-	  if  (c->conditionBuffer && *c->conditionBuffer)
+	    vtxtPrintf (txt, " AND ( ") ;
+	  if  (*c->conditionBuffer)
 	    {
-	      char *cr, *cq = hprintf(h, c->conditionBuffer) ;
+	      BOOL ok = TRUE ;
+	      char *cr, *cq = strnew (c->conditionBuffer, h) ;
 	      for (cr = cq ; *cr ; cr++)
-		if (*cr == '%' && (cr == cq || *(cr-1) == ' ' || *(cr - 1) == '\"') && cr[1] >= '0' && cr[1] <= '9')
+		{
+		  if (*cr == '[') *cr = '(' ;
+		  if (*cr == ']') *cr = ')' ;
+		}
+	      for (cr = cq ; *cr ; cr++)
+		if (*cr == '%' && cr[1] >= '0' && cr[1] <= '9')
 		  {
-		    *cr = 'X' ;
+		    *cr = '_' ;
 		    if ( *(cr - 1) == '\"')  /* case "%3" == "a" */
 		      {
 			*(cr - 1) = ' ' ;
@@ -154,24 +179,92 @@ void spreadDoExportBql (SPREAD spread)
 			if (cr) *cr = ' ' ;
 		      }
 		  }
-	      if (*cq)
+	      while (ok)
 		{
-		  KEY tag = 0 ;
-		  if (lexword2key (cq, &tag, 0) && tag)
-		    aceOutf (ao, "  X%d#%s", j+1, name (tag)) ;
-		  else
-		    aceOutf (ao, " %s", cq) ;
+		  ok = FALSE ;
+		  cr = strstr (cq, "IS ") ;
+		  if (cr && (cr == cq || *(cr-1) == ' ' || *(cr-1) == '!'))
+		    {
+		      ok = TRUE ;
+		      *cr = 0 ;
+		      cq = hprintf (h, "%s _%d like %s", cq, j+1, cr + 2) ;
+		    }
+		}
+	      if (1)
+		{
+		  ok = FALSE ;
+		  if (*cq)
+		    {
+		      ACEIN ait = aceInCreateFromText (cq, 0, h) ;
+		      char *w, cutter ;
+		      aceInSpecial (ait, "") ;
+		      while (aceInCard (ait))
+			{
+			  while (1)
+			    {
+			      KEY tag = 0 ;
+			      w = aceInWordCut (ait, " +-()[]{}/*!&|=~^.,;:", &cutter) ; /* je n'ai pas mis le "" expres pour qu'il reste groupe avec les mots u'il protege */
+			      if  (!w && ! cutter)
+				break ;
+			      if (w)
+				{
+				  if (lexword2key (w, &tag, 0) && tag && strcasecmp (w, "count"))
+				    {
+				      vtxtPrintf (txt, "  _%d->%s", j+1, name (tag)) ;
+				    }
+				  else
+				    {
+				      if (0 && ! ok && *w != '_')
+					vtxtPrintf (txt, "  _%d like ", j+1) ;
+				      vtxtPrintf (txt, "%s", w) ;
+				    }
+				}
+			      ok = TRUE ;
+			      if (cutter) vtxtPrintf (txt, "%c", cutter) ;
+			    }
+			}
+		    }
 		}
 	    }
 	  if (c->mandatory != 1 &&
-	      (c->conditionBuffer && *c->conditionBuffer)
+	      (*c->conditionBuffer)
 	      )
-	    aceOutf (ao, " )") ;
+	    vtxtPrintf (txt, " )") ;
 	}
     }
       
      
-  aceOutf (ao, "\n\n") ;
+  aceOutf (aobql, "%s\n", vtxtPtr (txt)) ;
+  fprintf (stderr, "%s\n//%s\n", vtxtPtr (txt), timeShowNow()) ;
+
+  if (doRun)
+    {
+      const char *errors = 0 ;
+      AC_DB db = ac_open_db ("local", &errors) ;
+      AC_TABLE tt = ac_bql_table (db, vtxtPtr (txt) + 7, 0, 0, &errors, h) ;
+      if (! tt)
+	fprintf (stderr, "%s", errors) ;
+      else
+	{
+	  vTXT txt = vtxtHandleCreate (h) ;
+	  ACEOUT ao = aceOutCreate (obql, 0, FALSE, h) ;
+	  fprintf (stderr, "// Found %d lines\n", tt->rows) ;
+	  ac_table_display (txt, tt
+			    , 0
+			    , 0
+			    , 0
+			    , 0, 0, 0
+			    , 'a'
+			    ) ;
+	  if (vtxtPtr (txt))
+	    {
+	      if (ao)
+		aceOut (ao, vtxtPtr (txt)) ;
+	    }
+	}
+    }
+ fprintf (stderr, "//%s\n", timeShowNow()) ;
+
   ac_free (h) ;
 } /*  spreadDoExportBql */
 
@@ -246,7 +339,7 @@ void spreadDoExportDefinitions (SPREAD spread)
 	    }
 	  freeOut ("\n") ;
 	}
-      if (c->conditionBuffer && *c->conditionBuffer)
+      if (*c->conditionBuffer)
 	{ 
 	  freeOutf("Condition ") ;
 	  cp = c->conditionBuffer ; cp-- ;
@@ -293,7 +386,7 @@ void spreadDoSaveDefinitions (SPREAD spread, FILE *f)
 
   if (*spread->titleBuffer)
     freeOutf("Title %s\n\n", spread->titleBuffer) ;
-  if (spread->paramBuffer && *spread->paramBuffer)
+  if (*spread->paramBuffer)
     freeOutf("Parameters %s\n\n", spread->paramBuffer) ;
   if (spread->sortColonne)
     freeOutf("Sortcolumn %d\n\n", spread->sortColonne) ;
@@ -395,7 +488,7 @@ BOOL spreadDoSaveInObj (SPREAD spread, KEY tableKey)
       bsAddData (Table, _Comment, _Text, cp) ;
     }
   
-  if (spread->titleBuffer && *spread->titleBuffer)
+  if (*spread->titleBuffer)
     bsAddData (Table, _Title, _Text, spread->titleBuffer) ;
 
   lexaddkey ("Precompute", &tag, 0) ;
@@ -407,7 +500,7 @@ BOOL spreadDoSaveInObj (SPREAD spread, KEY tableKey)
     bsAddData (Table, tag, _Int, &spread->sortColonne) ;
       
   lexaddkey ("Parameters", &tag, 0) ;
-  if (spread->paramBuffer && *spread->paramBuffer)
+  if (*spread->paramBuffer)
     bsAddData (Table, tag, _Text, spread->paramBuffer) ;
       
   maxCol = arrayMax(spread->colonnes) ;
@@ -421,9 +514,9 @@ BOOL spreadDoSaveInObj (SPREAD spread, KEY tableKey)
       bsAddData (Table, tag, _Int, &ii) ;
       bsPushObj(Table) ;
       
-      if (c->subtitleBuffer && *c->subtitleBuffer)
+      if (*c->subtitleBuffer)
 	bsAddData (Table, str2tag("Subtitle"), _Text, c->subtitleBuffer) ;
-      if (c->legendBuffer && *c->legendBuffer)
+      if (*c->legendBuffer)
 	bsAddData (Table, str2tag("Legend"), _Text, c->legendBuffer) ;
 
       switch (c->extend)
@@ -484,7 +577,7 @@ BOOL spreadDoSaveInObj (SPREAD spread, KEY tableKey)
 	  break ;
 	}
 
-      if (c->conditionBuffer && *c->conditionBuffer)
+      if (*c->conditionBuffer)
 	{ 
 	  lexaddkey ("Condition", &tag, 0) ;
 	  if (0)
@@ -970,7 +1063,7 @@ BOOL spreadDoReadDefinitions (SPREAD spread, KEY tableKey,
 	      {
 		strncpy (c->dna1Buffer, freeunprotect(cp), 255) ;
 		if ((cp = freeword ()))
-		  strncpy (c->conditionBuffer, freeunprotect(cp), 255) ;
+		  strncpy (c->dna2Buffer, freeunprotect(cp), 255) ;
 	      }	    
 	    break ;
 	  case 'C':

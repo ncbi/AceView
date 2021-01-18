@@ -25,11 +25,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: vmapdisp.c,v 1.4 2008/04/07 22:18:19 mieg Exp $ */
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
+/* $Id: vmapdisp.c,v 1.5 2020/05/30 16:50:34 mieg Exp $ */
 
 #include "acedb.h"
 #include "bump.h"

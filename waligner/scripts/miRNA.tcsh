@@ -3,27 +3,25 @@
 set phase=$1
 set run=$2
 set v1=$3
-
+set v2=$4
 
 if ($phase == clip) then
-
- if (! -e tmp/ClippedFastc/$run/f.tc) then
-   # clip
-   gunzip -c Fastc/$run/*.fastc.gz | dna2dna -I fastc -O fastc -rightClipOn $v1 -o  tmp/ClippedFastc/$run/f
-   # count the clipped reads, often they merge better than the raw reads
-   dna2dna -i tmp/ClippedFastc/$run/f.fastc -I fastc -O tc -o tmp/ClippedFastc/$run/f 
+echo "$run $v1 $v2"
+ if (! -e tmp/ClippedFastc/$run/f.filtered.10) then
+   # clip and count the clipped reads, often they merge better than the raw reads
+   # filter at minimal coverage 10 and length range [18, 35]
+   gunzip -c Fastc/$run/*.fastc.gz | gawk '/^>/{n=split($1,aa,"#");mult=aa[2]+0;if(mult==0)mult=1;next}{n=split($1,aa,"><");for(i=1;i<=1;i++)printf("%s\t%d\n",aa[i],mult);}' | dna2dna -I tc -O tc -rightClipOn $v1 |  gawk '{k=length($1);if(k>=18 && k <=35)print;}' |  dna2dna -I tc -O tc  | gawk -F '\t' '{if($2 >=10) print}' > tmp/ClippedFastc/$run/f.filtered.10 
+   if ($v2 != X") then
+     gunzip -c Fastc/$run/*.fastc.gz | gawk '/^>/{n=split($1,aa,"#");mult=aa[2]+0;if(mult==0)mult=1;next}{n=split($1,aa,"><");for(i=2;i<=n;i++)printf("%s\t%d\n",aa[i],mult);}' | dna2dna -I tc -O tc -rightClipOn $v2 |  gawk '{k=length($1);if(k>=18 && k <=35)print;}' |  dna2dna -I tc -O tc  | gawk -F '\t' '{if($2 >=10) print}' >> tmp/ClippedFastc/$run/f.filtered.10 
+   endif
+   touch tmp/ClippedFastc/$run/f.filtered.10
  endif
 
- if (! -e tmp/ClippedFastc/$run/f.count) then
-   dna2dna -i tmp/ClippedFastc/$run/f.tc -I tc -count -o tmp/ClippedFastc/$run/f
- endif
-
- if (! -e  tmp/ClippedFastc/$run/f.filtered.10) then
+ if (-e  tmp/ClippedFastc/$run/f.filtered.10) then
    # filter at minimal coverage and length range [18, 35]
-   cat  tmp/ClippedFastc/$run/f.tc | gawk -F '\t' '{if ($2 < minCount) next; k=length($1);if(k>=18 && k <= 35 ) printf ("%s\t%d\n", $1, $2);}' run=$run minCount=10 | bin/dna2dna -I tc -O tc -minEntropy 12 > tmp/ClippedFastc/$run/f.filtered.10
    cat tmp/ClippedFastc/$run/f.filtered.10  | gawk -F '\t' '{if ($2 >= 100)print}' >  tmp/ClippedFastc/$run/f.filtered.100
    cat tmp/ClippedFastc/$run/f.filtered.100  | gawk -F '\t' '{if ($2 >= 1000)print}' >  tmp/ClippedFastc/$run/f.filtered.1000
-  endif
+ endif
  if (! -e  tmp/ClippedFastc/$run/f.filtered.10.fastc) then
     cat tmp/ClippedFastc/$run/f.filtered.10 | dna2dna -I tc -O fastc -o tmp/ClippedFastc/$run/f.filtered.10 
  endif

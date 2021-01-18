@@ -30,7 +30,7 @@
 # Usage:
 #   makeFastc run format files out_dir
 # Recommended parameters
-#   The files, for eacample "DATA/file1;DATA/file2;" are ";" separated
+#   The files, for example "DATA/file1;DATA/file2;" are ";" separated
 #   The known input formats are fasta, csfasta, fastq, csfastq, tc, fastc, raw and raw:column_number.
 #   For paired end use   fastq/1  fastq/2
 #   The recommended blocking is 250 (250 MegeBases per file i.e. 5 millions 50-mers)
@@ -81,6 +81,8 @@ if (! $?splitMb) set splitMb=250
 echo "makeFastc $*"
 date
 
+set keepName=""
+if ($MAGIC == PacBio) set keepName="-keepName"
 phase1:
 
 if ($4 == "") then
@@ -92,6 +94,10 @@ set run=$1
 set format=$2
 set files=$3
 set outDir=$4"/"$run 
+set UMI=0
+if ($?5) set UMI=`echo $5 | gawk '{if(substr($1,1,3)=="UMI")n=substr($1,4);print n+0;}'`
+echo "UMI=$UMI"
+
 set filesQ=`echo $files| sed -e 's/_____/     /g'`
 set prefix="f2"
 set nFiles=`echo $files | gawk '{n=split($1,aa,"_____");if(aa[n]=="")n-=1;print n}'`
@@ -132,7 +138,7 @@ if (! -e $tmp/c1.raw.done) then
       # check if we uncompress correctly
       set isgz=`echo $file | gawk '/\.gz$/{n=1}END{print n+0}'`
       if ($isgz == 1) then
-        echo "unzip  $file"
+        echo "gunzip  -c $file >  $tmp/cumul/f$nn "
         ( gunzip -c $file > $tmp/cumul/f$nn) >& $outDir/zcat.err
       else
         cat $file  > $tmp/cumul/f$nn
@@ -141,10 +147,12 @@ if (! -e $tmp/c1.raw.done) then
       cat $tmp/cumul/f$nn | head -1 >>  $outDir/first_line.txt
 
       if ($isSolid == 1 && -e $tmp/cumul/f$nn) then # change cfa to ccfa then treat as fasta so we actually stay in color space
-        mv $tmp/cumul/f$nn $tmp/cumul/fcs
+        echo "mv $tmp/cumul/f$nn $tmp/cumul/fcs"
+              mv $tmp/cumul/f$nn $tmp/cumul/fcs
         echo "bin/dna2dna -I csfasta -O ccfa -i $tmp/cumul/fcs -o $tmp/cumul/ff -count"
               bin/dna2dna -I csfasta -O ccfa -i $tmp/cumul/fcs -o $tmp/cumul/ff -count >>& $outDir/csfasta.err
-        mv  $tmp/cumul/ff.ccfa $tmp/cumul/f$nn
+        echo "mv  $tmp/cumul/ff.ccfa $tmp/cumul/f$nn"
+              mv  $tmp/cumul/ff.ccfa $tmp/cumul/f$nn
       endif
     endif
   end
@@ -156,29 +164,31 @@ if (! -e $tmp/c1.raw.done) then
   if ($nFiles == 1) then
     set nf1 = `cat $tmp/cumul/f1 | wc | gawk '{print $1;}'`
     # mv $tmp/cumul/f1 $tmp/cumul/ff.fasta
-    bin/dna2dna -I $format -O fasta -i $tmp/cumul/f1 -o $tmp/cumul/ff
+    bin/dna2dna -I $format -O fasta $keepName -i $tmp/cumul/f1 -o $tmp/cumul/ff 
   else  # if ($nFiles == 2) then
     echo "merge paired end $files into >< format"
     set nf1 = `cat $tmp/cumul/f1 | wc | gawk '{print $1;}'`
     set nf2 = `cat $tmp/cumul/f2 | wc | gawk '{print $1;}'`
 
     if ($nf1 > 0 && $nf2 > 0 && $nf1 != $nf2) then
-      echo "FATAL ERROR in makeFastc Number of f1 files not equal to number of f2 files : $nf1 :: $nf2   in $files"
+      echo "FATAL ERROR in makeFastc Number of reads in f1 files not equal to number in f2 files : $nf1 :: $nf2   in $files"
       exit 1
     endif
-    echo "bin/dna2dna  -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff"
-    bin/dna2dna  -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff
+    echo "bin/dna2dna  $keepName -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff"
+          bin/dna2dna  $keepName -I $format -i1 $tmp/cumul/f1 -i2 $tmp/cumul/f2  -count -O fasta -o $tmp/cumul/ff
   endif
 
   echo "found nf1=$nf1  nf2=$nf2 reads "
   echo "split by prefix of length  $prefixLength"
   if (! -d  $tmp/raw) mkdir $tmp/raw
-  bin/dna2dna -I fasta -O raw -count -i  $tmp/cumul/ff.fasta -o $tmp/raw/ff -splitByPrefix $prefixLength  >& $outDir/raw.err
-  mv $tmp/raw/ff.count $outDir/original.count
+  echo "bin/dna2dna -I fasta -O raw $keepName -count -i  $tmp/cumul/ff.fasta -o $tmp/raw/ff -splitByPrefix $prefixLength"
+        bin/dna2dna -I fasta -O raw $keepName -count -i  $tmp/cumul/ff.fasta -o $tmp/raw/ff -splitByPrefix $prefixLength  >& $outDir/raw.err
+  echo "mv $tmp/raw/ff.count $outDir/original.count"
+        mv $tmp/raw/ff.count $outDir/original.count
 
   if ($nf1 < 10000000) set prefixLength=3
 
-  \rm -rf tmp/cumul/*
+ \rm -rf $tmp/cumul/*
   touch $tmp/c1.raw.done
 
 endif
@@ -199,15 +209,15 @@ if (! -e $tmp/c2.tc.done) then
 
           if ($prefixLength == 3) then
             if (!  -e  $tmp/tc/$a$t$g.tc) then
-              echo "cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g"
-                    cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g
+              echo "cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  $keepName  -I raw -UMI $UMI -O tc -o $tmp/tc/$a$t$g"
+                    cat $tmp/raw/ff.*$a$t$g.raw | sort |  bin/dna2dna  $keepName -I raw -UMI $UMI  -O tc -o $tmp/tc/$a$t$g
             endif
           else
   
             foreach c (A T G C)
               if (! -e  $tmp/tc/$a$t$g$c.tc) then
-                echo "cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g$c"
-                      cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  -I raw -O tc -o $tmp/tc/$a$t$g$c
+                echo "cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  $keepName -I raw -UMI $UMI  -O tc -o $tmp/tc/$a$t$g$c"
+                      cat $tmp/raw/ff.*$a$t$g$c.raw | sort |  bin/dna2dna  $keepName -I raw -UMI $UMI  -O tc -o $tmp/tc/$a$t$g$c
               endif
             end
 
@@ -217,7 +227,7 @@ if (! -e $tmp/c2.tc.done) then
       end
     end
 
-  \rm tmp/raw/*
+ \rm $tmp/raw/*
   touch $tmp/c2.tc.done
 endif
 
@@ -231,20 +241,21 @@ if (! -d $tmp/fastc) mkdir $tmp/fastc
 if (! -d $tmp/fastc/$run) mkdir $tmp/fastc/$run
 if (! -e $tmp/c3.fastc.done) then 
 
-  echo "cat $tmp/tc/*.tc | bin/dna2dna -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2"
-        cat $tmp/tc/*.tc | bin/dna2dna -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2
+  echo "cat $tmp/tc/*.tc | bin/dna2dna $keepName -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2"
+        cat $tmp/tc/*.tc | bin/dna2dna $keepName -I tc -O fastc -split $splitMs -splitMb $splitMb -gzo -o $tmp/fastc/$run/f2
 
 
   if ($isSolid == 1) then
     mv  $tmp/fastc  $tmp/ccfa
     mkdir $tmp/fastc $tmp/fastc/$run
     foreach ff (`ls $tmp/ccfa/$run/f2.*.fastc.gz`)
-      bin/dna2dna -i  $ff -I ccfa -O csfasta -gzo  -o $tmp/fastc/$run/f2
-      mv  $tmp/fastc/$run/f2.csfasta.gz $tmp/fastc/$run/f2.csfastc.gz 
+      set f3=`echo $ff | sed -e 's/\.fastc\.gz//' | gawk -F'/' '{print $NF}'`
+      bin/dna2dna -i  $ff -I ccfa -O csfasta -gzo  -o $tmp/fastc/$run/$f3
+      mv  $tmp/fastc/$run/$f3.csfasta.gz $tmp/fastc/$run/$f3.csfastc.gz 
     end
   endif
 
-  \rm tmp/tc/*
+ \rm $tmp/tc/*
   touch $tmp/c3.fastc.done
 endif
 
@@ -299,7 +310,7 @@ usage:
 ###################################################################################
  
 ## more example of bam2fastc, probably oboslete, look rather at scripts/SRX_import
-
+## see also   scripts/bam2fasta.tcsh
 # -f -> required flag,   -F  -> avoid flag
 # flags are combined in binary 16=read should be reversed, 256=non primary alignment
 

@@ -29,7 +29,7 @@
  * * Oct 18 13:45 1999 (fw): aceInSelect removed
  * * Oct  6 11:38 1999 (fw): changed aceInCreate interface to include handle
  * Created: Sept 1999 (mieg)
- * CVS info:   $Id: aceio.h,v 1.19 2015/08/11 22:15:21 mieg Exp $
+ * CVS info:   $Id: aceio.h,v 1.22 2019/05/24 21:46:06 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -55,17 +55,55 @@ ACEIN aceInCreateFromStdin (BOOL isInteractive, const char *params,
 ACEIN aceInCreateFromText (const char *text, const char *params,
 			   AC_HANDLE handle);
 
-/* simple reads from stdin if inFileNme == NULL */
+/* simple reads from stdin if inFileNme == NULL 
+ * Please ac_free(h) when done
+ */
 ACEIN aceInCreate (const char *inFileName, BOOL gzi, AC_HANDLE h) ;
 
-/* reuse existing acein */
-void aceInSetNewText(ACEIN fi, const char *text, const char *params) ;
+/* expects a valid comma delimited fileList : f1,f2,... or u:f1,v:f2...
+ * returns TRUE if all files can be opened
+ * FALSE if not, and with a message in *error
+ * Please ac_free(h) when done
+ *
+ * The idea is to check a full file list before running a program
+ * to avoid processing 6 large file and crash on a typo in the 7th file name
+ */
+BOOL aceInCheckList (const char *fileList, const char **error, AC_HANDLE handle);
 
+/* Loop on a file list
+ * ACEIN ai = 0 ;
+ * int nn = 0 ;
+ * while (aceInCreateFromList (ai, &nn, "u:f1,v:f2,...", gzi, h) )
+ *  { parse ai ; }
+ * ac_free (h) ;
+ *
+ * expects a valid comma delimited fileList: f1,f2,...
+ * or a list of labelled file names:  u:f1,v:f2
+ * in which case u, v are stripped and stored in aceInLabel(ai)
+ *
+ * ai MUST BE initialised to NULL
+ * it is freed inside aceInCreateFromList
+ * or a file cannot be opened.
+ * Please ac_free(h) when done
+ * but DO NOT edit nn, DO NOT edit or free the returned ai. 
+ * returns ai
+ */
+ACEIN aceInCreateFromList (ACEIN ai, int *np, const char *fileList, BOOL gzi, AC_HANDLE handle) ;
 
 /* destructor */
 void uAceInDestroy (ACEIN fi);	/* just a stub for messfree */
 #define aceInDestroy(fi) (uAceInDestroy(fi),fi=0)
 
+/* call with 1 to set, 0 to unset, any other number to interogate
+ * if set, aceInCreate will retry to open the file for 1 minute
+ * if unset (defaut) aceInCreate will try 3 times within 4 seconds 
+ * then if the file is not found aceIn returns NULL
+ * All this is useful on disks with heavy delays
+ * so we recommand setting after initialisation
+ * and before launching a big parallele code
+ * in particular wego_init sets the waiting period to 1 minute
+ */ 
+int aceInWaitAndRetry (int retry) ;
 
 /******/
 
@@ -122,6 +160,7 @@ BOOL aceInBinary (ACEIN fi, void *buffer, int size) ;
 BOOL aceInEOF (ACEIN fi);	/* TRUE if fi->streamlevel == 0 */
 
 const char *aceInFileName (ACEIN fi) ; /* name of the file */
+const char *aceInLabel (ACEIN fi) ;    /* label of a member of a file list */
 int aceInStreamLine (ACEIN fi) ; /* current line in file/text */
 BOOL aceInStreamLength (ACEIN fi, long int *length); /* total file/text-size */
 BOOL aceInStreamPos (ACEIN fi, long int *pos); /* current file/text-pos */

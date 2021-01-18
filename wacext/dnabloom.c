@@ -32,7 +32,7 @@
  *   so that the section contain an approximately equal number of genes and do not split a gene.
  *   For each section, create a bloom filter of words of length L.
  *   Save these bitsets in binary format.
- *   To allow both strands, we store the dna is the centtal base is A or G, otherwise the complement.
+ *   To allow both strands, we store the dna if the centtal base is A or G, otherwise the complement.
  *
  * Phase 2:
  *   Stream a collection of sequences in fasta or fastc format
@@ -45,15 +45,15 @@
  * One idea is to write a parallel program for phase 2
  * Another idea is to optimize the hash function
  * If we use 13-mers and 256 sections, each section would be length 10M, 4^13 = 2^26 = 64M
- * so we could use a Bloom of size 100M or simply use the 13mer as an address (simpler)
- 
+ * but since we select the strand we economize a factore 2->32M words
+ * we can stote these a a biSet of size 4Mbytes = 32 Mbits and use the 13mer as an address
+
  * pseudo code
- 
  parse
  new class -> new section (so that mito, ercc, ... are separated)
  new sequence, add it il old length + new length < 10M, otherwise start new section
  if (sequence > 15M split at 10M and iterate
- create a bitset of size 32M and scan the section in a parallel thread, then export the bitset
+ create a bitset of size 32Mbits and scan the section in a parallel thread, then export the bitset
  
  ventilate
  grab K sequences and create sets of N counters for each sequence analyse the set in a new thread
@@ -61,6 +61,9 @@
  
  usage ...
  main ...
+
+ * in 2108, we tested the code on the NASA data looking for telomeres
+ * the -telomere code paralelizes well: on lmem12 n_threads=32, compression 2800%
 */
 
 /* #define ARRAY_CHECK  */
@@ -76,6 +79,10 @@
 #include "wego.h"
 
 #define IBMAX 10
+/* analyse the telomeres inside pices of average length SEGLENGTH */
+#define SEGLENGTH 1000   
+#define SEGLENGTH2 2000  /* 2*SEGLENGTH */
+
 typedef struct pairStruct { char *buf ; } SHORT_READ ; /* nam:forward seq:reverse seq */
 typedef struct seqStruct { 
   int nam ; /* the name of the sequence: defined in the zone dict */
@@ -91,13 +98,16 @@ typedef struct zoneStruct {
   CHAN *cin ;
 }  ZONE ;
 
+typedef struct teloExportStruct { int ib, nn, mult ; char dna[SEGLENGTH2] ; } TELOEXPORT ; 
 typedef enum { FASTA=0, FASTC, FASTQ, CSFASTA, CSFASTC, RAW, GLOBAL } DNAFORMAT ;
 
 typedef struct  pStruct {
   AC_HANDLE h ;
+  ACEOUT ao ;
   AC_HANDLE seqH ; /* then names and sequence stack of the zone are allocated on seqH, so they can be released first */
   const char *inFileName, *outFileName, *targetFileName ;
   const char *run ;
+  char *titles[IBMAX] ;
   BOOL gzi, gzo, silent, noPolyA ;
   BOOL telomere ;
   int max_threads, ibMax, block ;
@@ -106,43 +116,11 @@ typedef struct  pStruct {
   Array zones ;
   DNAFORMAT dnaFormat ;
   CHAN *genomeChan ;
+  CHAN *teloExportChan ;
+  CHAN *teloExportDoneChan ;
   int wordJumps[IBMAX] ;
 } PP ;
 
-/*************************************************************************************/
-/* analyse a sequence stack,  */
-#ifdef JUNK
-static void computeKmers (PP *pp, int kMer)
-{
-  CHAN **cK = 0, *c = 0 ;
-  SEQ bb ;
- 
- if (pp->max_threads)
-   while (channelTryGet (c, &bb, SEQ))
-     {
-       /* process data */
-       
-      /* copy data to one of 256 channels */
-       channelPut (cK[kMer], &bb, SEQ) ;
-    }
-} /* computeKmers */
-
-/*************************************************************************************/
-/* to close, we pass an empty seq on all ck channels */
-static void exportKmers (PP *pp, int kMer)
-{
-  CHAN **ck = 0 ; 
-  SEQ bb ;
-  ACEOUT ao = 0 ;
-
-  if (pp->max_threads)
-    while (channelTryGet (ck[kMer], &bb, SEQ))
-      {
-	aceOutf (ao, "done") ;
-      }
-  return ;
-} /* exportKmers */
-#endif
 /*************************************************************************************/
 /* analyse a sequence
  *   pass 0: creation : fill a Bloom BitSet, return the number words analysed
@@ -156,7 +134,6 @@ typedef struct int4Struct { int xx[IBMAX] ; } I4 ;
 #define RIGHTMASK (CENTRALMASK - 1)
 #define LEFTMASK ((RIGHTMASK << WORDLENGTH) & MASK)
 
-#define BLOOM_DIRECT 1
 static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], const char *dna, int *nks, int *polyAp, int ibMax)
 {
   I4 mynks ;
@@ -167,9 +144,6 @@ static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], cons
   register int n = 0, polyA = 0, ib ;
   register const char *cp = dna - 1 ;
   int jump[IBMAX], jumpA = 0 ;
-#ifdef BLOOM_NOT_DIRECT
-  int iBuf = 0, buf[256] ;
-#endif
 
   memset (&mynks, 0, sizeof(mynks)) ;
   memset (jump, 0, ibMax * sizeof(int)) ;
@@ -199,7 +173,6 @@ static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], cons
 	  if (jumpA-- <= 0 && g == 0) 
 	    { polyA ++ ; jumpA = WORDJUMP ;}
 	  
-#ifdef BLOOM_DIRECT
 	  for (ib = 0 ; ib < ibMax ; ib++) 
 	    {  
 	      BitSet bloom = blooms[ib] ;  
@@ -216,46 +189,7 @@ static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], cons
 		  break ;
 		}
 	    }
-#else
-	  buf[iBuf++] = g ;
-#endif
 	}
-#ifdef BLOOM_DIRECT
-#else
-      if (iBuf == 256 || x == 0x8 )
-	{
-	  if (iBuf)
-	    switch (phase)
-	      {
-	      case 0:
-		for (ib = 0 ; ib < ibMax ; ib++) 
-		  { 
-		    BitSet bloom = blooms[ib] ;
-		    int i = iBuf ;
-		    while (i--)
-		      {
-			g = buf[i] ;
-			bitSet (bloom, g) ;
-		      }
-		  }
-		break ;
-	      case 1:
-		for (ib = 0 ; ib < ibMax ; ib++) 
-		  {  
-		    BitSet bloom = blooms[ib] ;
-		    int i = iBuf ;
-		    while (i--)
-		      {
-			g = buf[i] ; 
-			if (jump[ib]-- <= 0 && bit (bloom, g)) 
-			  { mynks.xx[ib]++ ; jump[ib] = WORDJUMP ; } 
-		      }
-		  }
-		break ;
-	      }
-	  iBuf = 0 ;
-	}
-#endif
       if (x == 0x8) break ;
     }  
   
@@ -266,14 +200,33 @@ static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], cons
 
 /*************************************************************************************/
 
+static void dblExportTelomere (void *vp)
+{
+  PP *pp = (PP *)vp ;
+  AC_HANDLE h = ac_new_handle() ;
+  TELOEXPORT t ;
+  int n = 0 ;
+  ACEOUT ao = aceOutCreate (pp->outFileName, ".telomere_hits.txt", pp->gzo, h) ; 
+ 
+  aceOutDate (ao, "###", "exact and approximate telomere motifs") ;
+  aceOutf (ao, "#Run\tType\tNb motifs\tRead multiplicity\tSequence\n") ;
+  while (channelGet (pp->teloExportChan, &t, TELOEXPORT))
+    aceOutf (ao, "%s\t%s\t%d\t%d\t%s\n", pp->run, pp->titles[t.ib], t.nn, t.mult, t.dna) ;
+  channelPut (pp->teloExportDoneChan, &n, int) ;
+  ac_free (h) ;
+}
+
+/*************************************************************************************/
+
 typedef struct telomereStruct { 
   int thId ; 
-  int nSeqs, nTags ;
+  int nFullSeqs, nFullTags ;
+  int nPieceSeqs, nPieceTags ;
   int ibMax ;
   char *buf ; 
   PP *pp ;
   CHAN *chan, *done ; 
-  KEYSET kmerHistos[IBMAX], polyaHisto ; 
+  KEYSET kmerFullHistos[IBMAX], kmerPieceHistos[IBMAX], polyaPieceHisto, polyaFullHisto ; 
   BitSet bb, blooms[IBMAX] ; } TELO ;
 
 static void dblDoCountTelomere (void *vp)
@@ -283,8 +236,8 @@ static void dblDoCountTelomere (void *vp)
   int ib, ibMax = tp->ibMax ;
   int nks[ibMax] ;
   char *cp, *cq ;
+  PP *pp = tp->pp ;
   BOOL debug = FALSE ;
-  BitSet bb = tp->bb ; 
   DNAFORMAT dnaFormat = tp->pp->dnaFormat ;
   memset (nks, 0, sizeof(nks)) ;
   
@@ -292,8 +245,8 @@ static void dblDoCountTelomere (void *vp)
     {
        if (tp->pp->max_threads)
 	 {
-	   if (debug) fprintf (stderr, "dblDoCountTelomere waits on channelGet (chan-%d) nTags=%d\n", tp->thId, tp->nTags) ;
-	   k = channelGet (tp->chan, &k, int) ; /* wait for data to be ready */
+	   if (debug) fprintf (stderr, "dblDoCountTelomere waits on channelGive (chan-%d) nFullTags=%d nPieceTags=%d\n", tp->thId, tp->nFullTags, tp->nPieceTags) ;
+	   k = channelGive (tp->chan, &k, int) ; /* wait for data to be ready */
 	   if (k == -1)    /* work is over */
 	     {
 	       if (debug) 
@@ -352,25 +305,62 @@ static void dblDoCountTelomere (void *vp)
 	  if (cp)
 	    {
 	      I4 nks ; 
+	      int i, ln = strlen(cp), iMax = (ln + (SEGLENGTH/2 - 1))/SEGLENGTH ;
+	      char cc, *cr = cp, *cs ;
+              int delta ;
 
-	      if (1)
+	      if (iMax < 1)
+		iMax = 1 ;
+	      delta = ln/iMax ;
+	      for (cr = cp, i = 0 ; i < iMax ; cr += delta, i++)
 		{
+		  cs = 0 ;
+		  if (i < iMax - 1)
+		    {
+		      cs = cr + delta ;
+		      cc = *cs ;
+		      *cs = 0 ;
+		    }
+		
+		  nks = dnaBloomOneSequence (1, tp->blooms, tp->pp->wordJumps, cr, 0, &polyA, ibMax) ;
+		  for (ib = 0 ; ib < ibMax ; ib++)
+		    {
+		      if (iMax == 1)
+			{
+			  keySet (tp->kmerFullHistos[ib], nks.xx[ib]) += mult ;
+			}
+		      keySet (tp->kmerPieceHistos[ib], nks.xx[ib]) += mult ;
+		      if (nks.xx[ib] >= 3)
+			{
+			  TELOEXPORT t ;
+
+			  t.ib = ib ;
+			  t.nn = nks.xx[ib] ;
+			  t.mult = mult ;
+			  memcpy (t.dna, cr, strlen(cr) + 1) ;
+			  channelPut (pp->teloExportChan, &t, TELOEXPORT) ;
+			}
+		    }
+		  tp->nPieceSeqs++ ; /* analyzing */
+		  tp->nPieceTags += mult ; 
+
+		  if (iMax == 1 && ! tp->pp->noPolyA)
+		    keySet (tp->polyaFullHisto, polyA) += mult ;
+		  if (! tp->pp->noPolyA)
+		    keySet (tp->polyaPieceHisto, polyA) += mult ;
+		  if (cs)
+		    *cs = cc ;
+		}
+	      if (iMax > 1)
+		{  /* search again on the full sequence */
 		  nks = dnaBloomOneSequence (1, tp->blooms, tp->pp->wordJumps, cp, 0, &polyA, ibMax) ;
 		  for (ib = 0 ; ib < ibMax ; ib++)
-		    keySet (tp->kmerHistos[ib], nks.xx[ib]) += mult ;
+		    keySet (tp->kmerFullHistos[ib], nks.xx[ib]) += mult ;
+		  if (! tp->pp->noPolyA)
+		    keySet (tp->polyaFullHisto, polyA) += mult ;
 		}
-	      else
-		{
-		  /* this is a stupid idea, since we loop over several million pos rather than direct access over 200 bases */
-		  nks = dnaBloomOneSequence (0, &bb, tp->pp->wordJumps, cp, 0, &polyA, 1) ;
-		  for (ib = 0 ; ib < ibMax ; ib++)
-		    keySet (tp->kmerHistos[ib], nks.xx[ib]) += mult * bitSetANDcount (bb, tp->blooms[ib]) ;
-		  bitSetMINUS (bb, bb) ;
-		}
-	      tp->nSeqs++ ; /* analizing */
-	      tp->nTags += mult ; 
-	      if (! tp->pp->noPolyA)
-		keySet (tp->polyaHisto, polyA) += mult ;
+	      tp->nFullSeqs++ ; /* analizing */
+	      tp->nFullTags += mult ; 
 	    }
 	  cp = cq ; /* start of next line */
 	}
@@ -378,8 +368,8 @@ static void dblDoCountTelomere (void *vp)
       if (tp->pp->max_threads)
 	{
 	  if (debug) fprintf (stderr, "dblDoCountTelomere channel %d and calls channelPut(done)\n", k) ;
-	  if (debug) fprintf (stderr, "dblDoCountTelomere offset %d , run %s parse %d lines, analyzed %d fragments, %d distinct fragments, %d polyA : %s\n"
-			      , tp->thId,  tp->pp->run, nLines, tp->nTags, tp->nSeqs, polyA, timeShowNow()) ;
+	  if (debug) fprintf (stderr, "dblDoCountTelomere offset %d , run %s parse %d lines, analyzed %d fragments, %d distinct %d pieces, %d distinct pieces, %d polyA : %s\n"
+			      , tp->thId,  tp->pp->run, nLines, tp->nFullTags, tp->nFullSeqs, tp->nPieceTags, tp->nPieceSeqs, polyA, timeShowNow()) ;
 	  channelPut (tp->done, &k, int) ;  /* this thread is ready for a new block */
 	}
       else
@@ -462,7 +452,7 @@ static void dblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
 	  if (nn < maxTh)
 	    k = nn++ ;
 	  else
-	    k = channelGet (done, &k, int) ; /* the number of the channel which is done */
+	    k = channelGive (done, &k, int) ; /* the number of the channel which is done */
 	}
       tt = arrayp (telos, k, TELO) ; 
       if (debug) fprintf (stderr, "dblParseFastaFile calls dblFillBuffer k=%d\n", k) ;
@@ -484,7 +474,7 @@ static void dblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
       for (k = 0 ; k < maxTh ; k++)
 	{ 
 	  tt = arrayp (telos, k, TELO) ;
-	  if (debug) fprintf (stderr, "dblParseFastaFile is over %d tags in chan-%d\n", tt->nTags, k) ;
+	  if (debug) fprintf (stderr, "dblParseFastaFile is over %d tags %d pieces in chan-%d\n", tt->nFullTags, tt->nPieceTags, k) ;
 	  n = -1 ;
 	  if (debug) fprintf (stderr, "dblParseFastaFile is over and calls channelPut(chan-%d)",k) ;
 	  channelPut (tt->chan, &n, int) ; /* close the thread */
@@ -492,8 +482,8 @@ static void dblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
       n = 0 ; k = maxTh ;
       while (k > 0)
 	{
-	  if (debug) fprintf (stderr, "dblParseFastaFile waits on channelGet(done)") ;
-	  n = channelGet (done, &n, int) ;
+	  if (debug) fprintf (stderr, "dblParseFastaFile waits on channelGive(done)") ;
+	  n = channelGive (done, &n, int) ;
 	  if (n < 0)  /* count the work done signals */
 	    {
 	      k-- ;    
@@ -501,7 +491,7 @@ static void dblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
 	    }
 	}
     }
-  
+
   ac_free (carryOverBuf) ;
   return ;
 } /* dblParseFastaFile */
@@ -528,43 +518,47 @@ static int dblCountTelomeres (PP *pp)
   AC_HANDLE h  = ac_new_handle () ;
   int ib, ibMax = pp->ibMax ;
   int ii, j, nn = 0, maxTh ;
-  int nSeqs = 0, nTags = 0 ;
-  CHAN *done = channelCreate (24, int, h) ;
-  KEYSET kmerHistos[ibMax], polyaHisto ;
+  int nFullSeqs = 0, nFullTags = 0 ;
+  int nPieceSeqs = 0, nPieceTags = 0 ;
+  CHAN *done  = channelCreate (24, int, h) ;
+  KEYSET kmerFullHistos[ibMax], kmerPieceHistos[ibMax], polyaFullHisto , polyaPieceHisto ;
   TELO *tp ;
   Array telos = arrayHandleCreate (pp->max_threads + 1, TELO, h) ;
   BitSet blooms[ibMax] ;
   const char *telomereT = "ttagggttagggttagggttagggttagggttagggttagggttagggttagggttaggg" ;
-  const char *telomereC = "ttagggttagggttagggtcagggttagggttagggttagggtcagggtcagggtcagggttagggttagggtcagggtcagggtcagggttagggtcagggttagggtcagggttaggg" ;
+  /* all doublets tNagggtNaggg */
+  const char *telomereC = "ttagggttagggttagggtcagggttagggttagggttagggtcagggttagggtaagggttagggtgagggttagggtcagggttagggttagggtcagggtaagggtcagggtgagggtcagggtcagggttagggttagggttagggttagggtgagggtaagggtgagggtgagggtgagggtcagggttagggttagggttagggttagggtaagggtaagggtaagggtgagggtaagggtcagggttagggttaggg" ;
   const char *imagT = "AATCCCAATCCCAATCCCAATCCCAATCCCAATCCCAATCCCAATCCCAATCCCAATCCC" ;
-  const char *imagC = "AATCCCAATCCCAATCCCAcTCCCAATCCCAATCCCAATCCCAcTCCCAcTCCCAcTCCCAATCCCAATCCCAcTCCCAcTCCCAcTCCCAATCCCAcTCCCAATCCCAcTCCCAATCCC" ;
+  const char *imagC = "AATCCCAATCCCAATCCCAGTCCCAATCCCAATCCCAATCCCAGTCCCAATCCCATTCCCAATCCCACTCCCAATCCCAGTCCCAATCCCAATCCCAGTCCCATTCCCAGTCCCACTCCCAGTCCCAGTCCCAATCCCAATCCCAATCCCAATCCCACTCCCATTCCCACTCCCACTCCCACTCCCAGTCCCAATCCCAATCCCAATCCCAATCCCATTCCCATTCCCATTCCCACTCCCATTCCCAGTCCCAATCCCAATCCC" ;
 
   int size = (1 << 22) ; /* 4M */ 
   BOOL debug = FALSE ;
-  char *titles[IBMAX] ;
-
+ 
   if (pp->block * (1 << 20) > size)
     size = pp->block * (1 << 20) ;
   if (ibMax > IBMAX)
     messcrash ("ibMax = %d > IBMAX = %d", ibMax, IBMAX) ;
   if (debug) channelDebug (done, TRUE, "chan-done") ;
-	 			     
-  polyaHisto = keySetHandleCreate (h) ; /* global histogram */
+  pp->teloExportChan = channelCreate (256, TELOEXPORT, h) ;	
+  
+  polyaPieceHisto = keySetHandleCreate (h) ; /* global histogram */
+  polyaFullHisto = keySetHandleCreate (h) ; /* global histogram */
      
   for (ib = 0 ; ib < ibMax ; ib++)
     { 
       const char *t = 0 ;
-      kmerHistos[ib] = keySetHandleCreate (h) ; /* global histogram */
+      kmerFullHistos[ib] = keySetHandleCreate (h) ; /* global histogram */
+      kmerPieceHistos[ib] = keySetHandleCreate (h) ; /* global histogram */
       blooms[ib] = bitSetCreate (1 << (2*WORDLENGTH - 1), h) ;
       switch(ib)
 	{
-	case 0: t = telomereC ; titles[ib] = "Tel_C_6" ; pp->wordJumps[ib] = 5 ;  break ; 
-	case 1: t = telomereT ; titles[ib] = "Telomeric_6" ; pp->wordJumps[ib] = 5 ; break ; 
-	case 2: t = imagC ; titles[ib] = "imagC_6" ; pp->wordJumps[ib] = 5 ; break ; 
-	case 3: t = imagT ; titles[ib] = "imagT_6" ; pp->wordJumps[ib] = 5 ; break ; 
+	case 0: t = telomereC ; pp->titles[ib] = "Tel_C_6" ; pp->wordJumps[ib] = 5 ;  break ; 
+	case 1: t = telomereT ; pp->titles[ib] = "Telomeric_6" ; pp->wordJumps[ib] = 5 ; break ; 
+	case 2: t = imagC ; pp->titles[ib] = "imagC_6" ; pp->wordJumps[ib] = 5 ; break ; 
+	case 3: t = imagT ; pp->titles[ib] = "imagT_6" ; pp->wordJumps[ib] = 5 ; break ; 
 	default: 
 	  if (pp->targetFileName)
-	    { t = getMito(pp) ;  titles[ib] = "extern" ; }
+	    { t = getMito(pp) ;  pp->titles[ib] = "extern" ; }
 	  break ;
 	} 
 
@@ -572,6 +566,7 @@ static int dblCountTelomeres (PP *pp)
 	fprintf (stderr , "## ib = %d registered %lu bits int the bloom\n", ib, bitSetCount (blooms[ib])) ;
     }
   fprintf (stderr, "--- data preparation done : %s\n", timeShowNow ()) ;
+  wego_go (dblExportTelomere, pp, PP) ; 
       
 
   maxTh = pp->max_threads ;
@@ -582,12 +577,14 @@ static int dblCountTelomeres (PP *pp)
       tp = arrayp (telos, ii, TELO) ;
       for (ib = 0 ; ib < ibMax ; ib++)
 	{
-	  tp->kmerHistos[ib] = keySetHandleCreate (h) ;
+	  tp->kmerFullHistos[ib] = keySetHandleCreate (h) ;
+	  tp->kmerPieceHistos[ib] = keySetHandleCreate (h) ;
 	  tp->blooms[ib] = blooms[ib] ;  /* the blooms are read only once and common to all threads */
 	}
       
       tp->bb =  bitSetCreate (1 << (2 * WORDLENGTH - 1), h) ;
-      tp->polyaHisto = keySetHandleCreate (h) ;
+      tp->polyaPieceHisto = keySetHandleCreate (h) ;
+      tp->polyaFullHisto = keySetHandleCreate (h) ;
       tp->buf = halloc (size, h) ;
 
       if (pp->max_threads)
@@ -608,60 +605,97 @@ static int dblCountTelomeres (PP *pp)
   
   dblParseFastaFile (pp, done, maxTh, size, telos) ;
 
+  channelClose (pp->teloExportChan) ;
+
   /* cumulate the individual histos */
   for (ii = 0 ; ii < maxTh ; ii++)
     { 
       tp = arrayp (telos, ii, TELO) ;
       for (ib = 0 ; ib < ibMax ; ib++)
 	{
-	  for (j = keySetMax(tp->kmerHistos[ib]) - 1 ; j >= 0 ; j--)
-	    keySet (kmerHistos[ib], j) +=  keySet(tp->kmerHistos[ib],j) ;
+	  for (j = keySetMax(tp->kmerFullHistos[ib]) - 1 ; j >= 0 ; j--)
+	    keySet (kmerFullHistos[ib], j) +=  keySet(tp->kmerFullHistos[ib],j) ;
+	  for (j = keySetMax(tp->kmerPieceHistos[ib]) - 1 ; j >= 0 ; j--)
+	    keySet (kmerPieceHistos[ib], j) +=  keySet(tp->kmerPieceHistos[ib],j) ;
 	}
-      for (j = keySetMax(tp->polyaHisto) - 1 ; j >= 0 ; j--)
-	keySet (polyaHisto, j) +=  keySet(tp->polyaHisto,j) ;
+      for (j = keySetMax(tp->polyaPieceHisto) - 1 ; j >= 0 ; j--)
+	keySet (polyaPieceHisto, j) +=  keySet(tp->polyaPieceHisto,j) ;
+      for (j = keySetMax(tp->polyaFullHisto) - 1 ; j >= 0 ; j--)
+	keySet (polyaFullHisto, j) +=  keySet(tp->polyaFullHisto,j) ;
       
-      nTags += tp->nTags ;
-      nSeqs += tp->nSeqs ;
+      nFullTags += tp->nFullTags ;
+      nFullSeqs += tp->nFullSeqs ;
+      nPieceTags += tp->nPieceTags ;
+      nPieceSeqs += tp->nPieceSeqs ;
     }
   fprintf (stderr, "--- histo cumulated %s\n", timeShowNow()) ;
   /* export */
   if (1)
     {
       KEYSET ks ;
-      int n, cumulK[ibMax], cumulpA = 0, jMax, jGlobalMax = 0 ;
+      int n, cumulFullK[ibMax], cumulPieceK[ibMax], cumulFullpA = 0,  cumulPiecepA = 0, jMax, jGlobalMax = 0 ;
       ACEOUT ao = aceOutCreate (pp->outFileName, ".telomere_distribution.txt", pp->gzo, h) ;
 
       aceOutDate (ao, "##", "Histogram of the number of fragments with n 13-mers matching the canonical telomere motif ") ;
-      aceOutf (ao, "## Found %d fragments, %d distinct fragments\n", nTags, nSeqs) ;
+      aceOutf (ao, "## Found %d fragments, %d distinct fragments\n", nFullTags, nFullSeqs) ;
+      aceOutf (ao, "## Found %d pieces, %d distinct pieces\n", nPieceTags, nPieceSeqs) ;
       aceOutf (ao, "#Number of motifs\tNumber of fragments with x TERRA 13mers TTAGGGTTAGGGT\tNumber of fragments with x homopolymers of 13 consecutive A\tCumul TERRA\tCumul pA\n") ;
 
-      jGlobalMax = jMax = keySetMax(polyaHisto) ; 
+      jGlobalMax = jMax = keySetMax(polyaFullHisto) ; 
       for (n = j = 0 ; j < jMax ; j++) 
-	n += keySet (polyaHisto, j) ;
-      cumulpA  = n ;
+	n += keySet (polyaFullHisto, j) ;
+      cumulFullpA  = n ;
+
+      jGlobalMax = jMax = keySetMax(polyaPieceHisto) ; 
+      for (n = j = 0 ; j < jMax ; j++) 
+	n += keySet (polyaPieceHisto, j) ;
+      cumulPiecepA  = n ;
       
       for (ib = 0 ; ib < ibMax ; ib++)
 	{
-	  ks = kmerHistos[ib] ;
+	  ks = kmerFullHistos[ib] ;
 	  jMax = keySetMax(ks) ;
 	  if (jGlobalMax < jMax) 
 	    jGlobalMax = jMax ;
 	  for (n = j = 0 ; j < jMax ; j++) 
 	    n += keySet (ks, j) ;
-	  cumulK[ib] = n ;
+	  cumulFullK[ib] = n ;
+	}
+      for (ib = 0 ; ib < ibMax ; ib++)
+	{
+	  ks = kmerPieceHistos[ib] ;
+	  jMax = keySetMax(ks) ;
+	  if (jGlobalMax < jMax) 
+	    jGlobalMax = jMax ;
+	  for (n = j = 0 ; j < jMax ; j++) 
+	    n += keySet (ks, j) ;
+	  cumulPieceK[ib] = n ;
 	}
 
-      aceOutf (ao, "\n%s\tA%d", pp->run, WORDLENGTH) ; for (j = 0 ; j < jGlobalMax ; j++) { n =  keySet (polyaHisto, j) ;aceOutf (ao, "\t%d", n) ; }
-      aceOutf (ao, "\n%s\tA%d-cumul", pp->run, WORDLENGTH ) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d",  cumulpA - n) ; n += keySet (polyaHisto, j) ; } 
+      aceOutf (ao, "\n%s\tA%d", pp->run, WORDLENGTH) ; for (j = 0 ; j < jGlobalMax ; j++) { n =  keySet (polyaFullHisto, j) ;aceOutf (ao, "\t%d", n) ; }
+      aceOutf (ao, "\n%s\tA%d-per_read_or_read_pair-cumul", pp->run, WORDLENGTH ) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d",  cumulFullpA - n) ; n += keySet (polyaFullHisto, j) ; } 
 
       for (ib = 0 ; ib < ibMax ; ib++)
 	{
-	  ks = kmerHistos[ib] ;
-	  aceOutf (ao, "\n%s\t%s", pp->run, titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { n = keySet (ks, j) ; aceOutf (ao, "\t%d", n) ; }
-	  aceOutf (ao, "\n%s\t%s-cumul", pp->run, titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d", cumulK[ib] - n) ; n += keySet (ks, j) ; }
+	  ks = kmerFullHistos[ib] ;
+	  aceOutf (ao, "\n%s\t%s-per_read_or_read_pair", pp->run, pp->titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { n = keySet (ks, j) ; aceOutf (ao, "\t%d", n) ; }
+	  aceOutf (ao, "\n%s\t%s-per_read_or_read_pair-cumul", pp->run, pp->titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d", cumulFullK[ib] - n) ; n += keySet (ks, j) ; }
 	}
       
       aceOutf (ao, "\n") ;
+ 
+      aceOutf (ao, "\n%s\tA%d", pp->run, WORDLENGTH) ; for (j = 0 ; j < jGlobalMax ; j++) { n =  keySet (polyaPieceHisto, j) ;aceOutf (ao, "\t%d", n) ; }
+      aceOutf (ao, "\n%s\tA%d-per_1_kb_fragment-cumul", pp->run, WORDLENGTH ) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d",  cumulPiecepA - n) ; n += keySet (polyaPieceHisto, j) ; } 
+
+      for (ib = 0 ; ib < ibMax ; ib++)
+	{
+	  ks = kmerPieceHistos[ib] ;
+	  aceOutf (ao, "\n%s\t%s-per_1_kb_fragment", pp->run, pp->titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { n = keySet (ks, j) ; aceOutf (ao, "\t%d", n) ; }
+	  aceOutf (ao, "\n%s\t%s-per_1_kb_fragment-cumul", pp->run, pp->titles[ib]) ; for (n = j = 0 ; j < jGlobalMax ; j++) { aceOutf (ao, "\t%d", cumulPieceK[ib] - n) ; n += keySet (ks, j) ; }
+	}
+      
+      aceOutf (ao, "\n") ;
+
     }
   ac_free (h) ;	
   return nn ;
@@ -676,20 +710,23 @@ static void usage (const char commandBuf [], int argc, const char **argv)
   int i ;
 
   fprintf (stderr,
-	   "// Usage: dnabloom  -t target_fasta_file -i probe_fasta_file [-errMax] -... \n"
-	   "//      try: -h --help --hits_file_caption \n"
-	   "// Example:  clipalign -p tags.fasta -t chromX.fasta -errMax 2\n"
-	   "// -t fileName : the name of a target fasta file on which we align the tags\n"
-	   "//      this file is read as needed, so there is no limit to its size\n"
-	   "//      all named files will be gzip decompressed if they are called *.gz\n"
-	   "// -i : the name of a fasta/fastc/fastq file, possibly .gz, containing the tags to be aligned \n"
-	   "//      (tested with 10 Million tags, upper limit depends on hardware)\n"
-	   "// -fastq33 : the input is in fastq, the quality of the mismatches start at 33=!(NCBI)\n"
-	   "// -silent : suppress title lines and status reports from the output, just report the hits\n"
-	   "// -gzo : the output file is gziped\n"
+	   "// Usage: dnabloom  -telomere [-run run_name] [-help]... \n"
+	   "//      try: -h -help --help \n"
+	   "// Example:  dnabloom -i f.fastq -I fastq -run xx -o out -telomere\n"
 	   "// -run runName : the name of the run to be exported in the results\n"
-	   "// -telomere : count the polyA and the TERRA motifs unsing exact 13-mers\n"
-
+	   "// -telomere : count the polyA and the TERRA motifs unsing appropriate k-mers\n"
+	   "// -i fileName : the name of a sequence file, possibly .gz, to be analyzed \n"
+	   "// -I input_file_format : one of\n"
+	   "//    -I fasta: [default] the input is a fasta file\n"
+	   "//    -I fastq: the input is a standard fastq file\n"
+	   "//    -I fastc: fastc file (contains #multipliers for repeated sequences)\n"
+	   "//    -I csfasta: SOLiD color coded transition fasta file\n"
+	   "//    -I csfastc: idem (contains #multipliers for repeated sequences)\n"
+	   "//    -I raw: the input is a raw file, one sequenc per line, no identifers\n"
+	   "// -silent : suppress stderr status report\n"
+	   "// -gzi : force gunzipping the input (useful when piping from stdin)\n"
+	   "// -gzo : the output file will be gziped\n"
+	   "// -max_threads <integer>: [default 1] try 4, 8..., machine dependant\n"
 	   ) ;
 
   
@@ -733,6 +770,7 @@ int main (int argc, const char **argv)
   /* parse the arguments */
   getCmdLineOption (&argc, argv, "-o", &(p.outFileName)) ;
   getCmdLineOption (&argc, argv, "-i", &(p.inFileName)) ;
+  /* the target file opton is not used and not advertised in the online help */
   getCmdLineOption (&argc, argv, "-targetFile", &(p.targetFileName)) ;
 
   if (1)
@@ -794,7 +832,7 @@ int main (int argc, const char **argv)
 	       ) ;
 
   fprintf (stderr, "// %s start\n", timeShowNow()) ;
-
+  aceInWaitAndRetry (0) ; /* does nothink, but triggers the linker on LINUX */
   if (p.max_threads)
     {
       wego_max_threads (p.max_threads + 2) ;
@@ -844,7 +882,10 @@ int main (int argc, const char **argv)
     }
   if (p.telomere)
     {
+      int n = 0 ;
+      p.teloExportDoneChan = channelCreate (8, int, h) ;
       dblCountTelomeres (&p) ;
+      channelGet (p.teloExportDoneChan, &n, int) ;
       goto done ;
     }
 
@@ -885,8 +926,7 @@ int main (int argc, const char **argv)
       s2k[ii].pp = &p ;
       if (p.max_threads)
 	wego_run (p.group, seq2kmer, s2kIn[ii], sizeof(S2K), s2kOut[ii], sizeof(S2K)) ;
-    }
- 
+    } 
 
  /* actual work, the top call to parseSeq will start filling the channels, and finish with an empty sequence */
   parseSequence () ;

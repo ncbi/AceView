@@ -16,10 +16,7 @@
  */
 
 /* %W% %G% */
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
+
 #include "fmap_.h"
 
 #include "main.h"
@@ -27,11 +24,14 @@
 
 #include "bs.h"
 #include "a.h"
+#include "call.h"
 #include "systags.h"
 #include "classes.h"
+#include "display.h"
 #include "dna.h"
 #include "peptide.h"
 #include "dnaalign.h"
+#include "makemrna.h"
 #include "bump.h"
 #include "query.h"
 #include "session.h"
@@ -364,13 +364,14 @@ BOOL fMapcDNADoFillData (SEG *seg)
 /*********************************************************************/
 /* economize function calls in the seg loop */
 
-#define cDNAFillData(__seg) (( (TRUE || (__seg)->data.i & 0x80000000)) ? TRUE : fMapcDNADoFillData(__seg))
+#define cDNAFillDataZZ(__seg) (( (TRUE || (__seg)->data.i & 0x80000000)) ? TRUE : fMapcDNADoFillData(__seg))
+#define cDNAFillData(__seg) (( (__seg)->data.i & 0x80000000) ? TRUE : fMapcDNADoFillData(__seg))
 
 /*********************************************************************/
 
 void fMapcDNAReportLine (char *buffer, SEG *seg1, int maxBuf)
 {
-  int x1, x2, y1, y2, ln = 0, polyA = 0 ;
+  int x1, x2, y1, y2, ln = 0, polyA = 0, composite = 0 ; ;
   SEG *seg ;
   OBJ obj = 0 ;
   float mlength = 0 ;
@@ -406,6 +407,7 @@ void fMapcDNAReportLine (char *buffer, SEG *seg1, int maxBuf)
 	bsGetData (obj, _bsRight, _Int, &ln) ;
       bsGetData (obj, _PolyA_after_base, _Int, &polyA) ; 
       bsGetKey (obj, _cDNA_clone, &cdna_clone) ;
+      bsGetData (obj, _Composite, _Int, &composite) ;
       bsDestroy(obj) ;
     }
 
@@ -416,11 +418,13 @@ void fMapcDNAReportLine (char *buffer, SEG *seg1, int maxBuf)
       bsDestroy(obj) ;
     }
 
-  if (cdna_clone)
+  if (cdna_clone && strcmp (name(seg1->key), name(cdna_clone) ))
     strncpy (buffer, messprintf ("cDNA Clone %s ", name(cdna_clone)), maxBuf) ;
+  if (composite > 0)
+    strncat (buffer, messprintf ("#%d ", composite), maxBuf) ;
   if (mlength > 0)
     strncat (buffer, messprintf ("(%g kb) ", mlength), maxBuf) ;
-  strncat (buffer, cp, maxBuf) ;
+  if (0) strncat (buffer, cp, maxBuf) ;
   strncat (buffer, messprintf ("ln %d, Match %d to %d", ln, x1, x2), maxBuf) ;
   if (polyA)
     strncat (buffer, messprintf ("PolyA at %d", polyA, x2), maxBuf) ; 
@@ -1383,7 +1387,7 @@ static void fMapSplicedcDNADecorate (LOOK look, float x, SEG *seg, BOOL isUp, in
   int isAm = -1 ;
 
   if (isUp && !look->dnaR)
-    { look->dnaR = arrayCopy (look->dna) ;
+    { look->dnaR = dnaCopy (look->dna) ;
       reverseComplement (look->dnaR) ;
     } 
   dnaR = look->dnaR ;
@@ -2232,7 +2236,7 @@ void fMapcDNAShowGenes (LOOK look, float *offset)
       
       array(look->boxIndex, box = graphBoxStart (), int) = ii ;
 
-      isArrow = FALSE ;
+      isArrow = FALSE ; 
       if (keyFindTag (gene, _Title) || keyFindTag (gene, _NewName))
 	{
 	  color = GENE_COLOR ; color2 = GENE_COLOR2 ;
@@ -2252,6 +2256,11 @@ void fMapcDNAShowGenes (LOOK look, float *offset)
 		graphRectangle (x , y1 + .4 , x + 1.4, y2) ;
 	    }
 	  isArrow = TRUE ;
+	}
+      else if (keyFindTag (gene, str2tag("GeneBox")))
+	{
+	  color = GREEN7 ; color2 = GREEN4 ;
+	  graphRectangle (x , y1, x + .4, y2) ;
 	}
       else
 	{
@@ -2312,7 +2321,8 @@ void fMapcDNAShowGenes (LOOK look, float *offset)
 	{
 	  KEY title = keyGetKey (seg->key, _Title) ;
 	  graphBubbleInfo (box, seg->key, className(seg->key), 
-			   messprintf("%s", title ? name(title) : "")) ;
+			   messprintf("%s", title ? name(title) : "")
+			   ) ;
 	}
     }   
  
@@ -3873,11 +3883,11 @@ BOOL fMapcDNAPickTrace (KEY gene, KEY est, int from)
 
 BOOL fMapcDNAFollow (int box)
 {
-  KEY gene, clone, est ;
+  KEY clone, est ;
   SEG *seg ;  
 #ifdef ACEMBLY
   SEG *seg2 ;  
-  int from, i, origin ;
+  int from, i ;
   KEY key ;
   KEYSET geneSet = 0 ;
 #endif  
@@ -3914,10 +3924,10 @@ BOOL fMapcDNAFollow (int box)
     return FALSE ;
 
   est = seg->key ;
-  gene = 0 ; fMapcDNAReferenceDna = 0 ;
+  fMapcDNAReferenceDna = 0 ;
 
 #ifdef ACEMBLY
-  origin = look->origin  ;
+
   from = GRAPH2MAP (look->map, graphEventY + .2) ; /* + look->map->mag * .5) ; */
   sessionAutoSave (60 * 30, 60 * 5) ;   /* save every 30 minutes, or after 5 minutes inactivity */
 

@@ -40,6 +40,7 @@
 #include "dict.h"
 #include "vtxt.h"
 #include "session.h"
+#include "makemrna.h"
 
 /***************************************************************/
 
@@ -56,8 +57,8 @@ static BOOL isGoodGene (KEY tg)
 {
   BOOL ok = FALSE ;
 
-  if (keyFindTag (tg, str2tag("gt_ag")) ||
-      keyFindTag (tg, str2tag("gc_ag")))
+  if (keyFindTag (tg, _gt_ag) ||
+      keyFindTag (tg, _gc_ag))
     ok = TRUE ;
   return ok ;
 }
@@ -68,17 +69,16 @@ static int cDnaDoFlipRead (KEY read, KEYSET kFlipped)
 { 
   OBJ Read = 0 ;
   int nn = 0, x=0, nct_ac = 0, ngt_ag = 0, ngc_ag = 0 ;
-  KEY _Flipped = str2tag("Flipped") ;
 
   if (!keySetFind (kFlipped, read, 0))
     {
       if ((Read = bsUpdate (read)))
         {
           if (
-              (bsFindTag (Read, str2tag ("mForward")) &&
+              (bsFindTag (Read, _mForward) &&
                bsFindTag (Read, _Forward)
                ) ||
-              (bsFindTag (Read, str2tag ("mReverse")) &&
+              (bsFindTag (Read, _mReverse) &&
                bsFindTag (Read, _Reverse)
                )        
               ) ;
@@ -261,8 +261,8 @@ static int cDnaFlipGene (KEY tg, KEYSET kFlipped)
   int ii, n, nn = 0 ;
   KEYSET ks = 0 ;
 
-  if (keyFindTag (tg, str2tag("ct_ac")) &&
-      !keyFindTag (tg, str2tag ("gt_ag")))
+  if (keyFindTag (tg, _ct_ac) &&
+      !keyFindTag (tg, _gt_ag))
     { done = TRUE ; cDnaDoFlipGene (tg, kFlipped, 0) ; }
 
   if (!done)
@@ -277,7 +277,7 @@ static int cDnaFlipGene (KEY tg, KEYSET kFlipped)
         }
       keySetDestroy (ks) ;
     }
-  if (!done && keyFindTag (tg, str2tag("ct_ac")))
+  if (!done && keyFindTag (tg, _ct_ac))
     {
       OBJ Tg = 0 ;
       int nct = 0, ngt = 0 ;
@@ -309,7 +309,7 @@ int cDnaFlipGeneKeySet (KEYSET ks)
   else
     {
       ks1 = query (0, "Find tg") ;
-      kEst = query (0, "Find EST ct_ac && ! gt_ag") ;
+      kEst = query (0, "Find EST ct_ac && ! gt_ag  && ! manualStrand") ;
     }
   ks2 = query (ks1, "CLASS Transcribed_gene && Antisens_to") ;
   if (arrayMax(ks2))
@@ -333,7 +333,7 @@ int cDnaFlipGeneKeySet (KEYSET ks)
   kEst = query (0, "Find Read (Forward && mReverse) || (reverse && mForward)") ;
   if (kEst && arrayMax(kEst))
     for (i = 0, kp = arrp (kEst, 0, KEY) ; i < keySetMax(kEst) ; kp++, i++)
-      nn += cDnaDoFlipRead (*kp, kFlipped) ;
+      cDnaDoFlipRead (*kp, kFlipped) ;  /* do not count these, they are final */
   
 
   keySetDestroy (kFlipped) ;
@@ -376,14 +376,14 @@ static int getPleaseMinIntronSize (void)
 /***************************************************************/
 /***************************************************************/
 
-static BOOL cDnaFlagOneSuspectSalvage (OBJ TG, KEYSET clones, KEY clone)
+static int cDnaFlagOneSuspectSalvage (OBJ TG, KEYSET clones, KEY clone)
 {
   static Array introns = 0 ;
   BSunit *uu ;
-  int ii, oldX1 = 0, oldX2 = 0, x1, x2, nn = 0, n, ngt = 0, nct = 0;
+  int ii, oldX1 = 0, oldX2 = 0, x1, x2, nn = 0, n, ngt = 0, nct = 0, ncomp = 0;
   KEY type, oldType = 0, clo ;
   BOOL foundClo = FALSE ;
-  KEYSET reads = queryKey (clone, ">Read  ct_ac") ;
+  KEYSET reads = queryKey (clone, ">Read") ;
   OBJ Est = 0 ;
 
   for (ii = 0 ; ii < keySetMax (reads) ; ii++)
@@ -391,13 +391,48 @@ static BOOL cDnaFlagOneSuspectSalvage (OBJ TG, KEYSET clones, KEY clone)
       {  
         if (bsGetData (Est, _gt_ag, _Int, &n)) ngt += n ;
         if (bsGetData (Est, _gc_ag, _Int, &n)) ngt += n ;
-        if (bsGetData (Est, str2tag("ct_ac"), _Int, &n)) nct += n ;
+        if (bsGetData (Est, _Composite, _Int, &n)) ncomp += n ;
+	if (bsGetData (Est, _ct_ac, _Int, &n)) nct += n ;
+	if (bsFindTag (Est, _Ref_Seq)) nct += 100000 ; /* salvage */
         bsDestroy (Est) ;
       }
   keySetDestroy (reads) ;
-  if (nct > 0 && nct >= ngt) /* do not flag as deletion a reversed clone */
-    return TRUE ;
 
+  if (ncomp > 2)
+    {
+      reads = queryKey (bsKey (TG), ">Read Composite && gt_ag") ;
+      ii = arrayMax (reads) ;
+      if (ii)
+	{
+	  int jj = 0 ;
+	  Array aa = arrayCreate (ii, int) ;
+	  
+	  while (ii--)
+	    {
+	      if ((Est = bsCreate (keySet(reads, ii))))
+		{  
+		  if (bsGetData (Est, _Composite, _Int, &n)) array (aa, jj++, int) = n ;
+		  bsDestroy (Est) ;
+		}
+	    }
+
+	  arraySort (aa, intOrder) ;
+	  if (! jj || ncomp >= array (aa, jj/2, int))
+	    return 2 ;
+	}
+      keySetDestroy (reads) ;
+    }
+
+  if (nct > 9999 && nct >= ngt) /* do not flag as deletion a reversed clone */
+    return 2 ;
+  if (nct > 0 && nct >= ngt) /* do not flag as deletion a reversed clone */
+    return 1 ;
+
+  /* given that we do not like this intron
+   * we wonder if the suspect clone is the only support of another gt_ag intron
+   * note that if we successively kill several clones
+   * we mot realize that we are killing another good intron
+   */
   introns = arrayReCreate (introns, 64, BSunit) ;
   if (bsGetArray (TG,  str2tag ("Intron_boundaries"), introns, 5))
     for (nn = ii = 0 ; ii < arrayMax(introns) ; ii += 5)
@@ -414,7 +449,7 @@ static BOOL cDnaFlagOneSuspectSalvage (OBJ TG, KEYSET clones, KEY clone)
         if (type != oldType || x1 != oldX1 || x2 != oldX2) 
           { 
             if (foundClo && !nn) /* clo is needed to support this intron */
-              return TRUE ;
+              return 1 ;
             nn = 0 ; foundClo = FALSE ;
           }
         oldType = type ; oldX1 = x1 ; oldX2 = x2 ;
@@ -427,8 +462,8 @@ static BOOL cDnaFlagOneSuspectSalvage (OBJ TG, KEYSET clones, KEY clone)
           }
       }
   if (foundClo && !nn) /* clo is needed to support this intron */
-    return TRUE ;
-  return FALSE ;
+    return 1 ;
+  return 0 ;
 } /* cDnaFlagOneSuspectSalvage */
 
 /***************************************************************/
@@ -466,7 +501,7 @@ int cDnaFlagOneSuspectIntrons (KEY tg, BOOL doIgnore, KEYSET result)
     {
       bsGetArray (TG, _Other, others, 5) ;
       bsGetArray (TG, str2tag("at_ac"), at_acs, 5) ;
-      bsGetArray (TG, str2tag("ct_ac"), ct_acs, 5) ;
+      bsGetArray (TG, _ct_ac, ct_acs, 5) ;
       bsGetArray (TG, str2tag ("Small_deletion"),  small, 4) ;
       bsGetArray (TG, _Fuzzy, fuzzies, 5) ;
       bsGetArray (TG, _Splicing, spls, 5) ;
@@ -668,7 +703,9 @@ int cDnaFlagOneSuspectIntrons (KEY tg, BOOL doIgnore, KEYSET result)
 			bad += vv[1].i ;	    
 		    }
 
-		  if (bad > 1 || bad > good)
+		  if (! bsFindTag (Est, _Ref_Seq) && 
+		      ((bad > 1 && 3*bad > good) || bad > good)
+		      )
 		    {
 		      if (!horribleClones)
 			horribleClones = keySetCreate () ;	
@@ -713,7 +750,7 @@ int cDnaFlagOneSuspectIntrons (KEY tg, BOOL doIgnore, KEYSET result)
                         { 
                           ok = TRUE ;
                           bsAddTag (Clone, _Ignore_this_clone_automatic) ;
-                          bsAddData (Clone, _bsRight, _Text, "Automatically added by FlagIgnoreIntrons") ;
+                          bsAddData (Clone, _bsRight, _Text, "Automatically added by FlagIgnoreIntrons2") ;
                           bsAddKey (Clone, _Colour, _PALERED) ;
                         }
                       if (keySetFind (badClones2, clone, 0))
@@ -819,7 +856,7 @@ int cDnaExportGeneboxPrimers (KEYSET ks0)
           !(Cosmid = bsCreate (cosmid)))
         continue ;
 
-       if (0 && bsFindKey (Cosmid, str2tag("Genes"), gene) &&
+       if (0 && bsFindKey (Cosmid, _Genes, gene) &&
            bsGetData (Cosmid, _bsRight, _Int, &b1) &&
            bsGetData (Cosmid, _bsRight, _Int, &b2) &&
            (dna = dnaGet (gene)))
@@ -841,7 +878,7 @@ int cDnaExportGeneboxPrimers (KEYSET ks0)
           arrayDestroy (dna) ;
         }          
 
-      if (1 && bsFindKey (Cosmid, str2tag("Genes"), gene) &&
+      if (1 && bsFindKey (Cosmid, _Genes, gene) &&
           bsGetData (Cosmid, _bsRight, _Int, &a1) &&
           bsGetData (Cosmid, _bsRight, _Int, &a2) &&
           (dna = dnaGet (cosmid)))

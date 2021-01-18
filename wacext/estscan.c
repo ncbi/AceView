@@ -178,7 +178,6 @@ static BOOL estScanRun (ESTSCAN *pp)
 
   if (!ai)
     goto done ;
-  stackTextOnly (s) ;
   aceInSpecial (ai, "\n") ;
   state = nn = 0 ;
   
@@ -412,7 +411,6 @@ static BOOL estScanGetGenome (ESTSCAN *pp)
     return FALSE ;
 
   pp->genomeStack = stackHandleCreate (10000000, pp->h) ;
-  stackTextOnly (pp->genomeStack) ;
   level = freesetfile (pp->genomeFile, 0) ;
   freespecial ("\n") ;
 

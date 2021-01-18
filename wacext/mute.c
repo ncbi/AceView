@@ -330,7 +330,7 @@ static void go (Array dna, BOOL ismotif , int pos , char *aatarget , char *motif
 		    for ( cp1 = startseq , cq1 = resuseqn ; *cp1 ; cp1++ ,cq1++ ) 
 		      if (*cp1 != *cq1 ) *cq1 = N_ ;
 		    
-		    mutdna = arrayCopy (dna);
+		    mutdna = dnaCopy (dna);
 		    if (arrayMax(mutdna) < 3*(pos-1-AAtestlength) +  6*AAtestlength+3)
 		      messcrash ("mutdna is too short") ;
 		    memcpy ( arrp ( mutdna  ,3*(pos-1-AAtestlength) , char ) , resuseqn , 6*AAtestlength+3 );

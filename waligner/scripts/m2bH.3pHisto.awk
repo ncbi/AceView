@@ -21,11 +21,12 @@
 	xMax = x ;
 }
 END {
-    printf ("# Run\tTranscript\tAverage coverage of the first 8kb") ;
+    printf ("# Run\tTranscript\tAverage coverage of the first %s",kb) ;
   
     for (x = 0 ; x <= xMax ; x += 50)
 	printf ("\t%d bp", x) ;
     kept = 0 ; cumul = 0 ;
+    kbLn = (substr(kb,1,1) + 0) * 1000
     for (it = 1 ; it <= itMax ; it++)
     {
          # zzt[it] > 100000 || zz[it,0] > 1000
@@ -45,7 +46,7 @@ END {
 	    for (x = 0 ; x <= 50 ; x += 50)
 		uu[x] = uu[50] ;
 	    uu0 = 0 ; k = 0 ;
-	    for (x = 0 ; x <= xMax && x <= 8000 ; x += 50)
+	    for (x = 0 ; x <= xMax && x <= kbLn ; x += 50)
 	    { uu0 += uu[x] ; k++ ; }
 	    uu0 = int (.4999 + uu0/k) ;
 	    if (uu0 > 1 && uu[0] >= 10)

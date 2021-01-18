@@ -39,8 +39,7 @@
 /* #define ARRAY_CHECK  */
 
 /* 13:5 means take a 13 mer every 6 bases so a 18 mer counts 1, a 19mer counts 2 */
-#define WORDLENGTH 13
-#define WORDJUMP 5
+#define WORDLENGTH 15
 
 #define LATESORT 0
 #include "ac.h"
@@ -63,12 +62,11 @@ typedef struct  pStruct {
   AC_HANDLE seqH ;
   const char *inFileName, *outFileName, *snpFileName ;
   const char *run ;
-  BOOL gzi, gzo, silent, noPolyA ;
+  BOOL gzi, gzo, silent, polyA ;
   BOOL telomere ;
   int max_threads, ibMax ;
   DNAFORMAT dnaFormat ;
   CHAN *genomeChan ;
-  int wordJumps[IBMAX] ;
   Associator ass ;
   DICT *snpDict ;
 } PP ;
@@ -164,7 +162,7 @@ static void sblDoCountSnps (void *vp)
        if (tp->pp->max_threads)
 	 {
 	   if (debug) fprintf (stderr, "sblDoCountSnps waits on channelGet (chan-%d) nTags=%d\n", tp->thId, tp->nTags) ;
-	   k = channelGet (tp->chan, &k, int) ; /* wait for data to be ready */
+	   k = channelGive (tp->chan, &k, int) ; /* wait for data to be ready */
 	   if (k == -1)    /* work is over */
 	     {
 	       if (debug) 
@@ -226,7 +224,7 @@ static void sblDoCountSnps (void *vp)
 
 	      tp->nSeqs++ ; /* analizing */
 	      tp->nTags += mult ; 
-	      if (! tp->pp->noPolyA)
+	      if (tp->pp->polyA)
 		keySet (tp->polyaHisto, polyA) += mult ;
 	    }
 	  cp = cq ; /* start of next line */
@@ -319,7 +317,7 @@ static void sblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
 	  if (nn < maxTh)
 	    k = nn++ ;
 	  else
-	    k = channelGet (done, &k, int) ; /* the number of the channel which is done */
+	    k = channelGive (done, &k, int) ; /* the number of the channel which is done */
 	}
       tt = arrayp (telos, k, TELO) ; 
       if (debug) fprintf (stderr, "dblParseFastaFile calls dblFillBuffer k=%d\n", k) ;
@@ -350,7 +348,7 @@ static void sblParseFastaFile (PP *pp, CHAN *done, int maxTh, int size, Array te
       while (k > 0)
 	{
 	  if (debug) fprintf (stderr, "dblParseFastaFile waits on channelGet(done)") ;
-	  n = channelGet (done, &n, int) ;
+	  n = channelGive (done, &n, int) ;
 	  if (n < 0)  /* count the work done signals */
 	    {
 	      k-- ;    
@@ -478,6 +476,7 @@ static BOOL sblParseSnps (PP *pp)
   BOOL ok = FALSE ;
   int snp ;
 
+  pp->snpDict = dictHandleCreate (256, pp->h) ;
   pp->ass = assBigHandleCreate (100000, pp->h) ;
   if (! ai)
     goto done ;
@@ -597,7 +596,7 @@ int main (int argc, const char **argv)
   p.gzi = getCmdLineOption (&argc, argv, "-gzi", 0);
   p.gzo = getCmdLineOption (&argc, argv, "-gzo", 0);
 
-  p.noPolyA = getCmdLineOption (&argc, argv, "-noPolyA", 0);
+  p.polyA = getCmdLineOption (&argc, argv, "-polyA", 0);
  
   p.silent = getCmdLineOption (&argc, argv, "-silent", 0);
   p.telomere = getCmdLineOption (&argc, argv, "-telomere", 0);

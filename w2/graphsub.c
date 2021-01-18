@@ -42,7 +42,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: graphsub.c,v 1.10 2017/02/15 20:36:04 mieg Exp $ */
+/* $Id: graphsub.c,v 1.11 2019/03/04 22:44:01 mieg Exp $ */
 
 #include "regular.h"
 #include "freeout.h"					    /* for freeOutF */
@@ -326,14 +326,31 @@ void graphBubbleInfo (int box, KEY key, char *ficheName, char *bubbleName)
     return ;
   if (!gActive->bubbleDict || !gActive->bubbleInfo)
     return ;
-
+  if (strstr (bubbleName, "primed in"))
+    invokeDebugger() ;
   bubble = arrayp(gActive->bubbleInfo, box, BUBBLEINFO) ;
   bubble->box = box ;
   bubble->key = key ;
   if (ficheName && *ficheName)
     dictAdd (gActive->bubbleDict, ficheName, &(bubble->fName)) ;
   if (bubbleName && *bubbleName)
-    dictAdd (gActive->bubbleDict, bubbleName, &(bubble->bName)) ;
+    {
+      char *cp = strnew (bubbleName, 0) ;
+      char *cq, *cr ;
+
+      for (cq = cp ; cq && *cq ; cq = cr)
+	{
+	  cr = cq ;
+	  while ((cr = strchr (cr + 1, ',')))
+	    if (cr > cq + 20 && cr[1] != '\n')
+	      {
+		*cr++ = '\n' ;
+		break ;
+	      }
+	}
+      dictAdd (gActive->bubbleDict,cp, &(bubble->bName)) ;
+      messfree (cp)  ;
+    }
 }
 
 /******************************************/

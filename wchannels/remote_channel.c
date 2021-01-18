@@ -1060,7 +1060,7 @@ static void taskClientLifeManager (void *vp)
   LIFE_TYPE t = 0 ;
   int n = -1 ;
 
-  n = channelGet (task->lifeChannel, &t, LIFE_TYPE) ;
+  n = channelGive (task->lifeChannel, &t, LIFE_TYPE) ;
     
   if (t == KILL_CLIENT)
     fprintf (stderr, "KILL_CLIENT requested on task->lifeChannel, I exit(102)\n") ;

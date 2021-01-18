@@ -35,8 +35,13 @@
 #include "lex.h"
 #include <wtcp/tcp_connect.h>
 
+/* tracking clients */
+static int next_client_serial_number = 1;
+static int current_active_clients = 0;
+static int current_bad_clients = 0;
+
 extern BOOL TCPWEBSERVER ;
-FILE *log_file;
+extern FILE *tcp_log_file ;
 
 
 /*
@@ -99,7 +104,7 @@ static char *generate_challenge(void)
 {
   char b[100];
   static int n = 0;
-  sprintf(b,"%d-challenge-%d",n,n);
+  sprintf(b,"%d-challenge-%d",current_active_clients,n);
   n++;
   return strnew(b, 0);
 }
@@ -126,6 +131,7 @@ static char *generate_challenge(void)
  * a list of ip addresses allowed access.  Currently only works
  * for IPV4 systems.
  */
+
 struct tcp_access_entry
 {
   /*
@@ -277,9 +283,6 @@ static int check_tcp_access_list( unsigned char * there )
  *
  */
 
-static int next_client_serial_number = 1;
-
-static int current_active_clients = 0;
 
 /*
  * There is a struct client for each connection
@@ -307,12 +310,15 @@ struct client
    *	'w'	may read or write database
    */
 
+  int isAttack ;
+  int attackTimeOut ;
   char *challenge;
   /*
    * challenge used for authenticating requests
    * from this client.
    */
 
+  
   AceCommand	look;
   /*
    * the magic COMMAND_LOOK structure that a server needs.
@@ -351,13 +357,24 @@ static fd_set open_sockets;
  * the listen socket is ready.  accept the connection and make a
  * client record for it.
  */
+
+
 void accept_client (int listen_fd)
 {
   struct sockaddr_in there;
   int s;
   struct client *c;
-  int one;
+  int good = 0 ;
+  int isAttack = 0 ;
+  int one ;
+  int access_type = 0 ;
   socklen_t n ;
+  static int pass = 0, attackers[128], gooddies[128], goodAccessType[128] ;
+  extern int tcp_nAttack ;
+  int clientAddr = 0 ;
+
+  if (! tcp_log_file)
+    tcp_log_file = stderr ;
 
   n = sizeof(there);
   s = accept(listen_fd, (struct sockaddr *) &there, &n);
@@ -369,7 +386,71 @@ void accept_client (int listen_fd)
     }
 
   /* printf("accept client %d\n",s); */
+  if (! pass++)
+    {
+      memset (gooddies, 0, sizeof (gooddies)) ;
+      memset (goodAccessType, 0, sizeof (goodAccessType)) ;
+      memset (attackers, 0, sizeof (attackers)) ;
+    }
 
+  memcpy (&clientAddr,  &there.sin_addr, 4) ;
+  if (1)
+    {
+      int i, *gp ;
+
+      for (i = 0, gp = gooddies ; *gp && !good ; i++, gp++)
+	if (clientAddr == *gooddies)
+	  { good = TRUE ; access_type =  goodAccessType[i] ; }
+    }
+  if (! good)
+    {
+      int *ap ;
+    
+      for (ap = attackers ; *ap ; ap++)
+	if (clientAddr == *ap)
+	  { 
+	    /* Normally i could
+	     *       shutdown(s, 2);
+	     * but i do not
+	     * I keep the attacker hanging till I time him out: 180s
+	     */
+	    current_bad_clients++ ;
+	    tcp_nAttack++ ;
+	    isAttack = 1 ;
+	  }
+    }
+  
+  
+  if (isAttack)
+    access_type = -1 ;
+  else
+    {
+      if (! good)
+	access_type = check_tcp_access_list( (unsigned char *) & there.sin_addr );
+      
+      if (access_type < 0) /* accept and reply politely once */
+	{ 
+	  int i, *ap ;
+	  for (i = 0, ap = attackers ; i < 125 && *ap ; i++, ap++) ;
+	  attackers[i] = clientAddr ;
+	}
+      else if (! good)
+	{ 
+	  int i, *gp ;
+	  
+	  for (i = 0, gp = gooddies ; i < 125 && *gp ; i++, gp++) ;
+	  gooddies[i] = clientAddr ;
+	  goodAccessType[i] = access_type ;
+	  if (i < 127)
+	    fprintf(tcp_log_file, "\n%s Accepting New IP - source IP %d.%d.%d.%d\n"
+		    , timeShowNow()
+		    , ((unsigned char *) & there.sin_addr)[0]
+		    , ((unsigned char *) & there.sin_addr)[1]
+		    , ((unsigned char *) & there.sin_addr)[2]
+		    , ((unsigned char *) & there.sin_addr)[3]
+		    ) ;
+	}
+    }
 
   /*
    * it is important to set TCP_NODELAY on the socket.  if you
@@ -398,7 +479,12 @@ void accept_client (int listen_fd)
    */
   c = halloc(sizeof(struct client), 0);
   c->fd = s;
-  c->challenge = generate_challenge();
+  if (isAttack)
+    {
+      c->isAttack = TRUE ;
+      c->attackTimeOut = time(0) + 180 ;
+    }
+  c->challenge = generate_challenge() ;
   c->incoming_trans = incoming_transaction_create();
   c->outgoing_trans = outgoing_transaction_create(s);
   c->saved_option = 0;
@@ -421,16 +507,15 @@ void accept_client (int listen_fd)
    * authentication.  Otherwise the access remains at the default
    * granted to the host.
    */
-  c->access_type = check_tcp_access_list( (unsigned char *) & there.sin_addr );
+  /* c->access_type = check_tcp_access_list( (unsigned char *) & there.sin_addr ); */
+  c->access_type = access_type ;
   if (c->access_type < 0)
     {
       /*
        * no access - bummer for you
        */
-      static char msg[] = "your computer does not have access";
-
-      fprintf(log_file, "\n%s Refusing New Client %d - source IP %d.%d.%d.%d\n",
-	      timeShowNow(),  c->serial_number
+      fprintf(tcp_log_file, "\n%s Refusing New Client %d - source IP %d.%d.%d.%d\n"
+	      , timeShowNow(),  c->serial_number
 	      , ((unsigned char *) & there.sin_addr)[0]
 	      , ((unsigned char *) & there.sin_addr)[1]
 	      , ((unsigned char *) & there.sin_addr)[2]
@@ -445,23 +530,35 @@ void accept_client (int listen_fd)
        * We increment the client count because we will decrement it
        * when we close this socket.
        */
-      ++current_active_clients;
+      ++current_active_clients; /* used to be on since Mark, mieg 2019_02_06, try to put it off, in robot case we seem not to decrease this number if we close brutally on client side */
 
       /*
        * send back a meaningful error message.
        */
       if (! TCPWEBSERVER)
-	outgoing_transaction_send(c->outgoing_trans, 
-				  'E', msg, sizeof(msg) );
-      shutdown(c->fd, 2);
+	{
+	  char goodMsg[] = "your computer does not have access, this message will not be repeated";
+	  if (isAttack)
+	    ;
+	  else
+	    {
+	      outgoing_transaction_send (c->outgoing_trans, 'E', goodMsg, sizeof (goodMsg)) ;
+	    }
+	}
     }
   else
     {
       /*
        * some kind of valid access - send the challenge.
-       */
-      fprintf(log_file, "\n%s New Client %d, %d active clients\n", 
-	      timeShowNow(), c->serial_number, ++current_active_clients);
+       */ 
+      fprintf(tcp_log_file, "\n%s New Client %d, %d active clients %d baddies %d attacks - source IP %d.%d.%d.%d\n" 
+	      , timeShowNow(), c->serial_number, ++current_active_clients
+	      , current_bad_clients, tcp_nAttack
+	      , ((unsigned char *) & there.sin_addr)[0]
+	      , ((unsigned char *) & there.sin_addr)[1]
+	      , ((unsigned char *) & there.sin_addr)[2]
+	      , ((unsigned char *) & there.sin_addr)[3]
+	      ) ;
 
       if (! TCPWEBSERVER) outgoing_transaction_send(c->outgoing_trans, 
 				'C', c->challenge, strlen(c->challenge)+1);
@@ -474,7 +571,6 @@ void accept_client (int listen_fd)
  * connections, receive them, and process them.
  */
 
-extern FILE *get_log_file_fp();
 extern int listen_socket(int);
 
 void  acetcp_wait_for_client_using (u_long port, void (do_process_incoming)(char *command, int n, void *v_client_descriptor))
@@ -484,11 +580,6 @@ void  acetcp_wait_for_client_using (u_long port, void (do_process_incoming)(char
   int selecterror;
   int debug = 0 ;
   static fd_set read_fds;
-
-  /*
-   * get fp for log file
-   */
-  log_file = get_log_file_fp();
 
   /*
    * make some randomness for the challenges
@@ -566,6 +657,32 @@ void  acetcp_wait_for_client_using (u_long port, void (do_process_incoming)(char
 	{
 	  struct client *c;
 
+	  c = arr(clients, x, struct client *);
+	  if (c && c->isAttack)
+	    {
+	      if (c->attackTimeOut < time(0))
+		{
+		  fprintf(tcp_log_file, "\n%s Closing Attack Client %d, %d active clients\n",
+			  timeShowNow(), c->serial_number, --current_active_clients);
+		  current_bad_clients-- ;
+		  if (1)
+		    {
+		      static char *badMsg = "Sorry, you do not have acces to this server" ;
+			outgoing_transaction_send (c->outgoing_trans, 'E', badMsg, sizeof (badMsg)) ;
+		    }
+		  if (c->look)
+		    aceCommandDestroy(c->look);
+		  incoming_transaction_free(c->incoming_trans);
+		  outgoing_transaction_free(c->outgoing_trans);
+		  close(x);
+		  FD_CLR(x, &open_sockets);
+		  /*   bug: leaking struct client *c    */
+		  messfree(c->challenge) ;
+		  messfree(c);
+		  arr(clients, x, struct client *) = 0;
+		}
+	      continue ;
+	    }
 	  /*
 	   * nothing on this fd
 	   */
@@ -575,7 +692,6 @@ void  acetcp_wait_for_client_using (u_long port, void (do_process_incoming)(char
 	  /*
 	   * find the client
 	   */
-	  c = arr(clients, x, struct client *);
 	  if (!c)
 	    {
 	      /*
@@ -595,7 +711,7 @@ void  acetcp_wait_for_client_using (u_long port, void (do_process_incoming)(char
 	      /*
 	       * it is seeing too many EOF - shut it down
 	       */
- 	      fprintf(log_file, "\n%s Closing Client %d, %d active clients\n",
+ 	      fprintf(tcp_log_file, "\n%s Closing Client %d, EOF %d active clients\n",
 		      timeShowNow(), c->serial_number, --current_active_clients);
 	      if (c->look)
 		aceCommandDestroy(c->look);
@@ -641,7 +757,7 @@ void server_shutdown()
     aceQuit (TRUE);
   else
     aceQuit (FALSE);
-  fprintf(log_file,"\n\n%s #### Server normal exit\n  A bientot \n\n",
+  fprintf(tcp_log_file,"\n\n%s #### Server normal exit\n  A bientot \n\n",
           timeShowNow()) ;
   exit(0);
 }
@@ -674,17 +790,17 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
   /*
    * skip the length bytes in the command
    */
-  if (TCPWEBSERVER && ! strncmp (command, "GET ", 4))
+  if (n >= 4 && TCPWEBSERVER && ! strncmp (command, "GET ", 4))
     {
       command_type = 'G' ;
        command += 4;
        n -= 4;
     }
-  else if (! TCPWEBSERVER)
+  else if (n >= 4 && ! TCPWEBSERVER)
     {
       struct client *c = (struct client *) v_client_descriptor ;
-      command += 3;
-      n -= 3;
+      command += 11;
+      n -= 11;
             if (0) outgoing_transaction_send(c->outgoing_trans, 
 				'C', c->challenge, strlen(c->challenge)+1);
 
@@ -700,16 +816,15 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
       command++; n--;  /* skip type byte */
     }
 
-  if (command[n-1] != '\0')
+  if (n < 0 || (n > 0 && command[n-1] != '\0'))
     {
-      printf("client command not ending with null\n");
+      fprintf (tcp_log_file,"client command not ending with null\n");
       goto closeit;
     }
 
   /* ac_dump(command,n); */
 
   s = stackReCreate(s, 20000) ;
-  stackTextOnly(s);		/* must be textonly to use catText, catBinary */
 
   /*
    * the first byte of the 'R' response is the encore value.  we put something at
@@ -745,7 +860,10 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
 	level_in = freesettext (command, "") ; 
 
 	if ( ! (client->access_type & CLIENT_READ) )
-	  goto closeit;
+	  {
+	    fprintf (tcp_log_file,"client does not have read access\n") ;
+	    goto closeit;
+	  }
 
 #if 0
 	if (client->access_type & CLIENT_WRITE )
@@ -756,7 +874,7 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
 	/*
 	 * logging the query
 	 */
-	fprintf(log_file, "%s Client %d (%d active). %c Query: %s\n", timeShowNow() ,
+	fprintf(tcp_log_file, "%s Client %d (%d active). %c Query: %s\n", timeShowNow() ,
 		client->serial_number, current_active_clients, command_type, command );
 
 
@@ -779,7 +897,7 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
 	switch (option)
 	  {
 	  case 'q':
-	    printf("client quit\n");
+	    fprintf (tcp_log_file, "client quits\n");
 	    goto closeit;
 	  case 'm':
 	  case 'D':
@@ -835,7 +953,7 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
 	    if (outgoing_transaction_send(client->outgoing_trans, 'R', response, nbytes ))
 	      {
 		/* client vanished - clean it up */
-		printf("client disconnect detected on write\n");
+		fprintf (tcp_log_file,"client disconnect detected on write\n");
 		goto closeit;
 	      }
 	  }
@@ -857,7 +975,7 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
 	if (outgoing_transaction_send(client->outgoing_trans, 'G', response, nbytes ))
 	  {
 	    /* client vanished - clean it up */
-	    printf("client disconnect detected on write\n");
+	    fprintf (tcp_log_file,"client vanished detected on write\n");
 	    goto closeit;
 	  }
 	ac_free (txt) ;
@@ -869,7 +987,8 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
       /*
        * if the client can't follow the protocol, just hang up.
        */
-      goto closeit;
+      if (0) fprintf (tcp_log_file," client cant follow the protocol, just hang up\n") ;
+      goto returning;
     }
 
   goto returning;
@@ -888,3 +1007,4 @@ void process_incoming(char *command, int n, void *v_client_descriptor)
     freeclose(level_in);
   stackDestroy (s) ;
 }
+

@@ -122,7 +122,6 @@ static int samParseFastaFile (SAM *sam)
   CHROM *chrom = 0 ;
   Stack s = stackHandleCreate (100000, h) ;
 
-  stackTextOnly(s) ;
   sam->chroms = arrayHandleCreate (1024, CHROM, sam->h) ;
 
   ai = aceInCreate (sam->fastaFileName, FALSE, h) ;

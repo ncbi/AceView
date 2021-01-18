@@ -106,29 +106,6 @@ typedef struct clipAlignStruct {
   int intronPlus, intronMinus ;
   int max_threads ;
   DICT *previousScoreDict, *rejectedProbeDict, *selectedProbeDict, *exportDict, *targetDict, *target2geneDict, *probeDict ;
-  BitSet isSplicedTarget, scannedGenes ;
-  Associator adaptorAss ;
-  Array probePairs ;
-  Array originalScores ;
-  Array target2geneArray ;
-  Array probes, letters, dna0, previousScores ;
-  Array exportGeneHits ;
-  Array exportHits, exportDonors, exportAcceptors ;
-  Array geneDonors, geneAcceptors ;
-  Array exportIntrons ;
-  Array exportDoubleIntrons ;
-  Array geneIntrons ;
-  Array geneDoubleIntrons ;
-  Associator ass, ass1, ass2, assB, assB1, assB2, assMulti[32] ;
-  Array scores[1024] ;
-  int hashPhase, nOligo, score ;
-  Array targetMask ;
-  Array oligoFrequency ;
-  Array oligoFrequencyB ;
-  BOOL doubleSeed ;
-  BOOL isShortTarget ;
-  BOOL gzi, gzo ;
-  BitSet seedOver25 ;
   ACEIN ai ; ACEOUT ao, outNoInsert ;
 } CLIPALIGN ;
 
@@ -912,7 +889,7 @@ static int clipAlignErrorClip (CLIPALIGN *pp, MM *mm,
 	  int y2 = arrayMax (probeDnaArray) - *x1p + 1 ;
 	  int b1 = arrayMax (dna) - *a2p + 1 ;
 	  int b2 = arrayMax (dna) - *a1p + 1 ;
-	  Array probeR = arrayCopy (probeDnaArray) ;
+	  Array probeR = dnaCopy (probeDnaArray) ;
 
 	  if (pp->solid) /* reverse but do not complement */
 	    {
@@ -4431,7 +4408,7 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
 	{
 	  if (pp->solid)
 	    {
-	      dna = arrayHandleCopy (dna0, h) ;
+	      dna = dnaHandleCopy (dna0, h) ;
 	      dnaSolidEncodeArray (dna, TRUE) ;
 	    }
 	  pp->dna0 = dna0 ;
@@ -4439,11 +4416,11 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
 	}
       if (! pp->decoy && (pp->antistrand || ! pp->strand))
 	{
-	  dnaR = arrayHandleCopy (dna0, h) ;
+	  dnaR = dnaHandleCopy (dna0, h) ;
 	  reverseComplement (dnaR) ;
 	  if (pp->solid)
 	    {
-	      pp->dna0 = arrayHandleCopy (dnaR, h) ;
+	      pp->dna0 = dnaHandleCopy (dnaR, h) ;
 	      dnaSolidEncodeArray (dnaR, TRUE) ;
 	    }
 	  else
@@ -4456,13 +4433,13 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
     {    
       if (pp->antistrand || ! pp->strand)
 	{
-	  dnaR = arrayHandleCopy (dna0, h) ;
+	  dnaR = dnaHandleCopy (dna0, h) ;
 	  reverseComplement (dnaR) ;
 	  if (pp->solid)
 	    {
-	      pp->dna0 = arrayHandleCopy (dnaR, h) ;
+	      pp->dna0 = dnaHandleCopy (dnaR, h) ;
 	      dnaSolidEncodeArray (dnaR, TRUE) ;
-	      dnaS = arrayHandleCopy (dna0, h) ;
+	      dnaS = dnaHandleCopy (dna0, h) ;
 	      dnaSolidEncodeArray (dnaS, TRUE) ;
 	    }
 	  else
@@ -4476,7 +4453,7 @@ static int clipAlignDoSearch (CLIPALIGN *pp, Array dna0)
 	    {
 	      if (!dnaS)
 		{
-		  dnaS = arrayHandleCopy (dna0, h) ;
+		  dnaS = dnaHandleCopy (dna0, h) ;
 		  dnaSolidEncodeArray (dnaS, TRUE) ;
 		}
 	    }
@@ -6032,7 +6009,6 @@ static BOOL clipAlignRun (CLIPALIGN *pp)
 
   h = ac_new_handle () ;
   s = stackHandleCreate (300, h) ;
-  stackTextOnly (s) ;
   dna = arrayHandleCreate (100000, unsigned char, h) ;
 
   ai = aceInCreate (pp->targetFileName, 0, h) ;
@@ -6783,7 +6759,6 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
       pp->probeLengthMin = -1 ;
       
       /* it is imperative that we do not ceclare
-	 stackTextOnly (pp->probeStack) ;
 	 because we want to divide the offsets in pp->parobePir by STACL_ALIGNMENT
 	 this is a horrible hack, we should find a better way to index the pairs 
       */
@@ -6791,7 +6766,6 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
       if (pp->fastQ && (pp->fastQbase || pp->probeQquality > -1000))
 	{
 	  pp->qualityStack = stackHandleCreate (10000000, pp->h) ;
-	  stackTextOnly (pp->qualityStack) ;
 	  pushText (pp->qualityStack, "toto") ; /* avoid 0 */
 	}
     }

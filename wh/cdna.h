@@ -26,7 +26,7 @@
  * HISTORY:
  * Last edited: Nov 15 15:54 1999 (fw)
  * Created: Thu Aug 26 17:55:00 1999 (fw)
- * CVS info:   $Id: cdna.h,v 1.37 2012/03/30 15:18:26 mieg Exp $
+ * CVS info:   $Id: cdna.h,v 1.41 2017/08/01 01:17:21 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -65,9 +65,8 @@
 #define  gFF 0x2000000 /* fin fuzzy, sens du gene */
 #define  gMicro 0x4000000 /* micro intron < minIntronSize */
 
-/* gDebut gFin serve to transport the annotations in the 2 directions */
-#define  gDebut (gD | gDF | gS | gS0 | g3 | g5 | gReal5p | gReal3p | gCompleteCDS)  /* debut goodies */
-#define  gFin (gF | gFF | gA | g3 | g5 | gReal3p | gReal5p)  /* fin goodies */
+#define  gDebut (gD | gDF | gS | gS0 | g5 | gReal5p)  /* debut goodies */
+#define  gFin (gF | gFF | gA | g3 | gReal3p)  /* fin goodies */
 #define  gExact (gD | gF)  /* exact goodies */
 
 
@@ -95,10 +94,8 @@ int cDnaExportGeneboxPrimers (KEYSET ks) ;
 double intMap2Gmap (int chrom, double X1plusX2half) ;
 int cDnaRenameGenes (KEYSET genes, char *fName, char *chromName, 
 		     BOOL selectNewName, BOOL renameGene) ;
-
 typedef struct hitStruct { KEY gene, cDNA_clone, est ; BOOL reverse ; 
   int a1, a2, x1, x2, clipTop, clipEnd ; unsigned int type ; int zone, nerr, nerrAll, ea1, ea2, ex1, ex2, maxExact ; } HIT ;
-
 
 extern  char B2[256],  B2r[256]  ;
 extern  KEY _Alternative_exon

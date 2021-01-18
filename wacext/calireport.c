@@ -519,9 +519,7 @@ int main (int argc, const char **argv)
 
   ba.cells = arrayHandleCreate (10000, CL, h) ;
   ba.s = stackHandleCreate (1000000, h) ; pushText (ba.s, "toto") ;
-  stackTextOnly (ba.s) ;
   ba.rowNameStack = stackHandleCreate (3000, h) ;
-  stackTextOnly (ba.rowNameStack) ;
   ba.rowNames = keySetHandleCreate (h) ;
   ba.runNonEmpty = keySetHandleCreate (h) ;
 

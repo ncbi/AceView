@@ -748,7 +748,6 @@ static void stack_test()
   
   printf("catBinary:\n");
   s = stackCreate(1);
-  stackTextOnly(s);
   catBinary (s,"\0",1) ;
   catBinary(s,"\0\0\0\0\0\0\0\0",3);
   catBinary(s,"x",1);
@@ -759,7 +758,6 @@ static void stack_test()
   
   printf("catBinary 2:\n");
   s = stackCreate(1);
-  stackTextOnly(s);
   pushText(s,"a");
   catBinary(s,"\0\0",2);
   catText(s,"b");
@@ -769,7 +767,6 @@ static void stack_test()
   
   printf("catBinary 3:\n");
   s = stackCreate(1);
-  stackTextOnly(s);
   catBinary(s,"1234",4);
   n = stackMark(s);
   printf("found %d bytes\n",n);

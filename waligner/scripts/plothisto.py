@@ -22,27 +22,27 @@ import matplotlib.pyplot as plt
 
 try:
 	opts, args = getopt.gnu_getopt(sys.argv[1:], '?ho:i:t:',['input=','nreads=','-title=','help'])
-except getopt.GetoptError, err:
-	print str(err)
-	print "try --help"
+except getopt.GetoptError as err:
+	print (str(err))
+	print ("try --help")
 	sys.exit(2)
 
 if len(args) > 0:
-	print "unknown argument "+args[0]
-	print "try --help"
+	print ("unknown argument "+args[0])
+	print ("try --help")
 	sys.exit(2)
 
 input_file = sys.stdin
 title="histo"
 
 for o, a in opts:
-	if o  == "-?" or o == "-h" or o == "--help":
-		usage()
+        if o  == "-?" or o == "-h" or o == "--help":
+                usage()
         elif o == "-o":
                 out_prefix = a
-	elif o == "-i":
+        elif o == "-i":
                 input_file = a
-	elif o == "-t":
+        elif o == "-t":
                 title = a
 
 
@@ -53,7 +53,7 @@ y=tt[:,1]
 z = np.polyfit(y, x, 1)
 p = np.poly1d(z)
 
-print z ;
+print (z)
 plt.plot(y,x,'.', color='green' ,label="Delta")
 plt.plot(p(x),x,color='red', label="z") 
 # plt.plot(tt[:,0],tt[:,1])
@@ -104,6 +104,6 @@ for x,i in zip(xp2,zip([p2deriv1(x) for x in xp2],[p2deriv2(x) for x in xp2])):
 plt.show()
 
 
-print "done."	
+print ("done.")	
 
 

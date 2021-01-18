@@ -3,6 +3,15 @@
 set run=$1
 set uu=$2
 
+if (0) then
+  foreach chrom ($chromSetAll)
+    foreach cover (5 10 20 50)
+        gunzip -c  tmp/WIGGLERUN/$run/$chrom/R.chrom.frns.$uu.BF.gz | bin/wiggle -I BF -O BV  -gauss 20 -minCover $cover -peaks -o tmp/WIGGLERUN/$run/$chrom/coverome.$cover.$uu
+    end
+  end
+goto done
+endif
+
 set out_step="-out_step 10"
 if ($?wiggle_step) then
    set out_step="-out_step $wiggle_step"
@@ -41,9 +50,8 @@ foreach chrom (mito SpikeIn $chromSetAll)
 
 end
 
-
 foreach chrom ($chromSetAll)
-    foreach cover (10)
+    foreach cover (5 10 20 50)
         gunzip -c  tmp/WIGGLERUN/$run/$chrom/R.chrom.frns.$uu.BF.gz | bin/wiggle -I BF -O BV  -gauss 20 -minCover $cover -peaks -o tmp/WIGGLERUN/$run/$chrom/coverome.$cover.$uu
     end
 
@@ -59,6 +67,8 @@ end
 touch tmp/WIGGLERUN/$run/wg2a.$uu.done
 \rm -rf tmp/WIGGLELANE/$run/*/*.$uu.*.BV.gz
 
+done:
+ exit 0
 
 
 

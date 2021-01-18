@@ -450,13 +450,14 @@ static int hseqShowSegs (Array segs)
   SEG *ss ;
   int ii;
 
-  for (ii = 0, ss = arrp (segs, 0, SEG) ; ii < arrayMax (segs) ; ss++, ii++)
-    {
+  if (segs)
+    for (ii = 0, ss = arrp (segs, 0, SEG) ; ii < arrayMax (segs) ; ss++, ii++)
+      {
       printf ("%3d\t%12s\tbump=%d\ta=\t%5d %5d\tb=\t%5d %5d\tx=\t%5d %5d\tnclo=%5d\t%s\n"
 	      , ii, hseqType[ss->type], ss->bumpy, ss->a1, ss->a2, ss->b1, ss->b2, ss->x1, ss->x2
 	      , ss->nClo, name(ss->mrna)
 	      ) ;
-    }
+      }
   return 0 ;
 } /* hseqExonsOrder */
 
@@ -484,6 +485,8 @@ static BOOL hseqMrnaConvert2 (HSeq look, AC_OBJ mrna, int a0, AC_HANDLE h)
   BOOL isBest = FALSE ;
   BOOL isVeryGood = FALSE ;
   BOOL isUorf = FALSE ;
+
+  hseqShowSegs (0) ; /* for compiler happiness */
 
   tbl = ac_tag_table (mrna, "Product", h) ; 
   for (jProduct = 0 ; jProduct < 3 ; jProduct++) 
@@ -2108,6 +2111,7 @@ static void hseqDrawGene (HSeq look)
   else { pgm = pgmQ ; pgm2 = pgmQ ; pgmcol = pgmcolQ ; }
 
   y = look->map->yCurrent ; iymax = -1 ;
+  y += 2 ; /* top margin, room for the bubbles */
   dy = 2.3 ;
   for (pass = 0 ; pass < 3 ; pass++)
     {
@@ -2622,6 +2626,7 @@ static void hseqDrawGene (HSeq look)
  look->map->yCurrent += 0.1 * dy ;
  if (isGifDisplay) /* adapt the height of the gif/flash screen */
    {
+     svgGraphResize (look->map->graphWidth, look->map->yCurrent) ;
      swfGraphResize (look->map->graphWidth, look->map->yCurrent) ;
      graphFitBounds (&look->map->graphWidth,&look->map->graphHeight) ;
    }
@@ -2769,7 +2774,7 @@ static int comaFormat (char *buf1, int x)
 static void hseqDraw (void)
 {
   float xx = 1 ;
-  float yy = .6 ;
+  float yy = 2 ;
   char *cp ;
   const char *ccp ;
   HSeq look = currentHSeq("hseqDraw") ;

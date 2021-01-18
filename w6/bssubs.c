@@ -56,7 +56,7 @@
  * * Oct 22 13:30 1991 (mieg): added bsVisible.. to better queryGrep searches
  * * Oct 16 18:04 1991 (rd): fixed bug in xref deleting
  * Created: Wed Oct 16 17:33:54 1991 (rd)
- * CVS info:   $Id: bssubs.c,v 1.33 2016/11/17 00:48:44 mieg Exp $
+ * CVS info:   $Id: bssubs.c,v 1.35 2020/05/30 16:50:32 mieg Exp $
  *-------------------------------------------------------------------
  */
 

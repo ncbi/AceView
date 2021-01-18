@@ -16,10 +16,10 @@
 
 /* @(#)basecall.c	1.15 5/23/97 */
 
-/*
+
 #define ARRAY_CHECK
 #define MALLOC_CHECK
-*/
+
 
 #include "acedb.h"
 #include "acembly.h"
@@ -36,6 +36,7 @@
 #include "myNetwork.h"
 #include "saucisse.h"
 #include "seqIOCTF.h"
+#include "acembly.h"  
 
 
 int seqLeftCutoff () ;
@@ -1813,7 +1814,7 @@ BOOL findBaseCall (LANE *lane)
 /***************************************************/
 
 static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
-{ int i, j, n = arrayMax(err), nn, start, stop ;
+{ int i, ii, j, n = arrayMax(err), nn, start, stop ;
   A_ERR *eq, *ep, *epMax ;
   char *cl, *cs, cc ;
   int sens = isUp ? -1 : 1 ;
@@ -1832,8 +1833,8 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
     }
 
   n = arrayMax (err) ;
-  ep = arrp(err, 0, A_ERR) - 1 ;
-  while (ep++, n--)
+  ep = arrp(err, 0, A_ERR) - 1 ; ii = -1 ;
+  while (ep++, ii++, n--)
     { 
       switch (ep->type)
 	{
@@ -1841,7 +1842,7 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 	  nn = arrayMax (err) - 1 ;
 	  if (isUp)
 	    { 
-	      if (n < nn &&
+	      if (ii > 0 &&
 		  (ep - 1)->type == INSERTION &&
 		  (ep - 1)->iShort < arrayMax(dnaShort) &&
 		  (ep - 1)->iLong >= 0 &&
@@ -1862,12 +1863,12 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 		      i = n + 1 ;
 		      while (eq++, i-- > 0) *eq = *(eq + 1) ;
 		      arrayMax(err) -= 1 ;
-		      ep-- ;
+		      ep-- ; ii-- ;
 		      ep->type = INSERTION ;
 		      ep->iLong++ ;
 		    }
 		}
-	      if (n < nn &&
+	      if (ii < nn  &&
 		  (ep + 1)->type == INSERTION &&
 		  (ep + 1)->iShort < arrayMax(dnaShort) &&
 		  (ep + 1)->iLong >= 0 &&
@@ -1888,14 +1889,14 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 		      i = n  ;
 		      while (eq++, i-- > 0) *eq = *(eq + 1) ;
 		      arrayMax(err) -= 1 ;
-		      ep-- ;
+		      ep-- ; ii-- ;
 		      ep->type = INSERTION ;
 		      ep->iLong++ ;
 		    }
 		}
 	    }
 	  else
-	    { if (n > 0 &&
+	    { if ( ii < nn  &&
 		  (ep + 1)->type == INSERTION &&
 		  ep->iShort < arrayMax(dnaShort) &&
 		  ep->iLong >= 0 &&
@@ -1956,7 +1957,9 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 		   eq->iShort <= stop)
 	      eq->iShort-- ;
 	  /* condense insertion-error, nov 1 , 2003 */
-	  if (ep->type == INSERTION && n &&
+	  nn = arrayMax (err) - 1 ;
+	  if (ii < nn &&
+	      ep->type == INSERTION && n &&
 	      (ep+1)->type == ERREUR &&
 	      ep->iLong == (ep+1)->iLong &&
 	      ep->iShort - 1 == (ep+1)->iShort)
@@ -1968,26 +1971,27 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 	      n-- ;
 	      arrayMax (err) -= 1 ;
 	    }
-	  if (ep->type == INSERTION_DOUBLE)
+	  if (ep->type == INSERTION_DOUBLE && ii < nn)
 	    { nn = n + 1 ;
 	      eq = arrayp (err, arrayMax (err), A_ERR) + 1 ;
+	      ep = arrp (err, ii,A_ERR) ; /* may have been reallocated */
 	      while (eq--, nn-- > 0)
 		*eq = *(eq - 1) ;
 	      ep->type = INSERTION ;
 	      ep->baseShort = W_ ;
 	      if (!isUp)
 		ep->iShort-- ;
-	      ep++ ;
+	      ep++ ; ii++ ;
 	      ep->type = INSERTION ;
 	      if (isUp)
 		ep->iShort++ ;
 	      ep->baseShort = W_ ;
-	      ep++ ; if (n) n-- ;
+	      ep++ ; ii++ ; if (n) n-- ;
 	    }
 	  break ;
 #ifdef JUNK
 	case INSERTION: 
-	  if (n && 
+	  if (ii < nn &&
 	      (ep+1)->type == TROU)
 	    {
 	      cc = arr (dnaShort, ep->iShort +1, char) ;
@@ -2036,21 +2040,23 @@ static void cleanErr (Array err, Array dnaLong, Array dnaShort, BOOL isUp)
 	    while (++eq < epMax && eq->iShort > start && 
 		   eq->iShort <= stop)
 	      eq->iShort-- ;
-	  if (ep->type == INSERTION_DOUBLE)
+	  nn = arrayMax (err) - 1 ;
+	  if (ep->type == INSERTION_DOUBLE && ii < nn)
 	    { nn = n + 1 ;
 	      eq = arrayp (err, arrayMax (err), A_ERR) + 1 ;
+	      ep = arrp (err, ii,A_ERR) ; /* may have been reallocated */
 	      while (eq--, nn-- > 0)
 		*eq = *(eq - 1) ;
 	      ep->type = INSERTION ;
 	      ep->baseShort = W_ ;
 	      if (!isUp)
 		ep->iShort-- ;
-	      ep++ ;
+	      ep++ ; ii++ ;
 	      ep->type = INSERTION ;
 	      if (isUp)
 		ep->iShort++ ;
 	      ep->baseShort = W_ ;
-	      ep++ ; if (n) n-- ;
+	      ep++ ; ii++ ; if (n) n-- ;
 	    }
 	  break ;
 #endif
@@ -2228,7 +2234,7 @@ static BOOL patchError (Array dna, LANE *lane, A_ERR *ep, Array err)
     basePos = lane->basePos ;
   char cc , *cp ;
   short *posp ;
-  BASECALL *bb, *bb0, *bb1, *bb2 ;
+  BASECALL *bb, *bb1, *bb2 ;
   A_ERR *ep1 ;
 
   switch (ep->type)
@@ -2296,7 +2302,7 @@ static BOOL patchError (Array dna, LANE *lane, A_ERR *ep, Array err)
     default: /* doubles , eliminated above */
       break ;
     }
-  bb0 = bb1 = bb ;
+  bb1 = bb ;
 
         /* count identical bases in area */
   nb = 0 ; ns = 0 ;
@@ -2436,9 +2442,10 @@ static void seq2ace(LANE *lane)
     return ;
   arrayDestroy (lane->dna) ;
   defCptForget (0, lane->key) ;
-  lane->dna = arrayCopy (lane->base) ;
-  cp = arrp(lane->dna, 0, char) - 1 ;
 
+  lane->dna = dnaCopy (lane->base) ;
+
+  cp = arrp(lane->dna, 0, char) - 1 ;
   while (cp++, n--)
     *cp &= 0x0F ;
 }
@@ -2462,7 +2469,7 @@ void laneEditSave (LOOK look, LANE *lane, int pos, int nb)
   fMapTraceForget(lane->key) ;
 
   dnaSubClass(lane->key, &dnaKey) ;
-  a = arrayCopy (lane->dna) ;
+  a = dnaCopy (lane->dna) ;
   dnaStoreDestroy (dnaKey, a) ;
 	  
   if (look && look->mode != CDNA && (obj = bsUpdate(lane->key)))
@@ -2610,7 +2617,7 @@ void laneEditSave (LOOK look, LANE *lane, int pos, int nb)
 	  if (lane1->dna)
 	    {
 	      arrayDestroy (lane1->dna) ;
-	      lane1->dna = arrayCopy (lane->dna) ;
+	      lane1->dna = dnaCopy (lane->dna) ;
 	    }
 	  laneMakeErrArray(look, lane1) ;
 	  */
@@ -2813,7 +2820,9 @@ void findXclipping (LANE *lane)
   lane->clipExtend = extend ;
   lane->x3 = lane->x2 + (lane->x1 < lane->x2 ? extend - end : end - extend) ;
 
-  n = 1 ; nBase = arrayMax (lane->base) - 2 ;
+  n = 1 ; nBase = arrayMax (lane->basePos) - 3 ;
+  if (arrayMax (lane->basePos) < 3)
+    return ;
   basePos = arrp (lane->basePos, 2, short) ;
 
   if (top)
@@ -3976,8 +3985,6 @@ static int baseCallFlagOneRnaEditing (KEY tg, LANE *lane, Array dna, Array dnaR,
   BOOL isDown ;
   KEY est = lane->key ;
   A_ERR *ep ;
-  char cc1, cc2 ;
-  BOOL isGood ;
 
   if (!Tg)
     goto abort ;
@@ -4048,12 +4055,13 @@ static int baseCallFlagOneRnaEditing (KEY tg, LANE *lane, Array dna, Array dnaR,
 		    }
 		}
 	      else
-		{ /* for debugging */
+		{ /* for debugging 
 		  cc1 = A_ ;
 		  cc2 = G_ ;
 		  cc1 = arr (dnaLong, ep->iLong - 1, char) ;
 		  cc2 = ep->baseShort ;
 		  isGood = baseCallLocalQuality (lane, ep->iShort)  ;
+		  ********/
 		}
 	    }
 	if (nag)
@@ -4093,7 +4101,7 @@ BOOL baseCallFlagRnaEditing (KEY tg, int *nreadp, int *nagp, int *nagrp)
   dna = dnaGet (cosmid) ;
   if (!dna || a1 < 0 || a2 < 0 || a1 >= arrayMax(dna) || a2 >= arrayMax(dna))
     goto abort ;
-  dnaR = arrayCopy (dna) ;
+  dnaR = dnaCopy (dna) ;
   reverseComplement (dnaR) ;
 
   for (i = 0; i < keySetMax(reads) ; i++)
@@ -4134,3 +4142,4 @@ BOOL baseCallFlagRnaEditing (KEY tg, int *nreadp, int *nagp, int *nagrp)
 
 /*********************************************************/
 /*********************************************************/
+

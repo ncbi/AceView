@@ -83,12 +83,12 @@ xx100    =2000000.0 * np.arange(300)
 xx1000   =400000.0 * np.arange(300)
 xx10000  =40000.0 * np.arange(300)
 
-# print tt
-print type(tt)
-print tt.shape
-print tt.dtype.names
-print tt[tt.dtype.names[0]]
-# print tt['Encode2012_exon_junctions_dicovered_in_at_least_10_reads']
+# print (tt)
+print (type(tt))
+print (tt.shape)
+print (tt.dtype.names)
+print (tt[tt.dtype.names[0]])
+# print (tt['Encode2012_exon_junctions_dicovered_in_at_least_10_reads'])
 
 
 ###### comparison of Encode RefSeq AceView genes recovered
@@ -159,7 +159,7 @@ if 0 :
     xa = tt['kb_cumul']/a
     ya = tt['New_exon_junctions_dicovered_in_at_least_2_reads']
     na = tt.shape[0]
-    print 'na=', na
+    print ('na=', na)
     dya = np.zeros(shape=(na))
     dxa = np.zeros(shape=(na))
     za =  np.zeros(shape=(na))
@@ -167,8 +167,8 @@ if 0 :
         dxa[i+1] = xa[i+1] - xa[i]
         dya[i+1] = ya[i+1] - ya[i]
         za[i] = dya[i+1]/dxa[i+1]
-        # print i,xa[i],ya[i],dxa[i+1],dya[i+1],za[i]
-        # print i,xa[i]
+        # print (i,xa[i],ya[i],dxa[i+1],dya[i+1],za[i])
+        # print (i,xa[i])
     za[na-1] = 0
     plt.plot (np.log(xa),np.log(za),label='Derivative')
     
@@ -244,11 +244,11 @@ def multiP(N0,m,n,x,K):
         for i in range(2,n+1,1) :
             u += m1
             if 0 :
-                print 'i=',i,'m1=',m1,'u=',u
+                print ('i=',i,'m1=',m1,'u=',u)
             m1 *= m/i
         z += u * zn
         if 0 :
-            print 'k=',k,'z=',z,'zn=',zn
+            print ('k=',k,'z=',z,'zn=',zn)
         zn *= np.sqrt(zn)
         m = m*np.sqrt(2) 
     return N0 * ( 1 - z/K)  
@@ -300,27 +300,27 @@ def testP(x):
         m1 = 0.0 + np.copy(m)
         for i in range(5) :
             if 1 :
-                print 'i=',i,'m=',m,'m1=',m1
+                print ('i=',i,'m=',m,'m1=',m1)
             m1 *= m/(i+1)
     return 1
 
 if 0 :
     x=(1.0+np.arange(2))
     y=testP(x)
-    print "x=",x,'y=',y
+    print ("x=",x,'y=',y)
     x=1.0
     y=testP(x)
-    print "x=",x,'y=',y
+    print ("x=",x,'y=',y)
     x = 2
     y=testP(x)
-    print "x=",x,'y=',y
+    print ("x=",x,'y=',y)
 
     exit(0)
     y=EKnown1(x,5)
-    print "x=",x,'y=',y
+    print ("x=",x,'y=',y)
     x=2000000000
     y=EKnown1(x,5)
-    print "x=",x,'y=',y
+    print ("x=",x,'y=',y)
     
 if 0 :
     plt.plot(xx20, ENew1(xx20,1),'r--',label='bN')
@@ -344,7 +344,7 @@ if 0 :
     plt.plot(xx20, EAny1(xx20,5),'b--',label='bA5')
     #plt.plot(xx20, EAny1(xx20,10),'g--',label='b10')
 
-print range(8)
+print (range(8))
 plt.legend(loc='lower center',shadow=True)
 plt.ylabel('de novo introns')
 plt.xlabel('Cumulated sequencing in Terabases')

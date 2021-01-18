@@ -3,5 +3,16 @@
 # Specify a machine ip number 
 # Followed by r or w to grant read or read-write access
 # Followed possibly by a commentary 
+
 # Example:  
+
+123.45.67.81 w // my linux
+123.45.67.82 r // my mac
+123.45.67.83 w // my pc
+
+127.0.0.0    w // localhost
+
 # These lines grant read access to my pc, write access to my linux and my mac
+
+
+

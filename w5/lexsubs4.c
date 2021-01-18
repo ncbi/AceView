@@ -40,7 +40,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: lexsubs4.c,v 1.34 2016/01/13 23:00:33 mieg Exp $ */
+/* $Id: lexsubs4.c,v 1.37 2020/05/30 16:50:32 mieg Exp $ */
 
 /***************************************************************/
 /***************************************************************/
@@ -177,7 +177,6 @@ extern void sysClassInit (void) ;
 
 static void lexHashInsert(int classe, KEY key) ;
 void lexReHashClass(int classe) ;
-int lexstrCasecmp(char *a,char *b) ;
 
 static LEXP1 KEY2LEX1(KEY kk) ;
 static LEXP KEY2LEX2(KEY kk) ;
@@ -873,7 +872,9 @@ void lexHardDefineKey (int table, KEY key,  char *cp)
     { 
       cq = name(KEYMAKE(table,key)) ;
       sprintf (lexBuffer, "__sys%d",key) ;
-      if(strcmp(cq,lexBuffer))
+      if(key != _LongFloat && key != _LongInt /* introduced september 2019 */
+	 && key != _zLong && key != _zLong_Unsigned /* introduced september 2019 */
+	 && strcmp(cq,lexBuffer))
 	messcrash("Tag %s = %d tries to overwrite tag %s",
 		  cp, key, cq) ;
       /* Else I am overwriting a dummy tag */
@@ -2161,7 +2162,6 @@ BOOL lexaddkey (const char *cp, KEY *kptr, KEY t)
     {
       int nBits = 8 ;
       Voc[t] = stackCreate(1 << (nBits + 2)) ;
-      stackTextOnly(Voc[t]);
       Lexi1[t] = arrayCreate(1 << (nBits - 1), LEXI1);
       
       timeStamps[t] = arrayCreate(1 << (nBits - 1), TIMESTAMP);

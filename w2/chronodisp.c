@@ -24,7 +24,7 @@
  * Created: Mon Jun 15 14:42:32 1990 (mieg)
  *-------------------------------------------------------------------
  */
-/* $Id: chronodisp.c,v 1.1.1.1 2002/07/19 20:22:55 sienkiew Exp $ */
+/* $Id: chronodisp.c,v 1.3 2020/05/30 16:50:30 mieg Exp $ */
 
 #include "acedb.h"
 

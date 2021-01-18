@@ -37,7 +37,7 @@
  *       typedef struct x3Struct { int x,y,z ;} X3 ; 
  *       CHAN *cx3 = channelCreate (8, X3, h) ;  // cx3 may buffer 8 structures of type X3.
  * USAGE:
- * Data is written to the channel using channelPut, and read using channelGet.
+ * Data is written to the channel using channelPut, and read using channelGive or channelGet.
  * The Get/Put can occur in any order in different threads, as channels are self-synchronizing
  *
  * channelPut : writes a record of the correct type into a channel.
@@ -45,32 +45,58 @@
  *                          &z : the address of a variable of the correct type
  *                               the address is needed to construct the macro, but 
  *                               in reality the record is copied and passed by value
- *                          type : the type of the variable, it should match the type of the channel
+ *                          type : the type of the variable
+ *           // the type of the variable should match the type of the channel
  *     Example 3 :
  *       double pi = 3.1415926535 ;
  *       channelPut (c, &pi, double) ;
  *           // Execution blocks if the channel buffer is full, 
  *           // Execution resumes when a record is consumed by another thread calling channelGet.
  *
- * channelGet : reads a record of the correct type from a channel.
+ * channelGive : reads a record of the correct type from a channel, returns the value.
  *              parameters: CHAN c: an existing channel of the correct type
  *                          &z : the address of a variable of the correct type
  *                               the call, if successful, will edit the variable
- *                          type : the type of the variable, it should match the type of the channel
-  *   If the channel is empty, channelGet waits until another thread puts a record on the channel,
+ *                          type : the type of the variable
+ *           // the type of the variable should match the type of the channel
+ *
+ *   If the channel is empty, channelGive waits until another thread puts a record on the channel,
  *   as soon as the channel has data, it returns the next record and removes it from the channel.
  *   The record is copied at the address provided, and returned by value. As a result, 
- *   channelGet may be used as the (blocking) argument of a function call as shown here:
+ *   channelGive may be used as the (blocking) argument of a function call as shown here:
  *      Example 4 :
  *        In the main program : create the channel cx3, as in example 2, and start two threads.
  *        In thread 1 ;
  *               X3 x3 ; // allocate an instance of struct x3Struct 
- *               printf("%f\n", sinus(chanGet(cx3, &x3, X3).y) ; // blocking 
+ *               printf("%f\n", sinus(channelGive(cx3, &x3, X3).y) ; // blocking 
  *        In thread 2 : // may happen before or after the request from thread 1 
  *               X3 aa = { 0, pi/3, 0 } ; // allocate and initialise an instance of X3
  *               channelPut (cx3, &aa, X3) ; // write a record on the channel.
  *          At that point, thread 1 will resume and print the value 1/2.
  *             
+ * channelGet : reads a record of the correct type from a channel, returns the channel state.
+ *              parameters: CHAN c: an existing channel of the correct type
+ *                          &z : the address of a variable of the correct type
+ *                               the call, if successful, will edit the variable
+  *                          type : the type of the variable
+ *           // the type of the variable should match the type of the channel
+ *   If the channel is empty, channelGet waits until another thread puts a record on the channel,
+ *   as soon as the channel has data, it returns the next record and removes it from the channel.
+ *   The record is copied at the address provided and the returned value is TRUE.
+ *   But if the channel is closed, the returned value is FALSE. As a result,
+ *   channelGet may be used as the (blocking) argument of a loop control:
+ *      Example 4b: // In this example we want to loop
+ *        In thread 1 ;
+ *               X3 x3  { 0, pi/3, 0 } ; // allocate and initialise an instance of X3
+ *               for (i = 0; i < 10 ; i++)  // export 10 instances of x3,
+ *                 channelPut (cx3, &x3, X3) ; // write a record on the channel.  
+ *               channelClose (cx3) ;          // close the channel
+ *        In thread 2 : // may happen before or after the request from thread 1 
+ *               X3 x3 ; // allocate an instance of struct x3Struct 
+ *               while (channelGet (cx3, &x3, X3))  // write a record on the channel.
+ *                  {} // do something with x3
+ *               // the loop exits after consuming the 10 records
+ *
  * A multi get/put version of these functions is available for programs using channels in tight
  * loops. Using these calls will improve the load balance between readers and writers by 
  * accelerating the slower side relative to the faster side.
@@ -101,7 +127,7 @@
  *            if (channelTryPut (cx3, &x3, X3) > 0)  { do something with x3 ; }
  *         }
  *
- *  Closing a channel is the generic way to break a channelMultiGet loop
+ *  Closing a channel is the generic way to break a channelGet or channelMultiGet loop
  *  Once a channel is closed, it will not accept any new channelPut, i.e. any new records
  *  and when all previously queued records have been consumed, channelMultiGet will return 0
        Example 5b:
@@ -133,7 +159,7 @@
 	     int x ;	
 	     BOOL b = FALSE ;
 		
-             while (channelMultiGet (tt->c, &x, 1, int))  // wait for data, break when tt->c is closed
+             while (channelGet (tt->c, &x, int))  // wait for data, break when tt->c is closed
 	       { b = TRUE ; // do something with x until the channel is closed }
              channelPut (tt->done, &b, BOOL) ; // happens when tt->c is closed and 'do something with last x' is over
              return ;
@@ -193,7 +219,8 @@ typedef struct channelStruct CHAN ;
 
  CHAN *channelCreate (int cMax, TYPE, AC_HANDLE h) ;
 
- TYPE channelGet(CHAN *chan, TYPE *vp, TYPE) ;  // blocking, returns the value, updates *vp
+ TYPE channelGive(CHAN *chan, TYPE *vp, TYPE) ;  // blocking, returns the value, updates *vp
+ BOOL channelGet(CHAN *chan, TYPE *vp, TYPE)  ; // blocking, updates vp and returns TRUE, or FALSE if the channel is closed 
  int  channelPut(CHAN *chan, TYPE *vp, TYPE) ;  // blocking, returns 1  if success, 0 if channel is closed
 
  int channelMultiGet(CHAN *chan, TYPE *vp, int max, TYPE) ;  // blocking, returns number of records read, 0 if channel is closed
@@ -211,7 +238,7 @@ typedef struct channelStruct CHAN ;
  * to allow dynamic typing, but the argument is effectivelly copied and passed by value.
 */
 
-BOOL channelSelect (CHAN **ccc) ; /* ccc is a zero terminated list of channes
+BOOL channelSelect (CHAN **ccc) ; /* ccc is a zero terminated list of channels
 				  * return 0 if all are closed
 				  * return 1 if one of them is probably ready
 				  * check which, using channelTryGet, as in example 6 above

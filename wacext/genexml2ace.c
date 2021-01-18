@@ -92,7 +92,7 @@ static void geneXmlExportKegg (const char *geneid, char **cpp0, vTXT buf, AC_HAN
 	  if (strstr (data, "KEGG pathway"))
 	    {
 	      data += strlen ("KEGG pathway") + 2 ;
-	      cp = block ;
+	      /* cp = block ; */
 	      if ((kegg = xmlGetNextTagContent (&cp, "Object-id_str", h)))
 		{
 		  vtxtPrintf (buf, "\nExtern KEGG_%s\nKEGG\nPathway %s\n\n"
@@ -192,42 +192,47 @@ static char *geneXmlGeneContent (const char *geneid, char *cp0, vTXT buf, int li
   char *cp, *cq, *summary, *geneName, *generef ;
 
   cp = cp0 ; geneName = xmlGetNextTagContent (&cp, "Gene-ref_locus", h) ;
-  cp = cp0 ; summary = xmlGetNextTagContent (&cp, "Entrezgene_summary", h) ;
-  if (summary)
-    vtxtPrintf (buf, "Summary %s\n"
-		, freeprotect (messprintf ("[RefSeq Summary %s] %s", geneName ? geneName : "", summary))) ; 
-  cp = cp0 ; geneXmlExportXmlTagValue2Acetag (&cp, buf, "Gene-commentary", "EC", "EC_number", h) ;
-  cp = cp0 ; geneXmlExportXmltag2Acetag (&cp, buf, "Prot-ref_name_E", "Properties", TRUE, h) ;
-  cp = cp0 ; geneXmlExportXmltag2Acetag (&cp, buf, "Gene-ref_syn_E", "Locus", TRUE, h) ;
-  cp = cp0 ; geneXmlExportXmlTagWithValue2Acetag (geneid, &cp, buf, "Gene-commentary", "phenotype", "Locus_Phenotype", h) ;
-  cp = cp0 ; generef = xmlGetNextTagContent (&cp, "Gene-ref", h) ;
-  if (generef)
+  if (geneName)
     {
-      while ((cp = xmlGetNextTagContent (&generef, "Dbtag_db", h)))
+      vtxtPrintf (buf, "LocusLink \"%s\"\n", geneName) ;
+      cp = cp0 ; summary = xmlGetNextTagContent (&cp, "Entrezgene_summary", h) ;
+      if (summary)
+	vtxtPrintf (buf, "Summary %s\n"
+		    , freeprotect (messprintf ("[RefSeq Summary %s] %s", geneName ? geneName : "", summary))) ; 
+      cp = cp0 ; geneXmlExportXmlTagValue2Acetag (&cp, buf, "Gene-commentary", "EC", "EC_number", h) ;
+      cp = cp0 ; geneXmlExportXmltag2Acetag (&cp, buf, "Prot-ref_name_E", "Properties", TRUE, h) ;
+      cp = cp0 ; geneXmlExportXmltag2Acetag (&cp, buf, "Gene-ref_syn_E", "Locus", TRUE, h) ;
+      cp = cp0 ; geneXmlExportXmltag2Acetag (&cp, buf, "Maps_display-str", "Cytogenetic", TRUE, h) ;
+      cp = cp0 ; geneXmlExportXmlTagWithValue2Acetag (geneid, &cp, buf, "Gene-commentary", "phenotype", "Locus_Phenotype", h) ;
+      cp = cp0 ; generef = xmlGetNextTagContent (&cp, "Gene-ref", h) ;
+      if (generef)
 	{
-	  if (!strcmp (cp, "MIM"))
+	  while ((cp = xmlGetNextTagContent (&generef, "Dbtag_db", h)))
 	    {
-	      cq = xmlGetNextTagContent (&generef, "Object-id_id", h) ;
-	      if (cq)
+	      if (!strcmp (cp, "MIM"))
 		{
-		  vtxtPrintf (buf, "\nExtern \"OMIM_%s\"\nOMIM\n", cq) ;
-		  vtxtPrintf (buf, "\nGeneId %s\nOMIM_mol \"OMIM_%s\" \n", geneid, cq) ;
+		  cq = xmlGetNextTagContent (&generef, "Object-id_id", h) ;
+		  if (cq)
+		    {
+		      vtxtPrintf (buf, "\nExtern \"OMIM_%s\"\nOMIM\n", cq) ;
+		      vtxtPrintf (buf, "\nGeneId %s\nOMIM_mol \"OMIM_%s\" \n", geneid, cq) ;
+		    }
 		}
-	    }
-	  else if (!strcmp (cp, "MGI"))
-	    {
-	      cq = xmlGetNextTagContent (&generef, "Object-id_id", h) ;
-	      if (cq)
+	      else if (!strcmp (cp, "MGI"))
 		{
-		  vtxtPrintf (buf, "\nExtern \"MGI_%s\"\nMGI\n", cq) ;
-		  vtxtPrintf (buf, "GeneId %s\n\n", geneid) ;
-		  vtxtPrintf (buf, "GeneId %s\n", geneid) ;
+		  cq = xmlGetNextTagContent (&generef, "Object-id_id", h) ;
+		  if (cq)
+		    {
+		      vtxtPrintf (buf, "\nExtern \"MGI_%s\"\nMGI\n", cq) ;
+		      vtxtPrintf (buf, "GeneId %s\n\n", geneid) ;
+		      vtxtPrintf (buf, "GeneId %s\n", geneid) ;
+		    }
 		}
-	    }
-	}	  
+	    }	  
+	}
+      cp = cp0 ; geneXmlExportKegg (geneid, &cp, buf, h) ;
+      cp = cp0 ; geneXmlExportAccession (&cp, buf, h) ;
     }
-  cp = cp0 ; geneXmlExportKegg (geneid, &cp, buf, h) ;
-  cp = cp0 ; geneXmlExportAccession (&cp, buf, h) ;
   return vtxtPtr (buf) ;
 } /* geneXmlGeneContent */
 
@@ -255,9 +260,10 @@ static int geneXmlGene (vTXT vtxt, int line, const char *target)
     {
       cp = geneXmlGeneContent (geneid, cp0, buf, line, h) ;
       if (cp)
-	{
+	{ 
+	  int n2 = 0, n1 = messAllocMaxStatus (&n2) ; 
 	  ng++; 
-	  printf ("geneId %s\n%s\n\n", geneid, cp) ;
+	  printf ("geneId %s // %d  maxMem=%d\n%s\n\n", geneid, line,n2, cp) ;
 	}
     }
   ac_free (h) ;

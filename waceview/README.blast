@@ -35,7 +35,7 @@ sh  ../waceview/blast_install  $BB/x86_64
 
 cd  $BB/x86_64
 ln -s ../../bin/tacembly tbly
-scp /netopt/ncbi_tools64/bin/formatdb mieg@ace11:/home/mieg/SERVER/BLAST/x86_64
+scp /netopt/ncbi_tools64/bin/formatdb mieg@ace01:/home/mieg/SERVER/BLAST/x86_64
 
 date ; ./blast_generate worm $SS/worm_1 ; date
 #  takes about 5 minutes on vesta, 1 minute on ace
@@ -91,7 +91,7 @@ blast.html presents a query form, which is submitted to the web server.
 
 blast.cgi is the CGI that services that query.  The file blast_host
 contains the host name or IP number of the computation server.  (If the
-file is missing, "ace11" is used.)  blast.cgi contacts blastd on port
+file is missing, "ace01" is used.)  blast.cgi contacts blastd on port
 3001 of the computation server and passes in the query.
 
 blastd really just runs the standard NCBI blastall program with the

@@ -1,6 +1,9 @@
 #!/bin/tcsh -f
 #  2014_01_05
 
+echo "This code is obsolete, please try README.miniTest"
+goto done
+
 ################################################################
 # Construct a mini project
 ##### Mini genome
@@ -351,3 +354,5 @@ endif
 #### 2) register a reference copy of these files and diff to check the current code
 
 
+done:
+ echo done

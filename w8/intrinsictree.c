@@ -14,16 +14,10 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: intrinsictree.c,v 1.3 2017/02/15 20:36:48 mieg Exp $ */
+/* $Id: intrinsictree.c,v 1.4 2020/05/30 16:50:34 mieg Exp $ */
 
 /***************************************************************/
 
-/*
-#define CHRONO
-
-#define ARRAY_CHECK 
-#define MALLOC_CHECK
-*/
 #include "acedb.h"
 #include "keyset.h"
 #include "topology.h"

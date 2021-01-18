@@ -33,7 +33,7 @@ ctimeout=300
 #
 # server timeout
 
-stimeout=72000
+stimeout=92000
 
 #
 # max kbytes per client (0 = unlimited)
@@ -49,12 +49,12 @@ server=bin/tgifacemblyserver
 #
 # how long does our client give the server to answer
 
-timeout=600
+timeout=300
 
 #
 # how long we give the server to startup
 
-startuptime=1200
+startuptime=300
 #startuptime=40
 
 #
@@ -152,7 +152,7 @@ blast)
 	maxsize=1048576
 	server=bin/tgifacemblyserver.37a_1
         #noswap='-noswap'
-        stimeout=60000
+        stimeout=92000
 	;;
 mm_37_1)
 	echo 'recognized mm_37_1'
@@ -160,7 +160,7 @@ mm_37_1)
 	maxsize=1048576
 	server=bin/tgifacemblyserver.mm_37_1
         #noswap='-noswap'
-        stimeout=50000
+        stimeout=92000
 	;;
 mm_37_2)
 	echo 'recognized mm_37_2'
@@ -192,7 +192,7 @@ worm_1)
         maxsize=1048576
 	server=bin/tgifacemblyserver.worm_1
         #noswap='-noswap'
-        stimeout=65000
+        stimeout=92000
 	;;
 ara_1)
 	port=2000300
@@ -250,7 +250,7 @@ directory identifies the database to run the server for:
 		rpc program number is 2310500
 
 	worm_1	worm database
-		rpc program number is 2000101
+		rpc program number is 2000100
 
 	ara_1	version 1 of ara database
 		rpc program number is 2000300
@@ -285,11 +285,11 @@ stop_server() {
 		echo Cannot find pid file to stop servermonitor
 	fi
 
-	echo 'Asking database server to shut down'
-	echo 'save' | $aceclient a:127.0.0.1:$port -time_out $timeout
-	echo 'shutdown now' | $aceclient a:127.0.0.1:$port -time_out $timeout
-	if [ $? != 0 ]
-	then
+	# echo 'Asking database server to shut down'
+	# echo 'save' | $aceclient a:127.0.0.1:$port -time_out $timeout
+	# echo 'shutdown now' | $aceclient a:127.0.0.1:$port -time_out $timeout
+	# if [ $? != 0 ]
+	# then
 		echo 'Database server is not responding - using kill'
 		if [ -f $dir/monitor/pidfile_server ]
 		then
@@ -298,7 +298,7 @@ stop_server() {
 		else
 			echo Cannot find pid file to kill server
 		fi
-	fi
+	# fi
 	rm -f $dir/monitor/pidfile_monitor $dir/monitor/pidfile_server
 }
 
@@ -340,7 +340,7 @@ start_server() {
 	fi
 
 
-	rm -f $dir/monitor/pidfile_server $dir/monitor/pidfile_monitor
+	# rm -f $dir/monitor/pidfile_server $dir/monitor/pidfile_monitor
 
         echo 'server=' $server ' ' $noswap
 
@@ -378,6 +378,8 @@ start_server() {
 				LD_LIBRARY_PATH=/home/mieg/bin  # needed by the swfc flash compiler
 				export LD_LIBRARY_PATH
 				touch $dir/run.log
+				date >> $dir/run.log
+                                echo echo exec $server $dir $noswap $port ${ctimeout}":"${stimeout}":"${kbytes} >> $dir/run.log
 				exec $server $dir $noswap $port ${ctimeout}":"${stimeout}":"${kbytes} >> $dir/run.log
 			) &
 			echo $! > $dir/monitor/pidfile_server
@@ -387,7 +389,9 @@ start_server() {
 			# another day from when we last rotated the
 			# log file.  If so, rotate the logs before
 			# we restart the server
-
+			echo -n "... $dir died    restarting" >> $dir/run.log
+			date >> $dir/run.log
+                        echo "... $dir died    restarting"
 			touch $dir/monitor/last_rotate
 			read last_rotate < $dir/monitor/last_rotate
 			now=`date +%Y/%m/%d`
@@ -395,6 +399,7 @@ start_server() {
 			then
 				log_rotate
 			fi
+                        # rm -f $dir/monitor/pidfile_server $dir/monitor/pidfile_monitor
 		done
 	) &
 
@@ -412,36 +417,33 @@ start_server() {
 		do
 			if [ ! -x $aceclient ]
 			then
-				echo 'servermonitor $1 - The aceclient executable disappeared!'
+				echo 'servermonitor $1 - The aceclient executable disappeared!' >> $dir/server.log
 				exit 1
 			fi
-                        date
-			echo challenging find tg on $aceclient a:127.0.0.1:$port -time_out $timeout
+			echo -n "challenging find tg on $aceclient a:127.0.0.1:$port -time_out $timeout" >> $dir/server.log
+                        date >> $dir/server.log
 			echo 'find tg toto' | $aceclient a:127.0.0.1:$port -time_out $timeout
 			if [ $? != 0 ]
 			then
 				if [ -f $dir/monitor/pidfile_server ] 
 				then
-					read pid < $dir/monitor/pidfile_server	
-					echo servermonitor: server not responding kill needed
+					read pid < $dir/monitor/pidfile_server	 >> $dir/server.log
+					echo servermonitor: server not responding kill needed >> $dir/server.log
 					kill $pid
 					rm -f $dir/monitor/pidfile_server
 				fi
 			else
+				date
 				if [ -f $dir/monitor/pidfile_server ] 
 				then
 					read pid < $dir/monitor/pidfile_server
 					size=`ps -l -p $pid | tail -n +2 | awk '{ printf("%d\n",$10); }'`
 					if [ $size -gt $maxsize ]
 					then
-						echo servermonitor: server size too big
-						( echo 'save' ; echo 'shutdown' ) \
-							| $aceclient a:127.0.0.1:$port -time_out $timeout
-						if [ "$?" != 0 ]
-						then
-							echo kill needed
-							kill $pid
-						fi
+						echo servermonitor: server size $size too big $maxsize >> $dir/server.log
+						echo kill needed >> $dir/server.log
+						kill $pid
+						rm -f $dir/monitor/pidfile_server
 					fi
 				fi
 			fi
@@ -535,6 +537,7 @@ in
 	exit 0
 	;;
 "start")
+	stop_server
 	start_server
 	echo 'Done'
 	exit 0

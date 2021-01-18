@@ -547,9 +547,9 @@ static void swfDrawBox (SDS *sds, Box box, int iBox)
 
 /*******************************************************************************/
 
-static void swfDoBox (SDS *sds, int k, int fcol, int bcol)
+static void swfDoBox (SDS *sds, int iBox, int fcol, int bcol)
 {
-  Box box = gBoxGet (k) ;
+  Box box = gBoxGet (iBox) ;
 
   /*
     currFormat = box->format ;
@@ -563,7 +563,7 @@ static void swfDoBox (SDS *sds, int k, int fcol, int bcol)
   if (bcol >= 0)
     box->bcol = bcol ;
 
-  swfDrawBox (sds, box, k) ;
+  swfDrawBox (sds, box, iBox) ;
 } /* swfDoBox (int box) */
 
 /*******************************************************************************/

@@ -20,6 +20,7 @@
 
 #ifndef DEF_ARRAY_H
 #define DEF_ARRAY_H
+#include "regular.h"  /* may set ARRAY_CHECK */
  
 mysize_t stackused (void) ;
  
@@ -27,9 +28,6 @@ mysize_t stackused (void) ;
 
 /* #define ARRAY_CHECK either here or in a single file to
    check the bounds on arr() and arrp() calls
-   if defined here can remove from specific C files by defining
-   ARRAY_NO_CHECK (because some of our finest code
-                   relies on abuse of arr!) YUCK!!!!!!!
 */
 typedef struct { KEY k ; float x, y ;} POINT2D ;
 
@@ -54,18 +52,24 @@ typedef struct ArrayStruct
 #if !defined(MEM_DEBUG)
   Array   uArrayCreate (mysize_t n, int size, AC_HANDLE handle) ;
   void    arrayExtend (Array a, int n) ;
-  Array   arrayCopy (Array a) ;
-  Array arrayHandleCopy (Array a, AC_HANDLE handle) ;
+  void    arrayExtend (Array a, int n) ;
+Array arrayHandleCopyExtend(Array a, int extendBy, AC_HANDLE h) ;
+#define arrayCopy(a) arrayHandleCopyExtend(a,0,0)
+#define arrayHandleCopy(a,h) arrayHandleCopyExtend(a, 0,h)
+#define dnaCopy(_a) arrayHandleCopyExtend(_a,1,0)
+#define dnaHandleCopy(_a,h) arrayHandleCopyExtend(_a,1,h)
 #else
   Array   uArrayCreate_dbg (mysize_t n, int size, AC_HANDLE handle,
 			    const char *hfname,int hlineno) ;
   void    arrayExtend_dbg (Array a, int n, const char *hfname,int hlineno) ;
   Array	arrayCopy_dbg(Array a, const char *hfname,int hlineno) ; 
-  Array	arrayHandleCopy_dbg(Array a, const char *hfname,int hlineno, AC_HANDLE handle) ; 
+Array	arrayHandleCopyExtend_dbg(Array a, const char *hfname,int hlineno, int extendBy, AC_HANDLE handle) ; 
 #define uArrayCreate(n, s, h) uArrayCreate_dbg(n, s, h, __FILE__, __LINE__)
 #define arrayExtend(a, n ) arrayExtend_dbg(a, n, __FILE__, __LINE__)
-#define arrayCopy(a) arrayCopy_dbg(a, __FILE__, __LINE__)
-#define arrayHandleCopy(a,h) arrayHandleCopy_dbg(a, __FILE__, __LINE__, h)
+#define arrayCopy(a) arrayHandleCopyExtend_dbg(a, __FILE__, __LINE__,0,0)
+#define arrayHandleCopy(a,h) arrayHandleCopyExtend_dbg(a, __FILE__, __LINE__, 0, h)
+#define dnaCopy(_dna) arrayHandleCopyExtend_dbg(_dna, __FILE__, __LINE__,1,0)
+#define dnaHandleCopy(_dna,h) arrayHandleCopyExtend_dbg(_dna, __FILE__, __LINE__, 1,h)
 
 #endif
 void arrayLock (Array a) ;
@@ -74,18 +78,18 @@ void arrayUnlock (Array a) ;
 Array   uArrayReCreate (Array a, int n, int size) ;
 void    uArrayDestroy (Array a);
 char    *uArray (Array a, int index) ;
-char    *uArrCheck (Array a, int index) ;
-char    *uArrayCheck (Array a, int index) ;
+char    *uArrCheck (Array a, int index, int size) ;
+char    *uArrayCheck (Array a, int index, int size) ;
 #define arrayCreate(n,type)	uArrayCreate(n,sizeof(type), 0)
 #define arrayHandleCreate(n,type,handle) uArrayCreate(n, sizeof(type), handle)
 #define arrayReCreate(a,n,type)	uArrayReCreate(a,n,sizeof(type))
 #define arrayDestroy(x)		((x) ? uArrayDestroy(x), x=0, TRUE : FALSE)
 
-#if (defined(ARRAY_CHECK) && !defined(ARRAY_NO_CHECK))
-#define arrp(ar,i,type)	((type*)uArrCheck(ar,i))
-#define arr(ar,i,type)	(*(type*)uArrCheck(ar,i))
-#define arrayp(ar,i,type)	((type*)uArrayCheck(ar,i))
-#define array(ar,i,type)	(*(type*)uArrayCheck(ar,i))
+#if (defined(ARRAY_CHECK))
+#define arrp(ar,i,type)	((type*)uArrCheck(ar,i,sizeof(type)))
+#define arr(ar,i,type)	(*(type*)uArrCheck(ar,i,sizeof(type)))
+#define arrayp(ar,i,type)	((type*)uArrayCheck(ar,i,sizeof(type)))
+#define array(ar,i,type)	(*(type*)uArrayCheck(ar,i,sizeof(type)))
 #else
 #define arr(ar,i,type)	((*(type*)((ar)->base + (i)*(ar)->size)))
 #define arrp(ar,i,type)	(((type*)((ar)->base + (i)*(ar)->size)))
@@ -180,12 +184,11 @@ BOOL linearRegression (Array xy, double *ap, double *bp, double *rp, double *wp)
 *
 * TextOnly stacks:
 *
-*	stackTextOnly( stack )
-*		Sets a flag in the stack that alters the way various 
-*		functions work.  If you use pushText(), catText(),
-*		or catBinary(), you MUST set stackTextOnly.  (The
-*		library does not enforce this restriction.)
-*
+*	Stacks must be used either for texts, using
+*                 pushText, catText, stackText
+*              OR as push-pop stacks for fundamental types of fixed size
+*                 push
+*		The library enforces this restriction.
 *
 * Destroying stacks:
 *	stackDestroy( stack )
@@ -226,8 +229,8 @@ BOOL linearRegression (Array xy, double *ap, double *bp, double *rp, double *wp)
 *	aligned on the Pentium external data bus to avoid making two bus
 *	transactions.  So, there are:
 *
-*	pushDouble( stack, double )
-*	popDouble( stack )
+*	pushDouble( stack, double ), pushPtr (stack, void *)
+*	popDouble( stack ), popPtr (stack, void *)
 *		just like push/pop, but with double values and alignments
 *
 * Text functions:
@@ -264,10 +267,10 @@ BOOL linearRegression (Array xy, double *ap, double *bp, double *rp, double *wp)
 *			catText(s,"b");
 *
 *	catBinary (Stack s, char* data, mysize_t size) ;
-*		This is just like catText, except that it takes a size for
+*		Like catText, except that it takes a size for
 *		the string to be inserted so the string can contain \0.
 *
-*		catBinary is only useable with TextOnly stacks.
+*		catBinary is only useable with TextOnly stacks, no checks.
 *
 *		To extract your data from a TextOnly stack that has been
 *		manipulated with catBinary, use this code:
@@ -354,6 +357,7 @@ typedef struct StackStruct      /* assumes objects <= 16 bytes long */
     char* pos ;         /* potential internal pointer */
 
     char* safe ;        /* need to extend beyond here */
+    BOOL  pushPop ;     /* push/pop stack, incompatible with textStack */
     BOOL  textOnly; /* If this is set, don't align the stack.
 		       This (1) save space (esp on ALPHA) and
 		       (2) provides stacks which can be stored and got
@@ -376,7 +380,6 @@ typedef struct StackStruct      /* assumes objects <= 16 bytes long */
 #define stackCreate(n) stackHandleCreate(n, 0)
 Stack   stackReCreate (Stack s, int n) ;
 Stack   stackCopy (Stack, AC_HANDLE handle) ;
-void    stackTextOnly(Stack s);
 
 void    uStackDestroy (Stack s);
 #define stackDestroy(x)	 ((x) ? uStackDestroy(x), (x)=0, TRUE : FALSE)
@@ -532,6 +535,7 @@ char    *uBrokenText (char *text, int width) ; /* \n's intercalated */
 *
 * Associator is implemented as a conventional hash table with
 * collision resolution, not buckets.
+* It is combined with a Bloom which accelerates negative searches.
 *
 */
 #include "bitset_.h"
@@ -554,22 +558,24 @@ typedef struct AssStruct
  
 #define assExists(a) ((a) && (a)->magic == ASS_MAGIC ? (a)->id : 0 )
 
-Associator assInOnlyHandleCreate (long int size, AC_HANDLE handle) ;
 #if !defined(MEM_DEBUG)
   Associator assHandleCreate (AC_HANDLE handle) ;
-Associator assBigHandleCreate (long int size, AC_HANDLE handle) ;
+  Associator assBigHandleCreate (long int size, AC_HANDLE handle) ;
+  Associator assInOnlyHandleCreate (long int size, AC_HANDLE handle) ;
+#define assBigCreate(s) assBigHandleCreate(s,0)
+#define assCreate() assHandleCreate(0)
 #else
   Associator assHandleCreate_dbg (AC_HANDLE handle,
 				 const char *hfname, int hlineno) ;
   Associator assBigCreate_dbg (long int size, const char *hfname, int hlineno) ;
   Associator assBigHandleCreate_dbg (long int size, AC_HANDLE handle, const char *hfname, int hlineno) ;
+  Associator assInOnlyHandleCreate_dbg (long int size, AC_HANDLE handle, const char *hfname, int hlineno) ;
+#define assInOnlyHandleCreate(s,h) assInOnlyHandleCreate_dbg(s,h,__FILE__, __LINE__)
+#define assCreate() assHandleCreate_dbg(0, __FILE__, __LINE__)
 #define assHandleCreate(h) assHandleCreate_dbg(h, __FILE__, __LINE__)
-#define assBigCreate(s) assBigHandleCreate_dbg(0,s, __FILE__, __LINE__)
-#define assBigHandleCreate(s) assBigHandleCreate_dbg(s,hs, __FILE__, __LINE__)
+#define assBigCreate(s) assBigHandleCreate_dbg(s,0, __FILE__, __LINE__)
+#define assBigHandleCreate(s,h) assBigHandleCreate_dbg(s,h, __FILE__, __LINE__)
 #endif
-
-#define assCreate() assHandleCreate(0)
-#define assBigCreate(s) assBigHandleCreate(s,0)
 
 Associator assReCreate (Associator a) ;
 void    uAssDestroy (Associator a) ;

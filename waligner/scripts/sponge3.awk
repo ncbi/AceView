@@ -1,7 +1,7 @@
 /^#/{next;}
 /^ZZZZZ/{zz++ ; next ;}
 {
-  if (zz <4)
+  if (zz <5)
     { 
       if(length($1)>0)
 	{
@@ -9,8 +9,7 @@
 	  if (zz == 0) { isSublib[r] = 1 ; next ; }
           if (isSublib[r]) next ;
 	  ir=r2ir[r];if(ir<1){nr++;r2ir[r]=nr;ir2r[nr]=r;ir=nr;}
-	  isgroup[ir] = zz ;
-	  
+	  isgroup[ir] = zz ;	  
 	}
       next ;
     }
@@ -21,7 +20,7 @@
 }
 
 {
-  if (zz == 4) 
+  if (zz == 5) 
     { 
       r = $1 ; ir=0+r2ir[r];if(ir<1)next;
       gsub (/System:/,"",$0);
@@ -95,7 +94,7 @@ END {
 
       for (ir = 1 ; ir <= nr ; ir++)
 	{
-	    if (isgroup[ir] < 1) continue ;
+	    if (isgroup[ir] < 3) continue ;
 	  printf ("\n%s\t%d", ir2r[ir],level) ;
 	  
 	  if (nrunid>0) printf("\t%s", runid[ir]) ;

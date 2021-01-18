@@ -42,7 +42,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: display.c,v 1.16 2017/01/17 21:15:30 mieg Exp $ */
+/* $Id: display.c,v 1.18 2019/02/26 05:01:00 mieg Exp $ */
 
 #include "acedb.h"
 #include "aceio.h"
@@ -141,7 +141,7 @@ BOOL display (KEY key, KEY from, char *displayName)
       ff (key,from,gReuse))
     { array(previous,KEYKEY(displayKey), Graph) = graphActive() ;
       graphPop () ;
-      if (gifEntry && displayReportGif)
+      if (0 && gifEntry && displayReportGif)
 	freeOutf ("// %s %s \"%s\"\n", 
 		  name(displayKey), className(key), name(key));
       return TRUE ;
@@ -485,7 +485,7 @@ Graph displayCreate(char *displayName)
 		"Then quit and restart acedb") ;
      return 0 ;
    }
- if (!dp->title || !*dp->title)
+ if (!*dp->title)
    strcpy (dp->title, "Sorry, no title in display.wrm") ;
  
  /***** A trick to prevent window superposition ***/

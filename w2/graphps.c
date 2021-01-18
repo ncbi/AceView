@@ -8,7 +8,7 @@
  *
  * Description: to provide postscript output for the graph package
  * Exported functions: graphPS(), graphPrint()
- * SCCS: $Id: graphps.c,v 1.6 2015/01/25 04:55:27 mieg Exp $
+ * SCCS: $Id: graphps.c,v 1.8 2020/05/30 16:50:30 mieg Exp $
  * HISTORY:
  * Last edited: Jan  8 11:42 1999 (edgrif)
  * * Jan  5 14:11 1999 (edgrif): Make graphPStitle() internal as PStitle,
@@ -658,7 +658,6 @@ void graphPS (char *myfilname, char *mail, char *print,
     { int nFonts = 0 ;
     firstPass = FALSE ;
     fontNameStack = stackCreate(50) ;
-
     fil = 0 ;
 
 

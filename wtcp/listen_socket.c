@@ -23,12 +23,13 @@ if (fd < 0)
 	}
 
 n=1;
-setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n));
-
+ setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &n, sizeof(n))  ;
+ 
 n=49152;
 setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &n, sizeof(n));
 setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &n, sizeof(n));
 
+ 
 memset(&here,0,sizeof(here));
 here.sin_family = AF_INET;
 here.sin_port = htons(port);

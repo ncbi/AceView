@@ -34,7 +34,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: acedna.h,v 1.22 2017/04/29 00:14:43 mieg Exp $ */
+/* $Id: acedna.h,v 1.28 2019/11/25 22:39:53 mieg Exp $ */
 
 #ifndef DEF_ACEDNA_H
 #define DEF_ACEDNA_H
@@ -132,8 +132,8 @@ typedef
 typedef struct dnaAlignErrStruct 
     { ALIGN_ERROR_TYPE type ;
       int iLong, iShort ;   /* offset in "long" reference dna and "short" tested dna */
-      char baseShort ;  /* A 0 for a missing base, or its value */
-      int sens ; /* 1 if short and long are in the same way, otherwise - 1 */
+      short sens ; /* 1 if short and long are in the same way, otherwise - 1 */
+      char baseLong, baseShort ;  /* A 0 for a missing base, or its value */
       }  A_ERR ;
 
 void showDna (Array dna, int n) ; /* for debugging purpose */
@@ -153,7 +153,8 @@ void dnaEncodeArray (Array a) ;	/* works in place */
 void dnaSolidEncodeArray (Array a, BOOL isDown) ;	/* works in place, transforms ATGC DNA into ATGC transitions, all other bases are coded as repeats of previous base  */
 void dnaSolidDecodeArray (Array a, BOOL isDown) ;	/* works in place, transforms back ATGC transitions into standard DNA */
 
-Array dnaCopy (Array dna) ; /* arrray copy, but adding a terminal zero, avoids subsequnet doubling  */
+/* Array dnaHandleCopy (dna,h) and dnaCopy(Array dna) ;  // defined as a macro in ac.h->array.h  */
+
 void  reverseComplement(Array dna) ; /* acts in place */
 
 				/* Handles for dnacpt package */
@@ -169,9 +170,15 @@ float oligoTm (Array dna, int x1, int x2, float *GC_rate) ; /* Maniatis formula 
 /* Bp equivalent of the complexity of this oligo, if minEntopy > 0 return 0 if below  */
 int oligoEntropy (unsigned const char *dna, int ln, int minEntropy) ;
 
-void aceDnaSetIlmJumper (BOOL ok) ; /* if TRUE, use the jumper adapted to the Illumina HiSeq machine */
-void aceDnaSetSolidJumper (BOOL ok) ; /* if TRUE, use the jumper adapted to the LIF/SolID transition csfasta DNA */
+ /* if TRUE, use the jumper adapted to the sequencing technology 
+  * Ilm is the default 
+  */
+void aceDnaSetIlmJumper (BOOL ok) ;   /* Illumina */
+void aceDnaSetSolidJumper (BOOL ok) ; /* LIF/SolID transition csfasta DNA */
+void aceDnaSetRocheJumper (BOOL ok) ;
 void aceDnaSetPacBioJumper (BOOL ok) ;
+void aceDnaSetNanoporeJumper (BOOL ok) ;
+void aceDnaSetEditGenomeJumper (BOOL ok) ;
 
 Array aceDnaDoubleTrackErrors (Array  dna1, int *x1p, int *x2p, BOOL isDown,
 			       Array dna2, Array dna2R, int *a1p, int *a2p, 
@@ -208,5 +215,17 @@ N	any                     G,A,T,C
 
 */
 
-/*                  NO CODE AFTER THIS                                       */
+/* BAM/SAM cigar format */
+typedef struct cigaretteStruct {
+  int a1, a2, x1, x2, type, dx ;
+} SAMCIGAR ;
+
+BOOL samParseCigar (char *cigar, Array cigarettes, int a1, int *a2p, int *x1p, int *x2p, int *alip) ;
+BOOL samCheckCigar (const char * readName, char *cigar, Array cigarettes, int a1, int ln) ;
+int  samScoreCigar (const char * readName, char *cigar, Array cigarettes, int a1, int ln) ;
+
+int samFileCheckCigars (ACEIN ai, const char *target) ; /* ceck all cigars in a sam file */
+int samFileExportIntrons (ACEIN ai, const char *target, DICT *targetDict, DICT *intronDict, KEYSET intronSupport) ;
+int samFileScore (ACEIN ai, ACEOUT ao, const char *target, DICT *targetDict, Array targetDnas, DICT *intronDict, KEYSET intronSupport) ;
+
 #endif

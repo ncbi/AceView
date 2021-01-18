@@ -729,7 +729,7 @@ cat titi | gawk '{s[$1]+=$2;}END{for (g in s) if (s[g]>=200)print g"\t" s[g];}' 
 cat RESULTS/baddy_batchies.txt ZZZZZ RESULTS/Expression/*unique/*/Fatigue.*ChronicFatigueGroup1_ChronicFatigueGroup2...histo.0.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){bad[$1]=1;next;}}{if(bad[$1]==1 || bad[$1]==2){bad[$1]++;print}}' > RESULTS/baddy_batchies.histo.txt
 
 ##################################################################
-#### in geneindex.tcsh, if the gene split per zone is available (file tmp/METADATA/$target.GENE.ns.sponge )
+#### in geneindex.tcsh, if the gene split per zone is available (file tmp/METADATA/$target.ns.gene.sponge
 #### then we export the zone index in  tmp/GENEINDEX/Results/NB.av.GENE.u.geneClusters.ace.gz
 #### we can then run the predictor program using thse zone-index as
 

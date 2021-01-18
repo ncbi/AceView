@@ -25,7 +25,7 @@
  * HISTORY:
  * Last edited: Jun 30 11:28 2003 (rnc)
  * Created: Fri May 2nd, 2003 (rnc)
- * CVS info:   $Id: utils.h,v 1.19 2017/02/22 15:18:30 mieg Exp $
+ * CVS info:   $Id: utils.h,v 1.21 2019/01/31 16:01:47 mieg Exp $
  *-------------------------------------------------------------------
  */
 
@@ -38,6 +38,7 @@ char *strcasestr (const char *str1, const char *str2);
 int arrstrcmp (const void *s1, const void *s2);
 /* lextstrcmp does an intuitive sort of strings that include numbers */
 int lexstrcmp (const char *a, const char *b);
+int lexstrCasecmp (const char *a, const char *b);
 
 /* utility to find and consume an argument on the unix command line */
 /* call getArg  (..,..,"-this") to consume: -this */
@@ -79,6 +80,10 @@ int utMainPart (float p) ;
 int utMainRoundPart (float p) ;
 int utUpperRoundPart (float p) ;
 double utDoubleMainPart (double p) ;
+
+void bufferToUpper (char *buf) ; 
+void bufferToLower (char *buf) ; 
+void bufferSwitchCase (char *buf) ; 
 
 /* oneByte data compressor library
  * see utils.c for a longer descrition

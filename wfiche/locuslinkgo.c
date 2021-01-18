@@ -1,4 +1,5 @@
 #include    <wac/ac.h>
+#include "session.h"
 
 /*****************************************************************************************/
 /* This code is part of the AceView Genome annotation Pipeline 

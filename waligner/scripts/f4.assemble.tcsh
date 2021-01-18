@@ -3,14 +3,12 @@
 set chrom=$1
 setenv ici `pwd`
 
-# goto laba
-
 echo -n "f4.assemble.tcsh start "
 date
 
 if ( -e tmp/XH$chrom/f3.parse.done) then
 
- pushd tmp/XH$chrom
+  pushd tmp/XH$chrom
     if (-e TABIX) \rm TABIX
     ln -s $ici/tmp/TABIX TABIX
     if (! -e tables) ln -s ../../metaData/tables
@@ -49,8 +47,7 @@ EOF
     quit
 EOF
 
-exit 0
-
+laba:
 ## remove echo introns
 ## we need the intron coordinates, some are missing
   echo "find intron NOT IntMap"
@@ -70,9 +67,10 @@ EOF
 EOF
 
 endif
-
-laba:
-# find all antisence gene, with non classic or ct_ac intron supported 20 times less than an approximately antisense g[tc]_ag intron
+if (-e tmp/XH$chrom/database/lock.wrm) exit 1
+# kill echo ct_ac introns
+scripts/f3.kill_ct_ac_introns.tcsh $chrom 2
+# find all antisence gene, with non classic or ct_ac intron supported 5 times less than an approximately antisense g[tc]_ag intron
   bin/tacembly  tmp/XH$chrom << EOF
      table -o tmp/XH$chrom/f4.killEchoIntron.out -f tables/f4.killEchoIntron.def
      quit
@@ -81,6 +79,8 @@ EOF
 cat tmp/XH$chrom/f4.killEchoIntron.out | gawk -F '\t' '/^"/{printf("Sequence %s\n",$3);printf("Transcribed_gene %s\n",$1);}' > tmp/XH$chrom/f4.killEchoIntron.list
 # kill the bad reads, recompute the genes, they will usually vanish
 echo "kill tmp/XH$chrom/f4.killEchoIntron.list"
+if (-e tmp/XH$chrom/database/lock.wrm) exit 1
+
   bin/tacembly  tmp/XH$chrom << EOF
      key  tmp/XH$chrom/f4.killEchoIntron.list
      spush
@@ -98,6 +98,7 @@ echo "kill tmp/XH$chrom/f4.killEchoIntron.list"
      save
      quit
 EOF
+if (-e tmp/XH$chrom/database/lock.wrm) exit 1
 # split this code out of previous one to monitor eventual errors
   bin/tacembly  tmp/XH$chrom << EOF
      key  tmp/XH$chrom/f4.killEchoIntron.tg.list
@@ -113,27 +114,31 @@ EOF
      list -a -f tmp/XH$chrom/f4.killEchoIntron.done
      quit
 EOF
-
-echo "f4.killEchoIntron done"
+if (-e tmp/XH$chrom/database/lock.wrm) exit 1
+echo -n "f4.killEchoIntron done"
+date
+scripts/f3.kill_ct_ac_introns.tcsh $chrom 3
 
 touch  tmp/XH$chrom/f4.assemble.done
+if (-e tmp/XH$chrom/database/lock.wrm) exit 1
 
 # suspect 1 finds reverse read starting inside the ORF
 # suspect 2 finds forward polyA read endding inside the ORF
 # suspect 4 removes polyA of forward read if a reverse read assembles further down
 
-  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n\ncDNA_clone %s\nInternal_priming\n\n",$8, $9);}'  10.polyAsuspect1.txt >!  10.polyAsuspect1.ace
-  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n\ncDNA_clone %s\nInternal_priming\n\n",$8, $9);}'  10.polyAsuspect2.txt >!  10.polyAsuspect2.ace
-  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n-D polya_after_base\n-D Number_of_terminal_A\n\n",$4);}'  10.polyAsuspect4.txt >!  10.polyAsuspect4.ace
+pushd tmp/XH$chrom
+  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n\ncDNA_clone %s\nInternal_priming\n\n",$8, $9);}'  f4.10.polyAsuspect1.txt >!  f4.10.polyAsuspect1.ace
+  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n\ncDNA_clone %s\nInternal_priming\n\n",$8, $9);}'  f4.10.polyAsuspect2.txt >!  f4.10.polyAsuspect2.ace
+  gawk  -F '\t' '/\"/ {printf ("Sequence %s\nColour PALEGREEN\n-D polya_after_base\n-D Number_of_terminal_A\n\n",$4);}'  f4.10.polyAsuspect4.txt >!  f4.10.polyAsuspect4.ace
 
-  wc 10.polyAsuspect*.txt
+  wc f4.10.polyAsuspect*.txt
 
-  $ici/bin/tacembly . << EOF >! 10.reverse.prelog
-    pparse 10.polyAsuspect1.ace
+  $ici/bin/tacembly . << EOF >! f4.10.reverse.log
+    pparse f4.10.polyAsuspect1.ace
     spush 
-    pparse 10.polyAsuspect2.ace
+    pparse f4.10.polyAsuspect2.ace
     sor
-    pparse 10.polyAsuspect4.ace
+    pparse f4.10.polyAsuspect4.ace
     sor
     query find est Number_of_terminal_A && !PolyA_after_base
     edit -D  Number_of_terminal_A // since they were removed by the above scripts
@@ -203,9 +208,18 @@ touch  tmp/XH$chrom/f4.assemble.done
     quit
 EOF
 
-/home/mieg/bin/gene2gene.2007_12_17 .
+  scripts/f3.kill_ct_ac_introns.tcsh $chrom 4
+  scripts/f3.kill_ct_ac_introns.tcsh $chrom 5
+  scripts/f3.kill_ct_ac_introns.tcsh $chrom 6
 
- $ici/bin/tacembly . << EOF
+#  /home/mieg/bin/gene2gene.2007_12_17 . // obsolete, replaced by cdna_21 cdna_50
+
+  $ici/bin/tacembly . << EOF
+    acembly
+      cdna_21
+      cdna_50
+      quit
+    save
     find intron
     list -a -f f4.introns.list
     find clone
@@ -213,6 +227,8 @@ EOF
     quit
 EOF
 
+  echo ' ' >  f4.introns.preace
+  echo ' ' >  f4.introns.ace
   if (-d $ici/GeneIndexDB) then
     $ici/bin/tacembly $ici/GeneIndexDB << EOF
       key f4.introns.list
@@ -233,15 +249,29 @@ EOF
     quit
 EOF
 
- popd
-
-
+popd
 
 # edit away the ct_ac XY and XI
 scripts/f4.fix.tcsh $chrom
+
+
+
 
 echo -n "f4.assemble.tcsh end "
 date
 
 exit 0
 
+bin/tace ~/yk <<EOF
+  date
+  table -f $ici/tables/f5.tg2genebox2product.def -o  t1
+  date
+  table -f $ici/tables/f5.tg2genebox2product.def -bqlo  t2
+  date
+  table -f $ici/tables/f5.tg2genebox2product.def -o  t3
+  date
+  table -f $ici/tables/f5.tg2genebox2product.def -bqlo  t4
+  date
+EOF
+wc t[1234]
+ls -ls t?

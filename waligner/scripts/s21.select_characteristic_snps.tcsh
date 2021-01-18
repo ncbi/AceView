@@ -6,17 +6,17 @@ set Strategy=$3
 
  echo -n "s21: select the characteristic SNPs in $zone start : "
  date
-                                                             $ $24=measured_in $26=Reference $31= allelefreq in cohort
+   #                                                          $ $24=measured_in $26=Reference $31= allelefreq in cohort
   cat tmp/SNP_DB/$zone/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '{if ($24  > .050 * n && $26 > 1 && $28 + $29 + $30 > 1 && ($31 >= 5 && $31 < 95)) print;}' n=$nRuns > tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt
 
 if ($Strategy == RNA_seq) then
-  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt | gawk -F '\t' '/^#/{next;}/A>G/{next;}/a>g/{next;}{z=$9;split(z,aa,":");p=substr(aa[2],3);if(index(p,">")==0)next;n=length(p)-3;x=0+substr(p,1,n);printf ("%s:%d:%s\n",aa[1],x,substr(p,n+1));}' > tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list
+  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt | gawk -F '\t' '/^#/{next;}/A>G/{next;}/a>g/{next;}{p=$4;if(index(p,">")==0)next;print $5;}' > tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list
   
-  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list ZZZZZ tmp/SNPH/$zone/$MAGIC.snp.sorted | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{z=$1 ":" $2 ":" $3;if(ok[z]==1)print;}' | gzip >  tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.snp.gz
+  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list ZZZZZ tmp/SNPH/$zone/$MAGIC.snp.sorted | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{gsub(">","2",$3);if(zz<1){ok[$1]=1;next;}}{z=$1 ":" $2 ":" $3;if(ok[z]==1)print;}'  | gzip >  tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.snp.gz
 else
-  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt | gawk -F '\t' '/^#/{next;}{print $1 ":" $2 ":" $4 ;}' > tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list
+  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_snp.txt | gawk -F '\t' '/^#/{next;}{print  $4 ;}' > tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list
   
-  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list ZZZZZ tmp/SNPH/$zone/$MAGIC.snp.sorted | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{z=$1 ":" $2 ":" $3;if(ok[z]==1)print;}' | gzip >  tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.snp.gz
+  cat tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.list ZZZZZ tmp/SNPH/$zone/$MAGIC.snp.sorted | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{gsub(">","2",$3);z=$1 ":" $2 ":" $3;if(ok[z]==1)print;}' | gzip >  tmp/SNP_DB/$zone/$MAGIC.characteristic_substitutions.snp.gz
 
 endif
 

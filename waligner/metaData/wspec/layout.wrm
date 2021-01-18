@@ -1,6 +1,6 @@
-  Supported_genes  Supported_introns
-
-  Groups   Runs      Compare    Gene
-  Project  Ali        Author  GeneId
-  Sample   Tissue   Elements    mRNA
-  Variant  KeySet      Model  Intron
+   Supported_genes  Supported_introns
+  Run
+   Groups   Runs      Compare    Gene
+   Project  Ali        Author  GeneId
+   Sample   Tissue   Elements    mRNA
+   Variant  KeySet      Model  Intron

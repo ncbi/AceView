@@ -9,7 +9,14 @@ set zone=$6
 
 set uu=u
 
-echo "scripts/snp.collect.tcsh $1 $2 $3 $4 $5 $6"
+set minSnpFrequency2=$minSnpFrequency
+if (-e tmp/SNP_BRS/$MAGIC.minFrequency.txt) then
+  # reset minSnpFrequency to at least twice the percent error rate, the error_profile is given in error per million 
+  set z=`cat tmp/SNP_BRS/$MAGIC.minFrequency.txt | gawk '{if ($1 == run) z=($4 + 0)/5000 ; if (z<mf)z=mf;}END{if(z+0 == 0)z=mf;print int(z);}' mf=$minSnpFrequency`
+  set minSnpFrequency2=$z
+endif
+
+echo "scripts/snp.collect.tcsh $1 $2 $3 $4 $5 $6 minSnpCover=$minSnpCover minSnpCount=$minSnpCount minFrequency=$minSnpFrequency2"
 if (0 &&  -e  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz && ! -e  tmp/SNP/$run/$zone.plus.$uu.BF.gz && ! -e  tmp/SNP/$run/$zone.minus.$uu.BF.gz ) then
 # this code is superseded by a direct export in snp.c in case $collect == count
       echo -n "wiggle strand plus start : " 
@@ -53,7 +60,7 @@ date
     if (! -e $out.gz) then
   
       # in the new method, we add the BRS of the runs into the groups, so we can use the the high thresholds at the detect stage
-      set mins=" -minCover $minSnpCover -minMutant $minSnpCount -minFrequency $minSnpFrequency"
+      set mins=" -minCover $minSnpCover -minMutant $minSnpCount -minFrequency $minSnpFrequency2"
       echo " bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo" 
              bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo 
 
@@ -62,7 +69,7 @@ date
 ######
 
     if ($collect == detect) then
-      gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s_%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
+      gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s_%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency2 | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
     endif
 
 stats:
@@ -73,7 +80,7 @@ date
 set zone1="$zone"
 if ($collect == count) set zone1="$MAGIC.$zone"
 
-    gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz  |  gawk -F '\t' '/Incompatible_strands/{next;}{t=$3;c=$9;m=$10;w=$11;if(c>minC && 100*m>c*minF){nn++;n[t]++;nnm+=m;mm[t]+=m;ww[t]+=w;nnw+=w;}}END{printf("%s\tTotal\t%d\t%d\t%d\t%d\t%d\n",run,minF,minC,nn,nnm,nnw);for(t in n)printf("%s\t%s\t%d\t%d\t%d\t%d\t%d\n",run,t,minF,minC,n[t],mm[t],ww[t]);}' run=$run minC=$minSnpCover minF=$minSnpFrequency | sort -k 5n >   tmp/SNP/$run/$zone1.$collect.$uu.stats
+    gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz  |  gawk -F '\t' '/Incompatible_strands/{next;}{t=$3;c=$9;m=$10;w=$11;if(c>minC && 100*m>c*minF){nn++;n[t]++;nnm+=m;mm[t]+=m;ww[t]+=w;nnw+=w;}}END{printf("%s\tTotal\t%d\t%d\t%d\t%d\t%d\n",run,minF,minC,nn,nnm,nnw);for(t in n)printf("%s\t%s\t%d\t%d\t%d\t%d\t%d\n",run,t,minF,minC,n[t],mm[t],ww[t]);}' run=$run minC=$minSnpCover minF=$minSnpFrequency2 | sort -k 5n >   tmp/SNP/$run/$zone1.$collect.$uu.stats
     gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz  |  gawk -F '\t' '/Incompatible_strands/{next;}{t=$3;c=$9;m=$10;w=$11;if(c>minC && 100*m>c*minF){nn++;n[t]++;nnm+=m;mm[t]+=m;ww[t]+=w;nnw+=w;}}END{printf("%s\tTotal\t%d\t%d\t%d\t%d\t%d\n",run,minF,minC,nn,nnm,nnw);for(t in n)printf("%s\t%s\t%d\t%d\t%d\t%d\t%d\n",run,t,minF,minC,n[t],mm[t],ww[t]);}'  run=$run minC=$minSnpCover minF=95 | sort -k 5n >>   tmp/SNP/$run/$zone1.$collect.$uu.stats
 
 

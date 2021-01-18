@@ -56,7 +56,6 @@ enum {
 
 #define MESH_LINK "https://www.nlm.nih.gov/cgi/mesh/2007/MB_cgi?term=%s"
 #define COG_LINK "https://www.ncbi.nlm.nih.gov/cgi-bin/COG/palox?%s"
-#define GAD_LINK "http://geneticassociationdb.nih.gov/cgi-bin/tableview.cgi?table=allview&cond=LOCUSNUM=%s"
 #define GO_LINK "http://amigo.geneontology.org/cgi-bin/amigo/go.cgi?view=details&depth=1&query=%s"
 #define PFAM_LINK "http://www.ebi.ac.uk/ego/DisplayGoTerm?id=%s"
 #define KEGG_LINK_HUMAN "http://www.genome.jp/dbget-bin/show_pathway?hsa%s+%s"
@@ -106,7 +105,7 @@ void ficheMRNA5PrimeParagraphContent (vTXT blk, GMP *gmp) ;
 int ficheDBCreatureID (AC_DB db);
 
 void ficheGmpMapDescriptionParagraph (vTXT blkp, GMP *gmp, int type) ;
-char *ficheGene (vTXT vtxt, AC_DB db, AC_OBJ oGene, char style) ;
+
 
 int ficheMrnaTitleParagraph (vTXT blkp, GMP *gmp) ;
 int ficheProductTitleParagraphContent (vTXT blk, GMP *gmp);
@@ -130,6 +129,9 @@ void ficheMRNASplicingParagraph (vTXT blkp, GMP *gmp);
 void fichePEPTIDEParagraph (vTXT blkp, GMP *gmp) ;
 void ficheDNAParagraph (vTXT blkp, GMP *gmp);
 void ficheTGOverviewParagraph (vTXT blkp, GMP *gmp);
+
+void ficheGenomeSummaryChapter (vTXT blkp, GMP *gmp);
+void ficheGenomePlotChapter (vTXT blkp, AC_DB db, GMP *gmp, BOOL isBig);
 
 void ficheGENEFunctionParagraph (vTXT blkp, GMP *gmp);
 void ficheGENENeighborhoodParagraph (vTXT blkp, GMP *gmp);

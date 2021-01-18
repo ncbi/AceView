@@ -6,7 +6,7 @@
  * 	Richard Durbin (MRC LMB, UK) rd@sanger.ac.uk, and
  *	Jean Thierry-Mieg (CRBM du CNRS, France) mieg@kaa.cnrs-mop.fr
  *
- * $Id: pepseqcol.c,v 1.4 2016/09/03 00:30:45 mieg Exp $
+ * $Id: pepseqcol.c,v 1.5 2017/06/05 20:59:30 mieg Exp $
  * Description:
  * Exported functions:
  * HISTORY:
@@ -16,6 +16,7 @@
  */
 
 #include "pepdisp.h" 
+#include "graphAcedbInterface.h"
 
 /************************************************************/
 

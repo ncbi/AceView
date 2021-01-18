@@ -25,7 +25,7 @@
  * Exported functions:
  * HISTORY:
  * Created: Mars 2001 (mieg)
- * CVS info:   $Id: makemrna.h,v 1.4 2017/02/15 20:39:28 mieg Exp $
+ * CVS info:   $Id: makemrna.h,v 1.8 2017/09/06 20:05:15 mieg Exp $
  *-------------------------------------------------------------------
  */
 /* %W% %G% */
@@ -39,7 +39,21 @@ KEY  makeMrnaGene (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas, KEYSET clipTops
 void mrnaAnalyseClusterAllPg (char *cp) ;
 void mrnaAnalyseAllNeighbours (void) ;
 void mrnaAnalyseNeighbours (KEYSET genes) ;
+void mrnaSplitDoubleGenes (KEYSET genes) ;
+void mrnaTranslateEst (KEYSET ks) ;
+void mrnaTransferPg2PredictedMrna (KEYSET ks) ;
+int mrnaTransferRefseqMakerKeySet2Product (KEYSET ks) ;
+int abiFixLabelPolyA (KEYSET ks0, int *nClonep, int *n0p, int *nMrnap) ;
+int abiFixLabelPolyATg (KEY tg, int *nClonep, int *n0p, int *nMrnap) ;
+void fixVector (KEYSET ks0) ;
+void fixPolyA (KEYSET ks0) ;
+BOOL mrnaAddKantorInfo (KEY mrna) ;
 int  mrnaQualityEvaluate (int ln, int ali, int  nerr, BOOL isMrna, int *ixp, int *iyp) ;
 KEY mrnaIntronBoundary (Array dnaD, Array dnaR,  int a1, int a2) ;
+
 BOOL mrnaDesignUsingCompositeStrategy (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas) ;
+void mrnaDesignSetCompletenessFlags (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas) ;
+
+int cdnaTagSheddedTranscribedGenes (KEYSET tgs0) ;
+
 #endif

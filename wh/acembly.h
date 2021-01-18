@@ -13,7 +13,7 @@
  * Created: Fri Oct 20 20:18:19 1995 (mieg)
  *-------------------------------------------------------------------
  */
-/* $Id: acembly.h,v 1.2 2003/07/17 18:39:56 mieg Exp $ */
+/* $Id: acembly.h,v 1.4 2017/07/27 00:04:14 mieg Exp $ */
  
              /*********************************************/
              /* Acembly.h                                   */
@@ -46,6 +46,38 @@ void kantorProduct (char * keyname) ;
 void ficheGraph (KEY gene) ;
 int ficheAceRun (char * keyname,void * funccall,void * callback,int params) ;
 extern WEBQUERYFUNC owqQuery ;
+BOOL queryRegisterWebQuery (WEBQUERYFUNC f) ;
+
+void traceGraphDestroy (void) ; /* defined in trace.c */
+void defComputeTace (int level, KEYSET ks) ;
+int abiFixDoubleContig (KEY link, KEY contig, int *ip);
+void abiFixFinish (void) ;
+void abiFixDoFinish (KEY link) ;
+int abiFixDoubleContig (KEY link, KEY contig, int *ip);
+int abiFixDouble (KEY link, KEYSET ks, int *ip) ;
+int abiFixDoubleContig (KEY link, KEY contig, int *ip) ;
+void abiFixExtendContig (KEY link, KEY contig) ;
+void abiFixExtend (KEY link, KEYSET ks) ;
+
+void defCptOpen (KEY link) ;
+BOOL baseCallPatchContig (KEY contig, int *nnp);
+int baseCallUnclipContig (KEY contig, KEY type, int *dxp) ;
+int baseCallTileContig (KEY contig, KEY type, int *dxp) ;
+KEY lastAssembly (void) ;
+int baseCallUnclipKeySet (KEY link, KEYSET ks, KEY type, int *dxp) ;
+int baseCallClipContig2Max (KEY link, int max, int *dxp) ;
+void baseCallMakeSubclones (KEYSET ks) ;
+BOOL baseCallRedoBaseCall (KEY key, int *np) ;int baseCallTileContigs (KEYSET ks, KEY type, int *dxp) ;
+void statisticsCountGroup (KEYSET recu) ;
+
+void nnContigTrain (KEY contig) ;
+void doAssembleAllTraces (KEY target, KEYSET ks, char fonc) ;
+
+void cDNAAlignInit (void) ;
+int trackBadQuality (KEYSET ks) ;
+void htilePrecompute (KEYSET ks0);
+
+int geneZoneExport (KEYSET ks) ;
 
 #endif
  

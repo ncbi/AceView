@@ -1,4 +1,6 @@
 
+#ifndef  BOU_DEF_00
+
 #define  BOU_DEF_00
 #define  IBC_0 1
 #define  WORM_0 1
@@ -84,7 +86,7 @@ typedef struct pairGeneGroupStruct { char *nam ; unsigned int flag ;} PGG ;
 /* IBC */
 #define PGG_IBC  0x8000
 
-
+#ifdef BOU_PNS
 static PGG pggGroups[] =
   {
 #ifdef BOU_DEF
@@ -155,6 +157,7 @@ static PGG pggGroups[] =
  
     {0, 0}
   } ;
+#endif
 
 #ifdef BOU_DEF
 #define SOLEXA_STEP 1000
@@ -459,6 +462,8 @@ static PNX solexaAllOld[] =
     { 0, 0, 0, 0, 10.0, 10.0, BLACK, FALSE, FALSE, 0, 0, 0}
   } ;
 #endif
+
+#ifdef BOU_PNS
 
 static PNS pnsAll[] =
   {
@@ -991,4 +996,5 @@ static PGN pgnRatioExonic[] =
   , {0,0,0,0,0,0,0,0}
 } ;
 
-
+#endif
+#endif

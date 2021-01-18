@@ -55,6 +55,10 @@ foreach run2 (`cat MetaDB/$MAGIC/RunPairedList`)
   endif
 end
 
+set splitM=""
+if (-e TARGET/GENES/$species.$target.split_mrnas.txt) then
+  set splitM="-split_mRNAs TARGET/GENES/$species.$target.split_mrnas.txt"
+endif
 
 set isIlm=`cat  MetaDB/$MAGIC/runs.ace | gawk '/^Run /{gsub(/\"/,"",$2);ok=0;if($2==run)ok=1;}/^Illumina/{if(ok==1)okk=1;}END{print 0+okk;}' run=$run`
 if ($isIlm == 1) then
@@ -67,10 +71,12 @@ endif
 
    set m8kb=""
    if (-e tmp/METADATA/$target.selected8kbTranscriptList.txt && ($GM == MRNA || $GM == MRNAH)) set m8kb="-selected8kbList tmp/METADATA/$target.selected8kbTranscriptList.txt"
+   set m5kb=""
+   if (-e tmp/METADATA/$target.selected5kbTranscriptList.txt && ($GM == MRNA || $GM == MRNAH)) set m5kb="-selected5kbList tmp/METADATA/$target.selected5kbTranscriptList.txt"
 
 if (-e $toto) then
-        echo "bin/bestali -i $toto $gm2 -run $run -target_class $target_class -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap"
-              bin/bestali -i $toto $gm2 -run $run -target_class $target_class -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap 
+        echo "bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap"
+              bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap 
 endif
 
 exit 0

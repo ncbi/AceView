@@ -111,7 +111,7 @@ static void wegoTest1 (PP *pp)
 	       printf ("abort required from keyboard\n") ;
 	       channelPut (t.countAgain, &b, BOOL) ; /* signal countAgain to die */
 	       i = 0 ;
-	       while (channelGet (t.count, &i, int) != -1) {}  ;
+	       while (channelGive (t.count, &i, int) != -1) {}  ;
 	       break ;
 	    }
 	  else
@@ -203,6 +203,7 @@ int main (int argc, const char **argv)
       usage (commandBuf, argc, argv) ;
     }
  
+  aceInWaitAndRetry (0) ; /* does nothink, but triggers the linker on LINUX */
   wego_max_threads (p.max_threads) ;
   if (p.test == 1)
     wegoTest1 (&p) ;

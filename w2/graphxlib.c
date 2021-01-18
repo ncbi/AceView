@@ -41,7 +41,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: graphxlib.c,v 1.14 2016/05/06 21:29:01 mieg Exp $ */
+/* $Id: graphxlib.c,v 1.15 2017/05/24 16:32:57 mieg Exp $ */
 
 #define  XLIB_DISPLAY
 #include "regular.h"
@@ -267,7 +267,7 @@ static int height2font (int height, int format)
     format = oldFormat ;
   switch (height)
     {
-    case 0:			/* default font */
+    case 9999:			/* old default font */
       switch (format)
 	{
 	case PLAIN_FORMAT:
@@ -280,7 +280,20 @@ static int height2font (int height, int format)
 	case GREEK:
 	  return G13;
 	}
-      break ;
+    case 0:			/* default font */
+      switch (format)
+	{
+	case PLAIN_FORMAT:
+	case FIXED_WIDTH:
+	  return F9x15 ;
+	case ITALIC:
+	  return F9x15I ;
+	case BOLD:
+	  return F9x15B ;
+	case GREEK:
+	  return G15;
+	}
+       break ;
     case 1: case 2: case 3: case 4: case 5: case 6:
       switch (format)
 	{

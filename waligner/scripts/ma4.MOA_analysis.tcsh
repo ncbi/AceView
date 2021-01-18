@@ -1,7 +1,30 @@
 #!bin/tcsh -f
 
+#############################################
+## generic metadata file, should be replaced by tmp/METADATA
+
 #  export from 37lm5 the genes with pastille_regulation_antisens
-# cat toto.as.list ZZZZZ TARGET/GENES/av.geneTypes.txt | gawk '/ZZZZZ/{zz++;next;}{if(zz<1){g=$2;gsub(/\"/,"",g);as[g]=1;next;}}{t=$2;gsub("conserved","ancient",t);gsub("novel","recent",t);g=$1;if(index(t,"spliced")>0){if(as[g]==1)t=t "_antisense";else t=t "_free";}printf("%s\t%s\n",g,t);}' > TARGET/GENES/av.geneTypesAntiSense.txt
+  # cat toto.as.list ZZZZZ TARGET/GENES/av.geneTypes.txt | gawk '/ZZZZZ/{zz++;next;}{if(zz<1){g=$2;gsub(/\"/,"",g);as[g]=1;next;}}{t=$2;gsub("conserved","ancient",t);gsub("novel","recent",t);g=$1;if(index(t,"spliced")>0){if(as[g]==1)t=t "_antisense";else t=t "_free";}printf("%s\t%s\n",g,t);}' > TARGET/GENES/av.geneTypesAntiSense.txt
+ set toto=TARGET/GENES/av.metadata.txt
+
+  gunzip -c TARGET/Targets/hs.av.fasta.gz | gawk '/^>/{split($1,aa,"|");print aa[3];}' | $tab_sort -u > $toto.1
+  cat ZZZZZ TARGET/GENES/av.gene2intMap.txt >> $toto.1
+  cat ZZZZZ TARGET/GENES/av.gene2geneid.txt >> $toto.1
+  # cat ZZZZZ TARGET/GENES/av.geneTypesAntiSense.txt >> $toto.1
+  cat ZZZZZ TARGET/GENES/av.gene2title.txt | grep -v 'cloud gene' >> $toto.1
+  cat ZZZZZ   >> $toto.1
+  gunzip -c TARGET/MRNAS/hs.av.transcript2gene.txt.gz  | sed -e 's/\"//g' >> $toto.1
+  cat ZZZZZ MicroArray/Hits/AGLuK.av.probe2gene.unique.txt   >> $toto.1
+  
+  echo -n "# " > $toto
+  date >> $toto
+  echo "# Metadada for the 55836 AceView-2011 genes (a subset of the AceView 2010 genes) used in the SEQC project." >> $toto
+  printf "# The corresponding fasta file is at ftp-SEQC/SEQC_Reference_Targets/human.AceView.2010.selected.v4.fasta.gz\n" >> $toto
+  printf "# Gene\tChromosome\tGeneId\tType\tTitle\tTranscripts\tUniquely mapped Agilent probes\n" >> $toto
+  cat $toto.1 |  gawk -F '\t'  '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz<1){gg[$1]=1;next;}}{if(zz<2){g2chrom[$1]="chr" $2 ":" $3 "-" $4;next;}}{if(zz<3){g2gid[$1]=g2gid[$1] ";" $2;next;}}{if(zz<4){g2typ[$1]=$2;next;}}{if(zz<5){g2title[$1]=$2;next;}}{if(zz<6){g2mrna[$2]=g2mrna[$2] ";" $1;next;}}{if(zz<7){g2probe[$2]=g2probe[$2] ";" $1;next;}}END{for(g in gg){typ=g2typ[g];if(typ=="")typ="single_exon";printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",g,g2chrom[g],substr(g2gid[g],2),typ,g2title[g],substr(g2mrna[g],2),substr(g2probe[g],2));}}' | $tab_sort >> $toto
+
+\rm $toto.1
+
 
 # comparison between the DEG for the groups listed in MOA.list between the expression-index measured by methods Target[1:2]
 set Target1=$1

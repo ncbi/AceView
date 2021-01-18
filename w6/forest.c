@@ -16,11 +16,6 @@
 
 /* %W% %G% */
 
-/*
-#define ARRAY_CHECK
-#define MALLOC_CHECK
-*/
-
 #define DEFINE_OBJ
 typedef struct sobj *OBJ ;
 #include "acedb.h"
@@ -246,7 +241,7 @@ static void forestColor (FOREST  forest)
   
   if (forest && arrayExists(forest->box2segs))
     {
-      if (forest && forest->mot && *forest->mot)
+      if (forest && *forest->mot)
 	{
 	  memset(buf, 0, 1025) ;
 	  i = strlen (forest->mot) ;
@@ -2281,6 +2276,7 @@ BOOL forestDisplayKeySet (char *title, KEYSET fSet, BOOL isOldGraph)
   forest->graph = graphActive() ;
 
   forest->s = stackCreate (3000) ;
+
   forest->max = arrayMax(alphaSet) ;
   forest->fSet = fSet ;
   forest->alphaSet = alphaSet ;

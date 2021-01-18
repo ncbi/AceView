@@ -27,7 +27,7 @@
  *-------------------------------------------------------------------
  */
 
-/* $Id: nicedump.c,v 1.10 2014/10/08 14:33:12 mieg Exp $ */
+/* $Id: nicedump.c,v 1.13 2020/05/30 16:50:32 mieg Exp $ */
 
 #define DEF_BP /* avoid typedefing it as void* in disk.h */
 typedef struct bblock *BBLOCK ;
@@ -352,7 +352,7 @@ static int niceBSC (BS bs, BS bsm, int position)
 	default:
 	  buf[0] = 'l' ;
 	  while (i < -255)
-	    { buf[1] = 255 ; freeOutBinary (buf,2) ; i += 255 ; }
+	    { buf[1] = (char)255 ; freeOutBinary (buf,2) ; i += 255 ; }
 	  if (i < 0)
 	    { buf[1] = -i ; freeOutBinary (buf,2) ; } 
 	  direction = '.' ;

@@ -12,9 +12,16 @@
 # please edit the configuration
 set phase = $1
 
-if ($species == coli) then
+if ($species == corona) then
+  set date=2020_05_02
+  set ff=~/aaa6/zoo/human/CRN_Mason2/SRX_CORONA/SRA_covid-19_may2_SraRunInfo.txt 
+endif
+
+if ($species == Ecoli) then
   set date=2015_10_03
-  set ff=/home/mieg/ACEVIEWHELP/E.coli/1734E.coliK12_Oct7_2015_SRApublic_SraRunInfo.txt
+  set ff=/home/mieg/ACEVIEWHELP/Ecoli_DATA/2015/1734E.coliK12_Oct7_2015_SRApublic_SraRunInfo.txt
+  set date=2017_10_05
+  set ff=/home/mieg/ACEVIEWHELP/Ecoli_DATA/Ecoli_RNA_SRA_3449runs_8.2Tb.RunInfo.limit_to_taxon_511145.748_runs.2017_10_05.txt
 endif
 
 if ($species == Dmelanogaster) then
@@ -28,11 +35,40 @@ if ($species == Dmelanogaster) then
 endif
 if ($species == hs) then
   set date=2016_10_14
-  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/*SraRunInfo.txt'
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/*SraRunInfo.txt' 
+  set date=2017_06_21  
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/194552_Human_RNA_exp_June22_2017_SraRunInfo.txt'
+  set date=2017_08_31
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/194552_Human_RNA_exp_June22_2017_SraRunInfo.txt'
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/NA12878_GIAB_inSRA_Sept1_2017_102genome_9exomes_SraRunInfo.txt'
+  set date=2018_08_13
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/GIAB_NA12878_runForMagicBlastSraRunInfo.txt' 
+  set date=2018_10_12
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/20180916_RNAseq_public_human_16sept2018_SraRunInfo.txt'
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/20180916_1881_runs_longerThan596bases_.txt'
+  set date=2018_10_29
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/2018_ANTE_SraRunInfo_165runs.txt'
+  set date=2019_01_25
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/93Nanopore_Jan15_2019_HumanRNApublic_SraRunInfo.txt'
+  set ff='/home/mieg/ACEVIEWHELP/Human_DATA/3Nanopore_Jan15_2019_HumanRNApublic_SraRunInfo.txt'
+  set date=2019_11_27
+  set ff='/home/mieg/AW/Human_DATA/128_exRNA_Sheng_Nov2019_SraRunInfo.txt'
+  set date=2019_12_10
+  set ff='/home/mieg/AW/Human_DATA/20191128_461_exRNA_fromSRA_11SRP_homosaporgn_exRNA_public_RNA_SraRunInfo.txt'
+  set date=2019_12_14
+  set ff='/home/mieg/AW/Human_DATA/Nature_Biotech_paper_Galas_148_SraRunInfo.txt'
+  set date=2019_12_16
+  set ff='/home/mieg/AW/Human_DATA/MAQC_SEQC2_data_from_SRA_3projects_SraRunInfo.txt'
 endif
 if ($species == rn) then
   set date=2016_11_04
   set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/2016Nov05_6365_Rattus_norvegicus_Organism_NOT_biomol_dna_PropertiesSraRunInfo.txt'
+  set date=2019_02_27
+  set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/20190227_Rattus_norvegicus_RNA_12094_SraRunInfo.txt'
+endif
+if ($species == worm) then
+  set date=2019_08_24
+  set ff='/home/mieg/ACEVIEWHELP/Worm_DATA/20190828_SRA_RNA_runinfo.txt'
 endif
 if ($species == mm) then
   set date=2016_11_04
@@ -41,12 +77,21 @@ endif
 if ($species == dog) then
   set date=2016_11_04
   set ff='/home/mieg/ACEVIEWHELP/Dog_DATA/Dog_3strandedRunsForTestTarget.txt'
+  set date=2017_06_21
+  set ff='/home/mieg/ACEVIEWHELP/Dog_DATA/Dog_RNA_729_June22_2017_SraRunInfo.txt'
 endif
 if ($species == Campylobacter || $species == jejuni) then
   set date=2017_03_07
   set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/Campylobacter_Skesa_OXA_SraRunInfo.txt'
   set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/CampylobacterProject_SRP063302_1952entries_SraRunInfo.txt'
   set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/Campylobacter_jejuni_genome_Truseq_SraRunInfo.txt'
+
+  set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/Campylobacter_jejuni.Selected_Nextera_CDC_notNano.txt'
+  set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/20170522_TruSeqNano_CDC.txt'
+endif
+if ($species == Lysobacter) then
+  set date=2019_01_28
+  set ff='/home/mieg/ACEVIEWHELP/Viruses_microbes_DATA/2019_Jan28Michael_Galperin_Lysobacter_enzymogenes_SraRunInfo.txt'
 endif
 
 echo "species=$species date=$date"
@@ -72,6 +117,7 @@ if ($phase == GEO) goto phaseGEO
 if ($phase == Sample) goto phaseSample
 if ($phase == SRX) goto phaseSRX
 if ($phase == Files) goto phaseFiles
+if ($phase == Sublibs) goto phaseSublibs
 if ($phase == Titles) goto phaseTitles
 if ($phase == srr2run) goto phase_srr2run
 if ($phase == srr2srx) goto phase_srr2srx
@@ -81,7 +127,7 @@ if ($phase == sraDownload) goto phase_sraDownload
 if ($phase == sraDownloadTest) goto phase_sraDownload
 
 
-echo "usage: SRX_import.tcsh SRR SRP GEO Sample SRX Files Papers  Titles  srr2run |  sraDownload sraDownLoadTest | srr2srx"
+echo "usage: SRX_import.tcsh SRR SRP GEO Sample SRX Files Papers  Sublibs Titles  srr2srx srr2run |  sraDownload sraDownloadTest"
 goto phaseLoop
 
 ############
@@ -112,23 +158,19 @@ goto phaseLoop
 
 ####### Parse the SRP objects i.e. title and abstracts for the runs
 phaseSRP:
-if (! -e $dd/SRP) mkdir $dd/SRP
+if (! -d $dd/SRP) mkdir $dd/SRP
 bin/tacembly SRX_DB <<EOF
-  query find project $MAGIC ; >SRR ; > SRP 
-  spush
   query find srp srr && ! title
-  sor
-  spop
-  // query ! title
-  list -a -f $dd/srp.list
+  select -o $dd/srp.list select srp from srp in class srp where srp#srr and not srp#title
   quit
 EOF
 
 if (-e  $dd/SRP/_wget) \rm  $dd/SRP/_wget
-foreach srp (`cat $dd/srp.list | gawk '/^SRP/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
-   if ( -e  $dd/SRP/$srp.html) continue 
-   echo "wget -O "$dd"/SRP/"$srp".html  "'"http://trace.ncbi.nlm.nih.gov/Traces/sra/?study='$srp'"' >> $dd/SRP/_wget
-end
+
+ls  $dd/SRP | gawk '/html/{gsub(".html","",$1);print $1;}' >   $dd/srp.list2
+cat $dd/srp.list $dd/srp.list2 $dd/srp.list2 | gawk '{n[$1]++;}END{for (k in n) if (n[k]==1)print k}' >  $dd/srp.list3
+
+cat $dd/srp.list3 | gawk '{printf("wget -O %s/SRP/%s.html \"https://trace.ncbi.nlm.nih.gov/Traces/sra?study=%s\"\n",dd,$1,$1);}' dd=$dd >  $dd/SRP/_wget
 
 if (-e  $dd/SRP/_wget) then
   wc  $dd/SRP/_wget
@@ -136,7 +178,7 @@ if (-e  $dd/SRP/_wget) then
 endif
 
 if (-e  $dd/srp.ace) \rm  $dd/srp.ace
-foreach srp (`cat $dd/srp.list | gawk '/^SRP/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
+foreach srp (`cat $dd/srp.list`)
    if (! -e  $dd/SRP/$srp.html) continue 
    cat  $dd/SRP/$srp.html | gawk -f scripts/SRX_import.2.awk srp=$srp | sed -e 's/\\\"//g' -e s'/\\//g'  >> $dd/srp.ace
 end
@@ -150,24 +192,30 @@ goto phaseLoop
 
 ####### Parse the GEO to find the geo->contibutors and affiliations
 phaseGEO:
-if (! -e $dd/GEO) mkdir $dd/GEO
+if (! -d $dd/GEO) mkdir $dd/GEO
 
 bin/tacembly SRX_DB <<EOF
-  query find project $MAGIC ; >SRR ; >SRP ; >GEO
-  list -a -f $dd/geo.list
+  select -o $dd/geo.list select g from g in ?geo where g#srp && ! g#author
 EOF
 
 if (-e $dd/GEO/_wget) \rm $dd/GEO/_wget
-foreach geo (`cat $dd/geo.list | gawk '/^GEO/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
+foreach geo (`cat $dd/geo.list`)
    if ( -e  $dd/GEO/$geo.html) continue 
-   echo "wget -O "$dd"/GEO/"$geo".html  "'"http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc='$geo'"' >>  $dd/GEO/_wget
+   echo "wget -O "$dd"/GEO/"$geo".html  "'"https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc='$geo'"' >>  $dd/GEO/_wget
 end
+
+
+if (-e $dd/GEO/_wget) \rm $dd/GEO/_wget
+ls  $dd/GEO | gawk '/html/{gsub(".html","",$1);print $1;}' >   $dd/geo.list2
+cat $dd/geo.list $dd/geo.list2 $dd/geo.list2 | gawk '{n[$1]++;}END{for (k in n) if (n[k]==1)print k}' >  $dd/geo.list3
+
+cat $dd/geo.list3 | gawk '{printf("wget -O %s/GEO/%s.html \"https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=%s\"\n",dd,$1,$1);}' dd=$dd >  $dd/GEO/_wget
 
 wc $dd/GEO/_wget
 source  $dd/GEO/_wget
 
 if (-e  $dd/geo.ace) \rm  $dd/geo.ace
-foreach geo (`cat $dd/geo.list | gawk '/^GEO/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
+foreach geo (`cat $dd/geo.list`)
    if (! -e  $dd/GEO/$geo.html) continue 
    cat  $dd/GEO/$geo.html | gawk -f scripts/SRX_import.3.awk geo=$geo  >> $dd/geo.ace
 end
@@ -185,36 +233,25 @@ phaseSample:
 if (! -e $dd/BIOSAMPLE) mkdir $dd/BIOSAMPLE
 
 bin/tacembly SRX_DB <<EOF
-  query find biosample ! Species
-  query find project $MAGIC ; > srr ; >biosample
-  list -a -f $dd/biosample.list
+  query find biosample ! Title
+  // query find project IS $MAGIC ; > srr ; >biosample
+  select -o $dd/biosample.list @
 EOF
 
 
-if (-e $dd/BIOSAMPLE/_wget) \rm $dd/BIOSAMPLE/_wget
-foreach bs (`cat $dd/biosample.list | gawk '/^Biosample/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
-   if ( -e  $dd/BIOSAMPLE/$bs.html) continue 
-   echo "wget -O "$dd"/BIOSAMPLE/"$bs".html  "'"http://www.ncbi.nlm.nih.gov/biosample/?term='$bs'"' >>  $dd/BIOSAMPLE/_wget
-end
+ls  $dd/BIOSAMPLE | gawk '/html/{gsub(".html","",$1);print $1;}' >   $dd/biosample.list2
+cat $dd/biosample.list $dd/biosample.list2 $dd/biosample.list2 | gawk '{n[$1]++;}END{for (k in n) if (n[k]==1)print k}' >  $dd/biosample.list3
+
+cat $dd/biosample.list3 | gawk '{printf("wget -O %s/BIOSAMPLE/%s.html \"https://www.ncbi.nlm.nih.gov/biosample/?term=%s\"\n",dd,$1,$1);}' dd=$dd >  $dd/BIOSAMPLE/_wget
 
 wc $dd/BIOSAMPLE/_wget
 source  $dd/BIOSAMPLE/_wget
 
 if (-e  $dd/biosample.ace) \rm  $dd/biosample.ace
-foreach biosample (`cat $dd/biosample.list | gawk '/^Biosample/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
+foreach biosample (`cat $dd/biosample.list`)
    if (! -e  $dd/BIOSAMPLE/$biosample.html) continue 
    cat  $dd/BIOSAMPLE/$biosample.html | gawk -f scripts/SRX_import.4.awk biosample=$biosample  >> $dd/biosample.ace
 end
-
-# cat toto.html |  gawk -f scripts/SRX_import.4.awk biosample=SAMN04584997
-if (0) then 
-  set dd=DATA/2016_04_19
-  cat $dd/biosample.ace | gawk '/^Biosample /{print $2}' | head -500000 > _t1
-  \rm _t5 
-  foreach b ( `cat _t1` )
-    cat $dd/BIOSAMPLE/$b.html | gawk -f scripts/SRX_import.4.awk biosample=$b >> _t5
-  end
-endif
 
 bin/tacembly SRX_DB <<EOF
   read-models
@@ -226,32 +263,25 @@ goto phaseLoop
 
 ####### Parse the SRX get details on the preparation of the library
 phaseSRX:
-if (! -e $dd/SRX) mkdir $dd/SRX
+if (! -d $dd/SRX) mkdir $dd/SRX
 
 bin/tacembly SRX_DB <<EOF
-  query find SRX
-  query find project $MAGIC ; > srr ; >srx
- list -a -f $dd/SRX.list
+  query find project IS $MAGIC ; >SRR ; >SRX ; ! title
+  select -o  $dd/srx.list @
 EOF
 
-if (-e $dd/SRX/_wget) \rm $dd/SRX/_wget
+ls  $dd/SRX | gawk '/html/{gsub(".html","",$1);print $1;}' >   $dd/srx.list2
+cat $dd/srx.list $dd/srx.list2 $dd/srx.list2 | gawk '{n[$1]++;}END{for (k in n) if (n[k]==1)print k}' >  $dd/srx.list3
 
-if (1) then
-  foreach srx (`cat $dd/SRX.list | gawk '/^SRX/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1;print $2;}}'`)
-     if ( -e  $dd/SRX/$srx.html) continue 
-     echo "wget -O "$dd"/SRX/"$srx".html  "'"http://www.ncbi.nlm.nih.gov/sra/' $srx'[accn]"' >>  $dd/SRX/_wget
-  end
-else
-  cat  $dd/SRX.list | gawk '/^SRX/{gsub(/\"/,"",$2);if(n[$2]<1){n[$2]=1; srx=$2;gsub(/ /,"",srx);nn++ ;if(nn%200==1)printf("mkdir %s/SRX/%d\n",dd,int(nn/200)); printf ("wget -O %s/SRX/%d/%s.html  \"http://www.ncbi.nlm.nih.gov/sra/%s[accn]\"\n",dd,int(nn/200),srx,srx);}}' dd=$dd  > $dd/SRX/_wget
-endif
+cat $dd/srx.list3 | gawk '{printf("wget -O %s/SRX/%s.html \"https://www.ncbi.nlm.nih.gov/sra/?term=%s\"\n",dd,$1,$1);}' dd=$dd >  $dd/SRX/_wget
 
 wc  $dd/SRX/_wget
 source  $dd/SRX/_wget
 
-\rm  $dd/srx.ace
-foreach ff (`ls  $dd/SRX/*.html $dd/SRX/*/*.html`)
-  set srx=`echo $ff | gawk '{n=split ($1,aa,"/");s=aa[n];gsub(".html","",s);print s;}'` 
-  cat $ff  | gawk -f scripts/SRX_import.5.awk srx=$srx  >> $dd/srx.ace
+if (-e  $dd/srx.ace) \rm  $dd/srx.ace
+foreach srx (`cat $dd/srx.list`)
+   if (! -e  $dd/SRX/$srx.html) continue 
+   cat  $dd/SRX/$srx.html | gawk -f scripts/SRX_import.5.awk srx=$srx  >> $dd/srx.ace
 end
 
 bin/tacembly SRX_DB <<EOF
@@ -281,8 +311,8 @@ EOF
 
 cat $dd/r2f.p  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile fasta/1 %s/SRA/%s_1.fasta.gz\nFile fasta/2 %s/SRA/%s_2.fasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd > $dd/r2f.ace
 cat $dd/r2f.s  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile fasta %s/SRA/%s.fasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd >> $dd/r2f.ace
-cat $dd/r2f.p.s  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile fasta/1 %s/SRA/%s_1.csfasta.gz\nFile fasta/2 %s/SRA/%s_2.csfasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd >> $dd/r2f.ace
-cat $dd/r2f.s.s  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile fasta %s/SRA/%s.csfasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd >> $dd/r2f.ace
+cat $dd/r2f.s.s  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile csfasta %s/SRA/%s.fasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd >> $dd/r2f.ace
+cat $dd/r2f.p.s  | gawk  '/^SRR/{gsub(/\"/,"",$0);printf("SRR %s\n-D File\nFile csfasta/1 %s/SRA/%s_1.fasta.gz\nFile csfasta/2 %s/SRA/%s_2.fasta.gz\n\n",$2,dd,$2,dd,$2);}' dd=$dd >> $dd/r2f.ace
 
 echo "pparse  $dd/r2f.ace" | tbly SRX_DB -no_prompt
 
@@ -292,18 +322,21 @@ goto phaseLoop
 ## add the super titles
 phaseTitles:
 
-bin/sra_metadata -db SRX_DB -a -dbEdit
-bin/sra_metadata -db SRX_DB -s -dbEdit
+bin/sra_metadata -db SRX_DB -a -dbEdit -p $MAGIC 
+bin/sra_metadata -db SRX_DB -s -dbEdit -p $MAGIC 
 
 tbly SRX_DB <<EOF
   date
-  bql -a -o r2b2t.txt select r,b,m from r in class srr, b in r->biosample, m in b->magic_sample2 where m
+  query find project IS $MAGIC ; > srr
+  bql -a -o r2b2t.txt select r,b,m from r in @, b in r->biosample, m in r->magic_sample2 where m
   date
 EOF
 tbly SRX_DB <<EOF
   date
-  bql -a -o b2t.txt select b,t from b in class biosample, t in b->title
-  bql -a -o b2p.txt select b,t,t2 from b in class biosample, t in b->biosample_attribute, t2 in t[1]
+  query find project IS $MAGIC ; > srr ; >biosample
+  bql -a -o b2t.txt select b,t from b in @, t in b->title
+  query find project IS $MAGIC ; > srr ; >biosample
+  bql -a -o b2p.txt select b,t,t2 from b in @, t in b->biosample_attribute, t2 in t[1]
   quit
 EOF
 
@@ -332,6 +365,21 @@ EOF
 
 goto phaseLoop
 
+tbly SRX_DB << EOF
+    query find srr biosample AND project == $MAGIC
+    bql -a -o $dd/title.txt  select srr,t from srr in @, b in srr->biosample , t in b->magic_sample2 
+    save
+    quit
+EOF
+cat  $dd/title.txt | gawk -F '\t' '/^#/{next;}{printf ("SRR %s\nTitle %s\n\n", $1,$2);}' > $dd/titles.ace
+tbly SRX_DB << EOF
+    pparse  $dd/titles.ace
+    save
+    quit
+EOF
+
+goto phaseLoop
+
 #############
 ## get the papers
 phasePapers:
@@ -349,6 +397,7 @@ tbly SRX_DB <<EOF
   list -a -f $dd/PAPERS/a5.pmnocit.list
 EOF
 wc  $dd/PAPERS/a5.pmnocit.list
+
 pushd  $dd/PAPERS
   perl  BIBLIO/PmImport/medlineGet.pl < a5.pmnocit.list >! a5.pmnocit.gb
   perl  BIBLIO/PmImport/medline2ace.pl < a5.pmnocit.gb >! a5.pmnocit.preace
@@ -361,22 +410,29 @@ tbly SRX_DB << EOF
     quit
 EOF
 
-#######  create the sublibraries
+goto phaseLoop
 
+#######  create the sublibraries
+phaseSublibs:
+
+echo ' ' > $dd/multisrx.txt
 tbly SRX_DB << EOF
-    query find srx COUNT { >SRR ; File}  > 1
+    query find project IS $MAGIC ; >srr ; >srx ; COUNT { >SRR ; File}  > 1
     bql -a -o $dd/multisrx.txt select srx, srr from srx in @, srr in srx->srr where srr#File
     save
     quit
 EOF
+
+echo ' ' >  $dd/multisrx.ace
 cat $dd/multisrx.txt | gawk -F '\t' '/^#/{next;} {printf("SRR %s\nSublibraries %s\n\n", $1,$2);}' > $dd/multisrx.ace
 tbly SRX_DB << EOF
     pparse  $dd/multisrx.ace
     save
     quit
 EOF
+echo ' ' >  $dd/sublib.ace
 tbly SRX_DB << EOF
-    query find SRR sublibrary_of
+    query  find project $MAGIC ; >srr ; sublibrary_of
     show -a -f $dd/sublib.ace
     save
     quit
@@ -385,14 +441,6 @@ EOF
 cat $dd/multisrx.txt ZZZZZ $dd/sublib.ace | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){srx[$2] = $1;next;}}/^$/{if(ok==1)print;ok=0;next;}/^SRR_download/{next;}/^SRR/{gsub(/\"/,"",$2);ok=0;z = srx[$2];if(length(z)<3)next;ok=1;printf("\nSRR %s\n",z);next;}/^File/{next;}/^Sublibrary_of/{next;}{if(ok==1) print}' >  $dd/sublib.ace2
 tbly SRX_DB << EOF
     // pparse  $dd/sublib.ace2
-    query find srr biosample
-    bql -a -o $dd/title.txt  select srr,t from srr in @, b in srr->biosample , t in b->magic_sample2 
-    save
-    quit
-EOF
-cat  $dd/title.txt | gawk -F '\t' '/^#/{next;}{printf ("SRR %s\nTitle %s\n\n", $1,$2);}' > $dd/titles.ace
-tbly SRX_DB << EOF
-    pparse  $dd/titles.ace
     save
     quit
 EOF
@@ -409,6 +457,7 @@ bly SRX_DB &
 phase_sraDownload:
 
 if (! -d  $dd/SRA ) mkdir $dd/SRA
+if (! -d  Fastc ) mkdir Fastc
 # check which we already know   // key toto.a2.list
 
 tbly SRX_DB <<EOF
@@ -416,19 +465,19 @@ tbly SRX_DB <<EOF
   bql -o $dd/SRA/srrP.txt2 select r,p,d from r in @, p in r#paired_end, d in r->SRR_download
 EOF
 wc $dd/SRA/srrP.txt[12] 
- cat  $dd/SRA/srrP.txt2 | gawk -F '\t' '{srr=$1;pair=$2;file=$3;if( index(file,"http")==1)printf ("%s___%s___%s\n",srr,file,pair);}' > $dd/SRA/srr.todo
+ cat  $dd/SRA/srrP.txt2 | gawk -F '\t' '{srr=$1;pair=$2;file=$3;if( index(file,"https")==1)printf ("%s___%s___%s\n",srr,file,pair);}' > $dd/SRA/srr.todo
 wc $dd/SRA/srr.todo
 
-if (-e toto88) \rm toto88
-touch toto88
+if (-e totosraNeeded) \rm totosraNeeded
+touch totosraNeeded
 foreach ss (`cat  $dd/SRA/srr.todo`)
   set srr=`echo $ss | gawk -F '___' '{print $1}'`
   if (! -d Fastc/$srr &&  ! -e $dd/SRA/$srr && ! -e $dd/SRA/$srr.fasta.gz &&  ! -e $dd/SRA/$srr'_1'.fasta.gz && ! -e $dd/SRA/$srr.csfasta.gz &&  ! -e $dd/SRA/$srr'_1'.csfasta.gz) then
-    echo $ss >> toto88
+    echo $ss >> totosraNeeded
    if ($phase == sraDownload) scripts/submit $dd/SRA/$srr "scripts/SRX_import_fasta.tcsh $dd/SRA $ss" 
   endif
 end
-wc toto88
+wc totosraNeeded
 
 goto phaseLoop
 ls DATA/2016_01_08/SRA/*fasta* | gawk '{split($1,aa,"/");split(aa[4],bb,"_");split(bb[1],cc,".");printf("Run %s\n", cc[1]);}' | sort -u > sraReady.list
@@ -441,8 +490,10 @@ ls DATA/2016_01_08/SRA/*fasta* | gawk '{split($1,aa,"/");split(aa[4],bb,"_");spl
 phase_srr2run:
 
 tbly SRX_DB <<EOF
-  query find geo reference && srp
+  query find project IS ?MAGIC ; > SRR ; > SRP ;  > geo ; reference && srp
   bql -a -o $dd/geo2srp2ref.txt  select geo,srp,ref from geo in @, srp in geo->srp, ref in geo->reference
+  query find longtext
+  show -a -f  $dd/longtext.ace
   quit
 EOF
  cat $dd/geo2srp2ref.txt | gawk '/^"/{printf ("SRP %s\nReference %s\n\n",$2,$3);}' > $dd/geo2srp2ref.ace
@@ -451,6 +502,10 @@ EOF
 tbly SRX_DB <<EOF
   query find srr  project == $MAGIC
   // key sraReady.srr.list
+  spush
+  follow sublibraries
+  sor
+  spop
   kstore kk
   show -a -f $dd/srr.dump.ace
   query follow srp
@@ -519,8 +574,10 @@ cat <<EOF > $dd/srr2run.awk
 /^Mixed_sex/{next;}
 /^Nascent_RNA/{print;next;}
 /^Nerve/{next;}
-/^Oxford_nanopore/{print;next;}
+/^Nanopore/{print;next;}
+/^Oxford_nanopore/{print "Nanopore";next;}
 /^Paired_end/{print;next;}
+/^PacBio/{print;next;}
 /^Project/{print;next;}
 /^Pupa/{next;}
 /^RIP_CLIP/{print;next;}
@@ -553,6 +610,7 @@ cat <<EOF > $dd/srr2run.awk
 /^Warning/{next;}
 /^Whole_genome/{print;next;}
 /^Whole_organism/{next;}
+/^nanopore/{print "Nanopore";next;}
 /^nonStranded/{print;next;}
 /^polyA/{print;next;}
 /^sraUnspecified_RNA/{next;}
@@ -603,7 +661,9 @@ cat <<EOF > $dd/srr2srr.awk
 /^Microbiome/{next;}
 /^Nascent_RNA/{next;}
 /^Nerve/{next;}
+/^Nanopore/{next;}
 /^Oxford_nanopore/{next;}
+/^PacBio/{next;}
 /^Paired_end/{next;}
 /^Project/{next;}
 /^Pupa/{next;}
@@ -680,11 +740,11 @@ cat  $dd/srx.preace | gawk -f $dd/srx2run.awk >  $dd/srx.ace
 cat  $dd/compare.preace |  sed -e 's/^SRR[ \t]/Runs /' > $dd/compare.ace
 tbly MetaDB -no_prompt <<EOF
   read-models
-  query find project $MAGIC ; > run
+  query find project IS $MAGIC ; > run
   edit -D group
-  query find project $MAGIC ; > compare
+  query find project IS $MAGIC ; > compare
   kill
-  query find project $MAGIC 
+  query find project IS $MAGIC 
   kill
   pparse  $dd/srr2run.ace
   pparse  $dd/srr2srr.ace
@@ -693,6 +753,8 @@ tbly MetaDB -no_prompt <<EOF
   pparse  $dd/srr.nuc.ace
   pparse  $dd/srr.sranuc.ace
   pparse  $dd/compare.ace
+  save
+  pparse  $dd/longtext.ace
   save
   quit
 EOF
@@ -720,17 +782,22 @@ echo "pparse  $dd/srr.sample.ace" | tbly MetaDB -no_prompt
 
 
 time tbly MetaDB <<EOF
-  query find project $MAGIC ; >run
+  query find project IS $MAGIC ; >run ; >sublibrary_of ; NOT project == $MAGIC
+  // edit project $MAGIC
+  save
+
+  find run
+  query find project IS $MAGIC ; >run
   find run
   bql -a -o $dd/r2s2t.txt  select r,srr,s,t from r in @ , srr in r->srr, s in srr->sample, t in s->title 
-  query find project $MAGIC ; >run
+  query find project IS $MAGIC ; >run
   find run
   bql -a -o $dd/r2s2t2.txt  select r,srr,s,t from r in @ , sub in r->sublibraries, srr in sub->srr, s in srr->sample, t in s->title 
 
-  query find project $MAGIC ; >run
+  query find project IS $MAGIC ; >run
   find run
   bql -a -o $dd/r2s2t.txt1  select r,srr,s,t from r in @ , srr in r->srr, s in srr->sample, t in s->title 
-  query find project $MAGIC ; >run
+  query find project IS $MAGIC ; >run
   find run
   bql -a -o $dd/r2s2t2.txt1  select r,srr,s,t from r in @ , sub in r->sublibraries, srr in sub->srr, s in srr->sample, t in s->title 
 
@@ -750,27 +817,54 @@ cat  rSubGr.txt | gawk -F '\t' '{printf ( "Run %s\n-D Union_of %s\nUnion_of %s\n
 echo "pparse  rSubGr.fix.ace" | tbly MetaDB -no_prompt
 \rm  rSubGr.fix.ace  rSubGr.txt
 
+tbly SRX_DB  <<EOF
+  query find project IS $MAGIC ; > srr ; > biosample
+  show -a -f $MAGIC.biosample.preace T
+  quit
+EOF
+
+cat  $MAGIC.biosample.preace | sed -e 's/^Biosample/Sample/' -e 's/^Sample_attribute/Biosample_attribute/' -e 's/^Submission/\!Submission/' >  $MAGIC.biosample.ace
+
+tbly MetaDB <<EOF
+  select -o srx2srr.txt srx,srr from srx in ?srx, srr in srx->srr
+  quit
+EOF
+cat  srx2srr.txt | gawk -F '\t' '{printf ("Run %s\nSRX %s\n\n", $2,$1);}' >  srx2run.ace
+tbly MetaDB <<EOF
+  pparse srx2run.ace
+  pparse $MAGIC.biosample.ace T
+  save
+  quit
+EOF
+
+tace SRX_DB <<EOF
+  s -o subIsDate.txt a,b from a in ?author where a ~ "????-??-??", b in a->biosample
+  quit
+EOF
+
+cat subIsDate.txt | gawk -F '\t' '{printf("Biosample %s\n-D Submission %s\nSubmission_date %s\n\n", $2,$1,$1);}' > subIsDate.ace1
+cat subIsDate.txt | gawk -F '\t' '{printf("Sample %s\n-D Submission %s\nSubmission_date %s\n\n", $2,$1,$1);}' > subIsDate.ace
+
 goto phaseLoop
 
 #######################################################
-## Inside SRX_db, transfer the manual annoations from SRR to SRX
+## Inside SRX_db, transfer the manual annotations from SRR to SRX
 phase_srr2srx:
 tbly SRX_DB <<EOF
-  query find project $MAGIC ; >srr ;
-  query find SRR
+  query find project IS $MAGIC ; >srr ;
   query file && sublibrary_of && ! union_of
   select -a -o srr2srx.txt  srr,srx from srr in @, srx in srr->sublibrary_of
   show -a -f $MAGIC.srr.ace
 EOF
 
 echo ZZZZZ > ZZZZZ
-cat  srr2srx.txt  ZZZZZ  $MAGIC.srr.ace | gawk -f $dd/srr2srx.awk >  $dd/$MAGIC.srr2srx.ace
+cat  srr2srx.txt  ZZZZZ  $MAGIC.srr.ace | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){r2x[$1]=$2;next;}}/^File/{next;}/^SRR /{printf("SRR %s\n",r2x[$2]);next;}/^Sublib/{next;}{print}' >  $MAGIC.srr2srx.ace
+
 tbly SRX_DB <<EOF
-  // pparse $dd/$MAGIC.srr2srx.ace
+  // pparse $MAGIC.srr2srx.ace
   save
   quit
 EOF
-
 
 goto phaseLoop
 

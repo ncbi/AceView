@@ -314,7 +314,8 @@ static void psortCellularLocalization (BA *ba, char *seq, char *content)
 	if (*cs == ' ') *cs = '_' ;
       if (strstr (cp, "xtracellular"))
 	cp = "Secreted" ;
-      aceOutf (ba->ao,"Psort Localization \"%s\" %4.1f \n", cp, score) ;
+      if (cp && *cp)
+	aceOutf (ba->ao,"Psort Localization \"%s\" %4.1f \n", cp, score) ;
       *cq = '\n' ;
       cp = cq + 1 ;
     }

@@ -120,7 +120,6 @@ int main(int argc,char **argv)
 		ks = 0;
 
 		st = stackCreate(10000);
-		stackTextOnly(st);
 
 		b[sizeof(b)-1]=0;
 		while (fgets(b,sizeof(b)-1,stdin))
@@ -228,7 +227,7 @@ int main(int argc,char **argv)
 		else if (strncmp(b,"shutdown",8) == 0)
 			{
 			response = ac_command(db, b, &len, 0);
-			if (strstr((char*)response,"Sorry") == 0)
+			if (response && *response && strstr((char*)response,"Sorry") == 0)
 				{
 				/*
 				* the server would not let us shut it down.
@@ -237,7 +236,10 @@ int main(int argc,char **argv)
 				exit(5);
 				}
 			else
-				exit(0);
+			  {
+			    write(1,"shutdown\n",10) ;
+			    exit(0);
+			  }
 			}
 		else
 			{
@@ -249,6 +251,11 @@ int main(int argc,char **argv)
 				printf("server disconnect\n");
 				exit(3);
 				}
+			if (! strncasecmp ((char *)response, "shutdown", 8))
+			  {
+			    write(1,response,len);
+			    exit (0) ;
+			  }
 			if (! ace_out)
 				write(1,response,len);
 			}

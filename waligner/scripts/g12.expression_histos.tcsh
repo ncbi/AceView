@@ -19,12 +19,14 @@ if ($target != export) then
     echo "$GM $target"
 ls -ls  RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz
     if (-e  RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz && ! -e RESULTS/Expression/unique/$target/$MAGIC.index.$GM.distrib.txt2) then
-      gunzip -c  RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz | gawk 'BEGIN{printf("0\n400\n");}/^Run_U/{if(1){if($11=="NA")next;print 2*int(5*$3);}}' | bin/histo -w 200 -plain -o RESULTS/Expression/unique/$target/$MAGIC.index.$target2.$GM.distrib -title "$target $GM2 not NA"
+      gunzip -c  RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz | gawk 'BEGIN{printf("0\n400\n");}/^Gene_group/{ok=0;next;}/^Gene/{ok=1;next;}/^$/{ok=0;}/^if(ok<1)next;}/^Run_U/{if(1){if($11=="NA")next;print 2*int(5*$3);}}' | bin/histo -w 200 -plain -o RESULTS/Expression/unique/$target/$MAGIC.index.$target2.$GM.distrib -title "$target $GM2 not NA"
       \rm  RESULTS/Expression/unique/$target/index.$target2.$GM.distrib.correl.txt
       if (-e  RESULTS/Expression/unique/$MAGIC.expression_index.histo.txt) \rm  RESULTS/Expression/unique/$MAGIC.expression_index.histo.txt
     endif
 
-    if (-e RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz && ! -e RESULTS/Expression/unique/$target/$MAGIC.cumulated_support_notNA.$target2.$GM.txt) then 
+  exit 0
+  # 2019_05_30 Danielle says this is no longer interesting
+   if (-e RESULTS/Expression/unique/$target/$MAGIC.$target2.$GM.u.ace.gz && ! -e RESULTS/Expression/unique/$target/$MAGIC.cumulated_support_notNA.$target2.$GM.txt) then 
       if ($GM == GENE) set tt1=Gene
       if ($GM == MRNAH) set tt1=Transcript
       if ($GM == MA) set tt1=Probe
@@ -70,8 +72,10 @@ cat $toto.1 | scripts/transpose >> $toto
 # setenv MAGIC SEQC_D
 # histo in true log2 scale
 set toto=RESULTS/Expression/unique/$MAGIC.cumulated_support_of_annotated_genes_and_transcripts.histo.txt
-date > $toto
-echo "Cumulated support of genes and transcripts in project $MAGIC, excluding NA runs" >> $toto
+
+echo -n "### $toto : " > $toto
+date >> $toto
+echo "Cumulated support of genes and transcripts in project $MAGIC, excluding NA runs in number of reads" >> $toto
 
 echo '#' > $toto.1
 foreach GM (GENE MRNAH)

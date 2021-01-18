@@ -54,7 +54,7 @@ void myReader (void *vp)
     {  
       int n ;
       
-      n = channelGet (r1, &n, int) ;
+      n = channelGive (r1, &n, int) ;
       nn++ ;
     
       if (nn % 10 == 1) fprintf (stdout, "***** green1 received %d, total %d/%d values\n", n, nn, NMAX) ;

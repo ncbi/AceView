@@ -103,7 +103,7 @@ static char *actionName[] = {"ZERO", "TREE", "DNA", "PEP", "PROBE", "FICHE"
 } ;
  
 typedef enum
-  { ZERO_T = 0, GIF_T, BUBBLE_T, SWF_T, swf_T
+  { ZERO_T = 0, GIF_T, BUBBLE_T, SWF_T, swf_T, SVG_T
 } PICTURE_TYPE ;
 
 typedef struct pStruct
@@ -258,7 +258,7 @@ static char *error_message_not_found =
 "      to the locus unambiguously, or that this locus has no associated sequence because"
 "      it has not been cloned yet. In this case, OMIM or LocusLink would be more"
 "      informative: AceView is only a complementary sequence oriented view. In"
-"      the top Query box, search “All databases” at NCBI, or “OMIM”, or “LocusLink/Gene”."
+"      the top Query box, search All databases at NCBI, or OMIM, or LocusLink/Gene."
 "      </span></li>"
 "  <li class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto;"
 "      mso-list:l0 level1 lfo3;tab-stops:list 36.0pt'><b><span style='font-family:"
@@ -320,7 +320,7 @@ static char *error_message_not_found =
 " "
 " <p class=MsoNormal style='mso-margin-top-alt:auto;mso-margin-bottom-alt:auto;"
 " margin-left:18.0pt'><span style='font-family:Tahoma'>You are welcome to <a"
-" href=\"mailto:mieg@ncbi.nlm.nih.gov,%20potdevin.michel@wanadoo.fr\">report"
+" href=\"mailto:mieg@ncbi.nlm.nih.gov\">report"
 " problems</a> or ask for help. We would be happy to try to fix any reproducible"
 " bug as well as to add desirable features.</span></p>"
 "" ;
@@ -867,7 +867,7 @@ static void executeAction (PP *ppp)
     case FMOL_A:
     case FEXP_A:
     case FFUNC_A:
-      ac_command (ppp->db, messprintf (" // %s start %s  %s" 
+      ac_command (ppp->db, messprintf (" // %s start %s  %s aceviewlib.2019_02_17" 
 				       , actionName[ppp->action]
 				       , ppp->class, ppp->query), 0, 0) ;
 
@@ -951,9 +951,9 @@ static void showInfoFrameSet (PP *ppp)
 {
   int mrnaMode = 0, directMode = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
-  if (ppp->class && !strcasecmp (ppp->class, "cDNA_clone"))
+  if (!strcasecmp (ppp->class, "cDNA_clone"))
     directMode = 1 ;
 
   if (!strcmp (ppp->version,"v47") || directMode) /* old system */
@@ -1019,7 +1019,7 @@ static void showFramesInfo (PP *ppp)
   int mrnaMode = 0 ;
   char *SG = "S" ; /* flash by default */
   if (!strcmp (ppp->version,"v47")) SG = "G" ;
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
 
   standardHtmlHeader (ppp, FALSE) ;
@@ -1067,7 +1067,7 @@ static void showFramesMain (PP *ppp)
   BOOL showTabFrame = TRUE ; /* needed for the bubbles */
   BOOL showInfoFrame = FALSE ;
   if (!strcmp (ppp->version,"v47")) showInfoFrame = TRUE ;
-  if (ppp->class && !strcasecmp (ppp->class, "mRNA"))
+  if (!strcasecmp (ppp->class, "mRNA"))
     mrnaMode = 1 ;
   ppp->noJava = TRUE ;
   standardHtmlHeader  (ppp, FALSE) ;
@@ -1158,6 +1158,15 @@ static int exportLocatorPicture (PP *ppp)
 						   , ac_protect (ac_name(ppp->geneBox), 0)
 						   )
 				     , &(ppp->pictureBufferSize) , 0) ;
+  else if (ppp->picCommand && !strcmp(ppp->picCommand, " svg "))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c Gene -n %s " 
+						   " -v DtGLOC -svg -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
   else if (ppp->picCommand)
     ppp->pictureBuffer = ac_command (ppp->db
 				     , messprintf (
@@ -1183,6 +1192,15 @@ static int exportLocatorBigPicture (PP *ppp)
 						   " view "
 						   " -c Gene -n %s " 
 						   " -v DtGLOCBIG -flash -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
+  else if (ppp->picCommand && !strcmp(ppp->picCommand, " svg "))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c Gene -n %s " 
+						   " -v DtGLOCBIG -svg -preview2 "
 						   , ac_protect (ac_name(ppp->geneBox), 0)
 						   )
 				     , &(ppp->pictureBufferSize) , 0) ;
@@ -1215,6 +1233,15 @@ static int exportHmrnaPicture (PP *ppp)
 						   , ac_protect (ac_name(ppp->geneBox), 0)
 						   )
 				     , &(ppp->pictureBufferSize) , 0) ;
+  else if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c Gene -n %s " 
+						   " -v DtHseq -svg -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
   else if (ppp->picCommand)
     ppp->pictureBuffer = ac_command (ppp->db
 				     , messprintf (
@@ -1244,6 +1271,49 @@ static int exportVGeneFlashPicture (PP *ppp)
 						   , ac_protect (ac_name(ppp->geneBox), 0)
 						   )
 				     , &(ppp->pictureBufferSize) , 0) ;
+  else if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c Gene -n %s " 
+						   " -v DtVGene -svg -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
+ 
+   return 1 ;
+}
+
+/*******************/
+
+static int exportVGeneSvgPicture (PP *ppp)
+{
+  if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c Gene -n %s " 
+						   " -v DtVGene -svg -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
+ 
+   return 1 ;
+}
+
+/*******************/
+
+static int exportVmrnaSvgPicture (PP *ppp)
+{
+  if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+    ppp->pictureBuffer = ac_command (ppp->db
+				     , messprintf (
+						   " view "
+						   " -c mRNA -n %s " 
+						   " -svg -preview2 "
+						   , ac_protect (ac_name(ppp->geneBox), 0)
+						   )
+				     , &(ppp->pictureBufferSize) , 0) ;
  
    return 1 ;
 }
@@ -1269,7 +1339,7 @@ static int exportVGeneGifPicture (PP *ppp)
     {
       printf ("<br/>\n<br/>\nSorry, this gene has not yet been mapped.<br/>\n") ;
       printf ("If you know its molecular identification, ") ;
-      printf ("<a href=\"mailto:mieg@ncbi.nlm.nih.gov, potdevin.michel@wanadoo.fr\"><b>please</b><a>") ;
+      printf ("<a href=\"mailto:mieg@ncbi.nlm.nih.gov\"><b>please</b><a>") ;
       printf (" let us know.") ;
       return 0 ;
     }
@@ -1425,7 +1495,7 @@ static int getProducts (PP *ppp)
   int nproduct = 0, ngenes = 0 ;
   AC_KEYSET products = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "product"))
+  if (!strcasecmp (ppp->class, "product"))
     {
       products = ac_dbquery_keyset (ppp->db
 				    , messprintf ("find product IS \"%s\"", ppp->query) 
@@ -1472,7 +1542,7 @@ static int getMrnas (PP *ppp)
 {
   int nmrna = 0, ngenes = 0 ;
 
-  if (ppp->class && !strcasecmp (ppp->class, "mrna"))
+  if (!strcasecmp (ppp->class, "mrna"))
     {
       ppp->mrnas = ac_dbquery_keyset (ppp->db
 				    , messprintf ("find mrna IS \"%s\"", ppp->query) 
@@ -2452,7 +2522,7 @@ static void logClientInfo (PP *ppp)
  * p: page_start :: used in gene lists
  * N: page_start :: orderByNewName used in gene lists
  * q: QUERY :: query to ask inside this class
- * G/B/S/s: picture_style :: G:gif file, b:bubble support of the gif file, S:flash/swfc kitchen, s:actual flash/swfc movie
+ * G/V/B/S/s: picture_style :: G:gif file, V:SVG, b:bubble support of the gif file, S:flash/swfc kitchen, s:actual flash/swfc movie
  * t: SHIFT :: int = start_of_zone
  * v: details :: i.e. cdna_decorate
  * w: ZOOM  :: int = extent_of_zone
@@ -2539,6 +2609,8 @@ static BOOL getParams (PP *ppp)
     ppp->picture_type = BUBBLE_T ;
   else if (cgi_arg_exists ("S"))
     ppp->picture_type = SWF_T ;
+  else if (cgi_arg_exists ("V"))
+    ppp->picture_type = SVG_T ;
   else if (cgi_arg_exists ("s"))
     ppp->picture_type = swf_T ;
   
@@ -3186,9 +3258,9 @@ static void showLinkList (PP * ppp)
       if (nnam)
 	{
 	  sprintf (linkBuf,
-		   "http://bioinformatics.weizmann.ac.il/cards-bin/carddisp?%s",
-		   nnam) ;
-	  oneLineLink ("GeneCards", linkBuf, "at the Weizmann Institute, offers concise information about the functions of all human genes that have an approved symbol, as well as selected others.");
+		   "http://www.genecards.org/cgi-bin/carddisp.pl?gene=%s&keywords=%s"
+		   ,nnam, nnam) ;
+	  oneLineLink ("GeneCards", linkBuf, " offers concise information about the functions of all human genes that have an approved symbol, as well as selected others.");
 	}
     }
   
@@ -3596,12 +3668,16 @@ static void doAction (PP *ppp)
     case  GENE_P:  /* on call back from javascript/main.ppp->version.js:writeMap () */
       if (ppp->picCommand && !strcmp(ppp->picCommand, " swfdump -compile -"))
 	exportVGeneFlashPicture (ppp) ;
+      else if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+	exportVGeneSvgPicture (ppp) ;
       else if (ppp->picCommand)
 	exportVGeneGifPicture (ppp) ;
       break ;
       
     case  VmRNA_P:  /* on call back from javascript/main.ppp->version.js:writeMap () */
-     if (ppp->picCommand) 
+     if (ppp->picCommand && !strcmp(ppp->picCommand, " svg"))
+	exportVmrnaSvgPicture (ppp) ;
+     else if (ppp->picCommand) 
        exportVmrnaPicture (ppp) ;
       break ;
       
@@ -3694,6 +3770,19 @@ static void doAction (PP *ppp)
 	fwrite (cp, size, 1, stdout) ;
 	exportJavaMapCallback () ;
 	if (ppp->db) ac_command (ppp->db, "// swf file received by aceviewmain", 0, 0) ;
+	break ;
+      case SVG_T:
+	cp = (unsigned char *) strstr ((char *)ppp->pictureBuffer, "//") ;
+	if (! cp) cp = ppp->pictureBuffer ;
+	else { while (*cp++ != '\n') {} ; cp++ ; }
+	cq = ppp->pictureBuffer + size - 1 ;
+	while (size > 0 && *cq != '/') { cq-- ; size-- ; }
+	cq -= 2 ; size -= 2 ;
+	i = cp - ppp->pictureBuffer ;
+	size = size - (cp - ppp->pictureBuffer) ;
+	fwrite (cp, size, 1, stdout) ;
+	exportJavaMapCallback () ;
+	if (ppp->db) ac_command (ppp->db, "// SVG file received by aceviewmain", 0, 0) ;
 	break ;
       case GIF_T:
 	if (ppp->db) ac_command (ppp->db, "// gif file received by aceviewmain", 0, 0) ;

@@ -1,6 +1,6 @@
 #!/bin/csh -f
 
-# $Id: MAKE_SOURCE_DISTRIBUTION,v 1.21 2014/01/17 02:33:35 mieg Exp $
+# $Id: MAKE_SOURCE_DISTRIBUTION,v 1.22 2018/09/04 02:37:07 mieg Exp $
 
 if ($#argv != 1) then
    echo "usage - MAKE_SOURCE_DISTRIBUTION <version>"
@@ -82,7 +82,8 @@ cd $ici
 ls -ls  magic.$1.source.tar.gz
 echo 'if ok, please: \rm -rf tmp_acedb_src'
 
-echo "please mv magic.$1.source.tar.gz ~/ftp/Software/AceView/dated/"
+echo "please mv magic.$1.source.tar.gz ~/ftp/Software/Magic/archives/Source_code_archives/"
+
 
 
 
