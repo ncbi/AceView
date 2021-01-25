@@ -19,7 +19,7 @@
  * Then the loop integral reduces to a polynome in g_ab, p, q, r
  * Separately we know the overall degree in sigma, sigma_bar, multiply by sigma and trace
  * We extract the overall epsilon by multiplying by an additional epsilon.
- *
+ * 
  * expand: allows to flatten the products of polynomes
  * contractIndices: sort and reduces the Einstein repeated indices and the epsilons
  * PaukiTrace:  transforms the ordered products of Pauli matrices into a polynome in g_mn and epsilon
@@ -1614,7 +1614,7 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
   int i ;
   char *s = tt.sigma ; 
   char *sb = tt.sigB ;
-  complex parity = I ; 
+  complex float parity = I ; 
 
   pp->isFlat = FALSE ;
 
@@ -5150,7 +5150,7 @@ static void muSigma (AC_HANDLE h)
 	    for (a = 0 ; a < 4 ; a++)
 	      for (b = 0 ; b < 4 ; b++)
 		z2 += PP[i][j][a][b] *gg[a][a] * gg[b][b] * PP[a][b][k][l] ;
-	    z = cabsf (z2 - z1) ;
+	    z = fabsf (z2 - z1) ;
 	    if (z > minAbs)
 	      printf("PP PP - PP not zero ijkl = %d %d %d %d  zz=%g\n", i,j,k,l,z) ;
 	  }
@@ -5167,7 +5167,7 @@ static void muSigma (AC_HANDLE h)
 	    for (a = 0 ; a < 4 ; a++)
 	      for (b = 0 ; b < 4 ; b++)
 		z2 += PM[i][j][a][b] *gg[a][a] * gg[b][b] * PM[a][b][k][l] ;
-	    z = cabsf (z2 - z1) ;
+	    z = fabsf (z2 - z1) ;
 	    if (z > minAbs)
 	      printf("PM PM - PM not zero ijkl = %d %d %d %d  zz=%g\n", i,j,k,l,z) ;
 	  }
@@ -5183,7 +5183,7 @@ static void muSigma (AC_HANDLE h)
 	    for (a = 0 ; a < 4 ; a++)
 	      for (b = 0 ; b < 4 ; b++)
 		z2 += PP[i][j][a][b] *gg[a][a] * gg[b][b] * PM[a][b][k][l] ;
-	    z = cabsf (z2 - z1) ;
+	    z = fabsf (z2 - z1) ;
 	    if (z > minAbs)
 	      printf("PP PM  not zero ijkl = %d %d %d %d  zz=%g\n", i,j,k,l,z) ;
 	  }
