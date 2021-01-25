@@ -3386,7 +3386,7 @@ static POLYNOME Hodge (void)
   char rho = newDummyIndex () ;
   char sig = newDummyIndex () ;
 
-  POLYNOME pp, ppp[3], pP1, pP2, pM2,pG1, pG2 ;
+  POLYNOME pp, ppp[6], pP1, pP2, pM2,pG1, pG2 ;
   /*
     int mm1[4] = {1,1,0,0} ; //
     int mm2[4] = {-1,-1,0,0} ; //  p + k 
@@ -5150,7 +5150,7 @@ static void muSigma (AC_HANDLE h)
 	    for (a = 0 ; a < 4 ; a++)
 	      for (b = 0 ; b < 4 ; b++)
 		z2 += PP[i][j][a][b] *gg[a][a] * gg[b][b] * PP[a][b][k][l] ;
-	    z = fabsf (z2 - z1) ;
+	    z = cabsf (z2 - z1) ;
 	    if (z > minAbs)
 	      printf("PP PP - PP not zero ijkl = %d %d %d %d  zz=%g\n", i,j,k,l,z) ;
 	  }
@@ -5167,7 +5167,7 @@ static void muSigma (AC_HANDLE h)
 	    for (a = 0 ; a < 4 ; a++)
 	      for (b = 0 ; b < 4 ; b++)
 		z2 += PM[i][j][a][b] *gg[a][a] * gg[b][b] * PM[a][b][k][l] ;
-	    z = fabsf (z2 - z1) ;
+	    z = cabsf (z2 - z1) ;
 	    if (z > minAbs)
 	      printf("PM PM - PM not zero ijkl = %d %d %d %d  zz=%g\n", i,j,k,l,z) ;
 	  }
