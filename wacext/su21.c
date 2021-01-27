@@ -5,7 +5,7 @@
 /* Create june 2020
  * edited 26 jan 2021
  *
- * My personnal way of computing the renomalisability of gauge theories
+ * My personnal way of computing the renormalisability of gauge theories
  *
  * A diagram is a hooking of subdiagrams, like propagators and vertex
  * It is an ordered product of functions of g_ij, epsilon_ijkl, sigma_i, sigma_bar_i
@@ -36,6 +36,10 @@
  *          So each component comes with its internal checks.
  *
  * Purpose: Prove that QAD is renormalisable.
+
+ * A separate part of the program is meant to check the consistency of reps of SU(2/1)
+ * The 8 complex matrices are enumerated, and we then verify the commutators and the anomalies
+ * we have explicitly the leptons, the quarks, and several indecomposable reps
  */
 
 #define minAbs 0.0000001
