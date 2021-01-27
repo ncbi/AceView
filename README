@@ -19,7 +19,8 @@ There is a tar file wh/x11.include.tar.gz that you could use if you cannot obtai
 headers, but these canned headers may not be exactly in suynch with your X11 libraries
 
 --
-Where is documentation
+The documentation is available at
+   https://github.com/jtmieg/AceView/blob/master/acedb_query_language_documentation.pdf
 --
 
 wdoc 
