@@ -3,7 +3,7 @@
 #include "matrix.h"
 
 /* Create june 2020
- * edited 26 jan 2021
+ * edited 27 jan 2021
  *
  * My personnal way of computing the renormalisability of gauge theories
  *
