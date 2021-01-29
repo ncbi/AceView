@@ -1,0 +1,101 @@
+/* @(#)options.wrm	1.5    7/11/94 */ 
+
+  /* wspec/options.wrm
+     
+     This file is read only at execution time
+
+     It holds the class definitions necessary to the applications.
+     The kernel classes are defined in  wspec/sysoptions.wrm
+     which can serve as a model when editing this one.
+
+     You can freely edit this file without recompiling
+     but it must remain consistent with the other wspec files
+     and you must never change the type (A, B, X) of a class
+     unless you reconstruct the database from ace files.
+
+     Line starting with _VClassName are parsed, they are expected
+     to contain a la Unix a set of -Option parameters.
+     Class names must match their enumeration in wspec/classes.wrm
+	
+     The order in which classes appear here will be used in displays.
+	
+     Options names can be abbreviated, recognized options are
+     -Hidden    : this class will not be listed in the acedb Main Window.
+     -Visible   : this class will be listed in the acedb Main Window.
+     -Array     : this class is of type A, (Array or tuple).
+     -Btree     : this class is of type B, it must be further defined in models.wrm
+     -XREF      : Auto cross referencing Hidden B system class. Do not use.
+     -Display  displayType : The preferred display type of the class,
+		             as enumerated in wspec/disptype.wrm
+     -Title  Tag : Tag must be a tag name listed in wspec/tags.wrm (or systags)
+	           If present in some object of that class, the text following it
+                   will be used preferentially when referring to that object.
+     -Symbol Tag : Tag must be a tag name listed in wspec/tags.wrm (or systags)
+	           If present in some object of that class, the text
+		   or key following it will be used preferentially
+                   when referring to that object in Maps.
+     -Rename otherName : Other name will show in lists, old and new
+                         name will be recognized in ace files and queries, old
+                         is used in the code. In case some newName
+			 matches some old name, the new name takes precedence.
+     -CaseSensitive : The names in this class will be case sensitive.
+                      Never undo this option once it has been used.
+     -Sybase : Experimental external storage in sybase.
+     -Known : Prevents indirect creation of new object in ace files
+              You can't enter a new object in this class directly
+              but not by quoting it in another object.
+
+     Classes default as -B -H -D TREE
+     A classes further default as -H -D ZERO
+
+
+     Displays:
+	Every display type needs a display function.
+     Parsers:
+        Special code must be provided for A Classes
+     Dumps:
+        Special code must be provided to dump A classes
+     
+     These routines must be registered in file wspec/quovadis.h before
+     recompilation.
+  */
+
+_VProject -V
+
+_VManip -V
+
+_VRun -V
+
+_VAli -V
+
+_VSample -V
+
+_VSpecies -V
+
+_VStage -V
+
+_VTissue -V
+
+_VDisease -V
+
+_VAuthor -V
+
+_VVariant -V
+
+_VGene -V
+
+_VmRNA -V
+
+_VdbSNP -V
+
+_VExperiment -V
+
+_VElement -V
+
+_VGeneId -V
+
+_VIntron -V
+
+
+
+

@@ -1,0 +1,123 @@
+// Spread sheet definition for the ACeDB software 
+// Date: 2020-05-12_14:10:51
+
+// %n (%%n in the graphic)  are parameter to be given on the command line in tace
+// or by default by the Parameters given in this file
+// \%n (%n in the graphic) are substituted by the value of column n at run time
+// Line starting with // are ignored, starting with # are comments
+
+Sortcolumn 1
+
+Colonne 1
+Subtitle Column #1
+Width 12
+Optional
+Visible
+Class
+Class Variant
+Condition DelIns
+
+Colonne 2
+Subtitle Column #2
+Width 12
+Mandatory
+Visible
+Class
+Class Map
+From 1
+Tag IntMap
+
+Colonne 3
+Subtitle Column #3
+Width 12
+Mandatory
+Visible
+Integer
+Right_of 2
+Tag HERE
+
+Colonne 4
+Subtitle Column #4
+Width 12
+Optional
+Visible
+Integer
+Right_of 3
+Tag HERE
+
+Colonne 5
+Subtitle Column #4
+Width 12
+Mandatory
+Visible
+Class
+Class Sequence
+From 1
+Tag Parent_sequence
+
+Colonne 6
+Subtitle Column #5
+Width 55
+Mandatory
+Visible
+DNA
+From 5
+DNA  "\%3-26" "\%3+24"
+
+Colonne 7
+Subtitle Column #7
+Width 12
+Mandatory
+Visible
+DNA
+From 5
+DNA  "\%4-24" "\%4+26"
+
+Colonne 8
+Subtitle Column #6
+Width 27
+Mandatory
+Visible
+DNA
+From 5
+DNA  "\%3-26" "\%3-1"
+
+Colonne 9
+Subtitle Column #7
+Width 12
+Mandatory
+Hidden
+Integer
+From 1
+Tag VCF
+
+Colonne 10
+Subtitle Column #8
+Width 12
+Mandatory
+Visible
+Text
+Right_of 9
+Tag NEXT
+
+Colonne 11
+Subtitle Column #9
+Width 12
+Mandatory
+Visible
+DNA
+From 5
+DNA  "\%4+1" "\%4+27"
+
+Colonne 12
+Subtitle Column #10
+Width 12
+Optional
+Visible
+Text
+Right_of 4
+Tag NEXT
+
+ 
+
+// End of these definitions

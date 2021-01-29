@@ -1,0 +1,858 @@
+
+Method "3'UTR"
+Colour	 WHITE
+Strand_sensitive	
+Width	 1
+Right_priority	 2.2
+Show_text	
+
+Method "5'UTR"
+Colour	 WHITE
+Strand_sensitive	
+Width	 1
+Right_priority	 2.2
+Show_text	
+
+Method "Absorbed"
+Colour	 LIGHTBLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2.9
+Web_right_priority	 9.1
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "assembly-default"
+Colour	 BLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2
+Show_text	
+Gene_assemble_method	 "BLASTX" 0.005
+Gene_assemble_method	 "GF_ATG" 1
+Gene_assemble_method	 "GF_splice" 1
+Gene_assemble_method	 "hexExon_span" 0.2
+Intron_min	 40
+Exon_min	 33
+Intron_cost	 -3 -1.5 55
+Inter_gene_cost	 -5
+GF_range	 10000
+GF_ATG_cutoff	 0
+GF_5_cutoff	 -0.5
+GF_3_cutoff	 0
+
+Method "assembly-sylvia"
+Colour	 BLUE
+Right_priority	 2
+Gene_assemble_method	 "BLASTX" 0.005
+Gene_assemble_method	 "GF_ATG" 1
+Gene_assemble_method	 "GF_splice" 1
+Gene_assemble_method	 "hexExon_span" 0.2
+Intron_min	 40
+Exon_min	 33
+Intron_cost	 -3 -1.5 55
+Inter_gene_cost	 -5
+GF_range	 10000
+GF_ATG_cutoff	 0
+GF_5_cutoff	 -2.5
+GF_3_cutoff	 -2
+
+Method "ATG"
+Colour	 YELLOW
+Frame_sensitive	
+Strand_sensitive	
+Right_priority	 4.195
+
+Method "AX"
+Colour	 ORANGE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 8.9
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "BLASTN"
+Colour	 LIGHTBLUE
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.2
+BlastN	
+Blixem_N	
+
+Method "BLASTN_briggsae_cosmid"
+Colour	 PALEMAGENTA
+Score_by_width	
+Score_bounds	 100 1000
+Right_priority	 5.4
+BlastN	
+Blixem_N	
+
+Method "BLASTN_elegans_cosmid"
+Colour	 RED
+Score_by_width	
+Score_bounds	 100 1000
+Right_priority	 5.4
+BlastN	
+Blixem_N	
+
+Method "BLASTN_eleg_brig"
+Colour	 RED
+Score_by_width	
+Score_bounds	 100 1000
+Right_priority	 5.4
+BlastN	
+Blixem_N	
+
+Method "BLASTN_EST_briggsae"
+Colour	 BROWN
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.2
+BlastN	
+Blixem_N	
+
+Method "BLASTN_EST_elegans"
+Colour	 YELLOW
+Show_up_strand	
+Score_by_offset	
+Score_by_width	
+Score_bounds	 100 400
+Bumpable	
+Right_priority	 5.1
+Show_text	
+BlastN	
+Blixem_N	
+
+Method "BLASTN_TC1"
+Colour	 BROWN
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.25
+Blixem_N	
+
+Method "BLASTP"
+Colour	 LIGHTBLUE
+Show_up_strand	
+Score_by_offset	
+Percent	
+Width	 0.6
+Symbol	
+Right_priority	 1.4
+
+Method "BLASTX"
+Remark	
+Colour	 LIGHTBLUE
+Frame_sensitive	
+Show_up_strand	
+Score_by_offset	
+Score_by_width	
+Score_bounds	 50 120
+Right_priority	 4.6
+Blixem_X	
+
+Method "code default"
+Intron_min	 40
+Exon_min	 33
+Intron_cost	 -1.5 55
+Inter_gene_cost	 -5
+
+Method "Coding"
+Colour	 BLUE
+Frame_sensitive	
+Show_up_strand	
+Width	 2
+Right_priority	 2
+BlastN	
+Blixem_X	
+Blixem_N	
+
+Method "curated"
+Colour	 MIDBLUE
+Show_up_strand	
+Cluster	
+Right_priority	 1.8
+Web_right_priority	 9
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "dl"
+Intron_min	 40
+Exon_min	 33
+Intron_cost	 -1.5 55
+Inter_gene_cost	 -5
+
+Method "EST_briggsae"
+Remark	 "GFF method for C.briggsae EST sequences"
+
+Method "EST_GENOME"
+Colour	 YELLOW
+Show_up_strand	
+Score_by_width	
+Score_bounds	 50 100
+Percent	
+Bumpable	
+Right_priority	 5.2
+Blixem_N	
+
+Method "EST_nematode"
+Remark	 "GFF method for nematode EST sequences (not Caenorhabdita)"
+
+Method "Fasta"
+Colour	 LIGHTBLUE
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.2
+
+Method "FMAP_Sequences_and_ends"
+
+Method "Genefinder"
+Colour	 MIDBLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.8
+Web_right_priority	 9
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "genefinder6"
+Colour	 DARKGRAY
+Show_up_strand	
+Bumpable	
+Right_priority	 1.8
+Web_right_priority	 9
+Show_text	
+
+Method "Genes"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3
+
+Method "genewise"
+Colour	 BLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.8
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "GENE_NAME"
+Colour	 DARKGRAY
+Width	 2
+Right_priority	 10
+
+Method "GF_ATG"
+Colour	 ORANGE
+Frame_sensitive	
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 0 3
+Right_priority	 4.2
+
+Method "GF_coding_seg"
+Colour	 LIGHTGRAY
+Frame_sensitive	
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 3 12
+Right_priority	 4.4
+
+Method "GF_splice"
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 -2 4
+Width	 10
+Right_priority	 5.6
+
+Method "Gnomon_ab"
+Colour	 VIOLET
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 9.2
+
+Method "Gnomon_ab_initio"
+Colour	 VIOLET
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 9.2
+
+Method "Gnomon_csCDS"
+Colour	 VIOLET
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 9.2
+
+Method "Gnomon_psCDS"
+Colour	 VIOLET
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 9.2
+
+Method "GPS"
+
+Method "h"
+
+Method "HALFWISE"
+Colour	 DARKRED
+Show_up_strand	
+Right_priority	 2.35
+
+Method "hand_built"
+Colour	 DARKBLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "hexExon"
+Colour	 ORANGE
+Frame_sensitive	
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 10 100
+Right_priority	 4.45
+
+Method "hexExon_span"
+
+Method "INTRON_100"
+Colour	 VIOLET
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.1
+
+Method "INTRON_200"
+Colour	 PALEVIOLET
+Score_by_width	
+Score_bounds	 100 400
+Right_priority	 5.2
+
+Method "inverted"
+Remark	 "Poly-G number may not be accurate"
+Colour	 LIGHTGREEN
+Score_by_width	
+Score_bounds	 50 100
+Percent	
+Right_priority	 5.45
+
+Method "Mass_spec2_higher"
+Colour	 GREEN5
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.35
+Show_text	
+
+Method "Mass_spec2_higher_multi_g"
+Colour	 LIGHTRED
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.2
+Show_text	
+
+Method "Mass_spec2_higher_multi_t"
+Colour	 BLUE3
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.2
+Show_text	
+
+Method "Mass_spec2_Medium"
+Colour	 GREEN3
+Score_by_width	
+Score_bounds	 1 50
+Right_priority	 1.2
+Show_text	
+
+Method "Mass_spec2_Medium_multi_g"
+Colour	 PALERED
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.1
+Show_text	
+
+Method "Mass_spec2_Medium_multi_t"
+Colour	 BLUE2
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.1
+Show_text	
+
+Method "Mass_spec_higher"
+Colour	 CYAN
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.25
+Show_text	
+
+Method "Mass_spec_higher_multi_g"
+Colour	 LIGHTORANGE
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.25
+Show_text	
+
+Method "Mass_spec_higher_multi_t"
+Colour	 LIGHTCYAN
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.25
+Show_text	
+
+Method "Mass_spec_lower"
+Colour	 LIGHTCYAN
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.2
+Show_text	
+
+Method "Mass_spec_lower_multi_g"
+Colour	 PALEORANGE
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.2
+Show_text	
+
+Method "Mass_spec_lower_multi_t"
+Colour	 PALECYAN
+Score_by_width	
+Score_bounds	 1 50
+Width	 2
+Right_priority	 1.2
+Show_text	
+
+Method "miRNA"
+Colour	 CERISE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "misc_feature"
+Show_text	
+EMBL_feature	 "misc_feature"
+EMBL_threshold	 1
+EMBL_qualifier	 "\/note=\"\%s\"" "note"
+
+Method "mProduct"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.3
+
+Method "mProtein"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.32
+
+Method "mRNA"
+Colour	 DARKRED
+Show_up_strand	
+Bumpable	
+Right_priority	 3.22
+Show_text	
+
+Method "mRNA_class"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.2
+
+Method "mRNA_GENOME"
+Colour	 PALEMAGENTA
+Score_by_width	
+Score_bounds	 50 100
+Percent	
+Bumpable	
+Right_priority	 5.15
+Blixem_N	
+
+Method "NDB_CDS"
+Show_up_strand	
+Bumpable	
+Right_priority	 2.4
+
+Method "NNdimer"
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 0 1
+Width	 6
+Right_priority	 6
+
+Method "non_coding_transcript"
+Web_right_priority	 9.1
+
+Method "operon"
+Colour	 MAGENTA
+Strand_sensitive	
+Width	 0.2
+Right_priority	 2.35
+Show_text	
+
+Method "OST"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.06
+
+Method "Pfam"
+Colour	 YELLOW
+Show_up_strand	
+Score_by_offset	
+Score_bounds	 -1000 1000
+Bumpable	
+Width	 0.9
+Symbol	 "Definition"
+Right_priority	 1.1
+Show_text	
+
+Method "Pfam-hmmfs"
+Colour	 DARKGREEN
+Score_by_width	
+Score_bounds	 20 50
+Bumpable	
+Blixem_P	
+Belvu	
+
+Method "Pfam-hmmls"
+Colour	 LIGHTGREEN
+Bumpable	
+Blixem_P	
+Belvu	
+
+Method "PmRNA_class"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 1.902
+
+Method "polyA"
+Remark	 "polyadenylation site"
+Colour	 CERISE
+Strand_sensitive	
+Width	 1
+Right_priority	 2.2
+Show_text	
+
+Method "Possible_error"
+Colour	 RED
+Width	 1
+Right_priority	 1.5
+Show_text	
+
+Method "postwise"
+Colour	 PURPLE
+Show_up_strand	
+Bumpable	
+Right_priority	 2.35
+Show_text	
+
+Method "PRODUCT"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.34
+
+Method "Prosite"
+Colour	 CYAN
+Frame_sensitive	
+Show_up_strand	
+Score_by_width	
+Score_bounds	 15 30
+Right_priority	 4.5
+Blixem_X	
+
+Method "provisional"
+Colour	 BLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2.2
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "Pseudogene"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Web_right_priority	 9.1
+Show_text	
+EMBL_threshold	 0
+EMBL_qualifier	 "\/note=\"\%s\"" "note"
+
+Method "Psort"
+Colour	 RED
+Show_up_strand	
+Score_by_offset	
+Bumpable	
+Width	 1.3
+Right_priority	 1.3
+Show_text	
+
+Method "PSsearch"
+Colour	 CYAN
+Frame_sensitive	
+Show_up_strand	
+Score_by_width	
+Score_bounds	 15 30
+Right_priority	 4.5
+Blixem_X	
+
+Method "Queryprosite"
+Colour	 CYAN
+Frame_sensitive	
+Show_up_strand	
+Score_by_width	
+Score_bounds	 15 30
+Right_priority	 4.5
+Blixem_X	
+
+Method "RNA"
+Colour	 GREEN
+Show_up_strand	
+Width	 2
+Right_priority	 2
+Show_text	
+EMBL_feature	 "snRNA"
+
+Method "RNAi"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.02
+
+Method "rRNA"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "Sage"
+Colour	 RED
+Show_up_strand	 CYAN
+Right_priority	 3.04
+
+Method "scan"
+Colour	 CYAN
+Score_by_width	
+Score_bounds	 20 80
+Right_priority	 5.35
+
+Method "scRNA"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "sjj"
+Colour	 CERISE
+
+Method "SL1"
+Remark	 "SL1 trans-splice acceptor site"
+Colour	 RED
+Strand_sensitive	
+Width	 2
+Right_priority	 2.2
+Show_text	
+
+Method "SL2"
+Colour	 YELLOW
+Strand_sensitive	
+Width	 2
+Right_priority	 2.2
+Show_text	
+
+Method "snoRNA"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "snRNA"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "SOLEXA"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.3
+
+Method "SPLICED_cDNA"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.4
+
+Method "SPLICED_cDNA_DECORATE"
+Colour	 DARKGRAY
+Width	 2
+Right_priority	 3.4
+
+Method "stl"
+Colour	 BLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.8
+Show_text	
+EMBL_feature	 "CDS"
+
+Method "stl-preliminary"
+Colour	 BLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2.3
+Show_text	
+
+Method "stRNA"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "tandem"
+Remark	 "Tandem region"
+Colour	 LIGHTGREEN
+Score_by_width	
+Score_bounds	 50 100
+Percent	
+Right_priority	 5.43
+
+Method "TBLASTN_wpd"
+Colour	 PALEVIOLET
+Frame_sensitive	
+Show_up_strand	
+Score_by_width	
+Score_bounds	 40 120
+Right_priority	 4.65
+Blixem_X	
+
+Method "TBLASTX"
+Colour	 PURPLE
+Frame_sensitive	
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 50 200
+Right_priority	 5.5
+Blixem_X	
+
+Method "TBLASTX_999"
+Colour	 GREEN
+Frame_sensitive	
+Score_by_width	
+Score_bounds	 50 200
+Right_priority	 5.5
+Blixem_X	
+
+Method "TBLASTX_briggsae"
+Colour	 PURPLE
+Frame_sensitive	
+Strand_sensitive	
+Score_by_width	
+Score_bounds	 50 200
+Right_priority	 5.5
+Blixem_X	
+
+Method "TBLASTX_C.briggsae"
+Colour	 DARKRED
+Score_by_width	
+Score_bounds	 40 120
+Right_priority	 5.4
+Blixem_N	
+
+Method "TBLASTX_EST"
+Colour	 ORANGE
+Score_by_width	
+Score_bounds	 40 120
+Right_priority	 5.15
+Blixem_N	
+
+Method "TBLASTX_EST_elegans"
+Colour	 ORANGE
+Score_by_width	
+Score_bounds	 40 120
+Right_priority	 5.35
+Blixem_N	
+
+Method "TRANSCRIBEDGENE"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.1
+
+Method "TRANSCRIPT"
+Colour	 DARKGRAY
+Show_up_strand	
+Width	 2
+Right_priority	 3.24
+
+Method "Transposon"
+Colour	 DARKGRAY
+Width	 2
+Right_priority	 2.05
+Show_text	
+
+Method "tRNA"
+Colour	 GREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.7
+Show_text	
+
+Method "tRNAscan-SE-1.11"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 2
+Show_text	
+EMBL_feature	 "tRNA"
+
+Method "tRNAscan-SE-1.23"
+Colour	 LIGHTGREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 2
+Show_text	
+EMBL_feature	 "tRNA"
+
+Method "Wormbase_locus"
+Colour	 LIGHTBLUE
+Show_up_strand	
+Bumpable	
+Right_priority	 2.2
+
+Method "ws1"
+Colour	 GREEN
+Show_up_strand	
+Bumpable	
+Right_priority	 1.904
+
+Method "ws6"
+Colour	 ORANGE
+Show_up_strand	
+Bumpable	
+Right_priority	 1.906
+

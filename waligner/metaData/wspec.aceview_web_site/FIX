@@ -1,0 +1,38 @@
+#!/bin/tcsh -f
+
+
+# exporter tablemaker ykest->genbank : est2gb.txt
+gawk -F '\t' '/\"/{printf("Sequence %s\nGeBank_id %s", $1, $3);}'  est2gb.txt >!  est2gb.ace
+
+# transfer locuslink->gene ?
+
+tbly .. << EOF
+  query find product unicity
+  // show -a -f unicity.ace unicity
+  edit -D unicity
+
+  query find omim description
+  show -a -f omim.desc.ace
+  edit -D description
+
+  query find expr_pattern
+  show -a -f expr_pat.ace
+  kill
+
+  save
+  read-models
+
+  parse unicity.ace
+  parse omim.desc.ace
+  parse expr_pat.ace
+
+  save
+  quit
+EOF
+
+
+tbly .. << EOF
+  parse ykest2gb.ace
+  save
+  quit
+EOF
