@@ -185,7 +185,7 @@ sanclustering: samclustering.o $(LINK_ACC)
 	$(LINKER)  -o $@  $@.o  $(LINK_ACC) $(LIBS) chan
 
 mute: mute.o mktable.o  $(LINK_ACS) $(LIBS)
-	$(LINKER) -o $@  $@.o  messubs.o mktable.o  $(LINK_ACS) $(LIBS) 
+	$(LINKER) -o $@  $@.o  messubs.o mktable.o  -lm $(LINK_ACS) $(LIBS) 
 
 pg2pg: pg2pg.o $(LINK_LIGHT) 
 	$(LINKER) -o $@  $@.o  $(LINK_LIGHT) $(LIBS)
