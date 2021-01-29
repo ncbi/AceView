@@ -45,7 +45,7 @@ OTHER= blixem dotter efetch
 
 other: $(OTHER)
 
-TOOLS= acediff acediffsorted pmapace diskdump diskfix homonym tagcount findExternals
+TOOLS= acediff acediffsorted pmapace diskdump diskfix homonym tagcount 
 tools : $(TOOLS)
 
 MISC= acctest acstest \
