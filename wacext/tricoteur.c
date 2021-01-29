@@ -3669,13 +3669,11 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 	       hit->isRead1 == old->isRead1     /* same read of the pair */
 	       )
 	     { /* same read */
-	       int a1, a2, b1, b2, x1, x2, y1, y2 ; 
+	       int x1, x2, y1, y2 ; 
 	       HIT *up = old, *vp = hit ;
 	       int overlap = 999999 ;
 	       
-	       a1 = old->a1 ; a2 = old->a2 ;
 	       x1 = old->x1 ; x2 = old->x2 ;
-	       b1 = hit->a1 ; b2 = hit->a2 ;
 	       y1 = hit->x1 ; y2 = hit->x2 ;
 	       
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
@@ -3811,13 +3809,7 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 	       hit->isRead1 != old->isRead1     /* opposite reads from same pair */
 	       )
 	     { /* opposite reads */
-	       int a1, a2, b1, b2, x1, x2, y1, y2 ; 
 	       HIT *up = old, *vp = hit ;
-	       
-	       a1 = old->a1 ; a2 = old->a2 ;
-	       x1 = old->x1 ; x2 = old->x2 ;
-	       b1 = hit->a1 ; b2 = hit->a2 ;
-	       y1 = hit->x1 ; y2 = hit->x2 ;
 	       
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	       cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */

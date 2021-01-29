@@ -261,7 +261,8 @@ static int geneXmlGene (vTXT vtxt, int line, const char *target)
       cp = geneXmlGeneContent (geneid, cp0, buf, line, h) ;
       if (cp)
 	{ 
-	  int n2 = 0, n1 = messAllocMaxStatus (&n2) ; 
+	  int n2 = 0 ;
+	  messAllocMaxStatus (&n2) ; 
 	  ng++; 
 	  printf ("geneId %s // %d  maxMem=%d\n%s\n\n", geneid, line,n2, cp) ;
 	}

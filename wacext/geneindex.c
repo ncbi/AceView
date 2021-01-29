@@ -2979,7 +2979,7 @@ static int gxComputeAllIndex (GX *gx)
 	      dz = array(indexes, arrayMax(indexes)/2, float) - 1010 ;
 	      for (gene = 1, dc = arrayp (aa, 1, DC) ; gene < arrayMax (aa) ; gene++, dc++) 
 		{
-		  GC *gc = arrayp (gx->genes, gene, GC) ;
+		  /*   GC *gc = arrayp (gx->genes, gene, GC) ; */
 		  dc->indexMin = dc->indexMax = dc->index = dc->index - dz ;
 		}
 	      fprintf(stderr, "// MEDCENTER\t%s\t%.2f\n", dictName(gx->runDict,run), dz) ;

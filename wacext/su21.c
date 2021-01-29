@@ -1694,9 +1694,10 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
 		      "aebcdf","aebdcf","aebfcd",
 		      "afbcde","afbdce","afbecd"
       } ;
+      /*
       char *e1[6] = { "abcdef","bcadef","cdabef","deabcf", "fabcde", 0 } ;
       char *e2[6] = { "acbdef","bdacef","ceabdf","dfabce", "eabcdf", 0 } ;
-
+      */
       for (n = 0 ; n < NN ; n++)
 	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
 	  int i ;
