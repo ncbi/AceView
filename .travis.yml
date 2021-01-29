@@ -42,7 +42,7 @@ script :
   - make tace
   - mkdir website
   - touch website/hello.html
-  - cp bin/* website/
+  - cp bin.$ACEDB_MACHINE/* website/
 #  - mkdir usr && mkdir usr/local
 #  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget --progress=dot:mega https://lip6.github.io/libDDD/linux.tgz ; tar xzf linux.tgz ; fi
 #  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then wget --progress=dot:mega https://github.com/lip6/libDDD/raw/osx/osx.tgz ; tar xzf osx.tgz ; fi

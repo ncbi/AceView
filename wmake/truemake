@@ -535,7 +535,7 @@ all : xace tace  \
 	aceserver xaceclient \
 	giface gifaceserver \
 	acediff acediffsorted acesplit \
-	acembly other findExternals
+	acembly other 
 
 
 acembly : tacembly xacembly \
