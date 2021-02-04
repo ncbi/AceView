@@ -14,7 +14,7 @@ typedef enum {Zero = 0
 	      , ISA
 	      , MODULO, PLUS, MINUS, MULT, DIVIDE, POWER
 	      , DNA, PEPTIDE, DATEDIFF
-	      , COUNT, MIN, MAX, AVERAGE, STDEV
+	      , COUNT, MIN, MAX, SUM, AVERAGE, STDEV
 	      , CLNAM, NAM, TIMESTAMP
 	      , TTAG, TAG, HASTAG, MERGETAG
 	      , RIGHTOF   /* square brackets x[2], meaning right of */
@@ -40,7 +40,7 @@ static const char *bqlName[] = {
   , "ISA"
   , "modulo", "+", "-", "*", "/", "^"
   , "DNA", "PEPTIDE", "DATEDIFF"
-  , "count", "min", "max", "average", "stdev"
+  , "count", "min", "max", "sum", "average", "stdev"
   , ".class", ".name", ".timestamp"
   , ">>", "->", "#", "=>", ":"
   , "class"  /* , ".class" */
@@ -70,7 +70,7 @@ static const int bqlSide[] = {
   /* , "like", "=~", "~", "==", "!=", ">=", "<=", ">", "<", ">~", "<~" */ , 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10
   /* , "modulo" , "+", "-", "*", "/", "^" */ , 10 , 10, 9, 10, 10, 10
   /* , "DNA", "PEPTIDE", "DATEDIFF" */  , 8, 8, 8
-  /* , "count", "min", "max", "average", "stdev" */ , 5, 5, 5, 5, 5
+  /* , "count", "min", "max", "sum", "average", "stdev" */ , 5, 5, 5, 5, 5
   /* , ".class", ".name", ".timestamp" */ , 0, 0, 0
   /* , ">>", "->", "#", "=>", ":" */ , 8, 8, 8, 8, 8
   /* , "class"*/ , 1
@@ -2027,6 +2027,7 @@ static BOOL bqlAtomizeWhere (BQL *bql, Array froms, NODE *node)
 	  case COUNT:
 	  case MIN:
 	  case MAX:
+	  case SUM:
 	  case AVERAGE:
 	  case STDEV:
 	    break ;
@@ -2079,6 +2080,7 @@ static NODE *bqlDoAtomizeFrom (BQL *bql, Array froms, NODE *node)
       case COUNT:
       case MIN:
       case MAX:
+      case SUM:
       case AVERAGE:
       case IN:
       case TAG:
@@ -3793,7 +3795,9 @@ static BOOL bqlDateCompare (BQLTYPE type, double z1, double z2)
       break ;
     case SEQ:
       if (t1 <= t2)
-	return TRUE ;   if (z1 == z2) return TRUE ;
+	return TRUE ;
+      if (z1 == z2)
+	return TRUE ;
       break ;
     case LIKE:
     case LIKEREGEXP:
@@ -5789,6 +5793,7 @@ static BOOL bqlExpandIn (BQL *bql, NODE *node, NODE *coma)
 	break ;
       case MIN:
       case MAX:
+      case SUM:
       case AVERAGE:
 	ok = bqlExpandMinMax (bql, node, coma) ;
 	break ;
@@ -5875,7 +5880,7 @@ static BOOL bqlExpandMinMax (BQL *bql, NODE *node, NODE *coma)
     where = 0 ;
  
   if (countTag && 
-      (countTag->type == MIN || countTag->type == MAX || countTag->type == AVERAGE)
+      (countTag->type == MIN || countTag->type == MAX || countTag->type == SUM || countTag->type == AVERAGE)
       && var && var->type == VAR)
     {
       var->isNumber = TRUE ;
@@ -5895,6 +5900,9 @@ static BOOL bqlExpandMinMax (BQL *bql, NODE *node, NODE *coma)
 	{
 	case MIN:
 	case MAX:
+	  var->z = bql->minmaxavstdX ;
+	  break ;
+	case SUM:
 	  var->z = bql->minmaxavstdX ;
 	  break ;
 	case AVERAGE:
