@@ -5462,14 +5462,20 @@ static void muInit (AC_HANDLE h)
   mxSet (qq[7], mu7q) ;
 
 
-  if (0) 
+  if (1) 
     {
       niceShow (qq[1]) ;
       niceShow (qq[2]) ;
       niceShow (qq[3]) ;
       
       niceShow (ee[6]) ;
-      
+      niceShow (ee[7]) ;
+      niceShow (ee[0]) ;
+      niceShow (qq[6]) ;
+      niceShow (qq[7]) ;
+      niceShow (qq[0]) ;
+
+	    
       mm = mxMatMult (ee[4],ee[4],h) ;
       niceShow (mm) ;
       
@@ -6298,22 +6304,22 @@ int main (int argc, const char **argv)
   if (0) mu2p ("######### Metric\n# For the even generators (a,b=0123), compute the Super-Trace: STr(ab)\n# For the odd generators (i=4567), compute the Left trace: LTr(ij)\n We hope to find the SU(2/1) Super-Killing metric") ;
 
   if (0) casimir2 ("######### Casimir 2\n# 1/2 g^AB mu_A mu_B mu_C,   we hope to find a diagonal matrix") ;
-  if (1) casimir3 ("######### Super Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", FALSE) ;
-  if (1) casimir3 ("######### Hyper Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", TRUE) ;
+  if (0) casimir3 ("######### Super Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", FALSE) ;
+  if (0) casimir3 ("######### Hyper Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", TRUE) ;
 
-  exit (0) ;
+
 
   
 
   if (0) mu3p ("######### Triple Vector Vertex\n# Lie algebra f-abc vertex,\n# compute the trace anti-symmetrized in bc: Tr(a[bc])\n# we hope to find the Lie algebra f-123 = 4i", 0) ;
 
   if (0) mu3p ("######### Adler-Bardeen Anomalous Triple Vector Vertex\n# d-abc anomalous vertex\n# compute the super-trace symmetrized in bc: STr(a{bc})\n# The anomaly should vanish", 1) ;
-  if (1) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
+  if (0) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
   if (1) mu3p ("######### Vector Scalar Vertex\n# use Trace (aij - aji), expect zero\n", 20) ;
   if (1) mu3p ("######### Vector Scalar Vertex\n# use SuperTrace (aij - aji), expect zero\n", 21) ;
   if (0) mu3p ("######### The other types of triple vertices, i.e. f-abi and f-ijk should be zero because they do not conserve the even/odd grading\n", 3) ;
   if (0) mu3p ("######### Vector scalar anomaly, Tr (a [ij]) should vanish\n", 4) ;
-
+  exit (0) ;
   
 
 
