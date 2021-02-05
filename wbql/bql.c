@@ -5101,19 +5101,24 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 		  for (row = 0 ; row * nCol + rightOf < iMax ; row ++)
 		    {
 		      BSunit *up = arrp (aa, row * nCol + rightOf, BSunit) ;
+		      double zzZ = 0 ;
+		      int zzN = 0 ;
+		      
 		      var->uu = up[0] ;
 		      if (var->uType == _Int)
 			{
 			  var->isNumber = TRUE ;
 			  var->isDate = FALSE ;
-			  var->z = var->uu.i ;
+			  zzZ = var->z = var->uu.i ;
+			  zzN++ ;
 			  var->key = 0 ;
 			}
 		      else if (var->uType == _Float)
 			{
 			  var->isNumber = TRUE ;
 			  var->isDate = FALSE ;
-			  var->z = var->uu.f ; 
+			  zzZ = var->z = var->uu.f ;
+			  zzN++ ;
 			  var->key = 0 ;
 			}
 		      else if (var->uType == _LongFloat)
@@ -5122,7 +5127,14 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 			  var->isDate = FALSE ;
 			  var->z = 0 ;
 			  if (var->uu.s) sscanf (var->uu.s, "%lf", &(var->z)) ; 
+			  zzN++ ;
+			  zzZ = var->z ;
 			  var->key = 0 ;
+			  if (bql->minmaxavstd)
+			    {
+			      bql->minmaxavstdN++ ;
+			      bql->minmaxavstdX += var->z ;
+			    }
 			}
 		      else if (var->uType == _LongInt)
 			{
@@ -5133,7 +5145,13 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 			    {
 			      long long int lli = 0 ;
 			      sscanf (var->uu.s, "%lli", &(lli)) ;
-			      var->z = lli ;
+			      zzZ = var->z = lli ;
+			      zzN++ ;
+			      if (bql->minmaxavstd)
+				{
+				  bql->minmaxavstdN++ ;
+				  bql->minmaxavstdX += lli ;
+				}
 			    }
 			  var->key = 0 ;
 			}
@@ -5159,6 +5177,30 @@ static BOOL bqlExpandTag (BQL *bql, NODE *node, NODE *coma)
 			}
 		      else
 			var->isNumber = var->isDate = FALSE ;
+		      if (zzN)
+			switch (bql->minmaxavstd)
+			  {
+			  case MIN:
+			    if (bql->minmaxavstdN == 0 || zzZ < bql->minmaxavstdX)
+			      {
+				bql->minmaxavstdN++ ;
+				bql->minmaxavstdX = zzZ ;
+			      }
+			    break ;
+			  case MAX:
+			    if (bql->minmaxavstdN == 0 || zzZ > bql->minmaxavstdX)
+			      {
+				bql->minmaxavstdN++ ;
+				bql->minmaxavstdX = zzZ ;
+			      }
+			    break ;
+			  case AVERAGE:
+			  case SUM:
+			    bql->minmaxavstdN++ ;
+			    bql->minmaxavstdX += zzZ ;
+			    break ;
+			  }
+		      
 		      var->dclNode->row = row ; 
 		      if (!old  || old->k != up->k)
 			{
@@ -5869,7 +5911,7 @@ static BOOL bqlExpandCount (BQL *bql, NODE *node, NODE *coma)
 } /* bqlExpandCount */
 
 /*************************************************************************************/
-
+/* s v, t from v in @, t in MAX  v->terrain */
 static BOOL bqlExpandMinMax (BQL *bql, NODE *node, NODE *coma)
 {
   NODE *var = node->down ;
@@ -5879,7 +5921,7 @@ static BOOL bqlExpandMinMax (BQL *bql, NODE *node, NODE *coma)
   if (where && where->type != WHERE && where->type != WHERE_IF)
     where = 0 ;
  
-  if (countTag && 
+  if (countTag && ! bql->minmaxavstd  &&
       (countTag->type == MIN || countTag->type == MAX || countTag->type == SUM || countTag->type == AVERAGE)
       && var && var->type == VAR)
     {
