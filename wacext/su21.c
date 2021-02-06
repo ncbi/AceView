@@ -6316,7 +6316,7 @@ int main (int argc, const char **argv)
   if (0) mu3p ("######### Adler-Bardeen Anomalous Triple Vector Vertex\n# d-abc anomalous vertex\n# compute the super-trace symmetrized in bc: STr(a{bc})\n# The anomaly should vanish", 1) ;
   if (0) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
   if (1) mu3p ("######### Vector Scalar Vertex\n# use Trace (aij - aji), expect zero\n", 20) ;
-  if (1) mu3p ("######### Vector Scalar Vertex\n# use SuperTrace (aij - aji), expect zero\n", 21) ;
+  if (1) mu3p ("######### Vector Scalar Vertex measure\n# use SuperTrace (aij - aji), expect zero\n", 21) ;
   if (0) mu3p ("######### The other types of triple vertices, i.e. f-abi and f-ijk should be zero because they do not conserve the even/odd grading\n", 3) ;
   if (0) mu3p ("######### Vector scalar anomaly, Tr (a [ij]) should vanish\n", 4) ;
   exit (0) ;
