@@ -6007,6 +6007,8 @@ static void mu3p (const char *title, int type)
 	    case 2: /* f-aij vector-scalar */
 	    case 20: /* f-aij vector-scalar */
 	    case 21: /* f-aij vector-scalar */
+	    case 22: /* d-aij vector-scalar */
+	    case 23: /* d-aij vector-scalar */
 	      if (i > 3 || j <= 3 || k <= 3)
 		continue ;
 	      break ;
@@ -6054,14 +6056,24 @@ static void mu3p (const char *title, int type)
 		      sign = -1 ;
 		      break ;
 		    case 20: /* f-aij use Trace aij - aji, expect zero */
+		      chi1 = nchiT[t] ;
+		      chi2 = nchiT[t] ;
+		      sign = -1 ;
+		      break ;
+		    case 21: /* f-aij use STrace aij - aji, expect zero */
 		      chi1 = nchiS[t] ;
 		      chi2 = nchiS[t] ;
 		      sign = -1 ;
 		      break ;
-		    case 21: /* f-aij use STrace aij - aji, expect zero */
+		    case 22: /* d-aij use Trace aij - aji, expect zero */
 		      chi1 = nchiT[t] ;
 		      chi2 = nchiT[t] ;
-		      sign = -1 ;
+		      sign = +1 ;
+		      break ;
+		    case 23: /* d-aij use STrace aij - aji, expect zero */
+		      chi1 = nchiS[t] ;
+		      chi2 = nchiS[t] ;
+		      sign = +1 ;
 		      break ;
 		    case 3: /* should be null */
 		      chi1 = nchiT[t] ;
@@ -6315,8 +6327,10 @@ int main (int argc, const char **argv)
 
   if (0) mu3p ("######### Adler-Bardeen Anomalous Triple Vector Vertex\n# d-abc anomalous vertex\n# compute the super-trace symmetrized in bc: STr(a{bc})\n# The anomaly should vanish", 1) ;
   if (0) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
-  if (1) mu3p ("######### Vector Scalar Vertex\n# use Trace (aij - aji), expect zero\n", 20) ;
-  if (1) mu3p ("######### Vector Scalar Vertex measure\n# use SuperTrace (aij - aji), expect zero\n", 21) ;
+  if (1) mu3p ("######### Vector Scalar Vertex\n# use Trace (aij - aji), expect zero in f=famille\n", 20) ;
+  if (1) mu3p ("######### Vector Scalar Vertex STr measure\n# use SuperTrace (aij - aji), expect zero in f=famille\n", 21) ;
+  if (0) mu3p ("######### Vector Scalar Vertex Tr measure\n# use Trace (aij - aji), expect irregularities\n", 22) ;
+  if (1) mu3p ("######### Vector Scalar Vertex STr vertex\n# use STrace (aij + aji), expect universal d_aij\n", 23) ;
   if (0) mu3p ("######### The other types of triple vertices, i.e. f-abi and f-ijk should be zero because they do not conserve the even/odd grading\n", 3) ;
   if (0) mu3p ("######### Vector scalar anomaly, Tr (a [ij]) should vanish\n", 4) ;
   exit (0) ;
