@@ -1,5 +1,5 @@
 \documentclass[11pt]{article}
-
+\pdfoutput=1
 \usepackage{amssymb,latexsym,amsmath,amsbsy}
 \usepackage[dvips]{graphicx}
 %\usepackage{Young}  % to draw young diagrams
@@ -379,6 +379,22 @@ we obtain the silly combinatorial answer
     chr_18  B 4000 2000
     chr_18  B 4000 6000
 \end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SECTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Sum, min, max and average}
+
+The MIN, MAX, SUM or AVERAGE of any numerical variable,
+for example a multi-valued numerical field, can be evaluated
+by interpolating in capitals the desired operator in front of its definition
+\BL
+  select p,x from p in ?Paper , x in MAX p->pages
+  select cc,x from cc in ?chromosome, x in AVERAGE cc->gene[2]
+\end{lstlisting}
+Rather than giving in x the list of all values associated to the query, one per line,
+one obtains for each object the required result as a single value.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SECTION
@@ -849,7 +865,6 @@ When computing $-1$ $modulo\; 3$, we prefer the mathematical convention $2$
 because  the C language convention $-1$  breaks the periodicity of the modulo
 function and introduces complications when translating DNA codon triplets.
 All numerical calculations are performed using 64-bits floating numbers (C doubles).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SECTION
