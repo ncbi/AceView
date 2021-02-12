@@ -19,6 +19,7 @@ typedef struct sxStruct {
   BOOL gzi, gzo, snp, smooth, plain, plot ;
   int KL ; 
   float min, max ;
+  BOOL hasMin, hasMax ;
   const char *inFileName, *outFileName, *title, *columns, *runFileName ;
   KEYSET cols ;
   DICT *runDict ;
@@ -353,6 +354,7 @@ static int histoPlainGetData (SX *sx)
   aceInSpecial (ai, "\n") ;
   while (aceInCard (ai))
     {
+      char cutter = 0 ;
       col = 1 ; line++ ;
       if (line == 1 && *aceInPos(ai) == '#')
 	isTitle = TRUE ;
@@ -364,28 +366,35 @@ static int histoPlainGetData (SX *sx)
 	  /* locate on the corect column */
 	  while (col < keySet (cols, h))
 	    {
-	      aceInStep(ai, '\t') ;
-	      ccp = aceInWordCut (ai, "\t", 0) ;
-	      if (!ccp)
+	      if (col > 1 && cutter != '\t')
 		h = hMax ;
+	      ccp = aceInWordCut (ai, "\t", &cutter) ;
 	      col++ ;
 	    }
 	  if (h == hMax)
 	    break ;
 
-	  aceInStep(ai, '\t') ;
+	  if (col > 1 && cutter != '\t')
+	    break ;
+	  col++ ;
 	  if (isTitle)
 	    {
-	      ccp = aceInWordCut (ai, "\t", 0) ;
+	      ccp = aceInWordCut (ai, "\t", &cutter) ;
 	      if (ccp && *ccp)
 		hh->title = strnew (ccp, sx->h) ;
-	      col++ ;
 	      continue ;
 	    }
 	  if (!aceInFloat (ai, &f))
-	    break ;
-	  col++ ;
-	  
+	    {
+	      cutter = 0 ;
+	      if (aceInStep (ai, '\t'))
+		cutter = '\t' ;
+	      continue ; /* missing value */
+	    }
+	  cutter = 0 ;
+	  if (aceInStep (ai, '\t'))
+	    cutter = '\t' ;
+
 	  bitSet (hh->bs, line) ;
 	  array (hh->aa, line, float) = f ;
 
@@ -408,6 +417,8 @@ static int histoPlainGetData (SX *sx)
       correl = arrayHandleCreate (hMax * hMax, double, sx->h) ;
     }
   
+  if (sx->NN && sx->hasMin && sx->min < fmin) fmin = sx->min ;
+  if (sx->NN && sx->hasMax && sx->max > fmax) fmax = sx->max ;
   
   n = fmin >= 0 ? 1 : -1 ; fmin *= 1000 * n ;
   if (n < 0) 
@@ -1206,8 +1217,8 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-w", &sx.NN) ;
   sx.min = - 1e30 ;
   sx.max =  1e30 ;
-  getCmdLineFloat (&argc, argv, "-min", &sx.min) ;
-  getCmdLineFloat (&argc, argv, "-max", &sx.max) ;
+  if (getCmdLineFloat (&argc, argv, "-min", &sx.min)) sx.hasMin = TRUE ;
+  if (getCmdLineFloat (&argc, argv, "-max", &sx.max)) sx.hasMax = TRUE ;
   if (sx.NN < 1) sx.NN = 1 ; 
   getCmdLineOption (&argc, argv, "-i", &sx.inFileName) ;
   getCmdLineOption (&argc, argv, "-o", &sx.outFileName) ;
