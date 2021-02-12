@@ -3409,7 +3409,8 @@ static void bqlClean (BQL *bql, NODE *node)
       stackDestroy (node->dnaStack) ;
       stackDestroy (node->pepStack) ;
       ac_free (node->br) ;
-      node->key = node->uu.k = 0 ;
+      node->key = 0 ;
+      node->uu.s = 0 ;
       node->timeStamp = 0 ;
       node->uType = 0 ;
       node->z = 0 ;
@@ -3419,6 +3420,7 @@ static void bqlClean (BQL *bql, NODE *node)
       if (node->myBsmark)
 	ac_free (node->bsMark) ;
       node->bsMark = 0 ; node->myBsmark = FALSE ;
+      memset (node, 0, sizeof (NODE)) ;
     }
   if (node->down)
     bqlClean (bql, node->down) ;
