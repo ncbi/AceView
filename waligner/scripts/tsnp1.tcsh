@@ -24,7 +24,7 @@ set chrom=`echo $zone | sed -e 's/zone[rG]\.//' -e 's/_[a-z]$//'`
 set minSnpFrequency2=$minSnpFrequency
 if (-e tmp/TSNP/$MAGIC.minFrequency.txt) then
   # reset minSnpFrequency to at least twice the percent error rate, the error_profile is given in error per million 
-  set z=`cat tmp/TSNP/$MAGIC.minFrequency.txt | gawk '{if ($1 == run) z=($4 + 0)/5000 ; if (z<mf)z=mf;}END{if(z+0 == 0)z=mf;print int(z);}' mf=$minSnpFrequency`
+  set z=`cat tmp/TSNP/$MAGIC.minFrequency.txt | gawk '{if ($1 == run) z=($4 + 0)/5000 ; if (mf<z)mf=z;}END{print int(mf);}' mf=$minSnpFrequency run=$run`
   set minSnpFrequency2=$z
 endif
 

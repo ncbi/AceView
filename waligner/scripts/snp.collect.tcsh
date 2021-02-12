@@ -12,7 +12,7 @@ set uu=u
 set minSnpFrequency2=$minSnpFrequency
 if (-e tmp/SNP_BRS/$MAGIC.minFrequency.txt) then
   # reset minSnpFrequency to at least twice the percent error rate, the error_profile is given in error per million 
-  set z=`cat tmp/SNP_BRS/$MAGIC.minFrequency.txt | gawk '{if ($1 == run) z=($4 + 0)/5000 ; if (z<mf)z=mf;}END{if(z+0 == 0)z=mf;print int(z);}' mf=$minSnpFrequency`
+  set z=`cat tmp/SNP_BRS/$MAGIC.minFrequency.txt | gawk '{if ($1 == run) z=($4 + 0)/5000 ; if (mf<z)mf=z;}END{print int(mf);}' mf=$minSnpFrequency run=$run`
   set minSnpFrequency2=$z
 endif
 
@@ -59,7 +59,7 @@ date
     endif
     if (! -e $out.gz) then
   
-      # in the new method, we add the BRS of the runs into the groups, so we can use the the high thresholds at the detect stage
+      # in the new method, we add the BRS of the runs into the groups, so we can use the high thresholds at the detect stage
       set mins=" -minCover $minSnpCover -minMutant $minSnpCount -minFrequency $minSnpFrequency2"
       echo " bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo" 
              bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo 
