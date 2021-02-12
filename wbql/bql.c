@@ -3420,7 +3420,6 @@ static void bqlClean (BQL *bql, NODE *node)
       if (node->myBsmark)
 	ac_free (node->bsMark) ;
       node->bsMark = 0 ; node->myBsmark = FALSE ;
-      memset (node, 0, sizeof (NODE)) ;
     }
   if (node->down)
     bqlClean (bql, node->down) ;
