@@ -5485,20 +5485,53 @@ static MX *KasimirConstructMatrices (KAS *kas)
   mxShow (muH) ;
   
   memset (xx, 0, sizeof (xx)) ;
+  for (i = 1 ; i < d1 ; i++)
+    xx[d * i + i - 1] = i * (a - i + 1) ;
+  for (i = 1 ; i < d2 ; i++)
+    xx[d * (d1 + i) + d1 + i - 1] = i * (a-1 - i + 1) ;
+
+  mxSet (muE, xx) ;
+  mxShow (muE) ;
+
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 0 ; i < d - 1 ; i++)
+    {
+      if (i != d1 - 1) xx[d * i + i + 1] = 1 ;
+    }
+  mxSet (muF, xx) ;
+  mxShow (muF) ;
+
+  memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d2 ; i++)
     {
       xx[d * (d1+i) + i + 1] = -(i + 1) ;
     }
-  mxSet (muE, xx) ;
-  mxShow (muE) ;
+  mxSet (muX, xx) ;
+  mxShow (muX) ;
 
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d2 ; i++)
     {
       xx[d * (i + 1)  + d1 + i] = 1 ;
     }
-  mxSet (muF, xx) ;
-  mxShow (muF) ;
+  mxSet (muY, xx) ;
+  mxShow (muY) ;
+  
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 0 ; i < d2 ; i++)
+    {
+      xx[d * (d1+i) + i] = -(i + 1) ;
+    }
+  mxSet (muZ, xx) ;
+  mxShow (muZ) ;
+
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 0 ; i < d2 ; i++)
+    {
+      xx[d * (i)  + d1 + i] = 1 ;
+    }
+  mxSet (muT, xx) ;
+  mxShow (muT) ;
   
   mu[0] = muK ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
   mu[6] = muX ; mu[7] = muY ; mu[4] = muZ ; mu[5] = muT ;
@@ -5532,8 +5565,44 @@ static void KasimirCheckSuperTrace (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
+static MX KasCommut (MX a, MX b, int sign, KAS *kas)
+{
+  MX p = mxMatMult (a, b, kas->h) ;
+  MX q = mxMatMult (b, a, kas->h) ;
+  MX r = mxCreate (kas->h, "r", MX_INT, kas->d, kas->d, 0) ;
+
+  r = sign == 1 ? mxAdd (r, p, q, kas->h) : mxSubstract (r, p, q, kas->h) ;
+  
+  return r ;
+}
+
+/***********************************************************************************************************************************************/
+
 static void KasimirCheckCommutators (KAS *kas)
 {
+  MX c ;
+
+  c = KasCommut (kas->mu[0], kas->mu[3], -1, kas) ;
+  fprintf (stderr, "## [h,k]\t") ;
+  mxShow (c) ;
+
+  c = KasCommut (kas->mu[1], kas->mu[2], -1, kas) ;
+  fprintf (stderr, "## [E,F]\t") ;
+  mxShow (c) ;
+
+  c = KasCommut (kas->mu[6], kas->mu[7], 1, kas) ;
+  fprintf (stderr, "## [X,Y]\t") ;
+  mxShow (c) ;
+
+  c = KasCommut (kas->mu[1], kas->mu[6], -1, kas) ;
+  fprintf (stderr, "## [E,X]\t") ;
+  mxShow (c) ;
+
+  c = KasCommut (kas->mu[1], kas->mu[4], -1, kas) ;
+  fprintf (stderr, "## [E,Z]\t") ;
+  mxShow (c) ;
+
+  
   return ;
 } /* KasimirCheckCommutators */
 
@@ -5567,7 +5636,7 @@ static void Kasimirs (void)
 {
   KAS kas ;
   kas.h = ac_new_handle () ;
-  kas.a = 3 ;    /* Kac Dynkin weights of the heighest weight */
+  kas.a = 2 ;    /* Kac Dynkin weights of the heighest weight */
   kas.b = 0 ;
   
   KasimirConstructMatrices (&kas) ;
