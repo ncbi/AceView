@@ -40,7 +40,7 @@
 #include "chrono.h"
 #include "acedna.h"
 
-static Array dnaUnpackArray(Array pack) ;
+static Array dnaUnpackArray(Array pack, AC_HANDLE h) ;
 static int dnaDoDumpFastAKeySet (KEYSET kSet, FILE *fil, Stack s, BOOL noMissmatch) ;
 static int dnaDoAdd (Array a, KEY seq, int start, int stop, BOOL noMismatch, BOOL reportErrors) ;
 static BOOL dnaStoreDestroy2 (KEY key, Array dna, BOOL isPure) ;
@@ -72,7 +72,7 @@ BOOL dnaDump (FILE* f, Stack buf, KEY key)
 
   if (!pack)
     return FALSE ;
-  unpack = dnaUnpackArray(pack) ; 
+  unpack = dnaUnpackArray(pack, 0) ; 
 
   if (f)
     level = freeOutSetFile (f) ;
@@ -99,7 +99,7 @@ BOOL javaDumpDNA(KEY key)
 
   freeOutf("?DNA?%s?\t?dna?",freejavaprotect(name(key)));
 
-  dna = dnaUnpackArray(pack) ;  /* dna may be packed on disk */
+  dna = dnaUnpackArray(pack, 0) ;  /* dna may be packed on disk */
   dnaDecodeArray (dna) ;        /* decode from A_, T_ ... into ascii */
   array(dna,arrayMax(dna),char) = 0 ; /* ensure 0 terminated */
   --arrayMax(dna) ;
@@ -159,7 +159,7 @@ BOOL dnaDumpKeyCstyle (KEY key)
   if (!pack)
     return FALSE ;
 
-  dna = dnaUnpackArray(pack) ;  /* dna may be packed on disk */
+  dna = dnaUnpackArray(pack, 0) ;  /* dna may be packed on disk */
   array(dna,arrayMax(dna),char) = 0 ; /* ensure 0 terminated */
   --arrayMax(dna) ;
 
@@ -457,7 +457,7 @@ BOOL dnaStoreDestroy (KEY key, Array dna)
 
 /********************************************************************/
 
-static Array dnaUnpackArray(Array pack)
+static Array dnaUnpackArray(Array pack, AC_HANDLE h)
 { Array unpack ;
   char *cp, *cq ;
   static char undoublepack[] = {A_, T_, G_, C_} ; /* RD must be static to initialise on SGI */
@@ -479,7 +479,7 @@ static Array dnaUnpackArray(Array pack)
 
       m += 2*(n-1) ;  /* skip magic, then every char is 2 base except */
 	              /* last char may be a single base in ODD case */
-      unpack = arrayCreate(m+1,char) ;  /* space for the zero */
+      unpack = arrayHandleCreate(m+1,char,h) ;  /* space for the zero */
       array(unpack,m,char) = 0 ; /* zero terminates */
       arrayMax(unpack) = m ; /* implies arrayMax = m */
       cp = arrp(pack,0,char) ;  /* so as to start decoding on byte 1 */
@@ -504,7 +504,7 @@ static Array dnaUnpackArray(Array pack)
       m = 4*(n-2) - (4-m);
                /* skip magic, residue, then every char is 4 base except */
 	              /* last char which holds residue */
-      unpack = arrayCreate(m+1,char) ;  /* ensures zero terminated string */
+      unpack = arrayHandleCreate(m+1,char, h) ;  /* ensures zero terminated string */
       array(unpack,m-1,char) = 0 ; /* implies arrayMax = m */
       cp = arrp(pack,1,char) ; /* so as to start decoding on byte 2 */
       cq = arrp(unpack,0,char) ;
@@ -535,7 +535,7 @@ static Array dnaUnpackArray(Array pack)
       m = 4*(n-2) - (4-m);
                /* skip magic, residue, then every char is 4 base except */
 	              /* last char which holds residue */
-      unpack = arrayCreate(m+1,char) ;  /* ensures zero terminated string */
+      unpack = arrayHandleCreate(m+1,char,h) ;  /* ensures zero terminated string */
       array(unpack,m-1,char) = 0 ; /* implies arrayMax = m */
       cp = arrp(pack,1,char) ; /* so as to start decoding on byte 2 */
       cq = arrp(unpack,0,char) ;
@@ -565,14 +565,14 @@ static Array dnaUnpackArray(Array pack)
 /******************************************************************/
 /************** functions to get DNA from a KEY *******************/
 
-static Array localDnaGet (KEY key)
+static Array localDnaGet (KEY key, AC_HANDLE h)
 {
   Array pack, unpack ;
 
   pack = arrayGet(key, char,"c") ;
   if(!pack)
     return 0 ;
-  unpack = dnaUnpackArray(pack) ;
+  unpack = dnaUnpackArray(pack, h) ;
   if (pack != unpack)
     arrayDestroy(pack) ;
 
@@ -630,7 +630,7 @@ void dnaExonsSort (Array a)
 }
 /*************************/
 
-static Array dnaDoGet (KEY key, BOOL noMismatch)
+static Array dnaDoGet (KEY key, BOOL noMismatch, AC_HANDLE h)
 { 
   Array a = 0 ;			/* the result */
   OBJ obj = 0 ;
@@ -638,11 +638,11 @@ static Array dnaDoGet (KEY key, BOOL noMismatch)
   int len ;
 
   if (class(key) == _VDNA)
-    a = localDnaGet (key) ;
+    a = localDnaGet (key, h) ;
 
   else if (keyFindTag (key, _DNA) &&
 	   seqDnaReClass (key, &dna) &&
-	   (a = localDnaGet (dna))
+	   (a = localDnaGet (dna, h))
 	   )
     { obj = 0 ; /* to please the compiler */
 #ifdef KS_ADDED
@@ -660,7 +660,7 @@ static Array dnaDoGet (KEY key, BOOL noMismatch)
     return 0 ;
   
   else if (bsGetKey (obj, _DNA, &dna))
-    { a = localDnaGet (dna) ;
+    { a = localDnaGet (dna, h) ;
 #ifdef KS_ADDED
       if (!ksAdded) ksAdded = keySetCreate() ;
       keySet(ksAdded,keySetMax(ksAdded)) = key ;
@@ -867,12 +867,17 @@ ATGATGATGGCTACTACTAA
 
 Array dnaGet (KEY key)
 {
-  return dnaDoGet (key, TRUE) ;
+  return dnaDoGet (key, TRUE, 0) ;
+}
+
+Array dnaHandleGet (KEY key, AC_HANDLE h)
+{
+  return dnaDoGet (key, TRUE, h) ;
 }
 
 Array dnaGetWithErrors (KEY key)
 {
-  return dnaDoGet (key, FALSE) ;
+  return dnaDoGet (key, FALSE, 0) ;
 }
 /*
   static int dnaAdd2 (Array a, KEY seq, int offset, int sstart, int sstop, BOOL noMismatch)
@@ -896,7 +901,7 @@ static int dnaDoAdd (Array a, KEY seq, int start, int stop, BOOL noMismatch, BOO
   if (bIndexFind(seq,_DNA) &&
       (obj = bsCreate (seq)) &&
       bsGetKey (obj, _DNA, &dnaKey) && 
-      (dna = localDnaGet (dnaKey)))
+      (dna = localDnaGet (dnaKey, 0)))
     { cq = cq0 = arrayp(a, 0, char) ;
 
       if (start < 0)		/* first check bounds */
@@ -1105,7 +1110,7 @@ FILE *dnaFileOpen (void)
 
 static BOOL dnaDoDumpFastAKey (KEY key, FILE *fil, Stack s, BOOL noMissmatch, char style, int x1, int x2, BOOL noClassNam)
 { 
-  Array a = dnaDoGet (key, noMissmatch) ;
+  Array a = dnaDoGet (key, noMissmatch,0) ;
 
   if (a)
     { 
