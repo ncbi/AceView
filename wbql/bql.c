@@ -1509,7 +1509,7 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
 	}
     }
 
-  if (node->right && node->type == FROM)  /* usueful in from caluse embedded inside a {} : COUT { select x from ... } */
+  if (node->right && node->type == FROM)  /* usueful in from clause embedded inside a {} : COUT { select x from ... } */
     ok &= bqlCheckVariableDeclarations (bql, node->right, pass) ;
   if (node->down && node->type != QUOTE)
     ok &= bqlCheckVariableDeclarations (bql, node->down, pass) ;
@@ -1880,8 +1880,7 @@ static int ssLevelOrder (const void *va, const void *vb)
 {
   const SS *sa = (const SS*)va ;
   const SS *sb = (const SS*)vb ;
-  int nn = sa->level - sb->level ;
-  
+  int nn = sa->level - sb->level ; 
   return nn ;
 } /* ssLevelOrder */
 
@@ -2376,6 +2375,8 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 	  bitSetMINUS (ss->uses, ss->dcls) ;  /* each node may freely use its own dcls */
 	  if (bitSetCount (ss->uses))
 	    nn = ss->level = 1 ;
+	  if (ss->node && ss->node->type == IN && ss->node->right && ss->node->right->type == CLASSE)
+	    ss->level = 2 ;
 	}
     }
 
