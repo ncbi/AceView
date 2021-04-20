@@ -183,7 +183,7 @@ int topoConnectedComponents(Array links, Array vx)
 /**************************************************************/
 /* chonoSort a 2D matrix */
 
-typedef struct wiStruct { float w ; int i ; } WI ;
+typedef struct wiStruct { double w ; int i ; } WI ;
 
 static int wiOrder (const void *a, const void *b) 
 {
@@ -273,18 +273,19 @@ static BOOL topoChronoSortLines (Array aa, int xy, int iMax, int jMax, KEYSET li
     }
 
   arraySort (ww, wiOrder) ;
- if (debug)
-   {
-     int kk = 0 ;
-     fprintf (stderr, "#B pass %d xy=%d ", pass, xy) ; 
-     for (i = k = 0 ; i < iMax ; i++, k += dx)
-       {
-	 wi = arrp (ww, i, WI) ;
-	 fprintf (stderr, " %d", (int) wi->w) ;
-	 if (wi->w > 1) kk++ ;
-       }
-     fprintf (stderr, " kk=%d\n" ,kk) ;
-   }
+  if (debug)
+    {
+      int kk = 0 ;
+      fprintf (stderr, "#B pass %d xy=%d ", pass, xy) ; 
+      for (i = k = 0 ; i < iMax ; i++, k += dx)
+	{
+	  wi = arrp (ww, i, WI) ;
+	  fprintf (stderr, " %d", (int) wi->w) ;
+	  if (wi->w > 1) kk++ ;
+	}
+      fprintf (stderr, " kk=%d\n" ,kk) ;
+
+    }
   wi = arrp (ww, 0, WI) ;
   for (i = 0 ; i < iMax ; wi++, i++)
     {
@@ -361,6 +362,16 @@ static BOOL topoChronoSortLines (Array aa, int xy, int iMax, int jMax, KEYSET li
   memcpy (buf, zf, iMax * jMax * sizeof(double)) ;
   memcpy (lnBuf, arrp (lines, 0, KEY), iMax * sizeof(KEY)) ;
 
+ if (debug)
+    {
+      for (i = k = 0 ; i < iMax ; i++,wi++, k += dx)
+	{
+	  for (j = k1 = 0 ; j < jMax ; j++, k1 += dy)
+	    fprintf (stderr, "\t%d", (int)zf[k+k1]) ;
+	  fprintf (stderr, "\n") ;
+	}
+    }	     
+
   wi = arrp (ww, 0, WI) ;
   for (i = k = 0 ; i < iMax ; i++,wi++, k += dx)
     {
@@ -377,6 +388,16 @@ static BOOL topoChronoSortLines (Array aa, int xy, int iMax, int jMax, KEYSET li
 	    }
 	}
     }
+  
+  if (debug)
+    {
+      for (i = k = 0 ; i < iMax ; i++,wi++, k += dx)
+	{
+	  for (j = k1 = 0 ; j < jMax ; j++, k1 += dy)
+	    fprintf (stderr, "\t%d", (int)zf[k+k1]) ;
+	  fprintf (stderr, "\n") ;
+	}
+    }	     
 
   return moved ;
 } /* topoChronoSortLines */
@@ -388,10 +409,10 @@ static BOOL topoChronoSortLines (Array aa, int xy, int iMax, int jMax, KEYSET li
 BOOL topoChronoOrder (Array aa, KEYSET lines, KEYSET cols)
 {
   AC_HANDLE h = ac_new_handle() ;
-  int i, j, iMax, jMax ;
+  int i, j, iMax, jMax, pass ;
   BOOL moved = TRUE ;
   Array ww = 0 ;
-  BOOL isSym =TRUE ;
+  BOOL isSym = FALSE ;
 
   if (! aa)
     messcrash ("topoChronoOrder received a null array") ;
@@ -429,19 +450,19 @@ BOOL topoChronoOrder (Array aa, KEYSET lines, KEYSET cols)
   ww = arrayHandleCreate (i, WI, h) ;
   array (ww, i - 1, WI).w = 0 ; /* make room */
     
-  for (i = 0 ; moved && i < 1000 ; i++)
+  for (pass = 0 ; moved && pass < 1000 ; pass++)
     {
-      moved = topoChronoSortLines (aa, 0, iMax, jMax, lines, ww, i) ;
-      if (isSym)
+      moved = topoChronoSortLines (aa, 0, iMax, jMax, lines, ww, pass) ;
+      if (0 && isSym) /* FAUX, il faut remanier la matrices, pas juste la table des cosl */
 	for (j = 0 ; j < jMax ; j++)
 	  keySet (cols, j) = keySet (lines, j) ;
       else
-	moved |= topoChronoSortLines (aa, 1, iMax, jMax, cols, ww, i) ;
+	moved |= topoChronoSortLines (aa, 1, iMax, jMax, cols, ww, pass) ;
  
       if (! moved && i < 3) { moved = TRUE ; }
       if (! moved && i < 100) { i = 100 ; moved = TRUE ; }
     }
-  fprintf (stderr, "topo stop at i=%d\n", i) ;
+  fprintf (stderr, "topo stop at pass=%d\n", pass) ;
   ac_free (h) ;
   return TRUE ;
 } /* topoChronoOrder */

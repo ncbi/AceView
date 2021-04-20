@@ -380,7 +380,8 @@ ok:
       }
 done: 
   ac_free (h) ;
-  if (a1p) *a1p = y1 ; if (a2p) *a2p = y2 ;
+  if (a1p) *a1p = y1 ; 
+  if (a2p) *a2p = y2 ;
   return TRUE ;
 
 abort: 
@@ -584,7 +585,8 @@ static int OLPROrder (const void *a, const void *b)
   int aa = ((const OLPR*)a)->a1, ab = ((const OLPR*)b)->a1 ;
   int sa = ((const OLPR*)a)->score, sb = ((const OLPR*)b)->score ;
   
-  if (sa < sb) return -1 ; if (sa > sb) return 1 ;
+  if (sa < sb) return -1 ; 
+  if (sa > sb) return 1 ;
   return aa - ab ; /* equal score, sort on position */
 } /* OLPROrder */
 

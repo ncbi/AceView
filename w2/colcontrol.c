@@ -1052,10 +1052,10 @@ void controlUnselectAll(void)
   controlSelect(0, -1, 0);
 }
 
-void controlSelectBox(box)
+void controlSelectBox (int box)
 /* Public function to highlight the thing in box */
 { 
-  controlSelect(box, -1, 0);
+  controlSelect (box, -1, 0);
 }
 
 static void controlKybd(int k)

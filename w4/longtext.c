@@ -597,14 +597,15 @@ static void longTextRecover (void)
   f = filopen(messprintf("/tmp/acedb.editor.%d.done",look->editing),"","r") ;
   
   if (!f)
-    { if (!messQuery (
-"To store the edited text, first exit the text editor.\n Are you ready ?"))
+    { 
+      if (!messQuery (
+		      "To store the edited text, first exit the text editor.\n Are you ready ?"))
 	return ;
       else
 	if (nn++ > 1 &&
 	    messQuery("do you want to abandon the edition"))
 	  goto done ;
-	goto lao ;
+      goto lao ;
     }
 
   level = freesetfile(f,"") ;

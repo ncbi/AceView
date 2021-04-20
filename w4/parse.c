@@ -980,7 +980,9 @@ static void openFile (void)
       parseFil = 0 ;
       parseFil = callScriptPipe ("zcat",messprintf(" %s/%s",
 					      directory, filename)) ;
-      if (!pipeAss) pipeAss = assCreate () ; assInsert (pipeAss, parseFil, 0) ;
+      if (!pipeAss) 
+	pipeAss = assCreate () ; 
+      assInsert (pipeAss, parseFil, 0) ;
       isPipe = TRUE ;
       break ;
     case 'g' :
@@ -994,7 +996,9 @@ static void openFile (void)
       if (!parseFil)
 	parseFil = callScriptPipe ("gzip", messprintf(" -dc %s/%s",
 						   directory, filename)) ;
-      if (!pipeAss) pipeAss = assCreate () ; assInsert (pipeAss, parseFil, 0) ;
+      if (!pipeAss) 
+	pipeAss = assCreate () ; 
+      assInsert (pipeAss, parseFil, 0) ;
       isPipe = TRUE ;
       break ;
 #endif /* UNIX */

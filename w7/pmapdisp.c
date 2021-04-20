@@ -475,8 +475,7 @@ static void pMapMenu(KEY k)
       freefloat(&Xmagn);
       if (!Xmagn)
 	Xmagn = old ;
-      else
-	pMapDraw(look, 0);   pMapDraw(look, 0);
+      pMapDraw(look, 0);
     }
     break;
   case MENU_SET_DISPLAY_DEPTHS:

@@ -120,9 +120,11 @@ BOOL menuAddItem (MENU menu, MENUITEM item, char *beforeLabel)
   if (!item) return FALSE ;
 
   if (beforeLabel)
-    { for (below = menu->items ; 
+    { 
+      for (below = menu->items ; 
 	   below && strcmp (below->label, beforeLabel) ;
-	   above = below, below = below->down) ;
+	   above = below, below = below->down)
+	;
       if (!below)
 	return FALSE ;
     }

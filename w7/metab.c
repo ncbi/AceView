@@ -2401,12 +2401,16 @@ static void LayoutDiagram(struct diagram *d)
 		  { if((*c)->class == eqclass[i]) (*c) = (*c)->next;
 		    else c = &(*c)->next; }}
 	      /* Find length of longest cycle made of of class arcs */
-	      for(k=0;k<n;k++) node[k]->mark = 0; s = 0;
+	      for(k=0;k<n;k++) 
+		node[k]->mark = 0; 
+	      s = 0;
 	      maxlen = max_cycle_length(eqclass[i]->nodes->node->i, 
 					eqclass[i]->class->id);
 	      if(Debug)printf("Longest cycle is %d\n",maxlen);
 	      /* Construct a cycle of that length. */
-	      for(k=0;k<n;k++) node[k]->mark = 0; s = 0;
+	      for(k=0;k<n;k++) 
+		node[k]->mark = 0;
+	      s = 0;
 	      maxcycle = longest_cycle(eqclass[i]->nodes->node->i,
 				       eqclass[i]->class->id, maxlen);
 	      /* Create shunts. */

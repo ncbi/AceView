@@ -3014,7 +3014,7 @@ BOOL fMapConvert (LOOK look, BOOL force)
 	      if (arrayMax (units) < i + 3)
 		continue ;
 	      
-		pos1 = arr (units, i , BSunit).i ;
+	      pos1 = arr (units, i , BSunit).i ;
 	      pos2 = arr (units, i + 1, BSunit).i ;
 	      
 	      seg1 = arrayp (segs,nsegs++,SEG) ; seg = arrp (segs,iseg,SEG) ;

@@ -2052,7 +2052,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		kA = spreadGetKeyset (spread) ;
 	      }
 	    else
-		filclose (f) ; f = 0 ;
+	      filclose (f) ; 
+	    f = 0 ;
 	    if (!kA)
 	      { freeOut ("// This table has a problem, please debug it in graphic mode") ;
 		kA = arrayHandleCreate (50, KEY, look->h) ;
@@ -2963,7 +2964,8 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	kA = keySetAlphaHeap(ksNew, keySetMax(ksNew)) ;
 	alignDumpKeySet (kA, f) ;
 	if ((f != stdout))
-	  fclose (f) ; f = 0 ;
+	  fclose (f) ; 
+	f = 0 ;
 	break ;
 
       case '-':			/* depad an assembly */

@@ -63,7 +63,7 @@ static Array fpBoxIndex = 0 ;
 
 static int fpActiveBox = 0, minLiveBox = 0 , minClefBox = 0 ;
 static int fpActiveGel = 0 ;
-static char fpRoundingBuffer[5] ;
+static char fpRoundingBuffer[25] ;
 
 /************************************************************/
 

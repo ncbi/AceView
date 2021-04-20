@@ -2820,9 +2820,11 @@ skipNewNode: ;
 	/* now hook our new column back onto bs (+ comments) */
 
   if (bs->right && bsIsComment(bs->right))
-    { for (bs = bs->right ;
+    { 
+      for (bs = bs->right ;
 	   bs->down && bsIsComment(bs->down) ;
-	   bs = bs->down) ;
+	   bs = bs->down)
+	;
       bs->down = top ;
     }
   else

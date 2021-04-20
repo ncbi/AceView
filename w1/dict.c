@@ -53,6 +53,9 @@ typedef struct dict_struct {
   Array keys ;		/* ofsets in the set of vocs */
   Array dVocs ;                  /* array of DVOC */
   AC_HANDLE handle ;
+  void * lock ;
+  void (*channelLock)(void* lock) ;
+  void (*channelUnlock)(void* lock) ;
 } DICT_STRUCT ;
 
 #include "dict.h"
@@ -289,7 +292,6 @@ _DICT *dictHandleCreate (int size, AC_HANDLE handle)
   dictAddVoc (dict, 8 * dict->max) ;  /* wild guess average word length will be 16 bytes */
   dict->keys = arrayHandleCreate (dict->dim/4, KEY, dict->handle) ;
   array (dict->keys, 0, KEY) = 0 ;		/* reserved for empty table entry */
-
   return dict ;
 } /* dictHandleCreate */
 
@@ -305,6 +307,15 @@ _DICT *dictCaseSensitiveHandleCreate (int size, AC_HANDLE handle)
   
   return dict ;
 } /* dictCaseSensitiveHandleCreate */
+
+/****************************************************************************/
+
+void dictSetLock (DICT *dict, void *lock, void (*cLock)(void*), void (*cUnlock)(void*))
+{
+  dict->lock = lock ;
+  dict->channelLock = cLock ;
+  dict->channelUnlock = cUnlock ;
+} /* dictSetLock */
 
 /****************************************************************************/
 
@@ -389,6 +400,8 @@ BOOL dictAdd (_DICT *dict, const char *s, int *ip)
 	*ip = ii ;
       return FALSE ;
     }
+
+  if (dict->lock) dict->channelLock (dict->lock) ;
   ii++ ;
   if (ii < 0)
     ii = -ii ; /* reuse */
@@ -415,6 +428,8 @@ BOOL dictAdd (_DICT *dict, const char *s, int *ip)
   messfree (buf) ;
   if (ip)
     *ip = ii ;
+
+  if (dict->lock) dict->channelUnlock (dict->lock) ;
   return TRUE ;
 } /* dictAdd */
 

@@ -1312,14 +1312,18 @@ void fMapcDNAShowSplicedcDNA (LOOK look, float *offset)
 
 	  if (clone != clone2 && lib && bIndexFind (lib, _Symbol))
 	    {
-	      float old = graphTextHeight (0.75) ;
 	      OBJ Library = bsCreate (lib) ;
 	      char *symbol ;
 	      
 	      if (Library && bsGetData (Library, _Symbol, _Text, &symbol))
-		 graphText(symbol, x +.45, y2 + .3) ; y2 += .8 ; 
+		{
+		  float old = graphTextHeight (0.75) ;
+		  graphText(symbol, x +.45, y2 + .3) ; 
+		  y2 += .8 ; 
+		  graphTextHeight (old) ;
+		}
 	      bsDestroy (Library) ;
-	      graphTextHeight (old) ;
+
 	    } 
 	  if (clone != clone2  && keyFindTag (clone, _Resequence))
 	    { graphText("*",x + .45, y2 + .3) ; y2 += .5 ; }

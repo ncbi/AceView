@@ -248,6 +248,10 @@ void channelDebug (CHAN *c, int debug, char *title) ;
 
 void channelTest (int nn) ; /* This function should print on stdout the numbers 0, 1,2, 3... up to min(9,nn) */
 
+CHAN *channelLockCreate (AC_HANDLE h) ; /* light interface to lock/unlock a mutex */
+void channelLock (void *lock) ;
+void channelUnlock (void *lock) ;
+
 /*************************************************************************/
 /* Private implementation of the uChannel functions */
 

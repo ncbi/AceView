@@ -56,6 +56,7 @@ const char *dictName (DICT *dict, int i) ;
 int dictCount (DICT *dict) ;		/* number of names */
 int dictMax (DICT *dict) ;		/* max index, to limit looping */
 void dictStatus (DICT *dict) ;
+void dictSetLock (DICT *dict, void *lock, void (*cLock)(void*), void (*cUnlock)(void*)) ;
 /* usage : 
  *   dictName(dict,0) == "(NULL)" and the correct loping is:
  *  for (i=1;i<=dictMax(dict);i++)print(dictName(dict,i)) ; 

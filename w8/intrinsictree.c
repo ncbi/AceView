@@ -289,7 +289,9 @@ static void intTreePlot(int nn)
 #endif /* !NON_GRAPHIC */
   look->segment = arrayCreate(nn, TREE_DEF) ;
   for (j = 1 ; j <= nn ; j++)
-    { for (k = 0; k < look->nd && arr(look->tree, k, TR).g != j; k++) ;
+    { 
+      for (k = 0; k < look->nd && arr(look->tree, k, TR).g != j; k++)
+	;
       if (k == look->nd)
 	continue ;
       first = intTreeFindHead(k) ;

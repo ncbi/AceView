@@ -53,7 +53,8 @@ plusbas:
   if (bs->key <= _LastC)
     { char *s ; int i = 0 ;
       bs->bt = BTalloc() ;
-      while(*cp--) i++ ; cp += i + 1 ;
+      while(*cp--) i++ ;
+      cp += i + 1 ;
       s = bs->bt->cp = halloc (i + 1, myHandle) ; 
       while ((*s++ = *cp--)) ;
     }

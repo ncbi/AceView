@@ -320,10 +320,11 @@ static void colorDragSlider (double x,double y)
 		     SIZEX(BORDER+((rampMin+rampMax)/2)-5),
 		     SIZEY(((MINY-MAXY)/2+MAXY)-5) );
       if (rampMin == rampMax)
-	{ if (x<oldx)
-	    x--;
-	else  
-	  x++;
+	{ 
+	  if (x<oldx)
+	    x-- ;
+	  else  
+	    x++ ;
 	  if (x < BORDER) x = BORDER+1; 
 	  if (x > BORDER+255) x = BORDER+255-1;
 	  rampMax = x-BORDER ;

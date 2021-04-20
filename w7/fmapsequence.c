@@ -894,7 +894,8 @@ void fMapColorIntronsExons (int box)
   j1 = arr(index,0,int) ;
   j2 = arr(index,arrayMax(index)-1,int) ;
   if (j2 < j1) { j3 = j1 ; j1 = j2 ; j2 = j3 ; }
-  if (j1 < 0) j1 = 0 ; if (j2 >= length) j2 = length-1 ;
+  if (j1 < 0) j1 = 0 ; 
+  if (j2 >= length) j2 = length-1 ;
   /* do not color the introns they print same as exons
     if CYAN and LIGHTGREEN
      for (i = j1 ; i <= j2 ; ++i)

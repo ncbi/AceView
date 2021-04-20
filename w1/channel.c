@@ -95,6 +95,14 @@ static void uChannelDestroy (void *vp)
 
       ac_free (c->c.h) ;
     }
+  if (c && c->c.magic == channelLockCreate)
+    {
+      c->c.magic = NULL ;
+ 
+      pthread_mutex_destroy (&(c->c.mutex)) ;
+
+      ac_free (c->c.h) ;
+    }
   return ;
 } /* uChannelDestroy */
 
@@ -121,6 +129,38 @@ CHAN *uChannelCreate (int cMax, int size, AC_HANDLE h0)
   blockSetFinalise (c, uChannelDestroy) ;
   return c ;
 } /* uChannelCreate */
+
+/*******************************************************************************************************/
+/* very light blocking interface 
+ * providing a semaphore locking to non threadsafe functions like dictAdd 
+ */
+CHAN *channelLockCreate (AC_HANDLE h0)
+{
+  int nn = sizeof (CHAN1) + sizeof (CHANR) ;
+  CHAN *c = (CHAN *) halloc (nn, h0) ;
+
+  c->c.magic = channelLockCreate ;
+  pthread_mutex_init (&(c->c.mutex), NULL);
+  /* register destroy */
+  blockSetFinalise (c, uChannelDestroy) ;
+  return c ;
+}
+
+void channelLock (void *vp)
+{
+  CHAN *c = (CHAN *)vp ;
+  if (! c || c->c.magic != channelLockCreate)
+    messcrash ("Bad call to channelLock") ;
+  pthread_mutex_lock (&(c->c.mutex)) ;
+}
+
+void channelUnlock (void *vp)
+{
+  CHAN *c = (CHAN *)vp ;
+  if (! c || c->c.magic != channelLockCreate)
+    messcrash ("Bad call to channelUnlock") ;
+  pthread_mutex_unlock (&(c->c.mutex)) ;
+}
 
 /*******************************************************************************************************/
 

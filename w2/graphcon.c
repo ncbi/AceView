@@ -663,7 +663,9 @@ void graphDestroy ()
   if (dying == *list)               /* find in graph list and unlink */
     *list = dying->nxt ;
   else
-    { for (g = *list ; g && g->nxt != dying ; g = g->nxt) ;
+    { 
+      for (g = *list ; g && g->nxt != dying ; g = g->nxt)
+	;
       if (!g)
         messcrash ("Dying graph not in graph list") ;
       g->nxt = dying->nxt ;
