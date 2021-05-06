@@ -5895,6 +5895,7 @@ static MX *KasimirConstructTypicMatrices (KAS *kas)
 
   /* odd other raising operator */
   muZ = KasCommut (muE, muX, -1, kas) ;
+  muZ->name = "muZ" ;
   mxShow (muZ) ;
   
   /* odd other oweringing operator */
@@ -6033,7 +6034,7 @@ static void KasimirCheckCommutators (KAS *kas)
     {3,7,7,1,-1},
     {6,7,8,1,1},
     {1,6,4,1,-1},
-    {4,5,9,1,1},
+    /*     {4,5,9,1,1}, */
     {1,4,4,0,-1},
     {1,6,4,1,-1},
     {2,4,6,1,-1},
