@@ -109,9 +109,10 @@ struct bqlNode {
 
   int depth, row, col, nCol ;
   BOOL myObj, myAa, myBsmark ;
+  KEY dnaKey ;
   OBJ obj ;
   Array aa ;
-  Array dnaD, dnaR, pep ;
+  Array dnaD, pep ;
   Stack dnaStack, pepStack ;
   vTXT vtxt ;
   BSMARK bsMark ;
@@ -1508,7 +1509,7 @@ static BOOL bqlCheckVariableDeclarations (BQL *bql, NODE *node, int pass)
 	}
     }
 
-  if (node->right && node->type == FROM)  /* usueful in from caluse embedded inside a {} : COUT { select x from ... } */
+  if (node->right && node->type == FROM)  /* usueful in from clause embedded inside a {} : COUT { select x from ... } */
     ok &= bqlCheckVariableDeclarations (bql, node->right, pass) ;
   if (node->down && node->type != QUOTE)
     ok &= bqlCheckVariableDeclarations (bql, node->down, pass) ;
@@ -1879,8 +1880,7 @@ static int ssLevelOrder (const void *va, const void *vb)
 {
   const SS *sa = (const SS*)va ;
   const SS *sb = (const SS*)vb ;
-  int nn = sa->level - sb->level ;
-  
+  int nn = sa->level - sb->level ; 
   return nn ;
 } /* ssLevelOrder */
 
@@ -2375,6 +2375,8 @@ static BOOL bqlDesintegrate (BQL *bql, NODE *node0)
 	  bitSetMINUS (ss->uses, ss->dcls) ;  /* each node may freely use its own dcls */
 	  if (bitSetCount (ss->uses))
 	    nn = ss->level = 1 ;
+	  if (ss->node && ss->node->type == IN && ss->node->right && ss->node->right->type == CLASSE)
+	    ss->level = 2 ;
 	}
     }
 
@@ -3403,8 +3405,6 @@ static void bqlClean (BQL *bql, NODE *node)
       node->aa = 0 ;
       node->myAa = FALSE ;
       ac_free (node->vtxt) ;
-      arrayDestroy (node->dnaD) ;
-      arrayDestroy (node->dnaR) ;
       arrayDestroy (node->pep) ;
       stackDestroy (node->dnaStack) ;
       stackDestroy (node->pepStack) ;
@@ -4510,7 +4510,6 @@ static BOOL bqlExpandPeptide (BQL *bql, NODE *node, NODE *coma)
 	    }
 	}
       arrayDestroy (var->dnaD) ;
-      arrayDestroy (var->dnaR) ;
       var->uType = __Protein1 ;
       var->dclNode->uType = __Protein1 ;
     }
@@ -4580,8 +4579,16 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
 	ok = FALSE ;
     }
   if (ok && dnaVar && dnaVar->type == VAR && dnaVar->dclNode && dnaVar->dclNode->key)
-    var->dnaD = dnaGet (dnaVar->dclNode->key) ;
-  
+    {
+      if (! var->dnaD || var->dnaKey != dnaVar->dclNode->key) 
+	{
+	  arrayDestroy (var->dnaD) ;
+	  var->dnaD = dnaHandleGet (dnaVar->dclNode->key, bql->h) ;
+	  var->dnaKey = dnaVar->dclNode->key ;
+	}
+    }
+  else
+    ok = FALSE ;
   if (ok && var && var->dnaD)
     {
       int d1, d2 ;
@@ -4597,13 +4604,6 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
 	{ d1 = dna1 ; d2 = dna2 ; reverse = FALSE ; }
       else
 	{ d1 = dna2 ; d2 = dna1 ; reverse = TRUE ; }
-      if (reverse)
-	{
-	  dna = var->dnaR = dnaCopy (var->dnaD) ;
-	  reverseComplement (var->dnaR) ;
-	}
-      
-     
       if (
 	  (
 	   d1 > 0 && d1 >  arrayMax (dna) && /* attention because arrayMax is unsigned int */
@@ -4626,23 +4626,30 @@ static BOOL bqlExpandDNA (BQL *bql, NODE *node, NODE *coma)
 	      unsigned char *cp, *cq ;
 	      Array dnaPiece ;
 	      
-	      if (reverse) 
-		dna1 = arrayMax (dna) - d2 + 1 ; 
-	      else
-		dna1 = d1 ;
 	      dnaPiece = arrayCreate (d2 - d1 + 2, char) ;
 	      array (dnaPiece, d2 - d1 + 1, unsigned char) = 0 ; /* zero terminate */
 	      arrayMax (dnaPiece) = d2 - d1 + 1 ; /* restore */
-	      for (i = 0, cp = arrp (dnaPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
-		   i < d2 - d1 + 1 ; cp++, cq++, i++)
-		*cp = dnaDecodeChar [ (int)*cq] ;
+	      if (! reverse)
+		{
+		  dna1 = d1 ;
+		  for (i = 0, cp = arrp (dnaPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
+		       i < d2 - d1 + 1 ; cp++, cq++, i++)
+		    *cp = dnaDecodeChar [ (int)*cq] ;
+		}
+	      else
+		{
+		  dna1 = arrayMax (dna) - d2 + 1 ; 
+		  dna1 = d2 ;
+		  dna = var->dnaD ;
+		  for (i = 0, cp = arrp (dnaPiece, 0, unsigned char), cq = arrp (dna, dna1 - 1, unsigned char) ;
+		       i < d2 - d1 + 1 ; cp++, cq--, i++)
+		    *cp = dnaDecodeChar [(int)complementBase[(int)*cq]] ;
+		}
 	      var->dnaStack = stackCreate (0) ;
 	      pushText (var->dnaStack, arrp (dnaPiece, 0, char)) ;
 	      arrayDestroy (dnaPiece) ;
 	    }
 	}
-      arrayDestroy (var->dnaD) ;
-      arrayDestroy (var->dnaR) ;
       var->uType = __DNA1 ;
       var->dclNode->uType = __DNA1 ;
     }
@@ -6834,6 +6841,7 @@ int bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
       bql->from = down ;
       bql->results = ac_db_empty_table (bql->db, 128, 1, bql->h) ;
       bql->tableRow = 0 ;
+      arraySort(bql->ksIn,keySetAlphaOrder) ;
       ok = bqlExpand (bql, down) ;
       bql->isSorted = FALSE ;
       if (! ok)

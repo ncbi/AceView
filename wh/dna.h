@@ -46,6 +46,7 @@ On disk, we store the dna as 4 bases per byte, if there is no ambiguity, or
 2 bases per byte otherwise.
 */
 Array dnaGet (KEY key) ;
+Array dnaHandleGet (KEY key, AC_HANDLE h) ;
 Array dnaGetWithErrors (KEY key) ;
 
 int dnaAdd (Array a, KEY seq, int start, int stop, BOOL noMismatch) ; /* 0: mismatch, 1: absent, 2: success */
