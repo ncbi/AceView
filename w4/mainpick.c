@@ -2223,7 +2223,8 @@ static void cDraw (void)
       if (ll->y + 2 > ymax)
 	ymax = ll->y + 2 ;
     }
-  if (!ymax) ymax = 2 ; if (!xmax) xmax = 12 ;
+  if (!ymax) ymax = 2 ; 
+  if (!xmax) xmax = 12 ;
 
   cZeroBox = graphBoxStart () ;  graphBoxEnd() ; 
   /* vertical line removal, rather, i will always stack left and top 

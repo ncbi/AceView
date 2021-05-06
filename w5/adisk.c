@@ -329,8 +329,10 @@ void aDiskClose (void)
   i = arrayMax(partitions) ;
   while (i--)
     { p = arrp(partitions, i, PARTITION) ;
-      if (p->r > -1) close(p->r) ; p->r = -1 ;
-      if (p->w > -1) close(p->w) ; p->w = -1 ;
+      if (p->r > -1) close(p->r) ; 
+      p->r = -1 ;
+      if (p->w > -1) close(p->w) ; 
+      p->w = -1 ;
     }
   seteuid (ruid);  
 } /* aDiskClose */
@@ -777,9 +779,9 @@ DISK aDiskWrite (KEY key, KEY parent,
   h.disk = d ;
   if (key == SUPERKEY) h.parent = 1 ;  /* unswap ! */
   aDiskDoWrite (p, (char*)(&h), sizeof(DISK_HEADER)) ;
-  if (n1*s1)
+  if (n1 && s1)
     aDiskDoWrite (p, p1, n1*s1) ;
-  if (n2*s2)
+  if (n2 && s2)
     aDiskDoWrite (p, p2, n2*s2) ;
 
   n = sizeof(DISK_HEADER) + h.n1 * h.s1 + h.n2 * h.s2 ;
@@ -858,9 +860,9 @@ void aDiskReadData (DISK d,
   if (lastDiskLocate != d || !isHeaderRead)
     messcrash ("diskReadData() not preceeded by diskReadHeader()") ;
 
-  if (n1*s1)
+  if (n1 && s1)
     aDiskDoRead (lastP, p1, n1*s1) ;
-  if (n2*s2)
+  if (n2 && s2)
     aDiskDoRead (lastP, p2, n2*s2) ;
   isHeaderRead = FALSE ;
 } /* aDiskReadData */
@@ -1440,13 +1442,13 @@ BOOL aDiskArrayGet (KEY key, KEY *pp, Array *ap, Array *bp)
   if (!d) return FALSE ;
   aDiskReadHeader (d, key, &parent, &n1, &s1, &n2, &s2) ;
 
-  if (n1*s1)
+  if (n1 && s1)
     { 
       a = uArrayCreate (n1, s1, 0) ;
       arrayForceFeed (a, n1) ;
       cp = a->base ;
     }
-  if (n2*s2)
+  if (n2 && s2)
     { 
       b = uArrayCreate (n2, s2, 0) ;
       arrayForceFeed (b, n2) ;

@@ -647,11 +647,11 @@ BOOL diVariance (Array a, float *splitp, float *avp, float *sigmap, float *av1p,
 	  if (i <= limit) { NXb++ ; X1b += z ; X2b += z * z ; }
 	  else { NYb++ ; Y1b += z ; Y2b += z * z ; }
 	}
-      if (NXa < 1) NXa = 1 ;  if (NYa < 1) NYa = 1 ; 
+      if (NXa < 1) { NXa = 1 ; }   if (NYa < 1) { NYa = 1 ; }  
       X1a /= NXa ; X2a /= NXa ; Y1a /= NYa ; Y2a /= NYa ;
       z1a = X2a - X1a*X1a ; z2a = Y2a - Y1a*Y1a ; za = z1a + z2a ;
 
-      if (NXb < 1) NXb = 1 ;  if (NYb < 1) NYb = 1 ; 
+      if (NXb < 1) { NXb = 1 ;}  if (NYb < 1) { NYb = 1 ;} 
       X1b /= NXb ; X2b /= NXb ; Y1b /= NYb ; Y2b /= NYb ;
       z1b = X2b - X1b*X1b ; z2b = Y2b - Y1b*Y1b ; zb = z1b + z2b ;
 
@@ -722,14 +722,15 @@ BOOL linearRegression (Array xy, double *ap, double *bp, double *rp, double *wp)
       y2m +=  (arr(xy,i,POINT2D).y-ym) *( arr(xy,i,POINT2D).y-ym) ;
     }
   if(max >3 && x2m>0 && y2m >0)
-    { r = xym / sqrt((double)x2m * y2m) ;
+    {
+      r = xym / sqrt((double)x2m * y2m) ;
       if (r >= 1)    /* mhmp 28.05.99 */
 	w = 0.999 ;
       else
-   	w = r;
-	i = max - 3 ;
-	w = .5 * log((1+w) / (1-w)) * sqrt((double) i) ;
-     }
+   	w = r ;
+      i = max - 3 ;
+      w = .5 * log((1+w) / (1-w)) * sqrt((double) i) ;
+    }
   else
     r = w = 0 ;
 

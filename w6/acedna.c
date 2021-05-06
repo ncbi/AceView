@@ -704,6 +704,7 @@ static JUMP pacbioJumper [] = {
  {1, 1, 0, 0}    /* default is punctual */
 } ;
 
+#ifdef JUNK
 static JUMP pacbioJumperOld
  [] = {  /* favor insert */
  {1, 1, 7, 0},    /* ponctuel */
@@ -732,6 +733,7 @@ static JUMP pacbioJumperOld
  {0, 10, 15, 3},
  {1, 1, 0, 0}    /* default is punctual */
 } ;
+#endif
 
 static JUMP nanoporeJumper [] = {
  {1, 0, 10, 0},    /* insert in 1 */

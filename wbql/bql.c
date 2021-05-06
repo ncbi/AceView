@@ -6841,7 +6841,7 @@ int bqlRun (BQL *bql, KEYSET activeKeyset, KEYSET resultKeyset)
       bql->from = down ;
       bql->results = ac_db_empty_table (bql->db, 128, 1, bql->h) ;
       bql->tableRow = 0 ;
-      arraySort(bql->ksIn,keySetAlphaOrder) ;
+      if (bql->ksIn) arraySort(bql->ksIn,keySetAlphaOrder) ;
       ok = bqlExpand (bql, down) ;
       bql->isSorted = FALSE ;
       if (! ok)

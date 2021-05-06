@@ -987,13 +987,13 @@ void cacheList (int type)
 	}
       if (n)
 	printf ("cache 2:  %d locked objects\n", n) ;
-      for (n = 0, v ; n < 20 && v ; v = v->next)
+      for (n = 0 ; n < 20 && v ; v = v->next)
 	if (v && v->refCount && v->key)
 	  {
 	    n++  ; nc = bsTreeSize (v->x) ;
 	    printf ("%s", messprintf("%2d: %3d ref:(%5d cells) %s:%s\n",
-			       n, v->refCount, nc, 
-			       className(v->key), name(v->key))) ;
+				     n, v->refCount, nc, 
+				     className(v->key), name(v->key))) ;
 	  }
       break ;
     case 1:
@@ -1001,7 +1001,7 @@ void cacheList (int type)
       v = w = cacheGetKnownTop() ;
       while (w) { n++ ; w = w->next ; }
       printf (" %d objects\n", n) ;
-      for (n = 0, v ; n < 20 && v ; v = v->next)
+      for (n = 0 ; n < 20 && v ; v = v->next)
 	{ 
 	  nc = bsTreeSize (v->x) ;
 	  printf ("%s", messprintf("%2d: %3d ref:(%5d cells) %s:%s\n",

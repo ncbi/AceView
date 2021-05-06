@@ -89,10 +89,11 @@ AC_HANDLE_STRUCT handle0 ;
 
 /************** halloc(): key function - messalloc() calls this ****************/
 static BOOL isThreadSafe = FALSE ;
-void memSetIsMultiThreaded (void)
+void memSetIsMultiThreaded (void )
 {
   isThreadSafe = TRUE ;
 }
+
 #ifdef MEM_DEBUG
 void *halloc_dbg(mysize_t size, AC_HANDLE handle,const char *hfname, int hlineno) 
 #else

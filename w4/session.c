@@ -772,7 +772,8 @@ void sessionShutDown (void)
   messAllocStatus (&n1) ;
   
   if (debug) freeOutf ("%18s%8s%8s\n","// Layer","Freed","Used") ;
-  if (debug) freeOutf ("%18s%8d%8d kb\n","// Shutdown start", 0, n1 >> 10) ; n0 = n1 ;
+  if (debug) freeOutf ("%18s%8d%8d kb\n","// Shutdown start", 0, n1 >> 10) ; 
+  n0 = n1 ;
 
   lexAlphaShutDown () ; 
   messAllocStatus (&n1) ; 

@@ -1010,7 +1010,8 @@ Graph blxview(char *seq, char *seqname, int start, int offset, MSP *msp, char *o
 	    blastp = blastx = tblastn = tblastx = 0;
 	    alphabetsize = 4;
 	    symbfact = 1;                  
-	    if (!strchr(opts, 'r')) BigPictRev = 1; break;
+	    if (!strchr(opts, 'r')) BigPictRev = 1; 
+                                                    break;
 	case 'X':
 	    blastx = 1;
 	    blastp = blastn = tblastn = tblastx = 0;

@@ -1019,8 +1019,10 @@ BOOL graphWindowSize (float *wx, float *wy, float *ww, float *wh)
       Dimension w, h ; Position x, y ;
       XtVaGetValues (gSubDev->viewport, XtNheight, &h, XtNwidth, &w, 
 		     XtNx, &x, XtNy, &y, NULL) ;
-      if (wx) *wx = x/screenx ; if (ww) *ww = w/screenx ; 
-      if (wy) *wy = y/screeny ; if (wh) *wh = h/screeny ; 
+      if (wx) *wx = x/screenx ; 
+      if (ww) *ww = w/screenx ; 
+      if (wy) *wy = y/screeny ; 
+      if (wh) *wh = h/screeny ; 
       return TRUE ;
     }
   return FALSE ;

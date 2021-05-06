@@ -962,7 +962,7 @@ static void fMapFuseCosmids (int box)
 	  bsSave (Link13) ;
 	}
     }
-  if (dna1) dnaStoreDestroy (dna1Key, dna1) ; dna1 = 0 ;
+  if (dna1) { dnaStoreDestroy (dna1Key, dna1) ; dna1 = 0 ; }
   arrayDestroy (dna2) ;
   fMapPleaseRecompute (look) ;
   fMapDraw (look, TRUE) ;
@@ -2839,7 +2839,8 @@ static int bcDrawBox (BoxCol *bc, SEG *seg, float score)
     {
     case OFFSET:
       dx = 1 + ((float)score - bc->minScore) / ((float) (bc->maxScore - bc->minScore)) ;
-      if (dx < .8) dx = .8 ; if (dx > 3) dx = 3 ; /* allow some leeway */
+      if (dx < .8) dx = .8 ; 
+      if (dx > 3) dx = 3 ; /* allow some leeway */
       dx = bc->width * log ((double)dx)/logdeux ;
       graphRectangle (bc->offset + dx, y1, 
 		      bc->offset + dx + .9, y2) ;

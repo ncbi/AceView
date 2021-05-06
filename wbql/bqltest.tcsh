@@ -8,12 +8,14 @@ echo "For questions and information please email mieg@ncbi.nlm.nih.gov"
 # Localize the executable
 ########################################
 set tace=`ls bin*/tace | head | head -1`
+if ($?ACEDB_MACHINE) set tace=bin.$ACEDB_MACHINE/tace
 set ACEDB_SRC
 if (! -x $tace) then
-  echo 'FATAL ERROR: the executable tace is not found in bin*/tace'
+  echo "FATAL ERROR: the executable tace is not found in bin.$ACEDB_MACHINE/tace"' or in bin*/tace'
   echo 'Please compile the code'
   goto done
 endif
+echo "using executable non graphic acedb code: $tace"
 
 ########################################
 # Create a test directory

@@ -395,6 +395,12 @@ Array filDirectoryCreate (char *dirName,
 void filDirectoryDestroy (Array filDirArray);
 
 /*******************************************************************/
+/******************** multi threading signals **********************/
+
+void memSetIsMultiThreaded (void) ; /* set, called by wego_init */
+BOOL memIsMultiThreaded (void) ;    /* report */
+
+/*******************************************************************/
 /************* randsubs.c random number generator ******************/
 
 double randfloat (void) ;

@@ -2021,7 +2021,7 @@ static void dnacptShowCodonUsage (int nn, int ncds, Array usage)
   for (i = 0 ; i < 5; i++)
     graphLine(5 + 17 *i , y , 5 + 17 * i, y + 32 ) ;
   
-    for(i=0; i<4; i++)
+  for(i=0; i<4; i++)
     graphText(messprintf("%c", name[i]), 13 + 17 * i, y  -1.3) ;
   for(i=0; i<4; i++)
     graphText(messprintf("%c", name[i]), 3, y + 4 + 8 * i) ;
@@ -2632,7 +2632,8 @@ static int dnacptDisplayTopPart(DNACPT dnacpt, MENUOPT* mm, int line)
 
   graphText ("Apply to:", 1, line) ;
   box = graphButton ("DNA Window active zone", dnacptDontUseKeySet, 10, line - .5) ;
-  if (!dnacpt->useKeySet) graphBoxDraw (box, BLACK, PALEBLUE) ; line += 1.2 ;
+  if (!dnacpt->useKeySet) graphBoxDraw (box, BLACK, PALEBLUE) ;
+  line += 1.2 ;
   box = graphButton ("KeySet of sequences",dnacptUseKeySet, 10, line) ;
   if (dnacpt->useKeySet) graphBoxDraw (box, BLACK, PALEBLUE) ;
   dnacpt->useKeySetButtonBox = box ;

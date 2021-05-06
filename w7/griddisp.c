@@ -1473,61 +1473,66 @@ static void gridConvert (GridDisp look)
 	    }
 	    lazySegBuild(look,&n,prefix,FALSE);
 	  }	    
-	  else if (bsGetData (subgrid, _Row, _Int, &row)) do
-	    { submark = bsMark (subgrid, submark) ;
-	      row-- ;
-	      i = 0 ;
-	      if (!bsGetKeyTags (subgrid, _bsRight, &key))
-		continue ;
-	      isMixed = (key == _Mixed) ;
-	      while (bsGetKeyTags (subgrid, _bsRight, &key))
-		{ if (isMixed && !bsGetKey (subgrid, _bsRight, &key))
-		    break ;
-		  seg = arrayp (look->segs, n, SEG) ;
-		  seg->flag = seg->flagStore = 0 ; 
-		  if (!strcmp (name(key),"-"))
-		    seg->flag |= FLAG_BLANK ;
-		  seg->gkey = key ;
-		  seg->x = xblock + i*look->dxLine ;
-		  seg->y = yblock + row*look->dyLine ;
+	  else if (bsGetData (subgrid, _Row, _Int, &row)) 
+	    do
+	      {
+		submark = bsMark (subgrid, submark) ;
+		row-- ;
+		i = 0 ;
+		if (!bsGetKeyTags (subgrid, _bsRight, &key))
+		  continue ;
+		isMixed = (key == _Mixed) ;
+		while (bsGetKeyTags (subgrid, _bsRight, &key))
+		  { if (isMixed && !bsGetKey (subgrid, _bsRight, &key))
+		      break ;
+		    seg = arrayp (look->segs, n, SEG) ;
+		    seg->flag = seg->flagStore = 0 ; 
+		    if (!strcmp (name(key),"-"))
+		      seg->flag |= FLAG_BLANK ;
+		    seg->gkey = key ;
+		    seg->x = xblock + i*look->dxLine ;
+		    seg->y = yblock + row*look->dyLine ;
 		  seg->name =0;
 		  ++n ; ++i ;
-		}
-	      bsGoto (subgrid, submark) ;
-	    } while (bsGetData (subgrid, _bsDown, _Int, &row)) ;
+		  }
+		bsGoto (subgrid, submark) ;
+	      } while (bsGetData (subgrid, _bsDown, _Int, &row)) ;
 	  bsDestroy (subgrid) ;
 	  look->flag |= FLAG_VIRTUAL ;
-	}
-	else
-	  messout ("Can't open subgrid %s of Grid %s", 
-		   name(key), name(look->key)) ;
+	  }
+	  else
+	    messout ("Can't open subgrid %s of Grid %s", 
+		     name(key), name(look->key)) ;
 	  ++xblock ;
 	}
       bsGoto (obj, mark) ;
     } while (bsGetData (obj, _bsDown, _Int, &row)) ;
-  else if(bsFindTag(obj,str2tag("Lazy_grid"))){
-    if(bsGetData(obj,str2tag("Prefix"),_Text, &textptr)){
-      look->prefix = strnew(textptr,0);
+  else if(bsFindTag(obj,str2tag("Lazy_grid")))
+    {
+      if(bsGetData(obj,str2tag("Prefix"),_Text, &textptr))
+	{
+	  look->prefix = strnew(textptr,0);
+	}
+      else
+	{
+	  look->prefix = NULL;
+	}
+      if (bsFindTag(obj, str2tag("Lazy_template")))
+	{ KEY template;
+	  if (bsGetKeyTags(obj, _bsRight, &template) &&
+	      bsGetKeyTags(obj, _bsRight, &template))
+	    look->template = template;
+	}
+      look->segs = arrayReCreate (look->segs, 512, SEG) ;
+      look->dxLine = look->dyLine = 1;
+      lazySegBuild(look,&n,look->prefix,FALSE);
     }
-    else{
-      look->prefix = NULL;
-    }
-    if (bsFindTag(obj, str2tag("Lazy_template")))
-      { KEY template;
-	if (bsGetKeyTags(obj, _bsRight, &template) &&
-	    bsGetKeyTags(obj, _bsRight, &template))
-	  look->template = template;
-      }
-    look->segs = arrayReCreate (look->segs, 512, SEG) ;
-    look->dxLine = look->dyLine = 1;
-    lazySegBuild(look,&n,look->prefix,FALSE);
-  }
   else
     messout ("No clones in Grid %s", name(look->key)) ;
 
   if (bsGetKey (obj, _View, &key))
     setView (look, key) ;
-
+  
   bsDestroy (obj) ;
 }
 

@@ -119,7 +119,8 @@ static void colorPickSlider (int box)
 
 static void colorDragSlider (double x,double y)
 {
-  if (x < BORDER) x = BORDER; if (x > BORDER+255) x = BORDER+255;
+  if (x < BORDER) x = BORDER; 
+  if (x > BORDER+255) x = BORDER+255;
 
   graphBoxDraw (sliderBox,GREEN,TRANSPARENT);
   if (sliderBox == maxBox)
@@ -127,11 +128,13 @@ static void colorDragSlider (double x,double y)
       graphBoxShift (sliderBox,x-5,MAXY-5);
       max= x-BORDER ;
       if (min == max)
-	{ if (x<oldx)
+	{ 
+	  if (x<oldx)
 	    x--;
-	else  
-	  x++;
-	  if (x < BORDER) x = BORDER+1; if (x > BORDER+255) x = BORDER+255-1;
+	  else  
+	    x++;
+	  if (x < BORDER) x = BORDER+1; 
+	  if (x > BORDER+255) x = BORDER+255-1;
 	  max= x-BORDER ;
 	  graphBoxShift (sliderBox,x-5,MAXY-5);  
 	}
@@ -143,11 +146,13 @@ static void colorDragSlider (double x,double y)
       graphBoxShift (sliderBox,x-5,MINY-5);
       min= x-BORDER;
       if (min == max)
-	{ if (x<oldx)
+	{ 
+	  if (x<oldx)
 	    x--;
-	else  
-	  x++;
-	  if (x < BORDER) x = BORDER+1; if (x > BORDER+255) x = BORDER+255-1;
+	  else  
+	    x++;
+	  if (x < BORDER) x = BORDER+1; 
+	  if (x > BORDER+255) x = BORDER+255-1;
 	  min= x-BORDER;
 	  graphBoxShift (sliderBox,x-5,MINY-5);  
 	}
@@ -165,9 +170,13 @@ static void colorDragSlider (double x,double y)
 
 static void colorUpSlider (double x,double y)
 {
-  if (x < BORDER) x = BORDER; if (x > BORDER+255) x = BORDER+255;
+  if (x < BORDER) x = BORDER; 
+  if (x > BORDER+255) x = BORDER+255;
   if (min == max)
-    { if (x < BORDER) x = BORDER+1; if (x > BORDER+255) x = BORDER+255-1; }
+    { 
+      if (x < BORDER) x = BORDER+1; 
+      if (x > BORDER+255) x = BORDER+255-1; 
+    }
 
   graphBoxDraw (sliderBox,BLACK,TRANSPARENT);
   graphEntryDisable ();

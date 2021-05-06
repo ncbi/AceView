@@ -748,7 +748,8 @@ static BOOL spreadDoReadFromObj (SPREAD spread, KEY tableKey, const char *parms,
   dumpKeyBeautifully (tableKey, 'a', 0) ;  /* into s */
   freeOutClose (level) ;
 
-  if (!parms) parms = "" ; cp = 0 ;
+  if (!parms) parms = "" ; 
+  cp = 0 ;
   if ((obj = bsCreate (tableKey)))
     { bsGetData (obj, _Parameters, _Text, &cp) ;
       if (cp) cp = strnew(cp, 0) ;
