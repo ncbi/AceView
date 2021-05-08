@@ -881,12 +881,13 @@ static int kantorParsePSORT (vSTR * blkp, char *psortBuf, char *seqBuf)
         
         if (ptr)ln=sscanf(ptr,"%d %c",&qryEd,(char *)&pep) ;else ln=0;
         if (!i)
-	  {qrySt=qryEd;prvE=qryEd;}
+	  { qrySt=qryEd ; prvE=qryEd; }
         
         if ((qrySt>=0 && qryEd-prvE>1) || ln!=2)
-	  {seq[is]=0;
-	  if (! (xLen && qrySt < xPos && qryEd > xPos))
-	    vstrPrintf(blkp,"Domain \"%s\" \"Psort\" %d. %d %d %d %d \"%s\" \n","Coiled_coil_region",iScore,fixPsortCoord(qrySt),fixPsortCoord(prvE),sbjSt,sbjEd,seq) ;
+	  {
+	    seq[is]=0;
+	    if (! (xLen && qrySt < xPos && qryEd > xPos))
+	      vstrPrintf(blkp,"Domain \"%s\" \"Psort\" %d. %d %d %d %d \"%s\" \n","Coiled_coil_region",iScore,fixPsortCoord(qrySt),fixPsortCoord(prvE),sbjSt,sbjEd,seq) ;
 	    qrySt=qryEd;cnt++;clen+=is;is=0;
 	  }
         if (ln!=2)break;

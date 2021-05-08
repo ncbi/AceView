@@ -378,10 +378,10 @@ void dwReportPrefix (void *vp)
 /*************************************************************************************/
 /* this code communicates via channels */
 
-void dwPrefix (void *vp)
+void dwPrefix (const void *vp)
 {
   TP *tp = 0 ;
-  PP *pp = (PP*) vp ;
+  const PP *pp = (PP*) vp ;
   BigArray wordCount = pp->wordCount ;
   Associator ass = pp->ass ;
   char *cp ;
@@ -478,7 +478,7 @@ void dwParse (void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
   TP *tp ;
-  PP *pp = (PP *)vp ;
+  PP *pp = vp ;
   ACEIN ai = 0 ;
   int ii, state = 0, mult = 1, n ; 
   int nMax = 1000000 ;

@@ -134,7 +134,7 @@ typedef struct int4Struct { int xx[IBMAX] ; } I4 ;
 #define RIGHTMASK (CENTRALMASK - 1)
 #define LEFTMASK ((RIGHTMASK << WORDLENGTH) & MASK)
 
-static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], const char *dna, int *nks, int *polyAp, int ibMax)
+static I4 dnaBloomOneSequence (int phase, const BitSet blooms[], int wordJumps[], const char *dna, int *nks, int *polyAp, int ibMax)
 {
   I4 mynks ;
   register unsigned int f = 0 ; /* the word buffer in the forward direction */
@@ -200,9 +200,9 @@ static I4 dnaBloomOneSequence (int phase, BitSet blooms[], int wordJumps[], cons
 
 /*************************************************************************************/
 
-static void dblExportTelomere (void *vp)
+static void dblExportTelomere (const void *vp)
 {
-  PP *pp = (PP *)vp ;
+  const PP *pp = vp ;
   AC_HANDLE h = ac_new_handle() ;
   TELOEXPORT t ;
   int n = 0 ;
@@ -229,9 +229,9 @@ typedef struct telomereStruct {
   KEYSET kmerFullHistos[IBMAX], kmerPieceHistos[IBMAX], polyaPieceHisto, polyaFullHisto ; 
   BitSet bb, blooms[IBMAX] ; } TELO ;
 
-static void dblDoCountTelomere (void *vp)
+static void dblDoCountTelomere (const void *vp)
 {
-  TELO *tp = (TELO *)vp ;
+  const TELO *tp = (TELO *)vp ;
   int k, nLines = 0, mult = 0, polyA = 0 ;
   int ib, ibMax = tp->ibMax ;
   int nks[ibMax] ;
@@ -341,8 +341,8 @@ static void dblDoCountTelomere (void *vp)
 			  channelPut (pp->teloExportChan, &t, TELOEXPORT) ;
 			}
 		    }
-		  tp->nPieceSeqs++ ; /* analyzing */
-		  tp->nPieceTags += mult ; 
+		  ((TELO*)tp)->nPieceSeqs++ ; /* analyzing */
+		  ((TELO*)tp)->nPieceTags += mult ; 
 
 		  if (iMax == 1 && ! tp->pp->noPolyA)
 		    keySet (tp->polyaFullHisto, polyA) += mult ;
@@ -359,8 +359,8 @@ static void dblDoCountTelomere (void *vp)
 		  if (! tp->pp->noPolyA)
 		    keySet (tp->polyaFullHisto, polyA) += mult ;
 		}
-	      tp->nFullSeqs++ ; /* analizing */
-	      tp->nFullTags += mult ; 
+	      ((TELO *)tp)->nFullSeqs++ ; /* analizing */
+	      ((TELO *)tp)->nFullTags += mult ; 
 	    }
 	  cp = cq ; /* start of next line */
 	}

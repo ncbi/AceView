@@ -135,7 +135,7 @@ static char *getHostIP (void)
 
 typedef enum { ZERO=0, KILL_CLIENT } LIFE_TYPE ;
 
-static void remote_channel_client_echo_writer (void *vp)
+static void remote_channel_client_echo_writer (const void *vp)
 {
   CHAN *w = *(CHAN **) vp ;
   int n, n1, nn, nn2 ;
@@ -223,7 +223,7 @@ static void remote_channel_client_echo_writer (void *vp)
 
 /*********************************************************************/
 
-static void remote_channel_client_echo_reader (void *vp)
+static void remote_channel_client_echo_reader (const void *vp)
 {
   CHAN *r = *(CHAN **) vp ;
   int i, n, nn ;
@@ -301,7 +301,7 @@ static void remote_channel_client_echo_reader (void *vp)
 
 /*********************************************************************/
 
-static void remote_channel_server_echo_reader (void *vp)
+static void remote_channel_server_echo_reader (const void *vp)
 {
   CHAN *r = *(CHAN **) vp ;
   FDM fdm ;
@@ -337,7 +337,7 @@ static void remote_channel_server_echo_reader (void *vp)
 
 /*********************************************************************/
 
-static void remote_channel_server_echo_writer (void *vp)
+static void remote_channel_server_echo_writer (const void *vp)
 {
   CHAN *w = *(CHAN **) vp ;
   int n, n1, nn, fd = 0 ;
@@ -791,7 +791,7 @@ static int taskTcpInit (TASK *task)
 }
 
 
-static void taskTcpListen (void *vp)
+static void taskTcpListen (const void *vp)
 {
   TASK *task = *(TASK **) vp ;
   int x;
@@ -815,7 +815,8 @@ static void taskTcpListen (void *vp)
       read_fds = open_sockets ;
 
       /*
-       * wait for activity from the listening socket or any client.
+       * wait for activity from the1984
+ listening socket or any client.
        *
        * If you need a timeout for server inactivity, do it in this select.
        */
@@ -1054,7 +1055,7 @@ static void taskDispatchDestroy (void *vp)
 
 /*********************************************************************/
 /* Client side: wait for a server request to kill the client */
-static void taskClientLifeManager (void *vp)
+static void taskClientLifeManager (const void *vp)
 {
   TASK *task = *(TASK **) vp ;
   LIFE_TYPE t = 0 ;

@@ -243,7 +243,7 @@ struct wego_task *wego_run (struct wego_group *group, void (*function)(),
 ** common data structures.
 */
 
-WEGO_TASK *wego_go_size (void(*f)(void *vp), void *vp, int size, struct wego_group *group) 
+WEGO_TASK *wego_go_size (void(*f)(const void *vp), const void *vp, int size, struct wego_group *group) 
 {
   struct wego_task *r;
   /* int parameter_struct_size = sizeof (void*) ;   */
@@ -302,7 +302,7 @@ WEGO_TASK *wego_go_size (void(*f)(void *vp), void *vp, int size, struct wego_gro
   return r;
 } /* wego_go_size */
 
-void wego_go_ (void(*f)(void *vp), void *vp, int size)
+void wego_go_ (void(*f)(const void *vp), const void *vp, int size)
 {
   if (! max_threads)   /* a security if wego has not been initialized */
     wego_max_threads (8) ;
@@ -326,7 +326,7 @@ void wego_log (const char *text)
 
 /************************************************************************/
 
-static void wego_export_logs (void *vp)
+static void wego_export_logs (const void *vp)
 {
   const char *text = 0 ;
   while (channelMultiGet (wego_log_channel, &text, 1, const char*))
@@ -762,7 +762,6 @@ static void wego_schedule (void)
 static void wego_do_max_threads (int max)
 {
   int n;
-  extern void memSetIsMultiThreaded (void) ;
 
   if (max_threads)
     {
@@ -772,6 +771,7 @@ static void wego_do_max_threads (int max)
     }
   max_threads = max ;
   memSetIsMultiThreaded () ; /* set memsubs in thread-safe mode */
+
   arrayReport (-2) ;   /* blocks static array counts */
   n = pthread_key_create (&threadrunner_key, NULL );
   if (n < 0)

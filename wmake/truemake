@@ -520,8 +520,8 @@ GCFLAGS =
 ## Different platforms use CC or COMPILE.c
 #  (USEROPTS - see comments at top of file)
 #
-CC =        $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c
-COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -c
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -D_FILE_OFFSET_BITS=64 -c
+COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -D_FILE_OFFSET_BITS=64 -c
 
 
 ###########################################################

@@ -401,7 +401,17 @@ BOOL dictAdd (_DICT *dict, const char *s, int *ip)
       return FALSE ;
     }
 
-  if (dict->lock) dict->channelLock (dict->lock) ;
+  if (dict->lock) 
+    {
+      dict->channelLock (dict->lock) ;
+      if (dictFind (dict, s, &ii))	/* word added by a parallel thread */
+	{
+	  if (ip)
+	    *ip = ii ;
+	  dict->channelUnlock (dict->lock) ;
+	  return FALSE ;
+	}
+    }
   ii++ ;
   if (ii < 0)
     ii = -ii ; /* reuse */

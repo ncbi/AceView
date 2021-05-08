@@ -29,9 +29,9 @@ typedef struct pStrct {
  * selfDestruct: the code should selfDestruct after a fixed time, but is revived or killed from stdin
  */
 typedef struct test1Struct { CHAN *count, *countAgain, *abort ; } TEST1 ;
-static void wegoTest1_countDown (void *vp)
+static void wegoTest1_countDown (const void *vp)
 {
-  TEST1 *tt = (TEST1 *)vp ;
+  const TEST1 *tt = (TEST1 *)vp ;
   BOOL b ;
   int i = 10 ;
 
@@ -55,9 +55,9 @@ static void wegoTest1_countDown (void *vp)
 
 /**********************/
 
-static void wegoTest1_abort_from_keyBoard (void *vp)
+static void wegoTest1_abort_from_keyBoard (const void *vp)
 {
-  TEST1 *tt = (TEST1 *)vp ;
+  const TEST1 *tt = (TEST1 *)vp ;
   char cc = 0 ;
   BOOL b = TRUE ;
 

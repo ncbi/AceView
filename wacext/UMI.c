@@ -2991,8 +2991,10 @@ static BOOL umiGetOneHit (UMI *umi, LANE *lane)
 	       y1 = hit->x1 ; y2 = hit->x2 ;
 
 	       /* unhack */
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; 
-	       if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
 
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	       cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
@@ -3136,8 +3138,10 @@ static BOOL umiGetOneHit (UMI *umi, LANE *lane)
 	       y1 = hit->x1 ; y2 = hit->x2 ;
 	       
 	       /* unhack */
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; 
-	       if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
 	       
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	       cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
@@ -3265,8 +3269,12 @@ static BOOL umiGetOneHit (UMI *umi, LANE *lane)
 		 }
 
 	       c1 = a2 ; c2 = b1 ;
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
-	       dx = y1 - x2 ; if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
+	       dx = y1 - x2 ; 
+	       if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
 
 	       /* clean up x duplications */
 	       

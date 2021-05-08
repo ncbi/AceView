@@ -4298,7 +4298,8 @@ static void abiFixLabelClusterPolyA (Array aa5, Array aa3, Array gDna, BOOL isDo
 		oldGroup = ap->group ;
 		a20 = bestA20 = ap->a20 ; 
 		n = 1 + 5 * ap->nAClones0 + ap->mClones03 ; 
-		if (ap->tail) n+=2 ; bestN = n ; 
+		if (ap->tail) n+=2 ;
+		bestN = n ; 
 		for (jj = ii-1, ap1 = ap-1 ; jj >= 0 && ap1->group == ap->group ; jj--, ap1--)
 		  {
 		    if (ap1->a20 != a20) 
@@ -4442,7 +4443,7 @@ static int abiFixLabelReportPolyA (KEY mrna, Array aa5, Array aa3, DICT *dict)
 	    if (ap->est && /* a cluster point */
 		ap->aRich <= 0 &&
 		(ap->signal || isWorm) &&
-		(ap->nClones3 >= (ap->polyAPriming ? 1 : 3) || ap->tail || ap->mClones3 > UTR_showAll ? 1 : 3) 
+		(ap->nClones3 >= (ap->polyAPriming ? 1 : 3) || ap->tail || ap->mClones3 > (UTR_showAll ? 1 : 3))
 		)
 	      { /* report if represented in this mrna, or if matching the end of the mrna */
 		/* count the supporting reads */

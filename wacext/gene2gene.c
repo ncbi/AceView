@@ -974,7 +974,7 @@ static void matchProduct_genefinder (Array pGenes, Array products)
 			, ac_protect (ac_key_name(hh->gene), h)
 			, ac_protect (ac_key_name(ph->gene), h)
 			) ;
-	    vtxtPrintf (txt, "") ;
+	  /* vtxtPrintf (txt, "") ; inutile ce truc ? */
 	  if (ph->isUp && hh->isUp )
 	    vtxtPrintf (txt, "Product %s\nSame_stop_as %s\n\n"
 			, ac_protect (ac_key_name(hh->gene), h)

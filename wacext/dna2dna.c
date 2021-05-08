@@ -1638,9 +1638,15 @@ static void makeTestWithSNP (SX *sx, BOOL isExact, BOOL forward)
 	{
 	  int i ;
 	  char *cp, *cq ;
-	  for (i = 0, cp = buf2 + LN2 - 1, cq = buf ; i < LN2 ; i++, cp--, cq++) *cp =  dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cq]]] ; buf2[LN2] = 0 ;
-	  for (i = 0, cp = eBuf2 + LN2 - 1, cq = eBuf ; i < LN2 ; i++, cp--, cq++) *cp = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cq]]] ; eBuf2[LN2] = 0 ;
-	  for (i = 0, cp = qBuf2 + LN2 - 1, cq = qBuf ; cq < cp ; i++, cp--, cq++) *cp = *cq ; qBuf2[LN2] = 0 ;
+	  for (i = 0, cp = buf2 + LN2 - 1, cq = buf ; i < LN2 ; i++, cp--, cq++) 
+	    *cp =  dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cq]]] ;
+	  buf2[LN2] = 0 ;
+	  for (i = 0, cp = eBuf2 + LN2 - 1, cq = eBuf ; i < LN2 ; i++, cp--, cq++) 
+	    *cp = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*cq]]] ; 
+	  eBuf2[LN2] = 0 ;
+	  for (i = 0, cp = qBuf2 + LN2 - 1, cq = qBuf ; cq < cp ; i++, cp--, cq++) 
+	    *cp = *cq ; 
+	  qBuf2[LN2] = 0 ;
 	}
       else
 	{

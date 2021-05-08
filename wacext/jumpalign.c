@@ -214,7 +214,7 @@ static void reportHitsReport (JP *jp, SEQ *seq, long unsigned int z1)
 
 /***************************************************************/
 
-static long unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
+static long unsigned int reportHitsNavigate (const JP *jp, SEQ *seq, Array z1s)
 {
   long unsigned int z1, z2, last = 0, nn = 1 ;
   int i, k  = arrayMax (z1s), w = jp->wMax ;
@@ -247,7 +247,7 @@ static long unsigned int reportHitsNavigate (JP *jp, SEQ *seq, Array z1s)
 /* collect all initial hits in an array, so we can navigate
  * with all pointers in parallel and do less multi search 
 */
-static long unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
+static long unsigned int reportHitsCollect (const JP *jp, int ii, Array z1s)
 {
   SEQ *seq = arrp (jp->reads, ii, SEQ) ; 
   long unsigned int i, k, z1, *pzz = jp->pzz ;
@@ -266,7 +266,7 @@ static long unsigned int reportHitsCollect (JP *jp, int ii, Array z1s)
 
 /***************************************************************/
 
-static int reportHits (JP *jp, int *nReadsp, int *nHitsp)
+static int reportHits (const JP *jp, int *nReadsp, int *nHitsp)
 {
   AC_HANDLE h = ac_new_handle () ;
   Array z1s = arrayHandleCreate (1000, long unsigned int, h) ; 
@@ -296,7 +296,7 @@ static int reportHits (JP *jp, int *nReadsp, int *nHitsp)
  * create a hash length jp->exportHash
  * export it in binary format
  */
-static int jumpAlignExportHash (JP *jp)
+static int jumpAlignExportHash (const JP *jp)
 {
   AC_HANDLE h = ac_new_handle () ;
   Array z1s = arrayHandleCreate (1000, long unsigned int, h) ; 
@@ -333,7 +333,7 @@ static int rpOrder (const void *a, const void *b)
 
 /*************************************************************************************/
 
-static int jumpAlignExportRepeats (JP *jp)
+static int jumpAlignExportRepeats (const JP *jp)
 {
   RP *rp ;
   AC_HANDLE h = ac_new_handle () ;
@@ -415,7 +415,7 @@ static int jumpAlignExportRepeats (JP *jp)
 /***************************************************************/
 /***************************************************************/
 
-static void ppShow (JP *jp, char *title)
+static void ppShow (const JP *jp, char *title)
 { 
   char cc, *tDna ;
   long unsigned int i ;
@@ -552,8 +552,10 @@ static void jumpAlignExportIndex (JP *jp, int wMax)
 
       close (fd) ;
     }
-  if (jp->zz) free (jp->zz) ; jp->zz = 0 ; /* make space */
-  if (jp->zz2) free (jp->zz2) ; jp->zz2 = 0 ; /* make space */
+  if (jp->zz) free (jp->zz) ; 
+  jp->zz = 0 ; /* make space */
+  if (jp->zz2) free (jp->zz2) ; 
+  jp->zz2 = 0 ; /* make space */
 
    /* create and export the initialization table */
   for (suffix = 0 ; suffix < SPLIT ; suffix++)
@@ -782,9 +784,9 @@ static void jumpAlignImportIndex  (JP *jp)
 /***************************************************************/
 /* read the Reads to be aligned in binary format
  */  
-static void jumpAlignImportReadsDict  (void *vp)
+static void jumpAlignImportReadsDict  (const void *vp)
 {
-  JP *jp = (JP *) vp ;
+  const JP *jp = vp ;
   int k ;
   /* read the initialisation index */
   if (1) /* parse the dict */
@@ -1024,7 +1026,7 @@ static long unsigned int jumpAlignInitTargetJumps (JP *jp)
 /***************************************************************/
 /***************************************************************/
 /* initialize the jump table with direct hooks into the Target index table */
-static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (JP *jp, IXLD *ixld)
+static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (const JP *jp, IXLD *ixld)
 {
   int suffix = ixld->suffix ;
   int wMax0 = jp->wMax0 ;
@@ -1112,9 +1114,9 @@ static unsigned long int jumpAlignInitReadJumpsFromFragmentedOligoTableParttN (J
 
 /***************************************************************/
 /* open or memorymap one of the index parts */
-static void jumpAlignInitIndexer (void *vp)
+static void jumpAlignInitIndexer (const void *vp)
 {
-  JP *jp = (JP *)vp ;  
+  const JP *jp = (JP *)vp ;  
   IXLD ixld ; 
   BOOL debug = FALSE ;
 
@@ -1137,9 +1139,9 @@ static void jumpAlignInitIndexer (void *vp)
 
 /***************************************************************/
 /* open or memorymap one of the index parts */
-static void jumpAlignInitLoader (void *vp)
+static void jumpAlignInitLoader (const void *vp)
 {
-  JP *jp = (JP *)vp ;  
+  const JP *jp = (JP *)vp ;   
   BOOL useMemoryMapping = FALSE ;
   IXLD ixld ;
   unsigned long int NI = 1 ;
@@ -1426,7 +1428,7 @@ static void jumpAlignDoFilter (PP * pp, ZONE * zone)
 /***************************************************************/
 /***************************************************************/
 /* this option is faster than the one above by about 5% */
-static void jumpAlignDo (PP *pp)
+static void jumpAlignDo (const PP *pp)
 {
   long unsigned int i ;
   int w = pp->w ;
@@ -1618,9 +1620,9 @@ static void jumpAlignDo (PP *pp)
 
 /***************************************************************/
 /* split the function so the thread does not get killed */ 
-static void jumpAlignFilter (void *vp)
+static void jumpAlignFilter (const void *vp)
 {
-  PP *pp = (PP *) vp ;
+  PP *pp = vp ;
   ZONE zone ;
 
   memset (&zone, 0, sizeof(zone)) ;

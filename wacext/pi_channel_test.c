@@ -7,9 +7,9 @@ typedef struct piStruct { int N, C, sleep ; CHAN *inChan, *outChan ; } PP ;
 /********************************** actual work **************************************/
 /* Throw N darts, check if they fall in the unit circle, return the counts */
 
-static void piTrial (void *vp)
+static void piTrial (const void *vp)
 {
-  PP *pp = (PP *)vp ;
+  const PP *pp = (PP *)vp ;
   long s = 0 ;
   int T ;
   AC_HANDLE h = ac_new_handle () ;

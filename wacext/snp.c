@@ -4,7 +4,7 @@
  * SNP search in the output of the MAGIC suite
 */
 
-/* #define ARRAY_CHECK    */
+/* #define ARRAY_CHECK     */
 
 #include "../wac/ac.h"
 #include "bitset.h"
@@ -51,7 +51,7 @@ typedef struct snpStruct {
   BOOL hits2BRS ;
   int mult, n, NN, snp ;
   int eeLastSub, eeLastInsert ;
-  BOOL unique, db_intersect, remap, keepSample, db_pheno, db_translate, db_report, db_VCF ;
+  BOOL unique, db_intersect, remap, db_pheno, db_translate, db_report, db_VCF ;
   BOOL vcfTable, frequencyTable, prevalenceTable, frequencyHisto, dbCount ;
   BOOL dropMultiplicity ; /* count each sequence only one, dropping the #multiplicity parameter */
   BOOL differential ; /* limit to Variant with tag differential */
@@ -289,7 +289,7 @@ static int ssOrder (const void *va, const void *vb)
 
 /*************************************************************************************/
 #define NN 32
-typedef struct ssmStruct { int run, variant, target, pos
+typedef struct ssmStruct { int run, variant, target, pos, leftShift 
 			     , snp, count, coverR, coverS, coverT
 			     ;} SSM ;
 
@@ -1997,6 +1997,8 @@ static long int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
       if (*ccp == '~' && oldXSnp) ssm->snp = oldXSnp ;
       else if (*ccp == '-' && ccp[1] == 0) 
 	{ bigArrayMax (snps)-- ; continue ; } /* we are out of the genome reference */
+      else if (0 && ccp [1])
+	{ bigArrayMax (snps)-- ; continue ; } /* HACK: we only keep the ref and kill the variants */
       else 
 	{
 	  char c, c1 ;
@@ -2216,7 +2218,7 @@ static int snpParseSnpList (SNP *snp)
   AC_HANDLE h = ac_new_handle () ;
   int n, nn = 0 ;
   ACEIN ai ;
-  char *cp, *cq, buf[2048] ;
+  char *cp, *cq ;
   DICT *dict ;
 
   dict = snp->oldSnps = dictHandleCreate (100000, snp->h) ;
@@ -2241,18 +2243,17 @@ static int snpParseSnpList (SNP *snp)
 	messcrash ("bad variant (no : between the sequence name and the position in column 3 file %s, line %d : %s\n"
 		   , aceInFileName (ai), aceInStreamLine (ai), cp
 		   ) ;
-      cq = strchr (cq, '_') ; 
-      if (cq) *cq = 0 ;
-      else 
-	messcrash ("bad variant (no _ between the position and the type in column 3 file %s, line %d : %s\n"
+      cq = strchr (cq, ':') ; 
+      if (! cq++)
+	messcrash ("bad variant (no : between the positionand the type in column 3 in file %s, line %d : %s\n"
 		   , aceInFileName (ai), aceInStreamLine (ai), cp
 		   ) ;
-      n = strlen(cp) ; strncpy (buf, cp, 2000) ;
-      buf[n] = '_' ; cq++ ; cp = buf + n + 1 ;
-      if (! strncmp (cq, "Ins", 3)) { *cp++ = '+' ; cq += 3 ; while ((*cp++ = ace_lower (*cq++))) ; }
-      else if (! strncmp (cq, "Del", 3)) { *cp++ = '-' ; cq += 3 ; while ((*cp++ = ace_lower (*cq++))) ; }
-      else { *cp++ = ace_lower (*cq++) ; *cp++ = '>' ; cq++ ;  while ((*cp++ = ace_lower (*cq++))) ; }
-      dictAdd (dict, buf, 0) ;
+     cq = strchr (cq, ':') ; 
+      if (! cq++)
+	messcrash ("bad variant (no : between the reference and the variant sequence in column 3 in file %s, line %d : %s\n"
+		   , aceInFileName (ai), aceInStreamLine (ai), cp
+		   ) ;
+      dictAdd (dict, cp, 0) ;
     }
   ac_free (h) ;
 
@@ -2267,21 +2268,90 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
 {
   int sn, sign = 0, d = 0 ;
   BOOL isRepeat = FALSE ;
-  char buf0[250], *cp ;
+  char buf0[1024], *cp , hookBase = 'n' ;
   const char *ccp ;
 
   sn = ssm->snp ; if (sn < 0) sn = - sn ; sn-- ;
   ccp = sn ? dictName (snp->eeDict, sn) : "W" ;
-
-  if (requestedName)
+  
+  if (requestedName)  /* deduce all data from the previous name */
     {
-      sprintf (namBuf, "%s:%d", dictName (snp->targetDict, ssm->target), ssm->pos) ;
-      if (! strncmp (requestedName, namBuf, strlen(namBuf)))
-	ccp = requestedName + strlen (namBuf) ; 
-      if (*ccp == '_' || *ccp == ':') ccp++ ;
+      char *cp, *cq ;
+      
+      sprintf (namBuf, "%s", requestedName) ;
+      strncpy (buf0, requestedName, 1000) ;
+      cp = strchr (buf0, ':') ;
+      cp = strchr (cp+1, ':') ;
+      sprintf (typeBuf, cp+1) ;
+      strncpy (buf0, typeBuf, 1000) ;
+      cp = buf0 ;
+      cq = strchr (cp, ':') ;
+      
+      if (! strncmp (cp, "Sub", 3)) 
+	{
+	  *deltap = 0 ;
+	  Abuf[0] = tagBuf[0] = cp[4] ;
+	  tagBuf[1] = '>' ;
+	  Bbuf[0] = tagBuf[2] = cp[6] ;
+	  Abuf[1] = Bbuf[1] = tagBuf[3] = 0 ;
+	  isRepeat = FALSE ;
+	}
+      else if (! strncmp (cp, "Del", 3)) 
+	{
+	  char *cr ;
+	  
+	  *cq = 0 ;
+	  if (strchr (cp, '/'))
+	    isRepeat = TRUE ;
+	  cr = strchr (cq+1, ':') ;
+	  *cr = 0 ;
+	  cq += 2 ;  /* jump :anchorBase */
+	  cr = Abuf ;
+	  while (*cq == ace_upper (*cq))
+	    *cr++ = *cq++ ;
+	  *cr = 0 ;
+	  *deltap = - strlen (Abuf) ;
+	  Bbuf[0] = '.' ; Bbuf[1] = 0 ;
+	  cp = tagBuf ;
+	  if (isRepeat)
+	    *cp++ = '*' ;
+	  *cp++ = '-' ;
+	  strcpy (cp, Abuf) ;
+	  
+	}
+      else if (! strncmp (cp, "Ins", 3)) 
+	{
+	  char *cr ;
+
+	  *cq = 0 ;
+	  if (strchr (cp, '/'))
+	    isRepeat = TRUE ;
+	  
+	  cq = strchr (cq+1, ':') ;
+	  cr = strchr (cq+1, ':') ;
+	  if (cr) *cr = 0 ;
+	  cq += 2 ;  /* jump :anchorBase */
+	  cr = Bbuf ;
+	  while (*cq == ace_upper (*cq))
+	    *cr++ = *cq++ ;
+	  *cr = 0 ;
+	  *deltap = strlen (Bbuf) ;
+	  Abuf[0] = '.' ; Abuf[1] = 0 ;
+	  cp = tagBuf ;
+	  if (isRepeat)
+	    *cp++ = '*' ;
+	  *cp++ = '+' ;
+	  strcpy (cp, Bbuf) ;
+	  
+	}
+      cp = Abuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
+      cp = Bbuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
+      cp = tagBuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
+      
+      return isRepeat ;
     }
   strcpy (buf0, ccp) ;
-
+  
   cp = buf0 - 1 ;
   while (*++cp)
     switch ((int)*cp)
@@ -2292,48 +2362,147 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
       case 'c': *cp = 'C' ; break ;
       case '2': *cp = '>' ; break ;
       }
-
+  
+  typeBuf[0] = 0 ;
   if (buf0[1] == '>')
     {
-      typeBuf[1] = '>' ; typeBuf[3] = 0 ;
-      typeBuf[0] = Abuf[0] = buf0[0] ; Abuf[1] = 0 ; 
-      typeBuf[2] = Bbuf[0] = buf0[2] ; Bbuf[1] = 0 ; 
+      sprintf (typeBuf, "Sub:%c:%c", buf0[0], buf0[2]) ;
+      Abuf[0] = buf0[0] ; Abuf[1] = 0 ; 
+      Bbuf[0] = buf0[2] ; Bbuf[1] = 0 ; 
     }
-  cp = buf0 ; if (*cp == '*') cp++ ;
-
+  
   *deltap = 0 ; 
-  cp = tagBuf ; ccp = buf0 ;
-
+  ccp = buf0 ;
+  
   if (*ccp == '*')
     { ccp++ ; isRepeat = TRUE ; }
-
+  
   /* we have ++aa if from BRS file and InsAA if from requested list */
   if (*ccp == '+')
-    { *cp++ = '+' ; strcpy (typeBuf, "Ins") ; sign = 1 ; Abuf[0] = '.' ; Abuf[1] = 0 ; }
+    { strcpy (typeBuf, "Ins") ; sign = 1 ; }
   else if (*ccp == '-')
-    {  *cp++ = '-' ; strcpy (typeBuf, "Del") ; sign = -1 ; Bbuf[0] = '.' ; Bbuf[1] = 0 ; }
+    {  strcpy (typeBuf, "Del") ; sign = -1 ;  }
   else if (! strncmp (ccp, "Ins", 3))
-    {   *cp++ = '+' ; ccp += 3 ; d = strlen (ccp) ; strcpy (typeBuf, "Ins") ; sign = 1 ; Abuf[0] = '.' ; Abuf[1] = 0 ; }
+    {   ccp += 3 ; d = strlen (ccp) ; strcpy (typeBuf, "Ins") ; sign = 1 ;}
   else if (! strncmp (ccp, "Del", 3))
-    { *cp++ = '-' ;  ccp += 3 ; d = strlen (ccp) ;  strcpy (typeBuf, "Del") ; sign = -1 ; Bbuf[0] = '.' ; Bbuf[1] = 0 ; }
+    { ccp += 3 ; d = strlen (ccp) ;  strcpy (typeBuf, "Del") ; sign = -1 ;  }
   while (*ccp == '+' || *ccp == '-')
     { d++ ; ccp++ ; }
   *deltap = sign * d ;  /* number of bases added or substracted */
-  strcpy (cp, ccp) ;
-  if (sign >= 1)  strncpy (Bbuf, ccp, 3) ;
-  if (sign <= -1)  strncpy (Abuf, ccp, 3) ;
-
+  
+  if (sign >= 1)  {  Abuf[0] = '.' ; Abuf[1] = 0 ; strncpy (Bbuf, ccp, 3) ; }
+  else if (sign <= -1)  {  Bbuf[0] = '.' ; Bbuf[1] = 0 ; strncpy (Abuf, ccp, 3) ; }
+  else { Abuf[0] = tagBuf[0] = ccp[0] ;  Abuf[1] = 0 ; tagBuf[1] = '>' ; Bbuf[0] = tagBuf[2] = ccp[2] ;  Bbuf[1] = 0 ; tagBuf[3] = 0 ; }
   cp = Abuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
   cp = Bbuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
   cp = tagBuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
+  
 
-  if (d == 0)  { Abuf[0] = tagBuf[0] ;  Abuf[1] = 0 ; Bbuf[0] = tagBuf[2] ;  Bbuf[1] = 0 ; }
+  if (sign == 1)
+    {
+      Array dna = array (snp->dnas, ssm->target, Array) ;
+      char s1[1024], s2[1024], slide[32] ;
+      
+      s1[0] = s2[0] = 'n' ; 
+      s1[1] = s2[1] = 0 ; 
+      slide[0] = 0 ;
+      /* roll back */
+      if (dna && ssm->pos > 1 && ssm->pos - 2 < arrayMax (dna))
+	{
+	  int i, j, dx = 0 ;
+	  while (arr (dna, ssm->pos - 1 - dx, char)  == ace_lower(buf0[d + ((10000 * d - dx + d-1) % d)]))
+	    dx++ ;
+	  ssm->leftShift = dx ;
+	  hookBase = arr (dna, ssm->pos - dx - 1, char) ;
+	  s1[0] = s2[0] = hookBase ;
+	  i = j = 1 ;
+	  for (j = 0 ; j < d && j < 1000 ; j++)
+	    s2[j+1] = ace_upper(Bbuf[(1000*d +j - dx)%d]) ;
+	  j++ ; /* because of the hookBase */
+	  for (i = 1 ; i < dx + 2 && i < 1000 && j < 1000 ; j++, i++)
+	    s1[i] = s2[j] = arr (dna, ssm->pos - dx + i - 1, char) ;
+	  s1[i] = s2[j] = 0 ;
+	  if (1)
+	    {
+	      int i ;
+	      char buf[d+1] ;
+	      char *cp = tagBuf ;
+
+	      if (dx) 
+		{ 
+		  isRepeat = TRUE ;
+		  *cp++ = '*' ;
+		}
+	      *cp++ = '+' ;
+	      for (i = 0 ; i < d ; i++)
+		*cp++ = buf[i] = Bbuf[(1000*d +i - dx)%d] ;
+	      *cp++ = buf[i] = 0 ;
+	      memcpy (Bbuf, buf, d+1) ;
+	      for (i = 0 ; i < d ; i++)
+	        buf0[d+i] = ace_upper(buf[i]) ;
+	      if (dx) sprintf (slide, "/%d", d+dx) ;
+	    }
+	}
+      if (d == 1 && ! slide[0])
+	sprintf (typeBuf, "Ins%s:%s:%s", slide, s1, s2) ;
+      else 
+	sprintf (typeBuf, "Ins_%d%s:%s:%s", d, slide, s1, s2) ;
+    }
+  else if (sign == -1)
+    {
+      Array dna = array (snp->dnas, ssm->target, Array) ;
+      char s1[1024], s2[1024], slide[32] ;
+      int dx = 0 ;
+
+      s1[0] = s2[0] = 'n' ; 
+      s1[1] = s2[1] = 0 ; 
+      slide[0] = 0 ;
+      /* roll back */
+      if (dna && ssm->pos > 1 && ssm->pos  < arrayMax (dna))
+	{
+	  int i, j, dy ;
+	  int a = ssm->pos - 1 ;
+
+	  while (arr (dna, a - dx, char)  == Abuf[(10000 * d - dx + d - 1) % d]) 
+	    dx++ ;
+	  ssm->leftShift = dx ;
+	  hookBase = arr (dna, ssm->pos - dx - 1, char) ;
+	  dy = 0 ; 
+	  while (arr (dna, ssm->pos - dx + dy + d, char)  == Abuf[(10000 * d - dx + dy ) % d]) 
+	    dy++ ;
+	  s1[0] = s2[0] = hookBase ;
+	  i = j = 1 ;
+	  for (i = 0 ; i < d && i < 1000 ; i++)
+	    s1[i+1] = ace_upper(Abuf[i]) ;
+	  i++ ; /* because of the hookBase */
+	  for (j = 1 ; j < dy + 2 && i < 1000 && j < 1000 ; j++, i++)
+	    s1[i] = s2[j] = arr (dna, ssm->pos - dx + d + j - 1, char) ;
+	  s1[i] = s2[j] = 0 ;
+	  if (1)
+	    {
+	      int i ;
+	      char *cp = tagBuf ;
+
+	      if (dy)
+		{
+		  isRepeat = TRUE ;
+		  *cp++ = '*' ;
+		}
+	      *cp++ = '-' ;
+	      for (i = 0 ; i < d ; i++)
+		*cp++ = Abuf[i] = arr (dna, ssm->pos - dx + i, char) ;
+	      *cp++ = Abuf[i] = 0 ;
+	      if (dy) sprintf (slide, "/%d", d+dy) ;
+	    }
+	}
+      if (d == 1 && !slide[0])
+	sprintf (typeBuf, "Del%s:%s:%s", slide, s1, s2) ;
+      else 
+	sprintf (typeBuf, "Del_%d%s:%s:%s", d, slide, s1, s2) ;
+    }
 
   if (! requestedName)
-    {
-      sprintf (namBuf, "%s:%d_%s", dictName (snp->targetDict, ssm->target),  ssm->pos, tagBuf) ;
-    }
-  
+    sprintf (namBuf, "%s:%d:%s", dictName (snp->targetDict, ssm->target),  ssm->pos - ssm->leftShift, typeBuf) ;
   return isRepeat ;  
 } /* snpBRS2snpName */
 
@@ -2691,14 +2860,14 @@ static int ssmOrderByC2a (const void *va, const void *vb)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static BOOL snpIsCompatibleToGenome (SNP *snp, SSM *ssm, const char *type, const char *Abuf)
+static BOOL snpIsCompatibleToGenome (SNP *snp, SSM *ssm, int leftShift, const char *type, const char *Abuf)
 {
   Array  dna = snp->dnas ? array (snp->dnas, ssm->target, Array) : 0 ;
   const char *ccp ;
 
   if (dna)
     {
-      ccp = arrp (dna, ssm->pos, char) ;
+      ccp = arrp (dna, ssm->pos - leftShift, char) ;
 
       if (! strncmp (type, "Ins", 3))
 	return TRUE ;
@@ -2706,12 +2875,12 @@ static BOOL snpIsCompatibleToGenome (SNP *snp, SSM *ssm, const char *type, const
 	{
 	  while (*Abuf)
 	   {
-	     if (ace_lower (*ccp) != ace_lower(*Abuf))
+	     if (*ccp && ace_lower (*ccp) != ace_lower(*Abuf))
 	       return FALSE ;
 	     ccp++ ; Abuf++ ;
 	   }
 	}
-      else if (ace_lower (*ccp) != *Abuf)
+      else if (*ccp && ace_lower (*ccp) != *Abuf)
 	return FALSE ;
     }
   return TRUE ;
@@ -2727,7 +2896,7 @@ static BOOL snpIsCompatibleToGenome (SNP *snp, SSM *ssm, const char *type, const
  * for insertions the wild count is R (like del)  of previous base if I insert the same base tttgg-> tttTgg
  * or local S (like for a substitution) if I inser something else      tttgg -> tttAgg
  */
-static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int delta, const char *typeBuf, const char *Abuf
+static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int delta, int leftShift, const char *typeBuf, const char *Abuf
 				 , int *cover, int *calledp, int *calledm, int *mp, int *mm, int *wp, int *wm
 				 , int *oo1p, int *oo1m, int *oo2p, int *oo2m, int pass)
 {
@@ -2740,7 +2909,7 @@ static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int 
   if (sn < 0) sn = -sn ; 
   *cover = *calledp = *calledm = *mp = *mm = *wp = *wm = *oo1p = *oo1m = *oo2p = *oo2m = 0 ;
 
-  if (! snpIsCompatibleToGenome (snp, ssm0, typeBuf, Abuf))
+  if (! snpIsCompatibleToGenome (snp, ssm0, leftShift, typeBuf, Abuf))
     return FALSE ;
 
   /* move up */
@@ -2778,228 +2947,184 @@ static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int 
     {
       /* with the else, the counts are ok even if we question on a wild-type ssm0 */
 
-      if (0)
-	{ /* before 2014_10_02 we counted in this way */
-	  if (ssm->snp == sn)  { if (sn == 1) *wp += ssm->count ; else *mp += ssm->count ; coverp = (delta ? ssm->coverR : ssm->coverS) ; *oo2p = ssm->coverT ; }
-	  else if (ssm->snp == -sn) { if (sn == 1) *wm += ssm->count ; else *mm += ssm->count ; coverm = (delta ? ssm->coverR : ssm->coverS) ; *oo2m = ssm->coverT ; }
-	  else if (ssm->snp == 1) { *wp += ssm->count ;  coverp = (delta ? ssm->coverR : ssm->coverS) ; *oo2p = ssm->coverT ; }
-	  else if (ssm->snp == -1) { *wm += ssm->count ;  coverm = (delta ? ssm->coverR : ssm->coverS) ; *oo2m = ssm->coverT ; }
-	}
-      else
-	{ 
-	  if (delta == 0)       /* substitution: mutant, wild type and coverage are directly available */
+      if (delta == 0)       /* substitution: mutant, wild type and coverage are directly available */
+	{
+	  if (ssm->snp >= 1)  { coverp = ssm->coverS ;   *oo2p = ssm->coverT ; }
+	  if (ssm->snp <= -1)  { coverm = ssm->coverS ;  *oo2m = ssm->coverT ; }
+	  
+	  if (ssm->snp >= 1) *calledp += ssm->count ;
+	  else *calledm += ssm->count ;
+	  
+	  if (ssm->snp == sn)        *mp = ssm->count ;
+	  else if (ssm->snp == -sn)  *mm = ssm->count ; 
+	  
+	  if (ssm->snp == 1)        *wp = ssm->count ;
+	  else if (ssm->snp == -1)  *wm = ssm->count ;
+	  
+	  /* the insertions also support the wild type */
+	  if (ssm->snp > snp->eeLastSub) /* we are on the plus strand */
 	    {
-	      if (ssm->snp >= 1)  { coverp = ssm->coverS ;   *oo2p = ssm->coverT ; }
-	      if (ssm->snp <= -1)  { coverm = ssm->coverS ;  *oo2m = ssm->coverT ; }
-
-	      if (ssm->snp >= 1) *calledp += ssm->count ;
-	      else *calledm += ssm->count ;
-
-	      if (ssm->snp == sn)        *mp = ssm->count ;
-	      else if (ssm->snp == -sn)  *mm = ssm->count ; 
+	      const char* ccp = dictName (snp->eeDict, ssm->snp - 1) ;
 	      
-	      if (ssm->snp == 1)        *wp = ssm->count ;
-	      else if (ssm->snp == -1)  *wm = ssm->count ;
-
-	      /* the insertions also support the wild type */
-	      if (ssm->snp > snp->eeLastSub) /* we are on the plus strand */
+	      while (*ccp == '*') ccp++ ;    
+	      if (*ccp == '+')
 		{
-		  const char* ccp = dictName (snp->eeDict, ssm->snp - 1) ;
-		  
-		  while (*ccp == '*') ccp++ ;    
-		  if (*ccp == '+')
-		    {
-		      *wp += ssm->count ;
-		    }
-		}
-	      if (ssm->snp <  - snp->eeLastSub) /* we are on the minus strand */
-		{
-		  const char* ccp = dictName (snp->eeDict, -ssm->snp - 1) ;
-		  
-		  while (*ccp == '*') ccp++ ; 
-		  if (*ccp == '+')
-		    {
-		      *wm += ssm->count ;
-		    }
+		  *wp += ssm->count ;
 		}
 	    }
-	  else if (delta < 0)    /* deletion: mutant is directly available, cover = coverR of this letter
-				  *  locate the stretch [r1,r2] of letter identical to r0 in the reference, r0 is somewhere inside [r1, r2]
-				  *  wild = cases with correct number of letters = cover - any delete in [r1, r2] - any insert at r2+1
-				  */
+	  if (ssm->snp <  - snp->eeLastSub) /* we are on the minus strand */
 	    {
-	      if (! donep && ssm->snp == sn)
+	      const char* ccp = dictName (snp->eeDict, -ssm->snp - 1) ;
+	      
+	      while (*ccp == '*') ccp++ ; 
+	      if (*ccp == '+')
 		{
-		  int r1, r2 ;
-		  Array dna = array (snp->dnas, ssm->target, Array) ;
-		  r1 = r2 = ssm->pos ;
-		  if (dna)
-		    {
-		      /* locate the stretch [r1,r2] in the reference with the same base b as the base beeing deleted */
-		      const char *ccp = arrp(dna, ssm->pos - 2, char) ;
-		      while (*ccp-- == b) r1-- ;
-		      ccp = arrp(dna, ssm->pos + 1, char) ;
-		      while (*ccp++ == b) r2++ ;
-		    }
-		  
-		  /* count in r1, r2 the number of cases with indels on the required stretch, add the inserts of the same base at the next position */
-
-		  for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ;
-		  if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
-		  for ( ; ii2 < iMax && ssm2->pos <= r2 + 1 ; ssm2++, ii2++)
-		    {
-		      if (ssm2->pos == r2 + 1)
-			{ /* deduce the insertions of the same base from the wild count */
-			  if (ssm2->snp >  snp->eeLastSub) /* we are on the plus strand */
-			    {
-			      const char* ccp = dictName (snp->eeDict, ssm2->snp - 1) ;
-
-			      while (*ccp == '*') ccp++ ;    
-			      if (*ccp == '+')
-				{
-				  while (*ccp == '+') ccp++ ;
-				  if (!strncmp (ccp, "Ins", 3)) ccp += 3 ;
-				  if (b == ace_lower(*ccp))
-				    *wp -= ssm2->count ;
-				}
-			    }
-			  if (ssm2->snp <  - snp->eeLastSub) /* we are on the minus strand */
-			    {
-			      const char* ccp = dictName (snp->eeDict, -ssm2->snp - 1) ;
-
-			      while (*ccp == '*') ccp++ ; 
-			      if (*ccp == '+')
-				{
-				  while (*ccp == '+') ccp++ ;
-				  if (b == ace_lower(*ccp))
-				    *wm -= ssm2->count ;
-				}
-			    }
-
-			  continue ;
-			}
-		      if (ssm2->snp > snp->eeLastSub || ssm2->snp < - snp->eeLastSub) 
-			{
-			  if (ssm2->pos > r1)
-			    {
-			      if (ssm2->snp > 0) *wp -= ssm2->count ;
-			      else *wm -=  ssm2->count ;
-			    }
-			  if (ssm2->pos == r1) /* only accept a deletion of base b. not an insert of a previous base */
-			    {
-			      const char* ccp = dictName (snp->eeDict, (ssm2->snp > 0 ? ssm2->snp - 1 : -ssm2->snp - 1)) ;
-			      
-			      while (*ccp == '*') ccp++ ; 
-			      if (*ccp == '-') /* in principle we do not need to check which base it is */
-				{
-				  while (*ccp == '-') ccp++ ;
-				  if (b == ace_lower(*ccp))
-				    {
-				      if (ssm2->snp > 0) *wp -= ssm2->count ;
-				      if (ssm2->snp < 0) *wm -= ssm2->count ;
-				    }
-				}
-			    }
-			}
-		      if (ssm2->snp == sn && ssm2->pos == pos)
-			{
-			  if (sn > 0) *mp = ssm2->count ;
-			  else  *mm = ssm2->count ;
-			}
-		      if (ssm2->snp == - sn && ssm2->pos == pos)
-			{
-			  if (sn < 0) *mp = ssm2->count ; 
-			  else  *mm = ssm2->count ; 
-			}
-		      if (ssm2->snp > 0) { coverp = ssm2->coverR ;  *oo2p = ssm->coverT ; }  /* for cover, we autaumatically catch the rigthmost base b */
-		      if (ssm2->snp < 0) { coverm = ssm2->coverR ;  *oo2m = ssm->coverT ; } /* for cover, we autaumatically catch the rigthmost base b */
-		    }
-		  *wp += coverp ;
-		  *wm += coverm ;
-		  *calledp = coverp ; 
-		  *calledm = coverm ;
-		  donep = 1 ;
-		}
-	      if (pass == 1 && ! donep && ssm->pos == pos && (ssm->snp == 1 ||  ssm->snp == -1))
-		{
-		  if (ssm->snp == 1)   { coverp = ssm->coverR ;  *calledp += ssm->coverR ; *wp = ssm->coverR ; *oo2p = ssm->coverT ; }
-		  if (ssm->snp == -1)  { coverm = ssm->coverR ;  *calledm += ssm->coverR ;  *wm = ssm->coverR ; *oo2m = ssm->coverT ; }
-		  donep = 1 ;
+		  *wm += ssm->count ;
 		}
 	    }
-	  else if (delta > 0)    /* insertion: mutant is directly available, 
-				  *  locate the stretch [r1,r2] of letter identical to the inserted letter in the reference, most often r0 = r2 + 1
-				  * if the inserted letter is different from the letter before, cover = soverS[r0]
-				  * if the inserted letter is identical to the previou one (duplication) cover = coverR[r2]
-				  * where [r1,r2] is the stretch of identical letters
-				  *  wild = cases with correct number of letters = cover - any insert or delete in [r1, r2] - any insert at r2+1
-				  */
+	}
+      else if (delta < 0)    /* deletion: mutant is directly available, cover = coverR of this letter
+			      *  locate the stretch [r1,r2] of letter identical to r0 in the reference, r0 is somewhere inside [r1, r2]
+			      *  wild = cases with correct number of letters = cover - any delete in [r1, r2] - any insert at r2+1
+			      */
+	{
+	  if (! donep && ssm->snp == sn)
 	    {
-	      if (! donep && ssm->snp == sn)
+	      int r1, r2 ;
+	      Array dna = array (snp->dnas, ssm->target, Array) ;
+	      r1 = r2 = ssm->pos ;
+	      if (dna)
 		{
-		  int r1, r2 ;
-		  Array dna = array (snp->dnas, ssm->target, Array) ;
-		  r1 = r2 = ssm->pos - 1 ;
-		  if (dna)
-		    {
-		      /* insertion at r0: mutant is directly available
-				   * if dup, insertion of same letter as previous one
-				   *   locate that strectch [r1,r2], cover = coverR of [r1,r2] (should be a constant), wild = cover - del anywhere in [r1,r2] - any inset at r0
-				   * if insert at r0, instertion of a ditinct letter
-				   *   cover = coverS at r0, wild = cover - any del at r0 - any insert at r0
-				   * if a coverR - delete here or before in TTT stratch - insert at nect base */
-
-		      /* locate the stretch [r1,r2] in the reference with the same base b as the base beeing deleted */
-		      const char *ccp = arrp(dna, ssm->pos - 1, char) ;
-		      if (* ccp == b)
-			{ 
-			  /* this insertion is really a duplication, we must study the [r1,r2] stretch */
-			  int i2 = ii ;
-			  while (i2-- > 0 && *--ccp == b) r1-- ;
-			}
-		      else
+		  /* locate the stretch [r1,r2] in the reference with the same base b as the base beeing deleted */
+		  const char *ccp = arrp(dna, ssm->pos - 2, char) ;
+		  while (*ccp-- == b) r1-- ;
+		  ccp = arrp(dna, ssm->pos + 1, char) ;
+		  while (*ccp++ == b) r2++ ;
+		}
+	      
+	      /* count in r1, r2 the number of cases with indels on the required stretch, add the inserts of the same base at the next position */
+	      
+	      for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ;
+	      if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
+	      for ( ; ii2 < iMax && ssm2->pos <= r2 + 1 ; ssm2++, ii2++)
+		{
+		  if (ssm2->pos == r2 + 1)
+		    { /* deduce the insertions of the same base from the wild count */
+		      if (ssm2->snp >  snp->eeLastSub) /* we are on the plus strand */
 			{
-			   /* this is a new letter, counts are directly available */
-			  r1 = r2 = ssm->pos ;
-			  for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ; 
-			  if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
-			  for ( ; ii2 < iMax && ssm2->pos <= r2  ; ssm2++, ii2++)
+			  const char* ccp = dictName (snp->eeDict, ssm2->snp - 1) ;
+			  
+			  while (*ccp == '*') ccp++ ;    
+			  if (*ccp == '+')
 			    {
-			      if (ssm2->snp == sn)   /* direct support for this insert */
-				{
-				  if (sn > 0) { *mp = ssm2->count ; *oo2p = ssm->coverT ; }
-				  else { *mm = ssm2->count ; *oo2m = ssm->coverT ; }
-				}
-			      else if (ssm2->snp == - sn)
-				{
-				  if (sn > 0) { *mm = ssm2->count ; *oo2m = ssm->coverT ; }
-				  else { *mp =  ssm2->count ; *oo2p = ssm->coverT ; }
-		
-				}
-			      if (ssm2->snp > 0) { coverp = ssm2->coverS ;  *oo2p = ssm->coverT ; }  /* for cover, we autaumatically catch the rigthmost base b */
-			      if (ssm2->snp < 0) { coverm = ssm2->coverS ;  *oo2m = ssm->coverT ; } /* for cover, we autaumatically catch the rigthmost base b */
-
-			      if (ssm2->snp > snp->eeLastSub) *wp -=  ssm2->count ;	  /* any other indel must be deduced from the wild type */
-			      else if (ssm2->snp < - snp->eeLastSub) *wm -=  ssm2->count ;
+			      while (*ccp == '+') ccp++ ;
+			      if (!strncmp (ccp, "Ins", 3)) ccp += 3 ;
+			      if (b == ace_lower(*ccp))
+				*wp -= ssm2->count ;
 			    }
-			  *wp += coverp ;
-			  *wm += coverm ;
-			  *calledp = coverp ; 
-			  *calledm = coverm ;
-			  donep = 1 ;
-			  continue ; /* this simple case is resolved */
-			}	
+			}
+		      if (ssm2->snp <  - snp->eeLastSub) /* we are on the minus strand */
+			{
+			  const char* ccp = dictName (snp->eeDict, -ssm2->snp - 1) ;
+			  
+			  while (*ccp == '*') ccp++ ; 
+			  if (*ccp == '+')
+			    {
+			      while (*ccp == '+') ccp++ ;
+			      if (b == ace_lower(*ccp))
+				*wm -= ssm2->count ;
+			    }
+			}
+		      
+		      continue ;
 		    }
-		  
-		  /* count in r1, r2 the number of cases with indels on the required stretch, add the inserts of the same base at the next position */
-
-		  for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ;
-		  if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
-		  r2 = pos ;
-		  for ( ; ii2 < iMax && ssm2->pos <= r2 ; ssm2++, ii2++)
+		  if (ssm2->snp > snp->eeLastSub || ssm2->snp < - snp->eeLastSub) 
 		    {
-		      if (ssm2->pos == pos)
-			{ 
+		      if (ssm2->pos > r1)
+			{
+			  if (ssm2->snp > 0) *wp -= ssm2->count ;
+			  else *wm -=  ssm2->count ;
+			}
+		      if (ssm2->pos == r1) /* only accept a deletion of base b. not an insert of a previous base */
+			{
+			  const char* ccp = dictName (snp->eeDict, (ssm2->snp > 0 ? ssm2->snp - 1 : -ssm2->snp - 1)) ;
+			  
+			  while (*ccp == '*') ccp++ ; 
+			  if (*ccp == '-') /* in principle we do not need to check which base it is */
+			    {
+			      while (*ccp == '-') ccp++ ;
+			      if (b == ace_lower(*ccp))
+				{
+				  if (ssm2->snp > 0) *wp -= ssm2->count ;
+				  if (ssm2->snp < 0) *wm -= ssm2->count ;
+				}
+			    }
+			}
+		    }
+		  if (ssm2->snp == sn && ssm2->pos == pos)
+		    {
+		      if (sn > 0) *mp = ssm2->count ;
+		      else  *mm = ssm2->count ;
+		    }
+		  if (ssm2->snp == - sn && ssm2->pos == pos)
+		    {
+		      if (sn < 0) *mp = ssm2->count ; 
+		      else  *mm = ssm2->count ; 
+		    }
+		  if (ssm2->snp > 0) { coverp = ssm2->coverR ;  *oo2p = ssm->coverT ; }  /* for cover, we autaumatically catch the rigthmost base b */
+		  if (ssm2->snp < 0) { coverm = ssm2->coverR ;  *oo2m = ssm->coverT ; } /* for cover, we autaumatically catch the rigthmost base b */
+		}
+	      *wp += coverp ;
+	      *wm += coverm ;
+	      *calledp = coverp ; 
+	      *calledm = coverm ;
+	      donep = 1 ;
+	    }
+	  if (pass == 1 && ! donep && ssm->pos == pos && (ssm->snp == 1 ||  ssm->snp == -1))
+	    {
+	      if (ssm->snp == 1)   { coverp = ssm->coverR ;  *calledp += ssm->coverR ; *wp = ssm->coverR ; *oo2p = ssm->coverT ; }
+	      if (ssm->snp == -1)  { coverm = ssm->coverR ;  *calledm += ssm->coverR ;  *wm = ssm->coverR ; *oo2m = ssm->coverT ; }
+	      donep = 1 ;
+	    }
+	}
+      else if (delta > 0)    /* insertion: mutant is directly available, 
+			      *  locate the stretch [r1,r2] of letter identical to the inserted letter in the reference, most often r0 = r2 + 1
+			      * if the inserted letter is different from the letter before, cover = soverS[r0]
+			      * if the inserted letter is identical to the previou one (duplication) cover = coverR[r2]
+			      * where [r1,r2] is the stretch of identical letters
+			      *  wild = cases with correct number of letters = cover - any insert or delete in [r1, r2] - any insert at r2+1
+			      */
+	{
+	  if (! donep && ssm->snp == sn)
+	    {
+	      int r1, r2 ;
+	      Array dna = array (snp->dnas, ssm->target, Array) ;
+	      r1 = r2 = ssm->pos - 1 ;
+	      if (dna)
+		{
+		  /* insertion at r0: mutant is directly available
+		   * if dup, insertion of same letter as previous one
+		   *   locate that strectch [r1,r2], cover = coverR of [r1,r2] (should be a constant), wild = cover - del anywhere in [r1,r2] - any inset at r0
+		   * if insert at r0, instertion of a ditinct letter
+		   *   cover = coverS at r0, wild = cover - any del at r0 - any insert at r0
+		   * if a coverR - delete here or before in TTT stratch - insert at nect base */
+		  
+		  /* locate the stretch [r1,r2] in the reference with the same base b as the base beeing deleted */
+		  const char *ccp = arrp(dna, ssm->pos - 1, char) ;
+		  if (* ccp == b)
+		    { 
+		      /* this insertion is really a duplication, we must study the [r1,r2] stretch */
+		      int i2 = ii ;
+		      while (i2-- > 0 && *--ccp == b) r1-- ;
+		    }
+		  else
+		    {
+		      /* this is a new letter, counts are directly available */
+		      r1 = r2 = ssm->pos ;
+		      for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ; 
+		      if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
+		      for ( ; ii2 < iMax && ssm2->pos <= r2  ; ssm2++, ii2++)
+			{
 			  if (ssm2->snp == sn)   /* direct support for this insert */
 			    {
 			      if (sn > 0) { *mp = ssm2->count ; *oo2p = ssm->coverT ; }
@@ -3009,82 +3134,117 @@ static BOOL snpCountOtherStrand (SNP *snp, SSM *ssm0, int sn, long int ii0, int 
 			    {
 			      if (sn > 0) { *mm = ssm2->count ; *oo2m = ssm->coverT ; }
 			      else { *mp =  ssm2->count ; *oo2p = ssm->coverT ; }
-			    }
-			  
-			  /* deduce the insertiton of the same base from the wild count */
-			  if (ssm2->snp >  snp->eeLastSub) /* we are on the plus strand */
-			    {
-			      const char* ccp = dictName (snp->eeDict, ssm2->snp - 1) ;
-
-			      while (*ccp == '*') ccp++ ;    
-			      if (*ccp == '+')
-				{
-				  while (*ccp == '+') ccp++ ;
-				  if (b == ace_lower(*ccp))
-				    *wp -= ssm2->count ;
-				}
-			    }
-			  if (ssm2->snp <  - snp->eeLastSub) /* we are on the minus strand */
-			    {
-			      const char* ccp = dictName (snp->eeDict, -ssm2->snp - 1) ;
-
-			      while (*ccp == '*') ccp++ ; 
-			      if (*ccp == '+')
-				{
-				  while (*ccp == '+') ccp++ ;
-				  if (b == ace_lower(*ccp))
-				    *wm -= ssm2->count ;
-				}
-			    }
-
-			  continue ;
-			}
-		      if (ssm2->snp > snp->eeLastSub || ssm2->snp < - snp->eeLastSub) /* count the insert or the deletes in the strech as non wild */
-			{
-			  if (ssm2->pos > r1)  /* inserts and deletes both count as non wild-type number of letters */
-			    {
-			      if (ssm2->snp > snp->eeLastSub ) *wp -= ssm2->count ;
-			      if (ssm2->snp < - snp->eeLastSub ) *wm -= ssm2->count ;
-			    }
-			  if (ssm2->pos == r1) /* only accept a deletion of base b. not an insert of a previous base */
-			    {
-			      const char* ccp = dictName (snp->eeDict, (ssm2->snp > 0 ? ssm2->snp - 1 : -ssm2->snp - 1)) ;
 			      
-			      while (*ccp == '*') ccp++ ; 
-			      if (*ccp == '-') /* in principle we do not need to check which base it is */
+			    }
+			  if (ssm2->snp > 0) { coverp = ssm2->coverS ;  *oo2p = ssm->coverT ; }  /* for cover, we autaumatically catch the rigthmost base b */
+			  if (ssm2->snp < 0) { coverm = ssm2->coverS ;  *oo2m = ssm->coverT ; } /* for cover, we autaumatically catch the rigthmost base b */
+			  
+			  if (ssm2->snp > snp->eeLastSub) *wp -=  ssm2->count ;	  /* any other indel must be deduced from the wild type */
+			  else if (ssm2->snp < - snp->eeLastSub) *wm -=  ssm2->count ;
+			}
+		      *wp += coverp ;
+		      *wm += coverm ;
+		      *calledp = coverp ; 
+		      *calledm = coverm ;
+		      donep = 1 ;
+		      continue ; /* this simple case is resolved */
+		    }	
+		}
+	      
+	      /* count in r1, r2 the number of cases with indels on the required stretch, add the inserts of the same base at the next position */
+	      
+	      for (ssm2 = ssm, ii2 = ii ; ii2>=0 && ssm2->pos >= r1 && ssm2->target == target && ssm2->run == run ; ssm2--, ii2--) ;
+	      if (ssm2->pos < r1) { ssm2++ ; ii2++ ; }
+	      r2 = pos ;
+	      for ( ; ii2 < iMax && ssm2->pos <= r2 ; ssm2++, ii2++)
+		{
+		  if (ssm2->pos == pos)
+		    { 
+		      if (ssm2->snp == sn)   /* direct support for this insert */
+			{
+			  if (sn > 0) { *mp = ssm2->count ; *oo2p = ssm->coverT ; }
+			  else { *mm = ssm2->count ; *oo2m = ssm->coverT ; }
+			}
+		      else if (ssm2->snp == - sn)
+			{
+			  if (sn > 0) { *mm = ssm2->count ; *oo2m = ssm->coverT ; }
+			  else { *mp =  ssm2->count ; *oo2p = ssm->coverT ; }
+			}
+		      
+		      /* deduce the insertiton of the same base from the wild count */
+		      if (ssm2->snp >  snp->eeLastSub) /* we are on the plus strand */
+			{
+			  const char* ccp = dictName (snp->eeDict, ssm2->snp - 1) ;
+			  
+			  while (*ccp == '*') ccp++ ;    
+			  if (*ccp == '+')
+			    {
+			      while (*ccp == '+') ccp++ ;
+			      if (b == ace_lower(*ccp))
+				*wp -= ssm2->count ;
+			    }
+			}
+		      if (ssm2->snp <  - snp->eeLastSub) /* we are on the minus strand */
+			{
+			  const char* ccp = dictName (snp->eeDict, -ssm2->snp - 1) ;
+			  
+			  while (*ccp == '*') ccp++ ; 
+			  if (*ccp == '+')
+			    {
+			      while (*ccp == '+') ccp++ ;
+			      if (b == ace_lower(*ccp))
+				*wm -= ssm2->count ;
+			    }
+			}
+		      
+		      continue ;
+		    }
+		  if (ssm2->snp > snp->eeLastSub || ssm2->snp < - snp->eeLastSub) /* count the insert or the deletes in the strech as non wild */
+		    {
+		      if (ssm2->pos > r1)  /* inserts and deletes both count as non wild-type number of letters */
+			{
+			  if (ssm2->snp > snp->eeLastSub ) *wp -= ssm2->count ;
+			  if (ssm2->snp < - snp->eeLastSub ) *wm -= ssm2->count ;
+			}
+		      if (ssm2->pos == r1) /* only accept a deletion of base b. not an insert of a previous base */
+			{
+			  const char* ccp = dictName (snp->eeDict, (ssm2->snp > 0 ? ssm2->snp - 1 : -ssm2->snp - 1)) ;
+			  
+			  while (*ccp == '*') ccp++ ; 
+			  if (*ccp == '-') /* in principle we do not need to check which base it is */
+			    {
+			      while (*ccp == '-') ccp++ ;
+			      if (b == ace_lower(*ccp))
 				{
-				  while (*ccp == '-') ccp++ ;
-				  if (b == ace_lower(*ccp))
-				    {
-				      if (ssm2->snp > 0) *wp -= ssm2->count ;
-				      if (ssm2->snp < 0) *wm -= ssm2->count ;
-				    }
+				  if (ssm2->snp > 0) *wp -= ssm2->count ;
+				  if (ssm2->snp < 0) *wm -= ssm2->count ;
 				}
 			    }
 			}
-		      if (ssm2->snp > 0) coverp = ssm2->coverR ;   /* for cover, we autaumatically catch the rigthmost base b */
-		      if (ssm2->snp < 0) coverm = ssm2->coverR ;   /* for cover, we autaumatically catch the rigthmost base b */
 		    }
-		  *wp += coverp ;
-		  *wm += coverm ;
-		  *calledp = coverp ; 
-		  *calledm = coverm ;
-		  donep = 1 ;
+		  if (ssm2->snp > 0) coverp = ssm2->coverR ;   /* for cover, we autaumatically catch the rigthmost base b */
+		  if (ssm2->snp < 0) coverm = ssm2->coverR ;   /* for cover, we autaumatically catch the rigthmost base b */
 		}
-	      if (pass == 1 && ! donep && ssm->pos == pos && (ssm->snp == 1 ||  ssm->snp == -1))
-		{
-		  for (ssm2 = ssm, ii2 = ii ; ii2 >= 0 && ssm2->pos >= pos - 1 ; ssm2--, ii2--) 
-		    if (ssm2->pos ==  pos - 1)
-		      {
-			if (ssm2->snp == 1)   { coverp = ssm2->coverR ;  *calledp = ssm2->coverR ; *wp = ssm2->coverR ; *oo2p = ssm2->coverT ; }
-			if (ssm2->snp == -1)  { coverm = ssm2->coverR ;  *calledm = ssm2->coverR ;  *wm = ssm2->coverR ; *oo2m = ssm2->coverT ; }
-		      }
-		  donep = 1 ;
-		}
-
+	      *wp += coverp ;
+	      *wm += coverm ;
+	      *calledp = coverp ; 
+	      *calledm = coverm ;
+	      donep = 1 ;
 	    }
+	  if (pass == 1 && ! donep && ssm->pos == pos && (ssm->snp == 1 ||  ssm->snp == -1))
+	    {
+	      for (ssm2 = ssm, ii2 = ii ; ii2 >= 0 && ssm2->pos >= pos - 1 ; ssm2--, ii2--) 
+		if (ssm2->pos ==  pos - 1)
+		  {
+		    if (ssm2->snp == 1)   { coverp = ssm2->coverR ;  *calledp = ssm2->coverR ; *wp = ssm2->coverR ; *oo2p = ssm2->coverT ; }
+		    if (ssm2->snp == -1)  { coverm = ssm2->coverR ;  *calledm = ssm2->coverR ;  *wm = ssm2->coverR ; *oo2m = ssm2->coverT ; }
+		  }
+	      donep = 1 ;
+	    }
+	  
 	}
-    }    
+    }
+
 
   if (coverp < 0) coverp = 0 ;
   if (coverm < 0) coverm = 0 ;
@@ -3119,16 +3279,16 @@ static int snpBRS2snpExport (SNP *snp)
   DICT *oldSnps = snp->oldSnps ;
   DICT *targetDict = snp->targetDict ;
   SSM *ssm ;
-  char namBuf[2048], typeBuf[12], Abuf[12], Bbuf[12], tagBuf[1000] ;
+  char namBuf[2048], typeBuf[1024], Abuf[12], Bbuf[12], tagBuf[1000] ;
   int i, ii, nn = 0, cover = 0, mutant, calledp, calledm, wild, delta ;
   int mp, mm, wp, wm, oo1p, oo1m, oo2p, oo2m ;
   float z, z1, z2, cz2 ;
   int iOldSnp = 0 ;
   long int coveredPos[1001] ;
   BitSet bb1, bb[128] ;
-  KEYSET goodRuns = keySetHandleCreate (h) ;
+  /*   KEYSET goodRuns = keySetHandleCreate (h) ; */
   int prefix = 6 ;   /* how many base we want to export on each side of the event in the SNPnet */
-  char bufD[256], bufS[256], bufAB[12], *ss ;
+  char bufD[256], bufS[256], *ss ;
   Array dna ;
   BOOL showTitle = TRUE ;
   /* variables used to compute the cumulated histogram of the transcript coverage, in order to evaluate the 3' bias */
@@ -3158,7 +3318,6 @@ static int snpBRS2snpExport (SNP *snp)
 	aceOutf (wao, "\t%d", i) ;
     }
 
-  memset (bufAB, 0, sizeof (bufAB)) ;
   memset (coveredPos, 0, sizeof (coveredPos)) ;
 
   if (showTitle)
@@ -3166,10 +3325,12 @@ static int snpBRS2snpExport (SNP *snp)
       aceOutDate (ao, "##", snp->project) ;
       aceOutf (ao, 
 	       "##  1: Target :: Reference chromosome or transcript.\n"
-	       "##  2: Pos :: Position in the reference of the modified base, \n"
+	       "##  2: Pos :: Position in the reference of the hook base, \n"
 	       "##      -all our coordinates start at 1 (not zero).\n"
 	       "##      -all bases correspond to the plus strand of the reference\n"
-	       "##  3: Type :: > denotes a substitution, Ins or Del a micro insertion or deletion.\n"
+	       "##      -for a substitution,the position of the modified base is given\n" 
+	       "##      -for an indel, the position of the hook (last conserved) base is given\n" 
+	       "##  3: Type :: Sub,Del,Ins : reference : modified seq, starting on hook base.\n"
 	       "##  4: Reference :: the local reference sequence.\n"
 	       "##  5: Variation :: the local variant sequence:\n"
 	       "##      -We show, in upper case, or as -, the modified letters\n"
@@ -3235,7 +3396,7 @@ static int snpBRS2snpExport (SNP *snp)
   
   if (oldSnps)
     {
-      for (ii = 0 ; ii < 128 ; ii++)
+      for (ii = 0 ; ii < 1 ; ii++)
 	bb[ii] = bitSetCreate (1024, h) ;
     }
 
@@ -3245,7 +3406,7 @@ static int snpBRS2snpExport (SNP *snp)
   bigArraySort (snps, ssmOrderByC2a) ;
   for (ii = 0, ssm = bigArrp (snps, 0, SSM) ; ii < bigArrayMax (snps) ; ssm++, ii++)
     {
-      keySet (goodRuns, ssm->run) = 1 ;
+      /*       keySet (goodRuns, ssm->run) = 1 ; */
 
       if (wao &&
 	  (ssm->snp == 1 || ssm->snp == -1)                   /* just count at the wild positions */
@@ -3326,8 +3487,6 @@ static int snpBRS2snpExport (SNP *snp)
       if (ssm->snp == 1 || ssm->snp == -1) continue ;
       memset (Abuf, 0, sizeof(Abuf)) ; memset (Bbuf, 0, sizeof(Bbuf)) ;
       snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, 0) ;
-      if (! tagBuf[1])
-	continue ;
 
       /* report the SNPs,
        * detect mode :  if they are over threshold 
@@ -3341,7 +3500,7 @@ static int snpBRS2snpExport (SNP *snp)
 	    continue ;
 	} 
 
-      if (! snpCountOtherStrand (snp, ssm, ssm->snp, ii, delta, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 0))
+      if (! snpCountOtherStrand (snp, ssm, ssm->snp, ii, delta, ssm->leftShift, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 0))
 	continue ;
       mutant = mp + mm ; wild = wp + wm ;
       
@@ -3367,33 +3526,22 @@ static int snpBRS2snpExport (SNP *snp)
       if (1)
 	{
 	  aceOutf (ao, "%s\t%d\t%s"
-		   , dictName (targetDict, ssm->target), ssm->pos
+		   , dictName (targetDict, ssm->target), ssm->pos - ssm->leftShift
 		   , typeBuf
 		   ) ;
 	  dna = array (snp->dnas, ssm->target, Array) ;
-	  bufS[0] = bufD[0] = 0 ;
+	  memset (bufD, 0, sizeof (bufD)) ;
+	  memset (bufS, 0, sizeof (bufS)) ;
 	  if (dna)
 	    {
 	      int i, j ;
 	      char *cp ;
 
-	      for (j = 0, i = ssm->pos - prefix ; j < prefix && i < 0 ; j++, i++)  
+	      for (j = 0, i = ssm->pos - ssm->leftShift - prefix ; j < prefix && i < 0 ; j++, i++)  
 		bufD[j] = 'N' ;
 	      for ( ; j < prefix && i < arrayMax(dna) ; j++, i++)  
 		bufD[j] = arr (dna, i, char) > 0 ? ace_upper(arr (dna, i, char)) : 'N' ;
 	      bufD[j] = 0 ;
-	      if (delta < 0)
-		{
-		  cp = Abuf - delta - 1 ;
-		  for (j = prefix - 1 ; j >= 0 && ace_lower(bufD[j]) == ace_lower (*cp) ; j--, cp = (cp > Abuf ? cp - 1 : Abuf - delta - 1))
-		    bufD[j] = ace_lower(bufD[j]) ;
-		}
-	      if (delta > 0)
-		{
-		  cp = Bbuf + delta - 1 ;
-		  for (j = prefix - 1 ; j >= 0 && ace_lower(bufD[j]) == ace_lower (*cp) ; j--, cp = (cp > Bbuf ? cp - 1 : Bbuf - delta - 1))
-		    bufD[j] = ace_lower(bufD[j]) ;
-		}
 	      if (delta == 0) i++ ;
 	      else if (delta < 0) i -= delta ; 
 	      /* if delta > 0) do not move */
@@ -3402,12 +3550,20 @@ static int snpBRS2snpExport (SNP *snp)
 	      for (; j < prefix ; j++) 
 		bufS[j] = 'N' ;
 	      bufS[j] = 0 ;
+	      if (delta < 0)
+		{
+		  cp = Abuf ;
+		  for (j = 0 ;  ace_lower (bufS[j]) == ace_lower (*cp) ; j++, cp = (cp < Abuf - delta - 1 ? cp + 1 : Abuf))
+		    bufS[j] = ace_lower(bufS[j]) ;
+		}
+	      if (delta > 0)
+		{
+		  cp = Bbuf ;
+		  for (j = 0 ; ace_lower (bufS[j]) == ace_lower (*cp) ; j++, cp = (cp < Bbuf + delta - 1 ? cp + 1 : Bbuf))
+		    bufS[j] = ace_lower(bufS[j]) ;
+		}
 	    }
-	  if (delta < 0) strcpy (bufAB, Abuf) ;
-	  if (delta > 0) strcpy (bufAB, Bbuf) ;
-	  if (delta) { char *cp = bufAB - 1 ; while (*++cp) *cp = ace_upper (*cp) ; }
-	  aceOutf (ao, "%s\t%s%s%s\t%s%s%s"
-		   , delta ? bufAB : ""
+	  aceOutf (ao, "\t%s%s%s\t%s%s%s"
 		   , bufD, delta <= 0 ? Abuf : "---" + 3 - delta , bufS
 		   , bufD, delta >= 0 ? Bbuf : "---" + 3 + delta , bufS
 		   ) ;
@@ -3463,8 +3619,7 @@ static int snpBRS2snpExport (SNP *snp)
       aceOutf (ao, "\n") ;
     }
 
-
-  if (oldSnps)
+   if (1 && oldSnps)
     {
       long int jj, kk ;
       int jOldSnp ;
@@ -3474,15 +3629,16 @@ static int snpBRS2snpExport (SNP *snp)
       const void *vp ;
       DICT *mDict = 0 ;
 
-      for (kk = 0 ; kk < keySetMax(goodRuns) ; kk++)
+      for (kk = 0 ; kk < 1 /* keySetMax(goodRuns) */ ; kk++)
 	{
-	  if (snp->keepSample && kk == 0)
+	  /*
+	    if (snp->keepSample && kk == 0)
 	    continue ;
-	  if (snp->keepSample && ! keySet(goodRuns, kk))
+	    if (snp->keepSample && ! keySet(goodRuns, kk))
 	    continue ;
-	  if (! snp->keepSample && kk > 0)
+	    if (! snp->keepSample && kk > 0)
 	    continue ;
-
+	  */
 	  mDict = dictHandleCreate (10000, h) ; /* missed snp */
 	  missed2old = assReCreate (missed2old) ;
 	  for (jj = 1 ; jj <= dictMax (oldSnps) ; jj++)
@@ -3491,16 +3647,13 @@ static int snpBRS2snpExport (SNP *snp)
 		continue ;
 	      	      
 	      strcpy (buf, dictName (oldSnps, jj)) ;
-	      cp = buf + strlen(buf) - 1 ;
-	      while (cp > buf && *cp != ':') cp-- ;
-	      if (*cp++ != ':') 
-		continue ;
-	      while (*cp <= '9' && *cp >= '0') cp++ ;
-	      *cp = 0 ; /* first non number, so we are behind the position */
+	      cp = strchr(buf,':') ;
+	      cp = strchr(cp+1,':') ;
+	      *cp = 0 ; /* we keep   target:position */
 	      dictAdd (mDict, buf, &iOldSnp) ; 	 
 	      assMultipleInsert (missed2old, assVoid (iOldSnp), assVoid (jj)) ;
 	    }
-	  /* probleme si il y a 2 mutations au meme endroit,  missed2old n'en retient que une ? */
+	  /* multiple insert car si il y a 2 mutations au meme endroit,  missed2old n'en retient que une ? */
 
 	  /* now we scan again the table */
 	  bb1 = bitSetCreate (1024, h) ;
@@ -3508,12 +3661,13 @@ static int snpBRS2snpExport (SNP *snp)
 	    {
 	      int iBucket = 0 ;
 	      Array bucket = 0 ;
-	      if (kk && ssm->run != kk)
-		continue ;
-	      if (ssm->snp != 1 && ssm->snp != -1) continue ;
+	      if (1 && ssm->snp != 1 && ssm->snp != -1) continue ; /* just check the wild type */
+	      if (0 && ssm->snp) continue ; /* just check the wild type */
 	      memset (Abuf, 0, sizeof(Abuf)) ; memset (Bbuf, 0, sizeof(Bbuf)) ;
-	      snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, "toto") ;
-	      cp = strstr (namBuf, "_") ; 
+	      snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, 0) ;
+	      cp = strchr(namBuf,':') ;
+	      cp = strchr(cp+1,':') ;
+	      *cp = 0 ; /* we keep   target:position */
 	      if (! dictFind (mDict, namBuf, &jOldSnp))
 		continue ; 
 
@@ -3530,7 +3684,7 @@ static int snpBRS2snpExport (SNP *snp)
 
 		    snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, ccp) ;
 		    dictAdd (snp->eeDict, tagBuf, &sn) ;  sn++ ;
-		    if (! snpCountOtherStrand (snp, ssm, sn, ii, delta, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 1))
+		    if (! snpCountOtherStrand (snp, ssm, sn, ii, delta, ssm->leftShift, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 1))
 		      continue ;
 		    mutant = mp + mm ; wild = wp + wm ;
 		    iOldSnp = 0 ;
@@ -3538,7 +3692,7 @@ static int snpBRS2snpExport (SNP *snp)
 		    if (1)
 		      {
 			aceOutf (ao, "%s\t%d\t%s"
-				 , dictName (targetDict, ssm->target), ssm->pos
+				 , dictName (targetDict, ssm->target), ssm->pos - ssm->leftShift
 				 , typeBuf
 				 ) ;
 			dna = array (snp->dnas, ssm->target, Array) ;
@@ -3547,23 +3701,11 @@ static int snpBRS2snpExport (SNP *snp)
 			  {
 			    int i, j ;
 
-			    for (j = 0, i = ssm->pos - prefix ; j < prefix && i < 0 ; j++, i++)  
+			    for (j = 0, i = ssm->pos - ssm->leftShift - prefix ; j < prefix && i < 0 ; j++, i++)  
 			      bufD[j] = 'N' ;
 			    for ( ; j < prefix && i < arrayMax(dna) ; j++, i++)  
 			      bufD[j] = arr (dna, i, char) > 0 ? ace_upper(arr (dna, i, char)) : 'N' ;
 			    bufD[j] = 0 ;
-			    if (delta < 0)
-			      {
-				cp = Abuf - delta - 1 ;
-				for (j = prefix - 1 ; j >= 0 && ace_lower (bufD[j]) == ace_lower (*cp) ; j--, cp = (cp > Abuf ? cp - 1 : Abuf - delta - 1))
-				  bufD[j] = ace_lower(bufD[j]) ;
-			      }
-			    if (delta > 0)
-			      {
-				cp = Bbuf + delta - 1 ;
-				for (j = prefix - 1 ; j >= 0 && ace_lower (bufD[j]) == ace_lower (*cp) ; j--, cp = (cp > Bbuf ? cp - 1 : Bbuf - delta - 1))
-				  bufD[j] = ace_lower(bufD[j]) ;
-			      }
 			    if (delta == 0) i++ ;
 			    else if (delta < 0) i -= delta ; 
 			    /* if delta > 0) do not move */
@@ -3572,12 +3714,20 @@ static int snpBRS2snpExport (SNP *snp)
 			    for (; j < prefix ; j++) 
 			      bufS[j] = 'N' ;
 			    bufS[j] = 0 ;
+			    if (delta < 0)
+			      {
+				cp = Abuf ;
+				for (j = 0 ;  ace_lower (bufS[j]) == ace_lower (*cp) ; j++, cp = (cp < Abuf - delta - 1 ? cp + 1 : Abuf))
+				  bufS[j] = ace_lower(bufS[j]) ;
+			      }
+			    if (delta > 0)
+			      {
+				cp = Bbuf ;
+				for (j = 0 ; ace_lower (bufS[j]) == ace_lower (*cp) ; j++, cp = (cp < Bbuf + delta - 1 ? cp + 1 : Bbuf))
+				  bufS[j] = ace_lower(bufS[j]) ;
+			      }
 			  }
-			if (delta < 0) strcpy (bufAB, Abuf) ;
-			if (delta > 0) strcpy (bufAB, Bbuf) ;
-			if (delta) { cp = bufAB - 1 ; while (*++cp) *cp = ace_upper (*cp) ; }
-			aceOutf (ao, "%s\t%s%s%s\t%s%s%s"
-				 , delta ? bufAB : ""
+			aceOutf (ao, "\t%s%s%s\t%s%s%s"
 				 , bufD, delta <= 0 ? Abuf : "---" + 3 - delta , bufS
 				 , bufD, delta >= 0 ? Bbuf : "---" + 3 + delta , bufS
 				 ) ;
@@ -3631,22 +3781,6 @@ static int snpBRS2snpExport (SNP *snp)
 	    }
 	}
       assDestroy (missed2old) ;
-    }
-  
-  if (0) 
-    {  /* 2015_03_15, obsolete */
-      int i ;
-      long int n = 0 ;
-      ACEOUT ao = aceOutCreate (snp->outFileName, ".coveredPositions", FALSE, h) ;
-      aceOutDate (ao, "##", snp->project) ;
-      aceOutf (ao, "# Coverage\tNumber of bases covered\n") ;
-      for (i = 1000 ; i >= 1 ; i--)
-	{  /* compute the cumul */
-	  n += coveredPos[i] ; 
-	  coveredPos[i] = n ; 
-	}
-      for (i = 1 ; i <= 1000 ; i++)
-	aceOutf (ao, "%d\t%ld\n", i, coveredPos[i]) ; 
     }
   
   /* export the global histo */
@@ -6229,7 +6363,8 @@ static int snpAliExtendGetHits (SNP *snp, ACEIN ai, Array hits, int *runQualityP
 		continue ; /* reject this probe */
 	    }
 	}
-      if (100 * up->ali < snp->minAliPerCent * up->ln)
+      if (up->ali < 140 && 
+	  100 * up->ali < snp->minAliPerCent * up->ln)
 	continue ;
       cp = aceInWord (ai) ;  aceInStep(ai, '\t') ;/* gene, drop */
       aceInInt (ai, &(up->unicity)) ; aceInStep(ai, '\t') ;
@@ -6573,7 +6708,8 @@ static int snpAliExtendAnalyse (SNP *snp, Array hits, int runQualityPrefix)
 	{
 	  int ln = strlen (ccp), ln1 = 0 ; 
 
-	  if (ln > 30) ln = 30 ; i = 0 ; ccp-- ;
+	  if (ln > 30) ln = 30 ; 
+	  i = 0 ; ccp-- ;
 	  while (ln > 0 && b1 - i >= 1 && *++ccp)
 	    {
 	      char cc = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)*ccp]]] ;
@@ -7541,7 +7677,7 @@ static int snpAnalyzeEditedHits (SNP *snp)
       aceInStep (ai, '\t') ;  aceInInt (ai, &mult) ;
       aceInStep (ai, '\t') ;  aceInInt (ai, &toBeAligned) ;
       aceInStep (ai, '\t') ;  aceInInt (ai, &ali) ;
-      if (100 * ali < snp->minAliPerCent * toBeAligned)
+      if (ali < 140 && 100 * ali < snp->minAliPerCent * toBeAligned)
 	continue ;
       aceInStep (ai, '\t') ;  aceInInt (ai, &x1) ;
       aceInStep (ai, '\t') ;  aceInInt (ai, &x2) ;
@@ -8011,7 +8147,10 @@ static int snpAnalyzeEditedHits (SNP *snp)
 	}
 
       /* average support per type of SNP */
-      if (tSnp == 0) tSnp = 1 ; if (ns == 0) ns = 1 ; if (ni == 0) ni = 1 ; if (nd == 0) nd = 1 ;
+      if (tSnp == 0) tSnp = 1 ; 
+      if (ns == 0) ns = 1 ; 
+      if (ni == 0) ni = 1 ; 
+      if (nd == 0) nd = 1 ;
       aceOutf(ao, "\t\t\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f", snp->run, tSnp/(double)tSnp, tns/(double)ns,  tntransitions/(double)ns,  tntransversions/(double)ns, tni/(double)ni, tnd/(double)nd);
       for (typep = types ; *typep ; typep++)
 	{
@@ -8858,7 +8997,8 @@ static void snpIntersect (SNP *snp)
 	  /* new idea: intersect divided by smaller */
 	  u = keySet (intersect, ir * irMax + ir) ; 
 	  nu = keySet (intersect, jr * irMax + jr) ; 
-	  if (u > nu) u = nu ; if (u == 0) u =  1 ;
+	  if (u > nu) u = nu ; 
+	  if (u == 0) u =  1 ;
 	  array (aa, ir * irMax + jr, float) = 100.0 * (ni/u) ;
 	}
     }
@@ -9632,7 +9772,7 @@ static int snpMergeExportPopulationTable (SNP *snp)
 		   ) ;
 	}
 
-      for (run = 1, ii, sq = sp ; run <= dictMax (runDict) ; run++)
+      for (run = 1, sq = sp ; run <= dictMax (runDict) ; run++)
 	if (keySet (rM, run))
 	  {
 	    BOOL ok1 = FALSE ;
@@ -12085,7 +12225,7 @@ static void usage (char *message)
 	    "//     -fasta : file f should contain, in fasta format. the DNA of the target \"reference\" sequences\n"
 	    "//     -select : only report hits against the selected zones \n"
 	    "//     -minAli : discard hits shorter than the specified limit in bp\n"
-	    "//     -minAliPercent :  discard reads not aligning on a n%% of their clipped lenght\n"
+	    "//     -minAliPercent :  discard reads not aligning on a n%% of their clipped lenght and ali < 140\n"
 	    "//       the optional -runQuality file is described below\n"
 	    "//       The output, BRST format gives for each position in each target the reference and variant counts\n"
 	    "//        distinguishing B (base count) R(repeat count) S(substitution count) T(transition count)\n"
@@ -12318,7 +12458,7 @@ int main (int argc, const char **argv)
   snp.BRS_detect = getCmdLineBool (&argc, argv, "-BRS_detect") ;
   snp.BRS_make_snp_list = getCmdLineBool (&argc, argv, "-BRS_make_snp_list") ;
   snp.BRS_count = getCmdLineBool (&argc, argv, "-BRS_count") ;
-  snp.keepSample = getCmdLineBool (&argc, argv, "-keepSample") ;
+  /* .keepSample = getCmdLineBool (&argc, argv, "-keepSample") ; */
   getCmdLineOption (&argc, argv, "-fasta", &(snp.fastaFileName)) ;
   getCmdLineOption (&argc, argv, "-targetGene", &snp.targetGeneFileName) ;
   getCmdLineOption (&argc, argv, "-selected8kbList", &snp.selected8kbFileName) ;

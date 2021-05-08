@@ -48,16 +48,16 @@ void wego_flush (void) ;              /* blocking: flushes the wego_log channel 
  * the content of vp is passed by value
  * so it must be initialsed before the call to wego_go
  */
-void wego_go_ (void(*f)(void *vp), void *vp, int size) ;
+void wego_go_ (void(*f)(const void *vp), const void *vp, int size) ;
 #define  wego_go(_f,_vp,_TYPE) wego_go_(_f,_vp,sizeof(_TYPE))
 
 /* example, launching a parallel thread executing the function f
  * look at wchannel/ in *.h to learn how to synchronize f using channels
  *
    typedef struct tStruct { int x, y, z ;} T ;
-   void f (void *)
+   void f (const void *)
     {
-      T *t = (T*) vp ;
+      const T *t = (const T*) vp ;
 
       ...
    

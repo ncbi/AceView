@@ -1645,6 +1645,24 @@
           Shorter_3p
           Longer_3p
 
+?Fusion Gene1 ?Gene XREF Fusion1
+        Gene2 ?Gene XREF Fusion2
+        Orientation Tandem UNIQUE Int
+                    Face2face UNIQUE Int
+                    Back2back UNIQUE Int
+        Type    Centric  CF_CF
+                         CP_CP
+                         CF_CP
+                         CP_CF
+                Deletion  UNIQUE Int   // tandem fusion over large gap
+                Duplication UNIQUE Int // tandem fusion but i apparently walked back on my chromosome 
+                Cross_over UNIQUE ?Map UNIQUE ?Map   // exchange 2 cromosome arms 
+                Dicentric UNIQUE ?Map UNIQUE ?Map   // create a fused chromosome with to centromere
+                Acentric UNIQUE ?Map UNIQUE ?Map   // create a fused chromosome with no centromere
+        Support Method ?Method UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Int UNIQUE Int 
+                Run ?Run UNIQUE Int
+
+
 ?Intron From_gene ?Transcribed_gene XREF Intron UNIQUE Int UNIQUE Int
         Gene ?Gene XREF Intron
         GeneId ?GeneId XREF Intron
@@ -1759,6 +1777,7 @@
                 Any_flat UNIQUE Int
                 RNA_seq UNIQUE Int  // de_uno cumul from ali on genome or transcripts tmp/OR/d5.$MAGIC.de_uno.ace.gz
                 de_uno ?Run UNIQUE Int  // manip,tissue,support jumping single sequence in discovery more
+                Sponge ?Run UNIQUE Int  UNIQUE Int   // Exon intron
         Motifs UNIQUE Text  // 54bp: 50 in exon (-) 4 in intron of donor with an explicit - sign
 
 ?Acceptor  Gene ?Gene 
@@ -1791,6 +1810,7 @@
 		   Any_flat UNIQUE Int
                    RNA_seq UNIQUE Int  // de_uno cumul from ali on genome or transcripts tmp/OR/d5.$MAGIC.de_uno.ace.gz
                    de_uno ?Run UNIQUE Int  // manip,tissue,support jumping single sequence in discovery more
+                   Sponge ?Run UNIQUE Int  UNIQUE Int   // Intron Exon
            Motifs UNIQUE Text  // 54bp: 50 in exon (-) 4 in intron of donor with an explicit - sign
 
 ?Element Title UNIQUE ?Text
@@ -2491,6 +2511,8 @@
            mRNA ?mRNA XREF Gene ?Gene
            mRNA_part ?mRNA XREF Gene_part ?Gene
            Product ?Product XREF GeneBox @ID     // pfam_go a mettre sous ID
+           AvGene ?Gene XREF RefGene
+           RefGene ?Gene XREF AvGene
            NewName UNIQUE ?NewName XREF Gene  UNIQUE Text     // NCBI Text = locuslink|pfam|pseudo|doublelocuslink newName
            NewNameOld  ?NewName XREF GeneOld  UNIQUE Text     // NCBI Text = locuslink|pfam|pseudo|doublelocuslink  newName
            Tmp Text                   // for temporary use such as while exporting to locuslink
@@ -2684,6 +2706,8 @@
            DbXref Text UNIQUE Text
            Method ?Method          // a vider
            Element Intron ?Intron XREF Gene  // contains the deep sequencing info
+                   Fusion1 ?Fusion XREF Gene1 @Support  // contains the deep sequencing info
+                   Fusion2 ?Fusion XREF Gene2 @Support  // contains the deep sequencing info
            Structure   nExons  UNIQUE Int
                        nIntrons  UNIQUE Int
                        nStandardIntrons  UNIQUE Int

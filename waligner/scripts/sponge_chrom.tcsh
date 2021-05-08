@@ -35,8 +35,7 @@ else
   set ww="$ww1,$ww2"
 endif
 
-            
-
+if ($mainTarget != introns) then        
   set toto=tmp/SPONGE/$run/Total.$chrom.$uu.$fr.$limit
   if (! -e $toto) then
     echo Total > $toto
@@ -45,8 +44,8 @@ endif
   endif
 
   grep Total $toto |   sed -e "s/^Total/$chrom\t$fr/" | gawk -F '\t' '{r=run;}/^#/{r="#Run\tChrom"}{printf("%s\t",r);print;}' run=$run > $toto.txt
-\rm $toto
-
+  \rm $toto
+endif
 
 set fr=ns
 foreach mainTarget ($Etargets)

@@ -647,7 +647,8 @@ static void gxColorScale (float x, float y)
   gxScaleBox("   6  ", GREEN6, WHITE, x, y) ; y++ ;
   gxScaleBox("   7  ", GREEN7, WHITE, x, y) ; y++ ;
   gxScaleBox("   8  ", GREEN8, WHITE, x, y) ; y++ ;
-  if(0)  gxScaleBox(" high ", GREEN8, YELLOW, x, y) ; y++ ;
+  if(0)  gxScaleBox(" high ", GREEN8, YELLOW, x, y) ; 
+  y++ ;
 
 } /*  gxColorScale */
 

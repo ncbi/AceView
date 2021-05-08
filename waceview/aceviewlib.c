@@ -809,7 +809,7 @@ static BOOL contextCreate (PP *ppp)
 
 static BOOL contextSave (PP *ppp, AC_KEYSET aks)
 {
-  char fNam [1000] ;
+  char fNam [2048] ;
   
   if (aks && ac_keyset_count (aks) &&
       contextCreate (ppp))
@@ -2779,7 +2779,8 @@ static BOOL getParams (PP *ppp)
     if (!buff) 
       buff = "" ;
     if (buff[0])
-      ppp->details = 0 ;sscanf (buff, "%x", &ppp->details) ;
+      ppp->details = 0 ;
+    sscanf (buff, "%x", &ppp->details) ;
   }
 
   { /* anchor */

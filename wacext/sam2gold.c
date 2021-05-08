@@ -541,7 +541,7 @@ static void s2gParseOneSamFile (S2G *s2g, const char *fNam, int method, int gold
 	continue ;
       if (arrayMax (cigarettes))
 	isComplete = s2gRegisterIntron (s2g, cigarettes, flag, method, goldMethod, target, seq, strand, dna) ;
-        nerr = -1 ;
+      nerr = -1 ;
       while (1)
 	{
 	  int n_ ;

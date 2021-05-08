@@ -16,9 +16,9 @@
 
 typedef struct nodeStruct { double x ; CHAN *cx, *cy, *cu, *cv, *done ; int k ; } NODE ;
 
-static void update (void *vp)
+static void update (const void *vp)
 {
-  NODE *node = (NODE *)vp ;
+  const NODE *node = vp ;
   double u, v, z ;
   int i ;
   
@@ -28,11 +28,11 @@ static void update (void *vp)
 	   +  2 * node->x 
 	   + channelGive (node->cv, &v, double)
 	   )/4.0 ; 
-      node->x = z ;
+
       channelMultiPut (node->cx, &z, 1, double) ; 
       channelMultiPut (node->cy, &z, 1, double) ; 
     }
-  channelMultiPut (node->done, &(node->x), 1, double) ;
+  channelMultiPut (node->done, &z, 1, double) ;
   return ;
 }
 

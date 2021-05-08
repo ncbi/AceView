@@ -1260,7 +1260,8 @@ static int mrnaDesignExport (S2M *s2m, DS *ds, Array segs, KEYSET ks, int path, 
 	continue ;
       if (! up->score)
 	continue ;
-      if (!vp) a1 = smrna->a1 = up->a1 ; smrna->a2 = up->a2 ; 
+      if (!vp) a1 = smrna->a1 = up->a1 ; 
+      smrna->a2 = up->a2 ; 
       if (!vp || ((up->type & (gX | gI)) != (vp->type & (vp->type & (gX | gI)))))
 	{	
 	  vp = arrayp (smrna->hits, jj++, HIT) ;

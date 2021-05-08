@@ -488,6 +488,8 @@ int bigFloatVariance (BigArray a,  int LL, float *medianp, float *averagep, floa
 
   for (i = 0 ; i < LL ; i++)
     n +=  bigArray (a, i, float) ;
+  if (n < 0)
+    return 0 ;
   b = bigArrayCreate (n + bigArrayMax (a), float) ;
   bigArray (b, n + bigArrayMax (a), float) = 0 ; /* make room */
 

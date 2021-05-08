@@ -82,8 +82,8 @@ GCFLAGS =
 ## Different platforms use CC or COMPILE.c
 #  (USEROPTS - see comments at top of file)
 #
-CC =        $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
-COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
+CC =        $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -D_FILE_OFFSET_BITS=64 -c
+COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -D_FILE_OFFSET_BITS=64 -c
 
 
 #################################################################

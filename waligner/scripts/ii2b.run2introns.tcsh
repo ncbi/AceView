@@ -5,7 +5,7 @@ set uu=$2
 
 # centralize the introm support from lane to run
 if (! -e tmp/INTRONRUNS/$run/$run.u.intronSupport.ace.gz) then
-  bin/bestali  -intronSupport2ace  -gzo -o tmp/INTRONRUNS/$run/$run.$uu -inFileList tmp/INTRONRUNS/$run/$run.$uu.list
+  bin/bestali  -intronSupport2ace  -gzo -o tmp/INTRONRUNS/$run/$run.$uu -inFileList tmp/INTRONRUNS/$run/$run.$uu.list -run $run
 endif
 
 

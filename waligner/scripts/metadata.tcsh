@@ -430,6 +430,13 @@ end
 ######################################################
 # supplementary information not from .fasta and not from .gtf
 
+if (-e PROBES/hs.av.split_mrnas.txt && ! -e tmp/METADATA/av.split_mrnas.gz) then
+  cp  PROBES/hs.av.split_mrnas.txt tmp/METADATA/av.split_mrnas
+  gzip tmp/METADATA/av.split_mrnas
+endif
+
+######################################################
+
 NoNewGTF:
 
 ######################################################
@@ -569,15 +576,20 @@ endif
 # captures
 
 if ($?CAPTURES) then
-  if (-e tmp/METADATA/$MAGIC.captured_genes.txt) \rm tmp/METADATA/$MAGIC.captured_genes.txt
-  foreach capture ($CAPTURES)
-    foreach target ($Etargets)
+  foreach target ($Etargets)
+    if (-e tmp/METADATA/$MAGIC.$target.captured_genes.txt) \rm tmp/METADATA/$MAGIC.$target.captured_genes.txt
+    foreach capture ($CAPTURES)
+
       if (-e TARGET/GENES/$capture.capture.$target.gene_list) then
-        cat  TARGET/GENES/$capture.capture.$target.gene_list | gawk '{if(length($1)>0)printf("%s\t%s\n",$1,cap);}' cap=$capture >> tmp/METADATA/$MAGIC.captured_genes.txt
+        cat  TARGET/GENES/$capture.capture.$target.gene_list | gawk '/^#/{next;}{if(length($1)>0)printf("%s\t%s\t%s\n",$1,cap,"Capture");}' cap=$capture >> tmp/METADATA/$MAGIC.$target.captured_genes.txt
+      endif
+      if (-e TARGET/GENES/$capture.captureTouch.$target.gene_list) then
+        cat  TARGET/GENES/$capture.captureTouch.$target.gene_list | gawk '/^#/{next;}{if(length($1)>0)printf("%s\t%s\t%s\n",$1,cap,"Capture_touch");}' cap=$capture >> tmp/METADATA/$MAGIC.$target.captured_genes.txt
       endif
     end
+    cat   tmp/METADATA/$MAGIC.$target.captured_genes.txt | sort -V | gawk -F '\t' '{if($1 != old)printf ("\nGene %s\n",$1);old=$1;printf("%s %s\n",$3, $2);}END{printf("\n");}' > tmp/METADATA/$MAGIC.$target.captured_genes.ace
+    \rm tmp/METADATA/$MAGIC.$target.captured_genes.txt
   end
-  cat   tmp/METADATA/$MAGIC.captured_genes.txt | sort -V | gawk -F '\t' '{if($1 != old)printf ("\nGene %s\n",$1);old=$1;printf("Capture %s\n",$2);}END{printf("\n");}' > tmp/METADATA/$MAGIC.captured_genes.ace
 endif
 
 goto ok

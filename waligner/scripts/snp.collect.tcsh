@@ -17,18 +17,6 @@ if (-e tmp/SNP_BRS/$MAGIC.minFrequency.txt) then
 endif
 
 echo "scripts/snp.collect.tcsh $1 $2 $3 $4 $5 $6 minSnpCover=$minSnpCover minSnpCount=$minSnpCount minFrequency=$minSnpFrequency2"
-if (0 &&  -e  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz && ! -e  tmp/SNP/$run/$zone.plus.$uu.BF.gz && ! -e  tmp/SNP/$run/$zone.minus.$uu.BF.gz ) then
-# this code is superseded by a direct export in snp.c in case $collect == count
-      echo -n "wiggle strand plus start : " 
-      date
-      gunzip -c tmp/SNP_BRS/$run/$zone.BRS.$uu.gz | gawk -F '\t' '/^nAli/{next}/^nBpAli/{next}/^ERR/{next}{if($1 != "~")gene=$1;x=$2;if(length($3)>1)next;if($4 != strand)next;printf("%s\t%d\t%d\t%d\n",gene,x-1,x,$6);}' strand="+" | bin/wiggle -I BG -O BF -out_step 10 -gzo -o tmp/SNP/$run/$zone.plus.$uu
-
-      echo -n "wiggle strand minus start : "
-      date
-      gunzip -c tmp/SNP_BRS/$run/$zone.BRS.$uu.gz | gawk -F '\t' '/^nAli/{next}/^nBpAli/{next}/^ERR/{next}{if($1 != "~")gene=$1;x=$2;if(length($3)>1)next;if($4 != strand)next;printf("%s\t%d\t%d\t%d\n",gene,x-1,x,$6);}' strand="-" | bin/wiggle -I BG -O BF -out_step 10 -gzo -o tmp/SNP/$run/$zone.minus.$uu
-      echo -n "wiggle done : "
-      date
-endif
 
 # avoid analysing MetaDB/*List in submitted scripts
 set solid=""
@@ -69,7 +57,7 @@ date
 ######
 
     if ($collect == detect) then
-      gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s_%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency2 | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
+      gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s:%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency2 | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
     endif
 
 stats:
@@ -84,7 +72,7 @@ if ($collect == count) set zone1="$MAGIC.$zone"
     gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz  |  gawk -F '\t' '/Incompatible_strands/{next;}{t=$3;c=$9;m=$10;w=$11;if(c>minC && 100*m>c*minF){nn++;n[t]++;nnm+=m;mm[t]+=m;ww[t]+=w;nnw+=w;}}END{printf("%s\tTotal\t%d\t%d\t%d\t%d\t%d\n",run,minF,minC,nn,nnm,nnw);for(t in n)printf("%s\t%s\t%d\t%d\t%d\t%d\t%d\n",run,t,minF,minC,n[t],mm[t],ww[t]);}'  run=$run minC=$minSnpCover minF=95 | sort -k 5n >>   tmp/SNP/$run/$zone1.$collect.$uu.stats
 
 
-    gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz | gawk -F '\t' '/Incompatible_strands/{next;}{type=$3;if($10 + $11 > 0){n[type]++;m[type]+=$10;w[type]+=$11;}}END{for(t in n)printf("%s\t%s\t%d\t%d\t%d\n",t,run,n[t],m[t],w[t]);}' run=$run | sort >  tmp/SNP/$run/$zone1.$collect.types.$uu.txt
+    gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz | gawk -F '\t' '/Incompatible_strands/{next;}{type=$3;if($10 + $11 > 0){split(type,aa,":");if(aa[1]=="Sub")type=aa[2] ">" aa[3];else{split(aa[1],bb,"_");k=0;if (bb[1]=="Ins")k=3;if (bb[1]=="Del")k=2;if(k==0)next;z=aa[k];type=bb[1];for(i=1;i<=length(z);i++){c=substr(z,i,1);if(c==toupper(c))type=type c;}}n[type]++;m[type]+=$10;w[type]+=$11;}}END{for(t in n)printf("%s\t%s\t%d\t%d\t%d\n",t,run,n[t],m[t],w[t]);}' run=$run | sort >  tmp/SNP/$run/$zone1.$collect.types.$uu.txt
   
   if ($collect == count) then
     gunzip -c  tmp/SNP/$run/$MAGIC.*.$collect.$uu.snp.gz | bin/histo -snp -o  tmp/SNP/$run/$zone1.snp_frequency
@@ -102,6 +90,17 @@ echo done
 
 exit 0
 
+# HACK to back fix the new nomenclature in the .types.file
+set uu=u
+foreach collect (detect count)
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
+      set zone1=$zone
+      if ($collect == count) set zone1="$MAGIC.$zone"
+      gunzip -c  tmp/SNP/$run/$zone1.$collect.$uu.snp.gz | gawk -F '\t' '/Incompatible_strands/{next;}{type=$3;if($10 + $11 > 0){split(type,aa,":");if(aa[1]=="Sub")type=aa[2] ">" aa[3];else{split(aa[1],bb,"_");k=0;if (bb[1]=="Ins")k=3;if (bb[1]=="Del")k=2;if(k==0)next;z=aa[k];type=bb[1];for(i=1;i<=length(z);i++){c=substr(z,i,1);if(c==toupper(c))type=type c;}}n[type]++;m[type]+=$10;w[type]+=$11;}}END{for(t in n)printf("%s\t%s\t%d\t%d\t%d\n",t,run,n[t],m[t],w[t]);}' run=$run | sort >  tmp/SNP/$run/$zone1.$collect.types.$uu.txt
+    end
+  end
+end
 
 ##########################################################
 ## verif scripts

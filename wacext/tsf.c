@@ -99,7 +99,7 @@ typedef struct tsf_struct {
   BOOL gzi, gzo, transpose, debug ;
   BOOL isTableIn, isTableOut ;
   BOOL merge ;
-  BOOL sum, min, max, replace ; 
+  BOOL sum, min, max, replace, sumAll ; 
   BOOL tagSelectOnly ;
   BOOL sampleSelectOnly ;
   BOOL chronoOrder ;
@@ -130,7 +130,7 @@ typedef struct hit_struct {
 #endif
 
 /*************************************************************************************/
-
+#ifdef JUNK
 static int tsfSampleOrder (const void *va, const void *vb)
 {
   const HIT *up = (const HIT *)va ;
@@ -142,7 +142,7 @@ static int tsfSampleOrder (const void *va, const void *vb)
 
   return 0 ;
 } /* tsfSampleOrder */
-
+#endif
 /*************************************************************************************/
 
 static int tsfTagOrder (const void *va, const void *vb)
@@ -386,7 +386,7 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
 static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int i, n, tag, sample = 0, x, line = 0 ;
+  int i, tag, sample = 0, x, line = 0 ;
   float z ;
   const char *ccp, *ccq ;
   HIT *hit ;
@@ -396,7 +396,8 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
   DICT *sampleDict = tsf->sampleDict ;
   BigArray hits = tsf->hits ;
   long int iMax = bigArrayMax (hits) ;
-  int sampleDepth ;
+  int sampleDepth, nTags ;
+  char typeBuf[MAXTAGDEPTH+1] ;
 
   if (tsf->sample)
     {
@@ -478,23 +479,54 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
        }
      else
        dictAdd (sampleDict, tsf->sample, &sample) ;
+
+     nTags = 0 ;
      aceInStep (ai, '\t') ;
      ccp = aceInWord (ai) ;
-     if (! ccp)
+     if (ccp)
+       {
+	 char *cq = typeBuf ;
+	 const  char *cp = ccp - 1 ;
+	 int kk = MAXTAGDEPTH ;
+	 
+	 while (*++cp)
+	   {
+	     int k = 0 ;
+	     char cc ;
+
+	     while (*cp >= '0' && *cp <= '9')
+	       {  k = 10*k + (*cp - '0') ; cp++ ; }
+	     if (k == 0) k = 1 ;
+	     kk -= k ;
+	     nTags += k ;
+	     if (kk <=0)
+	       messcrash ("Overflow, number of fields = %d > %d at line %d of file %s.\nWe do not expect more than %d value following a tag, please edit the code or reformat  the data"
+			  , nTags
+			  , MAXTAGDEPTH
+			  , aceInStreamLine (ai)
+			  , aceInFileName (ai)
+			  , MAXTAGDEPTH
+			  ) ;
+	       
+	     cc = *cp ;
+	     if (! cc)
+	       {
+		 cc = 'i' ; /* defaul;ts to Integer */
+		 cp-- ;     /* avoid looping */ 
+	       }
+	     while (k--)
+	       *cq++ = cc ;
+	   }
+	 *cq = 0 ;
+       }
+     else
        continue ;
-     n = strlen (ccp) ;
-     if (n < 0 || n >= MAXTAGDEPTH)
-       messcrash ("Overflow, number of fields = %d > %d at line %d of file %s.\nWe do not expect more than %d value following a tag, please edit the code or reformat  the data"
-		  , MAXTAGDEPTH
-		  , aceInStreamLine (ai)
-		  , aceInFileName (ai)
-		  , n) ;
      hit = bigArrayp (hits, iMax++, HIT) ;
      hit->tag = tag ;
      hit->sample = sample ;
-     memcpy (hit->types, ccp, n+1) ;
+     strncpy (hit->types, typeBuf, MAXTAGDEPTH) ;
      
-     for (i = 0 ; i < n ; i++)
+     for (i = 0 ; i < nTags ; i++)
        {
 	 if (! aceInStep (ai, '\t'))
 	   break ;
@@ -505,7 +537,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 	      if (aceInInt (ai, &x))
 		hit->x[i] = x ;
 	      else
-		messcrash ("Non integer number in line %d column %d file %s\n"
+		messcrash ("Non integer number in column %d line %d file %s\n"
 			   , 4 + i
 			   , aceInStreamLine (ai)
 			   , aceInFileName (ai)
@@ -515,7 +547,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 	      if (aceInFloat (ai, &z))
 		hit->z[i] = z ;
 	      else
-		messcrash ("Non float number in line %d column %d file %s\n"
+		messcrash ("Non float number in column %d line %d file %s\n"
 			   , 4 + i
 			   , aceInStreamLine (ai)
 			   , aceInFileName (ai)
@@ -530,7 +562,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 		  hit->x[i] = k ; 
 		}
 	      else
-		messcrash ("Non word in line %d column %d file %s\n"
+		messcrash ("Non word in column %d line %d file %s\n"
 			   , 4 + i
 			   , aceInStreamLine (ai)
 			   , aceInFileName (ai)
@@ -686,7 +718,8 @@ static long int tsfMerge (TSF *tsf)
   BigArray hits = tsf->hits ;
   long int ii, jj, iMax = bigArrayMax (hits) ;
   HIT *hit, *hit2 ;
-
+  int all = tsf->sumAll ? MAXTAGDEPTH + 1 : 1 ;
+    
   /* sort and cumulate the values */
   bigArraySort (hits, tsfTagOrder) ;
   for (ii = 0, hit = bigArrp (hits, 0, HIT) ; ii < iMax ; ii++, hit++)
@@ -704,15 +737,18 @@ static long int tsfMerge (TSF *tsf)
 	  if (strncmp (hit->types, hit2->types, n))
 	    break ;
 	  for (i = 0 ; i < n ; i++)
-	    if (hit->types[i] != i && hit->x[i] && hit2->x[i] && hit->x[i] != hit2->x[i])
+	    if ( (i > all && hit->types[i] != i)  && 
+		hit->x[i] && hit2->x[i] && hit->x[i] != hit2->x[i])
 	      break ;
+	  if (i < n)
+	    break ;
 	  /* ok, all text fileds are equal: merge */	  
 	  if (n1 < n2)
 	    memcpy (hit->types, hit2->types, n2) ;
 	  hit2->tag = 0 ;
 	  n = n1 > n2 ? n1 : n2 ;
 	  hit->n = n ;
-	  for (i = 0 ; i < n ; i++)
+	  for (i = 0 ; i < 1 && i < n ; i++)
 	    switch (hit->types[i])
 	      {
 	      case 'i':
@@ -839,7 +875,8 @@ static void tsfExportTsf (TSF *tsf, ACEOUT ao)
 } /* tsfExportTsf */
 
 /*************************************************************************************/
-/* check if the kk first fileds are identical with previous line */
+/* check if the kk first fields are identical with previous line */
+#ifdef JUNK
 static int tsfSame (int same, int kk, vTXT txt, vTXT oldTxt)
 {
   if (same + kk < 0 ) /* we need to study the line */
@@ -856,7 +893,7 @@ static int tsfSame (int same, int kk, vTXT txt, vTXT oldTxt)
     }
   return same ;
 } /* tsfSame */
-
+#endif
 /*************************************************************************************/
 
 static void tsfExportTable (TSF *tsf, ACEOUT ao)

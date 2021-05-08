@@ -1257,7 +1257,12 @@ laba:
       int score =  gmp->product ? ac_tag_int (gmp->product, "Quality", 0) : -99 ;
       char *nScore [] = { "poor", "good", "very good"} ;
       int nice = 0 ;
+      int codingLn =  gmp->product ? ac_tag_int (gmp->product, "Coding_length", 0) : 0 ;
       
+      /* 2021_01_28: some proteins (CCND2.a) are annotated with a negative kozak */
+      codingLn /= 3 ;
+      if (codingLn && codingLn < len)
+	len = codingLn ;
       if (isGood)
 	{
 	  nice = 1 ;
@@ -1664,23 +1669,23 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
        
       ksGad = ac_objquery_keyset (gmp->gene, messprintf (">Extern ; GAD && NOT AntiGad ; COUNT {>GAD_TITLE NOT AntiGad ; {!Hidden_alias_of} $| {>Hidden_alias_of} ; {! alias_of} $| {>alias_of}; {IS *} $| {>meshkey;>parent;>mesh}; {IS *} $| {>meshkey;>parent;>mesh} ; {IS *} $| {>meshkey;>parent;>mesh} ; IS %s} > 0", ccr) , h) ;
  
-     if (ksGad && ac_keyset_count (ksGad))
+      if (ksGad && ac_keyset_count (ksGad))
 	{ if (justOmim>2) continue ; }
       else
 	{ if (justOmim==2) continue ; }
-       
-     if (justOmim==0 && gmp->Spc == MOUSE)
-       { /* very special way to store the biblio */
-	 const char *err_message = 0 ;
-	 AC_TABLE tbl2 = ac_bql_table (gmp->db, hprintf(h, "select p from mgi in @active:1, d in mgi->disease where d like %s, p in d[1]", ccr), ksOmim, 0, &err_message, h) ;
-	 ksPaper = ac_table_keyset (gmp->db, tbl2, 0, h) ;
-       }
-     else
-      ksPaper = ac_objquery_keyset (obj, messprintf ("{IS *} $| {>alias_of} ; {IS *} $| {>meshkey;>child;>mesh};  {IS *} $| {>Extern NOT antigad} $| {>OMIM_title; IS zero} $| {>GAD_title NOT AntiGad} $| {>KEGG_pathway KEGG_disease}  ;  >Reference  IS pm* && COUNT gene < 3 ; gene = %s || COUNT {>extern NOT AntiGad;gene=%s} > 0", ccg, ccg), h) ;
-
+      
+      if (justOmim==0 && gmp->Spc == MOUSE)
+	{ /* very special way to store the biblio */
+	  const char *err_message = 0 ;
+	  AC_TABLE tbl2 = ac_bql_table (gmp->db, hprintf(h, "select p from mgi in @active:1, d in mgi->disease where d like %s, p in d[1]", ccr), ksOmim, 0, &err_message, h) ;
+	  ksPaper = ac_table_keyset (gmp->db, tbl2, 0, h) ;
+	}
+      else
+	ksPaper = ac_objquery_keyset (obj, messprintf ("{IS *} $| {>alias_of} ; {IS *} $| {>meshkey;>child;>mesh};  {IS *} $| {>Extern NOT antigad} $| {>OMIM_title; IS zero} $| {>GAD_title NOT AntiGad} $| {>KEGG_pathway KEGG_disease}  ;  >Reference  IS pm* && COUNT gene < 3 ; gene = %s || COUNT {>extern NOT AntiGad;gene=%s} > 0", ccg, ccg), h) ;
+      
       row = tbl1->rows ;
       vtxtClear (bfr) ;       vtxtClear (bfr1) ;
-
+      
       if (!row)
 	ac_table_insert_text (tbl1, row, COL_TYPE, "Disease") ;
       ac_table_insert_text (tbl1, row, COL_LAST,  "1") ;
@@ -1692,7 +1697,7 @@ static void ficheNewGeneDiseasePathwaysBioProcessTableDisease (AC_TABLE tbl1, GM
 	}
       else
 	vtxtPrint (bfr, ac_name (obj)) ;
-
+      
       ksGeneU = ac_objquery_keyset (obj, "{IS *} $| {>hidden_alias} $| {>hidden_alias_of} $| {>alias} $| {>alias_of} ; {IS *} $| {>reference ; COUNT Gene < 3} $| {>Extern NOT antigad} $| {>OMIM_title; IS zero} $| {>GAD_title} $| {>KEGG_pathway KEGG_disease}  ; >Gene", h) ;
       ng = ksGeneU ? ac_keyset_count (ksGeneU) : 0 ;
       if (ng)
@@ -3798,7 +3803,7 @@ static void ficheGmpExpressionPatternStatement (vTXT blkp, GMP *gmp)
 void ficheMRNAConceptualTranslationParagraphContent (vTXT blkp, GMP *gmp)
 {
   int lenGap = ac_tag_int (gmp->mrna, "Gap_length", 0) ; 
-  int lenCoding = 0, isComplete = 0, firstMet = 0, nn = 0 ; 
+  int lenC = 0, lenCoding = 0, isComplete = 0, firstMet = 0, nn = 0 ; 
   AC_TABLE gMW = 0 ; 
   AC_HANDLE h = 0 ;
   
@@ -3808,7 +3813,10 @@ void ficheMRNAConceptualTranslationParagraphContent (vTXT blkp, GMP *gmp)
     gmp->peptide = ac_obj_peptide (gmp->product, gmp->h) ; 
   if (gmp->peptide)
     lenCoding = strlen (gmp->peptide) ;
-  
+  lenC = gmp->product ? ac_tag_int (gmp->product, "Coding_Length", 0) : 0 ;
+  lenC /= 3 ;
+  if (lenC > 0 && lenC < lenCoding)
+    lenCoding = lenC ;
    h = ac_new_handle () ;
    if ( lenGap == 0)
     {
@@ -13944,18 +13952,20 @@ static int ficheNewGeneAnnotationOfVariantsTable (vTXT blkp, GMP *gmp, BOOL just
 	  TBB (curRowClone+1+iLine, COL_PROTEIN) = gmpObjLink (bfr, gmp, oMrna, gtMrnaSuffix(ac_name(gmp->tg), ac_name(oProduct), h)) ;
 	  vtxtPrint (bfr, ooo) ; 
 
-	  gPep = ac_tag_table (oProduct, "Peptide", h) ;
-
 	  len = 0 ;
-	  if (gPep)
-	    {
-	      len = ac_table_int (gPep, 0, 1, 0) ;
-	      ac_free (gPep) ;
-	    }
 	  if (!len)
 	    len = ac_tag_int (oProduct, "Coding_length", 0)/3 ; 
 	  if (!len)
 	    len = ac_tag_int (oProduct, "Open_length", 0)/3 ;
+	  if (! len)
+	    {
+	      gPep = ac_tag_table (oProduct, "Peptide", h) ;
+	      if (gPep)
+		{
+		  len = ac_table_int (gPep, 0, 1, 0) ;
+		  ac_free (gPep) ;
+		}
+	    }
 
 	  proteinLength = len ;
 	  vtxtPrint (bfr, ooo) ; 
@@ -15601,7 +15611,7 @@ static void ficheNewMrna3PrimeParagraph (vTXT blkp, GMP *gmp)
 void ficheNewMrnaDecoratedPeptide (vTXT blkp, GMP *gmp, BOOL hasStop)
 {
   AC_HANDLE h = ac_new_handle () ;
-  char *pep = gmp->peptide ;
+  char *pep = strnew (gmp->peptide, h) ;
   vTXT bfr = vtxtHandleCreate (h) ;
   char *cp, cc, buf[2] ;
   const char *ccq ;
@@ -15618,7 +15628,10 @@ void ficheNewMrnaDecoratedPeptide (vTXT blkp, GMP *gmp, BOOL hasStop)
       }
   if (!p2) goto done ;
   if (gmp->markup) vtxtMarkup (bfr) ;
- 
+  
+  cp = strchr (pep, '*') ;
+  if (cp)
+    cp[1] = 0 ;
   vtxtPrint (bfr, pep) ;
   vtextUpperCase (vtxtPtr (bfr)) ; /* bring to upper case */
   

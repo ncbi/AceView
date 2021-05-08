@@ -4553,7 +4553,10 @@ static void htileDrawDna (Htile look, float offset)
 	  a2 = ac_table_int (cosmidTable, ir, 3, 0) - look->map->a1 + 1 ;
 	}
       else
-	a1 = look->map->a1 ; a2 = look->map->a2 ;
+	{
+	  a1 = look->map->a1 ; 
+	  a2 = look->map->a2 ;
+	}
       a1 = a1 - look->map->a1 + 1 ; 
       a2 = a2 - look->map->a1 + 1 ; 
       if (a1 > a0 || a2 < a0) /* area to be shown */
@@ -5435,7 +5438,10 @@ static void htileDrawGenome (Htile look, float offset)
 	  a2 = ac_table_int (cosmidTable, ir, 3, 0) - look->map->a1 + 1 ;
 	}
       else
-	a1 = look->map->a1 ; a2 = look->map->a2 ;
+	{
+	  a1 = look->map->a1 ; 
+	  a2 = look->map->a2 ;
+	}
       if (a2 < x1 || a1 > x2) /* area to be shown */
 	continue ;
 

@@ -2359,7 +2359,7 @@ static BOOL patchError (Array dna, LANE *lane, A_ERR *ep, Array err)
 	while (ep1++, i--)
 	  if (ep1->iShort > s0)
 	    ep1->iShort-- ;
-	  ep->type = TROU_DOUBLE ;
+	ep->type = TROU_DOUBLE ;
 	return TRUE ;
 
     case TROU:

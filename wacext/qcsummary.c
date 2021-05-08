@@ -3847,6 +3847,8 @@ static void qcCapture (QC *qc, RC *rc)
   const char *caption =
     "Capture"
     ;
+  if (! getenv ("CAPTURES"))
+    return ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
   

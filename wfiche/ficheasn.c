@@ -2254,14 +2254,15 @@ char *fAsnGenerateMRNA (vTXT blkp, GMP *gmp, char * ficheComments, int isHeader)
 	  ficheAsnProductRef (blkp, gmp, oProduct, TRUE) ;
 	  if (! ac_has_tag (oProduct, "Complete"))
 	    vtxtPrintf (blkp, ", partial TRUE") ;
-	    vtxtPrintf (blkp, 
-			"      , location int {" 
-			"          from %i , " 
-			"          to %i , " 
-			"          id %s" 
-			, 0
-			, strlen (sPeptide) - 1
-			, ficheAsnId (prRealName, 0)) ;
+	  vtxtPrintf (blkp, 
+		      "      , location int {" 
+		      "          from %i , " 
+		      "          to %i , " 
+		      "          id %s" 
+		      , 0
+		      , strlen (sPeptide) - 1
+		      , ficheAsnId (prRealName, 0)
+		      ) ;
 	  if (! ac_has_tag (oProduct, "NH2_complete"))
 	    vtxtPrintf (blkp, 
 			"       , fuzz-from lim lt" ) ;

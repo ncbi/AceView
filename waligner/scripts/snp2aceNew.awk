@@ -4,22 +4,25 @@
   run = $6 ;
   ir = r2ir[run] ; if (ir<1) { irMax++ ; ir = irMax ; r2ir[run] = ir ; ir2r[ir] = run ; }
   genotype = $7 ; f = $8 ; cover = $9 ; m = $10 ; w = $11 ; mp = $12 ; wp = $13 ; mm = $14 ; wm = $15 ; bad = $16
-  
+  vTyp = "Sub" ; vPos = pos ; vTyp2 = "n" ; vTyp3 = "n" ;
+
   if (index($4, "n") > 0) next ;
   if (index($5, "n") > 0) next ;
   if (index($4, "N") > 0) next ;
   if (index($5, "N") > 0) next ;
   
   if (substr($3,2,1) == ">")
-    { typ = substr($3,1,1) "2" substr($3,3,1)  ; typ2 = typ ; typ3 = typ ; }
+  { vTyp = "Sub" ; vTyp2 = susbtr($3,1,1) ; vTyp3 = substr($3,3,1) ;  typ = substr($3,1,1) "2" substr($3,3,1)  ; typ2 = typ ; typ3 = typ ; }
   else if (substr($3,1,3) == "Ins")
-  { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; typ3 = "Multi_insertion " dk  " " typ ; }} 
+  { vTyp = "Ins" ; vPos-- ; vTyp3 = "n" substr ($3,4) ; typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; vTyp = "Ins_"dk ; typ3 = "Multi_insertion " dk  " " typ ; }} 
   else if (substr($3,1,3) == "Del")
-  { typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; typ3 = "Multi_deletion " dk " " typ ; }}
+  { vTyp = "Del" ; vPos-- ; vTyp2 = "n" substr ($3,4) ; typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; vTyp = "Del_"dk ; typ3 = "Multi_deletion " dk " " typ ; }}
+  else if (substr($3,1,3) == "Dim")
+  { vTyp = "Dim" ; vPos-- ; vTyp2 = "n" substr ($3,4) ; typ = $3 ; typ2 = typ ; typ3 = typ  ; if (length($3) > 4) { dk =  length($3) - 3 ; typ3 = "Multi_deletion " dk " " typ ; }}
   else if (substr($3,1,3) == "Dup")
-    { ln = pos1 - pos2 ; typ = $3 ln ; typ2 = typ ; typ3 = "Multi_insertion Duplication_" ln "_bp" ; } 
+  { vTyp = "Dup" ; vPos-- ; vTyp3 = "n" substr ($3,4) ; ln = pos1 - pos2 ; if(ln > 1)  vTyp = "Dup_" ln ; typ = $3 ln ; typ2 = typ ; typ3 = "Multi_insertion Duplication_" ln "_bp" ; }  
   else 
-    { typ = $3 ; typ2 = type ; typ3 = 0 ; }
+  { vTyp = $3 ; typ = $3 ; typ2 = type ; typ3 = 0 ; }
   
   if (genotype == "+/+") geno2 = "ww" ;
   else if (genotype == "m/m") geno2 = "mm" ;
@@ -41,6 +44,7 @@
 
 
   v = chrom ":" pos ":" typ ; pos1 = pos+1 ;
+  v = chrom ":" vPos ":" vTyp ":" vTyp2 ":" vTyp3 ; pos1 = pos+1 ;
   txt = "-D " targetType "\n" targetType  " " chrom " " pos " 1\ntyp " typ2  ;
   if (typ3 != 0) txt = txt  "\n" typ3  ; 
 

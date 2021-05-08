@@ -587,7 +587,7 @@ static int svNewIntronsCompress (Array donors, int limit)
 
 /*************************************************************************************/
 
-static int svYy2Bb (SV *sv, SDU *sdu, SW* sw)
+static int svYy2Bb (const SV *sv, SDU *sdu, SW* sw)
 {
   Array bbs = 0 ;
   int i, j, nn = arrayMax (sw->yys) ;
@@ -668,14 +668,15 @@ static int svWiggleRegularizeCoodinates (SW* sw, int chrom, int start, int step,
        continue ;
      ddx = (bb->a1 - dx) % step ;
      bb->a1 -= ddx ; bb->a2 -= ddx ; /* now we are in phase with the wiggle */
-     if (bb->a1 < 0) bb->a1 = 0 ;   if (bb->a2 < 0) bb->a2 = 0 ;
+     if (bb->a1 < 0) bb->a1 = 0 ;  
+     if (bb->a2 < 0) bb->a2 = 0 ;
    }
  return 1 ;
 } /* svWiggleRegularizeCoodinates */
 
 /*************************************************************************************/
 
-static int svWiggleDoOne (SV *sv, SDU *sdu, SW* sw, int chrom, int ok)
+static int svWiggleDoOne (const SV *sv, SDU *sdu, SW* sw, int chrom, int ok)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai = 0 ;
@@ -780,7 +781,7 @@ static int svWiggleDoOne (SV *sv, SDU *sdu, SW* sw, int chrom, int ok)
 
 /*************************************************************************************/
 
-static int svWiggleDo (SV *sv, SDU *sdu, SW* sw) 
+static int svWiggleDo (const SV *sv, SDU *sdu, SW* sw) 
 {
   int i, oldChrom = 0, nn = 0 ;
   int iMax = arrayMax (sw->bbps) ;
@@ -803,7 +804,7 @@ static int svWiggleDo (SV *sv, SDU *sdu, SW* sw)
 
 /*************************************************************************************/
 
-static int  svDeDuoParseOverhangs (SV *sv, SDU *sdu, SW *sw)
+static int  svDeDuoParseOverhangs (const SV *sv, SDU *sdu, SW *sw)
 {
   AC_HANDLE h = ac_new_handle () ;
   IXP *up, *vp ;
@@ -1600,7 +1601,7 @@ static int  svDeDuoParseOverhangs (SV *sv, SDU *sdu, SW *sw)
 
 /*************************************************************************************/
 
-static int svDeUnoParseIntrons (SV *sv, SDU *sdu, SW *sw)
+static int svDeUnoParseIntrons (const SV *sv, SDU *sdu, SW *sw)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai = 0  ;
@@ -1701,7 +1702,7 @@ static int svDeUnoParseIntrons (SV *sv, SDU *sdu, SW *sw)
 
 /*************************************************************************************/
 
-static void  svWiggleReport (SV *sv, SDU *sdu, SW *sw, int unoDuo)
+static void  svWiggleReport (const SV *sv, SDU *sdu, SW *sw, int unoDuo)
 {
   int nn = 0, ii, i ;
   int min = sv->min_support ;
@@ -1811,7 +1812,7 @@ static void  svWiggleReport (SV *sv, SDU *sdu, SW *sw, int unoDuo)
 
 /*************************************************************************************/
 
-static int svDeUnoDo (SV *sv, SDU *sdu)
+static int svDeUnoDo (const SV *sv, SDU *sdu)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
@@ -1840,7 +1841,7 @@ static int svDeUnoDo (SV *sv, SDU *sdu)
 
 /*************************************************************************************/
 
-static int svDeDuoDo (SV *sv, SDU *sdu)
+static int svDeDuoDo (const SV *sv, SDU *sdu)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
@@ -1915,7 +1916,7 @@ static PBS* svDeParibusInit (AC_HANDLE h)
 
 /*************************************************************************************/
 /* phase 1: scan the hits files, cumulate compatible and uncompatible pairs in each block */
-static void svDeParibusCountPairs (SV *sv, SDU *sdu, PBS *pbs)
+static void svDeParibusCountPairs (const SV *sv, SDU *sdu, PBS *pbs)
 {
   AC_HANDLE h = ac_new_handle (), h0 = pbs->h ;
   int  dmaxOk = pbs-> dmaxOk, nBadP = 0, nBadN = 0, nOk = 0 ;
@@ -2015,7 +2016,7 @@ static void svDeParibusCountPairs (SV *sv, SDU *sdu, PBS *pbs)
 
 /*************************************************************************************/
 /* phase 2: flag block with high count and high ratio of uncompatible pairs */
-static void svDeParibusFlagBlocks (SV *sv, SDU *sdu, PBS *pbs) 
+static void svDeParibusFlagBlocks (const SV *sv, SDU *sdu, PBS *pbs) 
 {
   Array aaa = pbs->aaa, aa[4] ;
   BitSet pFlags = pbs->pFlags ;
@@ -2079,7 +2080,7 @@ static void svDeParibusLocateBreakPoints (SV *sv, SDU *sdu, PBS *pbs)
 /*************************************************************************************/
 #endif
 
-static int svDeParibusDo (SV *sv, SDU *sdu)
+static int svDeParibusDo (const SV *sv, SDU *sdu)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
@@ -2104,7 +2105,7 @@ static int svDeParibusDo (SV *sv, SDU *sdu)
 /*************************************************************************************/
 /*************************************************************************************/
 /* phase 5: overlap the concesus, giving the seqeunce of the hole, realign locally */
-static void svDeAvCountGenePairsLane (SV *sv, SDU *sdu, SW *sw, const char *fNam)
+static void svDeAvCountGenePairsLane (const SV *sv, SDU *sdu, SW *sw, const char *fNam)
 {
   AC_HANDLE h = ac_new_handle ()  ;
   KEYSET ks = sw->genePairKs ;
@@ -2204,7 +2205,7 @@ static void svDeAvCountGenePairsLane (SV *sv, SDU *sdu, SW *sw, const char *fNam
 
 /*************************************************************************************/
 
-static void svDeAvCountGenePairs (SV *sv, SDU *sdu, SW *sw)
+static void svDeAvCountGenePairs (const SV *sv, SDU *sdu, SW *sw)
 {
   AC_HANDLE h = ac_new_handle ()  ;
   char *command, *cp ;
@@ -2224,7 +2225,7 @@ static void svDeAvCountGenePairs (SV *sv, SDU *sdu, SW *sw)
 
 /*************************************************************************************/
 
-static void svDeAvReportGenePairs (SV *sv, SDU *sdu, SW *sw)
+static void svDeAvReportGenePairs (const SV *sv, SDU *sdu, SW *sw)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao ;
@@ -2252,7 +2253,7 @@ static void svDeAvReportGenePairs (SV *sv, SDU *sdu, SW *sw)
 
 /*************************************************************************************/
 
-static int svDeAvDo (SV *sv, SDU *sdu)
+static int svDeAvDo (const SV *sv, SDU *sdu)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
@@ -2280,9 +2281,9 @@ static int svDeAvDo (SV *sv, SDU *sdu)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void svClientLoop (void *vp)
+static void svClientLoop (const void *vp)
 {
-  SV *sv = (SV *) vp ;
+  const SV *sv = (SV *) vp ;
   int nn = 0 ;
   SDU sdu ;
 

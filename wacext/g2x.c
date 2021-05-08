@@ -89,7 +89,8 @@ static void gxAceParse (GX *gx, const char * fileName)
 	      if (! r2g)
 		r2g =  array (gx->r2gs, run, Array) = arrayHandleCreate (gMax + 1, unsigned short, gx->h) ;
 	      x *= 100 ;
-	      if (x < 0) x = 0 ; if (x > 4000) x = 4000 ; /* confined to 12 bits */
+	      if (x < 0) x = 0 ; 
+	      if (x > 4000) x = 4000 ; /* confined to 12 bits */
 	      y = x ;
 	      array (r2g, gene, unsigned short) = y ;
 
@@ -137,7 +138,8 @@ static void gxParse (GX *gx, const char * fileName)
 	  dictAdd (gx->geneDict, buf, &gene) ;
 	  
 	  x = 100 * x  ;
-	  if (x < 0) x = 0 ; if (x > 4000) x = 4000 ; 
+	  if (x < 0) x = 0 ; 
+	  if (x > 4000) x = 4000 ; 
 	  y = x ;
 	  array (r2g, gene, unsigned short) = y ;
 	  

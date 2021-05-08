@@ -3364,7 +3364,7 @@ static void dropOneBackToBackPair (Array hits, BOOL isUp, int *jp, int j1, int j
         continue ;
       if (!up->reverse && !u1)
         continue ;
-      if (u1 * u2 * s1 * s2)  /* drop overshooting */
+      if (u1 && u2 && s1 && s2)  /* drop overshooting */
         {
           /* but do not drop pieces longer than the opposite strand */
           if (!up->reverse && s1 > 0 && up->a1 > b2)
@@ -6592,7 +6592,8 @@ static Associator estAssCreate (Array words,
 			     , chrom, c1, c2
 			     , type) ;
         }
-      if (n1p) *n1p += n1 ; if (n2p) *n2p += n2 ;
+      if (n1p) *n1p += n1 ; 
+      if (n2p) *n2p += n2 ;
     }
 
   keySetDestroy (ks) ;
@@ -12789,7 +12790,10 @@ static void getSageHits (KEY cosmid, Associator ass, int nn, Array dna, BOOL isU
   if (i > 20) while (pos++, cp++, i--)
     { 
       if (dx1)
-        oligo1 <<= 2 ; oligo1 |= B2[(int)(*cp)] ; oligo1 &= mask1 ;
+        {
+	  oligo1 <<= 2 ; oligo1 |= B2[(int)(*cp)] ; 
+	  oligo1 &= mask1 ;
+	}
       if (dx2)
         {
           oligo2 <<= 2 ; oligo2 |= B2[(int)(*(cp+gap))] ; oligo2 &= mask2 ;

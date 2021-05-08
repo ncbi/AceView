@@ -287,7 +287,7 @@ typedef struct bridgeStruct {
   char buf1[DELMAX], buf2[INSMAX] ;
 } BRIDGE ;
 
-static void tctAnalyzeSeg (TCT *tct, SEG *seg) ;
+static void tctAnalyzeSeg (const TCT *tct, SEG *seg) ;
 
 /*************************************************************************************/
  
@@ -500,7 +500,7 @@ static void tctShowBrkIndels (Array brkIndels)
 
 /*************************************************************************************/
  
-static Array  tctSeg2Hits (TCT *tct, SEG *seg, AC_HANDLE h0) 
+static Array  tctSeg2Hits (const TCT *tct, SEG *seg, AC_HANDLE h0) 
 {
   int jj ;
   long int kk, kMax, dk ;
@@ -578,7 +578,7 @@ static Array  tctSeg2Hits (TCT *tct, SEG *seg, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* Position segs in the iDown direction */
-static void  tctCombSegPosition (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static void  tctCombSegPosition (const TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   int kk = 0, ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -668,7 +668,7 @@ static void  tctCombSegPosition (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC
 
 /*************************************************************************************/
 /* Comb segs in the iDown direction */
-static BOOL tctCombSeg (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static BOOL tctCombSeg (const TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   AC_HANDLE h = ac_new_handle () ;
   int iMax = arrayMax (hits) ;
@@ -943,7 +943,7 @@ static BOOL tctCombSeg (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h
 
 /*************************************************************************************/
 /* stitches left aligned segs with right aligned segs */
-static void  tctMakeBridge (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
+static void  tctMakeBridge (const TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 {
   BRIDGE *bb ;
   int ii, jj, iMax, jMax ;       
@@ -1176,7 +1176,7 @@ static void  tctMakeBridge (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* fuse identical bridges, add the wild type */
-static void  tctFuseBridges (TCT *tct, SEG *seg, Array hits)
+static void  tctFuseBridges (const TCT *tct, SEG *seg, Array hits)
 {
   int ii, jj, iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
   BRIDGE *bb, *bb0 ;
@@ -1300,7 +1300,7 @@ static void  tctFuseBridges (TCT *tct, SEG *seg, Array hits)
 
 /*************************************************************************************/
 /* count reads supporting all briges */
-static void  tctBridgeSupport (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
+static void  tctBridgeSupport (const TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 {
   AC_HANDLE h = 0 ;
   int ii, iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
@@ -1477,7 +1477,7 @@ static void  tctBridgeSupport (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* set common letters to lower */
-static BOOL  tctBridgeSetUpper (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
+static BOOL  tctBridgeSetUpper (const TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 {
   int i, ii ;
   int iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
@@ -1594,7 +1594,7 @@ static BOOL  tctBridgeSetUpper (TCT *tct, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* duplicate the reads so that they come x2->x1 so that we can extend them in prime */
-static void  tctAddReverseSeg (TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
+static void  tctAddReverseSeg (const TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
 {
   int dummy, jj, ii, iMax = arrayMax (hits) ;
   LHIT *up, *vp ;
@@ -1660,7 +1660,7 @@ static void  tctAddReverseSeg (TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
 
 /*************************************************************************************/
 
-static void  tctComplementSeg (TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
+static void  tctComplementSeg (const TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
 {
   int Ln, ln, dummy, ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -1747,7 +1747,7 @@ static void  tctComplementSeg (TCT *tct, SEG *seg, Array hits,AC_HANDLE h0)
 
 /*************************************************************************************/
 
-static void  tctAlignSeg (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static void  tctAlignSeg (const TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   int ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -1767,14 +1767,14 @@ static void  tctAlignSeg (TCT *tct, SEG *seg, Array hits, BOOL isDown, AC_HANDLE
 			 , 0, up->err, 
 			 3, 8, FALSE, 0
 			 , TRUE) ; /* err was just created and is already set t zero */
-      tct->nErrTrackings++ ; /* approximative, not thread safe */
+      /* tct->nErrTrackings++ ; approximative, not thread safe */
     }
   return ;
 } /* tctAlignSeg */
 
 /*************************************************************************************/
  
-static void tctSetSubsegs (TCT *tct, SEG *seg)
+static void tctSetSubsegs (const TCT *tct, SEG *seg)
 {
   AC_HANDLE h = ac_new_handle () ;
   Array subsegs = 0 ;
@@ -1834,7 +1834,7 @@ static void tctSetSubsegs (TCT *tct, SEG *seg)
 
 /*************************************************************************************/
  
-static void tctAnalyzeSeg (TCT *tct, SEG *seg)
+static void tctAnalyzeSeg (const TCT *tct, SEG *seg)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -1870,9 +1870,9 @@ static void tctAnalyzeSeg (TCT *tct, SEG *seg)
 
 /*************************************************************************************/
 
-static void tctAnalyzer (void *vp)
+static void tctAnalyzer (const void *vp)
 {
-  TCT *tct = (TCT *)vp ;
+  const TCT *tct = (const TCT *)vp ;
   int ii ;
   BOOL debug = FALSE ;
 
@@ -1890,7 +1890,7 @@ static void tctAnalyzer (void *vp)
 
 /*************************************************************************************/
 
-static int tctCompressSegs (TCT *tct)
+static int tctCompressSegs (const TCT *tct)
 {
   Array segs = tct->segs ;
   int iMax = arrayMax (tct->segs) ;
@@ -2713,15 +2713,16 @@ static void tctExport (TCT *tct)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void tctGetTargetFasta (void *vp)
+static void tctGetTargetFasta (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  TCT *tct = (TCT *)vp ;
+  const TCT *tct = (const TCT *)vp ;
   const char *fNam = tct->targetFileName ;
   ACEIN ai = 0 ;
   int state = 0 ;
   int n ;
   int a1, a2, x, dx ;
+  int tt1 = tct->t1 ;
   int t1 = tct->t1 ;
   int t2 = tct->t2 ;
   const char *target = tct->target ;
@@ -2741,9 +2742,9 @@ static void tctGetTargetFasta (void *vp)
 	t2 -= tct->offset ;
     }
   if (t1 < 1) 
-    { tct->t1 += (1-t1) ; t1 = 1 ; }
+    { tt1 += (1-t1) ; t1 = 1 ; }
   a1 = a2 = -1 ; x = 0 ;
-  t1-- ; if (t2) t2-- ; tct->t1-- ; /* Plato */
+  t1-- ; if (t2) t2-- ; tt1-- ; /* Plato */
   while (state < 2 && aceInCard (ai))
     {
       char *cp = aceInWord (ai) ;
@@ -2833,7 +2834,7 @@ static void tctGetTargetFasta (void *vp)
   ac_free (ai) ;
   ac_free (h) ;
   n = 0 ; /* success */
-  channelPut (tct->doneChan, &(tct->t1), int) ;
+  channelPut (tct->doneChan, &(tt1), int) ;
 
   return ;
 } /* tctGetTargetFasta */
@@ -2841,7 +2842,7 @@ static void tctGetTargetFasta (void *vp)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static BOOL tctGetOneFastc (TCT *tct, LANE *lane)
+static BOOL tctGetOneFastc (const TCT *tct, LANE *lane)
 {
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 = tct->fastcFile || ! tct->fastcDir ? 0 : 
@@ -2955,7 +2956,7 @@ static BOOL tctGetOneFastc (TCT *tct, LANE *lane)
 
 /*************************************************************************************/
 
-static BOOL tctGetOneHit (TCT *tct, LANE *lane)
+static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 { 
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 = tct->hitFile ? 0 : hprintf (h, "%s/%s.hits%s"
@@ -2984,7 +2985,7 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
   KEYSET geneSupport = 0 ;
   KEYSET geneFusionKs1 = 0, geneFusionKs2 = 0 ; /* genes touched by read 1 and 2 of a pair */
   HIT *hit ;  
-  int nSeq = 0, nHit = 0, lastGoodGF = 0 ;
+  int nSeq = 0, nHit = 0, lastGoodGF = 0, line = 0 ;
   long int nBp = 0, nBrks = 0, nBrkIndels = 0, nOverhangs = 0 ;
   int minOverhang = tct->minOverhang ;
   BOOL subJump = FALSE, subSampling = tct->subSampling ? TRUE : FALSE ;
@@ -3000,11 +3001,6 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
       geneFusions = lane->geneFusions = arrayHandleCreate (1000, GF, lane->h) ;
       fusionHisto = lane->fusionHisto = keySetHandleCreate (lane->h) ;
       geneSupport = lane->geneSupport = keySetHandleCreate (lane->h) ;
-
-      if (tc && !tct->geneDict && !strcmp (tc, "Z_genome"))
-	tct->geneDict = dictHandleCreate (128, tct->h) ;
-      if (! tct->genes)
-	tct->genes = arrayHandleCreate (128, GF, tct->h) ;
     }
 
   memset (bestTarget_class, 0, sizeof (bestTarget_class)) ;
@@ -3022,9 +3018,9 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
       int i, a1, a2, b1, b2, x1, x2, x11, x22, mult = 1, uu = 1, ali, toali, gene= 0, trgt , target_class ;
       char *cp = aceInPos (ai) ; 
       
+      line++ ;
       if (!cp || ! *cp || *cp == '#' || strlen (cp) > 20001)
 	continue ;
-      
       strncpy (bigBuf, aceInPos (ai), 20002) ;
       if (! strcmp (bigBuf, skipBuf))
 	continue ;
@@ -3305,8 +3301,10 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 	       y1 = hit->x1 ; y2 = hit->x2 ;
 
 	       /* unhack */
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; 
-	       if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
 
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	       cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
@@ -3347,6 +3345,9 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 		     }
 		 }
 	       
+
+
+
 	       if (wab == 1) /* genes can be switched */
 		 {
 		   wab = 0 ;
@@ -3450,8 +3451,10 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 	       y1 = hit->x1 ; y2 = hit->x2 ;
 	       
 	       /* unhack */
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; 
-	       if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
 	       
 	       cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	       cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
@@ -3579,8 +3582,12 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 		 }
 
 	       c1 = a2 ; c2 = b1 ;
-	       if (x1 < 0) x1 = -x1 ; if (x2 < 0) x2 = -x2 ; if (y1 < 0) y1 = -y1 ;if (y2 < 0) y2 = -y2 ;
-	       dx = y1 - x2 ; if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
+	       if (x1 < 0) x1 = -x1 ; 
+	       if (x2 < 0) x2 = -x2 ; 
+	       if (y1 < 0) y1 = -y1 ;
+	       if (y2 < 0) y2 = -y2 ;
+	       dx = y1 - x2 ; 
+	       if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
 
 	       /* clean up x duplications */
 	       
@@ -3676,7 +3683,7 @@ static BOOL tctGetOneHit (TCT *tct, LANE *lane)
 
 /*************************************************************************************/
 
-static BOOL tctGetOneSamHit (TCT *tct, LANE *lane)
+static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 { 
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 =  tct->SAM_file  ? 0 : hprintf (h, "%s/%s.genome.txt%s"
@@ -3901,10 +3908,10 @@ static BOOL tctGetOneSamHit (TCT *tct, LANE *lane)
 
 /*************************************************************************************/
 
-static void tctGetLaneHits (void *vp)
+static void tctGetLaneHits (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  TCT *tct = (TCT *)vp ;
+  const TCT *tct = vp ;
   int ii ;
   BOOL ok = TRUE ;
   
@@ -5086,7 +5093,7 @@ static void tctValGetSnpList (TCT *tct, BOOL extend)
  * construct the words stranded or not
  * count them in the hash table
  */
-static void tctValCountLaneOne (TCT *tct, LANE *lane)
+static void tctValCountLaneOne (const TCT *tct, LANE *lane)
 {
   Associator ass = tct->valAss ; 
   AC_HANDLE h = ac_new_handle () ;
@@ -5230,9 +5237,9 @@ static void tctValCountLaneOne (TCT *tct, LANE *lane)
 
 /*************************************************************************************/
 
-static void tctValCountLane (void *vp)
+static void tctValCountLane (const void *vp)
 {
-  TCT *tct = (TCT *)vp ;
+  const TCT *tct = vp ;
   int ii ;
   BOOL debug = FALSE ;
   int mask2 = 1 << (2 * (tct->snpExtend ? tct->snpExtendLength : 0)) ;
@@ -5588,7 +5595,9 @@ static void tctInit (TCT *tct)
   if (! nn) nn = 10000000 ;
   tct->dna = arrayHandleCreate (nn, char, tct->h) ;
   tct->dnaR = arrayHandleCreate (nn, char, tct->h) ;
-  
+  tct->geneDict = dictHandleCreate (128, tct->h) ;
+  tct->genes = arrayHandleCreate (128, GF, tct->h) ;
+
   if (tct->geneMapFileName) 
     tctGetGeneMap (tct) ;
   tctGetLaneList (tct) ;

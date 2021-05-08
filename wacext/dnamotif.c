@@ -712,7 +712,8 @@ static int dnaMotifCorrel (LOOK *look)
 	    { 
 	      np++ ; array (correl, bestdx, int)++ ; 
 	      if (bestdx > max) max = bestdx ; 
-	      if (!(ok & 0x2))nsite2++; ok |= 2;
+	      if (!(ok & 0x2))nsite2++;
+	      ok |= 2;
 	    }	
 	  else if (look->centrage && center >= -width && center <= +width)
 	    { np++ ; array (correl, width + center, int)++ ; } ;
@@ -2264,10 +2265,9 @@ static int f4Mult(int x, int y)
     return (5-x) ;
   else /* 2*3==3*2==1 */
     return 1 ;
-
-    return 0 ;
-
-}
+  
+  return 0 ;
+} /* f4Mult */
 
 /*************************************************************************************/
 /* fillWord: take a pointer to a mem area storing 8 ints (must be malloc'd);

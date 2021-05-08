@@ -5243,7 +5243,8 @@ static int sxNewExonsAddNewExons (SX *sx, Array segs, Array candidates, Array kn
 	{ 
 	  if (k2 < 1) k2 = 1 ;
 	  for (i = k2,  sxa = arrp (newElements, k2, SXX) ; i > 0 && (sxa->b1 > a1 || sxa->a2 > a1) ; i--, sxa--)
-	  k2 -= 100 ; if (k2 < 0) k2 = 0 ;
+	    k2 -= 100 ; 
+	  if (k2 < 0) k2 = 0 ;
 
 	  for (i = k2,  sxa = arrp (newElements, k2, SXX) ; i < kMax2 ; i++, sxa++)
 	    {
@@ -6036,7 +6037,8 @@ static int sxNewExonsSelectStrand (SX *sx, Array knowElements, Array newElements
 
 	  /* cut forward the b1 side */  
 	  if (sxx->a2 + 10 <  sxx->b2)
-	  b1 = sxx->a2 ; b2 = sxx->b2 ;
+	    b1 = sxx->a2 ; 
+	  b2 = sxx->b2 ;
 	  /* search for a wall in the b1 b2 segment */
 	  if (b2 > b1 + 10)
 	    {
@@ -6050,7 +6052,8 @@ static int sxNewExonsSelectStrand (SX *sx, Array knowElements, Array newElements
 	    }
 	  /* cut reverse the b2 side */  
 	  if (sxx->b2 - 10 >  sxx->a2)
-	  b1 = sxx->b2 ; b2 = sxx->a2 ;
+	    b1 = sxx->b2 ; 
+	  b2 = sxx->a2 ;
 	  /* search for a wall in the b1 b2 segment */
 	  if (b2 > b1 + 10)
 	    {

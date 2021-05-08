@@ -56,7 +56,7 @@ foreach run2 (`cat MetaDB/$MAGIC/RunPairedList`)
 end
 
 set splitM=""
-if (-e TARGET/GENES/$species.$target.split_mrnas.txt) then
+if ($GM == GENE && -e TARGET/GENES/$species.$target.split_mrnas.txt) then
   set splitM="-split_mRNAs TARGET/GENES/$species.$target.split_mrnas.txt"
 endif
 

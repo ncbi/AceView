@@ -27,6 +27,9 @@
  *  mieg@ncbi.nlm.nih.gov
  */
 
+#define MALLOC_CHECK   
+#define ARRAY_CHECK   
+
 #include "ac.h"
 #include "acedb.h"
 #include "bitset.h"
@@ -109,6 +112,7 @@ typedef struct baStruct {
   Array target2exonAtlas ;
   Array splitMrnaArray ;
   DICT *splitMrnaDict ;
+  Associator splitMrnaAss ;
   int maxHit ;      /* only consider alignments with less than this number of targets */
   long int nS, nT ; /* total number of sequences and tags */
   int minAli, errCost ; /* global filtering on aligned length */
@@ -171,11 +175,13 @@ typedef struct mhitStruct {
     ;
 } MHIT ;
 
+
 typedef struct splitMrnaStruct { 
-  int gene, mrna, LL
+  int gene, mrna, gXX, gNewOld
     , x1, x2
     ;
 } SPLITMRNA ;
+
 
 typedef struct autoStruct { 
   const char *run ;
@@ -197,6 +203,8 @@ static int baHit2Gene (BA *ba, HIT *vp, int *genep) ;
 extern int atoi(const char *cp) ;
 static BOOL baParseOneSamTranscriptHit (ACEIN ai, BA *ba, HIT *up, int nn) ;
 static BOOL baKeepOneHit (BA *ba, HIT *up, const int nn, const int Z_genome) ;
+static int baSplitMrnaRemap (BA *ba, HIT *up, HIT2 *up2) ;
+
 /*************************************************************************************/
 
 int intronHitOrder (const void *a, const void *b)
@@ -262,7 +270,8 @@ int baHitOrder (const void *a, const void *b)
   n = up->score - vp->score ; if (n) return -n ;
   n = up->gene - vp->gene ; if (n) return n ;
   if (up->target && vp->target)
-    n = lexstrcmp(dictName(baTargetDict,up->target),dictName(baTargetDict, vp->target)) ; if (n) return n ;
+    n = lexstrcmp(dictName(baTargetDict,up->target),dictName(baTargetDict, vp->target)) ; 
+  if (n) return n ;
   n = up->target - vp->target ; if (n) return n ;
   n = up->x1 - vp->x1 ; if (n) return n ;
   n = up->x2 - vp->x2 ; if (n) return n ;
@@ -404,8 +413,6 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   int isFirstFragment = 1 ;
   int deltaPair ;
   int chain = 0 ;
-  int splitMrna = 0 ;
-  int splitMrnaGene = 0 ;
 
   aceInSpecial (ai, "\n") ;
 
@@ -498,9 +505,6 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     }
   if (strcmp (ccp, "-"))
     dictAdd (ba->targetDict,ccp, &(up->gene)) ;
-  splitMrnaGene = 0 ;
-  if (ba->splitMrnaDict)
-    dictFind (ba->splitMrnaDict, ccp, &splitMrnaGene) ;
 
   if (! aceInInt (ai, &dummy))
     {
@@ -519,10 +523,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (! ccp || ! *ccp)
     return FALSE ;
   dictAdd (ba->targetDict,ccp, &(up->target)) ;
-  splitMrna = 0 ;
-  if (ba->splitMrnaDict)
-    dictFind (ba->splitMrnaDict, ccp, &splitMrna) ;
-  
+
   if ( ! aceInInt (ai, &(up2->a1)) ||
       ! aceInStep (ai, '\t') || ! aceInInt (ai, &(up2->a2)) ||
       ! aceInStep (ai, '\t') || ! aceInInt (ai, &dummy) ||
@@ -531,41 +532,6 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
     {
       fprintf(stderr, "cannot read nErr\n") ;
       return FALSE ;
-    }
-
-  if (splitMrnaGene > 0) /* retarget to the correct LocusLink Gene */
-    {
-      BOOL ok = FALSE ;
-      int i ;
-      
-      for (i = 0 ; splitMrna > 0 && i < 10 ; i++)
-	{
-	  SPLITMRNA *mp = arrayp (ba->splitMrnaArray, 10*splitMrna + i, SPLITMRNA) ;
-	  if (! mp->mrna) 
-	    break ;
-	  if (
-	      mp->x1 * mp->x2 == 0 || /* whole mRNA is remapped */
-	      (mp->x1 <= up2->a1 + 7 && mp->x2 >= up2->a2 - 7)  /* just a segment */
-	      )	    
-	    { /* accept this locuslink */
-	      const char *ccp = dictName (ba->splitMrnaDict, mp->LL) ;
-	      dictAdd (ba->targetDict,ccp, &(up->gene)) ;   
-	      ok = TRUE ;
-	      break ;
-	    }
-	  if ( i && mp->mrna && 
-	      mp[-1].x1 < up2->a2 && mp->x2 > up2->a2  /* two segments */
-	      )	    
-	    { /* accept this locuslink */
-	      const char *ccp = hprintf (0, "%s__%s", dictName (ba->splitMrnaDict, mp[-1].LL), dictName (ba->splitMrnaDict, mp->LL)) ;
-	      dictAdd (ba->targetDict,ccp, &(up->gene)) ;   
-	      ac_free (ccp) ;
-	      ok = TRUE ;
-	      break ;
-	    }	  
-	}
-      if (!ok) /* drop this hit */
-	return FALSE ;
     }
 
   if (! (ba->geneSupport || ba->mrnaSupport) && ba->stranded * isFirstFragment * (up2->a2 - up2->a1) < 0) 
@@ -645,6 +611,10 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       if ( deltaPair < 0 && deltaPair >=  NON_COMPATIBLE_PAIR && deltaPair != -2  && deltaPair != -10 &&  deltaPair != -5)
 	up2->badPair = 1 ;
     }
+   
+   up->gene = baSplitMrnaRemap (ba, up, up2) ;
+
+
    aceInWordCut (ai, "\t", &cutter) ; /* col 23 */
    aceInWordCut (ai, "\t", &cutter) ; /* col 24 */
    aceInWordCut (ai, "\t", &cutter) ; /* col 25 */
@@ -1341,11 +1311,11 @@ static int baPairFilterOne (BA *ba, int iiMin, int iiMax, Array geneLinks)
 	    }
 	}
       /* do we have several ii going to the same jj */
-      if (arrayMax (bb))
+      if (arrayMax (bb) && arrayMax (bb2))
 	{
 	  HIT *xp ;
 
-	  for (i1 = 0, wp = arrp (bb, 0, HIT), wp2 = arrp (bb2, 0, HIT2) ; i1 < arrayMax (bb) ; i1++, wp++, wp2++)
+	  for (i1 = 0, wp = arrp (bb, 0, HIT), wp2 = arrp (bb2, 0, HIT2) ; i1 < arrayMax (bb) && i1 < arrayMax (bb2) ; i1++, wp++, wp2++)
 	    {
 	      if (! wp->score || ! wp->x2) continue ;
 	      for (i2 = i1 + 1, xp = wp + 1, xp2 = wp2 + 1 ; i2 < arrayMax (bb) ; i2++, xp++, xp2++)
@@ -2762,9 +2732,9 @@ static int baCheckUnicity (BA *ba)
 			    g2->x1 < g2->x2 && g1->x1 > g1->x2 &&
 			    g2->x1 < g1->x1 && g2->x2 > g1->x2
 			    )
-			   )
+			     )
 			  )
-			ok = -2 ; ok2 |= 1 ;
+			{ ok = -2 ; ok2 |= 1 ; }
 		    }
 		}
 
@@ -5382,7 +5352,7 @@ static int baElementSupport2aceCoalesce (Array aa, AC_HANDLE h)
 		      up->wiggle = vp->wiggle ;
 		      vp->wiggle = 0 ;
 		    }
-		  else    /* acummulate */
+		  else    /* accumulate */
 		    {
 		      int i = keySetMax (vp->wiggle) ;
 		      KEY *ip, *jp ;
@@ -8727,75 +8697,141 @@ static void baFastqAnalysis (BA *ba)
 
 
 /*************************************************************************************/
+/* remap the read to the correct gene, in case splitMrna are defined */
+
+static int baSplitMrnaRemap (BA *ba, HIT *up, HIT2 *up2)
+{
+  Associator ass = ba->splitMrnaAss ;
+  int mrna = up->target ;
+  Array bucket ;
+  int iBucket ;
+  int x1 = up2->a1, x2 = up2->a2 ;
+  int da = up2->badPair ? 0 : up2->dPair ;
+
+  const void *vp ;
+
+  if (! ass || ! ba->splitMrnaArray)
+    return up->gene ;
+
+  if (da * (x2 - x1) < 0)
+    da = 0 ; 
+  if (x1 < x2)
+    {
+      if (x1 + da - 1 > x2) /* use the pair */
+	x2 = x1 + da ;
+    }
+  else
+    { 
+      int x0 ;
+      if (x1 + da < x2) /* use the pair */
+	x2 = x1 + da ;
+      x0 = x1 ; x1 = x2 ; x2 = x0 ; 
+    }
+
+  iBucket = 0 ; bucket = 0 ;
+  if (! assFind (ass, assVoid (mrna), 0))
+    {
+      mrna = up->gene ;
+    }
+  if (mrna && assFind (ass, assVoid (mrna), 0))
+    while (assFindNext (ass, assVoid (mrna), &vp, &bucket, &iBucket))
+      {
+	int nn = assInt (vp) ;
+	SPLITMRNA *wp = arrayp (ba->splitMrnaArray, nn, SPLITMRNA) ;                
+	
+	if (wp->x1 == 0)
+	  return wp->gNewOld ; 
+	else if (wp->x1 - 8 <= x1 && wp->x2 + 8 >= x2)
+	  return wp->gXX ;
+	else if (wp->x2 - 8 > x1 && wp->x2 + 8 < x2)
+	  return wp->gNewOld ;
+      }
+  return up->gene ;
+} /* baSplitMrnaRemap */
+
+/*************************************************************************************/
 
 static int baSplitMrnaParse (BA *ba)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int i, nn = 0 ;
-  int gene, mrna, LL, x1, x2 ;
+  int nn = 0 ;
+  int gene, mrna, x1, x2, gXX, gNewOld ;
   const char *ccp ;
-  DICT *dict = 0 ;
+  DICT *dict = ba->targetDict ;
   Array aa  = 0 ;
   ACEIN ai = aceInCreate (ba->splitMrnaFileName, 0, h) ;
   SPLITMRNA *up ;
+  Associator ass ;
 
+  if (! dict)
+    dict = ba->targetDict = dictHandleCreate (100000, ba->h) ; 
   if (! ai)
     messcrash ("Sorry, i cannot find the -split_mRNAs file : %s", ba->splitMrnaFileName) ;
   aa = ba->splitMrnaArray = arrayHandleCreate (10000, SPLITMRNA, ba->h) ;
-  dict = ba->splitMrnaDict = dictHandleCreate (100, ba->h) ;
+  ass = ba->splitMrnaAss = assHandleCreate (ba->h) ;
 
   while (aceInCard (ai))
     {
+      BOOL anyMrna = FALSE ;
+
       ccp = aceInWord (ai) ;
       if (! ccp || *ccp == '#')
 	continue ;
-      dictAdd (dict, ccp, &mrna) ;
+      dictAdd (dict, ccp, &gene) ;
 
       aceInStep (ai, '\t') ;
       ccp = aceInWord (ai) ;
       if (! ccp)
 	continue ;
-      dictAdd (dict, ccp, &gene) ;
-
+      if (! strcmp (ccp, "*"))
+	{
+	  anyMrna = TRUE ;
+	  mrna = gene ;
+	}
+      else
+	dictAdd (dict, ccp, &mrna) ;
+      
       x1 = x2 = -1 ;
       aceInStep (ai, '\t') ;
       aceInInt (ai, &x1) ;
       aceInStep (ai, '\t') ;
       aceInInt (ai, &x2) ;
 
-      if (x2 < 0 || x1 < 0)
+      if (x1 < 0 || x2 < 0)
 	messcrash ("FATAL ERROR: In -split_mRNAs, missing coordinates in mRNA %s, line %d, file %s"
 		   , dictName (dict, mrna) 
 		   , aceInStreamLine (ai) 
 		   , ba->splitMrnaFileName
 		   ) ;
-    
+      
+      aceInStep (ai, '\t') ;
+      ccp = aceInWord (ai) ;
+      if (! ccp || ! strcmp (ccp, "NULL"))
+	continue ;
+      gXX = 0 ;
+      if (! anyMrna && x1)
+	dictAdd (dict, hprintf (h, "%s(%s)", ccp, dictName (dict, gene)), &gXX) ; /* a new name for that fraction of the read */
+
+      aceInStep (ai, '\t') ; /* jump col 5 */
+      ccp = aceInWord (ai) ;
+      if (! ccp || strstr (ccp, "NULL__") == ccp)
+	continue ;
       aceInStep (ai, '\t') ;
       ccp = aceInWord (ai) ;
       if (! ccp)
 	continue ;
-      dictAdd (dict, ccp, &LL) ; /* a LocusLink name, please create the correspongding gene expression */
-
-
-      for (i = 0 ; i < 10 ; i++)
+      dictAdd (dict, ccp, &gNewOld) ; /* name(oldNam) */
+      
+      assMultipleInsert (ass, assVoid(mrna), assVoid (nn)) ;
+      up = arrayp (aa, nn++, SPLITMRNA) ;
+      up->gene = gene ;
+      up->gNewOld = gNewOld ;
+      if (gXX) 
 	{
-	  up = arrayp (aa, 10*mrna + i, SPLITMRNA) ;
-	  if (! up->mrna)
-	    {
-	      up->gene = gene ;
-	      up->mrna = mrna ;
-	      up->LL = LL ;
-	      up->x1 = x1 ; 
-	      up->x2 = x2  ;
-	      break ;
-	    }
+	  up->gXX = gXX ;
+	  up->x1 = x1 ;
+	  up->x2 = x2 ;
 	}
-      if (i >= 10)
-	messcrash ("FATA ERROR: In -split_mRNAs, more than 10 components to mRNA %s, line %d, file %s"
-		   , dictName (dict, mrna) 
-		   , aceInStreamLine (ai) 
-		   , ba->splitMrnaFileName
-		   ) ;
     }
 
   ac_free (h) ;

@@ -95,7 +95,7 @@ typedef struct int4Struct { int xx[IBMAX] ; } I4 ;
 #define RIGHTMASK (CENTRALMASK - 1)
 #define LEFTMASK ((RIGHTMASK << WORDLENGTH) & MASK)
 
-static I4 snpBloomOneSequence (TELO *tp, char *dna)
+static I4 snpBloomOneSequence (const TELO *tp, char *dna)
 {
   I4 mynk ;
   register unsigned int f = 0 ; /* the word buffer in the forward direction */
@@ -149,9 +149,9 @@ static I4 snpBloomOneSequence (TELO *tp, char *dna)
 
 /*************************************************************************************/
 
-static void sblDoCountSnps (void *vp)
+static void sblDoCountSnps (const void *vp)
 {
-  TELO *tp = (TELO *)vp ;
+  const TELO *tp = (TELO *)vp ;
   int k, nLines = 0, mult = 0, polyA = 0 ;
   char *cp, *cq ;
   BOOL debug = FALSE ;
@@ -222,8 +222,8 @@ static void sblDoCountSnps (void *vp)
 	    {
 	      snpBloomOneSequence (tp, cp) ;
 
-	      tp->nSeqs++ ; /* analizing */
-	      tp->nTags += mult ; 
+	      ((TELO *)tp)->nSeqs++ ; /* analizing */
+	      ((TELO *)tp)->nTags += mult ; 
 	      if (tp->pp->polyA)
 		keySet (tp->polyaHisto, polyA) += mult ;
 	    }

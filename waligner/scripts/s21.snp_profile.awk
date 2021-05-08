@@ -22,10 +22,30 @@
 }
 /^ZZZZZ/ {rejected++; next; }
 {   # typeCol=5;
-    type = tolower ($typeCol) ;
-        split ($slideCol, vv, ":") ;
-	ivv = index (vv[2],"dim") + index(vv[2],"dup") ;
-	if (ivv > 1) type = "*" type ;
+    type = $typeCol
+    split (type, vv, ":") ;
+
+    if (vv[1] == "Sub") 
+	type=vv[2] ">" vv[3] ;
+    k = 0 ;
+    if (substr (vv[1],1,3) == "Ins")
+	k = 3 ;
+    if (substr(vv[1],1,3) == "Del")
+	k = 2 ;
+    if (k > 0)
+    {
+	type = substr(vv[1],1,3) ; z=vv[k] ;
+	if (index (vv[1],"/")) 
+	    type = "*" type ;
+	for(i=1 ; i <= length(z) ;i++)
+	{
+	    c = substr(z,i,1) ;
+	    if (c == toupper(c))
+		type = type c ;
+	}
+    }
+    type = tolower (type) ;
+
     k=0 ; kmx = 0 ;
     for (i = mx+1 ; i<=NF; i++)
     {

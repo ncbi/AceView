@@ -400,7 +400,9 @@ Stack processQueries(int *clientIdp, int *clientMagic, char *question, int maxCh
       if (magic1 < 0) magic1 *= -1 ;
       if (magic2 < 0) magic2 *= -1 ;
       if (magic3 < 0) magic3 *= -1 ;
-      if (!magic1) magic1 = 1 ;       if (!magic2) magic2 = 1 ;      if (!magic3) magic3 = 1 ;
+      if (!magic1) magic1 = 1 ;
+      if (!magic2) magic2 = 1 ; 
+      if (!magic3) magic3 = 1 ;
       *clientMagic = magic1 ;
       magicRead  = magic1 * magic2 % 73256171 ;
       magicWrite = magic1 * magic3 % 43532334 ;
@@ -556,11 +558,12 @@ if (debug) messerror(stackText(s,0)) ;
 	  if (cp && !strcasecmp(cp, "now")) 
 	    wormClose () ;
 	  else
-	    pushText (s,"// The server will now refuse any new connection \n") ;
-            catText (s, "// and shutdown when the last client quits\n") ;
-	    catText(s,messprintf("// Now %d active Client(s)\n",
-				nActiveClients)) ;
-
+	    {
+	      pushText (s,"// The server will now refuse any new connection \n") ;
+	      catText (s, "// and shutdown when the last client quits\n") ;
+	      catText(s,messprintf("// Now %d active Client(s)\n",
+				   nActiveClients)) ;
+	    }
 	  break ;
 	}
     }

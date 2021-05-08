@@ -1481,9 +1481,9 @@ static int gFlagEst (int *methods, char **methodTitle, Array aa, DICT *dict, AC_
 		sp->alibaba = 0 ; 
 	      else if (sp->score > sq->score)
 		sq->alibaba = 0 ; 
-	      else if (sp->bad_intron > sp->bad_intron)
+	      else if (sp->bad_intron > sq->bad_intron)
 		sp->alibaba = 0 ;
-	      else if (sp->bad_intron < sp->bad_intron)
+	      else if (sp->bad_intron < sq->bad_intron)
 		sq->alibaba = 0 ;
 	      else if (sp->ali >  sq->ali)
 		sq->alibaba = 0 ;
@@ -1535,9 +1535,9 @@ static int gFlagEst (int *methods, char **methodTitle, Array aa, DICT *dict, AC_
 		sp->alibaba = 0 ; 
 	      else if (sp->score > sq->score)
 		sq->alibaba = 0 ; 
-	      else if (sp->bad_intron > sp->bad_intron)
+	      else if (sp->bad_intron > sq->bad_intron)
 		sp->alibaba = 0 ;
-	      else if (sp->bad_intron < sp->bad_intron)
+	      else if (sp->bad_intron < sq->bad_intron)
 		sq->alibaba = 0 ;
 	      else if (sp->ali >  sq->ali)
 		sq->alibaba = 0 ;

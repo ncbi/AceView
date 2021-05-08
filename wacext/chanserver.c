@@ -45,10 +45,10 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 #define NMAX 100
 
 typedef struct tStruct {CHAN *c ; BOOL exit ; TASK *taskS ;} TT ;
-void myReader (void *vp)
+void myReader (const void *vp)
 {
   int i, nn ;
-  TT *ttp = (TT *)vp ; 
+  const TT *ttp = (TT *)vp ; 
   CHAN *r1 = (ttp->c) ;
   for (i = 1, nn = 0 ; i < NMAX ; i++)
     {  

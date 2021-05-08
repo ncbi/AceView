@@ -998,7 +998,7 @@ static float gLocDrawGene (GLoc look, BOOL boxNeeded, BOOL isDown)
 		  y += .4 ; ddy += .4 ;
 		  u0 = (u1 + u2)/2.0 ;
 		  if (gLocDrawPastilles (look, seg, u0, y))
-		    y += .8 ;ddy += .8 ;
+		    { y += .8 ; ddy += .8 ; }
 		}
 	      if (0) gLocDrawArrow (look, seg, y - ddy) ;
 	      if (seg->gid >= 2)

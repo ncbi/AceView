@@ -2856,11 +2856,15 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
       ccp = arrp (dna, i, unsigned char) ;
       if (x1 == 1) ok = 0 ;
       else if (x1 == 2 && mm->probeLeftClip >= 6)
-	{ if (mm->probeLeftClip >= pp->errCost) ok = 1 ; i-- ; j-- ; }
+	{ 
+	  if (mm->probeLeftClip >= pp->errCost) ok = 1 ; 
+	  i-- ; j-- ; 
+	}
       else if (x1 == 3 && mm->probeLeftClip >= 6)
 	{ 
 	  if (mm->probeLeftClip >= pp->errCost && *(ccp-1) == arr (probeDnaArray, x1-3, unsigned char)) 
-	    ok = 2 ; i -= 2 ; j -= 2 ; 
+	    ok = 2 ; 
+	  i -= 2 ; j -= 2 ; 
 	}
       if (ok >= 0)
 	{
@@ -2926,7 +2930,8 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
       else if (x2 == mm->probeLength - 2 && mm->probeRightClip >= 6)
 	{ 
 	  if (mm->probeRightClip >= pp->errCost && *(ccp+1) == arr (probeDnaArray, x2+1, unsigned char)) 
-	  ok = 2 ; i+=2 ; j-=2 ;
+	    ok = 2 ; 
+	  i+=2 ; j-=2 ;
 	}
 
       if (ok >= 0)
@@ -5000,10 +5005,10 @@ static int clipAlignMergeDoubleIntrons (CLIPALIGN *pp)
 		{
 		  up->score  += vp->score ;
 		  vp->score = 0 ; 
-		  if (up->x1 < up->x1 && vp->a1 < up->a1) up->a1 = vp->a1 ;
-		  if (up->x1 > up->x1 && vp->a1 > up->a1) up->a1 = vp->a1 ;
-		  if (up->x2 < up->x2 && vp->s2 < up->s2) up->s2 = vp->s2 ;
-		  if (up->x2 > up->x2 && vp->s2 > up->s2) up->s2 = vp->s2 ;
+		  if (up->x1 < up->x2 && vp->a1 < up->a1) up->a1 = vp->a1 ;
+		  if (up->x1 > up->x2 && vp->a1 > up->a1) up->a1 = vp->a1 ;
+		  if (up->x1 < up->x2 && vp->s2 < up->s2) up->s2 = vp->s2 ;
+		  if (up->x1 > up->x2 && vp->s2 > up->s2) up->s2 = vp->s2 ;
 		}
 	    }
 	}
@@ -7922,7 +7927,7 @@ static int clipAlignOptimizeMergeIntrons (CLIPALIGN *pp)
 	ipx++ ;
 	if (ipx >= ipxMax)
 	  ipx = ipxMax - 1;
-	  memmove (pxs+1,pxs, ipx * sizeof(PEXPORT*)) ;
+	memmove (pxs+1,pxs, ipx * sizeof(PEXPORT*)) ;
 	pxs[0] = px ;
       }
 
@@ -10074,7 +10079,8 @@ static BOOL clipAlignGetProbes (CLIPALIGN *pp, int pass)
 		{
 		  if (*ce & A_) 
 		    {
-		      if (j<0) j++ ; if (j>=0) {i2 = i - 1 ; }
+		      if (j<0) j++ ; 
+		      if (j>=0) {i2 = i - 1 ; }
 		    } /* candidate clip position */
 		  else 
 		    j-= 6 ;

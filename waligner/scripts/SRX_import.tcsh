@@ -59,6 +59,8 @@ if ($species == hs) then
   set ff='/home/mieg/AW/Human_DATA/Nature_Biotech_paper_Galas_148_SraRunInfo.txt'
   set date=2019_12_16
   set ff='/home/mieg/AW/Human_DATA/MAQC_SEQC2_data_from_SRA_3projects_SraRunInfo.txt'
+  set date=2021_02_16
+  set ff='/home/mieg/AW/Human_DATA/ToReferee//2021Feb_Ghimire_review_4ScReports_SraRunInfo.txt'
 endif
 if ($species == rn) then
   set date=2016_11_04

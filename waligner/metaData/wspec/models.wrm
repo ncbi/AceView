@@ -172,6 +172,7 @@
              Coverage_8kb
 	     Shift_expression_index UNIQUE Float // add this value to all expression index (useful in captures where the norm is suboptimal)
              Intron
+             Transloc
              Compare_to ?Run XREF Compare_to ?Run UNIQUE ?Run  ?Run UNIQUE ?Run  // construtc a predictor using r1/r2 interpret pheno r3 r4 then r5 r6n   // obsolete Danielle
              DEG ?Experiment XREF DEG_high_run @DEG // export genes->DEG_high_low ?Exp score fold_change high low_av relative to Run                      // obsolete Danielle
              Compare ?Compare XREF Runs
@@ -667,6 +668,7 @@
          Unicity_index UNIQUE Float  // 100 number of uique tags/non-necessarilly unique in SEQC
          SEQC_sigma UNIQUE Float   //  sigma of the expression index accross the SEQC replicas
          Capture ?Capture
+         Capture_touch ?Capture
          Gene_type UNIQUE Coding_ancient_single_exon
                           Coding_ancient_spliced_antisense
                           Coding_ancient_spliced_free
@@ -1099,8 +1101,8 @@
                 Low_validation
                 Copy_of  ?Intron XREF  Copy_of
                 Supports ?Sequence
-        Motifs Donor UNIQUE Text  // 54bp: 50 in exon (-) 4 in intron of donor with an explicit - sign
-               Acceptor UNIQUE Text // 54bp: 4 in intron (-) 50 in exon of acceptor
+        Motifs Donor UNIQUE Text  // 58bp: 50 in exon (-) 8 in intron of donor with an explicit - sign
+               Acceptor UNIQUE Text // 58bp: 8 in intron (-) 50 in exon of acceptor
         Deep  Group_U      ?Run UNIQUE Float UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text // group 7 2550 seqs 3200 Tags 150 kb variance 3.6
               Group_nU     ?Run UNIQUE Float UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text // group 7 2550 seqs 3200 Tags 150 kb variance 3.6
               Run_U        ?Run   UNIQUE Float UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text // run   7 2550 seqs 3200 Tags 150 kb
@@ -1234,6 +1236,7 @@
           Project ?Project XREF Compare
           Runs ?Run  XREF Compare UNIQUE Int // 2 or more runs or groups to be compared
           Apply Pair Chrom_density // obsolete Force_threshold UNIQUE Int  // 0 to 200, impose a DEG score threshold rather than relying on the FDR system	     
+                Intron // Use differential SNPs to perform the comparisons
                 SNP // Use differential SNPs to perform the comparisons
                 CNV UNIQUE Int  // coverage of the big group, i.e. group 1 in case CNV AND Profile: use: Runs Big_Group 1\n   Control_group 2
                 Prediction  Predicts ?Compare XREF Predicted_by UNIQUE Text UNIQUE Float  // I am a Training Comapre, i point to a Compare between Test groups     

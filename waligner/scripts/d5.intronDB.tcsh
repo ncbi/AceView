@@ -82,9 +82,9 @@ bin/tacembly GeneIndexDB << EOF
 EOF
 
 ### CAPTURE
-if (-e tmp/METADATA/$MAGIC.captured_genes.ace) then 
+if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then 
   bin/tacembly GeneIndexDB << EOF
-    parse  tmp/METADATA/$MAGIC.captured_genes.ace
+    parse  tmp/METADATA/$MAGIC.av.captured_genes.ace
     save
     bql -o  tmp/OR/d5.$MAGIC.captured_introns.txt select ii,c from g in ?Gene, c in g->capture where c, ii in g->Intron  
     quit

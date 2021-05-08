@@ -4995,7 +4995,8 @@ static BOOL maqcSignalPerProbeClass_c4 (MAQC *maqc)
       /* cut left 1 % */
       for (x1 = pcl = i1 = 0 ; 100 * i1 < i0 &&  x1 <= 100 ; x1++)
 	i1 += CC[2000*nLab+101*pcl+x1] ;
-      if (x1 > 0) x1-- ;      if (x1 > 0) x1-- ;
+      if (x1 > 0) x1-- ;  
+      if (x1 > 0) x1-- ;
       for (x2 = 100,  pcl = i2 = 0 ; 100 * i2 < i0 &&  x2 >= 0 ; x2--)
 	i2 += CC[2000*nLab+101*pcl+x2] ;
       if (x2 < 100) x2++ ;

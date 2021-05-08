@@ -527,7 +527,7 @@ static int cnvCoverons2Genes (CNV *cnv)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static BOOL cnvDoParseOneCoverage (CNV *cnv, int run, int chrom, ACEIN ai, AC_HANDLE h)
+static BOOL cnvDoParseOneCoverage (const CNV *cnv, int run, int chrom, ACEIN ai, AC_HANDLE h)
 {
   RC *rc = arrp (cnv->runs, run, RC) ;
   Array aa = rc->cover ;
@@ -554,9 +554,9 @@ static BOOL cnvDoParseOneCoverage (CNV *cnv, int run, int chrom, ACEIN ai, AC_HA
 
 /*************************************************************************************/
 #include <sys/file.h>
-static void cnvParseOneCoverage (void *vp)
+static void cnvParseOneCoverage (const void *vp)
 {
-  CNV *cnv = (CNV*)vp ;
+  const CNV *cnv = (CNV*)vp ;
   ACEIN ai = 0 ;
   GCV gcv ;
   char *buffer[1024], *cp ;

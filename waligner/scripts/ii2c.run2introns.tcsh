@@ -31,11 +31,11 @@ else
     foreach r (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if($1 == g)print $2 ;}' g=$run | sort -u`)
       ls -ls  tmp/INTRONRUNS/$r/$r.u.intronSupport.counts.gz
       if ( -e  tmp/INTRONRUNS/$r/$r.u.intronSupport.counts.gz) then
-              gunzip -c  tmp/INTRONRUNS/$r/$r.u.intronSupport.counts.gz  >>  tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts
-           endif
-      end
-      cat tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts | gawk -F '\t' '{z=$1 "\t" $2 "\t" $3 ; nn[z] += $4;}END {for (z in nn) printf ("%s\t%d\n", z, nn[z]) ;}' | gzip >  tmp/INTRONRUNS/$run/$run.u.intronSupport.counts.gz
-      \rm tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts 
+        gunzip -c  tmp/INTRONRUNS/$r/$r.u.intronSupport.counts.gz  >>  tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts
+      endif
+    end
+    cat tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts | gawk -F '\t' '{z=$1 "\t" $2 "\t" $3 ; nn[z] += $4;}END {for (z in nn) printf ("%s\t%d\n", z, nn[z]) ;}' | gzip >  tmp/INTRONRUNS/$run/$run.u.intronSupport.counts.gz
+    \rm tmp/INTRONRUNS/$run/$run.u.intronSupport.precounts 
   endif
 
 endif

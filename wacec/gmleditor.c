@@ -456,7 +456,8 @@ void smlEditMiniMax (smlEDIT * sml, int * sy,int * sx, int * fy,int * fx)
   if ((*sy) > (*fy)) 
     {
       curNum = (*fy)  ; (*fy)  = (*sy)  ; (*sy)  = curNum ;
-        if (fx && fy) curNum = (*fx)  ; (*fx)  = (*sx)  ; (*sx)  = curNum ;
+      if (fx && fy) curNum = (*fx)  ; 
+      (*fx)  = (*sx)  ; (*sx)  = curNum ;
     }
   
   if (!sx || !fx) return ;
@@ -706,7 +707,8 @@ char smlEditFixPosition (smlEDIT * sml, smlLINE * * psl, int * px, int * py,int 
       
       if (curx >= sml->lineMaxSize) curx = len-1 ;
     }
-  if (curx<0 && !yWasZero) curx = len-1 ;if (curx<0) curx = 0 ;
+  if (curx<0 && !yWasZero) curx = len-1 ;
+  if (curx<0) curx = 0 ;
   *px = curx ; 
   *py = cury ;
   if (psl) *psl = sl ;
@@ -1033,7 +1035,9 @@ static void gmlScrollSet (gmlEDIT * gml,gmlSCRL * gsc,int minV, int maxV,int cur
   if (!gsc->style) return ;
   
   /* adjust to limits */
-  if (maxV<minV) maxV = minV ;if (curV<minV) curV = minV ;if (curV>maxV) curV = maxV ;
+  if (maxV<minV) maxV = minV ;
+  if (curV<minV) curV = minV ;
+  if (curV>maxV) curV = maxV ;
   /* did anything change */
   if (gsc->drawScale && gsc->minVal  ==  minV && gsc->maxVal  ==  maxV && gsc->curVal  ==  curV ) return ;
   if (gsc->curVal  !=  curV ) gsc->status |= gmlREPOSSCRL ;
@@ -1056,49 +1060,55 @@ static void gmlScrollSet (gmlEDIT * gml,gmlSCRL * gsc,int minV, int maxV,int cur
     {
       /*gsc->drawScale = (gsc->scale) *gsc->lExt/diffVal ;*/
       gsc->drawScale = gsc->scale*gsc->lExt/ (diffVal+gsc->scale)  ;
-      if (gsc->drawScale>gsc->lExt) gsc->drawScale = gsc->lExt ;if (gsc->drawScale<0) gsc->drawScale = 0 ;
-    }else gsc->drawScale = gsc->lExt ;
+      if (gsc->drawScale>gsc->lExt) gsc->drawScale = gsc->lExt ;
+      if (gsc->drawScale<0) gsc->drawScale = 0 ;
+    }
+  else 
+    gsc->drawScale = gsc->lExt ;
   
   /* offset where start drawing the elevator */
   if (diffVal) 
     {
       gsc->drawShift = (gsc->curVal-gsc->minVal) * (gsc->lExt-gsc->drawScale) /diffVal ;
-      if (gsc->drawShift> (gsc->lExt-gsc->drawScale)) gsc->drawShift = (gsc->lExt-gsc->drawScale)  ;if (gsc->drawShift<0) gsc->drawShift = 0 ;
-    }else gsc->drawShift = 0 ;
+      if (gsc->drawShift> (gsc->lExt-gsc->drawScale)) gsc->drawShift = (gsc->lExt-gsc->drawScale)  ;
+      if (gsc->drawShift<0) gsc->drawShift = 0 ;
+    }
+  else
+    gsc->drawShift = 0 ;
   
   
-    if (gsc->style&gmlVERTSCRL)    /* vertical */
+  if (gsc->style&gmlVERTSCRL)    /* vertical */
+    
+    {  
+      gsc->lineSx = gsc->lineFx = gsc->sx+gml->cfg.scrlWidth/2 ;
+      gsc->lineSy = gsc->sy+gml->cfg.scrlArrowLen ;gsc->lineFy = gsc->lineSy+gsc->lExt ;
       
-      {  
-        gsc->lineSx = gsc->lineFx = gsc->sx+gml->cfg.scrlWidth/2 ;
-        gsc->lineSy = gsc->sy+gml->cfg.scrlArrowLen ;gsc->lineFy = gsc->lineSy+gsc->lExt ;
-        
-        gsc->elevSx = gsc->lineSx-gml->cfg.scrlWidth/2 ;gsc->elevFx = gsc->elevSx+gml->cfg.scrlWidth ;
-        gsc->elevSy = gsc->lineSy+gsc->drawShift ;gsc->elevFy = gsc->elevSy+gsc->drawScale ;
-        gsc->minFigSx = gsc->sx ;gsc->minFigSy = gsc->sy ;
-        gsc->maxFigSx = gsc->sx ;gsc->maxFigSy = gsc->sy+gsc->ext-gml->cfg.scrlArrowLen ;
-	
-        gsc->minFigFx = gsc->minFigSx+gml->cfg.scrlWidth ;gsc->minFigFy = gsc->minFigSy+gml->cfg.scrlArrowLen ;
-        gsc->maxFigFx = gsc->maxFigSx+gml->cfg.scrlWidth ;gsc->maxFigFy = gsc->maxFigSy+gml->cfg.scrlArrowLen ;
-	
-        if (gsc->status&gmlREPOSSCRL) gmlEDITsetCallbackFlag (gml,gmlEDITchangeVSCROLL)  ;
-      }
-    else if (gsc->style&gmlHORZSCRL)  /* horizontal */
+      gsc->elevSx = gsc->lineSx-gml->cfg.scrlWidth/2 ;gsc->elevFx = gsc->elevSx+gml->cfg.scrlWidth ;
+      gsc->elevSy = gsc->lineSy+gsc->drawShift ;gsc->elevFy = gsc->elevSy+gsc->drawScale ;
+      gsc->minFigSx = gsc->sx ;gsc->minFigSy = gsc->sy ;
+      gsc->maxFigSx = gsc->sx ;gsc->maxFigSy = gsc->sy+gsc->ext-gml->cfg.scrlArrowLen ;
       
-      {  
-        gsc->lineSy = gsc->lineFy = gsc->sy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz/2 ;
-        gsc->lineSx = gsc->sx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->lineFx = gsc->lineSx+gsc->lExt ;
+      gsc->minFigFx = gsc->minFigSx+gml->cfg.scrlWidth ;gsc->minFigFy = gsc->minFigSy+gml->cfg.scrlArrowLen ;
+      gsc->maxFigFx = gsc->maxFigSx+gml->cfg.scrlWidth ;gsc->maxFigFy = gsc->maxFigSy+gml->cfg.scrlArrowLen ;
+      
+      if (gsc->status&gmlREPOSSCRL) gmlEDITsetCallbackFlag (gml,gmlEDITchangeVSCROLL)  ;
+    }
+  else if (gsc->style&gmlHORZSCRL)  /* horizontal */
+    
+    {  
+      gsc->lineSy = gsc->lineFy = gsc->sy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz/2 ;
+      gsc->lineSx = gsc->sx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->lineFx = gsc->lineSx+gsc->lExt ;
         
-        gsc->elevSy = gsc->lineSy-gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz/2 ;gsc->elevFy = gsc->elevSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
-        gsc->elevSx = gsc->lineSx+gsc->drawShift ;gsc->elevFx = gsc->elevSx+gsc->drawScale ;
-        gsc->minFigSx = gsc->sx ;gsc->minFigSy = gsc->sy ;
-        gsc->maxFigSx = gsc->sx+gsc->ext-gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->maxFigSy = gsc->sy ;
-	
-        gsc->minFigFx = gsc->minFigSx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->minFigFy = gsc->minFigSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
-        gsc->maxFigFx = gsc->maxFigSx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->maxFigFy = gsc->maxFigSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
-	
-        if (gsc->status&gmlREPOSSCRL) gmlEDITsetCallbackFlag (gml,gmlEDITchangeHSCROLL)  ;
-      }
+      gsc->elevSy = gsc->lineSy-gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz/2 ;gsc->elevFy = gsc->elevSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
+      gsc->elevSx = gsc->lineSx+gsc->drawShift ;gsc->elevFx = gsc->elevSx+gsc->drawScale ;
+      gsc->minFigSx = gsc->sx ;gsc->minFigSy = gsc->sy ;
+      gsc->maxFigSx = gsc->sx+gsc->ext-gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->maxFigSy = gsc->sy ;
+      
+      gsc->minFigFx = gsc->minFigSx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->minFigFy = gsc->minFigSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
+      gsc->maxFigFx = gsc->maxFigSx+gml->cfg.scrlArrowLen/gml->cfg.propVert_to_Horiz ;gsc->maxFigFy = gsc->maxFigSy+gml->cfg.scrlWidth*gml->cfg.propVert_to_Horiz ;
+      
+      if (gsc->status&gmlREPOSSCRL) gmlEDITsetCallbackFlag (gml,gmlEDITchangeHSCROLL)  ;
+    }
 }
 
 
@@ -1403,7 +1413,8 @@ void * gmlEditorInit (char * initTxt,float sx, float sy, int cx, int cy,int wrap
   if ((gml->style&gmlEDIT_HSCROLL)) gml->textCy -= gmlScrollInit (gml,&gml->scrlHoriz,gmlHORZBSCRL,0,gml->textCy,gml->textCx)  ;
   
   /* initialize smlEDIT */
-  if (wrap == -1) wrap = gml->textCx-1 ;if (!wrap) wrap = 1024 ;
+  if (wrap == -1) wrap = gml->textCx-1 ;
+  if (!wrap) wrap = 1024 ;
   gml->sml = smlEditInit (initTxt,wrap," \t")  ;if (!gml->sml) 
     {messfree (gml)  ;return 0 ;}
   
@@ -2035,7 +2046,9 @@ static void gmlKeyboard (unsigned char key)
       nochange = 0 ;
       break ;
     case '\t':
-      for (i = 0 ;i<gml->cfg.tabSize && i<vDim (cont)  ;i++) cont[i] = ' ' ;cont[i] = 0 ;
+      for (i = 0 ;i<gml->cfg.tabSize && i<vDim (cont)  ;i++) 
+	cont[i] = ' ' ;
+      cont[i] = 0 ;
       curx += i ;
       nochange = 0 ;
       break ;

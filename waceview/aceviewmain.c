@@ -899,13 +899,13 @@ static BOOL contextCreate (PP *ppp)
 
 static BOOL contextSave (PP *ppp, AC_KEYSET aks)
 {
-  char fNam [1000] ;
+  char fNam [2048] ;
   
   if (aks && ac_keyset_count (aks) &&
       contextCreate (ppp))
     {
       sprintf (fNam, "%s/%s", CTXDIR, ppp->new_context_name) ;
-  
+      
       if (ac_keyset_write (aks, fNam)) 
 	return TRUE ;
       else
@@ -918,7 +918,7 @@ static BOOL contextSave (PP *ppp, AC_KEYSET aks)
 static BOOL contextLoad (PP *ppp)
 {
   char  *cp, buf[2056];
-  
+   
   if (!*ppp->context_name)
     return FALSE ;
   
@@ -3271,7 +3271,8 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
     if (!buff) 
       buff = "" ;
     if (buff[0])
-      ppp->details = 0 ;sscanf (buff, "%x", &ppp->details) ;
+      ppp->details = 0 ;
+    sscanf (buff, "%x", &ppp->details) ;
   }
 
   { /* anchor */

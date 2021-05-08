@@ -4,6 +4,10 @@ set RG=$1
 set rg=$2
 set fr=$3
 
+echo  "RG =#$RG#"
+echo  "rg =#$rg#"
+echo  "fr =#$fr#"
+
 set uu=u 
 set FR=$fr
 
@@ -25,6 +29,7 @@ if ($fr == nu) then
 endif
 
 echo -n "wg7.make_bigwig $rg any $fr start : "
+
 date
 
 if ($species == corona) then
@@ -37,18 +42,23 @@ endif
 
 echo "construct the wig file tmp/WIGGLE$RG/$rg/any.$fr.wig"
 
-       if (-d tmp/WIGGLE$RG/$rg && ! -e  tmp/WIGGLE$RG/$rg/any.$fr.wig) then
-         # if (-e tmp/WIGGLE$RG/$rg/any.$fr.wig) \rm tmp/WIGGLE$RG/$rg/any.$fr.wig
+       if (-d tmp/WIGGLE$RG/$rg && ! -e  tmp/WIGGLE$RG/$rg/any.$fr.wig2) then
+         if (-e tmp/WIGGLE$RG/$rg/any.$fr.wig) \rm tmp/WIGGLE$RG/$rg/any.$fr.wig
+         echo "fr=$fr"
          if ($fr == frns || $fr == nu || $fr == pp || $fr == pp.f || $fr == pp.r ) then
+           echo byChrom1
            foreach chrom ($chromSetAll)
              if (! -e  tmp/WIGGLE$RG/$rg/$chrom/R.chrom.$FR.$uu.BF.gz) continue
+             ls -ls   tmp/WIGGLE$RG/$rg/$chrom/R.chrom.$FR.$uu.BF.gz
              set n=`gunzip -c tmp/WIGGLE$RG/$rg/$chrom/R.chrom.$FR.$uu.BF.gz | wc | gawk '{printf("%d", $1 -1); }'`
              if ($n > 0) then
                gunzip -c tmp/WIGGLE$RG/$rg/$chrom/R.chrom.$FR.$uu.BF.gz | head -$n  | gawk '/^#/{next}/^track/{next;}/^fixedStep/{if(index($0,"start=10 step=10")>0){printf("%s %s start=5 %s\n",$1,$2,$4);jump=1;next;}}{if(jump==1){jump=0;next;}}{print}' | sed -e "s/$chrom1/$chrom2/"  | grep -v chrET_av >> tmp/WIGGLE$RG/$rg/any.$fr.wig
->             endif
+            endif
            end
          else
+           echo 'byChrom2'
            foreach chrom ($chromSetAll) 
+             ls -ls  tmp/WIGGLE$RG/$rg/$chrom/R.chrom.u.$fr.BF.gz
              if (! -e  tmp/WIGGLE$RG/$rg/$chrom/R.chrom.u.$fr.BF.gz) continue
              set n=`gunzip -c tmp/WIGGLE$RG/$rg/$chrom/R.chrom.u.$fr.BF.gz | wc | gawk '{printf("%d", $1 -1); }'`
              if ($n >0) then
@@ -78,16 +88,5 @@ echo "construct the bw file tmp/WIGGLE$RG/$rg/any.$fr.bw"
 ls -ls  ~/ftp/$species/bigwig.$UCSCgenomeRelease/$MAGIC/$rg
 echo -n "done : "
 date
-attaaaggtttataccttcccaggtaacaaaccaaccaactttcgatctcttgtagatctgttctctaaacgaactttaa
-
- attaaaggtttataccttcccaggtaacaaaccaaccaactttcgatctcttgtagatctgttc          65 tctaaacgaac tttaa
-                                            28240 ttgttttagatttca       28255 tctaaacgaac aaactaaaatgtctg
- 21532                                        agtgatgttcttgttaacaa      21552  ctaaacgaac aatgtttgttt
-                                                   tcaaattacattaca      25380 cataaacgaac ttatggatt
-                                                                gatgagt 26237      acgaac ttatgtac
-                                                gagttcctgatcttctgg      26468 tctaaacgaac taaatattatat
-                                                             ttgctacatc 27041      acgaac gctttcttattacaaattgggagcttcgcagcgtg
-                                                  agcaaccaatggagattgat  27385   taaacgaac atgaaaattattcttttcttgg
-                                              cataatgaaacttgtcacgc      27884  ctaaacgaac atgaaa
 
 

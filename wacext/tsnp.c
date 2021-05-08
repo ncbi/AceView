@@ -2583,6 +2583,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
       int dda = 0 ; /* use to get the translation frame */
       int m1 = ac_table_int (Rtbl, 0, 1, 0) ;
       int m2 = ac_table_int (Rtbl, 0, 2, 0) ;
+      int da = 1 ;
       int a1 = ac_table_int (tbl, 0, 1, 0) ;
       int a2 = ac_table_int (tbl, 0, 2, 0) ;
       char **sub, *subs[] = {"A2T","A2G","A2C","T2A","T2G","T2C","G2A","G2T","G2C","C2A","C2T","C2G",0} ;
@@ -2590,7 +2591,33 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
       char **ins, *inss[] = {"InsA","InsT","InsG","InsC", 0} ;
       g2m = RdnaLn ? m1 - a1 : 0 ;
       
-      if (ac_has_tag (Snp, "Substitution"))
+      if (a2 == 1 || a2 == -1)
+	{
+	  char *cp = strnew (ac_name(Snp), 0), *cq, *cr ;
+	  cq = strchr (cp, ':') ;
+	  if (cq)
+	    {
+	      cq++ ; 
+	      cr = strchr (cq, '_') ;
+	      if (cr)
+		{
+		  da = 0 ;
+		  cr++ ;
+		  while (*cr >= '0' && *cr <= '9')
+		    { da = 10 * da + (*cr - '0') ; cr++ ; }
+		}
+	    }	  
+	  if (a2 == 1)
+	    a2 = a1 + da + 1 ;
+	  else
+	    a2 = a1 - (da + 1) ;
+	  if (m2 == 1)
+	    m2 = m1 + da + 1 ;
+	  else
+	    m2 = m1 - (da + 1) ;
+	  ac_free (cp) ;
+	}      
+      if (strstr (ac_name(Snp), ":Sub"))
 	{
 	  if (! ac_has_tag (Snp, "Multi_substitution"))
 	    {
@@ -2766,7 +2793,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 		  int am1 = fromMrna ? m1 : a1 ;
 		  int am2 = fromMrna ? m2 : a2 ;
 		  BOOL isDim = tctSlide (dna, dnaLn, am1, da, &dx, &slide) ;
-		  char bufN[12] ;
+		  char bufN[15] ;
 		  if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		  else { a1 -= dx ; a2 -= dx ;}
 		  if (fromMrna) { m1 += dx ; m2 += dx ; }
@@ -3704,7 +3731,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
   	   "//   -minSnpCover integer : min coverage [default 10] \n"
 	   "//   -minSnpCount integer: [default 4]\n"
 	   "//   -minSnpFrequency float: [default 18] minimal MAF precentage\n"
-	   "//   -intron : [default off] diifferentiate introns frrom deletions\n"
+	   "//   -intron : [default off] diifferentiate introns from deletions\n"
 	   "//   -intron_only : just detect and report introns\n"
 	   "//   -min_intron <int> : [default 30] min reported intron length\n"
 	   "//   -max_intron <int> : [default 0]  max reported intron length\n"
@@ -3719,6 +3746,16 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//   -antistrand : optional, flip read-1 but not read-2\n"
 	   "//       Then one counts the stranded support of each word. For example, in RNA seq,\n"
 	   "//       we can know the measure of an intron, or a deletion.\n"
+	   "// Phase 3 actions: Analyse the .snp files\n"
+	   "//   The analyses rely on a the existence of an acedb VariantDB.$zone database, aware of genes, transcripts and coding structures\n"
+	   "//     and containing a copy of the metadata of the runs, originally hand constructed in MetaDB\n"
+	   "//     The parameter -db points to this database, we recommend one database per zone, allowing parallelization\n"
+	   "//   -db_remap2genome tmp/METADATA/mrnaRemap.gz  -db ACEDB\n"
+	   "//      Remap the transcript variants into genome coordinates\n"
+	   "//   -db_remap2genes tmp/METADATA/mrnaRemap.gz -db ACEDB\n"
+	   "//      Remap the genome variants into transcript coordinates\n"
+	   "//   -db_translate -db ACEDB : translate the mRNA variants (or genome variants remapped to mRNAs) if they map to a protein coding exon\n"
+	   "//   -db_count -i count_file -db ACEDB  : scan the input file and adjust in the ACEDB database the variant->population and ->strand counts\n"
 	   "// GENE FUSION\n"
 	   "//   -target_class : target class (KT_RefSeq ET_av...) [default ET_av]\n"
 	   "//   -min_GF integer : [default 5]  filter geneFusionFile on min support \n" 
