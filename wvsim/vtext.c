@@ -122,7 +122,9 @@ void vtextTreeCreate (char * in,vMEG * dicStc, vMEG * dicWrd,int sortType,vCallb
 			vstrCleanEnds(wrd,wrdBuf,0,vSTRBLANK,1);
 
 			if(filterFunc && filterFunc((void *)wrdBuf,1,dicWrd,&lnk) ){ /* if filtered out */
-				if(nxt)*nxt=vSTRBLANK[0];iWrd=vTEXTTREEBEGINWRD;continue;
+				if(nxt)
+				  *nxt=vSTRBLANK[0];
+				iWrd=vTEXTTREEBEGINWRD;continue;
 			}
 
 			if( !vmegAdd(dicWrd,&iWrd,wrdBuf,&lnk,sizeof(lnk)) ) {
