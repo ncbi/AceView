@@ -1376,14 +1376,20 @@ static int active_objects_count (unsigned char *buff)
   int nn ;
 
   cp0 = cp ;
-  while ((cq = strstr (cp, "Active Objects"))) { cp0 = cp ; cp = cq+1 ;} /* find last occurence */
+  while ((cq = strstr (cp, "Active Objects"))) 
+    { cp0 = cp ; cp = cq+1 ;} /* find last occurence */
+
   cp0 = cp ;
-  while (cp0 && cp0 > (char *)buff && *cp0 != '/') cp0-- ; cp0++ ;
+  while (cp0 && cp0 > (char *)buff && *cp0 != '/') 
+    cp0-- ; 
+  
+  cp0++ ;
   while (cp0 && *cp0 == ' ') cp0++ ;
   if (sscanf (cp0, "%d%c", &nn, &cc) == 2 && cc == ' ')
     return nn ;
+
   return -1 ;      
-}
+} /* active_objects_count */
 
 /****************************************************************/
 
