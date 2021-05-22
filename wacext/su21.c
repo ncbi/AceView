@@ -5451,6 +5451,8 @@ static MX *KasimirConstructMatrices (KAS *kas)
   kas->d = d ;
   kas->d1 = d1 ;
   kas->d2 = d2 ;
+  kas->d3 = 0 ;
+  kas->d4 = 0 ;
       
   
   muYY = mxCreate (h,  "muYY", MX_INT, d, d, 0) ;
@@ -5586,6 +5588,8 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
   kas->d = d ;
   kas->d1 = d1 ;
   kas->d2 = d2 ;
+  kas->d3 = 0 ;
+  kas->d4 = 0 ;
       
   
   muYY = mxCreate (h,  "muYY", MX_INT, d, d, 0) ;
@@ -6321,6 +6325,8 @@ static void Kasimirs (int a)
 #define NTYPES 12
 
 MX *neq[NTYPES] ;
+MX *coq[NTYPES] ;
+MX *Coq[NTYPES] ;
 MX nchiT[NTYPES] ;
 MX nchiS[NTYPES] ;
 MX nchiL[NTYPES] ;
@@ -6328,6 +6334,7 @@ MX nchiR[NTYPES] ;
 
 int ss[] = {4,4,4, 8,8,8, 8,8,8, 8,8,8} ;
 MX nn[10], ee[10], qq[10], N2[10], E2[10], Q2[10], N2a[10], E2a[10], Q2a[10], N2b[10], E2b[10], Q2b[10] ;
+MX nncoq[10], eecoq[10], eeCoq[10], qqcoq[10] ;
 MX chiT, chiS, chiL, chiR ;
 MX chiT2, chiS2, chiL2, chiR2 ;
 MX SG[4], SB[4] ;
@@ -6380,19 +6387,20 @@ static void muStructure (void)
     {0,5,4,-1,-I,    "[m_0,m_5] = -i m_4"},
     {0,6,7,-1, I,    "[m_0,m_6] =  i m_7"},
     {0,7,6,-1,-I,    "[m_0,m_7] = -i m_6"},
-    {4,4,9, 1,-1,"\n  {m_4,m_4} = -m_9"},
-    {5,5,9, 1,-1,    "{m_5,m_5} = -m_9"},
 
-    {6,6,8, 1,-1,   "{m_6,m_6} = -m_8"},
+    {4,4,9, 1,1,"\n  {m_4,m_4} = -m_9"},
+    {5,5,9, 1,1,    "{m_5,m_5} = -m_9"},
+
+    {6,6,8, 1,1,   "{m_6,m_6} = -m_8"},
     {6,7,0, 1, 0,    "{m_6,m_7} = 0  "},
-    {7,7,8, 1,-1,   "{m_7,m_7} = -m_8"},
+    {7,7,8, 1,1,   "{m_7,m_7} = -m_8"},
     {4,5,0, 1, 0,"\n  {m_4,m_5} = 0  "},
     {6,7,0, 1, 0,    "{m_6,m_7} = 0  "},
 
-    {4,6,1, 1, 1,"\n  {m_4,m_6} = m_1"},
-    {5,6,2, 1, 1,    "{m_5,m_6} = m_2"},
-    {4,7,2, 1,-1,"\n  {m_4,m_7} = -m_2"},
-    {5,7,1, 1, 1,    "{m_5,m_7} = m_1"},
+    {4,6,1, 1, -1,"\n  {m_4,m_6} = m_1"},
+    {5,6,2, 1, -1,    "{m_5,m_6} = m_2"},
+    {4,7,2, 1,1,"\n  {m_4,m_7} = -m_2"},
+    {5,7,1, 1, -1,    "{m_5,m_7} = m_1"},
 
 
     /*
@@ -6420,9 +6428,9 @@ static void muStructure (void)
 	  mm1 = mxMatMult (neq[t][a], neq[t][b], h) ;
 	  mm2 = mxMatMult (neq[t][b], neq[t][a], h) ;
 	  mm3 = mxLinearCombine (mm3, 1, mm1, f->sign, mm2, h) ;
-	  mm4 = mxLinearCombine (mm4, 1, mm3, -f->z,  neq[t][c], h) ;
+	  mm4 = mxLinearCombine (mm4, 1, mm3, f->z,  neq[t][c], h) ;
 	  
-	  if (0 && a == 6 && b == 6 && t == 11)
+	  if (0 && a == 2 && b == 7 && t == 7)
 	    {
 	      printf ("\n# mu(%d) type %d\n", a, t) ;
 	      niceShow  (neq[t][a]) ;
@@ -6430,6 +6438,8 @@ static void muStructure (void)
 	      niceShow  (neq[t][b]) ;
 	      printf ("\n# [a,b] type %d\n", t) ;
 	      niceShow (mm3) ;
+	      printf ("\n# [a,b] should be equal to neq[%d][%d]\n", t,c) ;
+	      niceShow (neq[t][c]) ;
 	      printf ("\n# norm");
 	    }
 	  z = mxFNorm (mm4) ;
@@ -6441,8 +6451,8 @@ static void muStructure (void)
  
   if (1)
     {
-      niceShow (neq[11][6]) ;
-      niceShow (neq[11][7]) ;
+      niceShow (neq[6][6]) ;
+      niceShow (neq[6][7]) ;
     }
   ac_free (h) ;
   return ;
@@ -6797,7 +6807,7 @@ static void muInit (AC_HANDLE h)
   MX mm2 = 0 ;
 
   complex float mu1[] = {0,0,0,0, 0,0,1,0, 0,1,0,0, 0,0,0,0} ;
-  complex float mu2[] = {0,0,0,0, 0,0,I,0, 0,-I,0,0, 0,0,0,0} ;
+  complex float mu2[] = {0,0,0,0, 0,0,-I,0, 0,I,0,0, 0,0,0,0} ;
   complex float mu3[] = {0,0,0,0, 0,1,0,0, 0,0,-1,0, 0,0,0,0} ;
 
   complex float mu0n[] = {1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,-1} ;
@@ -6813,26 +6823,58 @@ static void muInit (AC_HANDLE h)
   complex float mu9e[] = {0,0,0,0, 0,-2,0,0, 0,0,0,0, 0,0,0,-2} ;
   complex float mu9q[] = {4/3.0,0,0,0, 0,-2/3.0,0,0, 0,0,4/3.0,0, 0,0,0,-2/3.0} ;
 
-  complex float mu4n[] = {0,0,1/s2,0, 0,0,0,1/s2, -1/s2,0,0,0, 0,1/s2,0,0} ;
-  complex float mu5n[] = {0,0,I/s2,0, 0,0,0,I/s2, I/s2,0,0,0, 0,-I/s2,0,0} ;
-  complex float mu6n[] = {0,-1/s2,0,0, 1/s2,0,0,0, 0,0,0,1/s2, 0,0,1/s2,0} ;
-  complex float mu7n[] = {0,-I/s2,0,0, -I/s2,0,0,0, 0,0,0,I/s2, 0,0,-I/s2,0} ;
+  complex float mu4n[] = {0,0,-1/s2,0, 0,0,0,1/s2, 1/s2,0,0,0, 0,1/s2,0,0} ;
+  complex float mu5n[] = {0,0,I/s2,0, 0,0,0,-I/s2, I/s2,0,0,0, 0,I/s2,0,0} ;
+  complex float mu6n[] = {0,1/s2,0,0, -1/s2,0,0,0, 0,0,0,1/s2, 0,0,1/s2,0} ;
+  complex float mu7n[] = {0,-I/s2,0,0, -I/s2,0,0,0, 0,0,0,-I/s2, 0,0,I/s2,0} ;
 
   complex float mu4e[] = {0,0,0,0, 0,0,0,1, 0,0,0,0, 0,1,0,0} ;
-  complex float mu5e[] = {0,0,0,0, 0,0,0,I, 0,0,0,0, 0,-I,0,0} ;
+  complex float mu5e[] = {0,0,0,0, 0,0,0,-I, 0,0,0,0, 0,I,0,0} ;
   complex float mu6e[] = {0,0,0,0, 0,0,0,0, 0,0,0,1, 0,0,1,0} ;
-  complex float mu7e[] = {0,0,0,0, 0,0,0,0, 0,0,0,I, 0,0,-I,0} ;
+  complex float mu7e[] = {0,0,0,0, 0,0,0,0, 0,0,0,-I, 0,0,I,0} ;
 
-  complex float mu4q[] = {0,0,s2/s3,0, 0,0,0,1/s3, -s2/s3,0,0,0, 0,1/s3,0,0} ;
-  complex float mu5q[] = {0,0,I*s2/s3,0, 0,0,0,I/s3, I*s2/s3,0,0,0, 0,-I/s3,0,0} ;
-  complex float mu6q[] = {0,-s2/s3,0,0, s2/s3,0,0,0, 0,0,0,1/s3, 0,0,1/s3,0} ;
-  complex float mu7q[] = {0,-I*s2/s3,0,0, -I*s2/s3,0,0,0, 0,0,0,I/s3, 0,0,-I/s3,0} ;
+  complex float mu4q[] = {0,0,-s2/s3,0, 0,0,0,1/s3, s2/s3,0,0,0, 0,1/s3,0,0} ;
+  complex float mu5q[] = {0,0,I*s2/s3,0, 0,0,0,-I/s3, I*s2/s3,0,0,0, 0,I/s3,0,0} ;
+  complex float mu6q[] = {0,s2/s3,0,0, -s2/s3,0,0,0, 0,0,0,1/s3, 0,0,1/s3,0} ;
+  complex float mu7q[] = {0,-I*s2/s3,0,0, -I*s2/s3,0,0,0, 0,0,0,-I/s3, 0,0,I/s3,0} ;
 
   complex float xT[] = { 1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1} ;
   complex float xS[] = {-1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,-1} ;
   complex float xL[] = { 0,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,0} ;
   complex float xR[] = { 1,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,1} ;
 
+
+  complex float coq0n[] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1} ;
+  complex float coq4n[] = {0,0,1/s2,0, 0,0,0,1/s2, -1/s2,0,0,0, 0,1/s2,0,0} ;
+  complex float coq5n[] = {0,0,I/s2,0, 0,0,0,I/s2, I/s2,0,0,0, 0,-I/s2,0,0} ;
+  complex float coq6n[] = {0,-1/s2,0,0, 1/s2,0,0,0, 0,0,0,1/s2, 0,0,1/s2,0} ;
+  complex float coq7n[] = {0,-I/s2,0,0, -I/s2,0,0,0, 0,0,0,I/s2, 0,0,-I/s2,0} ;
+
+  
+  complex float coq0e[] = {2*s2/3,0,0,0, 0,2*s2/3,0,0, 0,0,2*s2/3,0, 0,0,0,2*s2/3} ;
+  complex float coq4e[] = {0,0,0,0, 0,0,0,1, -1,0,0,0, 0,1,0,0} ;
+  complex float coq5e[] = {0,0,0,0, 0,0,0,-I, -I,0,0,0, 0,I,0,0} ;
+  complex float coq6e[] = {0,0,0,0, 1,0,0,0, 0,0,0,1, 0,0,1,0} ;
+  complex float coq7e[] = {0,0,0,0, I,0,0,0, 0,0,0,-I, 0,0,I,0} ;
+
+  complex float Coq4e[] = {0,0,-2,0, 0,0,0,1, 0,0,0,0, 0,1,0,0} ;
+  complex float Coq5e[] = {0,0,2*I,0, 0,0,0,-I, 0,0,0,0, 0,I,0,0} ;
+  complex float Coq6e[] = {0,2,0,0, 0,0,0,0, 0,0,0,1, 0,0,1,0} ;
+  complex float Coq7e[] = {0,-2*I,0,0,0,0,0,0, 0,0,0,-I, 0,0,I,0} ;
+
+  /* ERROR in eq appendix H.2 of Scalar paper:
+   * in the paper we should replace sqrt(2) by -sqrt(2) in equation H.2
+   * there is probably a related error of sign in H.3
+   * No conclusion is modified
+   */
+  
+  complex float coq0q[] = {2*s2/3,0,0,0, 0,2*s2/3,0,0, 0,0,2*s2/3,0, 0,0,0,2*s2/3} ;
+  complex float coq4q[] = {0,0,1/s3,0, 0,0,0,s2/s3, -1/s3,0,0,0, 0,s2/s3,0,0} ;
+  complex float coq5q[] = {0,0,I/s3,0, 0,0,0,I*s2/s3, I/s3,0,0,0, 0,-I*s2/s3,0,0} ;
+  complex float coq6q[] = {0,-1/s3,0,0, 1/s3,0,0,0, 0,0,0,s2/s3, 0,0,s2/s3,0} ;
+  complex float coq7q[] = {0,-I/s3,0,0, -I/s3,0,0,0, 0,0,0,I*s2/s3, 0,0,-I*s2/s3,0} ;
+
+  
   chiT = mxCreate (h, "chiT", MX_COMPLEX, 4, 4, 0) ;
   chiS = mxCreate (h,  "chi", MX_COMPLEX, 4, 4, 0) ;
   chiL = mxCreate (h, "chiL", MX_COMPLEX, 4, 4, 0) ;
@@ -6854,11 +6896,20 @@ static void muInit (AC_HANDLE h)
   neq[1] = ee ;
   neq[2] = qq ;
 
+  coq[0] = nncoq ;
+  coq[1] = eecoq ;
+  Coq[1] = eeCoq ;
+  coq[2] = qqcoq ;
+
   for (i = 0 ; i < 10 ; i++)
     {
       nn[i] = mxCreate (h, messprintf ("nn_%d", i), MX_COMPLEX, 4, 4, 0) ;
       ee[i] = mxCreate (h, messprintf ("ee_%d", i), MX_COMPLEX, 4, 4, 0) ;
       qq[i] = mxCreate (h, messprintf ("qq_%d", i), MX_COMPLEX, 4, 4, 0) ;
+      coq[0][i] = mxCreate (h, messprintf ("coq_%d", i), MX_COMPLEX, 4, 4, 0) ;
+      coq[1][i] = mxCreate (h, messprintf ("coq_%d", i), MX_COMPLEX, 4, 4, 0) ;
+      Coq[1][i] = mxCreate (h, messprintf ("Coq_%d", i), MX_COMPLEX, 4, 4, 0) ;
+      coq[2][i] = mxCreate (h, messprintf ("coq_%d", i), MX_COMPLEX, 4, 4, 0) ;
     }
   for (t = 0 ; t < 3 ; t++)
     {
@@ -6897,6 +6948,31 @@ static void muInit (AC_HANDLE h)
   mxSet (qq[7], mu7q) ;
 
 
+  mxSet (coq[0][0], coq0n) ;
+  mxSet (coq[0][4], coq4n) ;
+  mxSet (coq[0][5], coq5n) ;
+  mxSet (coq[0][6], coq6n) ;
+  mxSet (coq[0][7], coq7n) ;
+    
+  mxSet (coq[1][0], coq0e) ;
+  mxSet (coq[1][4], coq4e) ;
+  mxSet (coq[1][5], coq5e) ;
+  mxSet (coq[1][6], coq6e) ;
+  mxSet (coq[1][7], coq7e) ;
+  mxSet (coq[1][0], coq0e) ;
+  mxSet (Coq[1][4], Coq4e) ;
+  mxSet (Coq[1][5], Coq5e) ;
+  mxSet (Coq[1][6], Coq6e) ;
+  mxSet (Coq[1][7], Coq7e) ;
+  
+
+    
+  mxSet (coq[2][0], coq0q) ;
+  mxSet (coq[2][4], coq4q) ;
+  mxSet (coq[2][5], coq5q) ;
+  mxSet (coq[2][6], coq6q) ;
+  mxSet (coq[2][7], coq7q) ;
+    
   if (1) 
     {
       niceShow (qq[1]) ;
@@ -6909,6 +6985,12 @@ static void muInit (AC_HANDLE h)
       niceShow (qq[6]) ;
       niceShow (qq[7]) ;
       niceShow (qq[0]) ;
+
+      niceShow (coq[0][0]) ;
+      niceShow (coq[0][4]) ;
+      niceShow (coq[0][5]) ;
+      niceShow (coq[0][6]) ;
+      niceShow (coq[0][7]) ;
 
 	    
       mm = mxMatMult (ee[4],ee[4],h) ;
@@ -7106,6 +7188,8 @@ static MX muBiComposeMatrix (MX mm, MX a00, MX a01, MX a10, MX a11, int x00, int
   return mm ;
 } /* muBiComposeMatrix */
 
+
+/* construct the rotated 8x8 mattrices */
 static void muInit2 (AC_HANDLE h)
 {
   int i, t ;
@@ -7185,6 +7269,119 @@ static void muInit2 (AC_HANDLE h)
 	muBiComposeMatrix (neq[t+9][6], neq[t][6], neq[t][7], neq[t][7], neq[t][6],1,1,1,1) ;
 	muBiComposeMatrix (neq[t+9][7], neq[t][7], neq[t][6], neq[t][6], neq[t][7],1,-1,-1,1) ;
       }      
+  return ; 
+}
+
+/* construct the Coquereaux matrices where the cartan subalgebra is non diagonal */
+static void muInit2Coq (AC_HANDLE h)
+{
+  int i, t ;
+
+  chiT2 = mxCreate (h, "chiT", MX_COMPLEX, 8, 8, 0) ;
+  chiS2 = mxCreate (h, "chi", MX_COMPLEX, 8, 8, 0) ;
+  chiL2 = mxCreate (h, "chiL", MX_COMPLEX, 8, 8, 0) ;
+  chiR2 = mxCreate (h, "chiR", MX_COMPLEX, 8, 8, 0) ;
+
+  muComposeMatrix (chiT2, chiT, 0, 0, chiT, 1, 0, 0, 1) ;
+  muComposeMatrix (chiS2, chiS, 0, 0, chiS, 1, 0, 0, 1) ;
+  muComposeMatrix (chiL2, chiL, 0, 0, chiL, 1, 0, 0, 1) ;
+  muComposeMatrix (chiR2, chiR, 0, 0, chiR, 1, 0, 0, 1) ;
+
+  for (t = 3 ; t < NTYPES ; t++)
+    {
+      nchiT[t] = chiT2 ;
+      nchiS[t] = chiS2 ;
+      nchiL[t] = chiL2 ;
+      nchiR[t] = chiR2 ;
+    }
+
+  for (i = 0 ; i < 10 ; i++)
+    { 
+      N2[i] = mxCreate (h, messprintf ("N2_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      E2[i] = mxCreate (h, messprintf ("E2_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      Q2[i] = mxCreate (h, messprintf ("Q2_%d", i), MX_COMPLEX, 8, 8, 0) ;
+
+      N2a[i] = mxCreate (h, messprintf ("N2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      E2a[i] = mxCreate (h, messprintf ("E2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      Q2a[i] = mxCreate (h, messprintf ("Q2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
+
+      N2b[i] = mxCreate (h, messprintf ("N2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      E2b[i] = mxCreate (h, messprintf ("E2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
+      Q2b[i] = mxCreate (h, messprintf ("Q2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
+    }
+  neq[3] = N2 ;
+  neq[4] = E2 ;
+  neq[5] = Q2 ;
+
+  neq[6] = N2a ;
+  neq[7] = E2a ;
+  neq[8] = Q2a ;
+  
+  neq[9] = N2b ;
+  neq[10] = E2b ;
+  neq[11] = Q2b ;
+  
+
+  
+  /* even matrices, same block diagonal */
+  for (t = 0 ; t < 3 ; t++)
+    for (i = 0 ; i < 10 ; i++)
+      {
+	if (i > 3 && i < 8) continue ;
+	muComposeMatrix (neq[t+3][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
+	muComposeMatrix (neq[t+6][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
+	muComposeMatrix (neq[t+9][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
+      }
+
+  /* odd matrices block diagonal */
+  for (i = 4 ; i < 8 ; i++)
+    for (t = 0 ; t < 3 ; t++)
+      muComposeMatrix (neq[t+3][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
+
+  /* odd matrices block diagonal + bottom corner */
+  if (1) for (t = 0 ; t < 3 ; t++)
+      {
+	double s2 = sqrt (2.0) ;
+	double s3 = sqrt (3.0) ;
+	muComposeMatrix (neq[t+6][0], neq[t][0], 0, coq[t][0], neq[t][0], 1, 0, 2, 1) ;
+	muComposeMatrix (neq[t+6][8], neq[t][8], 0, coq[t][0], neq[t][8], 1, 0, 2, 1) ;
+	muComposeMatrix (neq[t+6][9], neq[t][9], 0, coq[t][0], neq[t][9], 1, 0, 2, 1) ;
+
+	muComposeMatrix (neq[t+6][4], neq[t][4], 0, coq[t][4], neq[t][4], 1, 0, -1, 1) ;
+	muComposeMatrix (neq[t+6][5], neq[t][5], 0, coq[t][5], neq[t][5], 1, 0, 1, 1) ;
+	muComposeMatrix (neq[t+6][6], neq[t][6], 0, coq[t][6], neq[t][6], 1, 0, -1, 1) ;
+	muComposeMatrix (neq[t+6][7], neq[t][7], 0, coq[t][7], neq[t][7], 1, 0, 1, 1) ;
+	if (t==1)
+	  {
+	    muComposeMatrix (neq[t+6][4], Coq[t][4], 0, coq[t][4], Coq[t][4], 1, 0, -s2/3, 1) ;
+	    muComposeMatrix (neq[t+6][5], Coq[t][5], 0, coq[t][5], Coq[t][5], 1, 0, -s2/3, 1) ;
+	    muComposeMatrix (neq[t+6][6], Coq[t][6], 0, coq[t][6], Coq[t][6], 1, 0, -s2/3, 1) ;
+	    muComposeMatrix (neq[t+6][7], Coq[t][7], 0, coq[t][7], Coq[t][7], 1, 0, -s2/3, 1) ;
+	  }
+      }      
+  /* odd matrices block diagonal + both  corner */
+    if (1) for (t = 0 ; t < 3 ; t++)
+      {
+	muComposeMatrix (neq[t+9][0], neq[t][0], 0, coq[t][0], neq[t][0], 1, 0, 0, 1) ;
+	muComposeMatrix (neq[t+9][8], neq[t][8], 0, coq[t][0], neq[t][8], 1, 0, 0, 1) ;
+	muComposeMatrix (neq[t+9][9], neq[t][9], 0, coq[t][0], neq[t][9], 1, 0, 0, 1) ;
+
+	muComposeMatrix (neq[t+9][4], neq[t][4], 0, coq[t][4], neq[t][4], 1, 0, -0, 1) ;
+	muComposeMatrix (neq[t+9][5], neq[t][5], 0, coq[t][5], neq[t][5], 1, 0, 0, 1) ;
+	muComposeMatrix (neq[t+9][6], neq[t][6], 0, coq[t][6], neq[t][6], 1, 0, -0, 1) ;
+	muComposeMatrix (neq[t+9][7], neq[t][7], 0, coq[t][7], neq[t][7], 1, 0, 0, 1) ;
+	if (t==1)
+	  {
+	    muComposeMatrix (neq[t+9][4], Coq[t][4], 0, coq[t][4], Coq[t][4], 1, 0, -0, 1) ;
+	    muComposeMatrix (neq[t+9][5], Coq[t][5], 0, coq[t][5], Coq[t][5], 1, 0, -0, 1) ;
+	    muComposeMatrix (neq[t+9][6], Coq[t][6], 0, coq[t][6], Coq[t][6], 1, 0, -0, 1) ;
+	    muComposeMatrix (neq[t+9][7], Coq[t][7], 0, coq[t][7], Coq[t][7], 1, 0, -0, 1) ;
+	  }
+      }
+
+    printf ("###### Coquereaux\n") ;
+    for (i = 0 ; i < 10 ; i++)
+      niceShow (neq[7][i]) ;	
   return ; 
 }
 
@@ -7724,7 +7921,7 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-t", &myType) ;
   SU3 = getCmdLineBool (&argc, argv, "-su3") ;
 
-  if (1)
+  if (0)
     {
       /* 2021_03_18 
        * construct the 8 matrices for the generic irreps of su(2/1) with h.w. (a,b)
@@ -7736,8 +7933,9 @@ int main (int argc, const char **argv)
       Kasimirs (a) ;
     }
   /* always init, otherwise the gcc linker is unhappy */
-  if (0) muInit (h) ;   /* init the 4x4 matrices */
-  if (0) muInit2 (h) ;  /* init the 2-families 8x8 indecomposable matrices */
+  if (1) muInit (h) ;   /* init the 4x4 matrices */
+  if (0) muInit2 (h) ;  /* init the 2-families 8x8 rotated matrices */
+  if (1) muInit2Coq (h) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
   /* verification numerique directe de traces de matrices de pauli */ 
   if (0) muSigma (h) ;
 
@@ -7746,25 +7944,27 @@ int main (int argc, const char **argv)
 
   if (0)   exit (0) ;
  
-  /* Verifications des traces sur la theorie des groupes pour l'article sur les anomalies */
-  if (0)
+  /* Verifications des traces sur la theorie des groupes pour l'article sur les anomalies scalaires */
+  if (1)
     {
       muConjugate (h) ;
       
       
       printf ("########## Compute the relevant traces of products of 2,3,4 SU(2/1) matrices\n") ;
       printf ("########## In each case, the trace is computed for the neutral representation (N), then for leptons (e), quarks (q) and family (e+3*q)\n") ;
-      printf ("########## The observation is that letons and quarks have anomalous traces, but they compensate each other\n") ;
+      printf ("########## The observation is that leptons and quarks have anomalous traces, but they compensate each other\n") ;
       printf ("########## The family trace, one lepton +  quarks, is proportional to the neutral trace\n") ;
       printf ("########## In the last column, we check that S = e + 3*q - 4*n == 0\n") ;
       
       printf ("########## Verify the commutators,   all computed norms should vanish\n");
       muStructure () ;
     }
-
+  
   if (0) mu2p ("######### Metric\n# For the even generators (a,b=0123), compute the Super-Trace: STr(ab)\n# For the odd generators (i=4567), compute the Left trace: LTr(ij)\n We hope to find the SU(2/1) Super-Killing metric") ;
 
-  if (0) casimir2 ("######### Casimir 2\n# 1/2 g^AB mu_A mu_B mu_C,   we hope to find a diagonal matrix") ;
+  if (1) casimir2 ("######### Casimir 2\n# 1/2 g^AB mu_A mu_B mu_C,   we hope to find a diagonal matrix") ;
+  exit (0) ;
+
   if (0) casimir3 ("######### Super Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", FALSE) ;
   if (0) casimir3 ("######### Hyper Casimir 3\n# 1/6 d^ABC mu_A mu_B mu_C,   we hope to find a diagonal matrix", TRUE) ;
 
