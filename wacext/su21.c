@@ -5424,13 +5424,75 @@ static BOOL feynmanDiagrams (void)
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-typedef struct kasStruct { MX *mu, gg, GG, kas2, ccc, CCC, kas3 ; int a, b, d, d1, d2, d3, d4, chi ; BOOL isOSp ; AC_HANDLE h ; } KAS ;
+typedef struct kasStruct { MX *mu, gg, GG, kas2, ccc, CCC, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale ; BOOL isOSp, isSU2 ; AC_HANDLE h ; } KAS ;
 typedef struct comtpStruct { int a, b, c, n, s ; } LC ;
 static MX KasCommut (MX a, MX b, int sign, KAS *kas) ;
   
+static MX *KasimirConstructSU2Matrices (KAS *kas)
+{
+  MX  muE, muF, muH  ; /* the 5 generators of OSp(2/1) in the Chevalley basis */
+  MX *mu ;
+  int d, d1 = 0, d2 = 0 ;
+  int i ;
+  int a ;
+  AC_HANDLE h = kas->h ;
+  mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
+  kas->chi = 1 ;
+  kas->isSU2 = TRUE ;
+  
+  a = kas->a = kas->a - 2000 ;
+  d1 = a + 1 ;
+  d2 = 0 ;
+  d = d1 + d2 ;
+
+  kas->d = d = d1 + d2 ;
+  kas->d1 = d1 ;
+  kas->d2 = d2 ;
+  kas->d3 = 0 ;
+  kas->d4 = 0 ;
+      
+  
+  muH = mxCreate (h,  "muH", MX_INT, d, d, 0) ;
+  muE = mxCreate (h,  "muE", MX_INT, d, d, 0) ;
+  muF = mxCreate (h,  "muF", MX_INT, d, d, 0) ;
+  
+  int xx[d*d] ;
+
+  /* even Cartan operator H = diag (a, a-2 .... -a in each SU(2) sector */
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 0 ; i < d1 ; i++)
+    xx[d * i + i] = d1 - 1 - 2*i ;
+  mxSet (muH, xx) ;
+  mxShow (muH) ;
+ 
+   /* even raising operator */
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 1 ; i < d1 ; i++)
+    xx[d * i + i - 1] = i * (a  - i + 1) ;
+  
+  mxSet (muE, xx) ;
+  mxShow (muE) ;
+  
+  /* even lowering operator */
+  memset (xx, 0, sizeof (xx)) ;
+  for (i = 0 ; i < d - 1 ; i++)
+    {
+      if (i != d1 - 1) xx[d * i + i + 1] = 1 ;
+    }
+  mxSet (muF, xx) ;
+  mxShow (muF) ;
+
+  mu[0] =0 ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
+  mu[4] = 0 ; mu[5] = 0 ; mu[6] = 0 ; mu[7] = 0 ;
+  mu[8] = 0 ;
+  mu[9] = 0 ;
+
+  return mu ;
+} /* KasimirConstructSU2Matrices */
+
 static MX *KasimirConstructOSp1_2Matrices (KAS *kas)
 {
-  MX  muE, muF, muH, muX, muY  ; /* the 5 generators of OSp(2/1) in the Chevalley basis */
+  MX  muE, muF, muH, muS, muT  ; /* the 5 generators of OSp(2/1) in the Chevalley basis */
   MX *mu ;
   int d, d1 = 0, d2 = 0 ;
   int i, j ;
@@ -5455,8 +5517,8 @@ static MX *KasimirConstructOSp1_2Matrices (KAS *kas)
   muH = mxCreate (h,  "muH", MX_INT, d, d, 0) ;
   muE = mxCreate (h,  "muE", MX_INT, d, d, 0) ;
   muF = mxCreate (h,  "muF", MX_INT, d, d, 0) ;
-  muX = mxCreate (h,  "muX", MX_INT, d, d, 0) ;
-  muY = mxCreate (h,  "muY", MX_INT, d, d, 0) ;
+  muS = mxCreate (h,  "muS", MX_INT, d, d, 0) ;
+  muT = mxCreate (h,  "muT", MX_INT, d, d, 0) ;
   
   int xx[d*d] ;
 
@@ -5498,8 +5560,8 @@ static MX *KasimirConstructOSp1_2Matrices (KAS *kas)
       xx[d * (i+1)  + d1 + i] = (i + 1) ;
       xx[d * (d1 + i)  + i] = d2 - i ;
     }
-  mxSet (muX, xx) ;
-  mxShow (muX) ;
+  mxSet (muS, xx) ;
+  mxShow (muS) ;
   
  /* odd lowering operator */
   memset (xx, 0, sizeof (xx)) ;
@@ -5508,11 +5570,11 @@ static MX *KasimirConstructOSp1_2Matrices (KAS *kas)
       xx[d * (i)  + d1 + i] = -1 ;
       xx[d * (d1 + i)  + i + 1] = 1 ;
     }
-  mxSet (muY, xx) ;
-  mxShow (muY) ;
+  mxSet (muT, xx) ;
+  mxShow (muT) ;
   
   mu[0] =0 ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
-  mu[4] = muX ; mu[5] = muY ; mu[6] = 0 ; mu[7] = 0 ;
+  mu[4] = muS ; mu[5] = muT ; mu[6] = 0 ; mu[7] = 0 ;
   mu[8] = 0 ;
   mu[9] = 0 ;
 
@@ -5523,23 +5585,20 @@ static MX *KasimirConstructOSp1_2Matrices (KAS *kas)
 
 static MX *KasimirConstructAtypicMatrices (KAS *kas)
 {
-  MX muYY, muE, muF, muH, muX, muY, muZ, muT, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
+  MX muY, muE, muF, muH, muU, muV, muW, muX, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
   MX *mu ;
   int d, d1 = 0, d2 = 0, d3 = 0, d4 = 0 ;
   int i, j ;
-  int a = kas->a, b = kas->b ;
+  int a = kas->a, b = 0 ;
   AC_HANDLE h = kas->h ;
+  
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
   kas->chi = 1 ;
   
-  if (a > 0 && b == 0)  /* atypic 1 */
-    {
-      d1 = a + 1 ;
-      d2 = a ;
-    }
-  else
-    messcrash ("bad dynkin weights in KasimirConstructMatrices a=%d, b=%d\n", a, b) ; 
-
+   /* atypic 1 */
+  d1 = a + 1 ;
+  d2 = a ;
+  
   d = d1 + d2 ;
   kas->d = d ;
   kas->d1 = d1 ;
@@ -5548,14 +5607,14 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
   kas->d4 = 0 ;
       
   
-  muYY = mxCreate (h,  "muYY", MX_INT, d, d, 0) ;
+  muY = mxCreate (h,  "muY", MX_INT, d, d, 0) ;
   muH = mxCreate (h,  "muH", MX_INT, d, d, 0) ;
   muE = mxCreate (h,  "muE", MX_INT, d, d, 0) ;
   muF = mxCreate (h,  "muF", MX_INT, d, d, 0) ;
+  muU = mxCreate (h,  "muU", MX_INT, d, d, 0) ;
+  muV = mxCreate (h,  "muV", MX_INT, d, d, 0) ;
+  muW = mxCreate (h,  "muW", MX_INT, d, d, 0) ;
   muX = mxCreate (h,  "muX", MX_INT, d, d, 0) ;
-  muY = mxCreate (h,  "muY", MX_INT, d, d, 0) ;
-  muZ = mxCreate (h,  "muZ", MX_INT, d, d, 0) ;
-  muT = mxCreate (h,  "muT", MX_INT, d, d, 0) ;
   muK1 = mxCreate (h,  "muK1", MX_INT, d, d, 0) ;
   muK2 = mxCreate (h,  "muK2", MX_INT, d, d, 0) ;
   
@@ -5580,8 +5639,8 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
       memset (xx, 0, sizeof (xx)) ;
       for (i = 0 ; i < d ; i++)
 	xx[d * i + i] = (i<d1 ? -a : -(a+1)) ;
-      mxSet (muYY, xx) ;
-      mxShow (muYY) ;
+      mxSet (muY, xx) ;
+      mxShow (muY) ;
     }
     memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d1 ; i++)
@@ -5596,8 +5655,8 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
       j = d1 + d2 + d3 + i ;
       xx[d * j + j] = -a - 2 ;
     }
-  mxSet (muYY, xx) ;
-  mxShow (muYY) ;
+  mxSet (muY, xx) ;
+  mxShow (muY) ;
  
   /* odd Cartan operator K = diag (0,-1,-2,...-a/-1,-2...-a) */
   memset (xx, 0, sizeof (xx)) ;
@@ -5647,8 +5706,8 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
     {
       xx[d * (d1+i) + i + 1] = -1 ;
     }
-  mxSet (muX, xx) ;
-  mxShow (muX) ;
+  mxSet (muU, xx) ;
+  mxShow (muU) ;
   
  /* odd lowering operator */
   memset (xx, 0, sizeof (xx)) ;
@@ -5656,8 +5715,8 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
     {
       xx[d * (i + 1)  + d1 + i] = i+1 ;
     }
-  mxSet (muY, xx) ;
-  mxShow (muY) ;
+  mxSet (muV, xx) ;
+  mxShow (muV) ;
 
 
   /* other raising operator */  
@@ -5666,8 +5725,8 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
     {
       xx[d * (d1+i) + i] = -a + i ;
     }
-  mxSet (muZ, xx) ;
-  mxShow (muZ) ;
+  mxSet (muW, xx) ;
+  mxShow (muW) ;
 
  /* other lowering operator */
   memset (xx, 0, sizeof (xx)) ;
@@ -5675,11 +5734,11 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
     {
       xx[d * (i)  + d1 + i] = 1 ;
     }
-  mxSet (muT, xx) ;
-  mxShow (muT) ;
+  mxSet (muX, xx) ;
+  mxShow (muX) ;
   
-  mu[0] = muYY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
-  mu[4] = muZ ; mu[5] = muT ;  mu[6] = muX ; mu[7] = muY ; 
+  mu[0] = muY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
+  mu[4] = muW ; mu[5] = muX ;  mu[6] = muU ; mu[7] = muV ; 
   mu[8] = muK1 ;
   mu[9] = muK2 ;
   
@@ -5689,7 +5748,7 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
 /***********************************************************************************************************************************************/
 static MX *KasimirConstructAntiMatrices (KAS *kas)
 {
-  MX muYY, muE, muF, muH, muX, muY, muZ, muT, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
+  MX muY, muE, muF, muH, muU, muV, muW, muX, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
   MX *mu ;
   int d, d1 = 0, d2 = 0, d3 = 0, d4 = 0 ;
   int i, j, k ;
@@ -5698,7 +5757,6 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
   AC_HANDLE h = kas->h ;
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
 
-  a = kas->a = -a ;
   kas->chi = -1 ;
   
   if (1)
@@ -5715,19 +5773,19 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
   kas->d4 = 0 ;
       
   
-  muYY = mxCreate (h,  "muYY", MX_INT, d, d, 0) ;
+  muY = mxCreate (h,  "muY", MX_INT, d, d, 0) ;
   muH = mxCreate (h,  "muH", MX_INT, d, d, 0) ;
   muE = mxCreate (h,  "muE", MX_INT, d, d, 0) ;
   muF = mxCreate (h,  "muF", MX_INT, d, d, 0) ;
+  muU = mxCreate (h,  "muU", MX_INT, d, d, 0) ;
+  muV = mxCreate (h,  "muV", MX_INT, d, d, 0) ;
+  muW = mxCreate (h,  "muW", MX_INT, d, d, 0) ;
   muX = mxCreate (h,  "muX", MX_INT, d, d, 0) ;
-  muY = mxCreate (h,  "muY", MX_INT, d, d, 0) ;
-  muZ = mxCreate (h,  "muZ", MX_INT, d, d, 0) ;
-  muT = mxCreate (h,  "muT", MX_INT, d, d, 0) ;
   muK1 = mxCreate (h,  "muK1", MX_INT, d, d, 0) ;
   muK2 = mxCreate (h,  "muK2", MX_INT, d, d, 0) ;
   
   int xx[d*d] ;
-
+ 
   /* even Cartan operator H = diag (a, a-2 .... -a in each SU(2) sector */
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0, k = a ; i < d2 ; k -= 2, i++)
@@ -5737,7 +5795,7 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
       j = d1 + i ;
       xx[d * j + j] = k  ;
     }
-  mxSet (muH, xx) ;
+  mxSet (muH, xx) ; 
   mxShow (muH) ;
 
 
@@ -5755,8 +5813,8 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
       j = d1 + d2 + d3 + i ;
       xx[d * j + j] = b - 2 ;
     }
-  mxSet (muYY, xx) ;
-  mxShow (muYY) ;
+  mxSet (muY, xx) ;
+  mxShow (muY) ;
 
   /* odd Cartan operator K = diag (a,...2,1,/ a,...2,1,0) */
   memset (xx, 0, sizeof (xx)) ;
@@ -5806,8 +5864,8 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
     {
       xx[d * (d1+i) + i] = 1 ;
     }
-  mxSet (muX, xx) ;
-  mxShow (muX) ;
+  mxSet (muU, xx) ;
+  mxShow (muU) ;
   
 /* odd lowering operator */
   memset (xx, 0, sizeof (xx)) ;
@@ -5815,27 +5873,27 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
     {
       xx[d * (i )  + d1 + i] = (d1 - i) ;
     }
-  mxSet (muY, xx) ;
-  mxShow (muY) ;
+  mxSet (muV, xx) ;
+  mxShow (muV) ;
 
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d1 ; i++)
     {
       xx[d * (d1+i+1) + i] = -1 - i ;
     }
-  mxSet (muZ, xx) ;
-  mxShow (muZ) ;
+  mxSet (muW, xx) ;
+  mxShow (muW) ;
 
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d1 ; i++)
     {
       xx[d * (i)  + d1 + i + 1] = -1 ;
     }
-  mxSet (muT, xx) ;
-  mxShow (muT) ;
+  mxSet (muX, xx) ;
+  mxShow (muX) ;
   
-  mu[0] = muYY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
-  mu[4] = muZ ; mu[5] = muT ;  mu[6] = muX ; mu[7] = muY ; 
+  mu[0] = muY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
+  mu[4] = muW ; mu[5] = muX ;  mu[6] = muU ; mu[7] = muV ; 
   mu[8] = muK1 ;
   mu[9] = muK2 ;
 
@@ -5846,19 +5904,18 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
 
 static MX *KasimirConstructTypicMatrices (KAS *kas)
 {
-  MX muYY, muE, muF, muH, muX, muY, muZ, muT, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
+  MX muY, muE, muF, muH, muU, muV, muW, muX, muK1, muK2 ; /* the 8 generators of SU(2/1) in the Chevalley basis */
   MX *mu ;
   int d, d1 = 0, d2 = 0, d3 = 0, d4 = 0 ;
   int i, j ;
   int a = kas->a, b = kas->b ;
+  int s = 1 ;  /* scaling U V K1 K2 */
   AC_HANDLE h = kas->h ;
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
 
-  kas->b = b =  ((a % 100)/10) ;
-  kas->a = a = a % 10 ;
- 
-  
   kas->chi = -1 ;
+  s = a + 1 ; 
+  kas->scale = s * s ;
   
   if (1)
     {
@@ -5879,16 +5936,16 @@ static MX *KasimirConstructTypicMatrices (KAS *kas)
   kas->d4 = d4 ;
   
   
-  muYY = mxCreate (h,  "muYY: Y Hypercharge", MX_INT, d, d, 0) ;
+  muY = mxCreate (h,  "muY: Y Hypercharge", MX_INT, d, d, 0) ;
   muH = mxCreate (h,  "muH: Even SU(2) Cartan operator", MX_INT, d, d, 0) ;
   muE = mxCreate (h,  "muE: Even raising operator", MX_INT, d, d, 0) ;
   muF = mxCreate (h,  "muF: Even lowering operator", MX_INT, d, d, 0) ;
-  muX = mxCreate (h,  "muX: Odd raising operator", MX_INT, d, d, 0) ;
-  muY = mxCreate (h,  "muY: Odd lowering operator", MX_INT, d, d, 0) ;
-  muZ = mxCreate (h,  "muZ: Other odd raising operator", MX_INT, d, d, 0) ;
-  muT = mxCreate (h,  "muT: Other odd lowering operator", MX_INT, d, d, 0) ;
-  muK1 = mxCreate (h,  "muK1: K1 = {X,Y}", MX_INT, d, d, 0) ;
-  muK2 = mxCreate (h,  "muK2: K2 = {Z,T}", MX_INT, d, d, 0) ;
+  muU = mxCreate (h,  "muU: Odd raising operator", MX_INT, d, d, 0) ;
+  muV = mxCreate (h,  "muV: Odd lowering operator", MX_INT, d, d, 0) ;
+  muW = mxCreate (h,  "muW: Other odd raising operator", MX_INT, d, d, 0) ;
+  muX = mxCreate (h,  "muX: Other odd lowering operator", MX_INT, d, d, 0) ;
+  muK1 = mxCreate (h,  "muK1: K1 = {U,V}", MX_INT, d, d, 0) ;
+  muK2 = mxCreate (h,  "muK2: K2 = {W,X}", MX_INT, d, d, 0) ;
   
   /* even Cartan operator H = diag (a, a-2 .... -a in each SU(2) sector */
   memset (xx, 0, sizeof (xx)) ;
@@ -5915,39 +5972,40 @@ static MX *KasimirConstructTypicMatrices (KAS *kas)
   /* Y hypercharge  Y = diag (a+1,a+1...a+1/a,a,....a) */
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d1 ; i++)
-    xx[d * i + i] = b - a ;
+    xx[d * i + i] = 2*b - a ;
   for (i = 0 ; i < d2 + d3 ; i++)
     {
       j = d1 + i ;
-      xx[d * j + j] = b -a - 1 ;
+      xx[d * j + j] = 2*b -a - 1 ;
     }
   for (i = 0 ; i < d4 ; i++)
     {
       j = d1 + d2 + d3 + i ;
-      xx[d * j + j] = b -a - 2 ;
+      xx[d * j + j] = 2*b -a - 2 ;
     }
-  mxSet (muYY, xx) ;
-  mxShow (muYY) ;
+  mxSet (muY, xx) ;
+  mxShow (muY) ;
 
   
   /* odd Cartan operator K1 = diag (a,...2,1,/ a,...2,1,0) */
   /* odd Cartan operator K2 = diag (1,2,...a/0,1,2...a) */
   memset (xx, 0, sizeof (xx)) ;
+  mxValues (muY, &xx1, 0, 0) ;
   mxValues (muH, &xx2, 0, 0) ;
-  mxValues (muYY, &xx1, 0, 0) ;
+
     
   for (i = 0 ; i < d * d ; i++)
-    xx[i] =  -(xx1[i] + xx2[i]) ;
+    xx[i] =  (xx1[i] + xx2[i])/2 ;
   mxSet (muK1, xx) ;
   mxShow (muK1) ;
   
   for (i = 0 ; i < d * d ; i++)
-  xx[i] =  -(xx1[i] - xx2[i]) ;
+    xx[i] =  (xx1[i] - xx2[i])/2 ;
   mxSet (muK2, xx) ;
   mxShow (muK2) ;
   
 
-  /* even raising operatore E */
+  /* even raising operator E */
   memset (xx, 0, sizeof (xx)) ;
   for (i = 1 ; i < d1 ; i++)
     {
@@ -5972,7 +6030,7 @@ static MX *KasimirConstructTypicMatrices (KAS *kas)
   mxSet (muE, xx) ;
   mxShow (muE) ;
 
-  /* even lowering operatore E */
+  /* even lowering operator F */
   memset (xx, 0, sizeof (xx)) ;
   for (i = 1 ; i < d1 ; i++)
     {
@@ -6002,66 +6060,59 @@ static MX *KasimirConstructTypicMatrices (KAS *kas)
   for (i = 0 ; i < d1 ; i++)
     {
 
-      j = 0 ;
-      xx[d * (j+i) + j] = 0 ;
-    }
-  for (i = 1 ; i < d2 ; i++)
-    {
       j = d1 ;
-      xx[d * (j + i- 1) + (j - 1)] = b ;
+      xx[d * (j + i) + i] = s*b ;
     }
-  for (i = 0 ; i < d3  ; i++)
+  for (i = 0 ; i < d3 ; i++)
     {
       j = d1 + d2 ;
-      xx[d * (i+j) + (i+2)] = 2*i ;
+      xx[d * (j + i ) + i + 1 ] = s * ( 2 -b) ;
+      j = d1 + d2 + d3 ;
+      xx[d * (j+i) + i+d1+d2] = s * b / 2.0 ;
     }
-  for (i = 0 ; i < d4  ; i++)
+  for (i = 0 ; i < d4 ; i++)
     {
       j = d1 + d2 + d3 ;
-      xx[d * (j) + (j - 1)] = -(b - 2) ;
+      xx[d * (j + i ) + d1 + i + 1 ] = s * (b/(a+1.0) - 1) ;
     }
-  mxSet (muX, xx) ;
-  mxShow (muX) ;
+  mxSet (muU, xx) ;
+  mxShow (muU) ;
 
   /* odd lowering operator */
   memset (xx, 0, sizeof (xx)) ;
   for (i = 0 ; i < d1 ; i++)
     {
-
       j = 0 ;
-      xx[d * (j) + j + i] = 0 ;
+      xx[d * (j+i) + i+d1] = s*( 1 - i/2.0) ;
     }
-  for (i = 1 ; i < d2 ; i++)
+  for (i = 0 ; i < d4 ; i++)
     {
       j = d1 ;
-      xx[d * (j - 1) + (j + i - 1)] = -1 ;
+      xx[d * (j+i+1) + i+d1+d2+d3] = s * ( i+1) ;
     }
-  for (i = 0 ; i < d3  ; i++)
+  for (i = 0 ; i < d3 ; i++)
     {
+      j = 0 ;
+      xx[d * (j+i+1) + i+d1+d2] = - s/2.0 ;
       j = d1 + d2 ;
-      xx[d * (i+2) + (d1+d2+i)] = 2*i ;
+      xx[d * (j+i) + i+d1+d2+d3] = s ;
     }
-  for (i = 0 ; i < d4  ; i++)
-    {
-      j = d1 + d2 + d3 ;
-      xx[d * (j - 1) + (j)] = 1 ;
-    }
-  mxSet (muY, xx) ;
-  mxShow (muY) ;
-
+  mxSet (muV, xx) ;
+  mxShow (muV) ;
+  if (0) exit (0) ;
 
   /* odd other raising operator */
-  muZ = KasCommut (muE, muX, -1, kas) ;
-  muZ->name = "muZ" ;
-  mxShow (muZ) ;
+  muW = KasCommut (muE, muU, -1, kas) ;
+  muW->name = "muW" ;
+  mxShow (muW) ;
   
   /* odd other oweringing operator */
-  muT = KasCommut (muY, muF, -1, kas) ;
-  mxShow (muT) ;
+  muX = KasCommut (muV, muF, -1, kas) ;
+  mxShow (muX) ;
 
 
-  mu[0] = muYY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
-  mu[4] = muZ ; mu[5] = muT ;  mu[6] = muX ; mu[7] = muY ; 
+  mu[0] = muY ; mu[1] = muE ; mu[2] = muF ; mu[3] = muH ;
+  mu[4] = muW ; mu[5] = muX ;  mu[6] = muU ; mu[7] = muV ; 
   mu[8] = muK1 ;
   mu[9] = muK2 ;
 
@@ -6141,10 +6192,11 @@ static MX KasCheck (LC *up, KAS *kas)
   int i, k ;
 
   MX ab = KasCommut (a, b, up->s, kas) ;
-  
+  int scale = (up->s == 1 ? (kas->scale ? kas->scale : 1) : 1) ;
+
   mxValues (c, &xx, 0, 0) ;
   for (i = 0 ; i < dd ; i++)
-    yy[i] = up->n * xx[i] ;
+    yy[i] = up->n * scale * xx[i] ;
   mxSet (s, yy) ;
   t = mxSubstract (t, ab, s, kas->h) ;
   mxValues (t, &xx, 0, 0) ;
@@ -6184,6 +6236,13 @@ static MX KasCheck (LC *up, KAS *kas)
 static void KasimirCheckCommutators (KAS *kas)
 {
   LC *up, *XXX ;
+  LC Su2XXX[] = {
+    {1,2,3,1,-1},
+    {3,1,1,2,-1},
+    {3,2,2,-2,-1},
+    {0,0,0,0,0}
+  } ;
+
   LC Su21XXX[] = {
     {1,2,3,1,-1},
     {3,1,1,2,-1},
@@ -6194,6 +6253,10 @@ static void KasimirCheckCommutators (KAS *kas)
     {3,7,7,1,-1},
     {6,7,8,1,1},
     {4,5,9,1,1},
+    {6,5,2,-1,1},
+    {4,7,1,-1,1},
+    {6,4,1,0,1},
+    {5,7,2,0,1},
     
     {1,4,4,0,-1},
     {1,6,4,1,-1},
@@ -6225,7 +6288,7 @@ static void KasimirCheckCommutators (KAS *kas)
     {0,0,0,0,0}
   } ;
 
-  XXX = kas->isOSp ? OSp21XXX : Su21XXX ;
+  XXX = kas->isSU2 ? Su2XXX : (kas->isOSp ? OSp21XXX : Su21XXX) ;
   
   for (up = XXX ; up->s ; up++)
     KasCheck (up, kas) ;
@@ -6241,6 +6304,7 @@ static void  KasimirLowerMetric (KAS *kas)
   int i, j, k, n ;
   float  yy[100] ;
   AC_HANDLE h = ac_new_handle () ;
+  
   gg = kas->gg = mxCreate (kas->h,  "gg", MX_FLOAT, 10, 10, 0) ;
 
   printf ("Metric gg:: ") ;
@@ -6351,7 +6415,7 @@ static void KasimirOperatorK2 (KAS *kas)
 
 static void GhostKasimirOperatorK2 (KAS *kas)
 {
-  int i, j, k ;
+  int i, j, k, l, m1 ;
   int d = kas->d ;
   AC_HANDLE h = ac_new_handle () ;
   const float *xx ;
@@ -6371,16 +6435,45 @@ static void GhostKasimirOperatorK2 (KAS *kas)
 	    continue ;
 	  MX c = mxMatMult (a, b, h) ;
 	  float z = xx[10*i + j] ;
+	  if (z>0)z=1;else z=-1;
+	  if (kas->scale) z /= kas->scale ;
+	  
 
 	  mxValues (c, &yy, 0, 0) ;
 	  for (k = 0 ; k < d*d ; k++)
 	    zz[k] -= z * yy[k] ;
 	}
+  for (i = 4 ; i < 8 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      for (k = 4 ; k < 8 ; k++)
+	for (l = 4 ; l < 8 ; l++)
+	  {
+	    int jj = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l);
+	    if (jj)
+	      {
+		MX a = kas->mu[i] ;
+		MX b = kas->mu[j] ;
+		MX c = kas->mu[k] ;
+		MX d1 = kas->mu[l] ;
+		float z = 1 ;
+		
+		if (!a || !b || !c || !d)
+		  continue ;
+		MX e = mxMatMult (a, b, h) ;
+		MX f = mxMatMult (e,c, h) ;
+		MX g = mxMatMult (f,d1, h) ;
+
+		if (kas->scale) z /= (kas->scale * kas->scale) ;
+		mxValues (g, &yy, 0, 0) ;
+		for (m1 = 0 ; m1 < d*d ; m1++)
+		  zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
+	      }
+	  }
 
   MX kas2 = kas->kas2 = mxCreate (kas->h,  "Ghost-Casimir2", MX_FLOAT, d, d, 0) ;
   dz = zz[d*d-1] + zz[0] ; dz=0; /* dz = g^{54}  in OSp(1/2 */
   for (i = 0 ; i < d ; i++)
-    zz[d*i + i] -= dz/2 ;
+    zz[d*i + i] -= 0*dz/2 ;
   mxSet (kas2, zz) ;
 
   printf ("Quadratic Ghots-Casimir operator KAS2 dz = %.3f\n", dz) ;
@@ -6399,17 +6492,20 @@ static void  KasimirLower3tensor (KAS *kas)
   int yy[1000] ;
   AC_HANDLE h = ac_new_handle () ;
   MX ccc = kas->ccc = mxCreate (kas->h,  "ccc", MX_INT, 10, 10, 10, 0) ;
+  int mx0 = 0 ;
+  int mx1 = 8 ;
 
   printf ("Lower ccc:: ") ;
   memset (yy, 0, sizeof (yy)) ;
-  for (i = 0 ; i < 8 ; i++)
-    for (j = 0 ; j < 8 ; j++)
-      for (k = 0 ; k < 8 ; k++)
+  for (i = mx0 ; i < mx1 ; i++)
+    for (j = mx0 ; j < mx1 ; j++)
+      for (k = mx0 ; k < mx1 ; k++)
       {
 	int d = kas->d ;
 	int d1 = kas->d1 ;
 	int d2 = kas->d2 ;
 	int d3 = kas->d3 ;
+	int s ;
 	MX a = kas->mu[i] ;
 	MX b = kas->mu[j] ;
 	MX c = kas->mu[k] ;
@@ -6423,6 +6519,12 @@ static void  KasimirLower3tensor (KAS *kas)
 	y = mxMatMult (x, b, h) ;
 
 	if (j >= 4 && j <= 7 && k >= 4 && k <= 7)
+	  s = -1 ;
+	else
+	  s = 1 ;
+	if (i > 40)
+	  s = -s ;
+	if (s == -1)
 	  z = mxSubstract (z, v, y, h) ;
 	else
 	  z = mxAdd (z, v, y, h) ;
@@ -6467,7 +6569,7 @@ static void  KasimirUpper3tensor (KAS *kas)
 	      for (c = 0 ; c < 8 ; c++)
 		z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * ccc[100*a + 10 * b + c] ; 
 
-	  z /= 6.0 ;
+	  if (i>4 || j>4 || k>4) z = -z ;
 	  if (z != 0)
 	    printf (" %d:%d:%d=%.2f",i,j,k,z) ;
 	  yy[100*i + 10*j + k] += z ;
@@ -6512,7 +6614,7 @@ static void KasimirOperatorK3 (KAS *kas)
   MX kas3 = kas->kas3 = mxCreate (kas->h,  "KAS3", MX_FLOAT, d, d, 0) ;
   mxSet (kas3, zz) ;
 
-  printf ("Cubic super-Casimir operator KAS3\n") ;
+  printf ("Cubic super-Casimir operator KAS3 zz[0]=%f\n", zz[0]) ;
   mxShow (kas3) ;
 
   ac_free (h) ;
@@ -6521,22 +6623,26 @@ static void KasimirOperatorK3 (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
-static void Kasimirs (int a)
+static void Kasimirs (int a, int b)
 {
   KAS kas ;
+  memset (&kas, 0,sizeof(KAS)) ;
   kas.h = ac_new_handle () ;
   kas.a = a ;    /* Kac Dynkin weights of the heighest weight */
-  kas.b = 0 ;
+  kas.b = b ;
   kas.isOSp = FALSE ;
   
-  if (a>=1000)
+  if (a>=2000)
+    KasimirConstructSU2Matrices (&kas) ;
+  else if (a>=1000)
     KasimirConstructOSp1_2Matrices (&kas) ;
-  else if (a>=100)
-    KasimirConstructTypicMatrices (&kas) ;
-  else if (a>0)
+  else if (a>0 && b == 0)
     KasimirConstructAtypicMatrices (&kas) ;
-  else
+  else if (a >= 0 && b == a + 1)
     KasimirConstructAntiMatrices (&kas) ;
+  else
+    KasimirConstructTypicMatrices (&kas) ;
+
   KasimirCheckSuperTrace (&kas) ;
 
   KasimirCheckCommutators (&kas) ;
@@ -6546,7 +6652,7 @@ static void Kasimirs (int a)
   
   KasimirOperatorK2 (&kas) ;
   GhostKasimirOperatorK2 (&kas) ;
-  exit (0) ;
+
   
 
   KasimirLower3tensor (&kas) ;
@@ -8388,16 +8494,17 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-t", &myType) ;
   SU3 = getCmdLineBool (&argc, argv, "-su3") ;
 
-  int a = 0 ;
+  int a = 0, b = 0 ;
   getCmdLineInt (&argc, argv, "-a", &a) ;
-  if (a)
+  getCmdLineInt (&argc, argv, "-b", &b) ;
+  if (a || b)
     {
       /* 2021_03_18 
        * construct the 8 matrices for the generic irreps of su(2/1) with h.w. (a,b)
        * verify all commutations relations
        * compute the casimir tensors and operators 
        */
-      Kasimirs (a) ;
+      Kasimirs (a,b) ;
       exit (0) ;
     }
   /* always init, otherwise the gcc linker is unhappy */
