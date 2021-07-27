@@ -454,6 +454,24 @@ static void niceShow (MX a)
 } /* niceShow */
 
 /*******************************************************************************************/
+static void niceIntShow (MX a)
+{
+  int i,j, iMax = a->shapes[0] ;
+  const int *zi ;
+
+  mxValues (a, &zi, 0, 0) ;
+  printf ("## %s", a->name) ;
+  for (i = 0 ; i < iMax ; i++)
+    {
+      printf ("\n") ;
+      for (j = 0 ; j < iMax ; j++)
+	printf ("\t%d", zi[iMax*i + j]) ;
+    }
+  printf ("\n") ;
+  return ;
+} /* niceIntShow */
+
+/*******************************************************************************************/
 
 static void showTT (POLYNOME pp)
 {
@@ -5424,7 +5442,7 @@ static BOOL feynmanDiagrams (void)
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-typedef struct kasStruct { MX *mu, gg, GG, kas2, ccc, CCC, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale ; BOOL isOSp, isSU2 ; AC_HANDLE h ; } KAS ;
+typedef struct kasStruct { MX *mu, *QQ, gg, GG, kas2, ccc, CCC, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale ; BOOL isOSp, isSU2, isCOQ ; AC_HANDLE h ; } KAS ;
 typedef struct comtpStruct { int a, b, c, n, s ; } LC ;
 static MX KasCommut (MX a, MX b, int sign, KAS *kas) ;
   
@@ -5437,6 +5455,7 @@ static MX *KasimirConstructSU2Matrices (KAS *kas)
   int a ;
   AC_HANDLE h = kas->h ;
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
+
   kas->chi = 1 ;
   kas->isSU2 = TRUE ;
   
@@ -5589,7 +5608,7 @@ static MX *KasimirConstructAtypicMatrices (KAS *kas)
   MX *mu ;
   int d, d1 = 0, d2 = 0, d3 = 0, d4 = 0 ;
   int i, j ;
-  int a = kas->a, b = 0 ;
+  int a = kas->a ;
   AC_HANDLE h = kas->h ;
   
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
@@ -6293,7 +6312,7 @@ static void KasimirCheckCommutators (KAS *kas)
 static void  KasimirLowerMetric (KAS *kas)
 {
   MX gg ;
-  int i, j, k ;
+  int i, j, k, k1 ;
   float  n, yy[100] ;
   AC_HANDLE h = ac_new_handle () ;
   
@@ -6320,7 +6339,10 @@ static void  KasimirLowerMetric (KAS *kas)
 	mxValues (c, &xx, 0, 0) ;
 	n = 0 ;
 	for (k = 0 ; k < d ; k++)
-	  n += (k < d1 || k >= d1 + d2 + d3 ? xx[d*k + k] : - xx[d*k + k]) ;
+	  {
+	    k1 = kas->isCOQ ? k % (d/2) : k ;
+	    n += (k1 < d1 || k1 >= d1 + d2 + d3 ? xx[d*k + k] : - xx[d*k + k]) ;
+	  }
 	n *= kas->chi ;
 	if (s > 1 && i>=4 && j>=4)
 	  n /= s ;
@@ -6490,7 +6512,7 @@ static void GhostKasimirOperatorK2 (KAS *kas)
 
 static void  KasimirLower3tensor (KAS *kas)
 {
-  int i, j, k, n, i1, scale ;
+  int i, j, k, i1, scale ;
   float yy[1000] ;
   float zz ;
   AC_HANDLE h = ac_new_handle () ;
@@ -6661,6 +6683,8 @@ static void Kasimirs (int a, int b)
   
   KasimirOperatorK2 (&kas) ;
   GhostKasimirOperatorK2 (&kas) ;
+  exit (0);
+
 
   
 
@@ -6703,6 +6727,7 @@ complex float PM[4][4][4][4] ;
 static void niceShow (MX a) ;
 static int c3Mask = 0 ;
 static int SU3 = 0 ;
+static int COQ = 0 ;
 static int myType = -1 ;
 static MX muHermite (MX m, AC_HANDLE h)
 {
@@ -7406,6 +7431,54 @@ static MX muComposeMatrix (MX mm, MX a00, MX a01, MX a10, MX a11, complex float 
   return mm ;
 } /* muComposeMatrix */
 
+static MX muComposeIntMatrix (int d, MX mm, MX a00, MX a01, MX a10, MX a11, int x00, int x01, int x10, int x11)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int i, j, iMax = d, iiMax = 2*d ;
+  int di, dj ;
+  const int *zi ;
+  int zz[4*d*d] ;
+
+  memset (zz, 0, sizeof (zz)) ;
+  if (a00)
+    {
+      mxValues (a00, &zi, 0, 0) ;
+      di = 0 ; dj = 0 ;
+      for (i = 0 ; i < iMax ; i++)
+	for (j = 0 ; j < iMax ; j++)
+	  zz[iiMax * (i + di) + (j + dj)] = x00 * zi[iMax * i + j] ;
+    }
+  if (a01)
+    {
+      mxValues (a01, &zi, 0,0) ;
+      di = 0 ; dj = d ;
+      for (i = 0 ; i < iMax ; i++)
+	for (j = 0 ; j < iMax ; j++)
+	  zz[iiMax * (i + di) + (j + dj)] = x01 * zi[iMax * i + j] ;
+    }
+  if (a10) 
+    {
+      mxValues (a10, &zi, 0, 0) ;
+      di = d ; dj = 0 ;
+      for (i = 0 ; i < iMax ; i++)
+	for (j = 0 ; j < iMax ; j++)
+	  zz[iiMax * (i + di) + (j + dj)] = x10 * zi[iMax * i + j] ;
+    }
+  if (a11)
+    {
+      mxValues (a11, &zi, 0, 0) ;
+      di = d ; dj = d ;
+      for (i = 0 ; i < iMax ; i++)
+	for (j = 0 ; j < iMax ; j++)
+	  zz[iiMax * (i + di) + (j + dj)] = x11 * zi[iMax * i + j] ;
+    }
+
+  mxSet (mm, zz) ;
+  ac_free (h) ;
+  
+  return mm ;
+} /* muComposeIntMatrix */
+
 /* extract the Hermitian part of a matrix */
 static MX muBiHK (MX a, int sign, AC_HANDLE h)
 {
@@ -7630,115 +7703,110 @@ static void muInit2 (AC_HANDLE h)
 }
 
 /* construct the Coquereaux matrices where the cartan subalgebra is non diagonal */
-static void muInit2Coq (AC_HANDLE h)
+static void muInit2Coq (int a, int b)
 {
-  int i, t ;
+	KAS kas, kas2, kasQ ;
+  AC_HANDLE h = ac_new_handle () ;
+  int i, d ;
+  MX *mu, *nu, *QQ ;
+  MX qmuY, qmuH, qmuE, qmuF, qmuU, qmuV, qmuW, qmuX, qmuK1, qmuK2 ;
+  kas.a = a ;
+  kas.b = b ;
+  kas.h = h ;
+  kas2.a = a ;
+  kas2.b = -b + 1 ;
+  kas2.h = h ;
+  kasQ.h = h ;
 
-  chiT2 = mxCreate (h, "chiT", MX_COMPLEX, 8, 8, 0) ;
-  chiS2 = mxCreate (h, "chi", MX_COMPLEX, 8, 8, 0) ;
-  chiL2 = mxCreate (h, "chiL", MX_COMPLEX, 8, 8, 0) ;
-  chiR2 = mxCreate (h, "chiR", MX_COMPLEX, 8, 8, 0) ;
+  KasimirConstructTypicMatrices (&kas) ;
+  KasimirConstructTypicMatrices (&kas2) ;
+  kas.isCOQ = TRUE ;
+  mu = kas.mu ;
+  nu = kas2.mu ; 
+  QQ = kasQ.mu = (MX *) halloc (10 * sizeof (MX), kas.h) ;
 
-  muComposeMatrix (chiT2, chiT, 0, 0, chiT, 1, 0, 0, 1) ;
-  muComposeMatrix (chiS2, chiS, 0, 0, chiS, 1, 0, 0, 1) ;
-  muComposeMatrix (chiL2, chiL, 0, 0, chiL, 1, 0, 0, 1) ;
-  muComposeMatrix (chiR2, chiR, 0, 0, chiR, 1, 0, 0, 1) ;
+  kasQ.a = kas.a ;
+  kasQ.b = kas.b ;
+    
+  kasQ.d = d = 2 * kas.d ;
+  kasQ.d1 = kas.d1 ;
+  kasQ.d2 = kas.d2 ;
+  kasQ.d3 = kas.d3 ;
+  kasQ.d4 = kas.d4 ;
+  kasQ.chi = kas.chi ;
+	
+  kasQ.scale = kas.scale ;
+  QQ[0] = qmuY = mxCreate (h,  "qmuY: Y Hypercharge", MX_INT, d, d, 0) ;
+  QQ[3] = qmuH = mxCreate (h,  "qmuH: Even SU(2) Cartan operator", MX_INT, d, d, 0) ;
+  QQ[1] = qmuE = mxCreate (h,  "qmuE: Even raising operator", MX_INT, d, d, 0) ;
+  QQ[2] = qmuF = mxCreate (h,  "qmuF: Even lowering operator", MX_INT, d, d, 0) ;
+  QQ[6] = qmuU = mxCreate (h,  "qmuU: Odd raising operator", MX_INT, d, d, 0) ;
+  QQ[7] = qmuV = mxCreate (h,  "qmuV: Odd lowering operator", MX_INT, d, d, 0) ;
+  QQ[4] = qmuW = mxCreate (h,  "qmuW: Other odd raising operator", MX_INT, d, d, 0) ;
+  QQ[5] = qmuX = mxCreate (h,  "qmuX: Other odd lowering operator", MX_INT, d, d, 0) ;
+  QQ[8] = qmuK1 = mxCreate (h,  "qmuK1: K1 = {U,V}", MX_INT, d, d, 0) ;
+  QQ[9] = qmuK2 = mxCreate (h,  "qmuK2: K2 = {W,X}", MX_INT, d, d, 0) ;
+  
+/*
+  qchiT = mxCreate (h, "qchiT", MX_COMPLEX, d, d, 0) ;
+  qchiS = mxCreate (h, "qchi", MX_COMPLEX, d, d, 0) ;
+  qchiL = mxCreate (h, "qchiL", MX_COMPLEX, d, d, 0) ;
+  qchiR = mxCreate (h, "qchiR", MX_COMPLEX, d, d, 0) ;
+*/
 
-  for (t = 3 ; t < NTYPES ; t++)
-    {
-      nchiT[t] = chiT2 ;
-      nchiS[t] = chiS2 ;
-      nchiL[t] = chiL2 ;
-      nchiR[t] = chiR2 ;
-    }
-
+  
+  /* even and odd matrices, same block diagonal, use nu in the bottom left */
+  if (1)
+  {
+    nu[5] = mxLinearCombine (nu[5], -1, nu[5], 0, nu[5], h) ;
+    nu[7] = mxLinearCombine (nu[7], -1, nu[7], 0, nu[7], h) ;
+  }
   for (i = 0 ; i < 10 ; i++)
-    { 
-      N2[i] = mxCreate (h, messprintf ("N2_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      E2[i] = mxCreate (h, messprintf ("E2_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      Q2[i] = mxCreate (h, messprintf ("Q2_%d", i), MX_COMPLEX, 8, 8, 0) ;
+  {
+    muComposeIntMatrix (kas.d, QQ[i], mu[i],0,nu[i],mu[i],1,0,i>3 && i < 8 ? 1 : 0,1) ;  
+  }
 
-      N2a[i] = mxCreate (h, messprintf ("N2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      E2a[i] = mxCreate (h, messprintf ("E2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      Q2a[i] = mxCreate (h, messprintf ("Q2a_%d", i), MX_COMPLEX, 8, 8, 0) ;
+  QQ[8] = qmuK1 = KasCommut(qmuU,qmuV,1,&kasQ) ;
+  QQ[9] = qmuK2 = KasCommut(qmuW,qmuX,1,&kasQ) ;
+  QQ[0] = qmuY = mxLinearCombine (qmuY, 1, qmuK1, 1, qmuK2, h) ;
 
-      N2b[i] = mxCreate (h, messprintf ("N2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      E2b[i] = mxCreate (h, messprintf ("E2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
-      Q2b[i] = mxCreate (h, messprintf ("Q2b_%d", i), MX_COMPLEX, 8, 8, 0) ;
-    }
-  neq[3] = N2 ;
-  neq[4] = E2 ;
-  neq[5] = Q2 ;
+  if (1)
+  {
+    int dd = kasQ.d, d2 = dd*dd ;
+     int i, yy[dd*dd], s2 = kasQ.scale ;
+     const int *xx ;
 
-  neq[6] = N2a ;
-  neq[7] = E2a ;
-  neq[8] = Q2a ;
+
+     mxValues (qmuK1, &xx, 0, 0) ;
+    for (i = 0 ; i < d2 ; i++)
+      yy[i] = xx[i]/s2 ;
+    mxSet (qmuK1, yy) ;
+     mxValues (qmuK2, &xx, 0, 0) ;
+    for (i = 0 ; i < d2 ; i++)
+      yy[i] = xx[i]/s2 ;
+    mxSet (qmuK2, yy) ;
+  }
+
+  printf ("###### Coquereaux\n") ;
+  for (i = 0 ; i < 10 ; i++)
+    niceIntShow (QQ[i]) ;
+
+  KasimirCheckCommutators (&kasQ) ;
+  KasimirLowerMetric (&kasQ) ;
+  KasimirUpperMetric (&kasQ) ;
   
-  neq[9] = N2b ;
-  neq[10] = E2b ;
-  neq[11] = Q2b ;
+  KasimirOperatorK2 (&kasQ) ;
+  GhostKasimirOperatorK2 (&kasQ) ;
+  exit(0) ;
+
+#ifdef JUNK
   
 
+  KasimirLower3tensor (&kas) ;
+  KasimirUpper3tensor (&kas) ;
+  KasimirOperatorK3 (&kas) ;
   
-  /* even matrices, same block diagonal */
-  for (t = 0 ; t < 3 ; t++)
-    for (i = 0 ; i < 10 ; i++)
-      {
-	if (i > 3 && i < 8) continue ;
-	muComposeMatrix (neq[t+3][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
-	muComposeMatrix (neq[t+6][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
-	muComposeMatrix (neq[t+9][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
-      }
-
-  /* odd matrices block diagonal */
-  for (i = 4 ; i < 8 ; i++)
-    for (t = 0 ; t < 3 ; t++)
-      muComposeMatrix (neq[t+3][i], neq[t][i], 0, 0, neq[t][i], 1, 0, 0, 1) ;
-
-  /* odd matrices block diagonal + bottom corner */
-  if (1) for (t = 0 ; t < 3 ; t++)
-      {
-	double s2 = sqrt (2.0) ;
-	muComposeMatrix (neq[t+6][0], neq[t][0], 0, coq[t][0], neq[t][0], 1, 0, 2, 1) ;
-	muComposeMatrix (neq[t+6][8], neq[t][8], 0, coq[t][0], neq[t][8], 1, 0, 2, 1) ;
-	muComposeMatrix (neq[t+6][9], neq[t][9], 0, coq[t][0], neq[t][9], 1, 0, 2, 1) ;
-
-	muComposeMatrix (neq[t+6][4], neq[t][4], 0, coq[t][4], neq[t][4], 1, 0, -1, 1) ;
-	muComposeMatrix (neq[t+6][5], neq[t][5], 0, coq[t][5], neq[t][5], 1, 0, 1, 1) ;
-	muComposeMatrix (neq[t+6][6], neq[t][6], 0, coq[t][6], neq[t][6], 1, 0, -1, 1) ;
-	muComposeMatrix (neq[t+6][7], neq[t][7], 0, coq[t][7], neq[t][7], 1, 0, 1, 1) ;
-	if (t==1)
-	  {
-	    muComposeMatrix (neq[t+6][4], Coq[t][4], 0, coq[t][4], Coq[t][4], 1, 0, -s2/3, 1) ;
-	    muComposeMatrix (neq[t+6][5], Coq[t][5], 0, coq[t][5], Coq[t][5], 1, 0, -s2/3, 1) ;
-	    muComposeMatrix (neq[t+6][6], Coq[t][6], 0, coq[t][6], Coq[t][6], 1, 0, -s2/3, 1) ;
-	    muComposeMatrix (neq[t+6][7], Coq[t][7], 0, coq[t][7], Coq[t][7], 1, 0, -s2/3, 1) ;
-	  }
-      }      
-  /* odd matrices block diagonal + both  corner */
-    if (1) for (t = 0 ; t < 3 ; t++)
-      {
-	muComposeMatrix (neq[t+9][0], neq[t][0], 0, coq[t][0], neq[t][0], 1, 0, 0, 1) ;
-	muComposeMatrix (neq[t+9][8], neq[t][8], 0, coq[t][0], neq[t][8], 1, 0, 0, 1) ;
-	muComposeMatrix (neq[t+9][9], neq[t][9], 0, coq[t][0], neq[t][9], 1, 0, 0, 1) ;
-
-	muComposeMatrix (neq[t+9][4], neq[t][4], 0, coq[t][4], neq[t][4], 1, 0, -0, 1) ;
-	muComposeMatrix (neq[t+9][5], neq[t][5], 0, coq[t][5], neq[t][5], 1, 0, 0, 1) ;
-	muComposeMatrix (neq[t+9][6], neq[t][6], 0, coq[t][6], neq[t][6], 1, 0, -0, 1) ;
-	muComposeMatrix (neq[t+9][7], neq[t][7], 0, coq[t][7], neq[t][7], 1, 0, 0, 1) ;
-	if (t==1)
-	  {
-	    muComposeMatrix (neq[t+9][4], Coq[t][4], 0, coq[t][4], Coq[t][4], 1, 0, -0, 1) ;
-	    muComposeMatrix (neq[t+9][5], Coq[t][5], 0, coq[t][5], Coq[t][5], 1, 0, -0, 1) ;
-	    muComposeMatrix (neq[t+9][6], Coq[t][6], 0, coq[t][6], Coq[t][6], 1, 0, -0, 1) ;
-	    muComposeMatrix (neq[t+9][7], Coq[t][7], 0, coq[t][7], Coq[t][7], 1, 0, -0, 1) ;
-	  }
-      }
-
-    printf ("###### Coquereaux\n") ;
-    for (i = 0 ; i < 10 ; i++)
-      niceShow (neq[7][i]) ;
-
+  exit (0) ;
     printf("#### extract the OSp(2/1) sub-superalgebbra Lepton Cabibbo \n") ;
     if (1)
       { 
@@ -7964,6 +8032,7 @@ static void muInit2Coq (AC_HANDLE h)
 	
 	printf ("####### OSp(2/1) Quark-Cabibbo representation done\n") ;
       }
+#endif
   return ; 
 }
 
@@ -8502,16 +8571,18 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-c3Mask", &c3Mask) ;
   getCmdLineInt (&argc, argv, "-t", &myType) ;
   SU3 = getCmdLineBool (&argc, argv, "-su3") ;
+  COQ = getCmdLineBool (&argc, argv, "-coq") ;
 
   int a = 0, b = 0 ;
   getCmdLineInt (&argc, argv, "-a", &a) ;
   getCmdLineInt (&argc, argv, "-b", &b) ;
-  if (a || b)
+  if (!COQ && (a || b))
     {
       /* 2021_03_18 
        * construct the 8 matrices for the generic irreps of su(2/1) with h.w. (a,b)
        * verify all commutations relations
        * compute the casimir tensors and operators 
+
        */
       Kasimirs (a,b) ;
       exit (0) ;
@@ -8519,7 +8590,7 @@ int main (int argc, const char **argv)
   /* always init, otherwise the gcc linker is unhappy */
   if (1) muInit (h) ;   /* init the 4x4 matrices */
   if (0) muInit2 (h) ;  /* init the 2-families 8x8 rotated matrices */
-  if (1) muInit2Coq (h) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
+  if (COQ) muInit2Coq (a,b) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
   /* verification numerique directe de traces de matrices de pauli */ 
   if (0) muSigma (h) ;
   exit (0) ;
