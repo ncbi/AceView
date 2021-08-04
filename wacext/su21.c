@@ -6292,10 +6292,26 @@ static void KasimirCheckCommutators (KAS *kas)
     {1,2,3,1,-1},
     {3,1,1,2,-1},
     {3,2,2,-2,-1},
+
+    {0,1,1,0,-1},
+    {0,2,2,0,-1},
+    {0,3,3,0,-1},
+    
+    {0,4,4,1,-1},
+    {0,5,5,-1,-1},
+    {0,6,6,1,-1},
+    {0,7,7,-1,-1},
+    
     {3,4,4,1,-1},
     {3,5,5,-1,-1},
     {3,6,6,-1,-1},
     {3,7,7,1,-1},
+
+    {4,4,9,0,1},
+    {5,5,9,0,1},
+    {6,6,8,0,1},
+    {7,7,8,0,1},
+    
     {6,7,8,1,1},
     {4,5,9,1,1},
     {6,5,2,-1,1},
@@ -6875,7 +6891,9 @@ static MX muHermite (MX m, AC_HANDLE h)
   mxConjugate (m1, m1, h) ;
   
   return m1 ;
-}
+} /* muHermite */
+
+/*************************************************************************************************/
 
 typedef struct fabcStruct {int a,b,c,sign; complex float z; const char *title ;} FABC ;
 static void muStructure (void)
@@ -6977,7 +6995,9 @@ static void muStructure (void)
     }
   ac_free (h) ;
   return ;
-}
+} /* muStructure */
+
+/*************************************************************************************************/
 
 static void muSigma (AC_HANDLE h)
 {
@@ -7319,6 +7339,9 @@ static void muSigma (AC_HANDLE h)
 
   return ;
 } /* muSigma */
+
+/*************************************************************************************************/
+
 static void muInit (AC_HANDLE h)
 {
   int t, i ;
@@ -7520,7 +7543,9 @@ static void muInit (AC_HANDLE h)
       mm2 = mxMatMult (ee[6],ee[6],h) ;
       niceShow (mm2) ;
     }
-}
+} /* muInit */
+
+/*************************************************************************************************/
 
 static MX muComposeMatrix (MX mm, MX a00, MX a01, MX a10, MX a11, complex float x00, complex float x01, complex float x10, complex float x11)
 {
@@ -7570,6 +7595,8 @@ static MX muComposeMatrix (MX mm, MX a00, MX a01, MX a10, MX a11, complex float 
   return mm ;
 } /* muComposeMatrix */
 
+/*************************************************************************************************/
+
 static MX muComposeIntMatrix (int d, MX mm, MX a00, MX a01, MX a10, MX a11, int x00, int x01, int x10, int x11)
 {
   AC_HANDLE h = ac_new_handle () ;
@@ -7618,6 +7645,7 @@ static MX muComposeIntMatrix (int d, MX mm, MX a00, MX a01, MX a10, MX a11, int 
   return mm ;
 } /* muComposeIntMatrix */
 
+/*************************************************************************************************/
 
 static MX muTripleComposeIntMatrix (int d, MX mm, MX a00, MX a01, MX a02, MX a10, MX a11, MX a12, MX a20, MX a21, MX a22)
 {
@@ -7710,6 +7738,67 @@ static MX muTripleComposeIntMatrix (int d, MX mm, MX a00, MX a01, MX a02, MX a10
   return mm ;
 } /* muTripleComposeIntMatrix */
 
+/*************************************************************************************************/
+
+static MX muCoqComposeIntMatrix (int COQ, int d, MX mm, MX mu, MX nu)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int i, j, iMax = d, iiMax = COQ*d ;
+  int coq, di, dj ;
+  const int *zi ;
+  int zz[COQ*COQ*d*d] ;
+
+  memset (zz, 0, sizeof (zz)) ;
+  if (mu) /* install in the white diagonals the triangular block copies of mu */
+    {
+      int w = 1 ;
+      int diag ;
+      int diagMax = nu ? COQ : 1 ; /* if nu==0, just populate the block diagonal: good for SU(2) */
+      for (diag = 0 ; diag < diagMax ; diag += 2)
+	{
+	  w = 1 ;
+	  if (diag == 4) w = 24 ;
+	  for (coq = 0 ; coq < COQ - diag ; coq++)
+	    {
+	      mxValues (mu, &zi, 0, 0) ;
+	      di = d * (diag + coq) ; dj = d * (coq) ;
+	      if (diag == 0) w = 1 ;
+	      if (diag == 2 && coq) w = 4*w ; /* gamma */
+	      for (i = 0 ; i < iMax ; i++)
+		for (j = 0 ; j < iMax ; j++)
+		  zz[iiMax * (i + di) + (j + dj)] = w * zi[iMax * i + j] ;
+	    }
+	}
+    }
+  if (nu) /* install in the black diagonals the triangular block copies of mu */
+    {
+      int w = 1 ;
+      int diag ;
+      int diagMax = nu ? COQ : 1 ; /* if nu==0, just populate the block diagonal */
+      for (diag = 1 ; diag < diagMax ; diag += 2)
+	{
+	  w = 1 ;
+	  if (diag == 3) w = 4 ;
+	  for (coq = 0 ; coq < COQ - diag ; coq++)
+	    {
+	      mxValues (nu, &zi, 0, 0) ;
+	      di = d * (diag + coq) ; dj = d * (coq) ;
+	      if (diag == 1 && coq) w = 2 * w ;
+	      if (diag == 3 && coq) w = 8 * w ; /* to be determined */
+	      for (i = 0 ; i < iMax ; i++)
+		for (j = 0 ; j < iMax ; j++)
+		  zz[iiMax * (i + di) + (j + dj)] = w * zi[iMax * i + j] ;
+	    }
+	}
+    }
+  mxSet (mm, zz) ;
+  ac_free (h) ;
+  
+  return mm ;
+} /* muCoqComposeIntMatrix */
+
+/*************************************************************************************************/
+
 /* extract the Hermitian part of a matrix */
 static MX muBiHK (MX a, int sign, AC_HANDLE h)
 {
@@ -7732,7 +7821,9 @@ static MX muBiHK (MX a, int sign, AC_HANDLE h)
 
     }
   return mm ;
-}
+} /* muBiHK */
+
+/*************************************************************************************************/
 
 /* extract the anti-Hermitian part of a matrix */
 static MX muBiH (MX a, AC_HANDLE h)
@@ -7744,6 +7835,7 @@ static MX muBiK (MX a, AC_HANDLE h)
   return muBiHK (a, -1, h) ;
 }
 
+/*************************************************************************************************/
 /* Mixing 2 famillies, using a pair of angles
  * alpha and beta
  * alpha is the Hermitian angle, it concerns the down quarks
@@ -7850,6 +7942,7 @@ static MX muBiComposeMatrix (MX mm, MX a00, MX a01, MX a10, MX a11, int x00, int
 } /* muBiComposeMatrix */
 
 
+/*************************************************************************************************/
 /* construct the rotated 8x8 mattrices */
 static void muInit2 (AC_HANDLE h)
 {
@@ -7931,133 +8024,9 @@ static void muInit2 (AC_HANDLE h)
 	muBiComposeMatrix (neq[t+9][7], neq[t][7], neq[t][6], neq[t][6], neq[t][7],1,-1,-1,1) ;
       }      
   return ; 
-}
+} /* muInit2 */
 
-/* construct the Coquereaux matrices where the cartan subalgebra is non diagonal */
-static void muInit2Coq (int a, int b)
-{
-  KAS kas, kas2, kasQ ;
-  AC_HANDLE h = ac_new_handle () ;
-  int i, d ;
-  MX *mu, *nu, *QQ ;
-  MX qmuY, qmuH, qmuE, qmuF, qmuU, qmuV, qmuW, qmuX, qmuK1, qmuK2 ;
-  kas.a = a ;
-  kas.b = b ;
-  kas.h = h ;
-  kas2.a = a ;
-  kas2.b = -b + 1 ;
-  kas2.h = h ;
-  kasQ.h = h ;
-
-  KasimirConstructTypicMatrices (&kas) ;
-  KasimirConstructTypicMatrices (&kas2) ;
-  kasQ.COQ = 2 ;
-  mu = kas.mu ;
-  nu = kas2.mu ; 
-  QQ = kasQ.mu = (MX *) halloc (10 * sizeof (MX), kas.h) ;
-
-  kasQ.a = kas.a ;
-  kasQ.b = kas.b ;
-    
-  kasQ.d = d = 2 * kas.d ;
-  kasQ.d1 = kas.d1 ;
-  kasQ.d2 = kas.d2 ;
-  kasQ.d3 = kas.d3 ;
-  kasQ.d4 = kas.d4 ;
-  kasQ.chi = kas.chi ;
-	
-  kasQ.scale = kas.scale ;
-  QQ[0] = qmuY = mxCreate (h,  "qmuY: Y Hypercharge", MX_INT, d, d, 0) ;
-  QQ[3] = qmuH = mxCreate (h,  "qmuH: Even SU(2) Cartan operator", MX_INT, d, d, 0) ;
-  QQ[1] = qmuE = mxCreate (h,  "qmuE: Even raising operator", MX_INT, d, d, 0) ;
-  QQ[2] = qmuF = mxCreate (h,  "qmuF: Even lowering operator", MX_INT, d, d, 0) ;
-  QQ[6] = qmuU = mxCreate (h,  "qmuU: Odd raising operator", MX_INT, d, d, 0) ;
-  QQ[7] = qmuV = mxCreate (h,  "qmuV: Odd lowering operator", MX_INT, d, d, 0) ;
-  QQ[4] = qmuW = mxCreate (h,  "qmuW: Other odd raising operator", MX_INT, d, d, 0) ;
-  QQ[5] = qmuX = mxCreate (h,  "qmuX: Other odd lowering operator", MX_INT, d, d, 0) ;
-  QQ[8] = qmuK1 = mxCreate (h,  "qmuK1: K1 = {U,V}", MX_INT, d, d, 0) ;
-  QQ[9] = qmuK2 = mxCreate (h,  "qmuK2: K2 = {W,X}", MX_INT, d, d, 0) ;
-  
-  
-  /* even and odd matrices, same block diagonal, use nu in the bottom left */
-  if (1)
-  {
-    nu[5] = mxLinearCombine (nu[5], -1, nu[5], 0, nu[5], h) ;
-    nu[7] = mxLinearCombine (nu[7], -1, nu[7], 0, nu[7], h) ;
-  }
-  for (i = 0 ; i < 10 ; i++)
-  {
-    muComposeIntMatrix (kas.d, QQ[i], mu[i],0,nu[i],mu[i],1,0,i>3 && i < 8 ? 1 : 0,1) ;  
-  }
-
-  QQ[8] = qmuK1 = KasCommut(qmuU,qmuV,1,&kasQ) ;
-  QQ[9] = qmuK2 = KasCommut(qmuW,qmuX,1,&kasQ) ;
-  QQ[0] = qmuY = mxLinearCombine (qmuY, 1, qmuK1, 1, qmuK2, h) ;
-
-  if (1)
-  {
-    int dd = kasQ.d, d2 = dd*dd ;
-     int i, yy[dd*dd], s2 = kasQ.scale ;
-     const int *xx ;
-
-
-     mxValues (qmuK1, &xx, 0, 0) ;
-    for (i = 0 ; i < d2 ; i++)
-      yy[i] = xx[i]/s2 ;
-    mxSet (qmuK1, yy) ;
-     mxValues (qmuK2, &xx, 0, 0) ;
-    for (i = 0 ; i < d2 ; i++)
-      yy[i] = xx[i]/s2 ;
-    mxSet (qmuK2, yy) ;
-
-    mxValues (qmuY, &xx, 0, 0) ;
-    for (i = 0 ; i < d2 ; i++)
-      yy[i] = xx[i]/s2 ;
-    mxSet (qmuY, yy) ;
-  }
-
-  printf ("###### Coquereaux\n") ;
-  for (i = 0 ; i < 10 ; i++)
-    niceIntShow (QQ[i]) ;
-
-  KasimirCheckCommutators (&kasQ) ;
-  KasimirLowerMetric (&kasQ) ;
-  KasimirUpperMetric (&kasQ) ;
-  
-  KasimirOperatorK2 (&kasQ) ;
-  GhostKasimirOperatorK2 (&kasQ) ;
-  if (0) KasimirOperatorK4 (&kasQ) ;
-
-	printf ("Verify that the casimir commutes with X and Y\n") ;
-	MX CKX = mxMatMult (kasQ.kas2, qmuX, h) ;
-	MX CXK = mxMatMult (qmuX, kasQ.kas2, h) ;
-	MX Com =  mxCreate (h, "[casimir,X]", MX_COMPLEX, d, d, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
-	niceShow (Com) ;
-	
-	printf ("Verify that the S-casimir anticommutes with X and Y\n") ;
-	MX SCKX = mxMatMult (kasQ.CHI, qmuX, h) ;
-	MX SCXK = mxMatMult (qmuX, kasQ.CHI, h) ;
-	MX SCom =  mxCreate (h, "{S-casimir,X}", MX_COMPLEX, d, d, 0) ;
-	SCom = mxAdd (SCom, SCKX, SCXK, h) ;
-	niceShow (SCom) ;
-	
-	printf ("Compute the square of the S-casimir\n") ;
-	MX SC2 = mxMatMult (kasQ.CHI,kasQ.CHI, h) ;
-	SC2->name = "S-Casimir square" ;
-	niceShow (SC2) ;
-	
-	printf ("Compute the product of the Casimir by the S-casimir Q^3 = Q\n") ;
-	MX SC3 = mxMatMult (kasQ.kas2, kasQ.CHI, h) ;
-	SC3->name = "S-Casimir cube" ;
-	niceShow (SC3) ;
-
-  KasimirLower3tensor (&kasQ) ;
-  KasimirUpper3tensor (&kasQ) ;
-  KasimirOperatorK3 (&kasQ) ;
-
-  exit(0) ;
-
+/*************************************************************************************************/
 #ifdef JUNK
   
 
@@ -8289,12 +8258,10 @@ static void muInit2Coq (int a, int b)
 	printf ("####### OSp(2/1) Quark-Cabibbo representation done\n") ;
       }
 #endif
-  return ; 
-}
 
 /*************************************************************************************************/
 /* construct the triple Coquereaux matrices where the cartan subalgebra is non diagonal */
-static void muInit3Coq (int a, int b)
+static void muInitNCoq (int a, int b, int COQ)
 {
   KAS kas, kas2, kasQ ;
   AC_HANDLE h = ac_new_handle () ;
@@ -8305,13 +8272,13 @@ static void muInit3Coq (int a, int b)
   kas.b = b ;
   kas.h = h ;
   kas2.a = a ;
-  kas2.b = -b + 1 ;
+  kas2.b = b+1 ;
   kas2.h = h ;
   kasQ.h = h ;
 
   KasimirConstructTypicMatrices (&kas) ;
   KasimirConstructTypicMatrices (&kas2) ;
-  kasQ.COQ = 3 ;
+  kasQ.COQ = COQ ;
   mu = kas.mu ;
   nu = kas2.mu ; 
   QQ = kasQ.mu = (MX *) halloc (10 * sizeof (MX), kas.h) ;
@@ -8319,7 +8286,7 @@ static void muInit3Coq (int a, int b)
   kasQ.a = kas.a ;
   kasQ.b = kas.b ;
     
-  kasQ.d = d = 3 * kas.d ;
+  kasQ.d = d = COQ * kas.d ;
   kasQ.d1 = kas.d1 ;
   kasQ.d2 = kas.d2 ;
   kasQ.d3 = kas.d3 ;
@@ -8327,14 +8294,14 @@ static void muInit3Coq (int a, int b)
   kasQ.chi = kas.chi ;
 	
   kasQ.scale = kas.scale ;
-  QQ[0] = qmuY = mxCreate (h,  "qmuY: Y Hypercharge", MX_INT, d, d, 0) ;
-  QQ[3] = qmuH = mxCreate (h,  "qmuH: Even SU(2) Cartan operator", MX_INT, d, d, 0) ;
-  QQ[1] = qmuE = mxCreate (h,  "qmuE: Even raising operator", MX_INT, d, d, 0) ;
-  QQ[2] = qmuF = mxCreate (h,  "qmuF: Even lowering operator", MX_INT, d, d, 0) ;
-  QQ[6] = qmuU = mxCreate (h,  "qmuU: Odd raising operator", MX_INT, d, d, 0) ;
-  QQ[7] = qmuV = mxCreate (h,  "qmuV: Odd lowering operator", MX_INT, d, d, 0) ;
-  QQ[4] = qmuW = mxCreate (h,  "qmuW: Other odd raising operator", MX_INT, d, d, 0) ;
-  QQ[5] = qmuX = mxCreate (h,  "qmuX: Other odd lowering operator", MX_INT, d, d, 0) ;
+  QQ[0] = qmuY = mxCreate (h,  "qmuY", MX_INT, d, d, 0) ;
+  QQ[3] = qmuH = mxCreate (h,  "qmuH", MX_INT, d, d, 0) ;
+  QQ[1] = qmuE = mxCreate (h,  "qmuE: E", MX_INT, d, d, 0) ;
+  QQ[2] = qmuF = mxCreate (h,  "qmuF", MX_INT, d, d, 0) ;
+  QQ[6] = qmuU = mxCreate (h,  "qmuU", MX_INT, d, d, 0) ;
+  QQ[7] = qmuV = mxCreate (h,  "qmuV", MX_INT, d, d, 0) ;
+  QQ[4] = qmuW = mxCreate (h,  "qmuW", MX_INT, d, d, 0) ;
+  QQ[5] = qmuX = mxCreate (h,  "qmuX", MX_INT, d, d, 0) ;
   QQ[8] = qmuK1 = mxCreate (h,  "qmuK1: K1 = {U,V}", MX_INT, d, d, 0) ;
   QQ[9] = qmuK2 = mxCreate (h,  "qmuK2: K2 = {W,X}", MX_INT, d, d, 0) ;
   
@@ -8347,17 +8314,17 @@ static void muInit3Coq (int a, int b)
   }
   for (i = 1 ; i < 4 ; i++) /* block diagonal SU(2) */
   {
-    muTripleComposeIntMatrix (kas.d, QQ[i], mu[i],0,0,0,mu[i],0,0,0,mu[i]) ;
+    muCoqComposeIntMatrix (COQ, kas.d, QQ[i], mu[i],0) ;
   }
   for (i = 4 ; i < 8 ; i++) /* triangular odd generators */
   {
-    muTripleComposeIntMatrix (kas.d, QQ[i], mu[i],0,0,nu[i],mu[i],0,mu[i],nu[i],mu[i]) ;
+    muCoqComposeIntMatrix (COQ, kas.d, QQ[i], mu[i],nu[i]) ;
   }
 
   QQ[8] = qmuK1 = KasCommut(qmuU,qmuV,1,&kasQ) ;
   QQ[9] = qmuK2 = KasCommut(qmuW,qmuX,1,&kasQ) ;
   QQ[0] = qmuY = mxLinearCombine (qmuY, 1, qmuK1, 1, qmuK2, h) ;
-
+  
   if (1) /* rescale */
   {
     int dd = kasQ.d, d2 = dd*dd ;
@@ -8381,11 +8348,21 @@ static void muInit3Coq (int a, int b)
   }
 
   printf ("###### Coquereaux\n") ;
-  for (i = 0 ; i < 10 ; i++)
+  for (i = 0 ; i < 1 ; i++)
     niceIntShow (QQ[i]) ;
 
-  KasimirCheckCommutators (&kasQ) ;
   
+  MX zUV = mxMatMult (qmuU, qmuV, h) ;
+  MX zVU = mxMatMult (qmuV, qmuU, h) ;
+  niceIntShow (qmuY) ;
+  niceIntShow (qmuU) ;
+  niceIntShow (qmuV) ;
+  niceIntShow (zUV) ;
+  niceIntShow (zVU) ;
+  
+    
+  KasimirCheckCommutators (&kasQ) ;
+
   KasimirLowerMetric (&kasQ) ;
   KasimirUpperMetric (&kasQ) ;
   
@@ -8424,7 +8401,7 @@ static void muInit3Coq (int a, int b)
 
   exit(0) ;
   return ;
-} /* muInit3Coq */
+} /* muInitNCoq */
 
 /*************************************************************************************************/
 
@@ -8434,8 +8411,9 @@ void muConjugate (AC_HANDLE h)
   for (t = 0 ; t < NTYPES ; t++)
     for (i = 0 ; i < 10 ; i++)
       neq[t][i] = muHermite (neq[t][i], h) ;
-}
+} /* muConjugate */
 
+/*************************************************************************************************/
 
 static void casimir2 (const char *title)
 {
@@ -8479,7 +8457,10 @@ static void casimir2 (const char *title)
     }
   printf ("\n") ;
   ac_free (h) ;
-}
+} /* casimir2 */
+
+/*************************************************************************************************/
+
 static void casimir3 (const char *title, BOOL isHyper)
 {
   AC_HANDLE h = ac_new_handle () ;
@@ -8589,7 +8570,9 @@ static void casimir3 (const char *title, BOOL isHyper)
     }
   printf ("\n") ;
   ac_free (h) ;
-}
+} /* casimir3 */
+
+/*************************************************************************************************/
 
 static void mu2p (const char *title)
 {
@@ -8654,8 +8637,9 @@ static void mu2p (const char *title)
 	}
   printf ("\n") ;
   ac_free (h) ;
-}
+} /* mu2p */
 
+/*************************************************************************************************/
 
 static void mu3p (const char *title, int type)
 {
@@ -8800,7 +8784,9 @@ static void mu3p (const char *title, int type)
 	}
   printf ("\n\n") ;
   ac_free (h) ;
-}
+} /* mu3p */
+
+/*************************************************************************************************/
 
 static float complex tetraTrace (MX chi, int t, int i, int j, int k, int l)
 {
@@ -8821,7 +8807,9 @@ static float complex tetraTrace (MX chi, int t, int i, int j, int k, int l)
   
   ac_free (h) ;
   return z ;
-}
+} /* tetraTrace */
+
+/******************/
 
 static void mu4p (const char *title, int type)
 {
@@ -8950,7 +8938,7 @@ static void mu4p (const char *title, int type)
   
   printf ("\n\n") ;
   ac_free (h) ;
-}
+} /* mu4p */
 
 /*************************************************************************************************/
 /*************************************************************************************************/
@@ -8963,7 +8951,7 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-c3Mask", &c3Mask) ;
   getCmdLineInt (&argc, argv, "-t", &myType) ;
   BOOL SU3 = getCmdLineBool (&argc, argv, "-su3") ;
-  int COQ ;
+  int COQ = 0 ;
   getCmdLineInt (&argc, argv, "-coq", &COQ) ;
 
   int a = 0, b = 0 ;
@@ -8983,8 +8971,7 @@ int main (int argc, const char **argv)
   /* always init, otherwise the gcc linker is unhappy */
   if (1) muInit (h) ;   /* init the 4x4 matrices */
   if (0) muInit2 (h) ;  /* init the 2-families 8x8 rotated matrices */
-  if (COQ==2) muInit2Coq (a,b) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
-  if (COQ==3) muInit3Coq (a,b) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
+  if (COQ >= 2) muInitNCoq (a,b, COQ) ;  /* init the 2-families 8x8 coquereaux indecomposable matrices */
   /* verification numerique directe de traces de matrices de pauli */ 
   if (0) muSigma (h) ;
   exit (0) ;
