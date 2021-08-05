@@ -264,6 +264,9 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
     if ($plateforme == "SOLiD" && $?exitAdaptorSOLiD) then 
       set v11="$exitAdaptorSOLiD"
     endif
+    if ($plateforme == "PacBio" && $?exitAdaptorPacBio) then 
+      set v11="$exitAdaptorPacBio"
+    endif
     if ($plateforme == "PGM" && $?exitAdaptorPGM) then 
       set v11="$exitAdaptorPGM"
     endif
@@ -281,6 +284,8 @@ set adaptor2=""
 set adaptor1=`cat $mytmp/MetaDB/$MAGIC/run2machine2adaptors.txt | gawk -F '\t' 'BEGIN{m="NULL";}{gsub(/\"/,"",$1);if($1 == run){if ($5 != "NULL") m=$5;if ($3 != "NULL") m=$3;}}END{gsub(/\"/,"",m);gsub("Text:","",m);print m;}' run=$run`
 set adaptor2=`cat $mytmp/MetaDB/$MAGIC/run2machine2adaptors.txt | gawk -F '\t' 'BEGIN{m="NULL";}{gsub(/\"/,"",$1);if($1 == run){if ($6 != "NULL") m=$6;if ($4 != "NULL") m=$4;}}END{gsub(/\"/,"",m);gsub("Text:","",m);print m;}' run=$run`
 
+set entryAdaptor1=`cat $mytmp/MetaDB/$MAGIC/run2machine2adaptors.txt | gawk -F '\t' 'BEGIN{m="NULL";}{gsub(/\"/,"",$1);if($1 == run){if ($7 != "NULL") m=$5;}}END{gsub(/\"/,"",m);gsub("Text:","",m);print m;}' run=$run`
+
   echo "# adaptor1=$adaptor1"
   echo "# adaptor2=$adaptor2"
 
@@ -292,6 +297,9 @@ else
   if ("$v11" != "" ) then
     set v1="-exitAdaptor $v11"
   endif
+endif
+if ("$entryAdaptor1" != "" && "$entryAdaptor1" != "NULL") then
+  set v1="$v1 -entryAdaptor $adaptor1"
 endif
 
 if ("$adaptor2" != "" && "$adaptor2" != "NULL") then

@@ -754,8 +754,7 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
   list -a -f MetaDB/$MAGIC/GroupTransloc.list
 
   query find project IS $MAGIC ; > Run  ; is_Run // always computed for runs
-  bql -a -o MetaDB/$MAGIC/run2machine2adaptors.txt select r,m,a1,a2,aa1,aa2 from r in @, m in r->machine, a1 in r->adaptor1, a2 in r->adaptor2, ali in r->ali, aa1 in ali->adaptor1, aa2 in ali->adaptor2
-
+  bql -a -o MetaDB/$MAGIC/run2machine2adaptors.txt select r,m,a1,a2,aa1,aa2,e1 from r in @, m in r->machine, a1 in r->adaptor1, a2 in r->adaptor2, ali in r->ali, aa1 in ali->adaptor1, aa2 in ali->adaptor2, e1 in r->Entry_adaptor
  
   query find project IS $MAGIC ; > Run  ;Is_run && (nonStranded OR NOT (Forward OR Reverse)) 
   list -a -f MetaDB/$MAGIC/RunNonStranded.list
@@ -1000,7 +999,7 @@ if ($phase == createMitoTestSet) goto phasecreateMitoTestSet
 if ($phase == createRNATestSet) goto phasecreateRNATestSet
 if ($phase == createGenomicTestSet) goto phasecreateGenomicTestSet
 
-set n=`cat MetaDB/$MAGIC/RunList MetaDB/$MAGIC/RunsList | wc | gawk '{print $1}'`
+set n=`cat MetaDB/$MAGIC/RunList MetaDB/$MAGIC/GroupList | wc | gawk '{print $1}'`
 if ($n < 1) then 
   echo "\nERROR: No run in MetaDB has the tag: project $MAGIC"
   echo "       Please edit the MetaDB database and/or setenv MAGIC to a correct value"
@@ -4078,6 +4077,17 @@ goto phaseLoop
 
 ###################################################################################
 ## Gene Expression index
+## ii6:  Exportation a partir de GeneIndexDB des tables d'index par genes annotes"
+
+phaseii6:
+  echo "phase ii6: Intron index compute the intronIndex for each group"
+
+  if ($Strategy == RNA_seq) scripts/geneindex.tcsh ii6
+
+goto phaseLoop
+
+###################################################################################
+## Gene Expression index
 ## g6:  Exportation a partir de GeneIndexDB des tables d'index par genes annotes"
 
 phaseg6:
@@ -4268,6 +4278,14 @@ if (strategyOk == 0) then
 endif
 
 goto phaseLoop
+
+# seach for corona virus inside a project using tricoteur
+# zero results in SEQC2_2020 and in NB : therefore a positive result somewhere else would be significant
+
+foreach run ( `cat MetaDB/NB.RunListSorted` )
+  if (-e Fastc/$run/LaneList) bin/tricoteur -count -wLn 31 -wordFile TARGET/Targets/corona.words.37 -run $run  -max_threads 8 | gawk '{if($3+$4>0)print;}' > tmp/COUNT/$run/corona.val.tsf
+end
+
 
 ###################################################################################
 ## SNP detection using Tricoteur
@@ -10437,18 +10455,44 @@ goto phaseLoop
 ## d5:  Importation des comptages dans la base GeneIndexDB
 
 phased5:
-  echo "phase d5: Importation of intron support in GeneIndexDB"
-  if (! -d tmp/INTRONRUNS) mkdir tmp/INTRONRUNS
-  if (! -d tmp/GENERUNS) mkdir tmp/GENERUNS
-  if (! -d tmp/GENEINDEX) mkdir tmp/GENEINDEX
+  echo "phase d5: Importation of intron support in GeneIndexDB using the files tmp/OR/run/d5.de_uno.txt.gz"
 
-  if ($Strategy == RNA_seq && -e GeneIndexDB/ii1.done) then
-    scripts/geneindex.tcsh d5
-  endif
+if ($Strategy != RNA_seq || -e GeneIndexDB/ii1.doneZZZ) then
+  goto phaseLoopaa
+endif
+
+
+if (! -e  tmp/OR/d5.$MAGIC.minS) then
+  bin/tacembly MetaDB <<EOF
+    bql -o MetaDB/$MAGIC/GroupIntronList select g from p in  ?project where p == "$MAGIC", g in p->run where g#intron
+    bql -o tmp/introns/d5.$MAGIC.minS select g,m from p in  ?project where p == "$MAGIC", g in p->run where g#intron, a in g->ali, m in a->Candidate_introns[18]
+    quit
+EOF
+endif
+
+if (! -e tmp/introns/d5.$MAGIC.parse.done) then
+  foreach chrom ($chromSetAll)
+    if (! -e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then
+      scripts/submit tmp/introns/d5.chromCumul.$MAGIC.$chrom "scripts/d5.intronDB.tcsh chromCumul $MAGIC $chrom"
+    endif
+  end
+  scripts/submit wait
+
+  scripts/d5.intronDB.tcsh parseCumul $MAGIC 
+
+endif
+
+if (! -e  tmp/introns/d5.$MAGIC.donorAcceptor.done) then
+  scripts/d5.intronDB.tcsh donorAcceptor $MAGIC 
+endif
+if (! -e  tmp/introns/d5.$MAGIC.capture.done) then
+  scripts/d5.intronDB.tcsh capture $MAGIC 
+endif
+
 goto phaseLoop
 
 ####################################################################################
-## phase d5:prepare de_uno de_duo.ace
+## phase d5x:prepare de_uno de_duo.ace
 
 phased5x: 
   echo "d5 Construct the list of de-uno/de-duo introns"

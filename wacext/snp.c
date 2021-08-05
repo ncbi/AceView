@@ -2282,7 +2282,7 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
       strncpy (buf0, requestedName, 1000) ;
       cp = strchr (buf0, ':') ;
       cp = strchr (cp+1, ':') ;
-      sprintf (typeBuf, cp+1) ;
+      sprintf (typeBuf, "%s", cp+1) ;
       strncpy (buf0, typeBuf, 1000) ;
       cp = buf0 ;
       cq = strchr (cp, ':') ;

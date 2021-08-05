@@ -49,15 +49,21 @@ TOOLS= acediff acediffsorted pmapace diskdump diskfix homonym tagcount
 tools : $(TOOLS)
 
 MISC= acctest acstest \
-		aceview gffread gffdump   \
-		jade2sybase \
+		aceview gffdump   \
 		acesplit pseudoword_test \
 		av.cgi pfam.cgi \
 		blastd blast.cgi blastd_convert_table allblast blastct \
-		aceserver aceclient wego_test
+		wego_test
 
 
 misc: $(MISC)
+
+# RPCACE is no longer used, it is replaced by taceclient taceserver
+# although taceserver does not suypport some fancy authentication developped at the sanger around 2003
+RPCACE = aceserver aceclient jade2sybase xaceclient gifaceserver gifacemblyserver gffread 
+
+
+rpcace: $(RPCACE)
 
 #
 # BROKEN is a list of things that do not compile, but that I do not
@@ -83,7 +89,6 @@ $(LIBS) $(ACE) $(ACEMBLY) $(OTHER) $(TOOLS) $(MISC) $(ACE5) $(BROKEN) dist : bin
 # Really this should be merged with the above, all that's different is the message...
 libfree_clean libgraph_clean libace_clean libxace_clean \
 		xace_clean tace_clean \
-		xaceclient_clean \
 		aceclient_clean aceserver_clean \
 		sace_clean \
 		xacembly_clean tacembly_clean \

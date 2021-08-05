@@ -477,7 +477,7 @@ if (! -e GeneIndexDB/parse_genome.done) then
     pparse TARGET/Targets/$species.genome.fasta.gz
     save
 EOF
-touch GeneIndexDB/prase_genome.done
+touch GeneIndexDB/parse_genome.done
 
 # document left and the right  motif, select 50 bases in exon then 50 in intron
 if (! -e GeneIndexDB/donor_motifs.done) then

@@ -6,6 +6,12 @@
  * NOTE: GTF spec does NOT define order of lines,
  * but AceDB format mrna objects need an origin to define
  * positions of exons and coding regions relative to.
+ *
+ * 2021: for several years thgis code has been superseeded by dna2dna -gff
+ * since it depends on RPC, it is only compiled if one ask
+     make rpcace
+ * but is no longer implied by
+     make all     
  */
 
 /* 

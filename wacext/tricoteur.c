@@ -6976,7 +6976,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//      try: -h --help \n"
 	   "// Example\n"
 	   "//     variant_caller -run SRR123456 -t chr3 -f chr3.fasta\n"
-	   "//     variant_caller -run SRR123456 -count -words f -vLn 21\n"
+	   "//     variant_caller -run SRR123456 -count -words f -wLn 21\n"
 	   "// Several sets of parameters must or may be specified\n"
 	   "// READS TO BE ANALYZED: \n"
 	   "//   -run runName : [mandatory]\n"

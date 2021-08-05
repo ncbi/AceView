@@ -67,6 +67,7 @@ if ($phase == ii3a) goto phaseii3a
 if ($phase == ii3b) goto phaseii3b
 if ($phase == ii4) goto phaseii4
 if ($phase == ii5) goto phaseii5
+if ($phase == ii6) goto phaseii6
 if ($phase == d5) goto phased5
 if ($phase == ii99) goto phaseii99
 
@@ -935,37 +936,24 @@ goto phaseLoop
 
 phaseii4:
 
-cat MetaDB/$MAGIC/RunList MetaDB/$MAGIC/RunsList | sort -u >  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list2
-touch  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list
+cat MetaDB/$MAGIC/GroupIntronList | sort -u >   tmp/INTRON_INDEX/$MAGIC.RunList2
+touch   tmp/INTRON_INDEX/$MAGIC.RunList
 if (-e  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
-  set n=`diff  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list2 | wc -l`
-  if ($n > 0) \rm tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace
+  set n=`diff   tmp/INTRON_INDEX/$MAGIC.RunList  tmp/INTRON_INDEX/$MAGIC.RunList2 | wc -l`
+  if ($n > 0) \rm   tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
 endif
-\mv  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list2  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.list
-if ($phase == ii4 && -d tmp/INTRON_INDEX && ! -e tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
- set ok=1
-  echo "// " > tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace 
-
-  foreach run (`cat MetaDB/$MAGIC/RunsList | sort -u`)
-    foreach target ($Etargets)
-      if (-e tmp/INTRONRUNS/$run/known_introns.$target.ace) then
-        cat tmp/INTRONRUNS/$run/known_introns.$target.ace >>  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace
-      else
-        set ok=0
-      endif
-    end
+\mv  tmp/INTRON_INDEX/$MAGIC.RunList2 tmp/INTRON_INDEX/$MAGIC.RunList
+if ($phase == ii4 && -d tmp/INTRON_INDEX && ! -e tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz) then
+  foreach chrom (22)
+    if (-e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then 
+      cat  tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz >>  tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
+    else
+      echo "ii4: missing file tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz 
+      \rm    tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
+      goto phaseLoop
+    endif
   end
-
-  if (-e  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
-    bin/tacembly MetaDB <<EOF
-     read-models
-     pparse  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace
-     save
-     quit
-EOF
-  endif
-  if ($ok == 0) \rm  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace
-endif   
+ endif   
 
 # goto phaseLoop
 
@@ -1283,11 +1271,7 @@ if ($ok == 0) continue
      end
    endif
    if ($phase == ii4 && ! -e tmp/INTRON_INDEX/$MAGIC.$target.$uu.ace) then 
-     foreach run (`cat MetaDB/$MAGIC/RunsList`)
-       if (-e  tmp/INTRONRUNS/$run/$run.$uu.intronSupport.ace.gz) then
-         gunzip -c  tmp/INTRONRUNS/$run/$run.$uu.intronSupport.ace.gz >> tmp/INTRON_INDEX/$MAGIC.$target.$uu.ace
-       endif
-     end
+     goto phaseLoop
    endif
 
 # -seaLevel $seaLevel $seaWall -removeLimit $removeLimit
@@ -1299,13 +1283,13 @@ if (-e RESULTS/baddy_batchies.txt) set rjm="-rejectMarker RESULTS/baddy_batchies
 if ($target == introns) then
 
     set out=$MAGIC$mNam.$target.INTRON.u
-    if (-e tmp/INTRON_INDEX/$MAGIC.introns.u.ace) then
-      echo "bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $compare $correl $shA "
+    if (-e tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz) then
+      echo "bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace.gz -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
 
-# $seedGene  $compare 
+# $seedGene  $compare $correl
       \rm tmp/GENEINDEX/$out.*
       if (1) then
-         bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $compare $correl $shA
+         bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
          if (! -e tmp/GENEINDEX/Results/$out.done) then
            echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
            exit 1
@@ -1631,7 +1615,7 @@ endif
 
 end 
 
-if ($phase == ii4) then
+if (0 && $phase == ii4) then
   echo "Report introns using  scripts/d5.intronDB.tcsh cumul $MAGIC in  GeneIndexDB/$MAGIC.intron_confirmation.ace"
   if (0 && ! -e GeneIndexDB/SMAGIC.intron_confirmation.ace) then
     scripts/d5.intronDB.tcsh cumul $MAGIC
@@ -3040,6 +3024,40 @@ endif
   bin/tacembly GeneIndexDB < _r
 
   touch  GeneIndexDB/parse.introns.done
+
+goto phaseLoop
+
+#######################################################################################
+#######################################################################################
+#  Exportation a partir de GeneIndexDB des tables d'index par genes annotes
+phaseii6:
+
+# goto phaseLoop
+
+if (-e  GeneIndexDB/parse.introns.done) goto phaseLoop
+  date
+
+if (! -e  tmp/introns/ii6.$MAGIC.intronsDeUno2runs.txt) then
+  bin/tacembly GeneIndexDB <<EOF
+    query find intron de_uno
+    select -o tmp/introns/ii6.$MAGIC.intronsDeUno2runs.txt select ii,r,n from ii in @,r in ii->de_uno,n in r[1]
+EOF
+endif
+New_minS
+bin/tacembly MetaDB <<EOF
+  query find project IS $MAGIC ; >run ; intron
+  select -o MetaDB/$MAGIC/ii6.run_deuno_info.txt r,t,kb from r in @,a in r->ali, nh in a->nh_ali where nh == "any", t in nh[3], kb in nh[5]
+  quit
+EOF
+
+set toto=RESULTS/Introns_exons_polyA/$MAGIC.intronsDeUno2runs.txt 
+echo -n "### $toto " > $toto
+date >> $toto
+echo "## Read counts per intron in project $MAGIC" >> $toto
+cat  MetaDB/$MAGIC/ii6.run_deuno_info.txt ZZZZZ tmp/introns/ii6.Transloc.intronsDeUno2runs.txt ZZZZZ| head -5000 | gawk -F '\t' '/^ZZZZZ/{if(zz<1){zz=1;printf("##\t\t\t\t\t");for(r=1;r<=rMax;r++)printf("\t%s",i2r[r]) ;printf("##\t\t\t\t\tReads aligned\t%d",allT);for(r=1;r<=rMax;r++)printf("\t%d",i2t[r]) ;printf("\n## Intron\t\t\t\t\tkb aligned\t%d",allK);for(r=1;r<=rMax;r++)printf("\t%d",i2k[r]) ;next;}}{if(zz<1){i++;r=$1;i2r[i]=r;r2i[i]=r;i2t[i]=$2;i2k[i]=$3;allR+=$2;allK+=$3;rMax=i;if(0)print ("YYYY %d %s\n",i,r);next;}}{ii=$1;if(ii!=old){old=ii;if(nn>=0){printf("\n%s\t%s\t%s\t%d",ii,gene,mrna,nn);nn=0;for(r=1;r<=rMax;r++){printf("\t%d",ii2r[r]);ii2r[r]=0;}}ii=$1;r=$2;i=r2i[r]+0;}i=r2i[$2];if(i<1)next;ii2r[i]=$3;nn+=$3;}END{printf("\n");}'  | head
+
+
+
 
 goto phaseLoop
 

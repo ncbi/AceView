@@ -1690,6 +1690,7 @@ int fastcMultiplicity (const char *ccp, int *mult, int multMax)
 } /* fastcMultiplicity */
  
 /********************* eof ***********************************/
+#ifdef JUNK
 /* copied from  wikipedia: fetch-and-add 
  * this function is specific of the x86 pltforms and allows multithread synchro
 */
@@ -1701,6 +1702,7 @@ inline int fetch_and_add (int *variable, int value)
 	       :"memory") ;
   return value ;
 } /* fetch_and_add */
+#endif
 
 /*************************************************************************************/
 /*************************************************************************************/

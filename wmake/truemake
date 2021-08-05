@@ -130,8 +130,8 @@ WAC = wac  # Mark's C-interface to acedb
 WEGO = wego # Mark's multi-threading interface
 WCHANNELS = wchannels  # remote channels : a way to synchronize multitasking
 
-LINK_ACC_RPC=$(RPC_CLIENT_OBJS)
-#LINK_ACC_RPC=
+#LINK_ACC_RPC=$(RPC_CLIENT_OBJS)
+LINK_ACC_RPC=
 
 LINK_ACC=libaccl.a libfree.a  libtsfree.a libacedna.a libtcpfn.a $(LINK_ACC_RPC)
 # LINK_ACC is the set of object files needed if you use
@@ -532,15 +532,14 @@ COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -D$(NAME) -D_FILE_OFFSET_BITS=64 -c
 
 # "all" should always be the first target so that it is the default make action.
 all : xace tace  \
-	aceserver xaceclient \
-	giface gifaceserver \
+	giface \
 	acediff acediffsorted acesplit \
 	acembly other 
 
 
 acembly : tacembly xacembly \
 	makeSCF \
-	gifacembly gifacemblyserver\
+	gifacembly \
 	gnbk gnbkclient \
         gffdump gffread \
 	expasy kantormegaparse
