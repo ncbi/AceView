@@ -54,6 +54,22 @@ EOF
   echo "pparse tmp/introns/d5.all_introns.intmap.ace.gz" | bin/tacembly GeneIndexDB -no_prompt
 
   touch  tmp/introns/d5.$MAGIC.parse.done
+
+  if (! -e GeneIndexDB/d5.parseGenome.done) then
+    echo "pparse TARGET/Targets/$species.genome.fasta.gz" | bin/tacembly GeneIndexDB -no_prompt
+    touch GeneIndexDB/d5.parseGenome.done
+  endif
+
+  bin/tacembly GeneIndexDB <<EOF
+    query find intron IS 22_* &&  ! type
+    spush
+    bql -o GeneIndexDB/d5.intron_feet.R.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in ?Sequence where s==m,x in m[1],y in m[2] where y<x, f1 in DNA(s,x,x-1), f2 in DNA(s,y+1,y)
+    sxor
+    bql -o GeneIndexDB/d5.intron_feet.F.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in ?Sequence where s==m,x in m[1],y in m[2] where x<y, f1 in DNA(s,x,x+1), f2 in DNA(s,y-1,y)
+    quit
+EOF
+
+EOF
   goto phaseLoop
 endif
 

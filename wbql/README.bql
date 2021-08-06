@@ -251,6 +251,12 @@ would give Met-Leu
    ML
 Notice, that if the information is available, acedb will translate nuclear DNA using the standard genetic code, but human mitochondrial DNA using the (different) mitochondrial code, and so on for wierd species.
 
+Notice that you can reclass a object, say a map object, to class sequence before extracting the DNA
+using the OBJECT construction
+   select x,s,dna from x = 5 + 7, s in OBJECT('Sequence',x),dna in DNA(s,101,130)
+   select m,s,dna from m in ?Map, s in OBJECT('Sequence',m),dna in DNA(s,101,130)
+
+
 ==================
 ==================
 

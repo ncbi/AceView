@@ -4322,11 +4322,13 @@ static BOOL bqlExpandObject (BQL *bql, NODE *node, NODE *coma)
 	{ 
 	  const char *objNam = 0 ;
 	  KEY key ;
+	  double z = 0 ;
 	  int n = 0, ii ;
 	  BOOL caseSensitive ;
+	  char buff[128] ;
 	  
 	  if (down3->dclNode)
-	    objNam = bqlExpandEquation (bql, down3, 0, 0) ;
+	    objNam = bqlExpandEquation (bql, down3, 0, &z) ;
 	  else if (down3->var)
 	     objNam = dictName (bql->dict, down3->var) ;
 	  else if (down3->mark)
@@ -4336,6 +4338,16 @@ static BOOL bqlExpandObject (BQL *bql, NODE *node, NODE *coma)
 	  key = KEYMAKE (classe, 1) ;
 	  caseSensitive = pickCaseSensitive (key) ;
 
+	  if (objNam == assVoid (1)) /* a number */
+	    {
+	      sprintf (buff, "%g", z) ;
+	      objNam =  buff ;
+	    }
+	  else if (objNam == assVoid (2)) /* a date */
+	    {
+	      timeShow (z , buff, 127) ;
+	      objNam =  buff ;
+	    }
 	  if (objNam)
 	    {
 	      if (lexword2key (objNam, &key, classe))
