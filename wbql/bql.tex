@@ -292,6 +292,10 @@ resulting in a 1 column table
    p1
    p2
 \end{lstlisting}
+One can also directly access a single object using
+\BL
+  select OBJECT('Paper', 'p1')
+\end{lstlisting}
 We can get to a tag using $\#$, and get the value behind a tag using $-$$>$. For example the following query
 \BL
    select p in ?Paper, a in p->Author,prof in a#Professor, z in a->Affiliation
@@ -866,6 +870,7 @@ because  the C language convention $-1$  breaks the periodicity of the modulo
 function and introduces complications when translating DNA codon triplets.
 All numerical calculations are performed using 64-bits floating numbers (C doubles).
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % SECTION
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -959,6 +964,15 @@ Notice that acedb will translate nuclear DNA using the standard genetic code,
 but if the relevant standardized information has been provided in the database,
 it will translate some sequences using a different genetic code,
 for example the human mitochondrial code to translate human mitochondrial mRNAS.
+
+In some cases, one may have the name of a chromosome, say '12', exists in 2 different classes,
+say class 'Map' and class 'Sequence', or simply is a number, 
+we can 'reclass' the  variable 'm' using OBJECT before extracting the DNA:
+\BL
+ select x,s,dna from x=11+1, s in OBJECT('Sequence',x), dna in DNA(s,101,112)
+ select m,s,dna from m in ?Map where m == `12', s in OBJECT('Sequence',m), dna in DNA(s,101,112)
+\end{lstlisting}
+
 
 In principle, one can select all DNA sequences coding for a particulat motif
 or coding for a particular peptide motif
