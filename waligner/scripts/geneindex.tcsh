@@ -1,7 +1,6 @@
 #!bin/tcsh -f
 
 set phase=$1
-
 set SNPCHROM=$2
 
 # plase avoid setting mySeaLevel
@@ -10,8 +9,14 @@ set SNPCHROM=$2
 # and there is no guarantee whatsoever on the results
 # cat scripts/geneindex.tcsh | gawk -f scripts/csh.beautifier.awk >! scripts/geneindex.beau
 
-set mySeaLevel=$2
-set TGx2=$2
+if ($phase == ii4) then
+  set mySeaLevel=""
+  set TGx2=""
+else
+  set mySeaLevel=$2
+  set TGx2=$2
+endif
+
 set TGx3=$3
 set myRemoveLimit=$3
 set mySeaWall=$4
@@ -855,6 +860,8 @@ goto phaseLoop
 
 phased5:
 
+goto phaseLoop
+
 if (! -e  tmp/introns/d5.$MAGIC._r) then
   bin/tacembly MetaDB <<EOF
     query find project IS $MAGIC ; >run ; Intron
@@ -878,55 +885,6 @@ EOF
   if ($ok == 0) \rm   tmp/introns/d5.$MAGIC._r
 endif
 
-###########
-# Assign the same_donor, same-acceptor tags
-# pour retrouver les types il faudrait avoir le genome
-bin/tacembly GeneIndexDB <<EOF
-  select -o  tmp/introns/d5.$MAGIC.intron2intMap.txt ii,c,a1,a2 from ii in ?intron, c in ii->intmap, a1 in c[1], a2 in c[2] where a2
-EOF
-
-cat tmp/introns/d5.$MAGIC.intron2intMap.txt | gawk -F '\t' '{ii=$1;c=$2;a1=$3;a2=$4;printf("Intron %s\n",ii);if(a1<a2)printf("D %s__%d_%d\nA %s__%d_%d\n\n",c,a1-1,a1,c,a2,a2+1); else printf("D %s__%d_%d\nA %s__%d_%d\n\n",c,a1+1,a1,c,a2,a2-1);}' >   tmp/introns/d5.$MAGIC.intron2DA.ace
-
-bin/tacembly GeneIndexDB <<EOF
-  parse tmp/introns/d5.$MAGIC.intron2DA.ace
-  select -o tmp/introns/d5.$MAGIC.A2i.txt a,i from a in ?Acceptor, i in a->intron
-  select -o tmp/introns/d5.$MAGIC.D2i.txt d,i from d in ?Donor, i in d->intron
-  query find intron from_gene AND ! Gene
-  select -o  tmp/introns/d5.ii2tg2g.txt ii,tg,g from ii in @,tg in ii->from_gene,g in tg->gene where g
-  save
-  quit
-EOF
-
-cat tmp/introns/d5.$MAGIC.D2i.txt | gawk -F '\t' '{d=$1;ii=$2;if(d==old)printf("Intron %s\nSame_donor %s\n\n",ii,oldIi);old=d;oldIi=ii;}' > tmp/introns/d5.$MAGIC.sameDonor.txt
-cat tmp/introns/d5.$MAGIC.A2i.txt | gawk -F '\t' '{a=$1;ii=$2;if(a==old)printf("Intron %s\nSame_acceptor %s\n\n",ii,oldIi);old=a;oldIi=ii;}' > tmp/introns/d5.$MAGIC.sameAcceptor.txt
-cat tmp/introns/d5.$MAGIC.ii2tg2g.txt | gawk -F '\t' '{printf("Intron %s\nGene %s\n\n",$1,$3);}' > tmp/introns/d5.$MAGIC.ii2tg2g.ace
-
-bin/tacembly GeneIndexDB <<EOF
-  parse tmp/introns/d5.$MAGIC.ii2tg2g.ace
-  parse tmp/introns/d5.$MAGIC.sameDonor.txt
-  parse tmp/introns/d5.$MAGIC.sameAcceptor.txt
-  save
-  quit
-EOF
-
-# iterate the search to elongate new chains of introns
-foreach ii (1 2 3 4 5 6 7 8)
-bin/tacembly GeneIndexDB <<EOF
-  query find intron same_donor && ! gene
-  select -o  tmp/introns/d5.$MAGIC.ii2sd2g.txt ii,ii2,g from ii in @,ii2 in ii->same_donor,g in ii2->gene where g
-  query find intron same_acceptor && ! gene
-  select -o  tmp/introns/d5.$MAGIC.ii2sa2g.txt ii,ii2,g from ii in @,ii2 in ii->same_acceptor,g in ii2->gene where g
-  quit
-EOF
-
-cat  tmp/introns/d5.$MAGIC.ii2sa2g.txt  tmp/introns/d5.$MAGIC.ii2sd2g.txt |  gawk -F '\t' '{printf("Intron %s\nGene %s\n\n",$1,$3);}' > tmp/introns/d5.$MAGIC.ii2same_gene.ace
-
-bin/tacembly GeneIndexDB <<EOF
-  parse tmp/introns/d5.$MAGIC.ii2same_gene.ace
-  save
-  quit
-EOF
-end
 goto phaseLoop
 
 #######################################################################################
@@ -936,6 +894,20 @@ goto phaseLoop
 
 phaseii4:
 
+set ok=1
+
+  set chrom=$SNPCHROM
+  if (! -e tmp/INTRON_DB/$chrom/d5.introns.final.ace) then
+  if (! -d tmp/INTRON_DB) mkdir tmp/INTRON_DB
+  if (! -d tmp/INTRON_DB/$chrom) then
+   echo hello $chrom
+    mkdir tmp/INTRON_DB/$chrom 
+    scripts/submit tmp/INTRON_DB/$chrom/d5 "scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom"
+    set ok=0
+  endif
+
+if ($ok == 0) goto phaseLoop
+
 cat MetaDB/$MAGIC/GroupIntronList | sort -u >   tmp/INTRON_INDEX/$MAGIC.RunList2
 touch   tmp/INTRON_INDEX/$MAGIC.RunList
 if (-e  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
@@ -943,19 +915,8 @@ if (-e  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
   if ($n > 0) \rm   tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
 endif
 \mv  tmp/INTRON_INDEX/$MAGIC.RunList2 tmp/INTRON_INDEX/$MAGIC.RunList
-if ($phase == ii4 && -d tmp/INTRON_INDEX && ! -e tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz) then
-  foreach chrom (22)
-    if (-e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then 
-      cat  tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz >>  tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
-    else
-      echo "ii4: missing file tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz 
-      \rm    tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
-      goto phaseLoop
-    endif
-  end
- endif   
 
-# goto phaseLoop
+#goto phaseLoop
 
 # g4sp expression based on sponge file is not yet written as of 2019_10_14
 phaseg4sp:
@@ -1051,13 +1012,20 @@ if (1) then
   if ($phase == ii4)  set GM=INTRON
   if ($phase =~ SF*)  set GM=$phase
 
+  echo  "phase $phase : geneindex export table and correlation analysis: $target GM=$GM"
+
 # export the runs and groups
   cat MetaDB/$MAGIC/runs.ace  > tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   cat MetaDB/$MAGIC/groups.ace  >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   cat MetaDB/$MAGIC/compares.ace  >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 # export the sea level
-  if (-e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Intergenic/{print}/^Accessible_length/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == ii4) set chrom=$SNPCHROM
+  if ($phase != ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Intergenic/{print}/^Accessible_length/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Candidate_introns any/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == ii4 && -e tmp/METADATA/$MAGIC.av.captured_genes.ace) cat tmp/METADATA/$MAGIC.av.captured_genes.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == ii4) scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom
+  if ($phase == ii4) cat tmp/INTRON_DB/$chrom/d5.info.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 # export the general METADATA.ace
   if (($GM == GENE || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1073,11 +1041,11 @@ if (1) then
   if ($phase == m4H && -e TARGET/MRNAS/$target.transcript2nm_id.ace) cat TARGET/MRNAS/$target.transcript2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 
-  if ($target == introns && -e TARGET/GENES/gene2intron.ace) cat TARGET/GENES/gene2intron.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
-  if ($target == introns && -e TARGET/MRNAS/$species.introns_RNA_seq.ace.gz) gunzip -c TARGET/MRNAS/$species.introns_RNA_seq.ace.gz >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
-  if ($target == introns && -e TARGET/MRNAS/$species.introns.ace.gz ) gunzip -c TARGET/MRNAS/$species.introns.ace.gz >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($target == intronsZZZ && -e TARGET/GENES/gene2intron.ace) cat TARGET/GENES/gene2intron.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($target == intronsZZZ && -e TARGET/MRNAS/$species.introns_RNA_seq.ace.gz) gunzip -c TARGET/MRNAS/$species.introns_RNA_seq.ace.gz >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($target == intronsZZZ && -e TARGET/MRNAS/$species.introns.ace.gz ) gunzip -c TARGET/MRNAS/$species.introns.ace.gz >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   foreach target2 ($Etargets)
-    if ($target == introns && -e tmp/METADATA/$target2.introns.info.ace ) cat  tmp/METADATA/$target2.introns.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+    if ($target == intronsZZZ && -e tmp/METADATA/$target2.introns.info.ace ) cat  tmp/METADATA/$target2.introns.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   end
 
   # if ( -e TARGET/GENES/$species.a5.geneid2nm_id.ace) cat TARGET/GENES/$species.a5.geneid2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1204,7 +1172,6 @@ if ($ok == 0) continue
    if (-e TARGET/Targets/$species.$target.g4mask.txt) cat  TARGET/Targets/$species.$target.g4mask.txt >>  tmp/GENEINDEX/$MAGIC.$target.$uu.mask
    if (-e TARGET/Targets/$species.SpikeIn.mask.txt) cat  TARGET/Targets/$species.SpikeIn.mask.txt >>  tmp/GENEINDEX/$MAGIC.$target.$uu.mask
 
-
   if ($phase == r2g4) then
     set toto=tmp/RNA_editing/$MAGIC.run2gene.r2g    
     if (! -e $toto) then
@@ -1270,7 +1237,8 @@ if ($ok == 0) continue
          endif
      end
    endif
-   if ($phase == ii4 && ! -e tmp/INTRON_INDEX/$MAGIC.$target.$uu.ace) then 
+
+   if ($phase == ii4 && ! -e  tmp/INTRON_DB/$chrom/d5.de_uno.ace) then 
      goto phaseLoop
    endif
 
@@ -1282,14 +1250,14 @@ if (-e RESULTS/baddy_batchies.txt) set rjm="-rejectMarker RESULTS/baddy_batchies
 
 if ($target == introns) then
 
-    set out=$MAGIC$mNam.$target.INTRON.u
-    if (-e tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz) then
-      echo "bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace.gz -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
+    set out=$MAGIC$mNam.$target.INTRON.u.$SNPCHROM
+    if (-e tmp/INTRON_DB/$chrom/d5.de_uno.ace) then
+      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
 
 # $seedGene  $compare $correl
       \rm tmp/GENEINDEX/$out.*
       if (1) then
-         bin/geneindex -deepIntron tmp/INTRON_INDEX/$MAGIC.$target.u.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
+            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
          if (! -e tmp/GENEINDEX/Results/$out.done) then
            echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
            exit 1

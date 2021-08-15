@@ -1697,6 +1697,13 @@
                            SS
                            UCSC
                            EBI
+                           SEQC2 SEQC2_A SEQC2_AS
+                                         SEQC2_AL
+                                 SEQC2_B SEQC2_BS
+                                         SEQC2_BL
+                           Fatigue WB
+                                   PBMC
+                           Corona
                 RefSeq UNIQUE Int
                 FlyBase UNIQUE Int
                 Magic UNIQUE Int
@@ -1710,6 +1717,7 @@
                 Validated_u ?Run UNIQUE Int  // validated by realignment on new introns
                 Validated_nu ?Run UNIQUE Int  // validated by realignment on new introns
                 Brain UNIQUE Int
+                UHR UNIQUE Int
                 Stratagene UNIQUE Int
                 Blood  UNIQUE Int
                 NB UNIQUE Int

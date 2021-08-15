@@ -979,7 +979,10 @@ if (! -e AliArchived) then
        wc Fastc/$run/LaneList | gawk '{if (0+$1 > 0)printf("%s\t%d\n",run,$1);}' run=$run >> MetaDB/$MAGIC/RunLaneCount
     endif
   end
-  sort -k 2nr MetaDB/$MAGIC/RunLaneCount | cut -f 1 >  MetaDB/$MAGIC/RunList
+  touch  MetaDB/$MAGIC/RunList
+  if (-e MetaDB/$MAGIC/RunLaneCount) then 
+    sort -k 2nr MetaDB/$MAGIC/RunLaneCount | cut -f 1 >>  MetaDB/$MAGIC/RunList
+  endif
 
   echo -n "" > MetaDB/$MAGIC/LaneList
   foreach run (`cat MetaDB/$MAGIC/RunList`)
@@ -3731,7 +3734,10 @@ goto phaseLoop
 
 phaseii4:
   echo "phase ii4: Export intron expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
-  scripts/geneindex.tcsh ii4
+  #$chromSetAll
+  foreach chrom (21 22)
+    scripts/geneindex.tcsh ii4 $chrom
+  end
 
 goto phaseLoop
 

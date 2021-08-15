@@ -588,7 +588,7 @@ if ($?CAPTURES) then
       endif
     end
     cat   tmp/METADATA/$MAGIC.$target.captured_genes.txt | sort -V | gawk -F '\t' '{if($1 != old)printf ("\nGene %s\n",$1);old=$1;printf("%s %s\n",$3, $2);}END{printf("\n");}' > tmp/METADATA/$MAGIC.$target.captured_genes.ace
-    \rm tmp/METADATA/$MAGIC.$target.captured_genes.txt
+    if (-e tmp/METADATA/$MAGIC.$target.captured_genes.txt) \rm tmp/METADATA/$MAGIC.$target.captured_genes.txt
   end
 endif
 
