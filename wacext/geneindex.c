@@ -70,19 +70,21 @@ typedef struct rcStruct {
   BOOL DGE ; /* probe length */
   int groupLevel ;
   int capture ;
+  float minIntronSupport ;
   float accepted_tags ;
   float shift_expression_index ;
   float abaque[31] ;
 } RC ;
 
 typedef struct gcStruct { 
-  int title, affy, geneId, geneModel, nmid, gene_type, fromGene, fromTranscript, length, chrom, a1, a2, intronType, alias ; 
+  int title, affy, geneId, geneModel, intronGene, nmid, gene_type, fromGene, fromTranscript, length, chrom, a1, a2, intronType, alias ; 
   BOOL isSNP, notIsTranscriptA, targeted, captured, hasGoodProduct, isGood ;
   Array geneGroup ;
   KEYSET captures, capturesTouch ;
   int Group_level ;
   BOOL hasWeights ; /* group has weight, we may use it as a predictor (not yet done) compute a log proba log(exp( w X) / (  1 + exp (w X))) */
   int HGNC_family ;
+  int intronAv, intronRefSeq ;
   float minIndex, maxIndex, averageIndex, tags, score ; 
   float weight ; /* weight of a gene in the gene group */
   float score1, score2, bonus, av1, av2 ;     /* half scores and zones when analyzing the comparative histos */
@@ -182,7 +184,7 @@ typedef struct gxStruct {
   int histo_shifting, maxGenePlus ;
   BOOL isINTRON, isTranscript, isSNP, isMRNAH, isMicroRNA, keepIndex, medianCenter, noHisto, exportDiffGenes, hasSelectedVariance, skipEmptyGenes ;
   BOOL hasRunId, hasRunSample, hasMachine, hasRunTitle, hasRunOtherTitle, hasRunSortingTitle, hasRunSortingTitle2, hasGroup, hasCompare, hasTitration ;
-  BOOL hasGeneAffy, hasGeneId, hasGeneModel, hasGeneNm, hasGeneType, hasGeneTitle, hasGeneAlias, hasGeneLength, hasGeneChrom, hasIntronType, hasFromGene, hasFromTranscript, hasGoodProduct, hasCapture, hasCaptureTouch ;
+  BOOL hasGeneAffy, hasGeneId, hasGeneModel, hasGeneNm, hasGeneType, hasGeneTitle, hasGeneAlias, hasGeneLength, hasGeneChrom, hasIntronType, hasFromGene, hasFromTranscript, hasRefSeqAv, hasGoodProduct, hasCapture, hasCaptureTouch ;
   BOOL hasAccessibleLength ;
   ACEOUT aoFineTune, aoAUC2 ;
 
@@ -638,7 +640,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
   DDC *ddc = 0 ;
   RC *rc = 0 ;
   GC *gc = 0 ;
-  BOOL isOut, isRun, isAli, isGene, isGeneId, isCompare, badSnp = FALSE ;
+  BOOL isOut, isRun, isAli, isGene, isGeneId, isIntron, isCompare, badSnp = FALSE ;
   Stack buf = stackHandleCreate (1000,h) ;
   DICT *markerSelectDict = 0 ;
   DICT *markerRejectDict = 0 ;
@@ -676,7 +678,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
   aceInSpecial (ai, "\"\n\t") ;
 
   isOut = TRUE ;
-  isRun = isGene = isGeneId = isAli = isCompare = FALSE ; run = gene = 0 ;
+  isIntron = isRun = isGene = isIntron = isGeneId = isAli = isCompare = FALSE ; run = gene = 0 ;
   while (aceInCard (ai)) 
     { /* parse the ace file */
       if (! metaData && gx->isSNP)
@@ -819,7 +821,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
       if (! ccp || ! *ccp)
 	{
 	  isOut = TRUE ;
-	  isRun = isGene = isGeneId = isAli = isCompare = FALSE ; run = gene = compare = 0 ;
+	  isRun = isGene = isGeneId = isIntron = isAli = isCompare = FALSE ; run = gene = compare = 0 ;
 	  continue ;
 	}
       if (isOut && ! isRun && ! isGene && ! isGeneId && ! isAli && !strcasecmp (ccp, "Compare"))
@@ -1007,7 +1009,8 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    (gx->isTranscript && !strcasecmp (ccp, "Transcript")) || 
 	    (gx->isTranscript && !strcasecmp (ccp, "mRNA")) || 
 	    (!gx->isINTRON && !gx->isTranscript && !strcasecmp (ccp, "Gene")) || 
-	    (gx->isINTRON && !strcasecmp (ccp, "Intron"))
+	    (gx->isINTRON && !strcasecmp (ccp, "Intron")) ||
+	    (gx->isINTRON && !strcasecmp (ccp, "Gene"))
 	    )
 	   )
 	{
@@ -1020,6 +1023,8 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	      ccp = aceInWord (ai) ;
 	  if (ccp && strncmp (ccp, "G_Any_", 6))
 	    {
+	      char *cr ;
+
 	      if (gx->maskDict &&  dictFind (gx->maskDict, ccp, 0))
 		continue ;
 	     if (gx->keepIndex && gx->userGivenGenePlusMinusDict && ! dictFind (gx->userGivenGenePlusMinusDict, ccp, 0))
@@ -1042,14 +1047,51 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 
 	      if (strstr(ccp,":"))
 		gc->isSNP = TRUE ;
-	      if (gx->intronGeneMix &&
-		  (ccp[2] == '_'  && (ccp[1] == '_' || ccp[3] == '_'))
+	      if ((gx->isINTRON || gx->intronGeneMix) &&
+		  (cr = strstr (ccp, "__")) && strchr (cr+3,'_')
 		  )
-		gc->isIntron = 1 ;
+		{ 
+		  isIntron =  TRUE ; gc->isIntron = 1 ; 
+		}
 	    }
 	  continue ;
 	}
 
+      /* put this clause at the top to accelerate the code since Run_U or nU is most frequent line of input */
+      if (ccp && isGene && gx->isINTRON && 
+	  !strcasecmp (ccp, "de_uno")
+	  )
+	{
+	  ccp = aceInWord (ai) ;
+	  if (! ccp) continue ;
+
+	  run = 0 ;
+	  if (! gx->runListFileName)
+	    dictAdd (gx->runDict, ccp, &run) ;
+	  else
+	    dictFind (gx->runDict, ccp, &run) ;
+	  if (run <= 0)
+	    continue ;
+
+	  rc = arrayp (gx->runs, run, RC) ;
+	  aa = rc->aa ;
+	  daa = rc->daa ;
+	  if (! aa)
+	    aa = rc->aa = arrayHandleCreate (50000, DC, gx->h) ;
+	  index = seqs = tags = kb = nReads = nReadsOk = nerr = a2g = orphan = partial = badTopo = multi = multi2 = 0 ;
+	  aceInStep (ai,'\t') ; aceInFloat (ai, &tags) ;
+	  nn++ ;
+	  dc = arrayp (aa, gene, DC) ;
+	  ddc = 0 ;
+	  dc->seqs += tags ;
+	  dc->tags += tags ;
+	  gc->tags += tags ;
+	  gc->isGood = TRUE ;
+	  if (tags && ! kb) kb = tags/10.0 ; /* assume length = 100bp */
+	  dc->kb += tags ;
+	  if (tags) rc->hasData = TRUE ;
+	  continue ;
+	}
       /* put this clause at the top to accelerate the code since Run_U or nU is most frequent line of input */
       if (ccp && isGene && 
 	  (
@@ -1164,7 +1206,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  dc->tags += tags ;
 	  gc->tags += tags ;
 	  gc->isGood = TRUE ;
-	  if (tags && ! kb) kb = tags/50 ; /* assume length = 20bp */
+	  if (tags && ! kb) kb = tags/50.0 ; /* assume length = 20bp */
 	  dc->kb += kb ;
 
 	  if (ddc)
@@ -1332,15 +1374,18 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  continue ;
 	}
 
-     if (ccp && gx->isINTRON && !strcasecmp (ccp, "Gene"))
+     if (ccp  && isGene && gx->isINTRON && !strcasecmp (ccp, "Gene"))
 	{
 	  ccp = aceInWord (ai) ;
 	  if (ccp)
 	    {
 	      gc = arrayp (gx->genes, gene, GC) ;
-	      gc->geneModel = stackMark (gx->info) ;
-	      pushText (gx->info, ac_unprotect (ccp,h)) ;
-	      gx->hasGeneModel = TRUE ;
+	      dictAdd (gx->geneDict, ccp, &(gc->intronGene)) ;
+	      /*
+		gc->geneModel = stackMark (gx->info) ;
+		pushText (gx->info, ac_unprotect (ccp,h)) ;
+	      */
+	      gx->hasFromGene = TRUE ;
 	    }
 	  continue ;
 	}
@@ -1374,16 +1419,53 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    }
 	  continue ;
 	}
-      if (ccp && gx->isINTRON && isGene && (!strcasecmp (ccp, "gt_ag") ||  !strcasecmp (ccp, "gc_ag") ))
+
+      if (ccp && isIntron &&
+	  (
+	   !strcasecmp (ccp, "gt_ag") ||
+	   !strcasecmp (ccp, "ct_ac") ||
+	   !strcasecmp (ccp, "gc_ag") ||
+	   (
+	    !strcasecmp (ccp, "Other") && (ccp = aceInWord(ai))
+	    )
+	   )
+	  )
 	{
-	  int t = 0 ;
-	  if (1)
+	  gc = arrayp (gx->genes, gene, GC) ;
+	  if (gc->isIntron)
 	    {
+	      int t = 0 ;
+	      
 	      dictAdd (gx->affyDict, ccp, &t) ;
 	      gc = arrayp (gx->genes, gene, GC) ;
 	      gc->intronType = t ;
 	      gx->hasIntronType = TRUE ;
 	    }
+	  continue ;
+	}
+
+      if (ccp && isIntron && 
+	   !strcasecmp (ccp, "RefSeq") 
+	  )
+	{
+	  gc = arrayp (gx->genes, gene, GC) ;
+	  if (gc->isIntron)
+	    {
+	      gx->hasRefSeqAv = TRUE ;
+	      aceInInt (ai, &(gc->intronRefSeq)) ;
+	    }
+	  continue ;
+	}
+      if (ccp && isIntron &&
+	   !strcasecmp (ccp, "mRNA") 
+	  )
+	{
+	  gc = arrayp (gx->genes, gene, GC) ;
+	  if (gc->isIntron)
+	    {
+	      gx->hasRefSeqAv = TRUE ;
+	      aceInInt (ai, &(gc->intronAv)) ;
+	    } 
 	  continue ;
 	}
 
@@ -1405,6 +1487,30 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    {
 	      RC *rc = arrayp (gx->runs, run, RC) ;
 	      rc->intergenicKb = gkb ;
+	    }
+	  continue ;
+	}
+      if (ccp && isAli && !strcasecmp (ccp, "Candidate_introns"))
+	{ 
+	  int i ;
+	  char *cx = 0 ;
+	  float known = 0, new = 0, minS = 0 ;
+	  for (i = 0 ; i < 12 ; i++)
+	    if (!aceInWord (ai))
+	      break ;
+	  if (i == 12 
+ 	      && aceInFloat (ai, &known) 
+	      && (cx = aceInWord (ai))
+	      && ! strcasecmp (cx, "New_support")
+	      && aceInFloat (ai, &new) 
+	      && (cx = aceInWord (ai))
+	      && ! strcasecmp (cx, "New_minS")
+	      && aceInFloat (ai, &minS) 
+	      ) 
+	    {
+	      RC *rc = arrayp (gx->runs, run, RC) ;
+	      rc->tags = known + new ;
+	      rc->minIntronSupport = minS ;
 	    }
 	  continue ;
 	}
@@ -1599,8 +1705,13 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
               old = gc->fromGene ;
 	      if (old && strstr(stackText (gx->info,old),ccp)) continue ;
 	      if (old) ccp = messprintf ("%s;%s",stackText (gx->info,old),ccp) ;
-	      gc->fromGene = stackMark (gx->info) ;
-	      pushText (gx->info, ac_unprotect (ccp,h)) ;
+	      if (gc->isIntron)
+		dictAdd (gx->geneDict, ccp, &(gc->intronGene)) ;
+	      else
+		{
+		  gc->fromGene = stackMark (gx->info) ;
+		  pushText (gx->info, ac_unprotect (ccp,h)) ;
+		}
 	      gx->hasFromGene = TRUE ;
 	    } 
 	  continue ;
@@ -1694,7 +1805,14 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	      if (aceInInt (ai, &(gc->a1)))
 		aceInInt (ai, &(gc->a2)) ;
 	      if (gc->a1 > gc->a2)
-		{ int a0 = gc->a1 ; gc->a1 = gc->a2 ; gc->a2 = a0 ; gc->strand = '-' ;}
+		{ 
+		  int a0 = gc->a1 ; 
+		  gc->a1 = gc->a2 ; 
+		  gc->a2 = a0 ; 
+		  gc->strand = '-' ;
+		}
+	      gc->length = gc->a2 - gc->a1 + 1 ;
+	      gx->hasGeneLength = TRUE ; 
 	    }
 	  continue ;
 	}
@@ -2345,52 +2463,55 @@ static void gxGeneGroupCount (GX *gx)
 
   for (level = 1 ; level <= gx->maxGeneGroupLevel ; level++)
     for (gene = 1, gc = arrp (gx->genes, gene, GC) ; gene < geneMax ; gc++, gene++)
-      if (gc->Group_level == level)
-	{
-	  Array aa, gggg = gc->geneGroup ;
-	  int run, j, jMax = arrayMax (gggg) ;
-	  GC *gc1 ;
-	  RC *rc ;
-	  BOOL hasLength = gc->length ? TRUE : FALSE ; /* may have been provided as .ace data */
-	  if (gx->targeted && ! gc->targeted)
-	    continue ;
-	  if (gx->captured && ! gc->captured)
-	    continue ;
-	  if (! hasLength)
-	    gc->length =  0 ;
-	  gc->tags = 0 ;
-	  for (j = 0 ; j < jMax ; j++)
-	    {
-	      DC *dc, *dc1 ;
-	      int gene1 = arr (gggg, j, GGG).gene ;
-	      if (gene1 && gene1 < keySetMax (gx->genes))
-		{
-		  gc1 = arrp (gx->genes, gene1, GC) ;
-		  if (gx->captured && ! gc1->captured)
-		    continue ;
-		  if (gx->targeted && ! gc1->targeted)
-		    continue ;
-		  if (! hasLength) gc->length += gc1->length ;  
-		  gc->tags += gc1->tags ;
-		  gc->targeted |= gc1->targeted ;
-		  gc->captured |= gc1->captured ;
-		  for (run = 1, rc = arrayp (gx->runs, run, RC); run < runMax ; rc++, run++)  
-		    {
-		      if (rc->runs)
-			continue ;
-		      aa = rc->aa ;
-		      if (! aa || gene > arrayMax (aa) || gene1 > arrayMax (aa)) 
-			continue ;
-		      dc = arrayp (aa, gene, DC) ;
-		      dc1 = arrayp (aa, gene1, DC) ;
-		      dc->seqs += dc1->seqs ;
-		      dc->tags += dc1->tags ;
-		      dc->kb += dc1->kb ;
-		    }
-		}
-	    }
-	}
-
+      {
+	if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	  continue ;
+	if (gc->Group_level == level)
+	  {
+	    Array aa, gggg = gc->geneGroup ;
+	    int run, j, jMax = arrayMax (gggg) ;
+	    GC *gc1 ;
+	    RC *rc ;
+	    BOOL hasLength = gc->length ? TRUE : FALSE ; /* may have been provided as .ace data */
+	    if (gx->targeted && ! gc->targeted)
+	      continue ;
+	    if (gx->captured && ! gc->captured)
+	      continue ;
+	    if (! hasLength)
+	      gc->length =  0 ;
+	    gc->tags = 0 ;
+	    for (j = 0 ; j < jMax ; j++)
+	      {
+		DC *dc, *dc1 ;
+		int gene1 = arr (gggg, j, GGG).gene ;
+		if (gene1 && gene1 < keySetMax (gx->genes))
+		  {
+		    gc1 = arrp (gx->genes, gene1, GC) ;
+		    if (gx->captured && ! gc1->captured)
+		      continue ;
+		    if (gx->targeted && ! gc1->targeted)
+		      continue ;
+		    if (! hasLength) gc->length += gc1->length ;  
+		    gc->tags += gc1->tags ;
+		    gc->targeted |= gc1->targeted ;
+		    gc->captured |= gc1->captured ;
+		    for (run = 1, rc = arrayp (gx->runs, run, RC); run < runMax ; rc++, run++)  
+		      {
+			if (rc->runs)
+			  continue ;
+			aa = rc->aa ;
+			if (! aa || gene > arrayMax (aa) || gene1 > arrayMax (aa)) 
+			  continue ;
+			dc = arrayp (aa, gene, DC) ;
+			dc1 = arrayp (aa, gene1, DC) ;
+			dc->seqs += dc1->seqs ;
+			dc->tags += dc1->tags ;
+			dc->kb += dc1->kb ;
+		      }
+		  }
+	      }
+	  }
+      }
 } /* gxGeneGroupCount */
 
 /*************************************************************************************/
@@ -2495,6 +2616,8 @@ static void gxGroupCumul (GX *gx, RC *rc, int myGene)
 	      if (gx->targeted && (! gc || ! gc->targeted))
 		continue ;
 	      if (gx->captured && (! gc || ! gc->captured))
+		continue ;
+	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 		continue ;
 
 	      dc = arrayp (aa, gene, DC) ; 
@@ -2945,9 +3068,9 @@ static float gxComputeOneIndex (int run, int gene, GX *gx, DC *dc, int *isLowp)
       return index ;
     }
   else if (isIntron)    /* Naive Leming Shi NB Index */
-    { isLow = FALSE ; index = 20 + log((1 + dc->tags)*1000000.0/(1+rc->tags))/log(2.0) ; }
+    { isLow = FALSE ; index = 10 + log((1.0 + dc->tags)*1000000.0/(1+rc->tags))/log(2.0) ; }
   else    /* Naive Leming Shi NB Index */
-    { isLow = FALSE ; index = log((1 + dc->tags)*1000000.0/(1+rc->tags))/log(2.0) ; }
+    { isLow = FALSE ; index = log((1.0 + dc->tags)*1000000.0/(1+rc->tags))/log(2.0) ; }
 
   if (0 && !strcmp (dictName(gx->geneDict,gene),"Lgals3"))
     {
@@ -3006,20 +3129,23 @@ static int gxComputeAllIndex (GX *gx)
 	  indexes = arrayReCreate (indexes, geneMax, int) ;
 	  for (gene = 1, dc = arrayp (aa, 1, DC), kb = 0 ; gene < arrayMax (aa) ; gene++, dc++) 
 	    {
+	      gc = gene < geneMax ? arrayp (gx->genes, gene, GC) : 0 ;
+	      if (!gc)
+		continue ;
+	      if (gx->targeted && ! gc->targeted)
+		continue ;
+	      if (gx->captured && (! gc->captured))
+		continue ;
+	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		continue ;
 	      /* compute and register the index */
+
 	      nn++ ;
 	      dc->indexMin = dc->indexMax = dc->index = 1000 + gxComputeOneIndex (run, gene, gx, dc, &(dc->isLow)) ;
 	      if (gx->medianCenter)
 		array (indexes, gene, float) = dc->index ;
 	      if (strncmp (dictName(gx->geneDict,gene), "ERCC-", 5))
 		kb += dc->kb ;
-	      gc = gene < geneMax ? arrayp (gx->genes, gene, GC) : 0 ;
-	      if (!gc)
-		continue ;
-	      if (gx->targeted && ! gc->targeted)
-		continue ;
-	      if (gx->captured && (! gc || ! gc->captured))
-		continue ;
 	      if (gc) /* rc->title && strstr (stackText (gx->info, rc->title), "Liver")) */
 		{
 		  /* gc->minIndex is used as a lower bound when searching for DEG and in gxCorrelation */
@@ -3044,6 +3170,8 @@ static int gxComputeAllIndex (GX *gx)
 		for (gene = 1, dc = arrayp (aa, gene, DC) ; gene < arrayMax (aa) ; gene++, dc++) 
 		  {
 		    GC *gc = arrayp (gx->genes, gene, GC) ;
+		    if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		      continue ;
 
 		    if (gc->geneGroup)
 		      continue ;
@@ -3065,7 +3193,9 @@ static int gxComputeAllIndex (GX *gx)
 	      dz = array(indexes, arrayMax(indexes)/2, float) - 1010 ;
 	      for (gene = 1, dc = arrayp (aa, 1, DC) ; gene < arrayMax (aa) ; gene++, dc++) 
 		{
-		  /*   GC *gc = arrayp (gx->genes, gene, GC) ; */
+		  GC *gc = arrayp (gx->genes, gene, GC) ; 
+		  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		    continue ;
 		  dc->indexMin = dc->indexMax = dc->index = dc->index - dz ;
 		}
 	      fprintf(stderr, "// MEDCENTER\t%s\t%.2f\n", dictName(gx->runDict,run), dz) ;
@@ -3126,6 +3256,10 @@ static int gxComputeAllIndex (GX *gx)
 	for (gene = 1, dc = arrayp (aaa, 1, DC) ; gene < arrayMax (aaa) ; gene++, dc++) 
 	  if (1)
 	    {
+	      GC *gc = arrayp (gx->genes, gene, GC) ; 
+	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		continue ;
+
 	      isLow = isHigh = 0 ;
 	      NX = 0 ; X = X2 = X3 = X4 = 0 ;
 	      NY = 0 ; Y = Y2 = 0 ;
@@ -3298,6 +3432,9 @@ static int gxComputeAverageIndex (GX *gx)
       nn++ ;
       for (gene = 1, dc = arrayp (aa, 1, DC) ; gene < arrayMax(aa) ; gene++, dc++) 
 	{
+	  GC *gc = arrayp (gx->genes, gene, GC) ; 
+	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	    continue ;
 	  dca = arrayp (a, gene, DC) ;
 	  dca->index += dc->index ;
 	}
@@ -3305,7 +3442,11 @@ static int gxComputeAverageIndex (GX *gx)
 
   if (nn > 0)
     for (gene = 1, dca = arrayp (a, 1, DC), gc =  arrayp (gx->genes, gene, GC) ; gene < geneMax ; gene++, dca++, gc++) 
-      gc->averageIndex = dca->index / nn ;
+      {
+	if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	  continue ;
+	gc->averageIndex = dca->index / nn ;
+      }
 
   arrayDestroy (a) ;
   return nn ;  
@@ -3463,6 +3604,8 @@ static void gxPrepareGeneClusters (GX *gx)
   for (gene = 1, gc = arrp (gx->genes, gene, GC) ; gene < dictMax(gx->geneDict) ; gc++, gene++)
     {
       int i, chrom = gc->chrom, a1 = gc->a1 ;
+      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	continue ;
       for (i = 0, gg = arrp (aa, i, GG) ; i < nn ; i++, gg++)
 	if (gg->chrom == chrom && gg->a1 < a1 && gg->a2 > a1)
 	  {
@@ -3667,6 +3810,10 @@ static void gxFineTuneOneRun (GX *gx, int pass, int run0, int run, float maxVar)
       /* histo of the index */
       for (gene = 1,  dc = arrayp (aa, 1, DC) ; gene <= dictMax (gx->geneDict) ; gene++, dc++)
 	{
+	  GC *gc = arrayp (gx->genes, gene, GC) ; 
+	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	    continue ;
+	  
 	  n = 100.0*(dc->index - 1000.0) ; if (n < 0) n = 0 ;
 	  keySet (histo,n)++ ;
 	}
@@ -3682,6 +3829,9 @@ static void gxFineTuneOneRun (GX *gx, int pass, int run0, int run, float maxVar)
 	  aceOutf (ao, "%s\t%.1f\n", dictName (gx->runDict, run), dx) ;
 	  for (gene = 1,  dc = arrayp (aa, 1, DC) ; gene <= dictMax (gx->geneDict) ; gene++, dc++)
 	     {
+	       GC *gc = arrayp (gx->genes, gene, GC) ; 
+	       if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		 continue ;
 	       dc->index += dx ;
 	       if (dc->index < 0) 
 		 dc->index = 0 ;
@@ -6367,6 +6517,8 @@ static Array gxDoCompare_to (GX *gx, int pass, COMPARE *compare
 		continue ;
 	      if (gx->captured && ! gc->captured)
 		continue ;
+	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+		continue ;
 
 	      if (! gc || (gc->length > 0 && gc->length < 150))   /* short genes fluctuate too much to be predictive */
 		continue ;
@@ -7824,6 +7976,8 @@ static void gxExportTableHeaderLegend (GX *gx, ACEOUT ao, const char* title, int
       if (gx->hasGeneNm) aceOut (ao, "\t#RefSeq transcript Id") ;
       if (gx->hasGeneLength) aceOut (ao, "\t#Length") ;
       if (gx->hasFromGene) aceOut (ao, "\t#From gene") ;
+      if (gx->hasIntronType) aceOut (ao, "\t#Type") ;
+      if (gx->hasRefSeqAv) aceOut (ao, "\t#In RefSeq\t#In AceView") ;
       if (gx->hasFromTranscript) aceOut (ao, "\t#From transcript") ;
       if (gx->hasGeneAffy) aceOut (ao, "\t#Microarray") ;
       if (gx->hasCapture) aceOut (ao, "\t#Captured by") ;
@@ -8480,6 +8634,8 @@ static int gxExportTable (GX *gx, int type)
 	    continue ;
 	  if (! gc->isGood)
 	    continue ;
+	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	    continue ;
 
 	  gz = arrayp (gza, gene, GZ) ;
 	  gz->gene = gene ;
@@ -8598,8 +8754,25 @@ static int gxExportTable (GX *gx, int type)
 	}
 
       if (gx->hasGeneLength) aceOutf (ao, "\t%d", gx->isMA ? gx->isMA : gc->length) ;
-      if (gx->hasFromGene) aceOutf (ao, "\t%s", gc->fromGene ? noX__(stackText (gx->info, gc->fromGene), TRUE) : "") ;
+      if (0) aceOutf (ao, "\thasFromGene=%d isINTRON=%d", gx->hasFromGene, gx->isINTRON) ; 
+      if (gx->hasFromGene)
+	{
+	  if (gx->isINTRON && gc->isIntron)
+	    aceOutf (ao, "\t%s", gc->intronGene ? dictName (gx->geneDict, gc->intronGene) : "") ;
+	  else
+	    aceOutf (ao, "\t%s", gc->fromGene ? noX__(stackText (gx->info, gc->fromGene), TRUE) : "") ;
+	}
       if (gx->hasFromTranscript) aceOutf (ao, "\t%s", gc->fromTranscript ? noX__(stackText (gx->info, gc->fromTranscript), TRUE) : "") ;
+      if (gx->hasIntronType)
+	{
+	  if (gx->isINTRON && gc->isIntron && gx->affyDict)
+	    aceOutf (ao, "\t%s", gc->intronType ? dictName (gx->affyDict, gc->intronType) : "") ;
+	}
+      if (gx->hasRefSeqAv)
+	{
+	  if (gx->isINTRON && gc->isIntron)
+	    aceOutf (ao, "\t%d\t%d", gc->intronRefSeq, gc->intronAv) ;
+	}
       if (gx->hasGeneAffy) aceOutf (ao, "\t%s", gc->affy ? stackText (gx->info, gc->affy) : "") ;
       if (gx->hasCapture)
 	{
@@ -8607,6 +8780,13 @@ static int gxExportTable (GX *gx, int type)
 	  int i ;
 	  char *sep = "" ;
 	  aceOutf (ao, "\t") ;
+	  if (gx->isINTRON)
+	    {
+	      KEY i2g = gc->intronGene ;
+	      GC *gc2 = i2g ? arrayp (gx->genes, i2g, GC) : 0 ;
+	      ks = gc2 ? gc2->captures : 0 ;
+	    }
+
 	  if (ks)
 	    for (i = 0 ; i < keySetMax (ks) ; i++)
 	      {
@@ -8974,6 +9154,9 @@ static int gxExportGeneAceFile (GX *gx)
       if (gx->targeted && ! gc->targeted)
 	continue ;
       if (gx->captured && ! gc->captured)
+	continue ;
+      
+      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
 
       if (! gc->isGood)
@@ -10073,6 +10256,9 @@ static void gxOneShowAllHistos (GX *gx, int iCompare, int gMax)
     {
       /* check that the gene is expressed somewhere and varies */
       float minIndex = 999999, maxIndex = -999999 ;
+
+      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	continue ;
       for (run = 0 ; run < keySetMax (compare->runs) ; run++)
 	{
 	   rc = arrayp (gx->runs, run, RC) ;
@@ -10529,6 +10715,8 @@ static BOOL gxRunsCosineUsingGenes (GX *gx, KEYSET genes, Associator assPlus, As
       if (gx->targeted && ! gc->targeted)
 	continue ;
       if (gx->captured && ! gc->captured)
+	continue ;
+      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
 
       if (! gc->isGood)
@@ -11549,7 +11737,7 @@ static void gxCorrelation (GX *gx, int lowAll, BOOL isDiff)
 /*************************************************************************************/
 /*************************************************************************************/
 
-typedef struct gtStruct { int gene, colMax, colMin, geneGroup, capture ; float min, max, delta, score, score_1_2, index[100] ; char shape[100], sigShape[100] ;} GT ;
+typedef struct gtStruct { int gene, length, intronGene, intronType, intronRefSeq, intronAv, colMax, colMin, geneGroup, capture ; float min, max, delta, score, score_1_2, index[100] ; char shape[100], sigShape[100] ; BOOL isIntron ; } GT ;
 
 static int gtOrder (const void *a, const void *b)
 {
@@ -11795,7 +11983,7 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
   else if (gx->isTranscript) { aceOut (ao, "\t#Transcript") ; n1++ ;}
   else  { aceOutf (ao, "\t#%s", wantGeneGroup ? "Gene-group" : "Gene") ; n1++ ;}
   if (gx->hasGeneId) { aceOut (ao, "\t#NCBI GeneId") ; n1++ ; } 
-  if (gx->hasGeneModel) { aceOut (ao, "\t#Gene") ; n1++ ; } 
+  if (gx->hasGeneModel || gx->hasFromGene) { aceOut (ao, "\t#Gene") ; n1++ ; } 
   if (gx->hasCapture) { aceOut (ao, "\t#Captured by") ; n1++ ; } 
   if (gx->hasCaptureTouch) { aceOut (ao, "\t#Touched by") ; n1++ ; } 
   if (gx->hasGeneNm) { aceOut (ao, "\t#RefSeq transcript Id") ; n1++ ; } 
@@ -11994,6 +12182,8 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
       for (gene = 1, gc = arrayp (gx->genes, gene, GC), dc = arrayp (aa, gene, DC) ;
        gene < geneMax ; gc++, dc++, gene++)
 	{
+	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+	    continue ;
 	  if (! gc->isGood)
 	    continue ;
 	  if (!gx->isINTRON && (gx->targeted && !gc->targeted))
@@ -12004,6 +12194,11 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
 	  if (! gt->gene)
 	    n1++ ;
 	  gt->gene = gene ;
+	  gt->intronGene = gc->intronGene ;
+	  gt->intronType = gc->intronType ;
+	  gt->intronAv = gc->intronAv ;
+	  gt->length = gc->length ;
+	  gt->isIntron = gc->isIntron ;
 	  gt->geneGroup = gc->geneGroup ? 1 : 0 ;
 	  gt->index[irun] = dc->index  - 1000 ; 
 	  if (dc->isLow)
@@ -12062,6 +12257,8 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
 	continue ;
       gc = arrayp (gx->genes, gt->gene, GC) ;
       if (!gx->isINTRON && (gx->targeted && !gc->targeted))
+	continue ;
+	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
       if (gx->captured && ! gc->captured)
 	continue ;
@@ -12160,6 +12357,8 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
       gt = arrayp (gts, gene, GT) ;
       if (! gt->gene)
 	continue ;
+      if (gx->isINTRON && ! gt->isIntron)
+	continue ;
       if (wantGeneGroup != gt->geneGroup)
 	continue ;
       switch (pass)
@@ -12191,19 +12390,39 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
       gc = arrayp (gx->genes, gt->gene, GC) ;
       aceOutf (ao, "%d\t%s" , ++line, noX__(dictName (gx->geneDict, gt->gene), !gx->isINTRON)) ;
       
+      if (gx->hasGeneLength)
+	aceOutf (ao, "\t%d", gt->length) ;
+
       if (gx->hasGeneId)
 	{ 
 	  if (gc->geneGroup)
 	    aceOutf (ao, "\tGroup") ;
 	  else
-	    aceOutf (ao, "\t%s", gc->geneId ? stackText (gx->info, gc->geneId) : "") ;
+	    aceOutf (ao, "\t%s", gc->geneId ? stackText (gx->info, gc->geneId) : "AAA") ;
 	}
-      if (gx->hasGeneModel)
+      if (gx->isINTRON && gx->hasFromGene)
+	{ 
+	  if (gc->geneGroup)
+	    aceOutf (ao, "\tGroup") ;
+	  else 
+	    aceOutf (ao, "\t%s", gc->intronGene ? dictName (gx->geneDict, gc->intronGene) : "YYY") ;
+	}
+      else if (gx->hasGeneModel)
 	{ 
 	  if (gc->geneGroup)
 	    aceOutf (ao, "\tGroup") ;
 	  else
-	    aceOutf (ao, "\t%s", gc->geneModel ? stackText (gx->info, gc->geneModel) : "") ;
+	    aceOutf (ao, "\t%s", gc->geneModel ? stackText (gx->info, gc->geneModel) : "XXX") ;
+	}
+      if (gx->hasIntronType)
+	{
+	  if (gx->isINTRON && gt->isIntron && gx->affyDict)
+	    aceOutf (ao, "\t%s", gt->intronType ? dictName (gx->affyDict, gt->intronType) : "") ;
+	}
+      if (gx->hasRefSeqAv)
+	{
+	  if (gx->isINTRON && gc->isIntron)
+	    aceOutf (ao, "\t%d\t%d", gt->intronRefSeq, gt->intronAv) ;
 	}
       if (gx->hasCapture)
 	{
@@ -12211,6 +12430,14 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
 	  int i ;
 	  char *sep = "" ;
 	  aceOutf (ao, "\t") ;
+
+
+	  if (gx->isINTRON)
+	    {
+	      KEY i2g = gt->intronGene ;
+	      GC *gc2 = i2g ? arrayp (gx->genes, i2g, GC) : 0 ;
+	      ks = gc2 ? gc2->captures : 0 ;
+	    }
 	  if (ks)
 	    for (i = 0 ; i < keySetMax (ks) ; i++)
 	      {
