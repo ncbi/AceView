@@ -602,6 +602,20 @@ static POLYNOME newPolynome (void)
   return pp ;
 }
 
+/***********************************************************************************************************************************************/
+
+static POLYNOME freePolynome (POLYNOME pp)
+{
+  if (pp && pp->id)
+    {
+      pp->id = 0 ;
+      ac_free (pp->p1) ;
+      ac_free (pp->p2) ;
+      ac_free (pp) ;
+    }
+  return ;
+}
+
 /*************************************************************************************************/
 
 static POLYNOME copyPolynome (POLYNOME p1)
