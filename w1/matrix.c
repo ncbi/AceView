@@ -1232,6 +1232,7 @@ void mxShow (MX a)
 	}
     } 
   fprintf (stderr, "\n") ;
+  fprintf (stderr, "%s\n", a->name) ;
   return ;
 } /* mxShow */
 

@@ -145,6 +145,8 @@ void mxClear (MX a) ; /* reset data to zero, keep shape and type */
  */
 MX mxMap (MX af, MX a, MX cache, void f(MX, MX, MX), AC_HANDLE h) ;
 
+/***************************************************************************************/
+/* Standard Rank 2 Matrix operation */
 /* Matrix addition : 
  * returns a = b + c 
  *   if a == 0, a is created
@@ -154,6 +156,21 @@ MX mxAdd (MX a, MX b, MX c, AC_HANDLE h) ;       /* A = B + C */
 MX mxSubstract (MX a, MX b, MX c, AC_HANDLE h) ; /* A = B - C */
 /* general linear combination:   A = beta B + gamma C */
 MX mxLinearCombine (MX a, complex float beta, MX b, complex float gamma, MX c, AC_HANDLE h) ;
+/* Standard Matrix product 
+ * returns a =  matrix multiply (b , c)
+ *   if a == 0, a is created
+ *   the b->shape[1] must equal c->shape[0]
+ *   a,b,c->rank must be equal to 2
+ *   a->shape[0] must be equalt to b->shape[0]
+ *   a->shape[1] must be equalt to c->shape[1]
+ *
+ * the matrix product is as usual the contraction of second b index with the first c index
+ */
+MX mxMatMult (MX b, MX c, AC_HANDLE h) ;
+MX mxMatTranspose (MX a, MX b, AC_HANDLE h) ; /* standard transposition of a rank2 matrix */
+MX mxMatTransposeConjugate (MX a, MX b, AC_HANDLE h) ; /* standard hermitian conjugate of a rank2 matrix */
+float complex  mxMatTrace (MX a) ;  /* standard trace of a rank2 square matrix */
+/***************************************************************************************/
 
 /* single value scalar matrix */
 MX mxScalarMatrix (const char *name, float x, AC_HANDLE h) ;
@@ -192,20 +209,6 @@ MX mxMaxPooling (MX a, MX b, MX W, AC_HANDLE h) ;
 MX mxMaxPoolingWithCache (MX a, MX b, MX W, MX cache, AC_HANDLE h) ;
 MX mxMaxPoolingBack (MX a, MX b, MX c, MX W, AC_HANDLE h) ;
 
-/* Standard Matrix product 
- * returns a =  matrix multiply (b , c)
- *   if a == 0, a is created
- *   the b->shape[1] must equal c->shape[0]
- *   a,b,c->rank must be equal to 2
- *   a->shape[0] must be equalt to b->shape[0]
- *   a->shape[1] must be equalt to c->shape[1]
- *
- * the matrix product is as usual the contraction of second b index with the first c index
- */
-MX mxMatMult (MX b, MX c, AC_HANDLE h) ;
-MX mxMatTranspose (MX a, MX b, AC_HANDLE h) ; /* standard transposition of a rank2 matrix */
-MX mxMatTransposeConjugate (MX a, MX b, AC_HANDLE h) ; /* standard hermitian conjugate of a rank2 matrix */
-float complex  mxMatTrace (MX a) ;  /* standard trace of a rank2 square matrix */
 /* mxMatListMult
  *   multiply a zero terminated list of rank-4 matrices
  * example:   m = mxMaltListMult (h, m1,m2,m3...m77, 0) 
