@@ -458,6 +458,7 @@ void lexDefineSystemTags (void)
   lexHardDefineKey(0,_FREE,"FREE") ; 
   lexHardDefineKey(0,_REPEAT,"REPEAT") ; 
   lexHardDefineKey(0,_COORD,"COORD") ; 
+  lexHardDefineKey(0,_SORTED,"SORTED") ; 
 
   lexHardDefineKey(0,_Date,"Date") ; 
   lexHardDefineKey(0,_User,"User") ; 

@@ -2,8 +2,6 @@
 // This file is read only when starting a new database or when you select 
 // "Read Models" or "Add Update File" from the main menu.
 //
-// all tags must appear in tags.wrm or systags.wrm
-//
 // Magic tag2 construct, such as Inside xxx ?AA
 //  denotes a case where Inside and ?AA are read by the display code
 // whereas the intermediate xxx is up to the schema designer

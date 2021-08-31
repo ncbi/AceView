@@ -80,7 +80,7 @@
 #define _FREE  43
 #define _REPEAT 44
 #define _COORD 45  /* Int or Float subject to bsCoordShift() */
-#define ___sys46  46	/* available for reassignment */
+#define _SORTED  46	/* defined 2021_08_28 */
 #define ___sys47  47	/* available for reassignment */
 #define ___sys48  48	/* available for reassignment */
 #define ___sys49  49	/* available for reassignment */

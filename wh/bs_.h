@@ -45,6 +45,7 @@
 #define DELETE_BIT KEYMAKE(2,0)
 #define CHECK_BIT KEYMAKE(4,0)
 #define COORD_BIT KEYMAKE(8,0)
+#define SORTED_BIT KEYMAKE(16,0)
 
 
 /* CAVEAT : If sizeof(BSdata) changes, data on disk can no longer be read , see b_.h */

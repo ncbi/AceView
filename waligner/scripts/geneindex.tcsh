@@ -1,7 +1,8 @@
 #!bin/tcsh -f
 
 set phase=$1
-set SNPCHROM=$2
+set SNPCHROM=""
+if ($phase == ii4) set SNPCHROM=$2
 
 # plase avoid setting mySeaLevel
 # This parameter is a way to loop in g4 in debugging mode
@@ -908,14 +909,6 @@ set ok=1
 
 if ($ok == 0) goto phaseLoop
 
-cat MetaDB/$MAGIC/GroupIntronList | sort -u >   tmp/INTRON_INDEX/$MAGIC.RunList2
-touch   tmp/INTRON_INDEX/$MAGIC.RunList
-if (-e  tmp/INTRON_INDEX/$MAGIC.ii4.intron_support.ace) then
-  set n=`diff   tmp/INTRON_INDEX/$MAGIC.RunList  tmp/INTRON_INDEX/$MAGIC.RunList2 | wc -l`
-  if ($n > 0) \rm   tmp/INTRON_INDEX/$MAGIC.introns.u.ace.gz
-endif
-\mv  tmp/INTRON_INDEX/$MAGIC.RunList2 tmp/INTRON_INDEX/$MAGIC.RunList
-
 #goto phaseLoop
 
 # g4sp expression based on sponge file is not yet written as of 2019_10_14
@@ -1020,6 +1013,7 @@ if (1) then
   cat MetaDB/$MAGIC/compares.ace  >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 # export the sea level
+set chrom=""
   if ($phase == ii4) set chrom=$SNPCHROM
   if ($phase != ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Intergenic/{print}/^Accessible_length/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Candidate_introns any/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1123,7 +1117,7 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if (0) then
+   if (1) then
      set CAPT=A2R2
      set sg="$sg  -captured $CAPT"
      set CAPT=".$CAPT" 
@@ -1252,12 +1246,12 @@ if ($target == introns) then
 
     set out=$MAGIC$mNam.$target.INTRON.u.$SNPCHROM
     if (-e tmp/INTRON_DB/$chrom/d5.de_uno.ace) then
-      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
+      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_DB/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
 
 # $seedGene  $compare $correl
       \rm tmp/GENEINDEX/$out.*
       if (1) then
-            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_INDEX/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
+            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_DB/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
          if (! -e tmp/GENEINDEX/Results/$out.done) then
            echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
            exit 1

@@ -750,6 +750,8 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
   list -a -f MetaDB/$MAGIC/GroupVariance.list
   query find project IS $MAGIC ; > Run  ; Intron && Is_group
   list -a -f MetaDB/$MAGIC/GroupIntron.list
+  query find project IS $MAGIC ; > Run  ; Intron ; CLASS runs
+  list -a -f MetaDB/$MAGIC/RunsIntron.list
   query find project IS $MAGIC ; > Run  ; Transloc && Is_group
   list -a -f MetaDB/$MAGIC/GroupTransloc.list
 
@@ -849,7 +851,7 @@ cat  MetaDB/$MAGIC/gtitle.pretxt | gawk -F '\t' '{printf("%s",$1);for (i=2;i<=NF
 # cat  MetaDB/$MAGIC/g2r.pre | gawk '/^"/{gsub (/\"/,"",$0);printf ("%s\t%s\t%s\n",$1,$2,$4);}' | grep -v NULL | $tab_sort -u | gawk '/^\//{next;}{if($2!="")print;}' > MetaDB/$MAGIC/g2r
 
 ## clean up the lists (acedb exports "" around the names)
-foreach ff (Run Runs RunNoCount Group GroupDeDuo GroupSnp  GroupAdditive GroupSnpAdditive GroupWiggle GroupW_stranded  GroupW_new_exon GroupGene_element_index RunRna RunNonStranded RunForward RunReverse RunSolid RunNanopore RunPacBio RunSingleIndividual RunPaired RunSnp RunSmallRna RunPrivate RunPublic RunSequin RunWiggle GroupVariance GroupIntron GroupTransloc UcscWiggle RunHasSubLib RunSublibrary_of RunWithKnownAdaptors)
+foreach ff (Run Runs RunNoCount Group GroupDeDuo GroupSnp  GroupAdditive GroupSnpAdditive GroupWiggle GroupW_stranded  GroupW_new_exon GroupGene_element_index RunRna RunNonStranded RunForward RunReverse RunSolid RunNanopore RunPacBio RunSingleIndividual RunPaired RunSnp RunSmallRna RunPrivate RunPublic RunSequin RunWiggle GroupVariance GroupIntron RunsIntron GroupTransloc UcscWiggle RunHasSubLib RunSublibrary_of RunWithKnownAdaptors)
 # create even the empty lists, because most scrits/* use constructs like
 # cat XxxList, is XxxList is missing, there would be an error and since we execute  tcsh -e, the whole script would fail
   touch  MetaDB/$MAGIC/$ff.list
@@ -3735,6 +3737,9 @@ goto phaseLoop
 phaseii4:
   echo "phase ii4: Export intron expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
   #$chromSetAll
+
+  cat MetaDB/$MAGIC/GroupIntronList MetaDB/$MAGIC/RunsIntronList | sort -u >   tmp/INTRON_DB/$MAGIC.RunList
+
   foreach chrom (21 22)
     scripts/geneindex.tcsh ii4 $chrom
   end

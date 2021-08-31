@@ -1684,6 +1684,9 @@
         Fuzzy
         DA  D ?Donor XREF Intron
             A ?Acceptor XREF Intron
+            Known_donor
+            Known_acceptor
+            Fusion
         Alternatif Local ?Intron XREF Local // shares a base with another intron
                    Global // not part of every mrna
                    Includes ?Intron XREF Included_in
@@ -1713,7 +1716,7 @@
 		RNA_seq  UNIQUE Int 
                 de_novo UNIQUE Int UNIQUE Int  // donor acceptor in discovery more
                 de_duo  ?Run UNIQUE Int  
-                de_uno Text Text UNIQUE Int  // manip,tissue,support jumping single sequence in discovery more
+                de_uno Text SORTED Text UNIQUE Int  // manip,tissue,support jumping single sequence in discovery more
                 Validated_u ?Run UNIQUE Int  // validated by realignment on new introns
                 Validated_nu ?Run UNIQUE Int  // validated by realignment on new introns
                 Brain UNIQUE Int

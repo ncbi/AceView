@@ -202,6 +202,37 @@ EOF
   popd
 endif
 
+# check we have all mrnas
+if (! -e tmp/INTRON_DB/$chrom/d5.rrna.done) then
+  pushd tmp/INTRON_DB/$chrom
+    ../../../bin/tace . <<EOF
+      find mrna
+      list -a -f $chrom.mrna.list
+EOF
+    ../../../bin/tace ~/37lm5 <<EOF
+      key $chrom.mrna.list
+      show -a -f $chrom.mrna.geneid.ace GeneId 
+      show -a -f $chrom.mrna.locuslink.ace LocusLink
+      show -a -f $chrom.mrna.splicing.ace Splicing
+      list -a -f chrom.mrna.list
+EOF
+    ../../../bin/tace . <<EOF
+      find mrna
+      edit -D geneid
+      edit -D LocusLink
+      edit -D Splicing
+      parse $chrom.mrna.geneid.ace
+      parse $chrom.mrna.locuslink.ace
+      parse $chrom.mrna.splicing.ace
+      save
+      quit
+EOF
+
+
+    touch tmp/INTRON_DB/$chrom/d5.rrna.done) then
+  popd
+endif
+
 # check we have all intmap
 if (! -e tmp/INTRON_DB/$chrom/d5.intmap.done) then
   pushd tmp/INTRON_DB/$chrom
@@ -258,6 +289,79 @@ EOF
   popd
 endif
 
+# associate donor acceptor to from_gene, meaning known in AceView
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2G1.done) then
+  pushd tmp/INTRON_DB/$chrom
+  ../../../bin/tace . <<EOF
+    find donor
+    spush
+    find intron
+    sor
+    find acceptor
+    sor
+    spop
+    edit -D gene
+    edit -D from_gene
+    query find mrna from_gene ;> intron
+    spush
+    follow donor
+    sor
+    undo
+    follow acceptor
+    sor
+    spop
+    edit from_gene
+    save
+    quit
+EOF
+  touch d5.DA2G1.done
+  popd
+endif
+
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2G2.done) then
+  pushd tmp/INTRON_DB/$chrom
+  ../../../bin/tace . <<EOF
+    query find mrna COUNT locuslink == 1
+    select -o d5.DAGG2.txt2 m,ll,g,ii,d,a from m in @,ll in m->locuslink,g in m->gene,ii in m->intron,d in ii->D, a in ii->A
+    query find mrna COUNT gene==1 && !locuslink 
+    select -o d5.DAGG2.txt1 m,ll,g,ii,d,a from m in @,ll=0,g in m->gene,ii in m->intron,d in ii->D, a in ii->A
+    quit
+EOF
+  cat d5.DAGG2.txt1 | gawk -F '\t' '{ll=$2;gg=$3;ii=$4;d=$5;a=$6;printf("Intron %s\nGene %s\n\nDonor %s\nGene %s\n\nAcceptor %s\nGene %s\n\n",ii,gg,d,gg,a,gg);}' > d5.DAGG2.ace
+  cat d5.DAGG2.txt2 | gawk -F '\t' '{ll=$2;g=$3;ii=$4;d=$5;a=$6;gg=ll;if(g!=ll)gg=ll"("g")";printf("Intron %s\nGene %s\n\nDonor %s\nGene %s\n\nAcceptor %s\nGene %s\n\n",ii,gg,d,gg,a,gg);}' >> d5.DAGG2.ace
+  ../../../bin/tace . <<EOF
+    pparse d5.DAGG2.ace
+    query find intron ! gene
+    kstore ii
+    select -o d5.DAGG2.txt3c  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g1 && g2 && g1 == g2
+    kget ii
+    select -o d5.DAGG2.txt3d  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g1 && !g2
+    kget ii
+    select -o d5.DAGG2.txt3a  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g2 && !g1
+    save
+    quit
+EOF 
+   cat d5.DAGG2.txt3[cda] | gawk -F '\t' '{ii=$1;g=$2;printf("Intron %s\nGene %s\n\n",ii,g);}' >> d5.DAGG2.x.ace
+  ../../../bin/tace . <<EOF
+    pparse d5.DAGG2.x.ace
+    query find intron !gene
+    select -o d5.DAGG2.txt4 ii,g1,g2 from ii in @, d in ii->D where COUNT d->gene==1, a in ii->A where COUNT a->gene==1, g1 in d->gene,g2 in a->gene
+    save
+    quit
+EOF
+cat d5.DAGG2.txt4 | gawk -F '\t' '{ii=$1;split($2,g1,"(");split($3,g2,"(");printf("Intron %s\nGene %s__%s\nFusion\n\n",ii,g1[1],g2[1]);}' > d5.DAGG2.4.ace
+  ../../../bin/tace . <<EOF
+    read-models
+    pparse d5.DAGG2.4.ace
+    save
+    quit
+EOF
+
+touch d5.DA2G2.done
+  popd
+endif
+
+
 # check donor acceptors
 if (! -e tmp/INTRON_DB/$chrom/d5.DA2G.done) then
   pushd tmp/INTRON_DB/$chrom
@@ -274,6 +378,29 @@ EOF
     echo "pparse d5.DA2G.$pass.ace" | ../../../bin/tace . -no_prompt
   end
   touch d5.DA2G.done
+  popd
+endif
+if (! -e tmp/INTRON_DB/$chrom/d5.DDA2G.done) then
+  pushd tmp/INTRON_DB/$chrom
+    ../../../bin/tace . <<EOF
+      query find intron from_gene
+      bql -o d5.dd2g.txt select ii,g,d,a from ii in @, g in ii->from_gene, d in ii->D, a in ii->A
+      quit
+EOF
+    cat d5.dd2g.txt  | gawk -F '\t' '{g=$2;d=$3;a=$4; printf ("Donor %s\nFrom_gene %s\n\nAcceptor %s\nFrom_gene %s\n\n", d,ii,a,g);}' > d5.DDA2G.ace
+    echo "pparse d5.DDA2G.ace" | ../../../bin/tace . -no_prompt
+    ../../../bin/tace . <<EOF
+      read-models
+      query find intron known_donor 
+      edit -D known_donor
+      query find intron ! known_donor ; >D ; from_gene ; >intron ; ! known_donor
+      edit Known_donor
+      query find intron ! known_acceptor ; >A ; from_gene ; >intron ; ! known_acceptor
+      edit Known_acceptor
+      save
+      quit
+EOF
+    touch d5.DDA2G.done
   popd
 endif
 

@@ -2322,6 +2322,15 @@ static void makePaths (Associator ass, BS bs, BOOL isUnique)
       BSfree (temp) ;
     }
 
+  if (bs->right && bs->right->key == _SORTED)
+    { BS temp = bs->right ;
+      bs->n.key |= SORTED_BIT ;
+      bs->right = bs->right->right ;
+      if (bs->right)
+	bs->right->up = bs ;
+      BSfree (temp) ;
+    }
+
   /* RMD How does the _VConstraint key get set up? : in models.c (mieg) */
 
   if (bs->right && class(bs->right->key) == _VConstraint)

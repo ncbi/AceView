@@ -801,6 +801,15 @@ static void checkRecurse (KEY model, BS bs, BOOL inTags,
 		   name(model)) ;
       return ;
     }
+  else if (bs->key == _SORTED)
+    { if (bs->down)
+	messerror ("Model error: something down from SORTED in model %s",
+		   name(model)) ;
+      if (! bs->up || (!class(bs->up->key) && bs->up->key >_LastN))
+	messerror ("Model error: SORTED not preceeded by a data-type (?class, number, text...)  in model %s",
+		   name(model)) ;
+      return ;
+    }
   else if (class(bs->key) == _VQuery && !atRoot)
     { if (bs->right)
 	messerror ("Model error: something right of attach query %s in model %s",
@@ -1010,6 +1019,8 @@ static void showModelNodeJaq (BS bs, int x, int *y,
   if (bs->key == _UNIQUE)
     if (!(bs = bs->right)) return ;
   if (bs->key == _REPEAT)
+    return ;
+  if (bs->key == _SORTED)
     return ;
 
   h = handleCreate() ;
