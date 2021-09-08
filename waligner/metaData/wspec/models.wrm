@@ -1237,6 +1237,7 @@
           Runs ?Run  XREF Compare UNIQUE Int // 2 or more runs or groups to be compared
           Apply Pair Chrom_density // obsolete Force_threshold UNIQUE Int  // 0 to 200, impose a DEG score threshold rather than relying on the FDR system	     
                 Intron // Use differential SNPs to perform the comparisons
+                Alternative_Intron Int UNIQUE ?RUN UNIQUE ?RUN             // compute the chi2 of alternative introns between these 2 runs
                 SNP // Use differential SNPs to perform the comparisons
                 CNV UNIQUE Int  // coverage of the big group, i.e. group 1 in case CNV AND Profile: use: Runs Big_Group 1\n   Control_group 2
                 Prediction  Predicts ?Compare XREF Predicted_by UNIQUE Text UNIQUE Float  // I am a Training Comapre, i point to a Compare between Test groups     

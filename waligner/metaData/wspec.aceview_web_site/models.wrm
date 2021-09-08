@@ -685,7 +685,7 @@
                                      at_ac UNIQUE    Int Int Int ?cDNA_clone
                                      Fuzzy UNIQUE    Int  Int Int ?cDNA_clone Text // type of fuzzy
                                      Other Text UNIQUE Int Int Int ?cDNA_clone
-                                     Intron ?Intron XREF In_mRNA
+                                     Intron ?Intron XREF In_mRNA @de_uno
                   Small_deletion Text UNIQUE Int Int ?cDNA_clone // all introns < minIntronSize
                   V_repeat UNIQUE    Int Int Int ?cDNA_clone // number x1 x2 supporting clone
        Quality Score UNIQUE  Int // refsequisable mrna and score
@@ -2640,6 +2640,7 @@
                       Signal ?Text Float REPEAT   
                       SEQC_sigma UNIQUE Float   //  sigma of the expression index accross the SEQC replicas
            Deep Targeted Capture ?Capture
+                         Capture_touch ?Capture  
                 Unicity_index UNIQUE Float  // 100 number of uique tags/non-necessarilly unique in SEQC
                 Group_U    ?Run UNIQUE Float UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float  @Title // group 7 2550 seqs 3200 Tags 150 kb variance 3.6
                 Group_nU   ?Run UNIQUE Float UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text  UNIQUE Float  @Title // group 7 2550 seqs 3200 Tags 150 kb variance 3.6

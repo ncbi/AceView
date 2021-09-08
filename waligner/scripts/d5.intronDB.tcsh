@@ -8,6 +8,9 @@ echo "phase=$phase  project=$project"
 
 if ($phase == chromDB) goto chromDB
  
+###############################################################
+## chromCumul
+
 if ($phase == chromCumul) then
   set toto = tmp/introns/d5.$MAGIC.de_uno.$chrom
   echo ' ' > $toto.1
@@ -35,6 +38,9 @@ if ($phase == chromCumul) then
   
   goto phaseLoop
 endif
+
+###############################################################
+## parseCumul
 
 if ($phase == parseCumul) then
   if (-e  tmp/introns/_r.d5) \rm  tmp/introns/_r.d5
@@ -65,7 +71,10 @@ EOF
   goto phaseLoop
 endif
 
-if ($phase == donorAcceptor) then
+###############################################################
+## donorAcceptor
+
+if (0 && $phase == donorAcceptor) then
 # donor acceptor
   bin/tacembly GeneIndexDB << EOF
     find intron
@@ -108,29 +117,41 @@ EOF
   goto phaseLoop
 endif
 
+###############################################################
 ### CAPTURE
+
 if ($phase == capture) then
   if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then 
-    bin/tacembly GeneIndexDB << EOF
+    bin/tacembly tmp/INTRON_DB/$chrom << EOF
+      read-models
+      find gene
+      spush
       parse  tmp/METADATA/$MAGIC.av.captured_genes.ace
+      find gene
+      sxor
+      spop
+      kill
       save
-      bql -o  tmp/introns/d5.$MAGIC.captured_introns.txt select ii,c from g in ?Gene, c in g->capture where c, ii in g->Intron  
+      bql -o  tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.txt select ii,c from g in ?Gene, c in g->capture where c, ii in g->Intron  
       quit
 EOF
 
-    cat tmp/introns/d5.$MAGIC.captured_introns.txt | gawk -F '\t' '{if($1 != old)printf ("\nIntron %s\n",$1);old=$1;printf("Capture %s\n",$2);}END{printf("\n");}' > tmp/introns/d5.$MAGIC.captured_introns.ace
+    cat tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.txt  | gawk -F '\t' '{if($1 != old)printf ("\nIntron %s\n",$1);old=$1;printf("Capture %s\n",$2);}END{printf("\n");}' > tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.ace
     bin/tacembly GeneIndexDB << EOF
       read-models
-      parse tmp/introns/d5.$MAGIC.captured_introns.ace
+      parse tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.ace
       save
       quit
 EOF
   endif
-  ### END CAPTURE
-  touch tmp/introns/d5.$MAGIC.capture.done
+
+  touch tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done
   goto phaseLoop
 endif
 
+
+###############################################################
+## ?
 
 if (-e  RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz2) then
   set toto=GeneIndexDB/$project.intron_confirmation.ace
@@ -147,6 +168,9 @@ if (-e  RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz2) then
 endif
 
 touch GeneIndexDB/d5.cumul.done
+
+###############################################################
+## phaseLoop
 
 phaseLoop:
   echo d5.intronDB phase $phase  done
@@ -385,14 +409,27 @@ if (! -e tmp/INTRON_DB/$chrom/d5.DDA2G.done) then
     ../../../bin/tace . <<EOF
       query find intron from_gene
       bql -o d5.dd2g.txt select ii,g,d,a from ii in @, g in ii->from_gene, d in ii->D, a in ii->A
+      query find intron from_gene && ! gene
+      select -o d5.i2m2g.txt i,g from i in @, m in i->in_mrna, g in m->from_gene
       quit
 EOF
-    cat d5.dd2g.txt  | gawk -F '\t' '{g=$2;d=$3;a=$4; printf ("Donor %s\nFrom_gene %s\n\nAcceptor %s\nFrom_gene %s\n\n", d,ii,a,g);}' > d5.DDA2G.ace
+    cat d5.i2m2g.txt | gawk -F '\t' '{i=$1;g=$2; printf ("Intron %s\nGene %s\n\n",i,g);}' > d5.DDA2G.ace
+    cat d5.dd2g.txt  | gawk -F '\t' '{g=$2;d=$3;a=$4; printf ("Donor %s\nFrom_gene %s\n\nAcceptor %s\nFrom_gene %s\n\n", d,ii,a,g);}' >> d5.DDA2G.ace
     echo "pparse d5.DDA2G.ace" | ../../../bin/tace . -no_prompt
     ../../../bin/tace . <<EOF
       read-models
       query find intron known_donor 
       edit -D known_donor
+      query find intron known_acceptor
+      edit -D known_acceptor
+      query find intron ; from_gene
+      edit known_donor
+      spush
+      edit known_acceptor
+      sor
+      sor
+      query ! from_gene
+      edit from_gene
       query find intron ! known_donor ; >D ; from_gene ; >intron ; ! known_donor
       edit Known_donor
       query find intron ! known_acceptor ; >A ; from_gene ; >intron ; ! known_acceptor
@@ -405,7 +442,7 @@ EOF
 endif
 
 
-# check for run values
+# check for intron support 
 if (! -e tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.done) then
   pushd tmp/INTRON_DB/$chrom
   ../../../bin/tace . <<EOF

@@ -3159,6 +3159,7 @@ static float gxComputeOneIndex (int run, int gene, GX *gx, DC *dc, int *isLowp)
 	  tt = bp/average_tag_ln ; z *= average_tag_ln ;
 	  if (tt < 0) tt = 0 ; 
 	  damper = 5 ;
+	  if (1) damper = 3 ; /* SEQC2 test 2021_09_03 */
 	}
 
       if(gx->isMA) damper = 9 ; /* because we count a local coverage, not a number of reads */
@@ -14889,7 +14890,6 @@ int main (int argx, const char **argv)
 	    gxSamplePairing (&gx) ;
 	  gxExportComparedGenes (&gx) ;
 	}
-      
       if (gx.expressionProfile && gx.compare_to)
 	gxExpressionProfile (&gx, 1) ;  /* use registered value */
 

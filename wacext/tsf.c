@@ -112,7 +112,7 @@ typedef struct tsf_struct {
   int  nInputFiles ;
 } TSF ;
 
-#define MAXTAGDEPTH 24
+#define MAXTAGDEPTH 32
 #define MAXCOL 64 
 
 typedef struct hit_struct {
@@ -814,6 +814,8 @@ static void tsfExportTsf (TSF *tsf, ACEOUT ao)
       for (i = 0 ; i < n ; i++)
 	switch (hit->types[i])
 	  {
+	  case 0:
+	    break ;
 	  case 'i':
 	    aceOutf (ao, "\t%ld", hh.x[i]) ;
 	    break ; 
@@ -1293,6 +1295,8 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//     For single valued {i,f} numbers, one can require a calculation\n"
 	   "//   --sum  [default] (add up single valued integers in multiple lines of one or several files)\n"
 	   "//          4 9 => 13\n"
+	   "//   --sumAll  (add up multi valued integers in multiple lines of one or several files)\n"
+	   "//          4 9 / 7 11 => 11 20\n"
 	   "//   --replace : do not add single valued integers\n"
 	   "//          4 9 => 9\n"
 	   "//   --min : take the minimum of correspomding single valued integers\n"
@@ -1490,6 +1494,7 @@ int main (int argc, const char **argv)
   tsf.min = getCmdLineBool (&argc, argv, "--min") ;
   tsf.max = getCmdLineBool (&argc, argv, "--max") ;
   tsf.sum = getCmdLineBool (&argc, argv, "--sum") ;
+  tsf.sumAll = getCmdLineBool (&argc, argv, "--sumAll") ;
   tsf.chronoOrder = getCmdLineBool (&argc, argv, "--chronoOrder") ;
   getCmdLineOption (&argc, argv, "--compute", &(tsf.compute)) ;
 

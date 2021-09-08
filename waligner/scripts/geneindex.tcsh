@@ -1109,7 +1109,7 @@ if ($ok == 0) continue
   if ($target == av && $MAGIC == Liver) set correl="-TGx "
 
   set compare="-compare -correlation"
-  if ($MAGIC == SEQC_mainZZ) set compare=""
+  if ($MAGIC == SEQC2ZZZZZ) set compare=""
   set shA=" "
   if ($MAGIC == Klein) set shA="-showAnyRun"
 
@@ -1119,7 +1119,7 @@ if ($ok == 0) continue
    set CAPT=""
    if (1) then
      set CAPT=A2R2
-     set sg="$sg  -captured $CAPT"
+     set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
     endif
    set uu=u 
