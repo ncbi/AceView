@@ -79,6 +79,95 @@ static BOOL freeIndex (POLYNOME pp) ;
 static BOOL EPS1 = TRUE ;
 
 /***********************************************************************************************************************************************/
+/* find the polynome equal to the sum n=0 to N of the n^k */
+static void powerSum (void)
+{
+  int i, k ;
+  double ii, ss[12] ;
+  int N = 200000 ;
+  int a, b, c ;
+  BOOL ok, done ;
+
+  memset (ss, 0, sizeof (ss)) ;
+
+  for (i=0 ; i < N ; i++)
+    {
+      ii = 1 ;
+      if (20*i % N == 0)       printf ("%d", i) ;
+      for (k = 1 ; k < 6 ; k++)
+	{
+	  ii *= i ;
+	  ss[k] += ii ;
+	  if (20*i % N == 0) printf ("\t%d\t%.3f", k, exp((k+1)*log(i) - log(ss[k]))) ;
+	}
+      if (20*i % N == 0) 
+	printf ("\n") ;
+    }
+
+  printf ("\n\nTEST  sum (n)\n") ;
+  N = 10 ;
+  memset (ss, 0, sizeof (ss)) ;
+  for (a = 0, done = FALSE ; !done && a <= 6 ; a++)
+    {
+      int s = 0 ;
+      for (i=0, ok = TRUE ; ok && i < N ; i++)
+	{
+	  for (ii = 1, k = 1 ; k <= 1 ; k++)
+	    ii *= i ;
+	  if (1)
+	    {
+	      int s2 ;
+
+	      s += ii ;
+	      s2 = i * (i+a) ;
+	      printf ("test k=%d a=%d i=%d, s=%d s2=%d\n", k, a,i, s,s2) ;
+	      if ((a+1) * s != s2)
+		ok = FALSE ;
+	    }
+	}
+      done = ok ;
+    }
+  if (done)
+    printf ("Success: k=%d a=%d N=%d\n", k, a, N) ;
+  else
+    printf ("Failed  k=%d a=%d N=%d\n", k, a, N) ;
+
+  printf ("\n\nTEST  sum (n^2)\n") ;
+  N = 3 ;
+  memset (ss, 0, sizeof (ss)) ;
+  for (a = 0, done = FALSE ; !done && a <= 3; a++)
+    for (b = 1 ; !done && b <= 3 ; b++)
+      for (c = 0; !done && c <= 3 ; c++)
+    {
+      int s = 0 ;
+      for (i=0, ok = TRUE ; ok && i < N ; i++)
+	{
+	  ii = 1 ;
+	  for (k = 1 ; k <= 2 ; k++)	
+	    ii *= i ;
+	  if (1)
+	    {
+	      int s2, sm ;
+
+	      s += ii ;
+	      s2 = i * (i+a) * (b * i + c) ;
+	      sm = s2 / ((a+1)*(b+c)) ;   
+	      printf ("test k=%d a=%d b=%d c=%d i=%d, s=%d sm=%d s2=%d\n", k, a, b, c, i, s, sm, s2) ;
+	      if (b * (a+1) * (c+b) * s != s2)
+		ok = FALSE ;
+	    }
+	}
+      done = ok ;
+    }
+  if (done)
+    printf ("Success: k=%d a=%d N=%d\n", k, a, N) ;
+  else
+    printf ("Failed  k=%d a=%d N=%d\n", k, a, N) ;
+
+  return ; 
+}  /* powerSum */
+
+/***********************************************************************************************************************************************/
 /***************************************************************** Utilities  ******************************************************************/
 /***********************************************************************************************************************************************/
 
@@ -8140,7 +8229,6 @@ static void muSigma (AC_HANDLE h)
 			+ gg[i][l]*gg[j][k]*gg[m][n] - gg[i][l]*gg[j][m]*gg[k][n] + gg[i][l]*gg[j][n]*gg[k][m]
 			- gg[i][m]*gg[j][k]*gg[l][n] + gg[i][m]*gg[j][l]*gg[k][n] - gg[i][m]*gg[j][n]*gg[k][l]
 			+ gg[i][n]*gg[j][k]*gg[l][m] - gg[i][n]*gg[j][l]*gg[k][m] + gg[i][n]*gg[j][m]*gg[k][l]
-
 			) ;
 		z2 += 2*(
 			 + gg[i][j]*I*eps[k][l][m][n]
@@ -9961,6 +10049,12 @@ int main (int argc, const char **argv)
       exit(0) ;
     }
 
+
+  if (getCmdLineBool (&argc, argv, "-powerSum"))
+    { /* find the value of sum n^k */
+      powerSum() ;
+      exit (0) ;
+    }
 
   if (!COQ && (a || b))
     {
