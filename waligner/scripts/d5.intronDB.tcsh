@@ -258,7 +258,7 @@ EOF
 endif
 
 # check we have all intmap
-if (! -e tmp/INTRON_DB/$chrom/d5.intmap.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.intmap.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
     ../../../bin/tace . <<EOF
       query find intron  ! intmap
@@ -272,7 +272,7 @@ EOF
 endif
 
 # check we have all intron feet
-if (! -e tmp/INTRON_DB/$chrom/d5.intron_feet.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.intron_feet.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
 
     ../../../bin/tace . <<EOF
@@ -293,7 +293,7 @@ endif
 
 
 # check donor acceptors
-if (! -e tmp/INTRON_DB/$chrom/d5.DA.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DA.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
     ../../../bin/tace . <<EOF
       query find intron
@@ -314,7 +314,7 @@ EOF
 endif
 
 # associate donor acceptor to from_gene, meaning known in AceView
-if (! -e tmp/INTRON_DB/$chrom/d5.DA2G1.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2G1.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
   ../../../bin/tace . <<EOF
     find donor
@@ -342,7 +342,7 @@ EOF
   popd
 endif
 
-if (! -e tmp/INTRON_DB/$chrom/d5.DA2G2.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2G2.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
   ../../../bin/tace . <<EOF
     query find mrna COUNT locuslink == 1
@@ -387,7 +387,7 @@ endif
 
 
 # check donor acceptors
-if (! -e tmp/INTRON_DB/$chrom/d5.DA2G.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2G.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
   foreach pass (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
     ../../../bin/tace . <<EOF
@@ -404,7 +404,7 @@ EOF
   touch d5.DA2G.done
   popd
 endif
-if (! -e tmp/INTRON_DB/$chrom/d5.DDA2G.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DDA2G.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
     ../../../bin/tace . <<EOF
       query find intron from_gene
@@ -443,7 +443,7 @@ endif
 
 
 # check for intron support 
-if (! -e tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.doneZZ) then
   pushd tmp/INTRON_DB/$chrom
   ../../../bin/tace . <<EOF
     select -o iList ?Intron
@@ -451,7 +451,7 @@ EOF
   gzip -f iList
   echo > d5.collate.new
   foreach run (`cat ../../../MetaDB/$MAGIC/RunsList`)
-    if (-e ../../../tmp/OR/$run/d4.de_uno.txt.gz && ! -e ./$run.collate.done) then
+    if (-e ../../../tmp/OR/$run/d4.de_uno.txt.gz && ! -e ./$run.collate.doneZZ) then
       zcat iList.gz ../../../ZZZZZ.gz ../../../tmp/OR/$run/d4.de_uno.txt.gz | gawk -F '\t' '/^$/{next;}/^ZZZZZ/{zz=1;next;}{if(zz<1){ok[$1]=1;next;}a1=$2+0;a2=$3+0;n=$4;ii=$1"__"a1"_"a2;if(ok[ii]<1)next;printf("%s\t%s\t%d\n",ii,run,n);}' run=$run >> d5.collate.new
       touch $run.collate.done
     endif

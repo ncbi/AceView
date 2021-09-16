@@ -8111,7 +8111,7 @@ static void gxExportTableHeaderLegend (GX *gx, ACEOUT ao, const char* title, int
       if (gx->hasKnownDonorAcceptor) aceOut (ao, "\t#Known/New donor acceptor") ;
       if (gx->hasFromGene) aceOut (ao, "\t#From gene") ;
       if (gx->hasIntronType) aceOut (ao, "\t#Type") ;
-      if (gx->hasRefSeqAv) aceOut (ao, "\t#In RefSeq\t#In AceView") ;
+      if (gx->hasRefSeqAv) aceOut (ao, "\t#In AceView") ;
       if (gx->hasFromTranscript) aceOut (ao, "\t#From transcript") ;
       if (gx->hasGeneAffy) aceOut (ao, "\t#Microarray") ;
       if (gx->hasCapture) aceOut (ao, "\t#Captured by3") ;
@@ -8898,7 +8898,7 @@ static int gxExportTable (GX *gx, int type)
 	    case 1:  aceOutf (ao, "\tNew_KnownD") ; break ;
 	    case 2:  aceOutf (ao, "\tNew_KnownA") ; break ;
 	    case 3:  aceOutf (ao, "\tNew_KnownAD") ; break ;
-	    default: aceOutf (ao, "\t") ; break ;
+	    default:  aceOutf (ao, "\tKnown") ; break ;
 	    }
 	}
       if (gx->hasFromGene)
@@ -8917,7 +8917,7 @@ static int gxExportTable (GX *gx, int type)
       if (gx->hasRefSeqAv)
 	{
 	  if (gx->isINTRON && gc->isIntron)
-	    aceOutf (ao, "\t%d\t%d", gc->intronRefSeq, gc->intronAv) ;
+	    aceOutf (ao, "\t%d", gc->intronAv) ;
 	}
       if (gx->hasGeneAffy) aceOutf (ao, "\t%s", gc->affy ? stackText (gx->info, gc->affy) : "") ;
       if (gx->hasCapture)
@@ -12136,7 +12136,6 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
   aceOutDate (ao, "##", gx->title) ;
   aceOut (ao, "#Order") ; n1 = 1 ;
   if (gx->isINTRON) { aceOut (ao, "\t#Intron (chrom__from_to)") ; n1++ ;}
-  if (gx->isINTRON) { aceOut (ao, "\t#Intron length (bp)") ; n1++ ;}
   else if (gx->isTranscript) { aceOut (ao, "\t#Transcript") ; n1++ ;}
   else  { aceOutf (ao, "\t#%s", wantGeneGroup ? "Gene-group" : "Gene") ; n1++ ;}
   if (gx->hasGeneLength) { aceOut (ao, "\t#Length") ; n1++; }
@@ -12146,7 +12145,7 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
   if (gx->hasIntronType) { aceOut (ao, "\t#Intron type") ; n1++ ; } 
   if (gx->hasKnownDonorAcceptor){ aceOut (ao, "\t#New (known donor acceptor)") ; n1++ ; } 
   if (gx->hasIntronShared) { aceOut (ao, "\t#Shared donor\tShared acceptor (New Av RefSeq)") ; n1+=2 ; } 
-  if (gx->hasRefSeqAv) { aceOut (ao, "\t#Number of RefSeq transcripts including this intron\t#Number of AceView tranhscripts including this intron") ; n1+=2 ; } 
+  if (gx->hasRefSeqAv) { aceOut (ao, "\t#Number of AceView transcripts including this intron") ; n1+=1 ; } 
   if (gx->hasCapture) { aceOut (ao, "\t#Captured by") ; n1++ ; } 
   if (gx->hasCaptureTouch) { aceOut (ao, "\t#Touched by") ; n1++ ; } 
   if (0 && gx->hasGeneNm) { aceOut (ao, "\t#RefSeq transcript Id") ; n1++ ; } 
@@ -12600,7 +12599,7 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
 	    case 1:  aceOutf (ao, "\tNew_KnownD") ; break ;
 	    case 2:  aceOutf (ao, "\tNew_KnownA") ; break ;
 	    case 3:  aceOutf (ao, "\tNew_KnownAD") ; break ;
-	    default: aceOutf (ao, "\t") ; break ;
+	    default: aceOutf (ao, "\tKnown") ; break ;
 	    }
 	}
       if (gx->hasIntronShared)
@@ -12613,7 +12612,7 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
       if (gx->hasRefSeqAv)
 	{
 	  if (gx->isINTRON && gc->isIntron)
-	    aceOutf (ao, "\t%d\t%d", gt->intronRefSeq, gt->intronAv) ;
+	    aceOutf (ao, "\t%d", gt->intronAv) ;
 	}
       if (gx->hasCapture)
 	{

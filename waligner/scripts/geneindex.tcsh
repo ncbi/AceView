@@ -52,6 +52,7 @@ if ($phase == m3aH) goto phasem3aH
 if ($phase == m3bH) goto phasem3bH
 if ($phase == g4) goto phaseg4
 if ($phase == g4sp) goto phaseg4sp
+if ($phase == g4sp) goto phaseg4sp
 if ($phase == gsnp4) goto phasegsnp4
 if ($phase == m4) goto phasem4
 if ($phase == m4H) goto phasem4H
@@ -919,6 +920,7 @@ echo "phase $phase $mySeaLevel"
 phaseklst4:
 phaser2g4:
 phaseg4:
+phaseg4sp:
 phasegsnp4:
 phasem4:
 phasem4H:
@@ -999,6 +1001,7 @@ if (1) then
   if ($phase == klst4 ) set GM=Kallisto
   if ($phase == r2g4 ) set GM=r2g
   if ($phase == snp4) set GM=SNP
+  if ($phase == g4sp) set GM=GENESP
   if ($phase == gsnp4) set GM=PROTEIN_CHANGING_SNP_PER_GENE
   if ($phase == m4)   set GM=MRNA
   if ($phase == m4H)  set GM=MRNAH
@@ -1022,16 +1025,19 @@ set chrom=""
   if ($phase == ii4) cat tmp/INTRON_DB/$chrom/d5.info.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 # export the general METADATA.ace
-  if (($GM == GENE || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if (($GM == GENE || $GM == GENESP || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if (($phase == m4 || $phase == m4H) && -e tmp/METADATA/$target.MRNA.info.ace) cat tmp/METADATA/$target.MRNA.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
   if ( -e TARGET/GENES/$target.gene.ace) cat  TARGET/GENES/$target.gene.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
   if ( $phase == g4 && -e TARGET/GENES/$target.gene2geneid.ace) cat TARGET/GENES/$target.gene2geneid.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ( $phase == g4 && -e tmp/METADATA/$MAGIC.$target.captured_genes.ace) cat  tmp/METADATA/$MAGIC.$target.captured_genes.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ( $phase == g4sp && -e TARGET/GENES/$target.gene2geneid.ace) cat TARGET/GENES/$target.gene2geneid.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ( $phase == g4sp && -e tmp/METADATA/$MAGIC.$target.captured_genes.ace) cat  tmp/METADATA/$MAGIC.$target.captured_genes.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   
   # if ( $target == RefSeq && -e TARGET/GENES/RefSeq.gene_model.ace) cat  TARGET/GENES/RefSeq.gene_model.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == g4 && -e TARGET/GENES/$target.gene2nm_id.ace) cat  TARGET/GENES/$target.gene2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == g4sp && -e TARGET/GENES/$target.gene2nm_id.ace) cat  TARGET/GENES/$target.gene2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == m4H && -e TARGET/MRNAS/$target.transcript2nm_id.ace) cat TARGET/MRNAS/$target.transcript2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 
@@ -1193,8 +1199,9 @@ if ($ok == 0) continue
    endif
 
    if ($phase == g4 && ! -e tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace) then 
+     if (-e tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace) \rm tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace
              # if case 2 exist do not retry by using the OTHER_RUNS symbolic link below
-     foreach run (`cat MetaDB/$MAGIC/RunsList`)
+     foreach run (`cat MetaDB/$MAGIC/RunsList | grep RNA_Total_A_4`)
          if (-e  tmp/GENERUNS/$run/$run.SpikeIn.GENE.$uu.geneSupport.ace.gz) then
            gunzip -c  tmp/GENERUNS/$run/$run.SpikeIn.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace
          endif
@@ -1204,6 +1211,23 @@ if ($ok == 0) continue
          endif
          if (-e  tmp/GENEINDEX/OTHER_RUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then
            gunzip -c  tmp/GENEINDEX/OTHER_RUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace
+         endif
+     end
+   endif
+
+   if ($phase == g4sp && ! -e tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace) then 
+     if (-e tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace) \rm tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+             # if case 2 exist do not retry by using the OTHER_RUNS symbolic link below
+     foreach run (`cat MetaDB/$MAGIC/RunsList `)
+         set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
+         if ($long == 1) then
+           if (-e  tmp/SPONGE/$run/$target.1.$uu.ns.1) then
+             cat tmp/SPONGE/$run/$target.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",$3,run,$11/100,$11/100,$11/1000);}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+           endif
+         else
+           if (-e  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then
+             gunzip -c  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+           endif
          endif
      end
    endif
@@ -1264,7 +1288,7 @@ echo "geneindex.tcsh7: phase=$phase GM=$GM target=$target"
 #cat tmp/GENEINDEX/Results/testA2.introns.INTRON.u.testA2.score.genes.profiles.txt  | grep 9__33988970_33986836
 
 
-if ($phase == g4 || $phase == gsnp4 ||  $phase == ma4  || $phase == snp4  || $phase == r2g4 || $phase =~ SF*) then
+if ($phase == g4 || $phase == g4sp || $phase == gsnp4 ||  $phase == ma4  || $phase == snp4  || $phase == r2g4 || $phase =~ SF*) then
 
   set myace=JUNK1209983485    
   if ($phase == r2g4 && -e tmp/GENEINDEX/$MAGIC.$target.r2g.$uu.ace) then

@@ -85,7 +85,7 @@ static void powerSum (void)
   int i, k ;
   double ii, ss[12] ;
   int N = 200000 ;
-  int a, b, c ;
+  int a, b, c, d, e ;
   BOOL ok, done ;
 
   memset (ss, 0, sizeof (ss)) ;
@@ -133,11 +133,11 @@ static void powerSum (void)
     printf ("Failed  k=%d a=%d N=%d\n", k, a, N) ;
 
   printf ("\n\nTEST  sum (n^2)\n") ;
-  N = 3 ;
+  N = 10 ;
   memset (ss, 0, sizeof (ss)) ;
-  for (a = 0, done = FALSE ; !done && a <= 3; a++)
-    for (b = 1 ; !done && b <= 3 ; b++)
-      for (c = 0; !done && c <= 3 ; c++)
+  for (a = 0, done = FALSE ; !done && a <= 6; a++)
+    for (b = 1 ; !done && b <= 6 ; b++)
+      for (c = 0; !done && c <= 6 ; c++)
     {
       int s = 0 ;
       for (i=0, ok = TRUE ; ok && i < N ; i++)
@@ -153,14 +153,61 @@ static void powerSum (void)
 	      s2 = i * (i+a) * (b * i + c) ;
 	      sm = s2 / ((a+1)*(b+c)) ;   
 	      printf ("test k=%d a=%d b=%d c=%d i=%d, s=%d sm=%d s2=%d\n", k, a, b, c, i, s, sm, s2) ;
-	      if (b * (a+1) * (c+b) * s != s2)
+	      if ( (a+1) * (c+b) * s != s2)
 		ok = FALSE ;
 	    }
 	}
-      done = ok ;
+      if (ok)
+	{
+	  done = ok ;
+	  goto done2 ;
+	  break ;
+	}
     }
+ done2:
   if (done)
-    printf ("Success: k=%d a=%d N=%d\n", k, a, N) ;
+    printf ("Success: k=%d a=%d b=%d c=%d N=%d\n", k, a, b, c, N) ;
+  else
+    printf ("Failed  k=%d a=%d N=%d\n", k, a, N) ;
+
+
+  printf ("\n\nTEST  sum (n^3)\n") ;
+  N = 10 ;
+  memset (ss, 0, sizeof (ss)) ;
+  for (a = 0, done = FALSE ; !done && a <= 6; a++)
+    for (b = 1 ; !done && b <= 6 ; b++)
+      for (c = 0; !done && c <= 6 ; c++)
+	for (d = 1 ; !done && d <= 6 ; d++)
+	  for (e = 0; !done && e <= 6 ; e++)
+	    {
+	      int s = 0 ;
+	      for (i=0, ok = TRUE ; ok && i < N ; i++)
+		{
+		  ii = 1 ;
+		  for (k = 1 ; k <= 3 ; k++)	
+		    ii *= i ;
+		  if (1)
+		    {
+		      int s2, sm ;
+	      
+		      s += ii ;
+		      s2 = i * (i+a) * (b * i + c) * (d * i + e) ;
+		      sm = s2 / ((a+1)*(b+c))*(d + e) ;   
+		      printf ("test k=%d a=%d b=%d c=%d d=%d e=%d  i=%d, s=%d sm=%d s2=%d\n", k, a, b, c, d, e,  i, s, sm, s2) ;
+		      if ( (a+1) * (c+b) * (d + e) * s != s2)
+			ok = FALSE ;
+		    }
+		}
+      if (ok)
+	{
+	  done = ok ;
+	  goto done3 ;
+	  break ;
+	}
+    }
+ done3:
+  if (done)
+    printf ("Success: k=%d a=%d b=%d c=%d d=%d e=%d N=%d\n", k, a, b, c,d, e,  N) ;
   else
     printf ("Failed  k=%d a=%d N=%d\n", k, a, N) ;
 
@@ -519,7 +566,7 @@ static double nicePrintFraction (const char *prefix, double x, const char *suffi
     printf ("%.0f", s*x) ;
   else
     for (i = 2 ; i <= 720 ; i++)
-      if (niceInt (10000*i*x) == 10000 * niceInt (i*x))
+      if (niceInt (1000*i*x) == 1000 * niceInt (i*x))
 	{
 	  int y = i * x + .1 ;
 	  printf ("%d/%d", s*y, i) ;
@@ -3309,7 +3356,7 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
   int u = 1 ; 
-  int X = 1 ; /* 1 */
+  int X = 0 ; /* 1 */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigB (mu) ;
@@ -3325,7 +3372,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
   int u = 1 ;
-  int X = -1 ; /* -1 */ ;
+  int X = 0 ; /* -1 */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigma (mu) ;
@@ -5434,6 +5481,9 @@ static POLYNOME Z3_A_BB_B__psiLoopL (void)
 
   PP = dimIntegral (PP) ;
   if (0) showPol (PP) ;
+  PP = expand(PP) ;
+  PP = reduceIndices (PP) ;
+  if (0) showPol (PP) ;
   printf ("# trace the pauli matrix :\n ") ;
   PP = pauliTrace (PP) ;
   if (0) showPol (PP) ;
@@ -5458,6 +5508,13 @@ static POLYNOME Z3_A_BB_B__psiLoopR (void)
   char d = newDummyIndex () ;
   char e = newDummyIndex () ;
 
+  POLYNOME p0 = newSigma (a) ;
+  strcpy (p0->tt.sigma, "abcdefdh") ;
+  showPol (p0) ;
+  p0 = expand(p0) ;
+  showPol (p0) ;
+
+
   /* set q == 0 */
   POLYNOME p10 = newScalar (-1) ; /* Fermion loop */
   POLYNOME p11 = prop_PsiRB_PsiR (0) ;   /* (1/(k)^2 */ 
@@ -5465,7 +5522,7 @@ static POLYNOME Z3_A_BB_B__psiLoopR (void)
   POLYNOME p13 = prop_PsiLB_PsiL (2) ;   /* (1/(k+p+q)^2 */
   POLYNOME p14 = vertex_B_PsiR_PsiLB (b,c) ;
   POLYNOME p15 = prop_PsiRB_PsiR (1) ;   /* (1/(k+p)^2 */
-  POLYNOME p16 = vertex_A_PsiL_PsiLB (a) ;
+  POLYNOME p16 = vertex_A_PsiR_PsiRB (a) ;
   
   POLYNOME pppP[] = {p10, p11,p12,p13,p14,p15,p16,0} ;
 
@@ -5474,8 +5531,14 @@ static POLYNOME Z3_A_BB_B__psiLoopR (void)
   printf ("############# Z3 A B HB with psi loop L\n") ;
   showPol (PP) ;
 
+  PP = expand(PP) ;
+  if (1) showPol (PP) ;
   PP = dimIntegral (PP) ;
-  if (0) showPol (PP) ;
+  if (1) showPol (PP) ;
+  PP = expand(PP) ;
+  if (1) showPol (PP) ;
+  PP = reduceIndices (PP) ;
+  if (1) showPol (PP) ;
   printf ("# trace the pauli matrix :\n ") ;
   PP = pauliTrace (PP) ;
   if (0) showPol (PP) ;
@@ -6139,17 +6202,17 @@ static BOOL feynmanDiagrams (void)
     {
       firstDummyIndex = 'a' ;
       printf ("============Z3 A HB B psi loop, expect (p+2q)\n") ;
-      if (1) Z3_A_H_HB__psiLoop () ;
+      if (0) Z3_A_H_HB__psiLoop () ;
       
       firstDummyIndex = 'a' ;
       printf ("============Z3 A A A psi loop, expect (2/3) ( g_bc (p+2q) + ... + ... )\n") ;
-      if (1) Z3_A_A_A__psiLoop () ;
+      if (0) Z3_A_A_A__psiLoop () ;
       
       firstDummyIndex = 'a' ;
       printf ("============Z3 A B HB psi loop, expect je sais pas\n") ;
-      if (1) Z3_A_B_HB__psiLoopL () ;
+      if (0) Z3_A_B_HB__psiLoopL () ;
       firstDummyIndex = 'a' ;
-      if (1) Z3_A_B_HB__psiLoopR () ;
+      if (0) Z3_A_B_HB__psiLoopR () ;
       
       firstDummyIndex = 'a' ;
       printf ("============Z3 A BB B psi loop, expect je sais pas\n") ;
