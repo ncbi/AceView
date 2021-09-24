@@ -243,7 +243,6 @@ static void gxAltHistoExport (GX *gx)
   int type, run, runMax = dictMax (gx->runDict) ;
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (gx->outFileName, ".support.tsf", gx->gzo, h) ;
-  ACEOUT ao2 = aceOutCreateToStdout (h) ;
   const char *types[] = {"New", "NewKnownD", "NewKnownA", "NewKnownDA","Known","Known","Known","Known","Known"} ;
 
   aceOutDate (ao, "###", "Number of introns with 1,2,4,8,16... supports in selected groups of runs") ;

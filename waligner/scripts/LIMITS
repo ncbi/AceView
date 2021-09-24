@@ -8,7 +8,8 @@
 ## LIMITS in the project directory created by by the command
 ## MAGIC init [DNA | RNA]
 ## This parameter must never be modified.
-setenv MOLECULE_TYPE RNA
+## the choice is RNA or DNA
+if (! $?MOLECULE_TYPE) setenv MOLECULE_TYPE "RNA"
 
 ##############################################################
 ## 2: Species
@@ -238,7 +239,6 @@ setenv RecoverId 0
 setenv DNAtargets "DNASpikeIn SpikeIn genome"
 setenv RNAtargets " "
 setenv Ttargets " "
-setenv Etargets "av RefSeq"
 
 
 # The best alignments are store in tmp/$COUNTDIR, normally set to tmp/COUNT

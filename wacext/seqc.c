@@ -65,11 +65,18 @@ typedef struct samCountStruct {
     , nPos, nPos1, nPos2
     , errType, errType1, errType2
     , errCount, errCount1, errCount2
-    , spikes, spikes1, spikes2
+    , spikes, spikes1, spikes2, introns
     , aliLn, aliLn1, aliLn2
     , multiAli, multiAli1, multiAli2
     ;
 } SC ;
+
+typedef struct intronStruct { 
+  int chrom, a1, a2, length ;
+  int support ;
+  char feet[6] ;
+  Array tags ;
+} INTRON ;
 
 typedef struct rcStruct { 
   int run ;
@@ -86,13 +93,15 @@ typedef struct samStruct {
   AC_HANDLE h ; BOOL gzi, gzo ;
   const char *inFileName, *outFileName, *title, *fastaFileName ;
   const char *run ;
+  int tagMult, n, NN, count, sam ; 
+
   SC *sc ;
-  BOOL report, merge, aceOut, isSorted, BAM, SAM ;
+  BOOL report, merge, aceOut, isSorted, BAM, SAM, isFastc ;
   DICT *targetDict, *runDict, *tagDict ;
   DICT *eeDict, *spikeDict ;
 
   Array errorsP, sams, dnas, chroms, runs ;
-  ACEIN ai ; ACEOUT ao ; int mult, n, NN, count, sam ; 
+  ACEIN ai ; ACEOUT ao ; 
  } SAM ;
 
 /*************************************************************************************/
@@ -187,7 +196,7 @@ static int samParseFastaFile (SAM *sam)
 /*************************************************************************************/
 /*************************************************************************************/
 
-/* all this SS SSM code is a remnabt from snp.c, we may need it so i do not erase it */
+/* all this SS SSM code is a remnant from snp.c, we may need it so i do not erase it */
 #define NN 32
 typedef struct ssStruct { int pos, count ; short sam, qual, strand ; } SS ;
 
@@ -255,6 +264,19 @@ static DICT *eeDictCreate (SAM *sam)
 } /* eeDictCreate */
 
 /*************************************************************************************/
+/*************************************************************************************/
+
+static int samIntronOrder (const void *va, const void *vb)
+{
+  const INTRON *a = (const INTRON *)va, *b = (const INTRON *)vb ;
+  int n ;
+
+  n = a->chrom - b->chrom ; if (n) return n ;
+  n = a->a1 - b->a1 ; if (n) return n ;
+  n = a->a2 - b->a2 ; if (n) return n ;
+  return 0 ;
+} /* samIntronOrder */
+
 /*************************************************************************************/
 
 static int srsOrder (const void *va, const void *vb)
@@ -339,12 +361,6 @@ static BOOL samSmokeCigar (SAM *sam, SR *sr, BOOL isFirst, BOOL isFirst1, BOOL i
 	  posR += mult ;
 	  break ;
 
-	case 'N': /*  Skipped region from the reference (for mRNA to genome alignment, represents an intron) */
-	  isPerfect = FALSE ;
-	  sc->nIntrons += 1 ;
-          cpR += mult ; /* jfm 10/24/2012 Move forward on the reference */
-	  break ;
-
 	case 'M': /* OUARFFFFF, I can't beleive they are so dumb: as of 2012  M can be a sequence match or mismatch */
 	case '=': /* this should be fixed in the future */
 	case 'X': /* = and X are recent additions to the SAM format, not used by the current the aligners */
@@ -355,6 +371,7 @@ static BOOL samSmokeCigar (SAM *sam, SR *sr, BOOL isFirst, BOOL isFirst1, BOOL i
 	  break ;
 
 
+	case 'N': /*  Skipped region from the reference (for mRNA to genome alignment, represents an intron) */
 	case 'D': /* deletions from the reference */
 	  isPerfect = FALSE ;
 	  /* move forward on the reference */
@@ -364,6 +381,46 @@ static BOOL samSmokeCigar (SAM *sam, SR *sr, BOOL isFirst, BOOL isFirst1, BOOL i
 	  pos = mLength ; /* we are building the mapped reference, so current position is it's length */
 	  if (isReverse)  /* we align on munus strand */
 	    pos = readlen - pos - 1 + 1 ; /* jfm 10/22/2012 use readlen rather than mLength */ 
+
+
+ 	  isPerfect = FALSE ;
+
+	  if (mult > 20)
+	    {
+	      INTRON *iip ;
+	      Array aa = sam->sc->introns ;
+
+	      sc->nIntrons += 1 ;
+	      iip = arrayp (aa, arrayMax (aa), INTRON) ;
+	      iip->chrom = sr->target ;
+	      if (! isReverse)
+		{
+		  iip->a1 = cpR - cpRefDna + sr->pos - 1 ;
+		  iip->a2 = iip->a1 + mult + 1 ;
+		  iip->length = mult ;
+		  iip->feet[0] = dnaDecodeChar[(int)cpR[0]] ;
+		  iip->feet[1] = dnaDecodeChar[(int)cpR[1]] ;
+		  iip->feet[2] = '_' ;
+		  iip->feet[3] = dnaDecodeChar[(int)cpR[mult-2]] ;
+		  iip->feet[4] = dnaDecodeChar[(int)cpR[mult-1]] ;
+		  iip->feet[5] = 0 ;
+		}
+	      else if (1)
+		{
+		  iip->a1 = cpR - cpRefDna + sr->pos - 1 ;
+		  iip->a2 = iip->a1 + mult + 1 ;
+		  iip->length = mult ;
+		  iip->feet[0] = dnaDecodeChar[(int)cpR[0]] ;
+		  iip->feet[1] = dnaDecodeChar[(int)cpR[1]] ;
+		  iip->feet[2] = '_' ;
+		  iip->feet[3] = dnaDecodeChar[(int)cpR[mult-2]] ;
+		  iip->feet[4] = dnaDecodeChar[(int)cpR[mult-1]] ;
+		  iip->feet[5] = 0 ;
+		}
+
+	      iip->length = mult ;
+	      iip->support = 1 ;
+	    }
 
 	  if (1)
 	    {
@@ -618,9 +675,9 @@ static BOOL samSmokeCigar (SAM *sam, SR *sr, BOOL isFirst, BOOL isFirst1, BOOL i
 	  if (isFirst2)
 	    array (sc->nPos2, pos, int)++ ;
 	}
-/*      else if (*cpM != *cpRead && *cpM != '-' && *cpM != N_) */
-        /* jfm 10/31/2012 Only count substitutions when both read and reference are unambiguous bases. (to match the Python version) */
-        else if ( (*cpM != *cpRead) && ( *cpM == A_ || *cpM == T_ || *cpM == C_ || *cpM == G_ ) && ( *cpRead == A_ || *cpRead == T_ || *cpRead == C_ || *cpRead == G_ ))
+      /*      else if (*cpM != *cpRead && *cpM != '-' && *cpM != N_) */
+      /* jfm 10/31/2012 Only count substitutions when both read and reference are unambiguous bases. (to match the Python version) */
+      else if ( (*cpM != *cpRead) && ( *cpM == A_ || *cpM == T_ || *cpM == C_ || *cpM == G_ ) && ( *cpRead == A_ || *cpRead == T_ || *cpRead == C_ || *cpRead == G_ ))
 	{
 	  nErr++ ;
 	  pos = isReverse ? arrayMax(sr->dna) - i - 1 : i;
@@ -971,7 +1028,6 @@ static int samCount (SAM *sam)
 {
   AC_HANDLE h1 = 0, h = ac_new_handle () ;
   ACEIN ai = 0 ;
-  const char *ccp ;
   char cutter ;
   char fragName[1024], mateName[1024] ;
   int ln, nn = 0, nsr = 0 ;
@@ -1009,6 +1065,8 @@ static int samCount (SAM *sam)
   while (aceInCard (ai))
     {
       nn++ ;
+      char *ccp ;
+      int tagMult = 1 ;
 
       /* fragment identifier */
       aceInStep (ai, '\t') ;  ccp = aceInWordCut (ai, "\t", &cutter) ; if (! ccp) continue ;
@@ -1016,6 +1074,21 @@ static int samCount (SAM *sam)
 	continue ;
       isNew = !sr || strcmp (fragName, ccp) ? TRUE : FALSE ;
       strcpy (fragName, ccp) ;
+      if (sam->isFastc) 
+	{
+	  int k = 0 ;
+	  char *cr = ccp + strlen (ccp) - 1 ;
+	  while (*cr != '#' && cr > ccp)
+	    cr-- ;
+	  if (*cr == '#')
+	    {
+	      while (*++cr)
+		{ k *= 10 ; k += (*cr - '0') ; }
+	    }
+	  if (k == 0)
+	    k = 1 ;
+	  tagMult = sam->tagMult = k ;
+	}
       if (isNew)
 	{
 	  if (nsr)
@@ -1035,8 +1108,14 @@ static int samCount (SAM *sam)
       if (*ccp != '*') /* jfm 10/29/2011 Don't lookup reference if it is an asterisk */
         {
           if (! dictFind (sam->targetDict, ccp, &sr->target))
-            messcrash ("Sam file, Line %d, target %s not provided in the target fasta file", nn, ccp) ;
-        }
+	    {
+	      char *cr = ccp + strlen(ccp) - 1 ;
+	      if (*cr == '|')   /* makeBlastDB adds a parasit | at the end of the sequences */
+		*cr = 0 ;
+	      if (! dictFind (sam->targetDict, ccp, &sr->target))
+		messcrash ("Sam file, Line %d, target %s not provided in the target fasta file", nn, ccp) ;
+	    }
+	}
 
       /* genome position 1-based */
       aceInStep (ai, '\t') ; if (! aceInInt(ai, &sr->pos)) continue ;
@@ -1510,6 +1589,44 @@ static int samReport (SAM *sam, const char *run)
 } /* samReport */
 
 /*************************************************************************************/
+static int samIntronExport (SAM *sam, const char *run)
+{
+  int nn = 0, i, j, iMax ;
+  Array aa = sam->sc->introns ;
+  INTRON *iip, *jjp ;
+  iMax = arrayMax (aa) ;
+  if (! iMax)
+    goto done ;
+
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (sam->outFileName, ".introns.tsf", sam->gzo, h) ;
+
+  arraySort (aa, samIntronOrder) ;
+  for (i = 0, iip = arrp (aa, 0, INTRON) ; i < iMax ; i++, iip++)
+    if (iip->support)
+      for (j = i+1, jjp= iip+1 ; j < iMax ; j++, jjp++)
+	{
+	  if (iip->chrom != jjp->chrom ||
+	      iip->a1 != jjp->a1 ||
+	      iip->a2 != jjp->a2
+	      )
+	    break ;
+	  iip->support += jjp->support ;
+	  jjp->support = 0 ;
+	}
+
+  for (i = 0, iip = arrp (aa, 0, INTRON) ; i < iMax ; i++, iip++)
+    if (iip->a1 && iip->support)
+      aceOutf (ao, "%s__%d_%d\t%s\tiit\t%d\t%d\t%s\n"
+	       , dictName (sam->targetDict, iip->chrom)
+	       , iip->a1, iip->a2, sam->run, iip->support, iip->length, iip->feet
+	       ) ;
+  ac_free (h) ;
+ done:
+  return nn ;
+} /* samIntronExport */
+
+/*************************************************************************************/
 /***************************** Public interface **************************************/
 /*************************************************************************************/
 
@@ -1533,6 +1650,7 @@ static void usage (char *message)
 	    "//   --run run_name --fasta f\n"
 	    "//   --count : count the alignments and estimate the quality metrics\n"
 	    "//   -i file : input file, for example a .bam or .sam file\n"
+	    "//   --fastc : reads are in fastc format, use the tag multiplicity\n"
 	    "//   --fasta target.fasta : the target fasta file used to produce the bam file\n"
 	    "//   --BAM | -B : the input is a BAM file, decompress it by calling samtools which must be in the path\n"
 	    "//   --SAM | -S : the input is a SAM file\n"
@@ -1598,6 +1716,8 @@ int main (int argc, const char **argv)
   sc.spikes1 = arrayHandleCreate (256, int, h) ;
   sc.spikes2 = arrayHandleCreate (256, int, h) ;
 
+  sc.introns = arrayHandleCreate (1024, INTRON, h) ;
+
   sc.aliLn = arrayHandleCreate (256, int, h) ;
   sc.aliLn1 = arrayHandleCreate (256, int, h) ;
   sc.aliLn2 = arrayHandleCreate (256, int, h) ;
@@ -1628,6 +1748,7 @@ int main (int argc, const char **argv)
   if (! getCmdLineOption (&argc, argv, "--run", &sam.run))
     getCmdLineOption (&argc, argv, "-r", &sam.run) ;
 
+  sam.isFastc = getCmdLineBool (&argc, argv, "--fastc") ; /* use tag multiplicity */
   sam.count = getCmdLineBool (&argc, argv, "--count") ;
   sam.merge = getCmdLineBool (&argc, argv, "--merge") ;
   sam.aceOut = getCmdLineBool (&argc, argv, "--aceOut") ;
@@ -1656,6 +1777,7 @@ int main (int argc, const char **argv)
     {
       samCount (&sam) ;
       samReport(&sam, sam.run) ;
+      samIntronExport (&sam, sam.run) ;
     }
   else if (sam.merge)
     {

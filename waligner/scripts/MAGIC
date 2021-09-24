@@ -144,11 +144,11 @@ if ("$1" == init) then
     echo "## Please edit the self documented files scripts/submit and scripts/LIMITS for optional choices of configuration"
     echo >> ./LIMITS
 
+    echo "setenv MOLECULE_TYPE $2" >> ./LIMITS
     echo 'source scripts/LIMITS   # this will define basic default parameters' >> ./LIMITS
     echo 'source TARGET/LIMITS    # this will override the default in a species dependant way' >> ./LIMITS
      echo >> ./LIMITS
 
-    echo "setenv MOLECULE_TYPE $2" >> ./LIMITS
     if ($2 == RNA) echo "setenv Strategy RNA_seq" >>  ./LIMITS
     echo >> ./LIMITS
   else
@@ -985,7 +985,7 @@ if (! -e AliArchived) then
   end
   touch  MetaDB/$MAGIC/RunList
   if (-e MetaDB/$MAGIC/RunLaneCount) then 
-    sort -k 2nr MetaDB/$MAGIC/RunLaneCount | cut -f 1 >>  MetaDB/$MAGIC/RunList
+    sort -k 2nr MetaDB/$MAGIC/RunLaneCount | cut -f 1 >  MetaDB/$MAGIC/RunList
   endif
 
   echo -n "" > MetaDB/$MAGIC/LaneList
@@ -2900,6 +2900,16 @@ phasea123MH:
   goto phasea123X
 phasea123X:
 
+if (! -x bin/magicblast) then
+  pushd bin
+  ln -s `which magicblast`
+  popd
+endif
+if (! -x bin/magicblast) then
+  echo "missing program bin/magicblast"
+  exit 1
+endif
+
 if ($useMagicBlast == 1) scripts/a123M.magicblast.tcsh makeDB
 if ($useMagicBlast == 2) scripts/a123MH.matchhits.tcsh makeDB
 
@@ -2962,6 +2972,10 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
 end
 
 goto phaseLoop
+
+phasec2M:
+   scripts/alignAndSelectBest.tcsh CUMUL
+
 
 phased6:
  echo -n "Phase d6:  align on the candidate introns "
@@ -3777,52 +3791,14 @@ phaseii5A:
 
 set GM=GENESP
 \rm toto1
-foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 )
-  set c2=`echo $capt | gawk '{print substr($1,1,1) substr($1,5,1);}'` 
-  set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_AECDB_Profile.score.genes.profiles.txt 
-  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;p=$45;m=$46; if(index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\n",$2,c2,cap,p,m);}' c2=$c2 >> toto1
-end
-
-cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;odd[g,c]=$4;even[g,c]=$5;if ($4>0)ODD[g]+=$4;if ($5>0)EVEN[g]+=$5;}END{printf("# Gene\tCaptured by\tAll Odd\tAll Even");for(c in cc)printf("\t%s",c);for(c in cc)printf("\t%s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f",g,capt[g],ODD[g],EVEN[g]);for(c in cc)printf("\t%.2f",even[g,c]);for(c in cc)printf("\t%.2f",odd[g,c]);}printf ("\n");}' > toto2
-
-
-set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.AECDB.$GM.DegScore.txt
-echo -n "### $toto3 : " > $toto3
-date >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{print}' >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3>0 && $4 == 0)print}'  | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 == 0)print}'  | sort -k 4nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 > 0)print}'   | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($4==0 && $3 == 0)print}' | sort -k 1,1  >> $toto3
-
-\rm toto1
-foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 )
-  set c2=`echo $capt | gawk '{print substr($1,1,1) substr($1,5,1);}'` 
-  set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_AECDB_Profile.score.genes.profiles.txt 
-  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;A=$14;E=$15;C=$16;D=$17;B=$18; if(index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,A,E,C,D,B);}' c2=$c2 capt=$capt >> toto1
-end
-
-cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;A[g,c]=$4;E[g,c]=$5;C[g,c]=$6;D[g,c]=$7;B[g,c]=$8;if ($4>0){AA[g]+=$4;nAA[g]++;}if ($5>0){EE[g]+=$5;nEE[g]++;}if ($6>0){CC[g]+=$6;nCC[g]++;}if ($7>0){DD[g]+=$7;nDD[g]++;}if ($8>0){BB[g]+=$8;nBB[g]++;}}END{printf("# Gene\tCaptured by\tAll A\tAll E\tAll C\tAll D\tAll B");for(c in cc)printf("\tA %s",c);for(c in cc)printf("\tE %s",c);for(c in cc)printf("\tC %s",c);for(c in cc)printf("\tD %s",c);for(c in cc)printf("\tB %s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f",g,capt[g],AA[g]/(nAA[g]+.000001),EE[g]/(nEE[g]+.000001),CC[g]/(nCC[g]+.000001),DD[g]/(nDD[g]+.000001),BB[g]/(nBB[g]+.000001));for(c in cc)printf("\t%.2f",A[g,c]);for(c in cc)printf("\t%.2f",E[g,c]);for(c in cc)printf("\t%.2f",C[g,c]);for(c in cc)printf("\t%.2f",D[g,c]);for(c in cc)printf("\t%.2f",B[g,c]);}printf ("\n");}' > toto2
-
-
-set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.AECDB.$GM.Expression.txt
-echo -n "### $toto3 : " > $toto3
-date >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{print}' >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3>$7)print}'  | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3<$7)print}'  | sort -k 7nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3==$7 && $3>0)print}'   | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3==$7 && $3 == 0)print}' | sort -k 1,1  >> $toto3
-
-\rm toto1
 foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3  ROCR1 ROCR2 RNA_PolyA RNA_Total Nanopore.titr_AGLR2 Nanopore.titr_ROCR3 PacBio2.titr.ccs3_AGLR2 PacBio2.titr.ccs3_ROCR3)
   set c2=`echo $capt | gawk '{n=split($1,aa,"_");print substr(aa[n],1,1) substr(aa[n],5,1);}'` 
   echo $capt $c2
   set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_ACB_Profile.score.genes.profiles.txt
-  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;p=$29;m=$30; if(c2 != "PA" && c2 != "Tl" && index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,p,m);}' c2=$c2 capt=$capt >> toto1
+  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;p=$29;m=$30; if(c2 != "PA" && c2 != "Tl" && index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,p,m);}' c2=$c2 capt=$capt  | sed -e 's/NA://g' -e 's/NE://g' >> toto1
 end
 
-cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;odd[g,c]=$4;even[g,c]=$5;if ($4>0)ODD[g]+=$4;if ($5>0)EVEN[g]+=$5;}END{printf("# Gene\tCaptured by\tAll Odd\tAll Even");for(c in cc)printf("\t%s",c);for(c in cc)printf("\t%s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f",g,capt[g],ODD[g],EVEN[g]);for(c in cc)printf("\t%.2f",even[g,c]);for(c in cc)printf("\t%.2f",odd[g,c]);}printf ("\n");}' > toto2
+cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;odd[g,c]=$4;even[g,c]=$5;if ($4>0)ODD[g]+=$4;if ($5>0)EVEN[g]+=$5;}END{printf("# Gene\tCaptured by\tAll Odd B>A\tAll Even A>B");for(c in cc)printf("\t%s",c);for(c in cc)printf("\t%s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f",g,capt[g],ODD[g],EVEN[g]);for(c in cc)printf("\t%.2f",even[g,c]);for(c in cc)printf("\t%.2f",odd[g,c]);}printf ("\n");}' > toto2
 
 
 set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.ACB.$GM.DegScore.txt
@@ -3834,25 +3810,68 @@ cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 == 0)print}'  | sort -k 4nr 
 cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 > 0)print}'   | sort -k 3nr  >> $toto3
 cat toto2 | gawk -F '\t' '/^#/{next;}{if($4==0 && $3 == 0)print}' | sort -k 1,1  >> $toto3
 
+set toto3a=$toto3
 
+
+\rm toto1
+foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 )
+  set c2=`echo $capt | gawk '{print substr($1,1,1) substr($1,5,1);}'` 
+  set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_AECDB_Profile.score.genes.profiles.txt 
+  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;A=$14;E=$15;C=$16;D=$17;B=$18;if(index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,A,E,C,D,B);}' c2=$c2 capt=$capt  | sed -e 's/NA://g' -e 's/NE://g' >> toto1
+end
+
+cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;A[g,c]=$4;E[g,c]=$5;C[g,c]=$6;D[g,c]=$7;B[g,c]=$8;if ($4>0){AA[g]+=$4;nAA[g]++;}if ($5>0){EE[g]+=$5;nEE[g]++;}if ($6>0){CC[g]+=$6;nCC[g]++;}if ($7>0){DD[g]+=$7;nDD[g]++;}if ($8>0){BB[g]+=$8;nBB[g]++;}}END{printf("# Gene\tCaptured by\tAll A\tAll E\tAll C\tAll D\tAll B");for(c in cc)printf("\tA %s",c);for(c in cc)printf("\tE %s",c);for(c in cc)printf("\tC %s",c);for(c in cc)printf("\tD %s",c);for(c in cc)printf("\tB %s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f",g,capt[g],AA[g]/(nAA[g]+.000001),EE[g]/(nEE[g]+.000001),CC[g]/(nCC[g]+.000001),DD[g]/(nDD[g]+.000001),BB[g]/(nBB[g]+.000001));for(c in cc)printf("\t%.2f",A[g,c]);for(c in cc)printf("\t%.2f",E[g,c]);for(c in cc)printf("\t%.2f",C[g,c]);for(c in cc)printf("\t%.2f",D[g,c]);for(c in cc)printf("\t%.2f",B[g,c]);}printf ("\n");}' > toto2
+
+cat $toto3a ZZZZZ toto2 | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){g=$1;A[g]=$3;B[g]=$4;next;}g=$1;printf("%s\t%s\t%s\t%s",g,$2,A[g],B[g]);for(i=3;i<=NF;i++)printf("\t%s",$i);printf("\n") ;}' > toto22
+set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.AECDB.$GM.Expression.txt
+echo -n "### $toto3 : " > $toto3
+date >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{print}' >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3>$7)print}'  | sort -k 3nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3<$7)print}'  | sort -k 7nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3==$7 && $3>0)print}'   | sort -k 3nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3==$7 && $3 == 0)print}' | sort -k 1,1  >> $toto3
+
+\rm toto1
+foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 )
+  set c2=`echo $capt | gawk '{print substr($1,1,1) substr($1,5,1);}'` 
+  set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_AECDB_Profile.score.genes.profiles.txt 
+  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;p=$45;m=$46; if(index(cap,c2)<1){p=-10;m=-10;}printf("%s\t%s\t%s\t%s\t%s\n",$2,c2,cap,p,m);}' c2=$c2  | sed -e 's/NA://g' -e 's/NE://g' >> toto1
+end
+
+cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;odd[g,c]=$4;even[g,c]=$5;if ($4>0)ODD[g]+=$4;if ($5>0)EVEN[g]+=$5;}END{printf("# Gene\tCaptured by\tAll Odd B>A\tAll Even A>B");for(c in cc)printf("\t%s",c);for(c in cc)printf("\t%s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f",g,capt[g],ODD[g],EVEN[g]);for(c in cc)printf("\t%.2f",even[g,c]);for(c in cc)printf("\t%.2f",odd[g,c]);}printf ("\n");}' > toto2
+
+
+
+set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.AECDB.$GM.DegScore.txt
+echo -n "### $toto3 : " > $toto3
+date >> $toto3
+cat toto2 | gawk -F '\t' '/^#/{print}' >> $toto3
+cat toto2 | gawk -F '\t' '/^#/{next;}{if($3>0 && $4 == 0)print}'  | sort -k 3nr  >> $toto3
+cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 == 0)print}'  | sort -k 4nr  >> $toto3
+cat toto2 | gawk -F '\t' '/^#/{next;}{if($4>0 && $3 > 0)print}'   | sort -k 3nr  >> $toto3
+cat toto2 | gawk -F '\t' '/^#/{next;}{if($4==0 && $3 == 0)print}' | sort -k 1,1  >> $toto3
+
+set toto3a=$toto3
 \rm toto1
 foreach capt (AGLR1 AGLR2 BSPR1 ILMR1 ILMR2 ILMR3  ROCR1 ROCR2 RNA_PolyA RNA_Total Nanopore.titr_AGLR2 Nanopore.titr_ROCR3 PacBio2.titr.ccs3_AGLR2 PacBio2.titr.ccs3_ROCR3)
   set c2=`echo $capt | gawk '{n=split($1,aa,"_");print substr(aa[n],1,1) substr(aa[n],5,1);}'` 
   echo $capt $c2
   set ff=RESULTS/Expression/unique/av/SEQC2.AceView.$GM.A2R2.u."$capt"_ACB_Profile.score.genes.profiles.txt
-  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;A=$14;C=$15;B=$16; if(c2 != "PA" && c2 != "Tl" && index(cap,c2)<1){A=-10;B=-10;C=-10;}printf("%s\t%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,A,C,B);}' c2=$c2 capt=$capt >> toto1
+  cat $ff | gawk -F '\t' '/^#/{next;}{cap=$5;A=$14;C=$15;B=$16; if(c2 != "PA" && c2 != "Tl" && index(cap,c2)<1){A=-10;B=-10;C=-10;}printf("%s\t%s\t%s\t%s\t%s\t%s\n",$2,capt,cap,A,C,B);}' c2=$c2 capt=$capt | sed -e 's/NA://g' -e 's/NE://g'  >> toto1
 end
 
 cat toto1 | gawk '{g=$1;gg[g]=$1;capt[g]=$3;c=$2;cc[c]=1;A[g,c]=$4;C[g,c]=$5;B[g,c]=$6;if ($4>0){AA[g]+=$4;nAA[g]++;}if ($5>0){CC[g]+=$5;nCC[g]++;}if ($6>0){BB[g]+=$6;nBB[g]++;}}END{printf("# Gene\tCaptured by\tAll A\tAll C\tAll B");for(c in cc)printf("\tA %s",c);for(c in cc)printf("\tC %s",c);for(c in cc)printf("\tB %s",c);for (g in gg) {printf("\n%s\t%s\t%.2f\t%.2f\t%.2f",g,capt[g],AA[g]/(nAA[g]+.000001),CC[g]/(nCC[g]+.000001),BB[g]/(nBB[g]+.000001));for(c in cc)printf("\t%.2f",A[g,c]);for(c in cc)printf("\t%.2f",C[g,c]);for(c in cc)printf("\t%.2f",B[g,c]);}printf ("\n");}' > toto2
 
+cat $toto3a ZZZZZ toto2 | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){g=$1;A[g]=$3;B[g]=$4;next;}g=$1;printf("%s\t%s\t%s\t%s",g,$2,A[g],B[g]);for(i=3;i<=NF;i++)printf("\t%s",$i);printf("\n") ;}' > toto22
 set toto3=RESULTS/Expression/unique/av/SEQC2.A2R2.ACB.$GM.Expression.txt
 echo -n "### $toto3 : " > $toto3
 date >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{print}' >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3>$5)print}'  | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3<$5)print}'  | sort -k 5nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3==$5 && $3>0)print}'   | sort -k 3nr  >> $toto3
-cat toto2 | gawk -F '\t' '/^#/{next;}{if($3==$5 && $3 == 0)print}' | sort -k 1,1  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{print}' >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3>$5)print}'  | sort -k 3nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3<$5)print}'  | sort -k 5nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3==$5 && $3>0)print}'   | sort -k 3nr  >> $toto3
+cat toto22 | gawk -F '\t' '/^#/{next;}{if($3==$5 && $3 == 0)print}' | sort -k 1,1  >> $toto3
 
 goto phaseLoop
 

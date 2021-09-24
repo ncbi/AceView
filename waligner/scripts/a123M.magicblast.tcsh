@@ -11,13 +11,16 @@ if (1 && $phase == makeDB) then
   if (! -d BLASTDB) mkdir BLASTDB
 
   foreach target ($RNAtargets  $DNAtargets)
+    if ($target == gdecoy) continue
     set ff=$species.$target
     if (-e Targets/$ff.fasta.gz && ! -e BLASTDB/$ff.nsq) then
       gunzip -c Targets/$ff.fasta.gz | gawk '/^>/{split($1,aa,"|");ok=0;if(length(aa[1])<8 && length(aa[1])+length(aa[2])<47){ok=1;print aa[1]"|"aa[2];ok=1;next;}if(length(aa[1])<48){ok=1;print aa[1];}next;}{gsub("-","n",$0);if(ok==1)print;}' > BLASTDB/$ff
       pushd BLASTDB
+        echo "makeblastdb -in $ff -dbtype nucl -parse_seqids #target=$target"
         makeblastdb -in $ff -dbtype nucl -parse_seqids
         if ($target == genome) then
-          dna2dna -decoy -i $ff.fasta.gz -O fasta | gawk '/^>/{split($1,aa,"|");ok=0;if(length(aa[1])<48){ok=1;print aa[1];}next;}{gsub("-","n",$0);if(ok==1)print;}' > $species.gdecoy
+          dna2dna -decoy -i $ff -O fasta | gawk '/^>/{split($1,aa,"|");ok=0;if(length(aa[1])<48){ok=1;print aa[1];}next;}{gsub("-","n",$0);if(ok==1)print;}' > $species.gdecoy
+          echo "makeblastdb -in  $species.gdecoy -dbtype nucl -parse_seqids"
           makeblastdb -in  $species.gdecoy -dbtype nucl -parse_seqids
           \rm $species.gdecoy
         endif
@@ -55,17 +58,17 @@ foreach target ($RNAtargets)
     set subject="-db  TARGET/BLASTDB/$species.$target"
   endif
 
-  if (-e  tmp/MAGICBLAST/$lane.$target.txt) continue
-  if (-e  tmp/MAGICBLAST/$lane.$target.txt.gz) continue
-  echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.txt.gz -outfmt tabular -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1"
+# -outfmt tabular
+  if (-e  tmp/MAGICBLAST/$lane.$target.sam) continue
+  if (-e  tmp/MAGICBLAST/$lane.$target.sam.gz) continue
+  echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz  -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1"
        echo -n "$target\tStart\t"
        date
        echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-       (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.txt.gz -outfmt tabular -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
+       (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz  -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
        echo -n "$target\tEnd\t"
        date
-       ls -ls tmp/MAGICBLAST/$lane.$target.txt.gz 
-       
+       ls -ls tmp/MAGICBLAST/$lane.$target.sam.gz       
 end
 
 foreach target ($DNAtargets)
@@ -80,15 +83,15 @@ foreach target ($DNAtargets)
 # exemple de sortie de ./bin/time
 # 65.28user 7.82system 1:13.40elapsed 99%CPU (0avgtext+0avgdata 1933504maxresident)k
   
- if (! -e  tmp/MAGICBLAST/$lane.$target.txt && ! -e  tmp/MAGICBLAST/$lane.$target.txt.gz) then
-    echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.txt.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1" 
+ if (! -e  tmp/MAGICBLAST/$lane.$target.sam && ! -e  tmp/MAGICBLAST/$lane.$target.sam.gz) then
+    echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1" 
          echo -n "$target\tStart\t"
          date
          echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-         (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.txt.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
+         (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
          echo -n "$target\tEnd\t"
 	 date
-         ls -ls tmp/MAGICBLAST/$lane.$target.txt.gz 
+         ls -ls tmp/MAGICBLAST/$lane.$target.sam.gz
  endif
 
 # ATTENTION, we assume that the run is stranded plus

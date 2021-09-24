@@ -319,7 +319,7 @@ foreach target ($allRNAtargets)
     cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt |   gawk -F '\t' '/^#/{next;}{m=$1;chr=$2;ln=$3;gc=$4;g=$5;gid=$6;if(length(m)<1)next;printf("mRNA \"%s\"\nLength %d\n",m,ln);if(gc+0>0)printf("GC_percent %d\n",gc);k1=split(chr,aa,":");k2=split(aa[2],bb,"-");if(k1==2 && k2==2)printf("IntMap %s %s %s\n",aa[1],bb[1],bb[2]);if(length(g)>1)printf("Gene \"%s\"\n",g);if(length(gid)>1)printf("GeneId \"%s\"\n",gid);printf("\n");}' >  tmp/METADATA/$target.MRNA.ln.ace
 
   else
-    echo "---- FATAL ERROR missing file tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt OR tmp/METADATA/gtf.$target.mrna2intMap.txt"
+    echo "---- FATAL ERROR XXX $allRNAtargets YYY missing file tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt OR tmp/METADATA/gtf.$target.mrna2intMap.txt"
     goto done
   endif
 

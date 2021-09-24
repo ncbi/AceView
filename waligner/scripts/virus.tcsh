@@ -289,6 +289,7 @@ cat tmp/vir2.high.1 tmp/vir2.mid.1 tmp/vir2.low.1 > RESULTS/Microbiome/$MAGIC.vi
 # NOT ADDITIVE does not work fro Sp(ecies)_group cat tmp/vir2.high.2 tmp/vir2.mid.2 tmp/vir2.low.2 > RESULTS/Microbiome/$MAGIC.virus_bacteria.coverage_per_target.HighMidLowSimilarity.txt
 
 \rm tmp/vir2.high.[0-2] tmp/vir2.mid.[0-2] tmp/vir2.low.[0-2]
+\rm tmp/vir2.high.[0-2].* tmp/vir2.mid.[0-2].* tmp/vir2.low.[0-2].*
 
 ######## create a .ace file : Ali->High_genes Virus/bacteria counting the 5 bests
   set toto4=tmp/VIRUS/$MAGIC.virus_bacteria.high_genes.ace

@@ -25,11 +25,11 @@ foreach lane (`cat Fastc/$run/LaneList`)
 end
 
 # if all lanes are present prepare the run report
-if ($ok == 1) then
+if ($ok == 1 && -e scripts/aliqc.pyZZZ) then
 
   # grab the number of reads to be aligned
   set nr=`cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali/{ok=0;gsub(/\"/,"",$2);if($2==r)ok=1;next;}{if(ok<1)next;}/^Accepted/{nr=$4;next;}END{print 0+nr;}' r=$run`
-  # synthetize the s.eqc.tsv stats of the whole run 
+  # synthetize the seqc.tsv stats of the whole run 
   cat  tmp/$MAGIC_COUNT_DIR/$run/tsv2 | scripts/aliqc.py -m -r $run..magic -o tmp/$MAGIC_COUNT_DIR/$run --nreads $nr
 
 endif
@@ -87,6 +87,7 @@ foreach prefix (f f1 f2 f3)
 end
 sort  $toto.hits1 >  $toto.hits
 cat $toto.hits |  gawk -F '\t' '{z = $1  ; if($3<1)next;  n=$4+$5; namb = $6 ; if (n && $2 != "ZZZ0_SpikeIn") printf ("Stranding %s %.3f  %d plus %d minus %d ambiguous\n", $2, 100 * $4/n, $4, $5, namb); }'  >>  $toto.ace
+
 \rm    $toto.hits1
 
 # any hits
@@ -179,6 +180,7 @@ endif
 #######  finalize
 
 echo ' ' >> $toto.ace
+
 
 cat $toto.ace | gawk -f scripts/c2.left_blank.awk run=$run > $toto.left_blank.ace
 cat  $toto.left_blank.ace >> $toto.ace
