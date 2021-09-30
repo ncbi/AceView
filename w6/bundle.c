@@ -496,7 +496,7 @@ static void bundleExport (void)
   memset(buf, 0, 130) ;
   
   if (*bundle->mot){
-    strncpy(buf, "*", 1) ;
+    strcpy(buf, "*") ;
     strcat (buf, bundle->mot) ;
     strcat (buf, "*") ; 
     for (cp = buf ; *cp ; cp++) if (*cp == 'n') *cp = '?' ;

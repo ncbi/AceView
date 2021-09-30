@@ -247,7 +247,7 @@ static void forestColor (FOREST  forest)
 	  i = strlen (forest->mot) ;
 	  if (i > 1000) 
 	    invokeDebugger() ;
-	  strncpy(buf, "*", 1) ;
+	  strcpy(buf, "*") ;
 	  strcat (buf, forest->mot) ;
 	  strcat (buf, "*") ;
 	}
