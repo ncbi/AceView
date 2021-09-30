@@ -88,7 +88,7 @@ static void tttGetWinningSignatures (TTT *ttt)
       ttt->winningSignature[i] = s ;
     }
   return ;
-}
+} /* */
 
 /**********************************************************************/
 /* construct the 3^9 configs and their associated data 
