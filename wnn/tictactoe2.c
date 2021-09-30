@@ -79,10 +79,10 @@ static void tttGetWinningSignatures (TTT *ttt)
       } ;
   int i,j ;
   
-  for (i = 0 ; i < NSIG ; i++)
+  for (i = 0 ; i < 9 ; i++)
     {
       int s = 0 ;
-      for (j = 0 ; j < 8 ; j++)
+      for (j = 0 ; j < 9 ; j++)
 	if (ww[9*i + j])
 	  s |= (1<<j) ;
       ttt->winningSignature[i] = s ;
