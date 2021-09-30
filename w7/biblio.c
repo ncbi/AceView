@@ -920,8 +920,8 @@ static void biblioDoReDraw (BIBLIO biblio)
 	}
 	biblio->graphWidth = graph_width ;
 	biblio->graphHeight = graph_height ;
-	memset(buf, 0, 200) ;
-	memset(mot, 0, 200) ;
+	memset(buf, 0, 400) ;
+	memset(mot, 0, 400) ;
 	biblio->fini = 0 ;
 	biblio->firstBox = 0 ;
 	line = top ;
@@ -937,8 +937,9 @@ static void biblioDoReDraw (BIBLIO biblio)
 	if (*biblio->mot)
 		{
 			length = strlen (biblio->mot) ;
-			strncpy (buf, "*", 1);
-			strcat (buf, biblio->mot) ;
+			strcpy (buf, "*");
+			if (length < 395)
+			  strcat (buf, biblio->mot) ;
       strcat (buf, "*") ;
     }
   if (biblio->width !=  graph_width - 5)
