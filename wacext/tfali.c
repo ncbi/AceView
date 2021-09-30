@@ -74,7 +74,7 @@ static void tfaIndexOneSeg (TFA *tfa, Array wordCount, char *cp0, int ln, BitSet
   int i ;
   int w = tfa->wordSize ;
   int iMax = ln - w ;
-  long int ww ;
+  long int ww = 0 ;
   long int mask = (1 << 2*w) - 1 ;
   char *cp ;  
 

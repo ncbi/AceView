@@ -125,7 +125,7 @@ static void thMakeHistos (TH *th)
       STATS *s = arrayp (th->stats, col, STATS) ;
       BigArray histo = s->histo ;
       int row, rowZero, rows = aa ? arrayMax (aa) : 0 ;
-      double dz, zmin, zmax, zcumul = 0, zcumul2 = 0 ;
+      double dz, zmin = 0, zmax = 0, zcumul = 0, zcumul2 = 0 ;
       double divisor ;
 
       if (! rows || array (isText,  col, int))

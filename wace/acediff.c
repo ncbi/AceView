@@ -287,7 +287,7 @@ static BOOL getLine (FILE *in, int *line, Stack obName, Stack data)
 
 static void processDiff (FILE *inA, FILE *inB, FILE *out)
 {
-  int	lineA, lineB, cmpClass, cmpData ;
+  int	lineA, lineB, cmpClass, cmpData = 0 ;
   BOOL  isAClass ;  /* 0, if B-class object, 1 if A-class object */
   int   cmpAObj ;   /* 0 if A-objects are equal, 1 else */
   long  posA, posB, lenA, lenB;

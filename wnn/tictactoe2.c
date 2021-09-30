@@ -21,7 +21,7 @@ typedef struct tttState {
 typedef struct tttStruct { 
   AC_HANDLE h ;
   MX wins, onePos, isWin ;
-  short winningSignature[8] ;
+  short winningSignature[9] ;
   TSTATE states[1<<19] ;
   int maxState, nA, nB ;
   int winScore, maxWins, maxPos ;
@@ -296,7 +296,7 @@ static int tttPlayOneMove (TTT *ttt, int jj)
   TSTATE *ts1, *ts = ttt->states + jj ;
   char buf[10] ;
   int v = ts->delta ? -100 : 100 ;
-  float x, bestX ;
+  float x, bestX = 0 ;
 
   if (! strcmp (ts->next, "X wins"))
     {

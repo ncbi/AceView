@@ -499,7 +499,7 @@ char *printFastaseq(FILE *db, Entrynam *rec, int Start, int End)
 */
 void printAnn(FILE *db, Entrynam *rec)
 {
-  static char buff[MAXLINE+1], clean[MAXLINE], pads[10], ichar[10];
+  static char buff[MAXLINE+1], clean[MAXLINE], pads[12], ichar[12];
   int i, mixedSeqstarted, fastaStarted, PDstarted;
 
   fseek(db, rec->ann_offset, 0);
