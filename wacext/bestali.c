@@ -4644,8 +4644,8 @@ static int baCreateAtlas (BA *ba, BOOL getIntrons)
   char buf[1000], tcL ;
   char chromBuf[1000] ;
   char geneBuf[1000] ;
-  char intronBuf[1000] ;
-  char exonBuf[1000] ;
+  char intronBuf[1064] ;
+  char exonBuf[1064] ;
   const char *ccp ;
   MHIT *mp ;
   int ii, nn = 0, x1, x2, y1, y2, a1, a2, b1, b2, mrna, gene, target, target_class ;

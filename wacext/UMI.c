@@ -253,7 +253,7 @@ typedef struct bridgeStruct {
   char buf1[201], buf2[201] ;
 } BRIDGE ;
 
-static void umiAnalyzeSeg (UMI *umi, SEG *seg) ;
+static void umiAnalyzeSeg (const UMI *umi, SEG *seg) ;
 
 /*************************************************************************************/
  
@@ -394,7 +394,7 @@ static void umiShowBrkIndels (Array brkIndels)
 
 /*************************************************************************************/
  
-static Array  umiSeg2Hits (UMI *umi, SEG *seg, AC_HANDLE h0) 
+static Array  umiSeg2Hits (const UMI *umi, SEG *seg, AC_HANDLE h0) 
 {
   int ii, jj, iMax, di ;
   HIT *up ;
@@ -452,7 +452,7 @@ static Array  umiSeg2Hits (UMI *umi, SEG *seg, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* Position segs in the iDown direction */
-static void  umiCombSegPosition (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static void  umiCombSegPosition (const UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   int kk = 0, ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -540,7 +540,7 @@ static void  umiCombSegPosition (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC
 
 /*************************************************************************************/
 /* Comb segs in the iDown direction */
-static BOOL umiCombSeg (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static BOOL umiCombSeg (const UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   AC_HANDLE h = ac_new_handle () ;
   int iMax = arrayMax (hits) ;
@@ -786,7 +786,7 @@ static BOOL umiCombSeg (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h
 
 /*************************************************************************************/
 /* stitches left aligned segs with right aligned segs */
-static void  umiMakeBridge (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
+static void  umiMakeBridge (const UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 {
   BRIDGE *bb ;
   int ii, jj, iMax, jMax ;       
@@ -1035,7 +1035,7 @@ static void  umiMakeBridge (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* fuse identical bridges, add the wild type */
-static void  umiFuseBridges (UMI *umi, SEG *seg, Array hits)
+static void  umiFuseBridges (const UMI *umi, SEG *seg, Array hits)
 {
   int ii, jj, iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
   BRIDGE *bb, *bb0 ;
@@ -1166,7 +1166,7 @@ static void  umiFuseBridges (UMI *umi, SEG *seg, Array hits)
 
 /*************************************************************************************/
 /* count reads supporting all briges */
-static void  umiBridgeSupport (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
+static void  umiBridgeSupport (const UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 {
   AC_HANDLE h = 0 ;
   int ii, iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
@@ -1339,7 +1339,7 @@ static void  umiBridgeSupport (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* set common letters to lower */
-static BOOL  umiBridgeSetUpper (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
+static BOOL  umiBridgeSetUpper (const UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 {
   int i, ii ;
   int iMax = seg->bridges ? arrayMax (seg->bridges) : 0 ;
@@ -1475,7 +1475,7 @@ static BOOL  umiBridgeSetUpper (UMI *umi, SEG *seg, Array hits, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* duplicate the reads so that they come x2->x1 so that we can extend them in prime */
-static void  umiAddReverseSeg (UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
+static void  umiAddReverseSeg (const UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
 {
   int dummy, jj, ii, iMax = arrayMax (hits) ;
   LHIT *up, *vp ;
@@ -1541,7 +1541,7 @@ static void  umiAddReverseSeg (UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
 
 /*************************************************************************************/
 
-static void  umiComplementSeg (UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
+static void  umiComplementSeg (const UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
 {
   int Ln, ln, dummy, ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -1628,7 +1628,7 @@ static void  umiComplementSeg (UMI *umi, SEG *seg, Array hits,AC_HANDLE h0)
 
 /*************************************************************************************/
 
-static void  umiAlignSeg (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
+static void  umiAlignSeg (const UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE h0)
 {
   int ii, iMax = arrayMax (hits) ;
   LHIT *up ;
@@ -1648,14 +1648,14 @@ static void  umiAlignSeg (UMI *umi, SEG *seg, Array hits, BOOL isDown, AC_HANDLE
 			 , 0, up->err, 
 			 3, 8, FALSE, 0
 			 , TRUE) ; /* err was just created and is already set t zero */
-      umi->nErrTrackings++ ; /* approximative, not thread safe */
+      ((UMI*)umi)->nErrTrackings++ ; /* approximative, not thread safe */
     }
   return ;
 } /* umiAlignSeg */
 
 /*************************************************************************************/
  
-static void umiSetSubsegs (UMI *umi, SEG *seg)
+static void umiSetSubsegs (const UMI *umi, SEG *seg)
 {
   AC_HANDLE h = ac_new_handle () ;
   Array subsegs = 0 ;
@@ -1704,7 +1704,7 @@ static void umiSetSubsegs (UMI *umi, SEG *seg)
 
 /*************************************************************************************/
  
-static void umiAnalyzeSeg (UMI *umi, SEG *seg)
+static void umiAnalyzeSeg (const UMI *umi, SEG *seg)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -1737,9 +1737,9 @@ static void umiAnalyzeSeg (UMI *umi, SEG *seg)
 
 /*************************************************************************************/
 
-static void umiAnalyzer (void *vp)
+static void umiAnalyzer (const void *vp)
 {
-  UMI *umi = (UMI *)vp ;
+  const UMI *umi = (const UMI *)vp ;
   int ii ;
 
   while (channelGet (umi->analyzeChan, &ii, int))
@@ -2455,10 +2455,9 @@ static void umiExport (UMI *umi)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void umiGetTargetFasta (void *vp)
+static void umiGetTargetFasta (UMI *umi)
 {
   AC_HANDLE h = ac_new_handle () ;
-  UMI *umi = (UMI *)vp ;
   const char *fNam = umi->targetFileName ;
   ACEIN ai = 0 ;
   int state = 0 ;
@@ -2575,7 +2574,8 @@ static void umiGetTargetFasta (void *vp)
   ac_free (ai) ;
   ac_free (h) ;
   n = 0 ; /* success */
-  channelPut (umi->doneChan, &(umi->t1), int) ;
+  t1 = umi->t1 ;
+  channelPut (umi->doneChan, &(t1), int) ;
 
   return ;
 } /* umiGetTargetFasta */
@@ -2583,7 +2583,7 @@ static void umiGetTargetFasta (void *vp)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static BOOL umiGetOneFastc (UMI *umi, LANE *lane)
+static BOOL umiGetOneFastc (const UMI *umi, LANE *lane)
 {
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 = umi->fastcFile || ! umi->fastcDir ? 0 : 
@@ -2661,7 +2661,7 @@ static BOOL umiGetOneFastc (UMI *umi, LANE *lane)
 
 /*************************************************************************************/
 
-static BOOL umiGetOneHit (UMI *umi, LANE *lane)
+static BOOL umiGetOneHit (const UMI *umi, LANE *lane)
 { 
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 = umi->hitFile ? 0 : hprintf (h, "%s/%s.hits%s"
@@ -2705,11 +2705,6 @@ static BOOL umiGetOneHit (UMI *umi, LANE *lane)
       geneFusions = lane->geneFusions = arrayHandleCreate (1000, GF, lane->h) ;
       fusionHisto = lane->fusionHisto = keySetHandleCreate (lane->h) ;
       geneSupport = lane->geneSupport = keySetHandleCreate (lane->h) ;
-
-      if (tc && !umi->geneDict && !strcmp (tc, "Z_genome"))
-	umi->geneDict = dictHandleCreate (128, umi->h) ;
-      if (! umi->genes)
-	umi->genes = arrayHandleCreate (128, GF, umi->h) ;
     }
   memset (bestTarget_class, 0, sizeof (bestTarget_class)) ;
   oldbuf[0] = 0 ;
@@ -3371,7 +3366,7 @@ static BOOL umiGetOneHit (UMI *umi, LANE *lane)
 
 /*************************************************************************************/
 
-static BOOL umiGetOneSamHit (UMI *umi, LANE *lane)
+static BOOL umiGetOneSamHit (const UMI *umi, LANE *lane)
 { 
   AC_HANDLE h = ac_new_handle () ;
   char *fNam1 =  umi->SAM_file  ? 0 : hprintf (h, "%s/%s.genome.sam%s"
@@ -3580,10 +3575,10 @@ static BOOL umiGetOneSamHit (UMI *umi, LANE *lane)
 
 /*************************************************************************************/
 
-static void umiGetLaneHits (void *vp)
+static void umiGetLaneHits (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  UMI *umi = (UMI *)vp ;
+  const UMI *umi = (const UMI *)vp ;
   int ii ;
   BOOL ok = TRUE ;
   
@@ -3766,6 +3761,9 @@ static void umiGetHits (UMI *umi)
 
   umi->getLaneInChan = channelCreate (iMax, int, h) ;
   umi->getLaneOutChan = channelCreate (iMax, int, h) ;
+
+  umi->geneDict = dictHandleCreate (128, umi->h) ;
+  umi->genes = arrayHandleCreate (128, GF, umi->h) ;
 
   for (ii = 1 ; ii < iMax ; ii++)
     channelPut (umi->getLaneInChan, &ii, int) ;
@@ -4477,7 +4475,8 @@ static void umiInit (UMI *umi)
     umiGetGeneMap (umi) ;
   umiGetLaneList (umi) ;
   wego_max_threads (umi->max_threads) ;
-  wego_go (umiGetTargetFasta, umi, UMI) ;  /* will channelPut (umi->doneChan) */
+  /* wego_go (umiGetTargetFasta, umi, UMI) ;   will channelPut (umi->doneChan) */
+  umiGetTargetFasta (umi) ;  /* will channelPut (umi->doneChan) */
  
   if (! umi->SAM) /* in hit mode we read the errors before we read the genome */
     {
