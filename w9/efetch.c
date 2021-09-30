@@ -78,9 +78,9 @@ void prosite(void)
 int main(int argc, char *argv[])
 {
   FILE        *idx, *db, *actrg, *achit;
-  static char  idxfile[128]="", dbfile[128]="", divfile[128]="", 
-               actrgfile[128]="", achitfile[128]="", dbprefix[32]="";
-  static char *file, customName[128]="";
+  static char  idxfile[192]="", dbfile[192]="", divfile[192]="", 
+               actrgfile[192]="", achitfile[192]="", dbprefix[32]="";
+  static char *file, customName[192]="";
   char         query[32], *tmpstr, *cp, fetchstr[256]; 
   int          optc, pos, i;
   int          Startseq = -1, Endseq = -1;
