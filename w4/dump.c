@@ -52,7 +52,7 @@ static Array doNotDumpKeySet = 0 ;
 static FILE* f = 0 ;
 static Stack s = 0 ;
 DumpFunc dumpFunc[256] ;
-static char dumpDir[DIR_BUFFER_SIZE] = "";         /* use this to choose where to dump too */
+static char dumpDir[DIR_BUFFER_SIZE+1] = "";         /* use this to choose where to dump too */
 
 /*********************************************************/
 
