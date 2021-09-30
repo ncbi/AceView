@@ -79,7 +79,7 @@ static void tttGetWinningSignatures (TTT *ttt)
       } ;
   int i,j ;
   
-  for (i = 0 ; i < 9 ; i++)
+  for (i = 0 ; i < 8 ; i++)
     {
       int s = 0 ;
       for (j = 0 ; j < 9 ; j++)
