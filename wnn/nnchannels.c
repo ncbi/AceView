@@ -23,7 +23,7 @@ typedef struct nn_action {
 
 /**********************************************************************/
 
-static void nnAction (void *vp)
+static void nnAction (const void *vp)
 {
   NN *nn, *nn0 = *(NN **) vp ;
   NN_ACTION a ;
