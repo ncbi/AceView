@@ -74,10 +74,8 @@
 
 #define VERSION "1.1"
 
-/*
 #define MALLOC_CHECK   
 #define ARRAY_CHECK   
-*/
 
 #include "ac.h"
 #include "channel.h"
@@ -2693,7 +2691,6 @@ static void tctDeUnoFuseOneLane (const TCT *tct, int myLane)
 	    }
 	  ii = iiMax = bigArrayMax (deUno) = j + 1 ;
 	}
-      ac_free (lane->h) ;
     }
 }  /* tctDeUnoFuseOneLane */
 
@@ -4015,7 +4012,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
   DICT *dict = lane->cloneDict ;
   DICT *geneDict = tct->geneDict ;
   DICT *targetDict = tct->targetDict ;
-  Array genes ;
+  Array genes = 0 ;
   Array wig = lane->wig ;
   Array hits = lane->hits ;
   KEYSET brks = lane->brks ;
@@ -4038,13 +4035,10 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
   if (tct->makeTest)
     ao = aceOutCreate (tct->makeTest, hprintf (h, ".%d.hits", lane->lane), FALSE, h) ; 
 
-  if (tct->geneFusion)
-    {
-      geneFusions = lane->geneFusions = arrayHandleCreate (1000, GF, lane->h) ;
-      lane->fusionHisto = keySetHandleCreate (lane->h) ;
-      geneSupport = lane->geneSupport = keySetHandleCreate (lane->h) ;
-      genes = lane->genes = arrayHandleCreate (128, GF, tct->h) ;
-    }
+  geneFusions = lane->geneFusions = arrayHandleCreate (1000, GF, lane->h) ;
+  lane->fusionHisto = keySetHandleCreate (lane->h) ;
+  geneSupport = lane->geneSupport = keySetHandleCreate (lane->h) ;
+  genes = lane->genes = arrayHandleCreate (128, GENE, tct->h) ;
 
   memset (bestTarget_class, 0, sizeof (bestTarget_class)) ;
   memset (buf, 0, sizeof (buf)) ;
@@ -4185,7 +4179,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
       aceInStep (ai, '\t') ; aceInInt (ai, &a2) ; b2 = a2 ;
       if (tc && !strcmp (tc, "Z_genome"))
 	{
-	  GENE *ga ;
+	  GENE *ga = 0 ;
 	  dictAdd (geneDict, messprintf("%s__%d", dictName (geneDict, trgt), a1/100000), &gene) ;
 	  ga = arrayp (genes, gene, GENE) ;	
 	  ga->chrom = trgt ;
@@ -5215,7 +5209,7 @@ static void tctFuseLaneHits (TCT *tct)
       if (lane->brkIndels)
 	{
 	  iMax = arrayMax (lane->brkIndels) ;
-	  j =  arrayMax (brkIndels) ;
+	  j =  bigArrayMax (brkIndels) ;
 	  if (iMax)
 	    {
 	      bigArray (brkIndels, j + iMax - 1, BKID).pos = 0 ;
@@ -5957,7 +5951,7 @@ static int tctSnailTrailSlippingIndels (const TCT *tct)
       BKID *b = bigArrp (brkIndels, ii, BKID) ;
       if (b->mult)
 	{
-	  BKID *b1 = arrp (brkIndels, jj, BKID) ;
+	  BKID *b1 = bigArrp (brkIndels, jj, BKID) ;
 	  if (jj < ii)
 	    *b1 = *b ;
 	  jj++ ;
