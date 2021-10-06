@@ -10331,4 +10331,5 @@ please edit once more these signs
     \psi_R = \farx{1}{4} (1 - \chi) (1 - \gamma_5) and  on the next line \psi_L = \frac{1}{4} (1 - \chi) (1 + \gamma_5) \psi_L
   please flip three signs, i wish 
     \psi_R = \farx{1}{4} (1 - \chi) (1 + \gamma_5) and  on the next line \psi_L = \frac{1}{4} (1 + \chi) (1 - \gamma_5)
+
 #endif
