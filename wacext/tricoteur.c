@@ -245,7 +245,9 @@ typedef struct deUnoStruct {
   int tag ;   /* the acedb tag: DelA, A2G ...Multi_deletion 31 */
   int nt, ns ; /* number of supporting tags, distintct sequences  */
   int a1, a2, da ; /* absolute chrom coordinates, da is negative for an insert */
+  int clone, x1, x2 ; /* coordinates of a long insert in its read */
   int insert ; /* offset in lane->deUnoDict: sequence of the insert i.e. atgc or intron feet */
+  BOOL isRead1, isDown ;
 } UNO ;
 
 #define QCMAX 6
@@ -2752,18 +2754,24 @@ static void tctDeUnoExport (TCT *tct)
 		nad >= minSnpCover &&
 		nt * 100 >= minSnpFrequency * nad 
 		)	    
-	      aceOutf (ao, "%s:%s\t%s\ttttiiiittt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n"
-		       , dictName (targetDict, uno->target)
-		       , dictName (deUnoDict, uno->type)
-		       , tct->run
-		       , uno->a1, uno->a2, uno->da
-		       , nt, ns
-		       , nd
-		       , na 
-		       , method
-		       , uno->tag ? dictName (deUnoDict, uno->tag) : "-"
-		       , uno->insert ? dictName (deUnoDict, uno->insert) : "-"
-		       ) ;
+	      {
+		const char *insert = "-" ;
+		
+		if (uno->insert)
+		  insert = dictName (deUnoDict, uno->insert) ;
+		aceOutf (ao, "%s:%s\t%s\ttttiiiittt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n"
+			 , dictName (targetDict, uno->target)
+			 , dictName (deUnoDict, uno->type)
+			 , tct->run
+			 , uno->a1, uno->a2, uno->da
+			 , nt, ns
+			 , nd
+			 , na 
+			 , method
+			 , uno->tag ? dictName (deUnoDict, uno->tag) : "-"
+			 , insert
+			 ) ;
+	      }
 	  }
       if (0) fprintf (stderr, "#3 wig[40]=%d\n", array (wig, 40, int)) ;
     }
@@ -3393,7 +3401,7 @@ static BOOL tctGetOneFastc (const TCT *tct, LANE *lane)
   int state = 0 ;
   DICT *dict = lane->cloneDict ;
   Array clones = lane->clones ;
-  int i, k, n, nn = 0, line = 0 ;
+  int i, k, n = 0, nn = 0, line = 0 ;
   CLONE *clone ;
 
   if (! fNam || ! ai)
@@ -3410,7 +3418,7 @@ static BOOL tctGetOneFastc (const TCT *tct, LANE *lane)
       if (*cp == '>')
 	{
 	  int nCl = 0 ;
-	  state = 0 ;
+	  state = n = 0 ;
 	  if (dictFind (dict, cp+1, &nCl))
 	    {
 	      state = 1 ; 
@@ -4028,6 +4036,9 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
   int minAli = tct->minAli ;
   int minAliPerCent = tct->minAliPerCent ;
   BOOL subJump = FALSE, subSampling = tct->subSampling ? TRUE : FALSE ;
+  char uno3p[50], uno3pOld[50], uno5p[50] ;
+  BOOL needFastc = FALSE ;
+
 
   if (! ai)
     messcrash ("Cannot open lane hits file -targetFileName %s\n", fNam) ;
@@ -4046,6 +4057,10 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
   memset (oldBuf, 0, sizeof (oldBuf)) ;
   memset (bigBuf, 0, sizeof (bigBuf)) ;
   memset (skipBuf, 0, sizeof (skipBuf)) ;
+
+  memset (uno3p, 0, sizeof (uno3p)) ;
+  memset (uno5p, 0, sizeof (uno5p)) ;
+  memset (uno3pOld, 0, sizeof (uno3pOld)) ;
 
   if (t2 == 0)
     t2 = 1 << 30 ;
@@ -4261,6 +4276,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
       hit = arrayp (hits, nHit++, HIT) ;
       hit->lane = lane->lane ;
       hit->clone = nn ;
+      hit->isRead1 = isRead1 ;
       hit->gene = gene ;
       hit->target_class = target_class ;
       hit->target = trgt ;
@@ -4389,12 +4405,12 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			     }
 			   else if (dx < 30)
 			     {
-			       sprintf (tagBuf, "Multi_insertion %d %s", da, buf2) ;
+			       sprintf (tagBuf, "Multi_insertion %d %s", dx, buf2) ;
 			       sprintf (buf, "%d:Ins_%d:%c:%c%s", x, da, dnaDecodeChar[(int)cr[0]], dnaDecodeChar[(int)cr[0]], buf2) ;
 			     }
 			   else
 			     {
-			       sprintf (tagBuf, "Multi_insertion %d %s", da, buf2) ;
+			       sprintf (tagBuf, "Multi_insertion %d %s", dx, buf2) ;
 			       sprintf(buf, "%d:Ins_%d:%c:", x, da, dnaDecodeChar[(int)cr[0]]) ;
 			     }
 			   dictAdd (lane->deUnoDict, buf, &k) ;
@@ -4472,6 +4488,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	 } 
        /* register the significant overhangs */
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* 5p overhang */
+       uno5p[0] = 0 ; if (cp) memcpy (uno5p, cp, 49) ; uno5p[49] = 0 ;
        if (! tct->geneFusion && tct->wantBrks &&
 	   (
 	    (cp && *cp && b1 > t1 && b1 < t2 && *cp == ace_lower (*cp) && strlen (cp) > minOverhang) 
@@ -4494,6 +4511,8 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	     }	   
 	 }
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* 3p overhang */
+       strcpy (uno3pOld, uno3p) ;
+       uno3p[0] = 0 ; if (cp) memcpy (uno3p, cp, 49) ; uno3p[49] = 0 ;
        if (! tct->geneFusion && tct->wantBrks &&
 	   (
 	    (cp && *cp && b2 > t1 && b2 < t2 && *cp == ace_lower (*cp) && strlen (cp) > minOverhang)
@@ -4535,11 +4554,13 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	       hit->isDown == old->isDown &&
 	       hit->isRead1 == old->isRead1 &&
 	       (
+		1 ||
 		(old->a1 < hit->a1 && hit->x1 > old->x1) ||
 		(old->a1 > hit->a1 && hit->x1 < old->x1)
 		)
 	       )
 	     { /* same read */
+	       BOOL isDown = TRUE ;
 	       int a1, a2, b1, b2, x1, x2, y1, y2 ;
 	       if (old->a1 < hit->a1)
 		 { 
@@ -4558,10 +4579,19 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		   x1 = hit->x1 ; x2 = hit->x2 ;
 		 }
 
+	       if (x1 > x2)
+		 isDown = FALSE ;
 	       c1 = a2 ; c2 = b1 ;
-	       dx = y1 - x2 ;
-	       if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
-
+	       if (isDown)
+		 {
+		   dx =  y1 - x2 ;
+		   if (y1 < y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
+		 }
+	       else
+		 {
+		   dx =  -y1 + x2 ;
+		   if (y1 > y2) dx = dx - 1 ; else  dx = -dx - 1 ; 
+		 }
 	       /* clean up x duplications */
 	       
 	       if (b1 > a1)
@@ -4594,10 +4624,20 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	       if (b1 > a2)
 		 {
 		   da-- ;
-		   if (y1 > y2 && (y1 >= x1 - tct->Delta || x2 < y2 + tct->Delta))
-		     da = dx = 0 ;
-		   if (y1 < y2 && (x2 > y2 - tct->Delta || y1 < x1 + tct->Delta))
-		     da = dx = 0 ;
+		   if (isDown)
+		     {
+		       if (y1 > y2 && (y1 >= x1 - tct->Delta || x2 < y2 + tct->Delta))
+			 da = dx = 0 ;
+		       if (y1 < y2 && (x2 > y2 - tct->Delta || y1 < x1 + tct->Delta))
+			 da = dx = 0 ;
+		     }
+		   else
+		     {
+		       if (y1 < y2 && (y1 < x1 + tct->Delta || x2 > y2 - tct->Delta))
+			 da = dx = 0 ;
+		       if (y1 > y2 && (x2 < y2 + tct->Delta || y1 > x1 - tct->Delta))
+			 da = dx = 0 ;
+		     }
 		 }
 	       if (b1 < a1 + tct->Delta || a2 >= b2 -tct->Delta)
 		 da = dx = 0 ;
@@ -4606,7 +4646,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		 { da = a2 - b1 ; dummy = a2 ; a2 = b1 ; b1 = dummy ;  a2-- ; b1 += da + 1 ; }
 
 	       if (dx < 0 && da > -dx)
-		 { a2 += dx ; x2 += dx ; dx = 0 ; da -= dx ; } 
+		 { a2 += dx ; x2 += isDown ? dx : -dx ; dx = 0 ; da -= dx ; } 
 
 	       if (tct->wantBrks)
 		 if (da || dx)
@@ -4658,7 +4698,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     if (da > 100 && a2 < 75 && a2 + protect >= 75)
 		       {
 			 int dd = 75 - a2 ;
-			 a2 += dd ; x2 += dd ; b1 += dd ; y1 += dd ;
+			 a2 += dd ; x2 += isDown ? dd : -dd ; b1 += dd ; y1 += isDown ? dd : -dd ;
 		       }
 		     
 		     if (da)
@@ -4668,7 +4708,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		       }
 		     else if (dx)  /* da = 0 dx < 0 represents a duplication */
 		       {
-			 sprintf (tagBuf, "Multi_insertion %d", da) ;
+			 sprintf (tagBuf, "Multi_insertion %d", dx) ;
 			 sprintf (buf, "%d:Ins_%d:%c:", a1, da, dnaDecodeChar[(int)cr[0]]) ;
 		       }
 		     dictAdd (lane->deUnoDict, buf, &k) ;
@@ -4682,10 +4722,70 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     uno->type = k ;
 		     dictAdd (lane->deUnoDict, tagBuf, &k) ;
 		     uno->tag = k ;
+		     if (dx > 0 && dx < 500 && uno3pOld[0] && strlen (uno3pOld) >= dx)
+		       {
+			 uno3pOld[dx] = 0 ; 
+			 dictAdd (lane->deUnoDict, uno3pOld, &k) ;
+			 uno->insert = k ;
+		       }
+		     else if (dx > 0 && !uno->insert && !uno->clone)
+		       {
+			 needFastc = TRUE ;
+			 uno->isRead1 = hit->isRead1 ;
+			 uno->isDown = isDown ;
+			 if (isDown)
+			   {
+			     uno->x1 = x2 + 1 ;
+			     uno->x2 = y1 - 1 ;
+			   }
+			 else
+			   {
+			     uno->x1 = y1 + 1 ;
+			     uno->x2 = x2 - 1 ;
+			   }
+			 dictAdd (lane->cloneDict, dictName (dict, hit->clone), &uno->clone) ;
+		       }
 		   }	   
 	     }
 	 }
      }
+
+  if (needFastc && (tct->fastcFile || tct->fastcDir))
+    {
+      UNO *uno ;
+      int ii, iiMax = arrayMax (lane->deUno) ;
+      tctGetOneFastc (tct, lane) ;
+
+      for (ii = 0, uno = arrp (lane->deUno, 0, UNO) ; ii < iiMax ; ii++, uno++)
+	if (uno->da < 0 && uno->clone && ! uno->insert)
+	  {
+	    CLONE *clone = arrayp (lane->clones, uno->clone, CLONE) ;
+	    Array dna = uno->isRead1 ? clone->dna1 : clone->dna2 ;
+	    char cc, *cp ;
+
+	    if (dna && arrayMax (dna) > uno->x2)
+	      {
+		int x1 = uno->x1 ;
+		int x2 = uno->x2 ;
+		dna = arrayCopy (dna) ;
+		if (1 && ! uno->isDown)
+		  {
+		    int x0 = x1 ;
+		    reverseComplement (dna)  ;
+		    x1 = arrayMax (dna) - x2 + 1 ;
+		    x2 = arrayMax (dna) - x0 + 1 ;
+		  }
+		dnaDecodeArray (dna) ;
+		cp = arrp (dna, x2, char) ;
+		cc = *cp ;
+		*cp = 0 ;
+		dictAdd (lane->deUnoDict, arrp(dna,x1-1,char), &uno->insert) ;
+		*cp = cc ;
+		arrayDestroy (dna) ;
+	      }
+	  }
+    }
+
 
   /********* fusions ******************/
  if (tct->geneFusion && nHit > 1)
@@ -5099,9 +5199,6 @@ static void tctGetLaneHits (const void *vp)
 	    ok = tctGetOneHit (tct, lane) ;
 	}
 	  
-      if ((tct->fastcFile || tct->fastcDir) && !tct->qc && ! tct->SAM)
-	ok = tctGetOneFastc (tct, lane) ;
-
       channelPut (tct->getLaneOutChan, &ii, int) ;
     }
 
@@ -7431,7 +7528,8 @@ int main (int argc, const char **argv)
   else
     {
       tctInit (&tct) ;
-      tctDeUnoExport (&tct) ;
+      if (tct.wantDeUno)
+	tctDeUnoExport (&tct) ;
 
       tctGetSegs (&tct) ;  
       tctAnalyzeSegs (&tct) ;
