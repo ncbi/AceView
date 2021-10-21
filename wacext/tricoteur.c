@@ -2661,37 +2661,40 @@ static void tctDeUnoFuseOneLane (const TCT *tct, int myLane)
       UNO *vno ;
       int j = 0, jMax = lane->deUno ? arrayMax (lane->deUno) : 0 ;
       ii = bigArrayMax (deUno) ;
-      for (j = 0,  vno = arrp (lane->deUno, 0, UNO) ; j < jMax ; j++, vno++)
+      if (jMax)
 	{
-	  uno = bigArrayp (deUno, ii++, UNO) ;
-	  *uno = *vno ;
-	  if (vno->type)
-	    dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->type), &(uno->type)) ;
-	  if (vno->tag)
-	    dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->tag), &(uno->tag)) ;
-	  if (vno->insert)
-	    dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->insert), &(uno->insert)) ;
-	}
-      bigArraySort (deUno, tctUnoOrder) ;
-      /* keep happy few */
-      ii = bigArrayMax (deUno) ;
-      if (ii)
-	{
-	  long int i, j ;
-	  for (i = j = 0,  uno = vno = bigArrp (deUno, 0, UNO) ; i < ii ; i++, uno++)
+	  for (j = 0,  vno = arrp (lane->deUno, 0, UNO) ; j < jMax ; j++, vno++)
 	    {
-	      if (uno > vno && 
-		  vno->a1 == uno->a1 && vno->a2 == uno->a2 &&
-		  vno->target == uno->target &&
-		  vno->type == uno->type &&
-		  vno->tag == uno->tag &&
-		  vno->insert == uno->insert
-		  )
-		{ vno->nt += uno->nt ; vno->ns += uno->ns ; }
-	      else if (vno < uno)
-		{ j++, vno++ ; if(vno < uno) *vno = *uno ; } 
+	      uno = bigArrayp (deUno, ii++, UNO) ;
+	      *uno = *vno ;
+	      if (vno->type)
+		dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->type), &(uno->type)) ;
+	      if (vno->tag)
+		dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->tag), &(uno->tag)) ;
+	      if (vno->insert)
+		dictAdd (deUnoDict, dictName (lane->deUnoDict, vno->insert), &(uno->insert)) ;
 	    }
-	  ii = iiMax = bigArrayMax (deUno) = j + 1 ;
+	  bigArraySort (deUno, tctUnoOrder) ;
+	  /* keep happy few */
+	  ii = bigArrayMax (deUno) ;
+	  if (ii)
+	    {
+	      long int i, j ;
+	      for (i = j = 0,  uno = vno = bigArrp (deUno, 0, UNO) ; i < ii ; i++, uno++)
+		{
+		  if (uno > vno && 
+		      vno->a1 == uno->a1 && vno->a2 == uno->a2 &&
+		      vno->target == uno->target &&
+		      vno->type == uno->type &&
+		      vno->tag == uno->tag &&
+		      vno->insert == uno->insert
+		      )
+		    { vno->nt += uno->nt ; vno->ns += uno->ns ; }
+		  else if (vno < uno)
+		    { j++, vno++ ; if(vno < uno) *vno = *uno ; } 
+		}
+	      ii = iiMax = bigArrayMax (deUno) = j + 1 ;
+	    }
 	}
     }
 }  /* tctDeUnoFuseOneLane */
@@ -2759,7 +2762,7 @@ static void tctDeUnoExport (TCT *tct)
 		
 		if (uno->insert)
 		  insert = dictName (deUnoDict, uno->insert) ;
-		aceOutf (ao, "%s:%s\t%s\ttttiiiittt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n"
+		aceOutf (ao, "%s:%s\t%s\ttttiiiitttt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n"
 			 , dictName (targetDict, uno->target)
 			 , dictName (deUnoDict, uno->type)
 			 , tct->run
@@ -2769,7 +2772,7 @@ static void tctDeUnoExport (TCT *tct)
 			 , na 
 			 , method
 			 , uno->tag ? dictName (deUnoDict, uno->tag) : "-"
-			 , insert
+			 , insert ? insert : "-"
 			 ) ;
 	      }
 	  }
@@ -4703,13 +4706,13 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     
 		     if (da)
 		       {
-			 sprintf (tagBuf, "Multi_deletion %d", da) ;
+			 sprintf (tagBuf, "Multi_deletion\t%d", da) ;
 			 sprintf (buf, "%d:Del_%d::", a2, da) ; /* , dnaDecodeChar[(int)cr[0]] */
 		       }
 		     else if (dx)  /* da = 0 dx < 0 represents a duplication */
 		       {
-			 sprintf (tagBuf, "Multi_insertion %d", dx) ;
-			 sprintf (buf, "%d:Ins_%d:%c:", a1, da, dnaDecodeChar[(int)cr[0]]) ;
+			 sprintf (tagBuf, "Multi_insertion\t%d", dx) ;
+			 sprintf (buf, "%d:Ins_%d:%c:", a1, dx, dnaDecodeChar[(int)cr[0]]) ;
 		       }
 		     dictAdd (lane->deUnoDict, buf, &k) ;
 		     uno = arrayp (lane->deUno, arrayMax (lane->deUno), UNO) ;
@@ -5380,12 +5383,15 @@ static void tctFuseLaneHits (TCT *tct)
       int gene, gMax = arrayMax (lane->genes) ;
       GENE *ga, *gb ;
       
-      for (gene = 1, ga = arrp (lane->genes, gene, GENE); gene < gMax ; ga++, gene++)
-	if (ga->chrom)
-	  {
-	    gb = arrayp (tct->genes, gene, GENE) ;
-	    *gb = *ga ;
-	  }
+      if (gMax)
+	{
+	  for (gene = 1, ga = arrp (lane->genes, gene, GENE); gene < gMax ; ga++, gene++)
+	    if (ga->chrom)
+	      {
+		gb = arrayp (tct->genes, gene, GENE) ;
+		*gb = *ga ;
+	      }
+	}
     }
 
   if (1)
