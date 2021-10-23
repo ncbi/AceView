@@ -1,4 +1,4 @@
-/*  File: tsf.c
+ /*  File: tsf.c
  *  Author:  D and J Thierry-Mieg (mieg@ncbi.nlm.nih.gov)
  *  Copyright (C) D and J Thierry-Mieg 2005
  * -------------------------------------------------------------------
@@ -68,6 +68,7 @@ typedef struct tsf_struct {
   
   const char *inFileList ;
   const char *outFileName ;
+  const char *inFileOfFileList ;
   const char *separator ;
   const char *title ;
   const char *sample ;
@@ -585,6 +586,31 @@ static void tsfParse (TSF *tsf)
 {
   AC_HANDLE h = ac_new_handle () ;
   
+  if (tsf->inFileOfFileList)
+    {
+      vTXT txt = 0 ;
+      char *sep = "" ;
+      ACEIN ai = aceInCreate (tsf->inFileOfFileList, 0, h) ;
+      if (!ai)
+	messcrash ("Cannot open -file_of_file_list %s\n", tsf->inFileOfFileList) ;
+
+      txt = vtxtHandleCreate (h) ;
+      while (aceInCard (ai))
+	{
+	  char cutter, *cp ;
+	  while ((cp = aceInWordCut (ai, " ,\t", &cutter)))
+	    {
+	      if (cp && *cp && *cp != '#')
+		{
+		  vtxtPrintf (txt, "%s%s",sep, cp) ;
+		  sep = "," ;
+		}
+	    }
+	}
+      if (*sep)
+	tsf->inFileList = vtxtPtr (txt) ;
+    }
+
   if (tsf->inFileList)
     {
       ACEIN ai = 0 ;
@@ -1234,6 +1260,9 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//     A comma delimited list of input files, for example\n"
 	   "//       -i f1,f2,f3\n"
 	   "//     otherwise, read the data from stdin\n"
+	   "//   -f <file_name> : file of file names\n"
+	   "//      File contains a list of files, coma or space or tab or line separated\n"
+	   "//      ATTENTION all file names must be local or fully qualified starting at /\n"
 	   "//   --gzi\n"
 	   "//     gunzip the input\n"
 	   "//       This is automatic for all input files called .gz\n"
@@ -1263,7 +1292,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//     using a capital (IFT) allows mutivalued fields\n"
 	   "//     a number can be used to repeat a field: 5t3i == tttttiii\n"
 	   "//     a number with no letter defaults to integer: 3 == 3i == iii\n"
-	   "//   -i file_list\n"
+	   "//   -i file_list -I tsd -O tsf\n"
 	   "//     Merge .tsf files, for example tsf files exported by this program.\n"
 	   "//     For example, if a large experiment is split in data batches and\n"
 	   "//     each batch produces a .tsf file, merging the files will provide\n"
@@ -1274,6 +1303,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//     Command: tsf \n"
 	   "//     Output:\n"
 	   "//        Counts Tag1 sample_1 2 260 165\n"
+	   "//\n"     
 	   "// ACTION\n"
 	   "//       When several lines in single file or in separate files refer to\n"
 	   "//     the same tag and same sample, one must decide how to merge the values\n"
@@ -1459,6 +1489,7 @@ int main (int argc, const char **argv)
 
   getCmdLineOption (&argc, argv, "-i", &(tsf.inFileList)) ;
   getCmdLineOption (&argc, argv, "--in_file_list", &(tsf.inFileList)) ;
+  getCmdLineOption (&argc, argv, "-f", &(tsf.inFileOfFileList)) ;
   getCmdLineOption (&argc, argv, "-o", &(tsf.outFileName)) ;
   getCmdLineOption (&argc, argv, "--out", &(tsf.outFileName)) ;
   if (getCmdLineOption (&argc, argv, "-O", &(ccp)) || getCmdLineOption (&argc, argv, "--Out_format", &(ccp)))

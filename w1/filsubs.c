@@ -349,7 +349,7 @@ static char *filDoName (const char *name, const char *ending, const char *spec, 
     * if you look above, you see that the Stack full was created with
     * MAXPATHLEN bytes in it.
     */
-    filAddDir (getcwd (stackText (full, 0), MAXPATHLEN )) ;
+      filAddDir ("./") ; /* getcwd (stackText (full, 0), MAXPATHLEN )) ; */
     }
 
   /*
