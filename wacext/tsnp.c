@@ -97,7 +97,6 @@ typedef struct tsnpCallerTable {
 
   BOOL intron_only ;
   const char *referenceGenome ;
-  const char *externalSnpListFileName ;
   const char *inFileOfFileList ;
   const char *inFileList ;
   const char *project ;
@@ -244,16 +243,20 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
 	  cp = aceInWordCut (ai, "\t", &cutter) ;
 	  if (! cp || *cp == '#' || *cp == '/')
 	    continue ;
-	}      cq = strstr (cp, "__") ;
-      if (!cq)
-	continue ;
-      *cq = 0 ; cq += 2 ;
-      if (! dictFind (typeDict, cp, &type))
-	continue ;
-      cp = cq ;
-      cq = strstr (cp, "___") ;
-      if (cq)
-	{ *cq = 0 ; cq += 2 ; }
+	} 
+      if (0)
+	{
+	  cq = strstr (cp, "__") ;
+	  if (!cq)
+	    continue ;
+	  *cq = 0 ; cq += 2 ;
+	  if (! dictFind (typeDict, cp, &type))
+	    continue ;
+	  cp = cq ;
+	  cq = strstr (cp, "___") ;
+	  if (cq)
+	    { *cq = 0 ; cq += 2 ; }
+	}
       if (selectDict && ! dictFind (selectDict, cp, 0))
 	continue ;
       if (! strcmp (cp, "NC_045512:9693:DelIns_118_119::"))  /* HACK 2020_06_10, bad variant */
@@ -372,10 +375,10 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
 	continue ;
       
       aceInStep (ai, '\t') ;  /* the format, expect iiii or ii */
-      cp = aceInWordCut (ai, "\t", &cutter) ;
-      if (! cp || *cp != 'i')
+      cp = aceInWordCut (ai, "\t", &cutter) ; /* the format of this tsf file, ignore */
+      if (! cp || (strcmp(cp,"10") && strcmp(cp,"10i") && strcmp(cp,"iiiiiiiiii")))
 	continue ;
-
+      
       aceInStep (ai,'\t') ;
       aceInInt (ai, &a0) ;   /* forward counts */
       aceInStep (ai,'\t') ;
@@ -608,12 +611,12 @@ static int hisMutIsMyMut (SNP *up, SNP *vp)
 static void tctSnpParse (TCT *tct)
 {
   AC_HANDLE h = ac_new_handle () ;
-  vTXT txt = 0 ;
 
   tct->targetDict = dictHandleCreate (64, tct->h) ;
   tct->snpDict = dictHandleCreate (1000, tct->h) ;
   if (tct->inFileOfFileList)
     {
+      vTXT txt = 0 ;
       char *sep = "" ;
       ACEIN ai = aceInCreate (tct->inFileOfFileList, 0, h) ;
       if (!ai)
@@ -1944,7 +1947,7 @@ static void tctReportLine (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *up)
       aceOut (ao, "\tZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ\n") ;
     }
   ac_free (h) ;
-}
+} /* tctReportLine */
 
 /*************************************************************************************/
 /* the rejected sites count as rejected in the run only if they are measurable
@@ -2058,7 +2061,7 @@ static int tctReport (TCT *tct)
   if (ao2)
     {
       aceOutDate (ao2, "####", "SNPs and variations count variants, reference and wiggle cover at donor and acceptor sites :\n") ;
-      aceOutf (ao2, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover3\tCover5\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
+      aceOutf (ao2, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
     }
   tct->doubleReport = TRUE ;
 
@@ -2252,7 +2255,7 @@ static void tctMergeCounts (TCT *tct)
       tctGetGlobalCounts (tct) ;
       tctMergeExport (tct) ;
     }
-} /* tctDbReport */
+} /* tctMergeCounts */
   
 /*************************************************************************************/
 /*************************************************************************************/
@@ -2957,8 +2960,17 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 	      if (tbl)
 		{
 		  int am1, da = ac_table_int (tbl, 0, 0, 0) ;
-		  const char *ccp = ac_table_printable (tbl, 0, 1, "") ; 
-		  if (ccp && da == strlen (ccp) && a2 - a1 == 1 && tbl->cols >= 2)
+		  const char *ccp = ac_table_printable (tbl, 0, 1, 0) ; 
+		  if (0 && ! ccp) {
+		    ccp = ac_name (Snp) ;
+		    if (ccp) ccp = strchr (ccp, ':') ;
+		    if (ccp) ccp = strchr (ccp+1, ':') ;
+		    if (ccp) ccp = strchr (ccp+1, ':') ;
+		    if (ccp) ccp = strchr (ccp+1, ':') ;
+		    if (ccp) ccp = ccp+2 ;
+		    da = strlen (ccp) ;
+		  }
+		  if (ccp && da == strlen (ccp) && a2 - a1 == 1)
 		    {
 		      int k, dx = 0 ;
 		      BOOL isDup = FALSE ;
@@ -3019,12 +3031,15 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 			      { bufV[k] = bufR[j] = dna[i] ; RbufV[k] = RbufR[j] = dna[i] ; j++ ; k++ ; }
 			    else if (i == am1)
 			      {
-				int kk ;
-				bufV[k] = bufR[j] = dna[i] ; RbufV[k] = RbufR[j] = dna[i] ; j++ ; k++ ; 
-				for (kk = 0 ; bufN[kk] ; kk++)
-				  { bufR[j] = RbufR[j] = bufN[kk] ; j++ ; }
-				for (kk = 0 ; buf[kk] ; kk++)
-				  if (k < 51) { bufR[k] = RbufR[k] = ace_upper(buf[kk]) ; k++ ; }
+				if (da)
+				  {
+				    int kk ;
+				    for (kk = 0 ; kk < da && kk < 30 ; kk++)
+				      { 
+					bufV[j] = RbufV[j] = '-'; j++ ;
+					bufR[k] = RbufR[k] = ace_upper(buf[kk]) ; k++ ; 
+				      }
+				  }
 			      }
 			    else if (i > am1)
 			      {
@@ -3710,14 +3725,10 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "// SNP COUNTS TO BE ANALYZED: \n"
 	   "//   -i f[,g[,h]] : coma separated list of files\n"
 	   "//   -f file : file contains a list of files, coma or space or tab or line separated\n"
-	   "//      ATTENTION all file names must be fully qualified starting at /\n"
+	   "//      ATTENTION all file names must be local or fully qualified starting at /\n"
 	   "//      All the input files are of type .val.txt as exported by tricoteur -val\n"
 	   "//      The format is very specific and cannot easily be replicated\n"
 	   "//      So the present program can only postprocess tricoteur\n"
-	   "//   -externalSnpList filename: [optional] additional list of positions to be analysed\n"
-	   "//      several formats are recognized\n"
-	   "//          chr7:1234     chr7:1234:....   chr7\\t1234\n"
-	   "//          one position per line\n"
 	   "// TARGET ZONE:\n"
 	   "//   -target_class : target class (A_mito ... Z_genome) [default Z_genome]\n"
 	   "//   -t targetName :  [optional] often a chromosome name\n"
@@ -3735,19 +3746,8 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//   -intron_only : just detect and report introns\n"
 	   "//   -min_intron <int> : [default 30] min reported intron length\n"
 	   "//   -max_intron <int> : [default 0]  max reported intron length\n"
-	   "// COUNT\n"
-	   "//   -count : count in the raw fastc/fastq files the occurence of some words\n"
-	   "//       See the first few lines of this help to see how to specify\n"	
-	   "//       the fasta/fasc/fastq files that should be searched\n"
-	   "//         The words and their complements are counted separatelly\n"
-	   "//       This may show that a SNP is seen as mutant on one starnd, wild-type on the other\n"
-	   "//       possibly indicating a systematic sequencing error, But if one specifies\n"
-	   "//   -strand : optional, flip read-2 but not read-1\n"
-	   "//   -antistrand : optional, flip read-1 but not read-2\n"
-	   "//       Then one counts the stranded support of each word. For example, in RNA seq,\n"
-	   "//       we can know the measure of an intron, or a deletion.\n"
 	   "// Phase 3 actions: Analyse the .snp files\n"
-	   "//   The analyses rely on a the existence of an acedb VariantDB.$zone database, aware of genes, transcripts and coding structures\n"
+	   "//   The analyses rely on a the existence of an acedb TSNP_DB/$zone database, aware of genes, transcripts and coding structures\n"
 	   "//     and containing a copy of the metadata of the runs, originally hand constructed in MetaDB\n"
 	   "//     The parameter -db points to this database, we recommend one database per zone, allowing parallelization\n"
 	   "//   -db_remap2genome tmp/METADATA/mrnaRemap.gz  -db ACEDB\n"
@@ -3855,8 +3855,6 @@ int main (int argc, const char **argv)
       exit (1) ;
     }
 
-  getCmdLineOption (&argc, argv, "-select", &(tct.externalSnpListFileName)) ;
-  
   /* SNP FILTERS */
   tct.minSnpCover = 20 ;
   tct.minSnpCount = 4;
@@ -3912,6 +3910,7 @@ int main (int argc, const char **argv)
       fprintf (stderr, "unknown argument, sorry\n") ;
       usage (commandBuf, argc, argv) ;
     }
+  filAddDir ("./") ;
 
   if (tct.dbReport || tct.makeWords)
     {

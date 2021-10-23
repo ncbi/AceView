@@ -244,9 +244,10 @@ typedef struct deUnoStruct {
   int type ;   /* full name of the variant */
   int tag ;   /* the acedb tag: DelA, A2G ...Multi_deletion 31 */
   int nt, ns ; /* number of supporting tags, distintct sequences  */
-  int a1, a2, da ; /* absolute chrom coordinates, da is negative for an insert */
+  int a1, a2, da, ddx ; /* absolute chrom coordinates, da is negative for an insert */
   int clone, x1, x2 ; /* coordinates of a long insert in its read */
   int insert ; /* offset in lane->deUnoDict: sequence of the insert i.e. atgc or intron feet */
+  int dup ;
   BOOL isRead1, isDown ;
 } UNO ;
 
@@ -2716,7 +2717,7 @@ static void tctDeUnoExport (TCT *tct)
       Array wig = tct->wig ;
       ACEOUT ao = aceOutCreate (tct->outFileName, ".deUno.tsf", tct->gzo, h) ;
       aceOutDate (ao, "###", "De uno discovery of substitutions, insertions, deletions, introns, gene-fusions") ;
-      aceOutf (ao, "# %s", " Target\tRun\tFormat\tLast matching base before\tFirst matching base after\tLength\tNumber of supports\tNumber of distinct supports\tWiggle before\tWiggle after\tMethod\tTag\tInsert\n") ;
+      aceOutf (ao, "# %s", " Target\tRun\tFormat\tLast matching base before\tFirst matching base after\tLength\tNumber of supports\tNumber of distinct supports\tWiggle before\tWiggle after\tMethod\tTag\tLength\tInsert\n") ;
 
       /* integrate the wiggle, so far, it represents the differential of the wiggle */
       if (wig)
@@ -2758,21 +2759,22 @@ static void tctDeUnoExport (TCT *tct)
 		nt * 100 >= minSnpFrequency * nad 
 		)	    
 	      {
-		const char *insert = "-" ;
+		const char *insert = 0 ;
 		
 		if (uno->insert)
 		  insert = dictName (deUnoDict, uno->insert) ;
-		aceOutf (ao, "%s:%s\t%s\ttttiiiitttt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\t%s\n"
+		aceOutf (ao, "%s:%s\t%s\ttttiiiitttt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s%s%s\n"
 			 , dictName (targetDict, uno->target)
 			 , dictName (deUnoDict, uno->type)
 			 , tct->run
-			 , uno->a1, uno->a2, uno->da
+			 , uno->a1, uno->a2, uno->ddx
 			 , nt, ns
 			 , nd
 			 , na 
 			 , method
-			 , uno->tag ? dictName (deUnoDict, uno->tag) : "-"
-			 , insert ? insert : "-"
+			 , uno->tag ? dictName (deUnoDict, uno->tag) : "X"
+			 , insert ? "\t" : ""
+			 , insert ? insert : ""
 			 ) ;
 	      }
 	  }
@@ -2976,9 +2978,9 @@ static void tctExport (TCT *tct)
 	  else if (dt == 1 && ds == 2)
 	    aceOutf (ao, "%s%c\n", bb->type == 4 ? "Dim" : "Del", cs[1]) ;
 	  else if (ds <= 1 && dt > 1)
-	    aceOutf (ao, "Multi_insertion %d %s\n", da, dt < 120 ? ct + 1 : "") ; 
+	    aceOutf (ao, "Multi_insertion\t%d\t%s\n", da, dt < 120 ? ct + 1 : "") ; 
 	  else if (dt <= 1 && ds > 1)
-	    aceOutf (ao, "Multi_deletion %d %s\n", -da, ds < 120 ? cs + 1 : "") ; 
+	    aceOutf (ao, "Multi_deletio\tn%d\t%s\n", -da, ds < 120 ? cs + 1 : "") ; 
 	  else
 	    aceOutf (ao, "DelIns %d %d %s %s\n"
 		     , ds, dt
@@ -4375,7 +4377,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   UNO *uno ;
 			   
 			   sprintf(buf, "%d:Sub:%c:%c", x,ace_upper(cp[0]), ace_upper(cp[2])) ;
-			   sprintf(tagBuf, "%c2%c", ace_upper(cp[0]), ace_upper(cp[2])) ;
+			   sprintf(tagBuf, "%c2%c\t0\t-", ace_upper(cp[0]), ace_upper(cp[2])) ;
 			   dictAdd (lane->deUnoDict, buf, &k) ;
 			   uno = arrayp (lane->deUno, arrayMax (lane->deUno), UNO) ;
 			   uno->target = trgt ;
@@ -4403,17 +4405,18 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   buf2[i] = 0 ;
 			   if (dx ==1)
 			     {
-			       sprintf(tagBuf, "Ins%c", ace_upper(buf2[0])) ;
-			       sprintf(buf, "%d:Ins:%c:%c%c", x, dnaDecodeChar[(int)cr[0]], dnaDecodeChar[(int)cr[0]], ace_upper(buf2[0])) ;
+			       char cc = ace_upper(buf2[0]) ;
+			       sprintf(tagBuf, "Ins%c\t1\t%c", cc, cc) ; 
+			       sprintf(buf, "%d:Ins:%c:%c%c", x, dnaDecodeChar[(int)cr[0]], dnaDecodeChar[(int)cr[0]], cc) ;
 			     }
 			   else if (dx < 30)
 			     {
-			       sprintf (tagBuf, "Multi_insertion %d %s", dx, buf2) ;
+			       sprintf (tagBuf, "Multi_insertion\t%d\t%s", dx, buf2) ;
 			       sprintf (buf, "%d:Ins_%d:%c:%c%s", x, da, dnaDecodeChar[(int)cr[0]], dnaDecodeChar[(int)cr[0]], buf2) ;
 			     }
 			   else
 			     {
-			       sprintf (tagBuf, "Multi_insertion %d %s", dx, buf2) ;
+			       sprintf (tagBuf, "Multi_insertion\t%d\t%s", dx, buf2) ;
 			       sprintf(buf, "%d:Ins_%d:%c:", x, da, dnaDecodeChar[(int)cr[0]]) ;
 			     }
 			   dictAdd (lane->deUnoDict, buf, &k) ;
@@ -4422,11 +4425,12 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   uno->a1 = x  ;
 			   uno->a2 = x + 1 ;
 			   uno->da = da ;
+			   uno->ddx = da ;
 			   uno->nt += mult ;
 			   uno->ns++ ;
 			   uno->type = k ;
 			   dictAdd (lane->deUnoDict, tagBuf, &k) ;
-			   uno->insert = k ;
+			   uno->tag = k ;
 			 }
 		       else if (dx < 0)
 			 {
@@ -4447,23 +4451,26 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   
 			   if (da == 1)
 			     {
-			       sprintf(tagBuf, "Del%c", ace_upper(dnaDecodeChar[(int)cr[1]])) ;
-			       sprintf (buf, "%d:Del:%c%c:%c", x, dnaDecodeChar[(int)cr[0]], ace_upper(dnaDecodeChar[(int)cr[1]]), dnaDecodeChar[(int)cr[0]]) ;
+			       char cc = ace_upper(dnaDecodeChar[(int)cr[1]]) ;
+			       sprintf(tagBuf, "Del%c\t1\t%c", cc, cc) ;
+			       sprintf (buf, "%d:Del:%c%c:%c", x, dnaDecodeChar[(int)cr[0]], cc, dnaDecodeChar[(int)cr[0]]) ;
 			     }
 			   else if (da < DELMAX)
 			     {
-			       sprintf (tagBuf, "Multi_deletion %d", da) ;
+			       int k0 ;
 			       sprintf (buf, "%d:Del_%d:%c", x, da, dnaDecodeChar[(int)cr[0]]) ;
-			       k = strlen (buf) ; 
+			       k0 = k = strlen (buf) ; 
 			       for (i = 1 ; i <= da ; i++)
 				 buf[k++] = ace_upper (dnaDecodeChar[(int)cr[i]]) ;
+			       buf[k] = 0 ;
+			       sprintf (tagBuf, "Multi_deletion\t%d\t%s", da, buf+k0) ;
 			       buf[k++] = ':' ;
 			       buf[k++] = dnaDecodeChar[(int)cr[0]] ;
 			       buf[k++] = 0 ;
 			     }
 			   else
 			     {
-			       sprintf (tagBuf, "Multi_deletion %d", da) ;
+			       sprintf (tagBuf, "Multi_deletion\t%d", da) ;
 			       sprintf (buf, "%d:Del_%d:%c:", x, da, dnaDecodeChar[(int)cr[0]]) ;
 			     }
 			   dictAdd (lane->deUnoDict, buf, &k) ;
@@ -4472,6 +4479,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   uno->a1 = x ;
 			   uno->a2 = x  + da + 1 ;
 			   uno->da = da ;
+			   uno->ddx = -da ;
 			   uno->nt += mult ;
 			   uno->ns++ ;
 			   uno->type = k ;
@@ -4550,7 +4558,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
        if (! tct->geneFusion && nHit > 1)
 	 {
 	   HIT *old = hit - 1, *firstHit ;
-	   int da, dx, dummy, protect = 0, c1, c2 ;
+	   int da, dx, protect = 0, c1, c2 ;
 	   
 	   if (old->clone == hit->clone &&
 	       hit->target == old->target &&
@@ -4565,6 +4573,8 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	     { /* same read */
 	       BOOL isDown = TRUE ;
 	       int a1, a2, b1, b2, x1, x2, y1, y2 ;
+	       int dup= 0 ;
+
 	       if (old->a1 < hit->a1)
 		 { 
 		   firstHit = old ;
@@ -4646,13 +4656,13 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		 da = dx = 0 ;
 
 	       if (a2 >= b1)
-		 { da = a2 - b1 ; dummy = a2 ; a2 = b1 ; b1 = dummy ;  a2-- ; b1 += da + 1 ; }
+		 { dup = a2 - b1 + 1 ; a2 = firstHit->a2 -= dup  ; x2 = firstHit->x2 += (x1 < x2) ? - dup : dup ; da = b1 - a2 - 1 ; dx = y1 - x2 + (x1 < x2 ? -1 : + 1 ) - dup ; }
 
 	       if (dx < 0 && da > -dx)
 		 { a2 += dx ; x2 += isDown ? dx : -dx ; dx = 0 ; da -= dx ; } 
 
 	       if (tct->wantBrks)
-		 if (da || dx)
+		 if (da || dx || dup)
 		   {
 		     int k ;
 		     BKID *b =  arrayp (brkIndels, nBrkIndels++, BKID) ; 
@@ -4660,7 +4670,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     b->pos = a2 + protect - t1 ;
 		     b->mult = mult ;
 		     b->daa = da ;
-		     b->dxx = dx ;  /* da = 0 dx < 0 represents a duplication */
+		     b->dxx = dx ;  /* da = 0 dx = 0 dup>0 represents a duplication */
 		     b->c1 = c1 - t1 ;
 		     b->c2 = c2 - t1 ;
 		     k = keySet (brks, b1 - t1) ;
@@ -4670,11 +4680,11 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     if (0)
 		       fprintf (stderr, "gethits found c1/c2 = %d %d\n", c1, c2);
 		     /* if we have a duplication, we must be out of it on both sides */
-		     if (dx < 0 && -dx > tct->Delta)
-		       b1 += (-dx  - tct->Delta) ;
+		     if (dx - dup < 0 && -dx + dup > tct->Delta)
+		       b1 += (-dx  - dup - tct->Delta) ;
 		     
-		     if (dx < 0)
-		       a2 += dx - 1 ; 
+		     if (dx -dup < 0)
+		       a2 += dx - -dup - 1 ; 
 		     k = keySet (brks, a2 - t1 + trgtStart) ;
 		     k += mult ; nOverhangs += mult ;
 		     keySet (brks, a2 - t1 + trgtStart) = k ;
@@ -4692,12 +4702,15 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		   }	   
 
 	       if (tct->deUno)
-		 if (da || dx) /* deletion , dx would be insertion */
+		 if (da || dx || dup) /* deletion , insertion duplication */
 		   {
 		     int k ;
 		     UNO *uno ;
 		     int xx = a2 - 1 - t1 + keySet (tct->targetStart, trgt) ;
 		     char *cr = arrp (tct->dna, xx, char) ;
+		     int ddx = dx + dup ;
+		     if (dup < 0) dup = -dup ;
+		     if (ddx < 0) ddx = -ddx ;
 		     if (da > 100 && a2 < 75 && a2 + protect >= 75)
 		       {
 			 int dd = 75 - a2 ;
@@ -4709,29 +4722,88 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			 sprintf (tagBuf, "Multi_deletion\t%d", da) ;
 			 sprintf (buf, "%d:Del_%d::", a2, da) ; /* , dnaDecodeChar[(int)cr[0]] */
 		       }
-		     else if (dx)  /* da = 0 dx < 0 represents a duplication */
+		     else if (ddx)  /* da = 0 dx < 0 represents a duplication */
 		       {
-			 sprintf (tagBuf, "Multi_insertion\t%d", dx) ;
-			 sprintf (buf, "%d:Ins_%d:%c:", a1, dx, dnaDecodeChar[(int)cr[0]]) ;
+			 sprintf (tagBuf, "Multi_insertion\t%d", ddx) ;
+			 sprintf (buf, "%d:Ins_%d:%c:", a2+ (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup), ddx, dnaDecodeChar[(int)cr[0]]) ;
 		       }
 		     dictAdd (lane->deUnoDict, buf, &k) ;
 		     uno = arrayp (lane->deUno, arrayMax (lane->deUno), UNO) ;
 		     uno->target = hit->target ;
-		     uno->a1 = a2 ;
-		     uno->a2 = b1 ;
+		     uno->a1 = a2 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup) ;
+		     uno->a2 = b1 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup) ;
+		     uno->ddx = ddx - da ;
 		     uno->da = da ? da : -dx ;
+		     uno->dup = dup ;
 		     uno->nt += mult ;
 		     uno->ns++ ;
 		     uno->type = k ;
 		     dictAdd (lane->deUnoDict, tagBuf, &k) ;
 		     uno->tag = k ;
-		     if (dx > 0 && dx < 500 && uno3pOld[0] && strlen (uno3pOld) >= dx)
+		     if (da)
+		       {
+			 if (da < 35)
+			   {
+			     int i = da ;
+			     char *cp = arrp (tct->dna, a1-1, char) ;
+			     char buf[da+1] ;
+			     memcpy (buf, cp, da) ;
+			     buf[da] = 0 ;
+			     cp = buf ;
+			     while (i--)
+			       {*cp = ace_upper (dnaDecodeChar[(int)*cp]) ; cp++; }
+			     dictAdd (lane->deUnoDict, buf, &k) ;
+			     uno->insert = k ;
+			   }
+		       }
+		     else if (dup == 0 && dx > 0 && dx < 500 && uno3pOld[0] && strlen (uno3pOld) >= dx)
 		       {
 			 uno3pOld[dx] = 0 ; 
+			 if (! isDown)
+			   {
+			     int i = dx + 1 ;
+			     char buf[dx+1] ;
+			     memcpy (buf, uno3pOld, dx+1) ;
+			     while (--i)
+			       uno3pOld [dx - i] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)buf[i-1]]]]) ; 
+			   }
 			 dictAdd (lane->deUnoDict, uno3pOld, &k) ;
 			 uno->insert = k ;
 		       }
-		     else if (dx > 0 && !uno->insert && !uno->clone)
+		     else if (dx == 0 && dup)
+		       {
+			 int i = dup ;
+			 char *cp = arrp (tct->dna, a2, char) ;
+			 char buf[dup+1] ;
+			 memcpy (buf, cp, dup) ;
+			 buf[dup] = 0 ;
+			 cp = buf ;
+			 while (i--)
+			   {*cp = ace_upper(dnaDecodeChar[(int)*cp]) ; cp++; }
+			 dictAdd (lane->deUnoDict, buf, &k) ;
+			 uno->insert = k ;
+		       }
+		     else if (dup && dx > 0 && dx < 500 && uno3pOld[0] && strlen (uno3pOld) >= dx)
+		       {
+			 int i = dup ;
+			 char *cp ;
+			 char buf[dx + dup+1] ;
+			 uno3pOld[dx] = 0 ; 
+			 memcpy (buf, uno3pOld,dx) ;
+			 cp = arrp (tct->dna, a2 , char) ;
+			 memcpy (buf + dx, cp, dup) ;
+			 cp = buf + dx ;
+			 i = dup ;
+			 while (i--)
+			   {*cp = dnaDecodeChar[(int)*cp] ; cp++; }
+			 buf[dup+dx] = 0 ;
+			 cp = buf ;
+			 while (*cp)
+			   { *cp = ace_upper(*cp) ; cp++ ; }
+			 dictAdd (lane->deUnoDict, buf, &k) ;
+			 uno->insert = k ;
+		       }
+		     else if (dx  && !uno->insert && !uno->clone)
 		       {
 			 needFastc = TRUE ;
 			 uno->isRead1 = hit->isRead1 ;
@@ -4760,16 +4832,22 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
       tctGetOneFastc (tct, lane) ;
 
       for (ii = 0, uno = arrp (lane->deUno, 0, UNO) ; ii < iiMax ; ii++, uno++)
-	if (uno->da < 0 && uno->clone && ! uno->insert)
+	if (uno->ddx && uno->clone && ! uno->insert)
 	  {
 	    CLONE *clone = arrayp (lane->clones, uno->clone, CLONE) ;
 	    Array dna = uno->isRead1 ? clone->dna1 : clone->dna2 ;
-	    char cc, *cp ;
 
 	    if (dna && arrayMax (dna) > uno->x2)
 	      {
+		int dup = uno->dup ;
+		char *cp, *cpg = arrp (tct->dna, uno->a2 , char) ;
 		int x1 = uno->x1 ;
 		int x2 = uno->x2 ;
+		int dx = x2 > x1 ? x2 - x1 + 1 : x1 - x2 + 1 ;
+		int i ;
+		char buf[dup + dx + 1] ;
+		
+                if (dx) dup = 0 ;
 		dna = arrayCopy (dna) ;
 		if (1 && ! uno->isDown)
 		  {
@@ -4778,12 +4856,22 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		    x1 = arrayMax (dna) - x2 + 1 ;
 		    x2 = arrayMax (dna) - x0 + 1 ;
 		  }
-		dnaDecodeArray (dna) ;
-		cp = arrp (dna, x2, char) ;
-		cc = *cp ;
-		*cp = 0 ;
-		dictAdd (lane->deUnoDict, arrp(dna,x1-1,char), &uno->insert) ;
-		*cp = cc ;
+		dx = x2 - x1 + 1 ;
+
+
+		cp = arrp (dna, x1 - 1, char) ;
+		memcpy (buf, cp, dx) ;
+		if (dup) 
+		  memcpy (buf+dx, cpg, dup) ;
+		cp = buf ;
+		i = dx + dup ;
+		buf[i] = 0 ;
+		while (i--)
+		  {*cp = dnaDecodeChar[(int)*cp] ; cp++; }
+		cp = buf ;
+		while (*cp)
+		  { *cp = ace_upper(*cp) ; cp++ ; }
+		dictAdd (lane->deUnoDict, buf, &uno->insert) ;
 		arrayDestroy (dna) ;
 	      }
 	  }
@@ -5045,7 +5133,7 @@ static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 			}
 		      else  if (da < 30)
 			{
-			  sprintf (tagBuf, "Multi_insertion %d ", da) ;
+			  sprintf (tagBuf, "Multi_insertion\t%d ", da) ;
 			  sprintf (buf, "%d:Ins_%d:%c:%c%c", a1, da, dnaDecodeChar[(int)cq[0]], dnaDecodeChar[(int)cq[0]], ace_upper (dnaDecodeChar[(int)cp[1]])) ;
 			  k = strlen (buf) ; cp -= da ;
 			  for (i = 2 ; i <= da ; i++)
@@ -5058,7 +5146,7 @@ static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 			}
 		      else 
 			{
-			  sprintf (tagBuf, "Multi_insertion %d ", da) ;
+			  sprintf (tagBuf, "Multi_insertion\t%d ", da) ;
 			  sprintf (buf, "%d:Ins_%d:%c:    ", a1, da, dnaDecodeChar[(int)cq[0]]) ;
 			}
 		      break ;

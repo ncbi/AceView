@@ -39,7 +39,6 @@ set zone=$2
     endif
   end
    
-
   foreach target (mito SpikeIn $Etargets $Ttargets)
     if (-e  tmp/METADATA/$target.MRNA.info.ace) then
       # gene gene_type geneId mrna mrna-length GC
@@ -58,7 +57,7 @@ set zone=$2
     if (-e  tmp/TSNP_DB/$species.$target.mrna.fasta.gz) then
       echo "pparse tmp/TSNP_DB/$species.$target.mrna.fasta.gz"  >> tmp/TSNP_DB/$zone/_rs3.$zone
     endif 
-  end
+   end
 
   # gene mrna product mrna-splicing intmap
   echo "parse TARGET/MRNAS/mrnaStructure.ace" >> tmp/TSNP_DB/$zone/_rs3.$zone

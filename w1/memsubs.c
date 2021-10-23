@@ -617,6 +617,7 @@ static void *myMalloc (mysize_t size, BOOL recursion)
 	memset (cp, 0, size) ; 
       else  /* wishful thinking for 5 minutes */
 	{
+	  invokeDebugger () ;
 	  fprintf (stderr, "myMalloc failed allocating %ld bytes allready alloc %ld, waiting loop %d\n", (long)size, totMessAlloc, ii) ;
 	  sleep (10) ;
 	}

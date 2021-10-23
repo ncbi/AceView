@@ -516,8 +516,8 @@ cat <<EOF > _x.awk
   if (ix + gx + mx > 0) ph = ph " g1 "
   if (gx + mx > 0) ph = ph " g2a m2aH vir1 wait g2b m2bH wait g3a m3aH vir2 wait g3b m3bH wait 8kb_histo wait " ;
 
-  if (tsnp > 0) ph = ph "snp1a snp0 " ;
-  if (ix > 0) ph = ph " d1 t1  SLpA1 wait d2 t2 SLpA2" ;
+  if (tsnp > 0) ph = ph "tsnp0 tsnp1a " ;
+  if (ix > 0) ph = ph " d1 t1 tgf1  SLpA1 wait d2 t2 tgf2 SLpA2" ;
   if (ix > 0) ph = ph " ii2a wait ii2b wait ii2c wait ii2d" ;
 # d3 is obsolete
 # d4 must run after ii2d twice, once per run in parallel, once to cumulate the results
@@ -527,12 +527,12 @@ cat <<EOF > _x.awk
   if (cnv > 0)  ph = ph " cnv wait cnv "
   if (snp > 0) ph = ph " snp0 wait s1 wait s1A2G wait s2a wait s2b wait s2A2G wait s3a wait s3b  wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
   if (ix > 0) ph = ph " wait d5  "
-  if (tsnp > 0) ph = ph "wait snp1b wait snp2a wait snp2b " ;
+  if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a wait tsnp2b wait tsnp2c " ;
   if (iv > 0) ph = ph " wait d6 wait d7 wait d8 " ;
   if (w > 1000)       ph = ph "  g4sp " ;
   if (gx + mx > 0) ph = ph "  wait  c7 g4 " ;
   if (mx > 1000)       ph = ph "  wait  c7 m4H " ;
-  if (tsnp > 0) ph = ph "wait  snp3" ;
+  if (tsnp > 0) ph = ph "wait  tsnp3" ;
   if (ix > 0)      ph = ph "  wait  c7 wait " ;
   if (gx + mx > 1  )  ph = ph " g10 g11 g12a wait g12b FDR1 wait FDR2 " ;
   if (a + small + qc +gx + mx + ix + snp + w > 0) ph = ph " wait c7 "
@@ -1184,15 +1184,20 @@ if ($phase == ii6) goto phaseii6
 
 # snp system with construction of the group wiggles
 if ($phase == snp0) goto phaseSnp0
-if ($phase == snp1a) goto phaseSnp1a
-if ($phase == snp1b) goto phaseSnp1b
-if ($phase == snp1M) goto phaseSnp1M
-if ($phase == snp2a) goto phaseSnp2a
-if ($phase == snp2b) goto phaseSnp2b
-if ($phase == snp3) goto phaseSnp3
+if ($phase == tsnp0) goto phaseTSnp0
+if ($phase == tsnp1a) goto phaseTSnp1a
+if ($phase == tsnp1b) goto phaseTSnp1b
+if ($phase == tsnp1M) goto phaseTSnp1M
+if ($phase == tsnp2a) goto phaseTSnp2a
+if ($phase == tsnp2b) goto phaseTSnp2b
+if ($phase == tsnp2c) goto phaseTSnp2c
+if ($phase == tsnp3) goto phaseTSnp3
 
 if ($phase == t1) goto phaset1
 if ($phase == t2) goto phaset2
+
+if ($phase == tgf1) goto phasetgf1
+if ($phase == tgf2) goto phasetgf2
 
 if ($phase == s1) goto phases1
 if ($phase == s1A2G) goto phases1A2G
@@ -1452,6 +1457,9 @@ echo "d8:    obsolete collate the U_introns confirmations"
 echo "t1:    collect the translocations in each run"
 echo "t2:    cumul the translocations per runs per group and per project"
 
+echo "tgf1:    collect the gene fusions in each run"
+echo "tgf2:    report the gene fusions per group and per project"
+
 echo "f0:    Ventilate the genome alignments"
 echo "f1:    Construct the yellow quasi EST from the ali->INTRONS"
 echo "f2:    Collate the double introns"
@@ -1528,8 +1536,13 @@ echo "ma1:   Micro-Array align all probes in MicroArray directory to the genome"
 echo "ma2:   Micro-Array sponge the support for each probe in each run, per chrom and per strand"
 echo "ma3:   Micro-Array compute the probe and probe-set index genome wide"
 
-echo "snp1a:   Collate per  Run snps and indels using tricoteur"
-echo "snp1b:   Collate the previous table per run and group using tsf"
+echo "tsnp1a:   Collate per  Run snps and indels using tricoteur"
+echo "tsnp1b:   Collate the previous table per run and group using tsf"
+echo "tsnp2a:   Centralize the tsf files in TSNP_DB for each zone"
+echo "tsnp2b:   Create a word file in each zone to allow validation of the SNPs"
+echo "tsnp2c:   Count in the original fastc files the snp and reference words using tricoteur"
+echo "tsnp3:    Collate the previous table per run and group using tsf"
+echo "tsnp3xxx:    Report in RESULTS/SNV"
 
 echo "s1:   Collate cover and missmatch per run in coverons/transcripts in tmp/SNP_BRS"
 echo "s1A2G:   Collate A>G in tmp/SNP_BRS"
@@ -4316,7 +4329,7 @@ phases1xxx:
 # fan out the bin/bestalignment per zone
 
 if (! -d  tmp/SNP_ZONE) then
-  echo "Please un phse snp0 before phase s1 or snp1"
+  echo "Please run phase tsnp0 before phase s1 or snp1"
   exit 1
 endif
 
@@ -4351,6 +4364,7 @@ goto phaseLoop
 ## SNP detection using Tricoteur, create the databases
 
 phaseSnp0:
+phaseTSnp0:
 
 
  set geneSNPTarget=xx
@@ -4441,24 +4455,14 @@ Variant "NC_045512:7104:Sub_89:Cctactgtactggttctataccttgtagtgtttgtcttagtggtttaga
 Variant "NC_045512:7529:Sub_19:GaatgtacaactattgttA:TaatgtacaactattgttT" // seg->a1/a2=1224770173/18771344, b1/b2=1235/321
 
 
-phaseSnp1a:
+phaseTSnp1a:
  set MB=2
- goto phaseSnp1any
-phaseSnp1M:
+ goto phaseTSnp1any
+phaseTSnp1M:
  set MB="MB"
 
-phaseSnp1any:
+phaseTSnp1any:
 if (! -d tmp/TSNP) mkdir tmp/TSNP
-
-
-if (! -d tmp/TSNP_DB) mkdir tmp/TSNP_DB
-
-foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-  if (! -e tmp/TSNP_DB/$zone/snp.parseChrom.done) then
-    if (! -d tmp/TSNP_DB/$zone) mkdir tmp/TSNP_DB/$zone
-    scripts/submit tmp/TSNP_DB/$zone/tsnp_DB "scripts/tsnp_DB.tcsh $Strategy $zone"
-  endif
-end
 
 
 foreach run (`cat MetaDB/$MAGIC/RunsList`)
@@ -4511,7 +4515,6 @@ foreach run (`cat MetaDB/$MAGIC/RunsList`)
     foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
       if (! -d  tmp/TSNP/$run/$zone) mkdir tmp/TSNP/$run/$zone
       if (! -e tmp/TSNP/$run/$zone/tsnp1.$MB.0.deUno.tsf) then
-        if (-e tmp/TSNP_DB/$zone/tsnp2.$MB.done) \rm tmp/TSNP_DB/$zone/tsnp2.$MB.done
         set t1=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$2;next;}END{print n+0;}' zone=$zone`
         set t2=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$3;next;}END{print n+0;}' zone=$zone`
         if (! -e tmp/TSNP/$run/$zone/tsnp1.$MB.$part.deUno.tsf) then
@@ -4525,14 +4528,14 @@ end
 goto phaseLoop
 
 ###################################################################################
-## using tsf   merge sublib counts in run counts, not important because the sublibs files were merged in snp1a
-phaseSnp1b:
+## using tsf   merge sublib counts in run counts, not important because the sublibs files were merged in tsnp1a
+phaseTSnp1b:
 
-foreach run (`cat MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
+foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
   if (! -d tmp/TSNP/$run)      $mkDir TSNP $run
   foreach zone (`cat tmp/SNP_ZONE/ZoneList | grep -v mito`)
     if (! -d tmp/TSNP/$run/$zone) mkdir tmp/TSNP/$run/$zone
-    if (-e tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf) continue
+    if (-e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) continue
     set ok=1
     echo >  tmp/TSNP/$run/$zone/_r
     foreach lib (`cat MetaDB/$MAGIC/r2sublib | gawk '{if($1==run)print $2;}' run=$run`)
@@ -4543,7 +4546,11 @@ foreach run (`cat MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
         cat  tmp/TSNP/$lib/$zone/tsnp1.2.*.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
       endif
     end
+echo "HHHH $zone $run $ok"
     if ($ok == 0) continue
+    if (-e  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf)  then
+       cat  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
+    endif
     scripts/submit tmp/TSNP/$run/$zone/tsnp1b "scripts/tsnp1b.tcsh $run $zone $minSnpCount $minSnpCover $minSnpFrequency" 32G
   end
 end
@@ -4551,34 +4558,58 @@ end
 goto phaseLoop
 
 ###################################################################################
-## create a word file
-phaseSnp2a:
+## create a TSNP_DB database and parse the tsf files and the gene data
+phaseTSnp2a:
+
+if (! -d tmp/TSNP_DB) mkdir tmp/TSNP_DB
 
 foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-  if (-e tmp/TSNP_DB/$zone/tsnp0.done && ! -e tmp/TSNP_DB/$zone/tsnp2.$MAGIC.w31.gz) then
-    scripts/submit tmp/TSNP_DB/$zone/tsnp2a  "scripts/tsnp2.tcsh $zone"
+  if (! -d tmp/TSNP_DB/$zone) mkdir tmp/TSNP_DB/$zone
+  if (! -e tmp/TSNP_DB/$zone/tsnp2a.done) then
+    scripts/submit tmp/TSNP_DB/$zone/tsnp2a  "scripts/tsnp2.tcsh tsnp2a $zone"
   endif
 end
  
 goto phaseLoop
 
-phaseSnp2b:
+###################################################################################
+## make words 31 mers
+
+phaseTSnp2b:
 
 foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-  foreach run (`cat MetaDB/$MAGIC/RunsList`)
-    if (-e tmp/TSNP_DB/$zone/tsnp2.$MAGIC.w31.gz && ! -e  tmp/TSNP/$run/tsnp2.$MAGIC.$zone.val.txt.gz) then
-      scripts/submit  tmp/TSNP/$run/tsnp2b  "bin/tricoteur -count -wLn 31 -wordFile tmp/TSNP_DB/$zone/tsnp2.$MAGIC.w31.gz -run $run -gzo -o tmp/TSNP/$run/tsnp2.$MAGIC.$zone -antistrand"
-    endif
-  end
+  if (! -e tmp/TSNP_DB/$zone/tsnp2a.done) continue
+  if (! -e tmp/TSNP_DB/$zone/tsnp2b.done) then
+    scripts/submit tmp/TSNP_DB/$zone/tsnp2b  "scripts/tsnp2.tcsh tsnp2b $zone"
+  endif
 end
 
 goto phaseLoop
+
+###################################################################################
+## count the words in all runs
+phaseTSnp2c:
+
+foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
+  if (! -e tmp/TSNP_DB/$zone/tsnp2b.done) continue
+    foreach run (`cat MetaDB/$MAGIC/RunsList`)
+      if (-e tmp/TSNP_DB/$zone/tsnp2b.$MAGIC.w31.gz && -d tmp/TSNP/$run/$zone && ! -e  tmp/TSNP/$run/$zone/tsnp2c.$MAGIC.val.txt.gz) then
+        scripts/submit tmp/TSNP/$run/$zone/tsnp2c  "scripts/tsnp2.tcsh tsnp2c $zone $run"
+      endif
+    end
+  endif
+end
+
+goto phaseLoop
+
+
 scripts/submit  tmp/TSNP/$run/tsnp2  "bin/tricoteur -count -wLn 31 -wordFile tmp/TSNP_DB/$zone/tsnp2.$MAGIC.w31.gz -run $run -gzo -o tmp/TSNP/$run/tsnp2.$MAGIC.$zone -antistrand" 32G
 ###################################################################################
 ## Report separate tables for sub, del, ins
-phaseSnp3:
+phaseTSnp3:
 foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-  scripts/submit tmp/tsnp3.$zone "scripts/tsnp3.tcsh  $Strategy $zone" 32G
+  if (! -d tmp/TSNP_DB/$zone) goto phaseLoop
+  scripts/submit tmp/TSNP_DB/$zone/tsnp3 "scripts/tsnp3.tcsh  $Strategy $zone" 32G
 end
 goto phaseLoop
   
@@ -10253,6 +10284,7 @@ end
 
 goto phaseLoop
 
+#######################################################################################
 phaseSLpA3:
 
 if (-d tmp/SLpA) then
@@ -10267,17 +10299,71 @@ endif
 goto phaseLoop
 
 #######################################################################################
-## phase t1: collect the translocations runs
+#######################################################################################
+## phase tgf1: collect the RNA-seq gene-fusions
+
+phasetgf1:
+if ($Strategy != RNA_seq) goto phaseLoop
+
+  echo -n "Phase tgf1 collect the gene_fusions: "
+  date
+if (! -d RESULTS/GeneFusion) mkdir RESULTS/GeneFusion
+
+set target=av
+foreach run (`cat MetaDB/$MAGIC/RunsList`)
+   if (! -d RESULTS/GeneFusion/$run) $mkDir GeneFusion $run
+   if (! -e tmp/GeneFusion/$run/t1.gene_fusion.av.txt.gz) then
+    scripts/submit tmp/GeneFusion/$run/t1 "scripts/t1.gene_fusion.tcsh t1 $run $target"
+  endif
+end
+
+goto phaseLoop
+
+#######################################################################################
+## phase tgf2:   report the RNA-seq gene-fusions
+
+# ATTENTION scripts/GeneFusion.tcsh draft  has lots of stuff on geneLinks developped at the time of the NB project
+
+phaset2: 
+if ($Strategy != RNA_seq) goto phaseLoop
+foreach level (1 2 3 4 5 6 7 8 9)
+  foreach target (av)
+    foreach group (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if ($3 == level)print $1;}' level=$level | sort -u`)
+      set ok=0
+      foreach g (`cat MetaDB/$MAGIC/GroupGeneFusionList`)
+        if ($g == $group) set ok=1
+      end
+      if ($ok == 0) continue 
+      if (! -d  tmp/GeneFusion/$group) mkdir  tmp/GeneFusion/$group
+      if (! -e tmp/GeneFusion/$group/t1.gene_fusion.$target.txt.gz) then 
+        scripts/submit tmp/GeneFusion/$group/t2 "scripts/t1.gene_fusion.tcsh t2 $group $target"
+      endif
+    end
+  end
+  echo "t2 $level done"
+  scripts/submit wait
+end
+
+goto phaseLoop
+
+phaset3: 
+   scripts/t1.gene_fusion.tcsh t3 
+goto phaseLoop
+
+#######################################################################################
+#######################################################################################
+## phase t1: collect the RNA-seq transloc
 
 phaset1:
   echo -n "Phase t1 collect the translocations runs: "
   date
 if (! -d RESULTS/Transloc) mkdir RESULTS/Transloc
 
-set target=av
+set target=genome
+if ($Strategy == RNA_seq) set target=av
 foreach run (`cat MetaDB/$MAGIC/RunsList`)
-   if (! -d RESULTS/Transloc/$run) $mkDir Transloc $run
-  if (! -e tmp/Transloc/$run/t1.transloc.av.txt.gz) then
+  if (! -d RESULTS/Transloc/$run) $mkDir Transloc $run
+  if (! -e tmp/Transloc/$run/t1.transloc.$target.txt.gz) then
     scripts/submit tmp/Transloc/$run/t1 "scripts/t1.transloc.tcsh t1 $run $target"
   endif
 end
@@ -10285,12 +10371,16 @@ end
 goto phaseLoop
 
 #######################################################################################
-## phase t2:   report the translocations per runs, groups and project
+## phase t2:   report the RNA-seq gene-fusions
 
 # ATTENTION scripts/Transloc.tcsh draft  has lots of stuff on geneLinks developped at the time of the NB project
 
 phaset2: 
 
+if (! -d tmp/Transloc) goto phaseLoop
+
+set target=genome
+if ($Strategy == RNA_seq) set target=av
 foreach level (1 2 3 4 5 6 7 8 9)
   foreach target (av)
     foreach group (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if ($3 == level)print $1;}' level=$level | sort -u`)

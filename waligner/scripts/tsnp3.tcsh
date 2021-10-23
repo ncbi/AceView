@@ -7,15 +7,14 @@ set snp_type=".filtered"
 set snp_type=".differential"
 set snp_type=""
 
-set TTT=TSNP_DB
 # if ($Strategy == RNA_seq) set TTT=SNP_DB
 
 #########################################################
 ## HACK used in CORONA to create the remap the snps
 
 if (0 && $MAGIC == JUNK && ! -e tmp/METADATA/mrnaRemap.gz) then
-  bin/tace tmp/$TTT/$zone <<EOF
-    select  -o tmp/METADATA/mrnaRemap t,m,x1,x2,map,a1,a2,g from t = "KT_RefSeq",m in ?mrna, map in m->intMap, a1 in map[1],a2 in map[2],x1=1,x2=a2-a1+1,g in m->gene
+  bin/tace tmp/TSNP_DB/$zone <<EOF
+    select  -o tmp/METADATA/tsnp3.mrnaRemap t,m,x1,x2,map,a1,a2,g from t = "KT_RefSeq",m in ?mrna, map in m->intMap, a1 in map[1],a2 in map[2],x1=1,x2=a2-a1+1,g in m->gene
     quit
 EOF
 endif
@@ -23,12 +22,12 @@ endif
 #########################################################
 ## Flag the selected SNPs
 
-if (-e tmp/$TTT/$MAGIC.snp.selected.list) then 
-  bin/tacembly tmp/$TTT/$zone <<EOF
+if (-e tmp/TSNP_DB/$MAGIC.snp.selected.list) then 
+  bin/tacembly tmp/TSNP_DB/$zone <<EOF
     read-models
     query find snp selected
     spush
-    key  tmp/$TTT/$MAGIC.snp.selected.list
+    key  tmp/TSNP_DB/$MAGIC.snp.selected.list
     sminus
     edit Selected
     spop
@@ -40,8 +39,8 @@ endif
 
 #########################################################
 ## update the Runs, their groups, titles and other metadata
-laba2:
-bin/tacembly tmp/$TTT/$zone <<EOF
+
+bin/tacembly tmp/TSNP_DB/$zone <<EOF
        read-models
        query find run project == $MAGIC
        edit -D project $MAGIC
@@ -59,40 +58,45 @@ if ($Strategy == RNA_seq) goto RNA_seq
 
 
   setenv ici `pwd`
-  set toto=tmp/TSNP_DB/$zone/_r.$MAGIC.snp3
+  set toto=tmp/TSNP_DB/$zone/tsnp3.$MAGIC._r
   echo ' ' > $toto
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
-    if (-e tmp/TSNP/$run/tsnp2.$MAGIC.$zone.val.tsf.gz) then
-      echo `pwd`/tmp/TSNP/$run/tsnp2.$MAGIC.$zone.val.tsf.gz >> $toto
+    if (-e       tmp/TSNP/$run/$zone/tsnp2c.$MAGIC.val.tsf.gz) then
+      echo `pwd`/tmp/TSNP/$run/$zone/tsnp2c.$MAGIC.val.tsf.gz >> $toto
     endif
   end
 
-bin/tsnp --merge  -f $ici/tmp/TSNP_DB/$zone/_r.$MAGIC.snp3  -o $ici/tmp/TSNP_DB/$zone/$MAGIC.$zone
-echo     "bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.$MAGIC.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o $ici/tmp/TSNP_DB/$zone/$MAGIC.$zone --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN"
+setenv ici `pwd`
+bin/tsnp --merge   -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged -f $toto
+echo     "bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN"
 # min zero, to parse the tsf table
-time      bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.$MAGIC.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o $ici/tmp/TSNP_DB/$zone/$MAGIC.$zone --force NYC_JOR,Treagen_TX -minSnpFrequency 0  -minSnpCount 0  --wiggleDir tmp/WIGGLERUN
+time      bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
 # min 5 to export the nice table
-time      bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.$MAGIC.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o $ici/tmp/TSNP_DB/$zone/$MAGIC.$zone --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
+# time    bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
 
+mv  tmp/TSNP_DB/$zone/tsnp3.$MAGIC.snp_frequency_table.txt _u$$
 
+cat _u$$ | head -20 | gawk '/^#/{print}'                             >  tmp/TSNP_DB/$zone/tsnp3.$MAGIC.snp_frequency_table.txt
+cat _u$$ | gawk '/^#/{next;}{print}' | scripts/tab_sort -k 8n -k 6n >>  tmp/TSNP_DB/$zone/tsnp3.$MAGIC.snp_frequency_table.txt
 
-
-mv  tmp/TSNP_DB/$zone/$MAGIC.$zone.snp_frequency_table.txt _u$$
-cat _u$$ | head -20 | gawk '/^#/{print}' >  tmp/TSNP_DB/$zone/$MAGIC.$zone.snp_frequency_table.txt
-cat _u$$ | gawk '/^#/{next;}{print}' | scripts/tab_sort -k 8n -k 6n >>  tmp/TSNP_DB/$zone/$MAGIC.$zone.snp_frequency_table.txt
-
-\cp  tmp/TSNP_DB/$zone/$MAGIC.$zone.snp_frequency_table.txt RESULTS/SNV
-
+\cp  tmp/TSNP_DB/$zone/tsnp3.$MAGIC.snp_frequency_table.txt $MAGIC.$zone.snp_frequency_table.txt
+\rm _u$$
 
 exit 0
 
+##########################################################
+##########################################################
+## It is not so clear to understand the rest of the code below
+
+
 RNA_seq:
+exit 0
 #########################################################
 ## Export a nice table
 
-if (! -e tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt2) then
+if (! -e tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt2) then
   setenv ici `pwd`
-  set toto=tmp/SNP_DB/$zone/_r.snp3
+  set toto=tmp/TSNP_DB/$zone/_r.snp3
   echo ' ' > $toto
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     if (-e tmp/TSNP/$run/tsnp2.$MAGIC.$zone.val.txt.gz) then
@@ -104,10 +108,10 @@ if (! -e tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt2) then
     endif
   end
 
-  echo "bin/tsnp -f $ici/tmp/SNP_DB/$zone/_r.snp3 -db tmp/SNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone       --force NYC_JOR --wiggleDir tmp/WIGGLERUN -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount -Reference_genome  $Reference_genome"
-  time  bin/tsnp -f $ici/tmp/SNP_DB/$zone/_r.snp3 -db tmp/SNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone --force NYC_JOR  -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount 
+  echo "bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone       --force NYC_JOR --wiggleDir tmp/WIGGLERUN -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount -Reference_genome  $Reference_genome"
+  time  bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone --force NYC_JOR  -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount 
 
-  \cp tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt RESULTS/SNV
+  \cp tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt RESULTS/SNV
   \cp tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone.snp_wiggle_delta.txt  RESULTS/SNV
 
 endif
@@ -117,10 +121,6 @@ endif
 ## It is not so clear to undertstand the rest of the code below
 
 exit 0
-
-##########################################################
-##########################################################
-## It is not so clear to understand the rest of the code below
 
 
 ################ Find the 51 mer repeats
