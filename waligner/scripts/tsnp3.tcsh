@@ -66,13 +66,12 @@ if ($Strategy == RNA_seq) goto RNA_seq
     endif
   end
 
-setenv ici `pwd`
 bin/tsnp --merge   -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged -f $toto
-echo     "bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN"
+echo     "bin/tsnp -i tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN"
 # min zero, to parse the tsf table
-time      bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
+time      bin/tsnp -i tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
 # min 5 to export the nice table
-# time    bin/tsnp -i $ici/tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
+# time    bin/tsnp -i tmp/TSNP_DB/$zone/tsnp3.$MAGIC.merged.snp_frequency.tsf -db tmp/TSNP_DB/$zone -p $MAGIC -db_report  -o tmp/TSNP_DB/$zone/tsnp3.$MAGIC --force NYC_JOR,Treagen_TX -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount --wiggleDir tmp/WIGGLERUN
 
 mv  tmp/TSNP_DB/$zone/tsnp3.$MAGIC.snp_frequency_table.txt _u$$
 
@@ -108,8 +107,8 @@ if (! -e tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt2) then
     endif
   end
 
-  echo "bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone       --force NYC_JOR --wiggleDir tmp/WIGGLERUN -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount -Reference_genome  $Reference_genome"
-  time  bin/tsnp -f $ici/tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o $ici/tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone --force NYC_JOR  -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount 
+  echo "bin/tsnp -f tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone       --force NYC_JOR --wiggleDir tmp/WIGGLERUN -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount -Reference_genome  $Reference_genome"
+  time  bin/tsnp -f tmp/TSNP_DB/$zone/_r.snp3 -db tmp/TSNP_DB/$zone -p $MAGIC -db_report                -o tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone --force NYC_JOR  -minSnpFrequency $minSnpFrequency -minSnpCount $minSnpCount 
 
   \cp tmp/TSNP_DB/$zone/$MAGIC.mRNA.$zone.snp_frequency_table.txt RESULTS/SNV
   \cp tmp/SNP_DB/$zone/$MAGIC.mRNA.$zone.snp_wiggle_delta.txt  RESULTS/SNV

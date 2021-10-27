@@ -148,7 +148,7 @@ typedef struct tsnpCallerTable {
   int pure, high, mid, low, ref, wellCovered ; /* prevalence */
   CHAN *getLaneInChan, *getLaneOutChan, *analyzeChan ;
   CHAN *doneChan ;
-} TCT ;
+} TSNP ;
 
 
 typedef struct snpStruct {
@@ -193,7 +193,7 @@ typedef struct runStruct {
 /*************************************************************************************/
 /*************************************************************************************/
  
-static int tctSnpA1Order  (const void *va, const void *vb)
+static int tsnpSnpA1Order  (const void *va, const void *vb)
 {
   const SNP *up = (const SNP *)va, *vp = (const SNP*)vb ;
   int n ;
@@ -202,17 +202,17 @@ static int tctSnpA1Order  (const void *va, const void *vb)
   n = up->a2 - vp->a2 ; if (n) return n ;
 
   return 0 ;
-} /* tctSnpA1Order */
+} /* tsnpSnpA1Order */
 
 /*************************************************************************************/
 #define MAXTYPE 6
 /* TYPE up->counts(run *MAXTYPE + i)  ::  0/1: var-donor/accp, 2/3 :ref d/a, 4/5: wiggle d/a */
-static int tctSnpParseOne (TCT *tct, ACEIN ai)
+static int tsnpSnpParseOne (TSNP *tsnp, ACEIN ai)
 {
   int nn = 0 ;
   AC_HANDLE h = ac_new_handle () ;
-  DICT *selectDict = tct->selectDict ;
-  DICT *runDict = tct->runDict ;
+  DICT *selectDict = tsnp->selectDict ;
+  DICT *runDict = tsnp->runDict ;
   DICT *typeDict = dictHandleCreate (8, h) ;
 
   dictAdd (typeDict, "Var", 0) ;
@@ -226,7 +226,6 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
   while (aceInCard (ai))
     {
       char cutter, *cq, *cp = aceInWordCut (ai, "\t", &cutter) ;
-      const char *ccp ;
       int snp, type, target, run, delta, subDelIns = 0 ;
       int a0, a1, a2, a3, da = 0 ;
       SNP *up ;
@@ -236,7 +235,7 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
     
       if (0)
 	{ /* the tsf file has no zone */
-	  if (tct->zone && strcasecmp (cp, tct->zone))
+	  if (tsnp->zone && strcasecmp (cp, tsnp->zone))
 	    continue ;
 	  
 	  aceInStep (ai,'\t') ;
@@ -244,7 +243,7 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
 	  if (! cp || *cp == '#' || *cp == '/')
 	    continue ;
 	} 
-      if (0)
+      if (1)
 	{
 	  cq = strstr (cp, "__") ;
 	  if (!cq)
@@ -253,153 +252,147 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
 	  if (! dictFind (typeDict, cp, &type))
 	    continue ;
 	  cp = cq ;
-	  cq = strstr (cp, "___") ;
-	  if (cq)
-	    { *cq = 0 ; cq += 2 ; }
 	}
       if (selectDict && ! dictFind (selectDict, cp, 0))
 	continue ;
       if (! strcmp (cp, "NC_045512:9693:DelIns_118_119::"))  /* HACK 2020_06_10, bad variant */
 	continue ;
 
-      if (dictAdd (tct->snpDict, cp, &snp))
+      if (dictAdd (tsnp->snpDict, cp, &snp))
 	nn++ ; /* else it is already detected */
-      da = subDelIns == 0 ;
+      da = subDelIns = 0 ;
+      up = arrayp (tsnp->snps, snp, SNP) ; /* make room */
 
+      subDelIns = 0 ;
       a1 = a2 = target = 0 ;
       if (1)
 	{
-	  char *cr, *cs ;
+	  char *cr ;
 	  cr = strchr (cp, ':') ;
 	  if (cr)
 	    {
-	      *cr = 0 ;
+	      *cr++ = 0 ;
 	      if (*cp)
-		dictAdd (tct->targetDict, cp, &target) ;
-	      *cr++ = ':' ;
-	      cs = strchr (cr, ':') ;
-	      if (cs)
+		dictAdd (tsnp->targetDict, cp, &target) ;
+	      cp = cr ;
+	      cr = strchr (cp, ':') ;
+	      da = 1 ;
+	      if (cr)
 		{
-		  *cs = 0 ;
-		  sscanf (cr, "%d:", &a1) ;
-		  *cs = ':' ;
+		  cr++ ;
+		  if (cp)  /* cp point on the coordinate  target:type:coord: */
+		    {
+		      char cc = 0 ;
+		      sscanf (cp, "%d%c", &a1, &cc) ;
+		      if (cc != ':')
+			continue ;
+		      cp = cr ;
+		      cr = strchr (cp, ':') ;
+		      if (cr)
+			{  /* expect :a:aT for a substitution of Del_12 */
+			  cr++ ;
+			  if (cp)     /* cp point on the coordinate  target:type:coord: */
+			    {
+			      if (! strncmp (cp, "Ins", 3))
+				{
+				  da = 0 ;
+				  subDelIns = 6 ;
+				  if (cp[3] == '_')
+				    subDelIns = 2 ;
+				}
+			      else if (! strncmp (cp, "DelIns", 6))
+				{
+				  int kD = 0, kI = 0 ;
+				  
+				  cc = 0 ;
+				  subDelIns = 7 ; da = 1 ; /* wild guess */
+				  cp += 7 ;
+				  if (sscanf (cq, "%d_%d%c", &kD, &kI, &cc) == 3 && cc == ':')
+				    da = kD ;
+				}
+			      else 
+				{
+				  if (! strncmp (cp, "Sub", 3))
+				    {
+				      subDelIns = 1 ;
+				      if (cp[3] == '_')
+					subDelIns = 2 ;
+				    }
+				  if (! strncmp (cp, "Del", 3))
+				    {
+				      subDelIns = 4 ;
+				      if (cp[3] == '_')
+					subDelIns = 7 ;
+				    }
+				  cr = cp + 3 ;
+				  if (*cr == '_')
+				    {
+				      cr++ ;
+				      cp = cr ;
+				      cc = 0 ;
+				      sscanf (cp, "%d%c", &da, &cc) ;
+				      if (cc != ':')
+					continue ;
+				    }
+				}
+			    }
+			}
+		      a2 = a1 + da + 1 ;
+		    }
 		}
-	      a2 = a1 + da ; /* must be modified for long deletions, ok for sub and inserts */
 	    }
 	}
 
-      ccp = dictName (tct->snpDict, snp) ;
-      if (strstr (ccp, ":Sub:"))
-	{ 
-	  subDelIns = 1 ;
-	  da = 0 ;
-	}
-      else if (strstr (ccp, ":Sub_"))  /* bases a1 to a2 = a1 + da are modified */
-	{
-	  int k = 1 ; char cc = 0 ;
-	  const char *ccq, *ccr ;
+      aceInStep (ai, '\t') ;
+      cp = aceInWordCut (ai, "\t", &cutter) ;
+      
+      if (! cp || *cp == '#' || *cp == '/')
+	continue ;
+      if (tsnp->mergeCounts)
+	dictAdd (runDict, cp, &(run)) ;
+      if (! dictFind (runDict, cp, &(run)))
+	continue ;
+      
+      aceInStep (ai, '\t') ;  /* the format, expect iiii or ii */
+      cp = aceInWordCut (ai, "\t", &cutter) ; /* the format of this tsf file */
+      if (! cp || strncmp(cp,"ii",2))
+	continue ;
+      
+      aceInStep (ai,'\t') ;
+      aceInInt (ai, &a0) ;   /* forward counts */
+      aceInStep (ai,'\t') ;
+      if (!aceInInt (ai, &a1))
+	continue ;  /* reverse counts (direction of the read, not of the template as in pair sequencing */
+      /* in the next 2 coulumns, we optionally have access to the stand coverage */
+      aceInStep (ai,'\t') ;
+      aceInInt (ai, &a2) ;   /* forward counts */
+      aceInStep (ai,'\t') ;
+      aceInInt (ai, &a3) ;  /* reverse counts (direction of the read, not of the template as in pair sequencing */
 
-	  subDelIns = 2 ; da = 1 ; /* wild guess */
-	  ccq = strstr (ccp, ":Sub_") + 5 ; 
-	  if (sscanf (ccq, "%d%c", &k, &cc) == 2 && cc == ':')
-	    da = k - 1 ;
-	  else
-	    {
-	      ccr = strchr(ccq, ':') ; 
-	      if (ccr) 
-		da = ccr - ccq ; 
-	    }
-	}
-      else if (strstr (ccp, ":Del:"))
-	{ subDelIns = 3 ; da = 2 ; }  /* bases a1 and a2 = a1 + da are correct */
-      else if (strstr (ccp, ":Del_"))
-	{ 
-	  int k = 1 ; char cc = 0 ;
-	  const char *ccq, *ccr ;
-
-	  subDelIns = 4 ; ccq = strstr (ccp, ":Del_") + 5 ; 
-	  if (sscanf (ccq, "%d%c", &k, &cc) == 2 && cc == ':')
-	    da = k+1 ;
-	  else
-	    {
-	      ccr = strchr(ccq, ':') ; 
-	      if (ccr) 
-		da = ccr - ccq + 1 ; 
-	      else 
-		subDelIns = 7 ; 
-	    }
-	}
-      else if (strstr (ccp, ":Ins:"))
-	{ subDelIns = 5 ; da = 1 ; }  /* bases a1 and a2 = a1 + 1 are correct */
-      else if (strstr (ccp, ":Ins_"))
-	{ subDelIns = 6 ; da = 1 ; }
-      else if (strstr (ccp, ":DelIns_"))
-	{
-	  int k = 1 ; char cc = 0 ;
-	  const char *ccq, *ccr ;
-
-	  subDelIns = 7 ; da = 1 ; /* wild guess */
-	  ccq = strstr (ccp, ":DelIns_") + 8 ; 
-	  if (sscanf (ccq, "%d%c", &k, &cc) == 2 && cc == '_')
-	    da = k + 1 ;
-	  else
-	    {
-	      ccr = strchr(cq, '_') ; 
-	      if (ccr) 
-		da = ccr - ccq + 1 ; 
-	    }
-	}
-      a2 = a1 + da ;
-
-      up = arrayp (tct->snps, snp, SNP) ;
+      up = arrayp (tsnp->snps, snp, SNP) ;
       up->snp = snp ; /* self */
       up->a1 = a1 ;
       up->a2 = a2 ;
       up->target = target ;
       if (! up->counts)
 	{
-	  up->counts = arrayCreate (MAXTYPE * (1+dictMax (runDict)), KEY) ;
+	  up->counts = arrayCreate (MAXTYPE * (8+dictMax (runDict)), KEY) ;
 
 	  up->minFrequency = 1000 ;
 	  up->maxFrequency = -1000 ;
 	}
       
-      aceInStep (ai, '\t') ;
-      cp = aceInWordCut (ai, "\t", &cutter) ;
-      
-      if (! cp || *cp == '#' || *cp == '/')
-	continue ;
-      if (tct->mergeCounts)
-	dictAdd (runDict, cp, &(run)) ;
-      if (! dictFind (runDict, cp, &(run)))
-	continue ;
-      
-      aceInStep (ai, '\t') ;  /* the format, expect iiii or ii */
-      cp = aceInWordCut (ai, "\t", &cutter) ; /* the format of this tsf file, ignore */
-      if (! cp || (strcmp(cp,"10") && strcmp(cp,"10i") && strcmp(cp,"iiiiiiiiii")))
-	continue ;
-      
-      aceInStep (ai,'\t') ;
-      aceInInt (ai, &a0) ;   /* forward counts */
-      aceInStep (ai,'\t') ;
-      aceInInt (ai, &a1) ;  /* reverse counts (direction of the read, not of the template as in pair sequencing */
-      /* in the next 2 coulumns, we have access to the stand coverage */
-      aceInStep (ai,'\t') ;
-      aceInInt (ai, &a2) ;   /* forward counts */
-      aceInStep (ai,'\t') ;
-      aceInInt (ai, &a3) ;  /* reverse counts (direction of the read, not of the template as in pair sequencing */
 
+      up->type &= 3 ;
       switch (type)
 	{
 	case 1: /* Variant */
 	  up->type |= 0x1 ;   /* split var counts */
 	  keySet (up->counts, MAXTYPE * run + 1) = a0 + a1 ; /* double register */
-	  up->acoverp += a2 ;
-	  up->acoverm += a3 ;
+	  delta = 0 ;
+	  break ;
 	case 2: /* VarDonor*/
 	  delta = 0 ;
-	  up->coverp += a2 ;
-	  up->coverm += a3 ;
 	  break ;
 	case 3: /* VarAccep */
 	  delta = 1 ;
@@ -408,60 +401,70 @@ static int tctSnpParseOne (TCT *tct, ACEIN ai)
 	case 4: /* Ref */
 	  up->type |= 0x2 ;   /* split var counts */
 	  keySet (up->counts, MAXTYPE * run + 3) = a0 + a1 ; /* double register */
-	  up->acoverp += a2 ;
-	  up->acoverm += a3 ;
+	  delta = 2 ;
+	  break ;
 	case 5: /* RefDonor */
 	  delta = 2 ;
-	  up->coverp += a2 ;
-	  up->coverm += a3 ;
 	  break ;
 	case 6: /* RefAccep */
 	  delta = 3 ;
-	  up->acoverp += a2 ;
-	  up->acoverm += a3 ;
 	  break ;
 	}
-      up->type = (up->type & 0x3) +  8 * subDelIns ;
+      up->type |= ((up->type & 0x3) +  8 * subDelIns) ;
       
       keySet (up->counts, MAXTYPE * run + delta) = a0 + a1 ; /* merge the strands */
 
       switch (type)
-	{
+	{                      /* coverage = cumul of all runs */
 	case 1: /* Variant */
 	  up->amp += a0 ;
 	  up->amm += a1 ;
+	  up->acoverp += a2 ;
+	  up->acoverm += a3 ;
+	  /* fallthru */
 	case 2: /* VarDonor*/
 	  up->mp += a0 ;
 	  up->mm += a1 ;
+	  up->coverp += a2 ;
+	  up->coverm += a3 ;
 	  break ;
 	case 3: /* VarAccep */
 	  up->amp += a0 ;
 	  up->amm += a1 ;
+	  up->acoverp += a2 ;
+	  up->acoverm += a3 ;
 	  break ;
 	case 4: /* Ref */
 	  up->awp += a0 ;
 	  up->awm += a1 ;
+	  up->acoverp += a2 ;
+	  up->acoverm += a3 ;
+	  /* fallthru */
 	case 5: /* RefDonor */
 	  up->wp += a0 ;
 	  up->wm += a1 ;
+	  up->coverp += a2 ;
+	  up->coverm += a3 ;
 	  break ;
 	case 6: /* RefAccep */
 	  up->awp += a0 ;
 	  up->awm += a1 ;
+	  up->acoverp += a2 ;
+	  up->acoverm += a3 ;
 	  break ;
 	}
     }
 
   ac_free (h) ;
   return nn ;
-} /* tctSnpParseOne */
+} /* tsnpSnpParseOne */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
 /* import the runs metadata from the database */
 
-static int tctGetSelectedSnps (TCT *tct)
+static int tsnpGetSelectedSnps (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tbl = 0 ;
@@ -469,13 +472,13 @@ static int tctGetSelectedSnps (TCT *tct)
   const char *ccp ;
   char *cp, *cq, *sep ;
   int ir, nn = 0, target ;
-  DICT *targetDict = tct->targetDict ;
-  DICT *snpDict = tct->snpDict ;
+  DICT *targetDict = tsnp->targetDict ;
+  DICT *snpDict = tsnp->snpDict ;
   vTXT txt = vtxtHandleCreate (h) ;
 
-  if (tct->force)
+  if (tsnp->force)
     {
-      cp = strnew (tct->force, h) ;
+      cp = strnew (tsnp->force, h) ;
       sep = " where (" ;
       while (cp)
 	{
@@ -491,7 +494,7 @@ static int tctGetSelectedSnps (TCT *tct)
       vtxtPrintf (txt, " ) ") ;
     }
 
-  tbl = ac_bql_table (tct->db, hprintf (h, "select s, c, a1, a2 from s in ?variant %s , c in s->intmap, a1 in c[1], a2 in c[2] where a2", vtxtPtr (txt)), 0, 0, &errors, tct->h) ;
+  tbl = ac_bql_table (tsnp->db, hprintf (h, "select s, c, a1, a2 from s in ?variant %s , c in s->intmap, a1 in c[1], a2 in c[2] where a2", vtxtPtr (txt)), 0, 0, &errors, tsnp->h) ;
 
   if (tbl)
     for (ir = 1 ; ir < tbl->rows ; ir++)
@@ -504,7 +507,7 @@ static int tctGetSelectedSnps (TCT *tct)
 	dictAdd (snpDict, ccp, &snp) ;
 	ccp = ac_table_printable (tbl, ir, 1, 0) ;
 	dictAdd (targetDict, ccp, &target) ;
-	up = arrayp (tct->snps, snp, SNP) ;
+	up = arrayp (tsnp->snps, snp, SNP) ;
 	up->snp = snp ;
 	up->target = target ;
 	up->a1 = a1 ;
@@ -515,7 +518,7 @@ static int tctGetSelectedSnps (TCT *tct)
 
   ac_free (h) ;
   return nn ;
-} /* tctGetSelectedSnps */
+} /* tsnpGetSelectedSnps */
 
 /*************************************************************************************/
 
@@ -608,19 +611,19 @@ static int hisMutIsMyMut (SNP *up, SNP *vp)
 
 /*************************************************************************************/
 
-static void tctSnpParse (TCT *tct)
+static void tsnpSnpParse (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
 
-  tct->targetDict = dictHandleCreate (64, tct->h) ;
-  tct->snpDict = dictHandleCreate (1000, tct->h) ;
-  if (tct->inFileOfFileList)
+  tsnp->targetDict = dictHandleCreate (64, tsnp->h) ;
+  tsnp->snpDict = dictHandleCreate (1000, tsnp->h) ;
+  if (tsnp->inFileOfFileList)
     {
       vTXT txt = 0 ;
       char *sep = "" ;
-      ACEIN ai = aceInCreate (tct->inFileOfFileList, 0, h) ;
+      ACEIN ai = aceInCreate (tsnp->inFileOfFileList, 0, h) ;
       if (!ai)
-	messcrash ("Cannot open -file_of_file_list %s\n", tct->inFileOfFileList) ;
+	messcrash ("Cannot open -file_of_file_list %s\n", tsnp->inFileOfFileList) ;
 
       txt = vtxtHandleCreate (h) ;
       while (aceInCard (ai))
@@ -636,40 +639,40 @@ static void tctSnpParse (TCT *tct)
 	    }
 	}
       if (*sep)
-	tct->inFileList = vtxtPtr (txt) ;
+	tsnp->inFileList = vtxtPtr (txt) ;
     }
 
-  tct->runs = arrayHandleCreate (300, RC, tct->h) ;
-  tct->snps = arrayHandleCreate (30000, SNP, tct->h) ;
-  if (tct->inFileList)
+  tsnp->runs = arrayHandleCreate (300, RC, tsnp->h) ;
+  tsnp->snps = arrayHandleCreate (30000, SNP, tsnp->h) ;
+  if (tsnp->inFileList)
     {
       ACEIN ai = 0 ;
       int nn = 0 ;
       const char *error = 0 ;
 
       /* check that all files exist */
-      if (! aceInCheckList (tct->inFileList, &error, h))
+      if (! aceInCheckList (tsnp->inFileList, &error, h))
 	messcrash ("Bad parameter -f, %s"
 		       ,  error
 		       ) ;	
  
       /* parse a validated list of files */
-      while ((ai = aceInCreateFromList (ai, &nn, tct->inFileList, tct->gzi, h)))
+      while ((ai = aceInCreateFromList (ai, &nn, tsnp->inFileList, tsnp->gzi, h)))
 	{
-	  tct->snpDetected += tctSnpParseOne (tct, ai) ;
+	  tsnp->snpDetected += tsnpSnpParseOne (tsnp, ai) ;
 	}
      }
-  if (tct->force) tctGetSelectedSnps (tct) ;
-  arraySort (tct->snps, tctSnpA1Order) ;
+  if (tsnp->force) tsnpGetSelectedSnps (tsnp) ;
+  arraySort (tsnp->snps, tsnpSnpA1Order) ;
 
   /* coallesce the neighbours */
-  if (arrayMax (tct->snps) > 1)
+  if (arrayMax (tsnp->snps) > 1)
     {
-      int snp, snpMax = arrayMax (tct->snps) ;
+      int snp, snpMax = arrayMax (tsnp->snps) ;
       SNP *up, *vp ;
-      int ir, irMax = dictMax (tct->runDict) ;
+      int ir, irMax = dictMax (tsnp->runDict) ;
       
-      for (snp = 1, up = arrp (tct->snps, 0, SNP) ; snp < snpMax ; up++, snp++)
+      for (snp = 1, up = arrp (tsnp->snps, snp, SNP) ; snp < snpMax ; up++, snp++)
 	{
 	  if (up->counts) /* count problems */
 	    for (ir = 1 ; ir <= irMax ;ir++)
@@ -691,7 +694,7 @@ static void tctSnpParse (TCT *tct)
 		      {
 			KEY *kp2 = arrayp (vp->counts, ir * MAXTYPE, KEY) ;
 			int m52 = kp2[0] ; /* variant, including self */
-			int r52 = kp2[2] ; /* variant, including self */
+			int r52 = kp2[2] ; /* ref, including self */
 			switch (hisMutIsMyMut (up, vp))
 			  {
 			  case 2:
@@ -724,13 +727,13 @@ static void tctSnpParse (TCT *tct)
 	}
     }
   /* accept the coallesced values */
-  if (arrayMax (tct->snps) > 1)
+  if (arrayMax (tsnp->snps) > 1)
     {
-      int snp, snpMax = arrayMax (tct->snps) ;
+      int snp, snpMax = arrayMax (tsnp->snps) ;
       SNP *up ;
-      int ir, irMax = dictMax (tct->runDict) ;
+      int ir, irMax = dictMax (tsnp->runDict) ;
       
-      for (snp = 1, up = arrp (tct->snps, 0, SNP) ; snp < snpMax ; up++, snp++)
+      for (snp = 1, up = arrp (tsnp->snps, snp, SNP) ; snp < snpMax ; up++, snp++)
 	{
 	  if (up->counts) /* count problems */
 	    for (ir = 1 ; ir <= irMax ;ir++)
@@ -755,15 +758,15 @@ static void tctSnpParse (TCT *tct)
   ac_free (h) ;
 
   return  ;
-} /* tctSnpParse */
+} /* tsnpSnpParse */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void tctWiggleParseOne (TCT *tct, int run, int target)
+static void tsnpWiggleParseOne (TSNP *tsnp, int run, int target)
 {
   AC_HANDLE h = ac_new_handle () ;
-  char *fNam = hprintf (h, "%s/%s/%s/R.chrom.frns.u.BF.gz", tct->wiggleDir, dictName (tct->runDict, run), dictName (tct->targetDict, target)) ;
+  char *fNam = hprintf (h, "%s/%s/%s/R.chrom.frns.u.BF.gz", tsnp->wiggleDir, dictName (tsnp->runDict, run), dictName (tsnp->targetDict, target)) ;
   ACEIN ai = aceInCreate (fNam, 0, h) ;
   int line = 0, start = 0, step = 0, x = 0 ;
   float w ;
@@ -789,7 +792,7 @@ static void tctWiggleParseOne (TCT *tct, int run, int target)
 	      if (!cp)
 		continue ;
 	      cp += 6 ;
-	      if (!cp || strcmp (cp, dictName (tct->targetDict, target)))
+	      if (!cp || strcmp (cp, dictName (tsnp->targetDict, target)))
 		continue ;
 	      
 	      cp = aceInWord (ai) ;
@@ -821,23 +824,23 @@ static void tctWiggleParseOne (TCT *tct, int run, int target)
 
   if (ww && arrayMax (ww)) /* we have a wiggle, with known start and step, we scan the snps and update the wiggle values at a1 and a2 */
     {
-      int kk, pass, snp, snpMax = arrayMax (tct->snps) ;
+      int kk, pass, snp, snpMax = arrayMax (tsnp->snps) ;
       int zz[2] ;
       int ww0[2] ;
       SNP *up ;
       int stop = start + step * arrayMax (ww) ;
       float wwww[5], w0, dw, dw0, z ;
       if (!step) step = 1 ;
-      for (snp = 1, up = arrp (tct->snps, 0, SNP) ; snp < snpMax ; up++, snp++)
+      for (snp = 1, up = arrp (tsnp->snps, 0, SNP) ; snp < snpMax ; up++, snp++)
 	{
 	  KEY *kp = 0 ;
-	  if (! up->select && tct->minSnpFrequency && (up->maxFrequency < 0 || up->maxFrequency < tct->minSnpFrequency))
+	  if (! up->select && tsnp->minSnpFrequency && (up->maxFrequency < 0 || up->maxFrequency < tsnp->minSnpFrequency))
 	    continue ;
 	  if (up->a1 < start+10 || up->a1 > stop - 10)
 	    continue ;
 	  if (! up->counts)
 	    {
-	      up->counts = arrayCreate (MAXTYPE * (1+dictMax (tct->runDict)), KEY) ;
+	      up->counts = arrayCreate (MAXTYPE * (1+dictMax (tsnp->runDict)), KEY) ;
 	      
 	      up->minFrequency = 1000 ;
 	      up->maxFrequency = -1000 ;
@@ -878,7 +881,7 @@ static void tctWiggleParseOne (TCT *tct, int run, int target)
 		}
 	      /* select best estimate, closest to the word counts */
 	      if (! up->counts)
-		up->counts = arrayCreate (MAXTYPE * (1+dictMax (tct->runDict)), KEY) ;
+		up->counts = arrayCreate (MAXTYPE * (1+dictMax (tsnp->runDict)), KEY) ;
 	      w0 = ww0[kk] ;
 	      dw0 = 1000000000 ; /* horrible value */
 	      z = 0 ;
@@ -905,39 +908,39 @@ static void tctWiggleParseOne (TCT *tct, int run, int target)
   
   ac_free (h) ;
   return  ;
-} /* tctWiggleParseOne */
+} /* tsnpWiggleParseOne */
 
 /*************************************************************************************/
 
-static void tctWiggleParse (TCT *tct)
+static void tsnpWiggleParse (TSNP *tsnp)
 {
-  int run, runMax = dictMax (tct->runDict) ;
-  int target, targetMax = dictMax (tct->targetDict) ;
+  int run, runMax = dictMax (tsnp->runDict) ;
+  int target, targetMax = dictMax (tsnp->targetDict) ;
 
-  if (! tct->wiggleDir)
+  if (! tsnp->wiggleDir)
     return ; 
 
-  tct->wdelta = keySetHandleCreate (tct->h) ;
+  tsnp->wdelta = keySetHandleCreate (tsnp->h) ;
   for (run = 1 ; run <= runMax ; run++)
     for (target = 1 ; target <= targetMax ; target++)
-      tctWiggleParseOne (tct, run, target) ;
+      tsnpWiggleParseOne (tsnp, run, target) ;
 
-  if (keySetMax (tct->wdelta))
+  if (keySetMax (tsnp->wdelta))
     {
       AC_HANDLE h = ac_new_handle () ;
-      ACEOUT ao = aceOutCreate (tct->outFileName, ".snp_wiggle_delta.txt", 0, h) ;
-      int i, iMax = keySetMax (tct->wdelta) ;
+      ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_wiggle_delta.txt", 0, h) ;
+      int i, iMax = keySetMax (tsnp->wdelta) ;
 
       aceOutDate (ao, "###", "Histo of delta frequency relative to the wiggles") ;
       aceOutf (ao, " ## delta = 100 * w / (v + r), where w is the wiggle coverage and v and r and the reported numbers of 31-mers representing at the same position the reference (r) and the variant (v)\n") ;
       aceOut (ao, "# delta\tNumber of occurences\n") ;
       for (i = 0 ; i <= iMax ; i++)
-	aceOutf (ao, "%d\t%d\n", i, keySet (tct->wdelta, i)) ;
+	aceOutf (ao, "%d\t%d\n", i, keySet (tsnp->wdelta, i)) ;
       ac_free (h) ;
     }
 
   return  ;
-} /* tctWiggleParse */
+} /* tsnpWiggleParse */
 
 
 /*************************************************************************************/
@@ -984,7 +987,7 @@ static int atlasOrder2 (const void *va, const void *vb)
 /* a tampon in bp, to allocate the snp to the promotor region of the gene */
 #define PROMOTOR_DELTA 500
 
-static int tctCreateAtlas (TCT *tct)
+static int tsnpCreateAtlas (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai ;
@@ -994,19 +997,19 @@ static int tctCreateAtlas (TCT *tct)
   int nn = 0, x1, x2, a1, a2, target, chrom, gene, target_class ;
 
   x1 = x2 = a1 = a2 = 0 ;
-  if (! tct->target_classDict)
+  if (! tsnp->target_classDict)
     {
-      tct->targetDict = dictHandleCreate (4, tct->h) ;
-      tct->target_classDict = dictHandleCreate (4, tct->h) ;
-      tct->chromDict = dictHandleCreate (64, tct->h) ;
-      tct->target2geneAtlas = arrayHandleCreate (4, Array, tct->h) ;
-      tct->target2exonAtlas = arrayHandleCreate (4, Array, tct->h) ;
+      tsnp->targetDict = dictHandleCreate (4, tsnp->h) ;
+      tsnp->target_classDict = dictHandleCreate (4, tsnp->h) ;
+      tsnp->chromDict = dictHandleCreate (64, tsnp->h) ;
+      tsnp->target2geneAtlas = arrayHandleCreate (4, Array, tsnp->h) ;
+      tsnp->target2exonAtlas = arrayHandleCreate (4, Array, tsnp->h) ;
     }
 
-  if (tct->remap2genome)
-    ai = aceInCreate (tct->remap2genome, FALSE, h) ;
+  if (tsnp->remap2genome)
+    ai = aceInCreate (tsnp->remap2genome, FALSE, h) ;
   else
-    ai = aceInCreate (tct->remap2genes, FALSE, h) ;
+    ai = aceInCreate (tsnp->remap2genes, FALSE, h) ;
   aceInSpecial (ai, "\t\n") ;
 
   while (ai && aceInCard (ai))
@@ -1014,27 +1017,27 @@ static int tctCreateAtlas (TCT *tct)
       ccp = aceInWord (ai) ; /* target_class */
       if (! ccp || *ccp == '#')
 	continue ;
-      if (tct->target_class && strcmp (ccp, (tct->target_class)))
+      if (tsnp->target_class && strcmp (ccp, (tsnp->target_class)))
 	continue ;
       ccp = "any" ; /* ignore target class for the moment */
-      dictAdd (tct->target_classDict, ccp, &target_class) ;
-      atlas = array (tct->target2exonAtlas, target_class, Array) ;
-      geneAtlas = array (tct->target2geneAtlas, target_class, Array) ;
+      dictAdd (tsnp->target_classDict, ccp, &target_class) ;
+      atlas = array (tsnp->target2exonAtlas, target_class, Array) ;
+      geneAtlas = array (tsnp->target2geneAtlas, target_class, Array) ;
       if (! atlas)
 	{
-	  atlas = arrayHandleCreate (100000, Array, tct->h) ;
-	  array (tct->target2exonAtlas, target_class, Array) = atlas ;
+	  atlas = arrayHandleCreate (100000, Array, tsnp->h) ;
+	  array (tsnp->target2exonAtlas, target_class, Array) = atlas ;
 	}
       if (! geneAtlas)
 	{
-	  geneAtlas = arrayHandleCreate (10000, Array, tct->h) ;
-	  array (tct->target2geneAtlas, target_class, Array) = geneAtlas ;
+	  geneAtlas = arrayHandleCreate (10000, Array, tsnp->h) ;
+	  array (tsnp->target2geneAtlas, target_class, Array) = geneAtlas ;
 	}
       aceInStep (ai, '\t') ;
       ccp = aceInWord (ai) ; /* target */
       if (! ccp || *ccp == '#')
 	continue ; 
-      dictAdd (tct->targetDict, ccp, &target) ;
+      dictAdd (tsnp->targetDict, ccp, &target) ;
       aceInStep (ai, '\t') ;
       if (! aceInInt (ai, &x1))  /* mRNA exon coordinates */
 	continue ;
@@ -1045,7 +1048,7 @@ static int tctCreateAtlas (TCT *tct)
       ccp = aceInWord (ai) ; /* chrom */
       if (! ccp || *ccp == '#')
 	continue ; 
-      dictAdd (tct->chromDict, ccp, &chrom) ;
+      dictAdd (tsnp->chromDict, ccp, &chrom) ;
       aceInStep (ai, '\t') ;
       if (! aceInInt (ai, &a1))  /* mRNA exon coordinates */
 	continue ;
@@ -1056,20 +1059,20 @@ static int tctCreateAtlas (TCT *tct)
       ccp = aceInWord (ai) ; /* chrom */
       if (! ccp || *ccp == '#')
 	continue ;
-      dictAdd (tct->targetDict, ccp, &gene) ;
+      dictAdd (tsnp->targetDict, ccp, &gene) ;
       if (1)
 	{
-	  map = array (atlas,  tct->remap2genome ? target : chrom, Array) ;
+	  map = array (atlas,  tsnp->remap2genome ? target : chrom, Array) ;
 	  if (! map)
-	    map = array (atlas, tct->remap2genome ? target : chrom, Array) = arrayHandleCreate (8, RMP, tct->h) ;
-	  geneMap = array (geneAtlas,  tct->remap2genome ? target : chrom, Array) ;
+	    map = array (atlas, tsnp->remap2genome ? target : chrom, Array) = arrayHandleCreate (8, RMP, tsnp->h) ;
+	  geneMap = array (geneAtlas,  tsnp->remap2genome ? target : chrom, Array) ;
 	  if (! geneMap)
-	    geneMap = array (geneAtlas, tct->remap2genome ? gene : chrom, Array) = arrayHandleCreate (8, RMP, tct->h) ;
+	    geneMap = array (geneAtlas, tsnp->remap2genome ? gene : chrom, Array) = arrayHandleCreate (8, RMP, tsnp->h) ;
 	  nn++ ;
 	  up = arrayp (map, arrayMax (map), RMP) ;
 	  up->target = target ;
 	  up->chrom = chrom ;
-	  if (tct->remap2genome || a1 < a2)
+	  if (tsnp->remap2genome || a1 < a2)
 	    {
 	      up->x1 = x1 ; up->x2 = x2 ;
 	      up->a1 = a1 ; up->a2 = a2 ;
@@ -1106,26 +1109,26 @@ static int tctCreateAtlas (TCT *tct)
     {
       map = array (atlas, a1, Array) ;
       if (map)
-	arraySort (map, tct->remap2genome ? atlasOrder1 : atlasOrder2) ;
+	arraySort (map, tsnp->remap2genome ? atlasOrder1 : atlasOrder2) ;
     }
   for (a1 = 0 ; geneAtlas && a1 < arrayMax (geneAtlas) ; a1++)
     {
       map = array (geneAtlas, a1, Array) ;
       if (map)
 	{
-	  arraySort (map, tct->remap2genome ? atlasOrder1 : atlasOrder2) ;
+	  arraySort (map, tsnp->remap2genome ? atlasOrder1 : atlasOrder2) ;
 	  arrayCompress (map) ;
 	}
     }
    
-  fprintf (stderr, "tctCreateAtlas found %d exons in file %s\n"
+  fprintf (stderr, "tsnpCreateAtlas found %d exons in file %s\n"
 	   , nn
-	   , tct->remap2genome ? tct->remap2genome :  tct->remap2genes
+	   , tsnp->remap2genome ? tsnp->remap2genome :  tsnp->remap2genes
 	   ) ;
 
   ac_free (h) ;
   return nn ;
-} /* tctCreateAtlas */
+} /* tsnpCreateAtlas */
 
 /*************************************************************************************/
 /* 
@@ -1133,16 +1136,16 @@ static int tctCreateAtlas (TCT *tct)
  * Remap the transcript variants into genome coordinates
  */
 
-static BOOL tctRemap1Do (TCT *tct, int mrna, int x1, int x2, int *chromp, int *a1p, int *a2p, int *strandp)
+static BOOL tsnpRemap1Do (TSNP *tsnp, int mrna, int x1, int x2, int *chromp, int *a1p, int *a2p, int *strandp)
 {
   int ii, target_class = 0 ;
   RMP *up ;
   Array atlas, map ;
   
-  dictAdd (tct->target_classDict, "any", &target_class) ;
-  if (tct->target2exonAtlas && 
-      target_class < arrayMax (tct->target2exonAtlas) && 
-      (atlas =  arr (tct->target2exonAtlas, target_class, Array)) &&
+  dictAdd (tsnp->target_classDict, "any", &target_class) ;
+  if (tsnp->target2exonAtlas && 
+      target_class < arrayMax (tsnp->target2exonAtlas) && 
+      (atlas =  arr (tsnp->target2exonAtlas, target_class, Array)) &&
       mrna < arrayMax(atlas) &&
       (map = array (atlas, mrna, Array))
       )
@@ -1161,14 +1164,14 @@ static BOOL tctRemap1Do (TCT *tct, int mrna, int x1, int x2, int *chromp, int *a
 	}
     }
   return FALSE ;
-} /* tctRemap1Do */
+} /* tsnpRemap1Do */
 
 /*************************************************************************************/
 /* scan the VariantDB acedb database
  * add the remap info 
  * Remap the transcript variants into genome coordinates
  */
-static int tctRemap1 (TCT *tct)
+static int tsnpRemap1 (TSNP *tsnp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
   AC_ITER iter ;
@@ -1179,9 +1182,9 @@ static int tctRemap1 (TCT *tct)
   const char *mm ;
   const char *errors = 0 ;
   
-  if (tct->db)
+  if (tsnp->db)
     {
-      iter = ac_query_iter (tct->db, TRUE, "find variant mRNA && ! IntMap", 0, h) ;
+      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap", 0, h) ;
       while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
 	{
 	  h1 = ac_new_handle () ;
@@ -1193,23 +1196,23 @@ static int tctRemap1 (TCT *tct)
 	      x1 = ac_table_int (mrnaTable, 0, 1, 0) ;
 	      x2 = ac_table_int (mrnaTable, 0, 2, 0) ;
 	      mm = ac_table_printable (mrnaTable, 0, 0, 0) ;
-	      if (mm && dictFind (tct->targetDict, mm, &mrna) && tctRemap1Do (tct, mrna, x1, x2, &chrom, &a1, &a2, &strand))
+	      if (mm && dictFind (tsnp->targetDict, mm, &mrna) && tsnpRemap1Do (tsnp, mrna, x1, x2, &chrom, &a1, &a2, &strand))
 		{
 		  nn2++ ;
 		  vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-		  vtxtPrintf (txt, "IntMap %s %d %d\n\n", dictName (tct->chromDict, chrom), a1, a2) ; 
+		  vtxtPrintf (txt, "IntMap %s %d %d\n\n", dictName (tsnp->chromDict, chrom), a1, a2) ; 
 		}
 	    }
 	}
-      ac_parse (tct->db, vtxtPtr (txt), &errors, 0, h) ; 
+      ac_parse (tsnp->db, vtxtPtr (txt), &errors, 0, h) ; 
     }
-  fprintf(stderr, "tctRemap1 found %d variants remapped %d\n", nn1, nn2) ;
+  fprintf(stderr, "tsnpRemap1 found %d variants remapped %d\n", nn1, nn2) ;
 
-  if (errors && *errors) fprintf(stderr, "tctRemap parsing error %s\n", errors) ;
+  if (errors && *errors) fprintf(stderr, "tsnpRemap parsing error %s\n", errors) ;
   ac_free (h1) ;
   ac_free (h) ;
   return nn2 ;
-} /* tctRemap1 */
+} /* tsnpRemap1 */
 
 /*************************************************************************************/
 /* 
@@ -1218,16 +1221,16 @@ static int tctRemap1 (TCT *tct)
  *   Remap to the genebox without giving precise coordinates
  */
 
-static BOOL tctRemap2geneBoxDo (TCT *tct, int chrom, int pos, int *JJp, int *geneBoxp, int *x1p, int *strandp)
+static BOOL tsnpRemap2geneBoxDo (TSNP *tsnp, int chrom, int pos, int *JJp, int *geneBoxp, int *x1p, int *strandp)
 {
   int ii, target_class = 0 ;
   RMP *up ;
   Array atlas, map ;
   
-  dictAdd (tct->target_classDict, "any", &target_class) ;
-  if (tct->target2geneAtlas && 
-      target_class < arrayMax (tct->target2geneAtlas) && 
-      (atlas =  arr (tct->target2geneAtlas, target_class, Array)) &&
+  dictAdd (tsnp->target_classDict, "any", &target_class) ;
+  if (tsnp->target2geneAtlas && 
+      target_class < arrayMax (tsnp->target2geneAtlas) && 
+      (atlas =  arr (tsnp->target2geneAtlas, target_class, Array)) &&
       chrom < arrayMax(atlas) &&
       (map = array (atlas, chrom, Array))
       )
@@ -1246,18 +1249,18 @@ static BOOL tctRemap2geneBoxDo (TCT *tct, int chrom, int pos, int *JJp, int *gen
 	}
     }
   return FALSE ;
-} /* tctRemap2Do */
+} /* tsnpRemap2Do */
 
-static BOOL tctRemap2Do (TCT *tct, int chrom, int pos, int *JJp, int *mrnap, int *x1p, int *strandp)
+static BOOL tsnpRemap2Do (TSNP *tsnp, int chrom, int pos, int *JJp, int *mrnap, int *x1p, int *strandp)
 {
   int ii, target_class = 0 ;
   RMP *up ;
   Array atlas, map ;
   
-  dictAdd (tct->target_classDict, "any", &target_class) ;
-  if (tct->target2exonAtlas && 
-      target_class < arrayMax (tct->target2exonAtlas) && 
-      (atlas =  arr (tct->target2exonAtlas, target_class, Array)) &&
+  dictAdd (tsnp->target_classDict, "any", &target_class) ;
+  if (tsnp->target2exonAtlas && 
+      target_class < arrayMax (tsnp->target2exonAtlas) && 
+      (atlas =  arr (tsnp->target2exonAtlas, target_class, Array)) &&
       chrom < arrayMax(atlas) &&
       (map = array (atlas, chrom, Array))
       )
@@ -1276,14 +1279,14 @@ static BOOL tctRemap2Do (TCT *tct, int chrom, int pos, int *JJp, int *mrnap, int
 	}
     }
   return FALSE ;
-} /* tctRemap2Do */
+} /* tsnpRemap2Do */
 
 /*************************************************************************************/
 /* scan the VariantDB acedb database
  * add the remap info 
  *   Remap the genome variants into transcript coordinates\n"
  */
-static int tctRemap2 (TCT *tct)
+static int tsnpRemap2 (TSNP *tsnp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
   AC_ITER iter ;
@@ -1294,7 +1297,7 @@ static int tctRemap2 (TCT *tct)
   const char *chromNam ;
   const char *errors = 0 ;
   
-  iter = ac_query_iter (tct->db, TRUE, "find variant IntMap && ! geneBox", 0, h) ;
+  iter = ac_query_iter (tsnp->db, TRUE, "find variant IntMap && ! geneBox", 0, h) ;
   while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
     {
       h1 = ac_new_handle () ;
@@ -1308,78 +1311,78 @@ static int tctRemap2 (TCT *tct)
 	  if (pos2 == 1 || pos2 > pos) pos2 = 1 ;
 	  else if (pos2 == -1 || pos2 < pos) pos2 = 1 ;
 	  
-	  if (pos && dictFind (tct->chromDict, chromNam, &chrom))
+	  if (pos && dictFind (tsnp->chromDict, chromNam, &chrom))
 	    {
 	      JJ = 0 ;
 	      if (! ac_has_tag (variant, "mRNA"))
-		while (tctRemap2Do (tct, chrom, pos, &JJ, &mrna, &x1, &strand))
+		while (tsnpRemap2Do (tsnp, chrom, pos, &JJ, &mrna, &x1, &strand))
 		  {
 		    nn2++ ;
 		    vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-		    vtxtPrintf (txt, "mRNA %s %d %d\n\n", dictName (tct->targetDict, mrna), x1, strand * pos2) ; 
+		    vtxtPrintf (txt, "mRNA %s %d %d\n\n", dictName (tsnp->targetDict, mrna), x1, strand * pos2) ; 
 		  }
 	      JJ = 0 ;
-	      while (tctRemap2geneBoxDo (tct, chrom, pos, &JJ, &geneBox, &x1, &strand))
+	      while (tsnpRemap2geneBoxDo (tsnp, chrom, pos, &JJ, &geneBox, &x1, &strand))
 		{
 		  nn2++ ;
 		  vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-		  vtxtPrintf (txt, "GeneBox %s %d %d\n\n", dictName (tct->targetDict, geneBox), x1, strand * pos2) ; 
+		  vtxtPrintf (txt, "GeneBox %s %d %d\n\n", dictName (tsnp->targetDict, geneBox), x1, strand * pos2) ; 
 		}
 	    }
 	}
     }
-  fprintf(stderr, "tctRemap2 found %d variants remapped %d\n", nn1, nn2) ;
+  fprintf(stderr, "tsnpRemap2 found %d variants remapped %d\n", nn1, nn2) ;
   if (vtxtPtr (txt))
     {
       ACEOUT ao = aceOutCreate ("toto", 0, 0, h) ;
       aceOut (ao,  vtxtPtr (txt)) ;
       ac_free (ao) ;
     }
-  ac_parse (tct->db, vtxtPtr (txt), &errors, 0, h) ; 
-  if (*errors) fprintf(stderr, "tctRemap parsing error %s\n", errors) ;
+  ac_parse (tsnp->db, vtxtPtr (txt), &errors, 0, h) ; 
+  if (*errors) fprintf(stderr, "tsnpRemap parsing error %s\n", errors) ;
   ac_free (h1) ;
   ac_free (h) ;
   return nn2 ;
-} /* tctRemap2 */
+} /* tsnpRemap2 */
 
 /*************************************************************************************/
 /*************************************************************************************/
 /* import the runs metadata from the database */
 
-static int tctGetRunList (TCT *tct)
+static int tsnpGetRunList (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
   const char *errors = 0 ;
-  AC_TABLE tbl = tct->runMetaData = ac_bql_table (tct->db, hprintf (h, "select r, t, st from p in class project where p == \"%s\", r in p->run where r ISA runs, t in r->title, st in r->Sorting_title", tct->project), 0, "st", &errors, tct->h) ;
+  AC_TABLE tbl = tsnp->runMetaData = ac_bql_table (tsnp->db, hprintf (h, "select r, t, st from p in class project where p == \"%s\", r in p->run where r ISA runs, t in r->title, st in r->Sorting_title", tsnp->project), 0, "st", &errors, tsnp->h) ;
   int ir ;
   const char *ccp ;
 
   if (! tbl)
-    messcrash ("No run belong to project:%s in database \n", tct->project ? tct->project : "unspecified") ;
-  tct->runDict = dictHandleCreate (tbl->rows + 10, tct->h) ;
+    messcrash ("No run belong to project:%s in database \n", tsnp->project ? tsnp->project : "unspecified") ;
+  tsnp->runDict = dictHandleCreate (tbl->rows + 10, tsnp->h) ;
 
   /* ATTENTION: dans la table BQL il ne faut avoir que des data uniques associees au run pour avoir toujours exactement 1 ligne par run, sinon on a une erreur d'attribution des nombres qui eux utilisent runDict pour la memorisation */
   for (ir = 0 ; ir < tbl->rows ; ir++)
     {
       ccp = ac_table_printable (tbl, ir, 0, 0) ;
-      if (! ccp || ! dictAdd (tct->runDict, ccp, 0))
+      if (! ccp || ! dictAdd (tsnp->runDict, ccp, 0))
 	messcrash ("Asynchrony it is necessary to ensure that the dict and the table agree on the numbering of the runs ") ;
-      if (strcmp (ccp, dictName(tct->runDict, ir+1)))
+      if (strcmp (ccp, dictName(tsnp->runDict, ir+1)))
 	messcrash ("Asynchrony it is necessary to ensure that the dict and the table agree on the numbering of the runs ") ;
     }
 
   ac_free (h) ;
-  return dictMax (tct->runDict) ;
-} /* tctGetRunList */
+  return dictMax (tsnp->runDict) ;
+} /* tsnpGetRunList */
 
 /*************************************************************************************/
 
-static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *up, AC_KEYSET ks, BOOL intertwinFrequencyCounts)
+static void tsnpReportFrequency (ACEOUT ao, ACEOUT ao2, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks, BOOL intertwinFrequencyCounts)
 {
-  DICT *runDict = tct->runDict ;
+  DICT *runDict = tsnp->runDict ;
   int ir, irMax = runDict ? dictMax (runDict) : 0 ;
-  AC_TABLE tbl = tct->runMetaData ;
-  BOOL hasW = tct->wiggleDir ? TRUE : FALSE ;
+  AC_TABLE tbl = tsnp->runMetaData ;
+  BOOL hasW = tsnp->wiggleDir ? TRUE : FALSE ;
   
   if (ao)
     aceOutf (ao, "\t") ;
@@ -1399,7 +1402,7 @@ static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *
   else
     {
       if (ao)
-	aceOutf (ao, "\t%s", dictName (tct->snpDict, up->snp)) ;
+	aceOutf (ao, "\t%s", dictName (tsnp->snpDict, up->snp)) ;
       for (ir = 1 ; ir <= irMax ;ir++)
 	{
 	  int m5 = 0, m3 = 0, r5 = 0, r3 = 3, w5 = 0, w3 = 0, z3, z5 ;
@@ -1431,7 +1434,7 @@ static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *
 	      f  = (z3 + z5 >= 40 ?  100.0 * (m3 + m5) /(z3 + z5) : -20) ;
 	      if (ao2)
 		{ /* tsf export of same data */
-		  aceOutf (ao2, "%s\t%s" , dictName (tct->snpDict, up->snp), dictName(tct->runDict, ir)) ;
+		  aceOutf (ao2, "%s\t%s" , dictName (tsnp->snpDict, up->snp), dictName(tsnp->runDict, ir)) ;
 		  aceOutf (ao2, "\t10\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t%.2f\n", m5,m3,r5,r3,w5,w3, z3,z5,f3, f5) ;
 		}
 	    }
@@ -1445,7 +1448,7 @@ static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *
 	      if (intertwinFrequencyCounts)
 		{ 
 		  { /* ATTENTION duplicated in ReportCounts */
-		    if (tct->doubleReport)
+		    if (tsnp->doubleReport)
 		      {
 			if (up->type & 0x1)
 			  aceOutf (ao, "\t%cv:%d", wiggleProblem, m5) ;
@@ -1457,10 +1460,10 @@ static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *
 			  aceOutf (ao, " r:%d_%d", r5,r3) ;
 			if (hasW)
 			  {
-			    if ((up->type & 0x3)  == 0x3)
-			      aceOutf (ao, " w:%d", (w3+w5)/2) ;
-			    else
+			    if ((up->type & 0x3)  && w3 != w5)
 			      aceOutf (ao, " w:%d_%d", w5, w3) ;
+			    else
+			      aceOutf (ao, " w:%d", (w3+w5)/2) ;
 			  }
 		      }
 		    else
@@ -1475,16 +1478,16 @@ static void tctReportFrequency (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *
 	    }
 	}
     }
-} /* tctReportFrequency */
+} /* tsnpReportFrequency */
 
 /*************************************************************************************/
 
-static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks, BOOL best)
+static void tsnpReportCounts (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks, BOOL best)
 {
-  DICT *runDict = tct->runDict ;
+  DICT *runDict = tsnp->runDict ;
   int ir, irMax = dictMax (runDict) ;
-  AC_TABLE tbl = tct->runMetaData ;
-  BOOL hasW = tct->wiggleDir ? TRUE : FALSE ;
+  AC_TABLE tbl = tsnp->runMetaData ;
+  BOOL hasW = tsnp->wiggleDir ? TRUE : FALSE ;
 
   if (1 || ! best) aceOutf (ao, "\t") ;
   if (line) /* titles */
@@ -1517,8 +1520,8 @@ static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 	  w = up->wp + up->wm ; m = up->mp + up->mm ; f = (w + m >= 20 ? 100.0 * m / ((float)(m + w)) : -20) ;
 	  aceOut (ao, "\t") ;      aceOutPercent (ao, f) ;
 
-	  f = up->minFrequency < 200 ? up->minFrequency : -tct->minSnpCover ; aceOut (ao, "\t") ;      aceOutPercent (ao, f) ;
-	  f = up->maxFrequency > -tct->minSnpCover  ? up->maxFrequency : -tct->minSnpCover ; aceOut (ao, "\t") ;      aceOutPercent (ao, f) ;
+	  f = up->minFrequency < 200 ? up->minFrequency : -tsnp->minSnpCover ; aceOut (ao, "\t") ;      aceOutPercent (ao, f) ;
+	  f = up->maxFrequency > -tsnp->minSnpCover  ? up->maxFrequency : -tsnp->minSnpCover ; aceOut (ao, "\t") ;      aceOutPercent (ao, f) ;
 	}
 
       if (best && !topRun)
@@ -1533,7 +1536,7 @@ static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 	      {
 		if (ir != topRun)
 		  continue ;
-		aceOutf (ao, "\t%s", dictName(tct->runDict, topRun)) ;			
+		aceOutf (ao, "\t%s", dictName(tsnp->runDict, topRun)) ;			
 	      }
 	    if (up->counts)
 	      {
@@ -1558,10 +1561,10 @@ static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 	      }
 	    
 	    /* ATTENTION duplicated in ReportFrequency */
-	    if (tct->doubleReport)
+	    if (tsnp->doubleReport)
 		{
 		  if (up->type & 0x1)
-		  aceOutf (ao, "\t%cv:%d", wiggleProblem, m5) ;
+		    aceOutf (ao, "\t%cv:%d", wiggleProblem, m5) ;
 		  else
 		    aceOutf (ao, "\t%cv:%d_%d", wiggleProblem, m5,m3) ;
 		  if (up->type & 0x2)
@@ -1570,10 +1573,10 @@ static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 		    aceOutf (ao, " r:%d_%d", r5,r3) ;
 		  if (hasW)
 		  {
-		    if ((up->type & 0x3) == 0x3)
-		      aceOutf (ao, " w:%d", (w3+w5)/2) ;
-		    else
+		    if ((up->type & 0x3) && w3 != w5)
 		      aceOutf (ao, " w:%d_%d", w5, w3) ;
+		    else
+		      aceOutf (ao, " w:%d", (w3+w5)/2) ;
 		  }
 		}
 	      else
@@ -1584,21 +1587,21 @@ static void tctReportCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 		}
 	  }
     }
-} /* tctReportCounts */
+} /* tsnpReportCounts */
 
 /*************************************************************************************/
 
-static void tctGetGlobalCounts (TCT *tct)
+static void tsnpGetGlobalCounts (TSNP *tsnp)
 {
-  DICT *runDict = tct->runDict ;
+  DICT *runDict = tsnp->runDict ;
   int ir, irMax = dictMax (runDict) ;
-  int snp, snpMax = arrayMax (tct->snps) ;
+  int snp, snpMax = arrayMax (tsnp->snps) ;
   SNP *up ;
-  int minSnpCount = tct->minSnpCount ;
-  int minSnpCover = tct->minSnpCover ;
+  int minSnpCount = tsnp->minSnpCount ;
+  int minSnpCover = tsnp->minSnpCover ;
 
   if (snpMax > 1)
-    for (snp = 1, up = arrp (tct->snps, snp, SNP) ; snp < snpMax ; snp++, up++)
+    for (snp = 1, up = arrp (tsnp->snps, snp, SNP) ; snp < snpMax ; snp++, up++)
       {
 	float alleleFrequency = 0 ;
 	int nAlleleFrequency = 0 ;
@@ -1668,11 +1671,11 @@ static void tctGetGlobalCounts (TCT *tct)
 	if (nAlleleFrequency)
 	  up->alleleFrequency = alleleFrequency / nAlleleFrequency ;
       }
-} /* tctGetGlobalCounts */
+} /* tsnpGetGlobalCounts */
 
 /*************************************************************************************/
 
-static void tctReportGlobalCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportGlobalCounts (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   aceOutf (ao, "\t") ;
   if (line) /* titles */
@@ -1693,11 +1696,11 @@ static void tctReportGlobalCounts (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KE
       if ((up->type & 0x3) == 0x3) aceOutf (ao, "\t%d", up->coverp) ; else      aceOutf (ao, "\t%d_%d", up->coverp, up->acoverp) ;
       if ((up->type & 0x3)== 0x3) aceOutf (ao, "\t%d", up->coverm) ; else      aceOutf (ao, "\t%d_%d", up->coverm, up->acoverm) ;
     }
-} /* tctReportGlobalCounts */
+} /* tsnpReportGlobalCounts */
 
 /*************************************************************************************/
 
-static void tctReportPrevalence (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportPrevalence (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   aceOutf (ao, "\t") ;
   if (line == 1) /* titles */
@@ -1709,7 +1712,7 @@ static void tctReportPrevalence (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYS
     aceOut (ao, "\t\t\t\t\t\t\t\t") ;
   else
     {
-      int runMax = dictMax (tct->runDict) ;
+      int runMax = dictMax (tsnp->runDict) ;
       
       aceOutf (ao, "\t%d", runMax - up->wellCovered) ;
       aceOutf (ao, "\t%d", up->wellCovered) ;
@@ -1720,13 +1723,13 @@ static void tctReportPrevalence (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYS
       aceOutf (ao, "\t%d", up->pure) ;
       aceOutf (ao, "\t%.2f", up->alleleFrequency) ;
     }
-} /* tctReportPrevalence */
+} /* tsnpReportPrevalence */
 
 /*************************************************************************************/
 
-static void tctReportWiggleProblem (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportWiggleProblem (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
-  BOOL hasW = tct->wiggleDir ? TRUE : FALSE ;
+  BOOL hasW = tsnp->wiggleDir ? TRUE : FALSE ;
 
   if (line == 1) /* titles */
     {
@@ -1744,11 +1747,11 @@ static void tctReportWiggleProblem (ACEOUT ao, TCT *tct, int line, SNP *up, AC_K
       else
 	aceOut (ao, "\t\t") ;
     }
-} /* tctReportWiggleProblem */
+} /* tsnpReportWiggleProblem */
 
 /*************************************************************************************/
 
-static void tctReportCoding (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportCoding (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   aceOutf (ao, "\t") ;
   if (line == 1) /* titles */
@@ -1761,7 +1764,7 @@ static void tctReportCoding (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
     {
       AC_HANDLE h = ac_new_handle () ;
       const char *errors = 0 ;
-      AC_TABLE tbl = ac_bql_table (tct->db, "select s, map, gNam, rNam, pNam, pNam2, tit from s in @, map in s->IntMap, gNam in s->gName, rNam in s->rName, pNam in s->pName, pNam2 in s->Observed__protein_sequence[3], tit in s->title", ks, 0, &errors, h) ;      
+      AC_TABLE tbl = ac_bql_table (tsnp->db, "select s, map, gNam, rNam, pNam, pNam2, tit from s in @, map in s->IntMap, gNam in s->gName, rNam in s->rName, pNam in s->pName, pNam2 in s->Observed__protein_sequence[3], tit in s->title", ks, 0, &errors, h) ;      
       if (tbl)
 	{
 	  const char *map = ac_table_printable (tbl, 0,1, "") ;
@@ -1786,11 +1789,11 @@ static void tctReportCoding (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 
       ac_free (h) ;
     }
-} /* tctReportCoding */
+} /* tsnpReportCoding */
 
 /*************************************************************************************/
 
-static void tctReportSnippet (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportSnippet (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   aceOutf (ao, "\t") ;
   if (line == 1) /* titles */
@@ -1804,7 +1807,7 @@ static void tctReportSnippet (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET 
     {
       AC_HANDLE h = ac_new_handle () ;
       const char *errors = 0 ;
-       AC_TABLE tbl = ac_bql_table (tct->db, "select s, pref, pvar, gref, gvar from s in @, pref in s->Reference_protein_sequence[2], pvar in s->Observed__protein_sequence[2], gref in s->Reference_genomic_sequence, gvar in s->Observed__genomic_sequence", ks, 0, &errors, h) ;      
+       AC_TABLE tbl = ac_bql_table (tsnp->db, "select s, pref, pvar, gref, gvar from s in @, pref in s->Reference_protein_sequence[2], pvar in s->Observed__protein_sequence[2], gref in s->Reference_genomic_sequence, gvar in s->Observed__genomic_sequence", ks, 0, &errors, h) ;      
       if (tbl)
 	{
 	  const char *pR, *pV, *gR, *gV ;
@@ -1826,11 +1829,11 @@ static void tctReportSnippet (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET 
 
       ac_free (h) ;
     }
-} /* tctReportSnippet */
+} /* tsnpReportSnippet */
 
 /*************************************************************************************/
 
-static void tctReportMethod (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportMethod (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   if (line == 1) /* titles */
     {
@@ -1842,7 +1845,7 @@ static void tctReportMethod (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
     {
       AC_HANDLE h = ac_new_handle () ;
       const char *errors = 0 ;
-      AC_TABLE tbl = ac_bql_table (tct->db, "select s, m from s in @, m in s=>method", ks, 0, &errors, h) ;      
+      AC_TABLE tbl = ac_bql_table (tsnp->db, "select s, m from s in @, m in s=>method", ks, 0, &errors, h) ;      
       if (tbl)
 	{
 	  aceOutf (ao, "\t%s", ac_table_printable (tbl, 0,1,"")) ;
@@ -1852,11 +1855,11 @@ static void tctReportMethod (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET k
 
       ac_free (h) ;
     }
-} /* tctReportCoding */
+} /* tsnpReportCoding */
 
 /*************************************************************************************/
 
-static void tctReportVCF (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
+static void tsnpReportVCF (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSET ks)
 {
   aceOutf (ao, "\t") ;
   if (line == 1) /* titles */
@@ -1870,7 +1873,7 @@ static void tctReportVCF (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
       AC_HANDLE h = ac_new_handle () ;
       const char *errors = 0 ;
 
-      AC_TABLE tbl = ac_bql_table (tct->db, "select s, map, a1, a2, w1, w2, typ, ms, md, mi, from s in @, map in s->IntMap, v in s#VCF, a1 in map[1], a2 in map[2], w1 in v[2], w2 in v[3], typ in s->typ, ms in s->Multi_substitution, md in s->Multi_deletion, mi in s->Multi_insertion", ks, 0, &errors, h) ;      
+      AC_TABLE tbl = ac_bql_table (tsnp->db, "select s, map, a1, a2, w1, w2, typ, ms, md, mi, from s in @, map in s->IntMap, v in s#VCF, a1 in map[1], a2 in map[2], w1 in v[2], w2 in v[3], typ in s->typ, ms in s->Multi_substitution, md in s->Multi_deletion, mi in s->Multi_insertion", ks, 0, &errors, h) ;      
       if (tbl)
 	{
 	  const char *ccp, *typ ;
@@ -1909,61 +1912,61 @@ static void tctReportVCF (ACEOUT ao, TCT *tct, int line, SNP *up, AC_KEYSET ks)
 
       ac_free (h) ;
     }
-} /* tctReportVCF */
+} /* tsnpReportVCF */
 
 /*************************************************************************************/
 
-static void tctReportLine (ACEOUT ao, ACEOUT ao2, TCT *tct, int line, SNP *up)
+static void tsnpReportLine (ACEOUT ao, ACEOUT ao2, TSNP *tsnp, int line, SNP *up)
 {
   AC_HANDLE h = 0 ;
   AC_KEYSET ks = 0 ;
   BOOL intertwinFrequencyCounts = TRUE ;
 
-  if (up)
+  if (up && tsnp->db)
     {
       h = ac_new_handle () ;
       {
-	const char *ccp = dictName (tct->snpDict, up->snp) ;
-	if (tct->db)
-	  ks = ac_dbquery_keyset (tct->db, hprintf (h, "find Variant IS \"%s\"", ccp), h) ;
+	const char *ccp = dictName (tsnp->snpDict, up->snp) ;
+	if (tsnp->db)
+	  ks = ac_dbquery_keyset (tsnp->db, hprintf (h, "find Variant IS \"%s\"", ccp), h) ;
       }
     }
  
   if (ao)
     {
-      if (1) tctReportMethod (ao, tct, line, up, ks) ;
-      if (1) tctReportWiggleProblem (ao, tct, line, up, ks) ;
-      if (1) tctReportVCF (ao, tct, line, up, ks) ;
-      if (1) tctReportCoding (ao, tct, line, up, ks) ;
-      if (1) tctReportSnippet (ao, tct, line, up, ks) ;
-      if (1) tctReportPrevalence (ao, tct, line, up, ks) ;
-      if (1) tctReportCounts (ao, tct, line, up, ks, TRUE) ;
-      if (1) tctReportGlobalCounts (ao, tct, line, up, ks) ;
+      if (1) tsnpReportMethod (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportWiggleProblem (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportVCF (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportCoding (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportSnippet (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportPrevalence (ao, tsnp, line, up, ks) ;
+      if (1) tsnpReportCounts (ao, tsnp, line, up, ks, TRUE) ;
+      if (1) tsnpReportGlobalCounts (ao, tsnp, line, up, ks) ;
     }
-  if (1) tctReportFrequency (ao, ao2, tct, line, up, ks, intertwinFrequencyCounts);
+  if (1) tsnpReportFrequency (ao, ao2, tsnp, line, up, ks, intertwinFrequencyCounts);
   if (ao)
     {
-      if (! intertwinFrequencyCounts) tctReportCounts (ao, tct, line, up, ks, FALSE) ;
+      if (! intertwinFrequencyCounts) tsnpReportCounts (ao, tsnp, line, up, ks, FALSE) ;
       aceOut (ao, "\tZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ\n") ;
     }
   ac_free (h) ;
-} /* tctReportLine */
+} /* tsnpReportLine */
 
 /*************************************************************************************/
 /* the rejected sites count as rejected in the run only if they are measurable
  * and never count as non meaurable
  */
-static void tctCountRejectedSnps (TCT *tct, SNP *up)
+static void tsnpCountRejectedSnps (TSNP *tsnp, SNP *up)
 {
   KEYSET counts = up->counts ;
-  int ir, irMax = dictMax (tct->runDict) ;
-  int minSnpCover = tct->minSnpCover ;
+  int ir, irMax = dictMax (tsnp->runDict) ;
+  int minSnpCover = tsnp->minSnpCover ;
   if (! counts)
     return ;
 
   for (ir = 1 ; ir <= irMax ;ir++)
     {
-      RC *rc = arrayp (tct->runs, ir, RC) ;
+      RC *rc = arrayp (tsnp->runs, ir, RC) ;
       float m5, m3, r5, r3 ;
       KEY *kp = arrayp (up->counts, MAXTYPE*ir, KEY) ;
       
@@ -1975,41 +1978,41 @@ static void tctCountRejectedSnps (TCT *tct, SNP *up)
       if (m3 + m5 + r3 + r5 >= 2 * minSnpCover)
 	{
 	  int k = up->varType ; 
-	  if (k < 0 || k > dictMax(tct->varTypeDict))
+	  if (k < 0 || k > dictMax(tsnp->varTypeDict))
 	    k = 0 ;
 	  rc->rejected++ ;
 	  if (! rc->typesR)
-	    rc->typesR = halloc (dictMax(tct->varTypeDict)+4 * sizeof(int), tct->h) ;
+	    rc->typesR = halloc (dictMax(tsnp->varTypeDict)+4 * sizeof(int), tsnp->h) ;
 	  rc->typesR[k]++ ;
 	}
     }
-} /* tctCountRejected */
+} /* tsnpCountRejected */
 
 /*************************************************************************************/
 /* the rejected sites are not rejected !
  * ditinguish well covered, ... up to pure
  */
-static void tctCountAcceptedSnps (TCT *tct, SNP *up)
+static void tsnpCountAcceptedSnps (TSNP *tsnp, SNP *up)
 {
   KEYSET counts = up->counts ;
-  int ir, irMax = dictMax (tct->runDict) ;
-  int minSnpCover = tct->minSnpCover ;
-  int minSnpCount = tct->minSnpCount ;
+  int ir, irMax = dictMax (tsnp->runDict) ;
+  int minSnpCover = tsnp->minSnpCover ;
+  int minSnpCount = tsnp->minSnpCount ;
   if (! counts)
     return ;
   for (ir = 1 ; ir <= irMax ;ir++)
     {
-      RC *rc = arrayp (tct->runs, ir, RC) ;
+      RC *rc = arrayp (tsnp->runs, ir, RC) ;
       float m5, m3, r5, r3, f, f3, f5, w3, w5, z3, z5 ;
       KEY *kp = arrayp (up->counts, MAXTYPE*ir, KEY) ;
       int k ;
 
       if (! rc->types)
-	rc->types = halloc (dictMax(tct->varTypeDict)+4 * sizeof(int), tct->h) ;
+	rc->types = halloc (dictMax(tsnp->varTypeDict)+4 * sizeof(int), tsnp->h) ;
       if (! rc->typesC)
-	rc->typesC = halloc (dictMax(tct->varTypeDict)+4 * sizeof(int), tct->h) ;
+	rc->typesC = halloc (dictMax(tsnp->varTypeDict)+4 * sizeof(int), tsnp->h) ;
       if (! rc->typesR)
-	rc->typesR = halloc (dictMax(tct->varTypeDict)+4 * sizeof(int), tct->h) ;
+	rc->typesR = halloc (dictMax(tsnp->varTypeDict)+4 * sizeof(int), tsnp->h) ;
 
       m5 = kp[0] ;
       m3 = kp[1] ;
@@ -2040,111 +2043,111 @@ static void tctCountAcceptedSnps (TCT *tct, SNP *up)
       else                rc->ref++ ;
 		    
       k = up->varType ;
-      if (k < 0 || k > dictMax(tct->varTypeDict))
+      if (k < 0 || k > dictMax(tsnp->varTypeDict))
 	k = 0 ;
       rc->types[k] ++ ;
       rc->typesC[k] += (m3 + m5)/2 ; 
     }
-} /* tctCountAccepted */
+} /* tsnpCountAccepted */
 
 /*************************************************************************************/
 
-static int tctReport (TCT *tct)
+static int tsnpReport (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int ii, nn = 0, snpMax  = arrayMax (tct->snps) ;
-  DICT *snpDict = tct->snpDict ;
+  int ii, nn = 0, snpMax  = arrayMax (tsnp->snps) ;
+  DICT *snpDict = tsnp->snpDict ;
 
-  ACEOUT ao = aceOutCreate (tct->outFileName, ".snp_frequency_table.txt", tct->gzo, h) ;
-  ACEOUT ao2 = tct->outFileName ? aceOutCreate (tct->outFileName, ".snp_counts.tsf", tct->gzo, h) : 0 ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_frequency_table.txt", tsnp->gzo, h) ;
+  ACEOUT ao2 = tsnp->outFileName ? aceOutCreate (tsnp->outFileName, ".snp_counts.tsf", tsnp->gzo, h) : 0 ;
   aceOutDate (ao, "####", "SNPs and variations table") ;
   if (ao2)
     {
       aceOutDate (ao2, "####", "SNPs and variations count variants, reference and wiggle cover at donor and acceptor sites :\n") ;
       aceOutf (ao2, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
     }
-  tct->doubleReport = TRUE ;
+  tsnp->doubleReport = TRUE ;
 
-  aceOutf (ao, "# Title") ; tctReportLine (ao, ao2, tct, 2, 0) ;
-  aceOutf (ao, "# Sorting_title") ; tctReportLine (ao, ao2, tct, 3, 0) ;
-  aceOutf (ao, "# Run") ; tctReportLine (ao, ao2, tct, 1, 0) ;
+  aceOutf (ao, "# Title") ; tsnpReportLine (ao, ao2, tsnp, 2, 0) ;
+  aceOutf (ao, "# Sorting_title") ; tsnpReportLine (ao, ao2, tsnp, 3, 0) ;
+  aceOutf (ao, "# Run") ; tsnpReportLine (ao, ao2, tsnp, 1, 0) ;
     
   for (ii = 1 ; ii < snpMax  ; ii++)
     {
-      SNP *up = arrayp (tct->snps, ii, SNP) ;
+      SNP *up = arrayp (tsnp->snps, ii, SNP) ;
 
-      if (tct->t1 && (up->a1 > tct->t2 || up->a2 < tct->t1 || up->a1 < tct->t1 - 1000 || up->a2 > tct->t2 + 1000)) continue ;
+      if (tsnp->t1 && (up->a1 > tsnp->t2 || up->a2 < tsnp->t1 || up->a1 < tsnp->t1 - 1000 || up->a2 > tsnp->t2 + 1000)) continue ;
 
-      if (! up->select && tct->minSnpFrequency > 0 && (up->maxFrequency < 0 || up->maxFrequency < tct->minSnpFrequency))
+      if (! up->select && tsnp->minSnpFrequency > 0 && (up->maxFrequency < 0 || up->maxFrequency < tsnp->minSnpFrequency))
 	continue ;
-      if (up->coverp + up->coverm + up->acoverp + up->acoverm < 2 * tct->minSnpCover)
+      if (up->coverp + up->coverm + up->acoverp + up->acoverm < 2 * tsnp->minSnpCover)
 	continue ;
-      if (up->mp + up->mm + up->amp + up->amm < 2 * tct->minSnpCount)
+      if (up->mp + up->mm + up->amp + up->amm < 2 * tsnp->minSnpCount)
 	continue ;
-      if (! up->select && tct->dropMonomodal && up->pure + up->high + up->mid == 0)
+      if (! up->select && tsnp->dropMonomodal && up->pure + up->high + up->mid == 0)
 	{
-	  tctCountRejectedSnps (tct, up) ;
+	  tsnpCountRejectedSnps (tsnp, up) ;
 	  continue ;
 	}
-      tctCountAcceptedSnps (tct, up) ;
+      tsnpCountAcceptedSnps (tsnp, up) ;
       aceOutf (ao, "%s", dictName (snpDict, up->snp)) ;
-      tctReportLine (ao, ao2, tct, 0, up) ;
+      tsnpReportLine (ao, ao2, tsnp, 0, up) ;
       nn++ ;
     }
   ac_free (h) ;
   return nn ;
-} /* tctReport */
+} /* tsnpReport */
 
 /*************************************************************************************/
 
-static int tctMergeExport (TCT *tct)
+static int tsnpMergeExport (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int ii, nn = 0, snpMax  = arrayMax (tct->snps) ;
+  int ii, nn = 0, snpMax  = arrayMax (tsnp->snps) ;
 
-  ACEOUT ao = aceOutCreate (tct->outFileName, ".snp_frequency.tsf", tct->gzo, h) ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_frequency.tsf", tsnp->gzo, h) ;
   aceOutDate (ao, "####", "SNPs counts and frequency table") ;
-  aceOutf (ao, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover3\tCover5\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
+  aceOutf (ao, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
 
   for (ii = 1 ; ii < snpMax  ; ii++)
     {
-      SNP *up = arrayp (tct->snps, ii, SNP) ;
+      SNP *up = arrayp (tsnp->snps, ii, SNP) ;
 
-      if (tct->t1 && (up->a1 > tct->t2 || up->a2 < tct->t1 || up->a1 < tct->t1 - 1000 || up->a2 > tct->t2 + 1000)) continue ;
+      if (tsnp->t1 && (up->a1 > tsnp->t2 || up->a2 < tsnp->t1 || up->a1 < tsnp->t1 - 1000 || up->a2 > tsnp->t2 + 1000)) continue ;
 
-      if (! up->select && tct->minSnpFrequency > 0 && (up->maxFrequency < 0 || up->maxFrequency < tct->minSnpFrequency))
+      if (! up->select && tsnp->minSnpFrequency > 0 && (up->maxFrequency < 0 || up->maxFrequency < tsnp->minSnpFrequency))
 	continue ;
-      if (up->coverp + up->coverm + up->acoverp + up->acoverm < 2 * tct->minSnpCover)
+      if (up->coverp + up->coverm + up->acoverp + up->acoverm < 2 * tsnp->minSnpCover)
 	continue ;
-      if (up->mp + up->mm + up->amp + up->amm < 2 * tct->minSnpCount)
+      if (up->mp + up->mm + up->amp + up->amm < 2 * tsnp->minSnpCount)
 	continue ;
-      if (! up->select && tct->dropMonomodal && up->pure + up->high + up->mid == 0)
+      if (! up->select && tsnp->dropMonomodal && up->pure + up->high + up->mid == 0)
 	{
 	  continue ;
 	}
-      tctReportLine (0, ao, tct, 0, up) ;
+      tsnpReportLine (0, ao, tsnp, 0, up) ;
       nn++ ;
     }
   ac_free (h) ;
   return nn ;
-} /* tctMergeExport */
+} /* tsnpMergeExport */
 
 /*************************************************************************************/
 /*************************************************************************************/
 /* export snp stats per run that will go to the Ali object then to qc_ssummary */
-static void tctReportRuns (TCT *tct)
+static void tsnpReportRuns (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (tct->outFileName, "snp_runs.ace", tct->gzo, h) ;
-  int i, ir, irMax = arrayMax (tct->runs) ;
-  DICT *varTypeDict = tct->varTypeDict ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, "snp_runs.ace", tsnp->gzo, h) ;
+  int i, ir, irMax = arrayMax (tsnp->runs) ;
+  DICT *varTypeDict = tsnp->varTypeDict ;
   int iMax = dictMax (varTypeDict) ;
   RC *rc ;
 
   if (irMax)
-    for (ir = 1, rc = arrp (tct->runs, ir, RC) ; ir < irMax ; rc++, ir++)
+    for (ir = 1, rc = arrp (tsnp->runs, ir, RC) ; ir < irMax ; rc++, ir++)
       {
-	aceOutf (ao, "Ali \"%s\"\n", dictName (tct->runDict, ir)) ;
+	aceOutf (ao, "Ali \"%s\"\n", dictName (tsnp->runDict, ir)) ;
 	aceOut (ao, "-D SNP\n") ;
 	
 	if (rc->tested)
@@ -2222,46 +2225,46 @@ static void tctReportRuns (TCT *tct)
       }
   ac_free (h) ;
   return ;
-} /* tctReportRuns */
+} /* tsnpReportRuns */
 
 /*************************************************************************************/
 /*************************************************************************************/
-static DICT *tctMakeVarTypeDict (AC_HANDLE h) ;
-static void tctDbReport (TCT *tct)
+static DICT *tsnpMakeVarTypeDict (AC_HANDLE h) ;
+static void tsnpDbReport (TSNP *tsnp)
 {
-  tct->varTypeDict = tctMakeVarTypeDict (tct->h) ;
+  tsnp->varTypeDict = tsnpMakeVarTypeDict (tsnp->h) ;
 
-  tctSnpParse (tct) ;
-  if (tct->snps && arrayMax (tct->snps))
+  tsnpSnpParse (tsnp) ;
+  if (tsnp->snps && arrayMax (tsnp->snps))
     {
-      tctGetGlobalCounts (tct) ;
-      tctWiggleParse (tct) ;
-      tct->snpExported = tctReport (tct) ;
-      tctReportRuns (tct) ;
+      tsnpGetGlobalCounts (tsnp) ;
+      tsnpWiggleParse (tsnp) ;
+      tsnp->snpExported = tsnpReport (tsnp) ;
+      tsnpReportRuns (tsnp) ;
     }
-} /* tctDbReport */
+} /* tsnpDbReport */
   
 /*************************************************************************************/
 /*************************************************************************************/
-static DICT *tctMakeVarTypeDict (AC_HANDLE h) ;
-static void tctMergeCounts (TCT *tct)
+static DICT *tsnpMakeVarTypeDict (AC_HANDLE h) ;
+static void tsnpMergeCounts (TSNP *tsnp)
 {
-  tct->runDict = dictHandleCreate (256, tct->h) ;
-  tct->varTypeDict = tctMakeVarTypeDict (tct->h) ;
-  tct->minSnpCount = tct->minSnpFrequency = 0 ;
-  tctSnpParse (tct) ;
-  if (tct->snps && arrayMax (tct->snps))
+  tsnp->runDict = dictHandleCreate (256, tsnp->h) ;
+  tsnp->varTypeDict = tsnpMakeVarTypeDict (tsnp->h) ;
+  tsnp->minSnpCount = tsnp->minSnpFrequency = 0 ;
+  tsnpSnpParse (tsnp) ;
+  if (tsnp->snps && arrayMax (tsnp->snps))
     {
-      tctGetGlobalCounts (tct) ;
-      tctMergeExport (tct) ;
+      tsnpGetGlobalCounts (tsnp) ;
+      tsnpMergeExport (tsnp) ;
     }
-} /* tctMergeCounts */
+} /* tsnpMergeCounts */
   
 /*************************************************************************************/
 /*************************************************************************************/
 /* slide deletions and insertions, speclial treat for position 76 */
 
-static BOOL tctSlide (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep)
+static BOOL tsnpSlide (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep)
 {
   int i, dx, dy, a1 = a10, xx ; 
   BOOL isDim = FALSE ;
@@ -2284,12 +2287,12 @@ static BOOL tctSlide (const char *dna, int dnaLn, int a10, int da, int *dxp, int
   *slidep = dy ;
   *dxp = a1 - a10 ;
   return isDim ;
-} /* tctSlide */
+} /* tsnpSlide */
 
 /*************************************************************************************/
 /* slide deletions and insertions, speclial treat for position 76 */
 
-static BOOL tctSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep, const char *insert, char *buf)
+static BOOL tsnpSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep, const char *insert, char *buf)
 {
   int i, j, k, dx, dy, a1 = a10 ;
   BOOL isDup = FALSE ;
@@ -2313,7 +2316,7 @@ static BOOL tctSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp, 
   *slidep = dy ;
   *dxp = a1 - a10 ;
   return isDup ;
-} /* tctSlideDup */
+} /* tsnpSlideDup */
 
 /*************************************************************************************/
 
@@ -2388,7 +2391,7 @@ static int myTranslate (char *buf, char tBuf1[], char tBuf3[], int m1, int p1, A
  * extension: the stop has a substitution :  Ter110GlyextTer31
  * (Arg123LysfsTer34) 
  */
-static void tctSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRef, char *pVar, int m1, int p1, int frame, int fs) 
+static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRef, char *pVar, int m1, int p1, int frame, int fs) 
 {
   char *cp, *cq ;
   char * translationTable = pepGetTranslationTable(myMrna, 0) ; 
@@ -2491,7 +2494,7 @@ static void tctSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRef
       if (cp) *++cp = 0 ;
     }
   return ; 
-}  /* tctSetPName */
+}  /* tsnpSetPName */
 
 /*************************************************************************************/
 /* biologits, like Socrates, never heard of zero */
@@ -2502,7 +2505,7 @@ static int socrate (int x)
 
 /*************************************************************************************/
 
-static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
+static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE tbl = ac_tag_table (Snp, "IntMap", h) ;
@@ -2727,7 +2730,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 		    int dx = 0 ;
 		    int slide = 0 ;
 		    int am1 = fromMrna ? m1 : a1 ;
-		    BOOL isDim = tctSlide (dna, dnaLn, am1, da, &dx, &slide) ;
+		    BOOL isDim = tsnpSlide (dna, dnaLn, am1, da, &dx, &slide) ;
 		    if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		    else { a1 -= dx ; a2 -= dx ;}
 		    if (fromMrna) { m1 += dx ; m2 += dx ; }
@@ -2795,7 +2798,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 		  int slide = 0 ;
 		  int am1 = fromMrna ? m1 : a1 ;
 		  int am2 = fromMrna ? m2 : a2 ;
-		  BOOL isDim = tctSlide (dna, dnaLn, am1, da, &dx, &slide) ;
+		  BOOL isDim = tsnpSlide (dna, dnaLn, am1, da, &dx, &slide) ;
 		  char bufN[15] ;
 		  if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		  else { a1 -= dx ; a2 -= dx ;}
@@ -2909,7 +2912,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 		    char buf[da+1] ;
 		    int slide = 0 ;
 		    int am1 = fromMrna ? m1 : a1 ;
-		    isDup = tctSlideDup (dna, dnaLn, am1, da, &dx, &slide, (*ins) + 3, buf) ;
+		    isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, (*ins) + 3, buf) ;
 		    if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		    else { a1 -= dx ; a2 -= dx ;}
 		    if (fromMrna) { m1 += dx ; m2 += dx ; }
@@ -2977,7 +2980,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 		      char buf[da+1], bufN[12] ;
 		      int slide = 0 ;
 		      am1 = fromMrna ? m1 : a1 ;
-		      isDup = tctSlideDup (dna, dnaLn, am1, da, &dx, &slide, ccp, buf) ;
+		      isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, ccp, buf) ;
 
 		      if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		      else { a1 -= dx ; a2 -= dx ;}
@@ -3186,7 +3189,7 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 	      vtxtPrintf (txt, "Reference_RNAexon_sequence %s\n", RbufR) ;
 	      vtxtPrintf (txt, "Observed__RNAexon_sequence %s\n", RbufV) ;
 
-	      tctSetPName (pp, product, pR1, pV1,pR3, pV3, m1, p1, frame, fs) ;
+	      tsnpSetPName (pp, product, pR1, pV1,pR3, pV3, m1, p1, frame, fs) ;
 	      cp = vtxtPtr (pp) ;
 	      if (pR1[0]) { char *cq = pR1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Reference_protein_sequence %s %s\n", pR3, cq) ; }
 	      if (pV1[0]) { char *cq = pV1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Observed__protein_sequence %s %s %s\n", pV3, cq, cp ? cp : "") ; }
@@ -3224,14 +3227,14 @@ static int tctSetGName (vTXT txt, TCT *tct, AC_OBJ Snp, AC_HANDLE h0)
 
 /*************************************************************************************/
 /* enter all types of modifs in a logical order */
-static DICT *tctMakeVarTypeDict (AC_HANDLE h) 
+static DICT *tsnpMakeVarTypeDict (AC_HANDLE h) 
  {
    DICT *dict = dictHandleCreate (256, h) ;
    char *cp, *cq ;
    /*
-   char *Types = "Any,Substitution,Transition,Transversion,Insertion,Deletion,Double insertion,Double deletion,Triple insertion,Triple deletion,Other,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,Ins A,Ins T,Ins G,Ins C,Del A,Del T,Del G,Del C,Ins AA,Ins TT,Ins GG,Ins CC,Ins AG,Ins CT,Ins AC,Ins GT,Ins TG,Ins CA,Ins TC,Ins GA,Ins AT,Ins TA,Ins GC,Ins CG,Del AA,Del TT,Del GG,Del CC,Del AG,Del CT,Del AC,Del GT,Del TG,Del CA,Del TC,Del GA,Del AT,Del TA,Del GC,Del CG,Ins AAA,Ins TTT,Ins GGG,Ins CCC,Ins AAT,Ins ATT,Ins AAG,Ins CTT,Ins AAC,Ins GTT,Ins TTA,Ins TAA,Ins TTG,Ins CAA,Ins TTC,Ins GAA,Ins GGA,Ins TCC,Ins GGT,Ins ACC,Ins GGC,Ins GCC,Ins CCA,Ins TGG,Ins CCT,Ins AGG,Ins CCG,Ins CGG,Ins ATA,Ins TAT,Ins ATG,Ins CAT,Ins ATC,Ins GAT,Ins AGA,Ins TCT,Ins AGT,Ins ACT,Ins AGC,Ins GCT,Ins ACA,Ins TGT,Ins ACG,Ins CGT,Ins TAG,Ins CTA,Ins TAC,Ins GTA,Ins TGA,Ins TCA,Ins TGC,Ins GCA,Ins TCG,Ins CGA,Ins GAG,Ins CTC,Ins GAC,Ins GTC,Ins GTG,Ins CAC,Ins GCG,Ins CGC,Ins CAG,Ins CTG,Del AAA,Del TTT,Del GGG,Del CCC,Del AAT,Del ATT,Del AAG,Del CTT,Del AAC,Del GTT,Del TTA,Del TAA,Del TTG,Del CAA,Del TTC,Del GAA,Del GGA,Del TCC,Del GGT,Del ACC,Del GGC,Del GCC,Del CCA,Del TGG,Del CCT,Del AGG,Del CCG,Del CGG,Del ATA,Del TAT,Del ATG,Del CAT,Del ATC,Del GAT,Del AGA,Del TCT,Del AGT,Del ACT,Del AGC,Del GCT,Del ACA,Del TGT,Del ACG,Del CGT,Del TAG,Del CTA,Del TAC,Del GTA,Del TGA,Del TCA,Del TGC,Del GCA,Del TCG,Del CGA,Del GAG,Del CTC,Del GAC,Del GTC,Del GTG,Del CAC,Del GCG,Del CGC,Del CAG,Del CTG,Ambiguous" ; 
+   char *Types = "Any,Substitution,Transition,Transversion,Insertion,Deletion,Double insertion,Double deletion,Triple insertion,Triple deletion,Other,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,Ins A,Ins T,Ins G,Ins C,Del A,Del T,Del G,Del C,Ins AA,Ins TT,Ins GG,Ins CC,Ins AG,Ins CT,Ins AC,Ins GT,Ins TG,Ins CA,Ins TC,Ins GA,Ins AT,Ins TA,Ins GC,Ins CG,Del AA,Del TT,Del GG,Del CC,Del AG,Del CT,Del AC,Del GT,Del TG,Del CA,Del TC,Del GA,Del AT,Del TA,Del GC,Del CG,Ins AAA,Ins TTT,Ins GGG,Ins CCC,Ins AAT,Ins ATT,Ins AAG,Ins CTT,Ins AAC,Ins GTT,Ins TTA,Ins TAA,Ins TTG,Ins CAA,Ins TTC,Ins GAA,Ins GGA,Ins TCC,Ins GGT,Ins ACC,Ins GGC,Ins GCC,Ins CCA,Ins TGG,Ins CCT,Ins AGG,Ins CCG,Ins CGG,Ins ATA,Ins TAT,Ins ATG,Ins CAT,Ins ATC,Ins GAT,Ins AGA,Ins TSNP,Ins AGT,Ins ACT,Ins AGC,Ins GCT,Ins ACA,Ins TGT,Ins ACG,Ins CGT,Ins TAG,Ins CTA,Ins TAC,Ins GTA,Ins TGA,Ins TCA,Ins TGC,Ins GCA,Ins TCG,Ins CGA,Ins GAG,Ins CTC,Ins GAC,Ins GTC,Ins GTG,Ins CAC,Ins GCG,Ins CGC,Ins CAG,Ins CTG,Del AAA,Del TTT,Del GGG,Del CCC,Del AAT,Del ATT,Del AAG,Del CTT,Del AAC,Del GTT,Del TTA,Del TAA,Del TTG,Del CAA,Del TTC,Del GAA,Del GGA,Del TCC,Del GGT,Del ACC,Del GGC,Del GCC,Del CCA,Del TGG,Del CCT,Del AGG,Del CCG,Del CGG,Del ATA,Del TAT,Del ATG,Del CAT,Del ATC,Del GAT,Del AGA,Del TSNP,Del AGT,Del ACT,Del AGC,Del GCT,Del ACA,Del TGT,Del ACG,Del CGT,Del TAG,Del CTA,Del TAC,Del GTA,Del TGA,Del TCA,Del TGC,Del GCA,Del TCG,Del CGA,Del GAG,Del CTC,Del GAC,Del GTC,Del GTG,Del CAC,Del GCG,Del CGC,Del CAG,Del CTG,Ambiguous" ; 
    */
-   char *Types = "Substitution,Transition,Transversion,Deletion,Single_deletion,Double_deletion,Triple_deletion,Deletion_4_30,Long_deletion,Insertion,Single_insertion,Double_insertion,Triple_insertion,Insertion_4_30,Long_insertion,a>g,t>c,g>a,c>t,a>t,t>a,g>c,c>g,a>c,t>g,g>t,c>a,+a,*+a,+t,*+t,+g,*+g,+c,*+c,-a,*-a,-t,*-t,-g,*-g,-c,*-c,++aa,++tt,++gg,++cc,++ag,++ct,++ac,++gt,++tg,++ca,++tc,++ga,++at,++ta,++gc,++cg,*++aa,*++tt,*++gg,*++cc,*++ag,*++ct,*++ac,*++gt,*++tg,*++ca,*++tc,*++ga,*++at,*++ta,*++gc,*++cg,--aa,--tt,--gg,--cc,--ag,--ct,--ac,--gt,--tg,--ca,--tc,--ga,--at,--ta,--gc,--cg,*--aa,*--tt,*--gg,*--cc,*--ag,*--ct,*--ac,*--gt,*--tg,*--ca,*--tc,*--ga,*--at,*--ta,*--gc,*--cg,+++aaa,+++ttt,+++ggg,+++ccc,+++aat,+++att,+++aag,+++ctt,+++aac,+++gtt,+++tta,+++taa,+++ttg,+++caa,+++ttc,+++gaa,+++gga,+++tcc,+++ggt,+++acc,+++ggc,+++gcc,+++cca,+++tgg,+++cct,+++agg,+++ccg,+++cgg,+++ata,+++tat,+++atg,+++cat,+++atc,+++gat,+++aga,+++tct,+++agt,+++act,+++agc,+++gct,+++aca,+++tgt,+++acg,+++cgt,+++tag,+++cta,+++tac,+++gta,+++tga,+++tca,+++tgc,+++gca,+++tcg,+++cga,+++gag,+++ctc,+++gac,+++gtc,+++gtg,+++cac,+++gcg,+++cgc,+++cag,+++ctg,*+++aaa,*+++ttt,*+++ggg,*+++ccc,*+++aat,*+++att,*+++aag,*+++ctt,*+++aac,*+++gtt,*+++tta,*+++taa,*+++ttg,*+++caa,*+++ttc,*+++gaa,*+++gga,*+++tcc,*+++ggt,*+++acc,*+++ggc,*+++gcc,*+++cca,*+++tgg,*+++cct,*+++agg,*+++ccg,*+++cgg,*+++ata,*+++tat,*+++atg,*+++cat,*+++atc,*+++gat,*+++aga,*+++tct,*+++agt,*+++act,*+++agc,*+++gct,*+++aca,*+++tgt,*+++acg,*+++cgt,*+++tag,*+++cta,*+++tac,*+++gta,*+++tga,*+++tca,*+++tgc,*+++gca,*+++tcg,*+++cga,*+++gag,*+++ctc,*+++gac,*+++gtc,*+++gtg,*+++cac,*+++gcg,*+++cgc,*+++cag,*+++ctg,---aaa,---ttt,---ggg,---ccc,---aat,---att,---aag,---ctt,---aac,---gtt,---tta,---taa,---ttg,---caa,---ttc,---gaa,---gga,---tcc,---ggt,---acc,---ggc,---gcc,---cca,---tgg,---cct,---agg,---ccg,---cgg,---ata,---tat,---atg,---cat,---atc,---gat,---aga,---tct,---agt,---act,---agc,---gct,---aca,---tgt,---acg,---cgt,---tag,---cta,---tac,---gta,---tga,---tca,---tgc,---gca,---tcg,---cga,---gag,---ctc,---gac,---gtc,---gtg,---cac,---gcg,---cgc,---cag,---ctg,*---aaa,*---ttt,*---ggg,*---ccc,*---aat,*---att,*---aag,*---ctt,*---aac,*---gtt,*---tta,*---taa,*---ttg,*---caa,*---ttc,*---gaa,*---gga,*---tcc,*---ggt,*---acc,*---ggc,*---gcc,*---cca,*---tgg,*---cct,*---agg,*---ccg,*---cgg,*---ata,*---tat,*---atg,*---cat,*---atc,*---gat,*---aga,*---tct,*---agt,*---act,*---agc,*---gct,*---aca,*---tgt,*---acg,*---cgt,*---tag,*---cta,*---tac,*---gta,*---tga,*---tca,*---tgc,*---gca,*---tcg,*---cga,*---gag,*---ctc,*---gac,*---gtc,*---gtg,*---cac,*---gcg,*---cgc,*---cag,*---ctg" ; 
+   char *Types = "Substitution,Transition,Transversion,Deletion,Single_deletion,Double_deletion,Triple_deletion,Deletion_4_30,Long_deletion,Insertion,Single_insertion,Double_insertion,Triple_insertion,Insertion_4_30,Long_insertion,a>g,t>c,g>a,c>t,a>t,t>a,g>c,c>g,a>c,t>g,g>t,c>a,+a,*+a,+t,*+t,+g,*+g,+c,*+c,-a,*-a,-t,*-t,-g,*-g,-c,*-c,++aa,++tt,++gg,++cc,++ag,++ct,++ac,++gt,++tg,++ca,++tc,++ga,++at,++ta,++gc,++cg,*++aa,*++tt,*++gg,*++cc,*++ag,*++ct,*++ac,*++gt,*++tg,*++ca,*++tc,*++ga,*++at,*++ta,*++gc,*++cg,--aa,--tt,--gg,--cc,--ag,--ct,--ac,--gt,--tg,--ca,--tc,--ga,--at,--ta,--gc,--cg,*--aa,*--tt,*--gg,*--cc,*--ag,*--ct,*--ac,*--gt,*--tg,*--ca,*--tc,*--ga,*--at,*--ta,*--gc,*--cg,+++aaa,+++ttt,+++ggg,+++ccc,+++aat,+++att,+++aag,+++ctt,+++aac,+++gtt,+++tta,+++taa,+++ttg,+++caa,+++ttc,+++gaa,+++gga,+++tcc,+++ggt,+++acc,+++ggc,+++gcc,+++cca,+++tgg,+++cct,+++agg,+++ccg,+++cgg,+++ata,+++tat,+++atg,+++cat,+++atc,+++gat,+++aga,+++tsnp,+++agt,+++act,+++agc,+++gct,+++aca,+++tgt,+++acg,+++cgt,+++tag,+++cta,+++tac,+++gta,+++tga,+++tca,+++tgc,+++gca,+++tcg,+++cga,+++gag,+++ctc,+++gac,+++gtc,+++gtg,+++cac,+++gcg,+++cgc,+++cag,+++ctg,*+++aaa,*+++ttt,*+++ggg,*+++ccc,*+++aat,*+++att,*+++aag,*+++ctt,*+++aac,*+++gtt,*+++tta,*+++taa,*+++ttg,*+++caa,*+++ttc,*+++gaa,*+++gga,*+++tcc,*+++ggt,*+++acc,*+++ggc,*+++gcc,*+++cca,*+++tgg,*+++cct,*+++agg,*+++ccg,*+++cgg,*+++ata,*+++tat,*+++atg,*+++cat,*+++atc,*+++gat,*+++aga,*+++tsnp,*+++agt,*+++act,*+++agc,*+++gct,*+++aca,*+++tgt,*+++acg,*+++cgt,*+++tag,*+++cta,*+++tac,*+++gta,*+++tga,*+++tca,*+++tgc,*+++gca,*+++tcg,*+++cga,*+++gag,*+++ctc,*+++gac,*+++gtc,*+++gtg,*+++cac,*+++gcg,*+++cgc,*+++cag,*+++ctg,---aaa,---ttt,---ggg,---ccc,---aat,---att,---aag,---ctt,---aac,---gtt,---tta,---taa,---ttg,---caa,---ttc,---gaa,---gga,---tcc,---ggt,---acc,---ggc,---gcc,---cca,---tgg,---cct,---agg,---ccg,---cgg,---ata,---tat,---atg,---cat,---atc,---gat,---aga,---tsnp,---agt,---act,---agc,---gct,---aca,---tgt,---acg,---cgt,---tag,---cta,---tac,---gta,---tga,---tca,---tgc,---gca,---tcg,---cga,---gag,---ctc,---gac,---gtc,---gtg,---cac,---gcg,---cgc,---cag,---ctg,*---aaa,*---ttt,*---ggg,*---ccc,*---aat,*---att,*---aag,*---ctt,*---aac,*---gtt,*---tta,*---taa,*---ttg,*---caa,*---ttc,*---gaa,*---gga,*---tcc,*---ggt,*---acc,*---ggc,*---gcc,*---cca,*---tgg,*---cct,*---agg,*---ccg,*---cgg,*---ata,*---tat,*---atg,*---cat,*---atc,*---gat,*---aga,*---tsnp,*---agt,*---act,*---agc,*---gct,*---aca,*---tgt,*---acg,*---cgt,*---tag,*---cta,*---tac,*---gta,*---tga,*---tca,*---tgc,*---gca,*---tcg,*---cga,*---gag,*---ctc,*---gac,*---gtc,*---gtg,*---cac,*---gcg,*---cgc,*---cag,*---ctg" ; 
 
    for (cp = Types, cq = strchr (Types, '.') ; cp ; cp = cq ? cq + 1 : 0, cq = cp ? strchr (cp, ',') : 0) 
      {
@@ -3244,16 +3247,16 @@ static DICT *tctMakeVarTypeDict (AC_HANDLE h)
 
 /*************************************************************************************/
 /* establish VCF name, gName, rNam, pNam */
-static void tctDbTranslate (TCT *tct)
+static void tsnpDbTranslate (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (tct->outFileName, ".translate.ace", tct->gzo, h) ;
-  AC_ITER iter = ac_query_iter (tct->db, TRUE, "Find Variant", 0, h) ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".translate.ace", tsnp->gzo, h) ;
+  AC_ITER iter = ac_query_iter (tsnp->db, TRUE, "Find Variant", 0, h) ;
   int nn = 0, nm = 0, nt = 0 ;
   AC_OBJ Snp = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
   
-  tct->varTypeDict = tctMakeVarTypeDict (h) ;
+  tsnp->varTypeDict = tsnpMakeVarTypeDict (h) ;
 
   /* NOT DONE: split the 729 multi sub and force create the individual pieces */
   while (ac_free (Snp), Snp = ac_iter_obj (iter))
@@ -3261,10 +3264,10 @@ static void tctDbTranslate (TCT *tct)
       nn++ ;
       vtxtClear (txt) ;
       vtxtPrintf (txt, "Variant \"%s\"\n", ac_name (Snp)) ;
-      tctSetGName (txt, tct, Snp, h) ;
+      tsnpSetGName (txt, tsnp, Snp, h) ;
       /*
-      tctSetRname (txt, tct, Snp, h) ;
-      tctSetRNam (Snp) ;
+      tsnpSetRname (txt, tsnp, Snp, h) ;
+      tsnpSetRNam (Snp) ;
 
       */
       vtxtPrint (txt,"\n") ;
@@ -3274,30 +3277,49 @@ static void tctDbTranslate (TCT *tct)
   fprintf (stderr, "Found %d SNPs, remapped %d, translated %d\n", nn, nm, nt) ;
 
   ac_free (h) ;
-} /* tctDbTranslate */
+} /* tsnpDbTranslate */
   
 /*************************************************************************************/
 /*************************************************************************************/
 
-static int tctMakeWords_Any (TCT *tct, ACEOUT ao, BOOL isMrna)
+typedef struct subsStruct { KEY snp, target ; int a1, a2 ; } SUBS ;
+
+/*************************************************************************************/
+ 
+static int tsnpSubsOrder  (const void *va, const void *vb)
 {
-  AC_HANDLE h1 =0, h = ac_new_handle () ;
+  const SUBS *up = (const SUBS *)va, *vp = (const SUBS *)vb ;
+  int n ;
+  
+  n = up->target - vp->target ; if (n) return n ;
+  n = up->a1 - vp->a1 ; if (n) return n ;
+  n = up->a2 - vp->a2 ; if (n) return n ;
+
+  return 0 ;
+} /* tsnpSubsOrder */
+
+/*************************************************************************************/
+
+static int tsnpMakeWords_Any (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
+{
+  AC_HANDLE h = ac_new_handle () ;
   AC_TABLE tbl = 0 ;
   char *qq ;
   KEYSET ksIn = 0 ;
-  const char *zone = tct->zone ? tct->zone : "" ;
+  const char *zone = tsnp->zone ? tsnp->zone : "" ;
   const char *errors = 0 ;
   char *bqlQuery = 0 ;
   BQL_ITER *bqlIter = 0 ;
-  int nn = 0, nn1 = 0 ;
-
+  int nn = 0, nn1 = 0, nSub = 0 ;
+  Array subs = arrayHandleCreate (500, SUBS, h) ;
+  SUBS *up, *vp ;
   if (isMrna)
     {
       qq = hprintf (h, "%s %s %s %s " 
 		    , "Find variant ! Found_in_genome && mRNA" 
-		    , tct->filter ? " && (" : ""
-		    , tct->filter ? tct->filter : ""
-		    , tct->filter ? ") " : ""
+		    , tsnp->filter ? " && (" : ""
+		    , tsnp->filter ? tsnp->filter : ""
+		    , tsnp->filter ? ") " : ""
 		    ) ;
       bqlQuery = hprintf (h, "%s %s"
 			  , " select v,ref,var,del, mdel, ins, mins   "
@@ -3308,19 +3330,19 @@ static int tctMakeWords_Any (TCT *tct, ACEOUT ao, BOOL isMrna)
     {
       qq = hprintf (h, "%s %s %s %s"
 		    , "Find variant Found_in_genome" 
-		    , tct->filter ? " && (" : ""
-		    , tct->filter ? tct->filter : ""
-		    , tct->filter ? ") " : ""
+		    , tsnp->filter ? " && (" : ""
+		    , tsnp->filter ? tsnp->filter : ""
+		    , tsnp->filter ? ") " : ""
 		    ) ;
 
       bqlQuery = hprintf (h, "%s %s "
-			  , " select v,ref,var,del, mdel, ins, mins   "
-			  , "from v in @, ref in v->Reference_genomic_sequence , var in v->Observed__genomic_sequence where ref and var, del in v->deletion, mdel in v->multi_deletion, ins in v->insertion, mins in v->multi_insertion"
+			  , " select v,ref,var,del, mdel, ins, mins, sub, target, a1,a2   "
+			  , "from v in @, ref in v->Reference_genomic_sequence , var in v->Observed__genomic_sequence where ref and var, del in v->deletion, mdel in v->multi_deletion, ins in v->insertion, mins in v->multi_insertion, sub in v#substitution, target in v->IntMap, a1 in target[1], a2 in target[2]"
 			  ) ;
     }
   ksIn = query (0, qq) ;
   if (keySetMax (ksIn))   bqlIter = bqlIterCreate (bqlQuery, ksIn, &errors, h) ;
-  if (bqlIter) while (ac_free (h1), (tbl = bqlIterTable (bqlIter)))
+  if (bqlIter) while ((tbl = bqlIterTable (bqlIter)))
     {
       KEY v = ac_table_key (tbl, 0, 0, 0) ;
       const char *ref = ac_table_printable (tbl, 0, 1, "xxx") ;
@@ -3329,6 +3351,10 @@ static int tctMakeWords_Any (TCT *tct, ACEOUT ao, BOOL isMrna)
       const char *ins = ac_table_printable (tbl, 0, 5, 0) ;
       int mdel = ac_table_int (tbl, 0, 4, 0) ;
       int mins = ac_table_int (tbl, 0, 6, 0) ;
+      KEY sub = ac_table_key (tbl, 0, 7, 0) ;
+      KEY target = ac_table_key (tbl, 0, 8, 0) ;
+      int a1 = ac_table_int (tbl, 0, 9, 0) ;
+      int a2 = ac_table_int (tbl, 0, 10, 0) ;
       char buf[128] ;
 
       nn1++ ;
@@ -3352,6 +3378,14 @@ static int tctMakeWords_Any (TCT *tct, ACEOUT ao, BOOL isMrna)
 	    memcpy (buf, ref + 5 + (del ? 1 : 0), 31) ;
 	  buf[32] = 0 ;
 	  aceOutf (ao, "%s\tRef__%s\t%s\n", buf, name(v), zone) ;
+	  if (sub)
+	    {
+	      up = arrayp (subs, nSub++, SUBS) ;
+	      up->snp = v ;
+	      up->a1 = a1 ;
+	      up->a2 = a2 ;
+	      up->target = target ;
+	    }
 	  if (del && mdel == 0)
 	    { 
 	      memcpy (buf, var + 6, 15) ;
@@ -3374,21 +3408,65 @@ static int tctMakeWords_Any (TCT *tct, ACEOUT ao, BOOL isMrna)
       if (nn < 0) break ;
     }
 
+  if (nSub > 1)
+    {
+      int ii, jj ;
+      arraySort (subs, tsnpSubsOrder) ;
+      
+      for (ii = 0, up = arrp (subs, 0, SUBS) ; ii < nSub ; up++, ii++)
+	{
+	  KEY v = up->snp ;
+	  AC_OBJ  Snp1 = ac_get_obj (tsnp->db, "Variant", name (v), 0) ; 
+	  char *obs1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
+	  char *ref1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
+	  char buf[32] ;
+
+	  if (! obs1 || !ref1)
+	    continue ;
+	  memset (buf, 0, sizeof(buf)) ;
+	  for (vp = up + 1, jj = ii + 1 ; jj < nSub && vp->target == up->target && vp->a1 < up->a1 + 15 ; jj++, vp++)
+	    {
+	      AC_OBJ  Snp2 = ac_get_obj (tsnp->db, "Variant", name (vp->snp), 0) ; 
+	      char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
+
+	      if (0 && obs2)
+		{
+		  aceOutf (ao, "%s\tVar_%d__%s\t%s:%d\n", buf, vp->a1, name(v), zone) ;
+		  aceOutf (ao, "%s\tRef_%d__%s\t%s:%d\n", buf, vp->a1, name(v), zone) ;
+		}
+	      ac_free (Snp2) ;
+	    }
+	  for (vp = up - 1, jj = ii - 1 ; jj >= 0 && vp->target == up->target && vp->a1 > up->a1 - 15 ; jj--, vp--)
+	    {
+	      AC_OBJ  Snp2 = ac_get_obj (tsnp->db, "Variant", name (vp->snp), 0) ; 
+	      char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
+
+	      if (0 && obs2)
+		{
+		  aceOutf (ao, "%s\tVar_%d__%s\t%s:%d\n", buf, vp->a1, name(v), zone) ;
+		  aceOutf (ao, "%s\tRef_%d__%s\t%s:%d\n", buf, vp->a1, name(v), zone) ;
+		}
+	      ac_free (Snp2) ;
+	    }
+	  ac_free (Snp1) ;
+	}
+    }
+
   ac_free (ksIn) ;
   ac_free (h) ;
-  fprintf (stderr, "# tctMakeWords_Sub isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
+  fprintf (stderr, "# tsnpMakeWords_Sub isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
   return nn ;
-} /* tctMakeWords_Any */
+} /* tsnpMakeWords_Any */
 
 /*************************************************************************************/
 
-static int tctMakeWords_Sub (TCT *tct, ACEOUT ao, BOOL isMrna)
+static int tsnpMakeWords_Sub (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 {
   AC_HANDLE h1 =0, h = ac_new_handle () ;
   AC_TABLE tbl = 0 ;
   char *qq ;
   KEYSET ksIn = 0 ;
-  const char *zone = tct->zone ? tct->zone : "" ;
+  const char *zone = tsnp->zone ? tsnp->zone : "" ;
   const char *errors = 0 ;
   char *bqlQuery = 0 ;
   BQL_ITER *bqlIter = 0 ;
@@ -3398,9 +3476,9 @@ static int tctMakeWords_Sub (TCT *tct, ACEOUT ao, BOOL isMrna)
     {
       qq = hprintf (h, "%s %s %s %s " 
 		    , "Find variant substitution && ! multi_substitution && ! Found_in_genome && mRNA" 
-		    , tct->filter ? " && (" : ""
-		    , tct->filter ? tct->filter : ""
-		    , tct->filter ? ") " : ""
+		    , tsnp->filter ? " && (" : ""
+		    , tsnp->filter ? tsnp->filter : ""
+		    , tsnp->filter ? ") " : ""
 		    ) ;
       bqlQuery = hprintf (h, "%s %s"
 			  , " select v,typ,dna,a1    "
@@ -3411,9 +3489,9 @@ static int tctMakeWords_Sub (TCT *tct, ACEOUT ao, BOOL isMrna)
     {
       qq = hprintf (h, "%s %s %s %s"
 		    , "Find variant substitution && ! multi_substitution && Found_in_genome" 
-		    , tct->filter ? " && (" : ""
-		    , tct->filter ? tct->filter : ""
-		    , tct->filter ? ") " : ""
+		    , tsnp->filter ? " && (" : ""
+		    , tsnp->filter ? tsnp->filter : ""
+		    , tsnp->filter ? ") " : ""
 		    ) ;
 
       bqlQuery = hprintf (h, "%s %s "
@@ -3445,19 +3523,19 @@ static int tctMakeWords_Sub (TCT *tct, ACEOUT ao, BOOL isMrna)
 
   ac_free (ksIn) ;
   ac_free (h) ;
-  fprintf (stderr, "# tctMakeWords_Sub isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
+  fprintf (stderr, "# tsnpMakeWords_Sub isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
   return nn ;
-} /* tctMakeWords_Sub */
+} /* tsnpMakeWords_Sub */
 
 /*************************************************************************************/
 
-static int tctMakeWords_Del (TCT *tct, ACEOUT ao, BOOL isMrna)
+static int tsnpMakeWords_Del (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 {
   AC_HANDLE h1 = 0, h = ac_new_handle () ;
   AC_TABLE tbl = 0 ;
   char *qq ;
   KEYSET ksIn = 0 ;
-  const char *zone = tct->zone ? tct->zone : "" ;
+  const char *zone = tsnp->zone ? tsnp->zone : "" ;
   const char *errors = 0 ;
   char *bqlQuery = 0 ;
   BQL_ITER *bqlIter = 0 ;
@@ -3469,9 +3547,9 @@ static int tctMakeWords_Del (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,dnaRD,dnaRA,dnaVD,dnaVA    "
 			  , "from v in @, m in v->mRNA, a1 in m[1], a2 in m[2], dnaRD in DNA(m, a1-15, a1+15), dnaRA in DNA(m, a2-15, a2+15) where dnaRD, dnaVD in DNA(m, a1-14, a1), dnaVA in DNA(m, a2, a2+15)  where dnaVA"
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   else
@@ -3480,9 +3558,9 @@ static int tctMakeWords_Del (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,dnaRD,dnaRA,dnaVD,dnaVA    "
 			  , "from v in @, chr in v->intMap, a1 in chr[1], a2 in chr[2], seq in v->Parent_sequence, dnaRD in DNA(seq, a1-15, a1+15) where dnaRD, dnaRA in DNA(seq, a2-15, a2+15) , dnaVD in DNA(seq, a1-14, a1), dnaVA in DNA(seq, a2, a2+15)  where dnaVA"
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   ksIn = query (0, qq) ;
@@ -3508,19 +3586,19 @@ static int tctMakeWords_Del (TCT *tct, ACEOUT ao, BOOL isMrna)
 
   ac_free (ksIn) ;
   ac_free (h) ;
-  fprintf (stderr, "# tctMakeWords_Del isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
+  fprintf (stderr, "# tsnpMakeWords_Del isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
   return nn ;
-} /* tctMakeWords_Del */
+} /* tsnpMakeWords_Del */
 
 /*************************************************************************************/
 
-static int tctMakeWords_Ins (TCT *tct, ACEOUT ao, BOOL isMrna)
+static int tsnpMakeWords_Ins (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 {
   AC_HANDLE h1 = 0, h = ac_new_handle () ;
   AC_TABLE tbl = 0 ;
   char *qq ;
   KEYSET ksIn = 0 ;
-  const char *zone = tct->zone ? tct->zone : "" ;
+  const char *zone = tsnp->zone ? tsnp->zone : "" ;
   const char *errors = 0 ;
   char *bqlQuery = 0 ;
   BQL_ITER *bqlIter = 0 ;
@@ -3532,9 +3610,9 @@ static int tctMakeWords_Ins (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,dnaR,dnaVD,dnaVA,v2    "
 			  , "from v in @, m in v->mRNA, a1 in m[1], a2 in m[2], dnaR in DNA(m, a1-15, a1+15), dnaRD in DNA(m, a1-15, a1) where dnaRD, dnaRA in DNA(m, a1+1, a1+15), v1 in v->VCF[2], v2 in v1[1] where v2"
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   else
@@ -3543,9 +3621,9 @@ static int tctMakeWords_Ins (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,dnaR,dnaVD,dnaVA,v2    "
 			  , "from v in @, chr in v->intMap, a1 in chr[1], a2 in chr[2], seq in v->Parent_sequence, dnaR in DNA(seq, a1-15, a1+15), dnaVD in DNA(seq, a1-15, a1) where dnaVD, dnaVA in DNA(seq, a1+1, a1+15), v1 in v->VCF[2], v2 in v1[1] where v2"
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   ksIn = query (0, qq) ;
@@ -3583,19 +3661,19 @@ static int tctMakeWords_Ins (TCT *tct, ACEOUT ao, BOOL isMrna)
   
   ac_free (ksIn) ;
   ac_free (h) ;
-  fprintf (stderr, "# tctMakeWords_Ins isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
+  fprintf (stderr, "# tsnpMakeWords_Ins isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
   return nn ;
-} /* tctMakeWords_Ins */
+} /* tsnpMakeWords_Ins */
 
 /*************************************************************************************/
 
-static int tctMakeWords_MultiSub (TCT *tct, ACEOUT ao, BOOL isMrna)
+static int tsnpMakeWords_MultiSub (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 {
   AC_HANDLE h1 = 0, h = ac_new_handle () ;
   AC_TABLE tbl = 0 ;
   char *qq ;
   KEYSET ksIn = 0 ;
-  const char *zone = tct->zone ? tct->zone : "" ;
+  const char *zone = tsnp->zone ? tsnp->zone : "" ;
   const char *errors = 0 ;
   char *bqlQuery = 0 ;
   BQL_ITER *bqlIter = 0 ;
@@ -3607,9 +3685,9 @@ static int tctMakeWords_MultiSub (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,x1,x2,,y,dnaRD,dnaRA,v1,v2    "
 			  , "from v in @, x1 in v->DelIns, x2 in x1[1], y in v->Multi_substitution, m in v->mRNA, a1 in m[1], a2 in m[2], dnaR in DNA(m, a1-15, a1+15), dnaRD in DNA(m, a1-15, a1-1) where dnaRD, dnaRA in DNA(m, a2, a2+15), v1 in v->VCF[2], v2 in v1[1] where v2 "
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   else
@@ -3618,9 +3696,9 @@ static int tctMakeWords_MultiSub (TCT *tct, ACEOUT ao, BOOL isMrna)
       bqlQuery = hprintf (h, "%s %s %s %s %s"
 			  , " select v,x1,x2,y,dnaRD,dnaRA,v1,v2    "
 			  , "from v in @, x1 in v->DelIns, x2 in x1[1], y in v->Multi_substitution, chr in v->intMap, a1 in chr[1], a2 in chr[2], seq in v->Parent_sequence, dnaRD in DNA(seq, a1-15, a1-1), dnaRA in DNA(seq, a2, a2+15) where dnaRA, v1 in v->VCF[2], v2 in v1[1] where v2 "
-			  , tct->filter ? " and (" : ""
-			  , tct->filter ? tct->filter : ""
-			  , tct->filter ? ") " : ""
+			  , tsnp->filter ? " and (" : ""
+			  , tsnp->filter ? tsnp->filter : ""
+			  , tsnp->filter ? ") " : ""
 			  ) ;
     }
   ksIn = query (0, qq) ;
@@ -3677,32 +3755,32 @@ static int tctMakeWords_MultiSub (TCT *tct, ACEOUT ao, BOOL isMrna)
   
   ac_free (ksIn) ;
   ac_free (h) ;
-  fprintf (stderr, "# tctMakeWords_Multi isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
+  fprintf (stderr, "# tsnpMakeWords_Multi isMrna %s exported %d/%d snps\n", isMrna ? "TRUE" : "FALSE", nn, nn1) ;
   return nn ;
-} /* tctMakeWords_MultiSub */
+} /* tsnpMakeWords_MultiSub */
 
 /*************************************************************************************/
 
-static void tctMakeWords (TCT *tct)
+static void tsnpMakeWords (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (tct->outFileName, ".w31", tct->gzo, h) ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".w31", tsnp->gzo, h) ;
 
-  tctMakeWords_Any (tct, ao, TRUE) ;
-  tctMakeWords_Any (tct, ao, FALSE) ;
+  tsnpMakeWords_Any (tsnp, ao, TRUE) ;
+  tsnpMakeWords_Any (tsnp, ao, FALSE) ;
   if (0)
     {
-      tctMakeWords_Sub (tct, ao, TRUE) ;
-      tctMakeWords_Sub (tct, ao, FALSE) ;
-      tctMakeWords_Del (tct, ao, TRUE) ;
-      tctMakeWords_Del (tct, ao, FALSE) ;
-      tctMakeWords_Ins (tct, ao, TRUE) ; 
-      tctMakeWords_Ins (tct, ao, FALSE) ;
-      tctMakeWords_MultiSub (tct, ao, TRUE) ;  
-      tctMakeWords_MultiSub (tct, ao, FALSE) ;  
+      tsnpMakeWords_Sub (tsnp, ao, TRUE) ;
+      tsnpMakeWords_Sub (tsnp, ao, FALSE) ;
+      tsnpMakeWords_Del (tsnp, ao, TRUE) ;
+      tsnpMakeWords_Del (tsnp, ao, FALSE) ;
+      tsnpMakeWords_Ins (tsnp, ao, TRUE) ; 
+      tsnpMakeWords_Ins (tsnp, ao, FALSE) ;
+      tsnpMakeWords_MultiSub (tsnp, ao, TRUE) ;  
+      tsnpMakeWords_MultiSub (tsnp, ao, FALSE) ;  
     }
   ac_free (h) ;
-} /* tctMakeWords */
+} /* tsnpMakeWords */
 
 /*************************************************************************************/
 /***************************** Public interface **************************************/
@@ -3789,7 +3867,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 
 int main (int argc, const char **argv)
 {
-  TCT tct ;
+  TSNP tsnp ;
   AC_HANDLE h = 0 ;
   char commandBuf [4000] ;
 
@@ -3797,9 +3875,9 @@ int main (int argc, const char **argv)
   messErrorInit (argv[0]) ;
 
   h = ac_new_handle () ;
-  memset (&tct, 0, sizeof (TCT)) ;
+  memset (&tsnp, 0, sizeof (TSNP)) ;
   memset (commandBuf, 0, sizeof (commandBuf)) ;
-  tct.h = h ;
+  tsnp.h = h ;
 
   if (argc < 2)
     usage (commandBuf, argc, argv) ;
@@ -3824,86 +3902,86 @@ int main (int argc, const char **argv)
   }
 
   /* consume optional args */
-  tct.gzi = getCmdLineBool (&argc, argv, "-gzi") ;
-  tct.gzo = getCmdLineBool (&argc, argv, "-gzo") ;
+  tsnp.gzi = getCmdLineBool (&argc, argv, "-gzi") ;
+  tsnp.gzo = getCmdLineBool (&argc, argv, "-gzo") ;
 
-  getCmdLineOption (&argc, argv, "-o", &(tct.outFileName)) ;
+  getCmdLineOption (&argc, argv, "-o", &(tsnp.outFileName)) ;
  
   /* TARGET ZONE */
-  tct.target_class = 0 ; /* "Z_genome" ; */
-  getCmdLineOption (&argc, argv, "-referenceGenome", &(tct.referenceGenome)) ;
-  getCmdLineOption (&argc, argv, "-target_class", &(tct.target_class)) ;
-  getCmdLineOption (&argc, argv, "-t", &(tct.target)) ;
-  getCmdLineInt (&argc, argv, "-t1", &(tct.t1)) ;
-  getCmdLineInt (&argc, argv, "-t2", &(tct.t2)) ;
+  tsnp.target_class = 0 ; /* "Z_genome" ; */
+  getCmdLineOption (&argc, argv, "-referenceGenome", &(tsnp.referenceGenome)) ;
+  getCmdLineOption (&argc, argv, "-target_class", &(tsnp.target_class)) ;
+  getCmdLineOption (&argc, argv, "-t", &(tsnp.target)) ;
+  getCmdLineInt (&argc, argv, "-t1", &(tsnp.t1)) ;
+  getCmdLineInt (&argc, argv, "-t2", &(tsnp.t2)) ;
 
-  tct.intron_only = getCmdLineBool (&argc, argv, "-intron_only") ;
+  tsnp.intron_only = getCmdLineBool (&argc, argv, "-intron_only") ;
 
-  tct.minIntron = 30 ; /* default */
-  tct.maxIntron = 0 ; /* default : do not search introns */
+  tsnp.minIntron = 30 ; /* default */
+  tsnp.maxIntron = 0 ; /* default : do not search introns */
   if (getCmdLineBool (&argc, argv, "-intron"))
-    tct.maxIntron = 100000 ; /* default if we search introns */
+    tsnp.maxIntron = 100000 ; /* default if we search introns */
  
-  if (tct.t2 < tct.t1)
+  if (tsnp.t2 < tsnp.t1)
     {
-      fprintf (stderr, "FATAL ERROR: zone limits expeted t1 < t2, got %d > %d, please try\n\tvariant_caller -help\n", tct.t1, tct.t2) ;
+      fprintf (stderr, "FATAL ERROR: zone limits expeted t1 < t2, got %d > %d, please try\n\tvariant_caller -help\n", tsnp.t1, tsnp.t2) ;
       exit (1) ;
     }
-  if (tct.t1 < 0)
+  if (tsnp.t1 < 0)
     {
-      fprintf (stderr, "FATAL ERROR: zone limits expeted t1 > 0 got %d  please try\n\tvariant_caller -help\n", tct.t1) ;
+      fprintf (stderr, "FATAL ERROR: zone limits expeted t1 > 0 got %d  please try\n\tvariant_caller -help\n", tsnp.t1) ;
       exit (1) ;
     }
 
   /* SNP FILTERS */
-  tct.minSnpCover = 20 ;
-  tct.minSnpCount = 4;
-  tct.minSnpFrequency = 5 ;
+  tsnp.minSnpCover = 20 ;
+  tsnp.minSnpCount = 4;
+  tsnp.minSnpFrequency = 5 ;
 
-  getCmdLineInt (&argc, argv, "-minSnpCover", &(tct.minSnpCover)) ;
-  getCmdLineInt (&argc, argv, "-minSnpCount", &(tct.minSnpCount)) ;
-  getCmdLineFloat (&argc, argv, "-minSnpFrequency", &(tct.minSnpFrequency)) ;
+  getCmdLineInt (&argc, argv, "-minSnpCover", &(tsnp.minSnpCover)) ;
+  getCmdLineInt (&argc, argv, "-minSnpCount", &(tsnp.minSnpCount)) ;
+  getCmdLineFloat (&argc, argv, "-minSnpFrequency", &(tsnp.minSnpFrequency)) ;
 
 
-  getCmdLineOption (&argc, argv, "-i", &(tct.inFileList)) ;
-  getCmdLineOption (&argc, argv, "--inFiles", &(tct.inFileList)) ;
-  getCmdLineOption (&argc, argv, "-f", &(tct.inFileOfFileList)) ;
-  getCmdLineOption (&argc, argv, "--fileList", &(tct.inFileOfFileList)) ;
-  getCmdLineOption (&argc, argv, "--project", &(tct.project)) ;
-  getCmdLineOption (&argc, argv, "-p", &(tct.project)) ;
-  getCmdLineOption (&argc, argv, "--force", &(tct.force)) ;
-  getCmdLineOption (&argc, argv, "--zone", &(tct.zone)) ;
-  getCmdLineOption (&argc, argv, "--filter", &(tct.filter)) ;
-  getCmdLineOption (&argc, argv, "--", &(tct.filter)) ;
-  getCmdLineOption (&argc, argv, "-db_remap2genome", &tct.remap2genome) ;
-  getCmdLineOption (&argc, argv, "-db_remap2genes", &tct.remap2genes) ;
+  getCmdLineOption (&argc, argv, "-i", &(tsnp.inFileList)) ;
+  getCmdLineOption (&argc, argv, "--inFiles", &(tsnp.inFileList)) ;
+  getCmdLineOption (&argc, argv, "-f", &(tsnp.inFileOfFileList)) ;
+  getCmdLineOption (&argc, argv, "--fileList", &(tsnp.inFileOfFileList)) ;
+  getCmdLineOption (&argc, argv, "--project", &(tsnp.project)) ;
+  getCmdLineOption (&argc, argv, "-p", &(tsnp.project)) ;
+  getCmdLineOption (&argc, argv, "--force", &(tsnp.force)) ;
+  getCmdLineOption (&argc, argv, "--zone", &(tsnp.zone)) ;
+  getCmdLineOption (&argc, argv, "--filter", &(tsnp.filter)) ;
+  getCmdLineOption (&argc, argv, "--", &(tsnp.filter)) ;
+  getCmdLineOption (&argc, argv, "-db_remap2genome", &tsnp.remap2genome) ;
+  getCmdLineOption (&argc, argv, "-db_remap2genes", &tsnp.remap2genes) ;
 
-  tct.makeWords = getCmdLineBool (&argc, argv, "--makeWords") ;
+  tsnp.makeWords = getCmdLineBool (&argc, argv, "--makeWords") ;
 
-  tct.nAna = 4 ;
-  getCmdLineInt (&argc, argv, "-nAna", &(tct.nAna)) ;
+  tsnp.nAna = 4 ;
+  getCmdLineInt (&argc, argv, "-nAna", &(tsnp.nAna)) ;
   
   
   /********* REPORT **********/
 
-  getCmdLineOption (&argc, argv, "-db", &(tct.dbName)) ;
-  getCmdLineOption (&argc, argv, "-wiggleDir", &(tct.wiggleDir)) ;
-  tct.max_threads = 4 ;
-  getCmdLineInt (&argc, argv, "-max_threads", &tct.max_threads) ;
+  getCmdLineOption (&argc, argv, "-db", &(tsnp.dbName)) ;
+  getCmdLineOption (&argc, argv, "-wiggleDir", &(tsnp.wiggleDir)) ;
+  tsnp.max_threads = 4 ;
+  getCmdLineInt (&argc, argv, "-max_threads", &tsnp.max_threads) ;
   
-  if (tct.minSnpCount > tct.minSnpCover)
-    tct.minSnpCount =  tct.minSnpCover ;
+  if (tsnp.minSnpCount > tsnp.minSnpCover)
+    tsnp.minSnpCount =  tsnp.minSnpCover ;
 
-  tct.mergeCounts = getCmdLineBool (&argc, argv, "-merge") ;
-  tct.dbReport = getCmdLineBool (&argc, argv, "-db_report") ;
-  tct.dbTranslate = getCmdLineBool (&argc, argv, "-db_translate") ;
-  tct.dropMonomodal = getCmdLineBool (&argc, argv, "-dropMonomodal") ;
-  if (tct.dbName)
+  tsnp.mergeCounts = getCmdLineBool (&argc, argv, "-merge") ;
+  tsnp.dbReport = getCmdLineBool (&argc, argv, "-db_report") ;
+  tsnp.dbTranslate = getCmdLineBool (&argc, argv, "-db_translate") ;
+  tsnp.dropMonomodal = getCmdLineBool (&argc, argv, "-dropMonomodal") ;
+  if (tsnp.dbName)
     {
       const char *errors ;
-      tct.db = ac_open_db (tct.dbName, &errors);
-      if (! tct.db)
-	messcrash ("Failed to open db %s, error %s", tct.dbName, errors) ;
+      tsnp.db = ac_open_db (tsnp.dbName, &errors);
+      if (! tsnp.db)
+	messcrash ("Failed to open db %s, error %s", tsnp.dbName, errors) ;
     }
   if (argc != 1)
     {
@@ -3912,24 +3990,24 @@ int main (int argc, const char **argv)
     }
   filAddDir ("./") ;
 
-  if (tct.dbReport || tct.makeWords)
+  if (tsnp.dbReport || tsnp.makeWords)
     {
-      if (! tct.db)
+      if (! tsnp.db)
 	{
 	  fprintf (stderr, "-db_report requires -db SnpMetaDataDB, sorry, try -help\n") ;
 	  exit (1) ;
 	}
-      if (! tct.project)
+      if (! tsnp.project)
 	{
 	  fprintf (stderr, "-db_report requires -project $MAGIC, sorry, try -help\n") ;
 	  exit (1) ;
 	}
-      if (! tctGetRunList (&tct))
-	messcrash ("No run in -db %s belong to project %s", tct.dbName, tct.project) ;
+      if (! tsnpGetRunList (&tsnp))
+	messcrash ("No run in -db %s belong to project %s", tsnp.dbName, tsnp.project) ;
     }
-  if (tct.dbTranslate)
+  if (tsnp.dbTranslate)
     {
-      if (! tct.db)
+      if (! tsnp.db)
 	{
 	  fprintf (stderr, "-db_translate requires -db SnpMetaDataDB, sorry, try -help\n") ;
 	  exit (1) ;
@@ -3937,62 +4015,62 @@ int main (int argc, const char **argv)
     }
 
   /* parallelization */
-   if (tct.max_threads < 4)
-     tct.max_threads = 4 ;
-   if (tct.max_threads < tct.nAna)
-     tct.max_threads = tct.nAna ;
+   if (tsnp.max_threads < 4)
+     tsnp.max_threads = 4 ;
+   if (tsnp.max_threads < tsnp.nAna)
+     tsnp.max_threads = tsnp.nAna ;
  
   /* check the absolute args */
 
-  wego_max_threads (tct.max_threads) ;
-  tct.doneChan = channelCreate (12, int, tct.h) ;
+  wego_max_threads (tsnp.max_threads) ;
+  tsnp.doneChan = channelCreate (12, int, tsnp.h) ;
 
-  if (tct.makeWords)
+  if (tsnp.makeWords)
     {
-      tctMakeWords (&tct) ;
+      tsnpMakeWords (&tsnp) ;
     }
-  if (tct.dbReport)
+  if (tsnp.dbReport)
     {
-      tctDbReport (&tct) ;
+      tsnpDbReport (&tsnp) ;
     }
-  if (tct.mergeCounts)
+  if (tsnp.mergeCounts)
     {
-      tctMergeCounts (&tct) ;
+      tsnpMergeCounts (&tsnp) ;
     }
-  if (tct.dbTranslate)
+  if (tsnp.dbTranslate)
     {
-      tctDbTranslate (&tct) ;
+      tsnpDbTranslate (&tsnp) ;
     }
-  if (tct.remap2genome)
+  if (tsnp.remap2genome)
     {
-      tctCreateAtlas (&tct) ;
-      tctRemap1 (&tct) ; tctRemap2(&tct) ;
+      tsnpCreateAtlas (&tsnp) ;
+      tsnpRemap1 (&tsnp) ; tsnpRemap2(&tsnp) ;
     }
-  if (tct.remap2genes)
+  if (tsnp.remap2genes)
     {
-      tctCreateAtlas (&tct) ;
-      messcrash ("tctRemap2genes  not programmed") ;
+      tsnpCreateAtlas (&tsnp) ;
+      messcrash ("tsnpRemap2genes  not programmed") ;
     }
   wego_flush () ;
 
-  ac_free (tct.ao) ;
+  ac_free (tsnp.ao) ;
   if (1)
     { 
       int mx ;
       messAllocMaxStatus (&mx) ; 
       fprintf (stderr, "// minSnpCount %d minSnpCover %d minSnpFrequency %.1f%%\n"
-	       , tct.minSnpCount
-	       , tct.minSnpCover
-	       , tct.minSnpFrequency
+	       , tsnp.minSnpCount
+	       , tsnp.minSnpCover
+	       , tsnp.minSnpFrequency
 	       ) ;
-      if (tct.snps)
+      if (tsnp.snps)
 	fprintf (stderr, "// SNP detected %d SEG reported %d\n"
-		 , tct.snpDetected
-		 , tct.snpExported
+		 , tsnp.snpDetected
+		 , tsnp.snpExported
 		 ) ;
      }
   if (1) sleep (1) ; /* to prevent a mix up between stdout and stderrn and to ensure all pipes are closed*/
-  ac_free (tct.h) ;
+  ac_free (tsnp.h) ;
 
   return 0 ;
 } /* main */
