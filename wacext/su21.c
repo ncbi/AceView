@@ -9563,6 +9563,58 @@ static void muInitNCoq (int a, int b, int COQ)
 } /* muInitNCoq */
 
 /*************************************************************************************************/
+/*************************************************************************************************/
+/* try to rediagonalize the  3(+1+)3* */
+static void rep7 (void)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int zi[] = {
+	      0, 1,0, 0, 0,0, 0,
+	      -1,1,0, 0, 0,0, 0,
+	      0, 0,-1, 1, 0,0, 0,
+	      
+	      0, 0,0, 0, 0,0, 0,
+	      
+	      0, 0,0, 1, 1,0,  0,
+	      0, 0, 0, 0, 0,-1, 1,
+	      0, 0, 0, 0, 0,1, 0
+  } ;
+  int mi[] = {
+	      1,0,0,0,0,0,1,
+	      0,1,0,0,0,1,0,
+	      0,0,1,0,1,0,0,
+	      0,0,0,1,0,0,0,
+	      0,0,1,0,-1,0,0,
+	      0,1,0,0,0,-1,0,
+	      1,0,0,0,0,0,-1
+  } ;
+  MX MM, MU, MUM ;
+  MX U = mxCreate (h,  "U", MX_INT, 7, 7, 0) ;
+  MX M = mxCreate (h,  "M", MX_INT, 7, 7, 0) ;
+  mxSet (U,zi) ;
+  mxSet (M,mi) ;
+
+
+  MM = mxMatMult (M, M, h) ;
+  MM->name = "MM" ;
+  niceShow (M) ;
+  niceShow (MM) ;
+  
+  MU = mxMatMult (M, U, h) ;
+  MU->name = "MU" ;
+  niceShow (U) ;
+  niceShow (MU) ;
+  
+  MUM = mxMatMult (MU, M, h) ;
+  MUM->name = "MUM" ;
+  niceShow (MUM) ;
+  
+  ac_free (h) ;
+  return ;
+} /* rep7 */
+
+/*************************************************************************************************/
+/*************************************************************************************************/
 
 void muConjugate (AC_HANDLE h)
 {
@@ -10133,6 +10185,12 @@ int main (int argc, const char **argv)
       exit(0) ;
     }
 
+
+  if (COQ == -1)
+    {
+      rep7 () ;  /* try to rediagonalize the 7 dim indecomposabe   3(+1+)3* */
+      exit (0) ;
+    }
 
   if (getCmdLineBool (&argc, argv, "-powerSum"))
     { /* find the value of sum n^k */
