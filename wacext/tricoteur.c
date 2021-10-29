@@ -248,7 +248,7 @@ typedef struct deUnoStruct {
   int clone, x1, x2 ; /* coordinates of a long insert in its read */
   int insert ; /* offset in lane->deUnoDict: sequence of the insert i.e. atgc or intron feet */
   int dup ;
-  BOOL isRead1, isDown ;
+  BOOL isRead1, isDown, isExternal ;
 } UNO ;
 
 #define QCMAX 6
@@ -2729,7 +2729,7 @@ static void tctDeUnoExport (TCT *tct)
       if (0) fprintf (stderr, "#2 wig[40]=%d\n", array (wig, 40, int)) ;
 
       for (ii = 0, uno = bigArrp (deUno, 0, UNO) ; ii < iiMax ; ii++, uno++)
-	if (uno->ns && uno->type)
+	if (uno->isExternal || (uno->ns && uno->type))
 	  {
 	    int a1 = uno->a1, a2 = uno->a2 ;
 	    int nt = uno->nt ;
@@ -2754,9 +2754,12 @@ static void tctDeUnoExport (TCT *tct)
 	    if (nd < nt) nd = nt ;
 	    if (na < nt) na = nt ;
 	    nad = na < nd ? na : nd ;
-	    if (nt >= minSnpCount &&
-		nad >= minSnpCover &&
-		nt * 100 >= minSnpFrequency * nad 
+	    if (uno->isExternal ||
+		(
+		 nt >= minSnpCount &&
+		 nad >= minSnpCover &&
+		 nt * 100 >= minSnpFrequency * nad 
+		 )
 		)	    
 	      {
 		const char *insert = 0 ;
@@ -4073,7 +4076,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
     {
       char tagBuf[64] ;
       BOOL isRead1 = TRUE ;
-      int i, a1, a2, b1, b2, x1, x2, x11, x22, mult = 1, uu = 1, ali, toBeAligned, gene= 0, trgt , target_class, trgtStart = 0 ;
+      int i, a1, a2, b1, b2, x1, x2, x11, x22, mult = 1, uu = 1, nErr = 0, ali, toBeAligned, gene= 0, trgt , target_class, trgtStart = 0 ;
       char *cp = aceInPos (ai) ; 
       
       line++ ;
@@ -4312,8 +4315,9 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	      keySet (covers, i - t1 + trgtStart) = k ;
 	    }
 	}
+      aceInStep (ai, '\t') ; aceInInt (ai, &nErr) ; 
        /* register the error wiggle */  
-       for(i = 14 ; i <= 17 ; i++) /* locate errors in column 17 */
+       for(i = 15 ; i <= 17 ; i++) /* locate target errors in column 17 */
 	{ aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; }
        if (tct->intron_only && cp && cp[1]) continue ;
        if (0 || tct->intron_only) cp = 0 ; /* mask the local errors */
@@ -4615,9 +4619,24 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			 {
 			   dx = (x2 + 1) - y1 ;
 			   protect = dx ;
-			   x2 -= dx ; a2 -= dx ; dx = 0 ;
-			   firstHit->a2 = a2 ;
-			   firstHit->x2 = x2 ;
+			   if (! nErr)
+			     {
+			       x2 -= dx ; a2 -= dx ; dx = 0 ;
+			       /* 
+				  firstHit->a2 = a2 ;
+				  firstHit->x2 = x2 ;
+			       */
+			     }
+			   else
+			     {
+			       y1 += dx ; b1 += dx ; dx = 0 ;
+			       /*
+				 firstHit->a2 = a2 ;
+				 firstHit->x2 = x2 ;
+				 secondHit->a2 = a2 ;
+				 firstHit->x2 = x2 ;
+			       */
+			     }
 			 }
 		     }
 		   else
@@ -4627,8 +4646,11 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   dx = y1 - (x2 - 1) ;
 			   protect = dx ;
 			   x2 += dx ; a2 -= dx ; dx = 0 ;
-			   firstHit->a2 = a2 ;
-			   firstHit->x2 = x2 ;
+			   /*
+			     firstHit->a2 = a2 ;
+			     firstHit->x2 = x2 ;
+			   */
+			   dx = 0 ;
 			 }
 		     }
 		 }
@@ -4655,9 +4677,17 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	       if (b1 < a1 + tct->Delta || a2 >= b2 -tct->Delta)
 		 da = dx = 0 ;
 
-	       if (a2 >= b1)
-		 { dup = a2 - b1 + 1 ; a2 = firstHit->a2 -= dup  ; x2 = firstHit->x2 += (x1 < x2) ? - dup : dup ; da = b1 - a2 - 1 ; dx = y1 - x2 + (x1 < x2 ? -1 : + 1 ) - dup ; }
+	       if (dx == 0 && a2 >= b1)
+		 { dup = a2 - b1 + 1 ; a2 -= dup  ; x2 += (x1 < x2) ? - dup : dup ; da = dx = 0 ; /* b1 - a2 - 1 ; dx = y1 - x2 + (x1 < x2 ? -1 : + 1 ) - dup ; */ }
 
+	       else if (dx > 0 && a2 >= b1)
+		 { 
+		   if (isDown)
+		     { dx = dx + a2 - b1 + 1 ; b1 = a2 + 1 ; y1 -= da ; }
+		   else
+		     { dx = dx + a2 - b1 + 1 ; b1 = a2 + 1 ; y1 += da ;}
+		   dup = 0 ; da = 0 ; 
+		 }
 	       if (dx < 0 && da > -dx)
 		 { a2 += dx ; x2 += isDown ? dx : -dx ; dx = 0 ; da -= dx ; } 
 
@@ -4684,7 +4714,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		       b1 += (-dx  - dup - tct->Delta) ;
 		     
 		     if (dx -dup < 0)
-		       a2 += dx - -dup - 1 ; 
+		       a2 += dx - dup - 1 ; 
 		     k = keySet (brks, a2 - t1 + trgtStart) ;
 		     k += mult ; nOverhangs += mult ;
 		     keySet (brks, a2 - t1 + trgtStart) = k ;
@@ -4725,13 +4755,13 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     else if (ddx)  /* da = 0 dx < 0 represents a duplication */
 		       {
 			 sprintf (tagBuf, "Multi_insertion\t%d", ddx) ;
-			 sprintf (buf, "%d:Ins_%d:%c:", a2+ (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup), ddx, dnaDecodeChar[(int)cr[0]]) ;
+			 sprintf (buf, "%d:Ins_%d:%c:", a2 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : 0), ddx, dnaDecodeChar[(int)cr[0]]) ;
 		       }
 		     dictAdd (lane->deUnoDict, buf, &k) ;
 		     uno = arrayp (lane->deUno, arrayMax (lane->deUno), UNO) ;
 		     uno->target = hit->target ;
-		     uno->a1 = a2 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup) ;
-		     uno->a2 = b1 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : dup) ;
+		     uno->a1 = a2 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : 0) ;
+		     uno->a2 = b1 + (isDown && dx > 0 ? dup : 0) + (isDown && dx==0 ? 0 : 0) ;
 		     uno->ddx = ddx - da ;
 		     uno->da = da ? da : -dx ;
 		     uno->dup = dup ;
@@ -4740,7 +4770,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     uno->type = k ;
 		     dictAdd (lane->deUnoDict, tagBuf, &k) ;
 		     uno->tag = k ;
-		     if (da)
+		     if (da > 0)
 		       {
 			 if (da < 35)
 			   {
@@ -4756,18 +4786,22 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			     uno->insert = k ;
 			   }
 		       }
-		     else if (dup == 0 && dx > 0 && dx < 500 && uno3pOld[0] && strlen (uno3pOld) >= dx)
+		     else if (isDown && dup == 0 && dx > 0 && dx < 5 && uno3pOld[0] && strlen (uno3pOld) >= dx)
 		       {
 			 uno3pOld[dx] = 0 ; 
-			 if (! isDown)
-			   {
-			     int i = dx + 1 ;
-			     char buf[dx+1] ;
-			     memcpy (buf, uno3pOld, dx+1) ;
-			     while (--i)
-			       uno3pOld [dx - i] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)buf[i-1]]]]) ; 
-			   }
+			 char *cp = uno3pOld ;
+			 while (1 && *cp)
+			   {*cp = ace_upper (*cp) ; cp++; }
 			 dictAdd (lane->deUnoDict, uno3pOld, &k) ;
+			 uno->insert = k ;
+		       }
+		     else if (!isDown && dup == 0 && dx > 0 && dx < 5 && uno5p[0] && strlen (uno5p) >= dx)
+		       {
+			 uno5p[dx] = 0 ; 
+			 char *cp = uno5p ;
+			 while (1 && *cp)
+			   {*cp = ace_upper (*cp) ; cp++; }
+			 dictAdd (lane->deUnoDict, uno5p, &k) ;
 			 uno->insert = k ;
 		       }
 		     else if (dx == 0 && dup)
@@ -5870,8 +5904,6 @@ static void tctGetGeneFusionList (TCT *tct)
 
   if (! geneFusions)
     geneFusions = tct->geneFusions = arrayHandleCreate (10000, GF, tct->h) ;
-  if (! targetDict)
-    targetDict = tct->targetDict = dictHandleCreate (10000, tct->h) ;
   while (aceInCard (ai))
     {
       char *cp = aceInWord (ai) ;
@@ -5971,6 +6003,7 @@ static void tctGetExternalSnpList (TCT *tct)
   BitSet ebs ;
   int jj = 0 ;
   int t1 = tct->t1 ? tct->t1 : tct->offset ; 
+  DICT *deUnoDict = tct->deUnoDict ;
 
   if (!ai)
     {
@@ -5983,45 +6016,97 @@ static void tctGetExternalSnpList (TCT *tct)
   ebs = tct->externalBitSet = bitSetCreate (12000000, tct->h) ;
   while (aceInCard (ai))
     {
-      char cutter, *cq, *cp = aceInWord (ai) ;
-      int x = 0, trgt = 0 ;
+      char buf[512] ;
+      char tagBuf[512] ;
+
+      char cutter, *cq, *cp ;
+      int x = 0, trgt = 0, tag = 0, dx = 0, ddx = 0, type = 0 ;
       
       cp = aceInWordCut (ai, "\t:", &cutter) ;
       if (! cp || ! *cp || *cp == '#')
 	continue ;
-      
-      
  
      cq = strchr (cp, ':') ;
-      if (cq)
-	{
-	  *cq = 0 ;
-	  if (! dictFind (tct->targetDict, cp, &trgt))
-	    continue ;
-	  dictAdd (tct->geneDict, cp, &trgt) ;
-	  cp = cq + 1 ;
-	  if (! *cp || sscanf (cp, "%d:", &x) != 1)
-	    continue ;
-	}
-      else
-	{
-	  if (! dictFind (tct->targetDict, cp, &trgt))
-	    continue ;
-	  dictAdd (tct->geneDict, cp, &trgt) ;
+     if (cq)
+       *cq++ = 0 ;
+     dictAdd (tct->targetDict, cp, &trgt) ;
+     if (cq)
+       cp = cq + 1 ;
+     else
+       {
 	  aceInStep (ai, '\t') ;
 	  cp = aceInWord (ai) ;
-	  if (!cp || ! *cp || sscanf (cp, "%d:", &x) != 1)
-	    continue ;
-	}
-      x += keySet (tct->targetStart, trgt) ;
-      if (! tct->t2 || (tct->t1 <= x && tct->t2 >= x))
-	{
-	  keySet (ks, jj++) = x - t1  + 1 ;
-	  if (tct->debug) fprintf (stderr, "jj = %d x = %d\n", jj, x) ;
-	  bitSet (ebs, x - tct->t1  + 1) ;
-	}
+       }       
+     strncpy (buf, cp, 510) ;
+     buf[510] = 0 ;
+     if (! *cp || sscanf (cp, "%d:", &x) != 1)
+       continue ;
+
+     if (! tct->t2 || (tct->t1 <= x && tct->t2 >= x))
+       {
+	 keySet (ks, jj++) = x - t1  + 1 ;
+	 if (tct->debug) fprintf (stderr, "jj = %d x = %d\n", jj, x) ;
+	 bitSet (ebs, x - tct->t1  + 1) ;
+       }
       else
 	continue ;
+     dictAdd (deUnoDict, buf, &tag) ;
+     
+     cp = strchr (cp, ':') ;
+     if (! cp)
+       continue ;
+     cp++ ;
+     ddx = dx = 1 ;
+     if (cp[3]=='_')
+       {
+	 if (sscanf (cp+4, "%d:", &dx) != 1)
+	   continue ;
+       }
+     if (! strncmp (cp, "Sub_", 4))
+       {
+	 sprintf (tagBuf, "Multi_sub\t%d", dx) ;
+	 ddx = 0 ;
+       }
+     else if (! strncmp (cp, "Sub", 3))
+       {
+	 sprintf (tagBuf, "%c2%c\t0\t-", cp[5],cp[7]) ;
+	 ddx = 0 ;
+       }
+     else if (! strncmp (cp, "Del_", 4))
+       {
+	 sprintf (tagBuf, "Multi_deletion \t%d", dx) ;
+	 ddx = -dx ;
+       }
+     else if (! strncmp (cp, "Del", 3))
+       {
+	 sprintf (tagBuf, "Del%c\t1\t%c", cp[6],cp[6]) ;
+	 ddx = -1 ;
+       }
+    else if (! strncmp (cp, "Ins_", 4))
+       {
+	 sprintf (tagBuf, "Multi_insertion\t%d", dx) ;
+	 ddx = dx ; dx = 0 ;
+       }
+     else if (! strncmp (cp, "Ins", 3))
+       {
+	 sprintf (tagBuf, "Ins%c\t1\t%c", cp[8],cp[8]) ;
+	 ddx = 1 ;
+	 dx = 0 ;
+       }
+     else
+       continue ;
+     
+     dictAdd (deUnoDict, buf, &type) ;
+     dictAdd (deUnoDict, tagBuf, &tag) ;
+
+     UNO *uno = bigArrayp (tct->deUno, bigArrayMax (tct->deUno), UNO) ;
+     uno->isExternal = TRUE ;
+     uno->target = trgt ;
+     uno->type = type ;
+     uno->a1 = x ;
+     uno->a2 = x + dx + 1 ;
+     uno->ddx = ddx ;
+     uno->tag = tag ;
     }
 
   ac_free (ai) ;
@@ -7063,8 +7148,6 @@ static void tctInit (TCT *tct)
 {
   int nn = tct->t2 - tct->t1 + 1 ;
 
-  if (tct->externalSnpListFileName)
-    tctGetExternalSnpList (tct) ;
   if (! nn) nn = 10000000 ;
   tct->dna = arrayHandleCreate (nn, char, tct->h) ;
   tct->dnaR = arrayHandleCreate (nn, char, tct->h) ;
@@ -7075,6 +7158,10 @@ static void tctInit (TCT *tct)
       tct->deUnoDict = dictHandleCreate (1000, tct->h) ;
     }
   tct->targetDict = dictHandleCreate (1000, tct->h) ;
+
+  if (tct->externalSnpListFileName)
+    tctGetExternalSnpList (tct) ;
+
   if (tct->nAna > 1)
     dictSetLock (tct->targetDict, channelLockCreate (tct->h), channelLock, channelUnlock) ;
 
@@ -7209,7 +7296,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//   -minSnpCount integer: [default 4]\n"
 	   "//   -minSnpFrequency float: [default 18] minimal MAF precentage\n"
 	   "//   -minOverhang integer: [default 12] collect positions of incomplete alignments\n"
-	   "//   -intron : [default off] diifferentiate introns frrom deletions\n"
+	   "//   -intron : [default off] diifferentiate introns from deletions\n"
 	   "//   -intron_only : just detect and report introns\n"
 	   "//   -min_intron <int> : [default 30] min reported intron length\n"
 	   "//   -max_intron <int> : [default 0]  max reported intron length\n"
