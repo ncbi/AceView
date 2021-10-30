@@ -72,7 +72,7 @@ include deffile
 ## CC, LIBS, NAME are defined in $(ACEDB_MACHINE)_DEF
 ##
  
-IDIR = -I. -I.. -I../wh -I/netopt/sge/include -I../tensorflow.$(ACEDB_MACHINE)/include
+IDIR = -I. -I.. -I../wh -I/netopt/sge/include -I ../wtf/TENSORFLOW/clib/include
 
 # Do not use -I/usr/include
 # it prevents gcc from picking up its own includes
@@ -97,7 +97,7 @@ COMPILE.c = $(COMPILER) $(USEROPTS) $(IDIR) -DAC_TEST -D$(NAME) -c
  
 ALL_TF_OBJS = tf1.o tf2c.o tfnnali8b.o
 ALL_TF_SOURCES =  $(ALL_TF_OBJS:.o=.c) 
-LINK_TF = tf2c.o -ltensorflow -ltensorflow_framework -L../tensorflow.$(ACEDB_MACHINE)/lib
+LINK_TF = tf2c.o ../wtf/TENSORFLOW/clib/lib/libtensorflow.so ../wtf/TENSORFLOW/clib/lib/libtensorflow_framework.so -L ../wtf/TENSORFLOW/clib/lib
 
 $(ALL_TF_SOURCES)  :
 	$(TEST) -L $@ || ln -s ../wtf/$@ . 
@@ -121,7 +121,7 @@ tfnnali8b: tfnnali8b.o $(LINK_ACS) tf2c.o
 #  mkdir TENSORFLOW
 #  mkdir TENSORFLOW/clib
 #  pushd  TENSORFLOW/clib
-#    wget "https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-cpu-li#nux-x86_64-1.4.0.tar.gz" 
+#    wget "https://storage.googleapis.com/tensorflow/libtensorflow/libtensorflow-cpu-linux-x86_64-1.4.0.tar.gz" 
 #    # | tar -C clib -xz
 #    tar xf libtensorflow-cpu-linux-x86_64-1.4.0.tar.gz
 #  popd

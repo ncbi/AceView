@@ -86,7 +86,7 @@ int  tf2cCheckPoint (TF2C* tf) ;
  * If say the learning rate is a place-holder called "lr" in python 
  * one can increase its default value by 10% by calling
       float lr = tfPlaceHolder (tf, "lr", 0) ;
-      tfPlaceHolder (tf, "lr", 1.1 * lr) ;     /* not yet implemented */
+      tfPlaceHolder (tf, "lr", 1.1 * lr) ;     // not yet implemented 
  */
 #endif
 
