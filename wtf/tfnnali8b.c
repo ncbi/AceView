@@ -1,7 +1,8 @@
 /*
  * Create a model unsing python3 and tensorflow
  * Run it in C
- * Original code from Shankar, may 2019a simple dna align predictor
+ * Original code from Shankar, may 2019
+ *   a simple dna align predictor
  * starts with B=8 bases read + B=8 bases genome encoded as 1-hot (4x2xB =64 values) export one of 3 values (sub ins del)
  */
 

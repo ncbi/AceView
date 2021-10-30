@@ -14,7 +14,8 @@ exit 1
 
 tsnp2a:
 
-if (! -e tmp/TSNP_DB/$zone/database) then
+if (1 && ! -e tmp/TSNP_DB/$zone/database) then
+   echo "scripts/tsnp_DB.tcsh $Strategy $zone"
    scripts/tsnp_DB.tcsh $Strategy $zone
 endif
 
@@ -24,12 +25,14 @@ endif
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     if (-e tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf && ! -e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) then
-      cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf
+      echo "cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf"
+            cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf
     endif
     if (-e tmp/TSNP/$run/$zone/tsnp1.MB.0.deUno.tsf && ! -e tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf) then
       cat  tmp/TSNP/$run/$zone/tsnp1.MB.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf
     endif    
   end
+
 
   bin/tace tmp/TSNP_DB/$zone <<EOF
     pparse MetaDB/$MAGIC/runs.ace
@@ -91,13 +94,12 @@ EOF
   bin/tace tmp/TSNP_DB/$zone <  $toto
 
   set remap2g=remap2genes
-  if ($Strategy == RNA_seq) set remap2g=remap2genome
-
-  bin/tsnp -db_$remap2g  tmp/METADATA/mrnaRemap.gz  -db tmp/TSNP_DB/$zone 
-#  bin/tsnp -db_translate -db tmp/TSNP_DB/$zone 
-  bin/tsnp -db_translate -db tmp/TSNP_DB/$zone > tmp/TSNP_DB/$zone/tsnp2.translate.ace
-  echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
-
+  if ($Strategy == RNA_seq) then
+    set remap2g=remap2genome
+    bin/tsnp -db_$remap2g  tmp/METADATA/mrnaRemap.gz  -db tmp/TSNP_DB/$zone 
+    bin/tsnp -db_translate -db tmp/TSNP_DB/$zone > tmp/TSNP_DB/$zone/tsnp2.translate.ace
+    echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
+  endif
 touch tmp/TSNP_DB/$zone/tsnp2a.done
 
 goto phaseLoop
@@ -136,6 +138,14 @@ EOF
       bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2.$MAGIC --filter "MBcounts && substitution"
     endif
  
+
+tace tmp/TSNP_DB/$zone <<EOF
+  find variant
+  select --title "Twist SNPS in Dan Modified genome"  -o RESULTS/SNV/Twist.tsf.txt v,r,s,w,f,ref,ob from v in @, r in v->MCounts, s in r[1], w in r[3], f in r[5],ref in v->Reference_genomic_sequence,ob in v->Observed__genomic_sequence TITLE v:SNP, r:Run,s:Support,w:Wiggle,f:Frequency,ref:Reference sequence,ob:Observed sequence
+  quit
+EOF
+
+  
 
 endif
 

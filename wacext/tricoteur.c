@@ -2763,12 +2763,57 @@ static void tctDeUnoExport (TCT *tct)
 		)	    
 	      {
 		const char *insert = 0 ;
-		
+		const char *ccp = dictName (deUnoDict, uno->type) ;
+		char *cp, *cq, bufType[1024] ;
+
 		if (uno->insert)
 		  insert = dictName (deUnoDict, uno->insert) ;
+		strncpy (bufType, ccp, 1022) ;
+		bufType[1023] = 0 ;
+
+		cp = strstr (bufType, "Del_") ;
+		if (cp)
+		  {
+		    cp = strstr (cp, "::") ;
+		    if (cp && insert && strlen (insert) + strlen (bufType) < 1010)
+		      {
+			int k = strlen(insert) ; 
+			cp[1] = cp[2] ; 
+			if (k < 16)
+			  strcpy (cp+2, insert) ;
+			else
+			  {
+			    strncpy (cp+2, insert,8) ;
+			    cp[2+8] = '_' ;
+			    strncpy (cp+2+9, insert + k - 8 , 8) ;
+			  }
+			cq = bufType + strlen (bufType) ; 
+			cq[0] = ':' ;
+			cq[1] = cp[1] ;
+			cq[2] = 0 ;
+		      }
+		  }
+		cp = strstr (bufType, "Ins_") ;
+		if (cp)
+		  {
+		    cp = strstr (cp, ":") ;
+		    if (cp && insert && strlen (insert) + strlen (bufType) < 1010)
+		      {
+			int k = strlen(insert) ; 
+			cp[3] = cp[1] ; 
+			if (k < 16)
+			  strcpy (cp+4, insert) ;
+			else
+			  {
+			    strncpy (cp+4, insert,8) ;
+			    cp[4+8] = '_' ;
+			    strncpy (cp+4+9, insert + k - 8 , 8) ;
+			  }
+		      }
+		  }
 		aceOutf (ao, "%s:%s\t%s\ttttiiiitttt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s%s%s\n"
 			 , dictName (targetDict, uno->target)
-			 , dictName (deUnoDict, uno->type)
+			 , bufType
 			 , tct->run
 			 , uno->a1, uno->a2, uno->ddx
 			 , nt, ns
@@ -4561,7 +4606,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
        /* register de-uno discovered deletions */
        if (! tct->geneFusion && nHit > 1)
 	 {
-	   HIT *old = hit - 1, *firstHit ;
+	   HIT *old = hit - 1 ;
 	   int da, dx, protect = 0, c1, c2 ;
 	   
 	   if (old->clone == hit->clone &&
@@ -4581,7 +4626,6 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 
 	       if (old->a1 < hit->a1)
 		 { 
-		   firstHit = old ;
 		   a1 = old->a1 ; a2 = old->a2 ;
 		   x1 = old->x1 ; x2 = old->x2 ;
 		   b1 = hit->a1 ; b2 = hit->a2 ;
@@ -4589,7 +4633,6 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		 }
 	       else
 		 { 
-		   firstHit = hit ;
 		   b1 = old->a1 ; b2 = old->a2 ;
 		   y1 = old->x1 ; y2 = old->x2 ;
 		   a1 = hit->a1 ; a2 = hit->a2 ;
@@ -4622,20 +4665,10 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   if (! nErr)
 			     {
 			       x2 -= dx ; a2 -= dx ; dx = 0 ;
-			       /* 
-				  firstHit->a2 = a2 ;
-				  firstHit->x2 = x2 ;
-			       */
 			     }
 			   else
 			     {
 			       y1 += dx ; b1 += dx ; dx = 0 ;
-			       /*
-				 firstHit->a2 = a2 ;
-				 firstHit->x2 = x2 ;
-				 secondHit->a2 = a2 ;
-				 firstHit->x2 = x2 ;
-			       */
 			     }
 			 }
 		     }
@@ -4646,10 +4679,6 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			   dx = y1 - (x2 - 1) ;
 			   protect = dx ;
 			   x2 += dx ; a2 -= dx ; dx = 0 ;
-			   /*
-			     firstHit->a2 = a2 ;
-			     firstHit->x2 = x2 ;
-			   */
 			   dx = 0 ;
 			 }
 		     }
@@ -4750,7 +4779,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		     if (da)
 		       {
 			 sprintf (tagBuf, "Multi_deletion\t%d", da) ;
-			 sprintf (buf, "%d:Del_%d::", a2, da) ; /* , dnaDecodeChar[(int)cr[0]] */
+			 sprintf (buf, "%d:Del_%d::%c", a2, da, dnaDecodeChar[(int)cr[0]]) ;
 		       }
 		     else if (ddx)  /* da = 0 dx < 0 represents a duplication */
 		       {
@@ -4775,7 +4804,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			 if (da < 35)
 			   {
 			     int i = da ;
-			     char *cp = arrp (tct->dna, a1-1, char) ;
+			     char *cp = arrp (tct->dna, a2, char) ;
 			     char buf[da+1] ;
 			     memcpy (buf, cp, da) ;
 			     buf[da] = 0 ;
@@ -4785,6 +4814,23 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 			     dictAdd (lane->deUnoDict, buf, &k) ;
 			     uno->insert = k ;
 			   }
+			 else
+			   {
+			     int i = da ;
+			     char *cp = arrp (tct->dna, a2, char) ;
+			     char *cq, buf[18] ;
+			     
+			     cq = buf ;
+			     for (i = 0 ; i < 8 ; i++)
+			       cq[i] = ace_upper (dnaDecodeChar[(int)cp[i]]) ;
+			     cq[8] = '_' ;
+			     for (i = 0 ; i < 8 ; i++)
+			       cq[9+i] = ace_upper (dnaDecodeChar[(int)cp[da-8+i]]) ;
+			     cq[17] = 0 ;
+			     dictAdd (lane->deUnoDict, buf, &k) ;
+			     uno->insert = k ;
+			   }
+
 		       }
 		     else if (isDown && dup == 0 && dx > 0 && dx < 5 && uno3pOld[0] && strlen (uno3pOld) >= dx)
 		       {

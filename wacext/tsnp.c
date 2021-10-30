@@ -3039,8 +3039,8 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 				    int kk ;
 				    for (kk = 0 ; kk < da && kk < 30 ; kk++)
 				      { 
-					bufV[j] = RbufV[j] = '-'; j++ ;
-					bufR[k] = RbufR[k] = ace_upper(buf[kk]) ; k++ ; 
+					bufR[j] = RbufR[j] = '-'; j++ ;
+					bufV[k] = RbufV[k] = ace_upper(buf[kk]) ; k++ ; 
 				      }
 				  }
 			      }
@@ -3417,8 +3417,8 @@ static int tsnpMakeWords_Any (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 	{
 	  KEY v = up->snp ;
 	  AC_OBJ  Snp1 = ac_get_obj (tsnp->db, "Variant", name (v), 0) ; 
-	  char *obs1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
-	  char *ref1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
+	  const char *obs1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
+	  const char *ref1 = Snp1 ? ac_tag_text (Snp1, "Observed__genomic_sequence", 0) : 0 ;
 	  char buf[32] ;
 
 	  if (! obs1 || !ref1)
@@ -3427,7 +3427,7 @@ static int tsnpMakeWords_Any (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 	  for (vp = up + 1, jj = ii + 1 ; jj < nSub && vp->target == up->target && vp->a1 < up->a1 + 15 ; jj++, vp++)
 	    {
 	      AC_OBJ  Snp2 = ac_get_obj (tsnp->db, "Variant", name (vp->snp), 0) ; 
-	      char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
+	      const char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
 
 	      if (0 && obs2)
 		{
@@ -3439,7 +3439,7 @@ static int tsnpMakeWords_Any (TSNP *tsnp, ACEOUT ao, BOOL isMrna)
 	  for (vp = up - 1, jj = ii - 1 ; jj >= 0 && vp->target == up->target && vp->a1 > up->a1 - 15 ; jj--, vp--)
 	    {
 	      AC_OBJ  Snp2 = ac_get_obj (tsnp->db, "Variant", name (vp->snp), 0) ; 
-	      char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
+	      const char *obs2 = Snp2 ? ac_tag_text (Snp2, "Observed__genomic_sequence", 0) : 0 ;
 
 	      if (0 && obs2)
 		{

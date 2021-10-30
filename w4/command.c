@@ -3430,6 +3430,7 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	  BOOL debug = FALSE ;
 	  BOOL silent = (option == 455 ? TRUE : FALSE) ;
 	  BOOL showTitle = FALSE ;
+	  char *fileTitle = 0 ;
 	  BOOL acedbQuery = FALSE ;
 	  int maxLine = 0 ;
 	  int beginLine = 0 ;
@@ -3441,7 +3442,14 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 	    {
 	      if (*cp != '-')
 		{ freeback () ; break ; }
-	      else if (!strncmp (cp, "-title", 6))
+	      else if (!strncmp (cp, "--title", 7))
+		{ 
+		  showTitle = TRUE ; 
+		  cp = freeword () ;
+		  if (cp)
+		    fileTitle = strnew (cp, h) ;
+		}
+	      else if (!strncmp (cp, "-t", 2))
 		{ showTitle = TRUE ; }
 	      else if (!strncmp (cp, "-a", 2))
 		{ look->beauty = 'a' ; }
@@ -3467,6 +3475,9 @@ KEY aceCommandDoExecute (AceCommand look, int level,
 		{ 
 		  setOutFile = TRUE ;
 		  ao = aceOutCreate (freepath (), 0, FALSE, h) ; 
+		  if (ao && fileTitle)
+		    aceOutDate (ao, "###", fileTitle) ;
+
 		  if (! ao)
 		    { 
 		      freeOutf ("// bql -o %s failed, please edit the file name\n",cp ? cp : "Missing Filename") ;
