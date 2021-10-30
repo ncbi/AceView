@@ -996,7 +996,7 @@ of multiple motifs.
 The result of a query is a tab delimited table. 
 The order of the columns is specified by the order of the variables in the $select$ clause.
 If the option $-$$t$ is provided, the first line, prefixed by a \#, will contain the title of the columns.
-These column titles default as the variable, but a more 
+By default, the title of the columns are the names of the variables, but a more 
 complete title can be provided for some columns using the $TITLE$ field (in capitals)  as in:
 \BL
    select -t x, y, z from ... where ... TITLE x:this is x, z:this is z
