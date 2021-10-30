@@ -995,15 +995,15 @@ of multiple motifs.
 
 The result of a query is a tab delimited table. 
 The order of the columns is specified by the order of the variables in the $select$ clause.
-If the option $-$$t$ is provided, the first line will start with a \# and contains the title of the columns.
-The title of the column is just the name of the variable, but a more 
+If the option $-$$t$ is provided, the first line, prefixed by a \#, will contain the title of the columns.
+These column titles default as the variable, but a more 
 complete title can be provided for some columns using the $TITLE$ field (in capitals)  as in:
 \BL
    select -t x, y, z from ... where ... TITLE x:this is x, z:this is z
 \end{lstlisting}
-Using the options $-o --title$ as in 
+Using the expanded options $-o$ file\_name $\-\-title$ my\_title, as in 
 \BL
-   select -o foobar.txt --title Hello 
+   select -o foobar.txt --title ``Hello World''
      x, y, z from ... where ... TITLE x:this is x, z:this is z
 \end{lstlisting}
 adds at the top of the output file 'foobar.txt'
