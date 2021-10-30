@@ -443,10 +443,12 @@ float tf2cTest (TF2C *tf, TFXY *xyLoad, int batchSize)
 
       tf->testSize = batchSize ;
     }
-  if (0)printf ("aaa3\n") ;
+  if (0)
+    printf ("aaa3\n") ;
   if (! xyLoad)
     tf2cCrash (tf, "Null dataLoader in call to tf2tcTest") ;
-    if (0)printf ("aaa4\n") ;
+  if (0)
+    printf ("aaa4\n") ;
   if (1) /* run the test just once */
     {
       float *xTestp = TF_TensorData (tf->xTest) ;
@@ -495,7 +497,7 @@ static TF_Buffer *ReadFile (const char* filename)
     }
   if (nread != stat.st_size)
     {
-      fprintf(stderr, "read %zu bytes, expected to read %lld\n"
+      fprintf(stderr, "read %zu bytes, expected to read %ld\n"
 	      , nread, stat.st_size
 	      ) ;
       free(data);
@@ -524,7 +526,7 @@ static int ModelPredict(TF2C* tf, float* batch, int batchSize)
   inTensors[0]  = tf->xTest ;
   outTensors[0] = tf->yTest ; 
   printf ("bbb0 \n") ;
-  printf ("bbb0 s=%uz\n", TF_TensorByteSize(outTensors[0])) ;   
+  printf ("bbb0 s=%ldz\n", TF_TensorByteSize(outTensors[0])) ;   
   TF_SessionRun(tf->session, NULL
 		, inputs, inTensors, 1
 		, outputs, outTensors, 1
