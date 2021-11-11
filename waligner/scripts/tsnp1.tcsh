@@ -39,7 +39,7 @@ endif
 
 echo "bin/tricoteur -run $run -laneList tmp/TSNP/$run/LaneList.$part $trgt -target_fasta $target_fasta -method $method -minSnpCover $minSnpCover -minSnpCount $minSnpCount -minSnpFrequency $minSnpFrequency2 -dx 8 -minAliPerCent 70 -o tmp/TSNP/$run/$zone/tsnp1.$MB.$part -nAna $nAna -qc -uno $SAM"
       bin/tricoteur -run $run -laneList tmp/TSNP/$run/LaneList.$part $trgt -target_fasta $target_fasta -method $method -minSnpCover $minSnpCover -minSnpCount $minSnpCount -minSnpFrequency $minSnpFrequency2 -dx 8 -minAliPerCent 70 -o tmp/TSNP/$run/$zone/tsnp1.$MB.$part -nAna $nAna -qc -uno $SAM
-
+touch 
 
 exit 0
 

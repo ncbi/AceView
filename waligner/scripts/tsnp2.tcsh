@@ -20,7 +20,8 @@ if (1 && ! -e tmp/TSNP_DB/$zone/database) then
 endif
 
 
-
+echo -n "tsnp2a: start "
+date
 
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
@@ -88,10 +89,14 @@ EOF
   echo 'save' >> $toto
   echo 'quit' >> $toto
 
+  echo -n " tsnp2a: parse the tsnp "
+date
   mv $toto.ace $toto.preace
   cat $toto.preace | gawk '/^-/{next}{print}' > $toto.ace
 
   bin/tace tmp/TSNP_DB/$zone <  $toto
+  echo -n " remap and translate "
+date
 
   set remap2g=remap2genes
   if ($Strategy == RNA_seq) then
@@ -101,6 +106,8 @@ EOF
     echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
   endif
 touch tmp/TSNP_DB/$zone/tsnp2a.done
+echo -n "tsnp2a: done "
+date
 
 goto phaseLoop
 
@@ -108,9 +115,14 @@ goto phaseLoop
 ## tsnp2b make words
 
 tsnp2b:
+echo -n "tsnp2b: start makewords  "
+date
+
 # bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC --filter "MBcounts && substitution"
 bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC 
 touch tmp/TSNP_DB/$zone/tsnp2b.done
+echo -n "tsnp2b done "
+date
 
 goto phaseLoop
 
@@ -118,8 +130,13 @@ goto phaseLoop
 ## tsnp2b count words in run
 
 tsnp2c:
+echo -n "tsnp2c: count words in runs start "
+date
+
   bin/tricoteur -count -wLn 31 -wordFile tmp/TSNP_DB/$zone/tsnp2b.$MAGIC.w31.gz -run $run -gzo -o tmp/TSNP/$run/$zone/tsnp2c.$MAGIC
 
+echo -n "tsnp2c: count words in runs done "
+date
 goto phaseLoop
 
 ########################################################################################
@@ -140,11 +157,24 @@ EOF
  
 
 tace tmp/TSNP_DB/$zone <<EOF
+  Find Variant
+  edit -D Reference_genomic_sequence
+  edit -D Observed__genomic_sequence 
+  parse tmp/TSNP_DB/zoneG.mutated_cov_May7_a/tsnp2._r.ace
+  save
+  quit
+EOF
+
+ ~/ace/bin.LINUX_4/tsnp -db_translate -db tmp/TSNP_DB/$zone > tmp/TSNP_DB/$zone/tsnp2.translate.ace
+ date
+echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
+date
+tace tmp/TSNP_DB/$zone <<EOF
   find variant
   select --title "Twist SNPS in Dan Modified genome"  -o RESULTS/SNV/Twist.tsf.txt v,r,s,w,f,ref,ob from v in @, r in v->MCounts, s in r[1], w in r[3], f in r[5],ref in v->Reference_genomic_sequence,ob in v->Observed__genomic_sequence TITLE v:SNP, r:Run,s:Support,w:Wiggle,f:Frequency,ref:Reference sequence,ob:Observed sequence
   quit
 EOF
-
+cat RESULTS/SNV/Twist.tsf.txt | grep Ins
   
 
 endif

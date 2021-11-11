@@ -532,7 +532,11 @@ setenv inPhaseEntryAdaptor "$exitAdaptorIllumina"
 # 27 ATTCCT
 
 # 
-
+################   2021: Leming small RNA trueseq small rna lib prep kit
+# 3'vector tggaattctcgggtgccaagg   
+# 5'vector gttcagagttctacagtccgacgatc     
+# pcrprimer=aatgatacggcgaccaccgagatctacacgttcagagttctacagtccga 
+# pcerprimer with barcode  caagcagaagacggcatacgagatNNNNNNgtgactggagttccttggcacccgagaattcca K
 # gary mixed 100mers exit adaptor
 #  ATCTCGTATGCCGTCTTCTGCTTGAAAAAA
 # adaptor in warren

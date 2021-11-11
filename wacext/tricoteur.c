@@ -2708,6 +2708,7 @@ static void tctDeUnoExport (TCT *tct)
   UNO *uno ;
   BigArray deUno = tct->deUno ;
   DICT *targetDict = tct->targetDict ;
+  DICT *geneDict = tct->geneDict ;
   DICT *deUnoDict = tct->deUnoDict ;
   const char *method =  tct->SAM ? "MagicBlast" : "deUno" ;
   long int ii, iiMax = bigArrayMax (deUno) ;
@@ -2812,7 +2813,7 @@ static void tctDeUnoExport (TCT *tct)
 		      }
 		  }
 		aceOutf (ao, "%s:%s\t%s\ttttiiiitttt\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s%s%s\n"
-			 , dictName (targetDict, uno->target)
+			 , dictName (geneDict, uno->target)
 			 , bufType
 			 , tct->run
 			 , uno->a1, uno->a2, uno->ddx
