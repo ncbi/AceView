@@ -18,7 +18,7 @@ echo "$run $v1 $v2"
      gunzip -c Fastc/$run/*.fastc.gz | gawk '/^>/{n=split($1,aa,"#");mult=aa[2]+0;if(mult==0)mult=1;next}{n=split($1,aa,"><");for(i=2;i<=n;i++)printf("%s\t%d\n",aa[i],mult);}' | dna2dna -I tc -O tc -rightClipOn $v2 |  dna2dna -I tc -O tc -minLength 18 -maxLength 35  -o tmp/ClippedFastc/$run/f.filtered.1
    endif
    set t=`cat tmp/ClippedFastc/$run/f.filtered.1.tc  | gawk -F '\t' '{t += $2}END{print t}'`
-   
+   echo $t > tmp/ClippedFastc/$run/n_clipped   
    cat tmp/ClippedFastc/$run/f.filtered.1.tc  | gawk -F '\t' '{if(2*500000*$2 >= t && t>= 100) print}' t=$t > tmp/ClippedFastc/$run/f.filtered.10.tc
    cat tmp/ClippedFastc/$run/f.filtered.10.tc  | gawk -F '\t' '{if(2*50000*$2 >= t) print}' t=$t > tmp/ClippedFastc/$run/f.filtered.100.tc
    cat tmp/ClippedFastc/$run/f.filtered.100.tc  | gawk -F '\t' '{if(2*5000*$2 >= t) print}' t=$t > tmp/ClippedFastc/$run/f.filtered.1000.tc
@@ -39,6 +39,16 @@ echo "$run $v1 $v2"
 
 endif
 
+exit 0
+
+if ($phase == leming) then
+   foreach run (`cat MetaDB/$MAGIC/RunsList`)
+     cat leming.s1.tc  ZZZZZ tmp/ClippedFastc/$run/f.filtered.1.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){nam[$1]=$3;ok[$1]=1;next;}}{if(ok[$1]>0)nn[$1]+=$2;}END{for(k in ok)if(nn[k]>0)printf("%s\t%s\t%d\n",k,run,nn[k]);}' run=$run > tmp/ClippedFastc/$run/leming.s1.counts
+   end
+   cat tmp/ClippedFastc/*/leming.s1.counts | sort | gawk -F '\t' '{g=$1;if(g!=old)printf("\nGene %s\n",$1);printf("Run_U %s %d\n",$2,$3);}' > tmp/ClippedFastc/leming.s1.ace
+
+
+endif
 exit 0
 
 
