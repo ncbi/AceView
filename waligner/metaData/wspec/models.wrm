@@ -299,6 +299,8 @@
       Small_RNA Clipped_multiplicity UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text
                 Preclipped_length Int UNIQUE Float
                 High_short Text UNIQUE Int
+                N_18_35 Int UNIQUE Int UNIQUE Int // seuil number of seqs number of reads
+                Known_miR Int Unique Int Unique Int // seuil number of distinct miR , number of supports
       Gene_expression Sex_ratio ?Target UNIQUE Float UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text
                       Zero_index ?Target UNIQUE Float // Plateau
                       Low_index ?Target UNIQUE Float // 97% of measured genes are above this index

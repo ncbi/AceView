@@ -5057,7 +5057,7 @@ static void usage (char *message)
 	    ) ;
   if (message)
     {
-      fprintf (stderr, "// %s\nFor more information try:  dna2dna -help\n", message) ;
+      fprintf (stderr, "// %s\nFor more information try:  dna2dna --help\n", message) ;
     }
   exit (1);
   
