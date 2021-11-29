@@ -4209,6 +4209,8 @@ static void qcMicroRNA (QC *qc, RC *rc)
     { "Compute", "Clipped multiplicity 10\t100\t1000\t10k\t100k\t1M", 2, 0, 0} ,
     { "Compute", "High small",3, 0, 0} ,
     { "Compute", "Mapped on 70k-small_ref\t% Mapped on 70k-small_ref\t% strand plus on 70k small ref", 4, 0, 0} ,
+    { "Compute", "Distinct tags clipped  to [18,35] at frequency >= 10^-4 and seen at least 10 times\tTags clipped  to [18,35] at frequency >= 10^-4 and seen at least 10 times\tDistinct tags clipped  to [18,35] at frequency >= 10^-5 and seen at least 10 times\tTags clipped  to [18,35] at frequency >= 10^-5 and seen at least 10 times\tDistinct tags clipped  to [18,35] seen at least 10 times\tTags clipped  to [18,35] seen at least 10 times", 5,0,0} ,
+    { "Compute", "Recognized miR [18,35] at frequency >= 10^-4\tSupport", 6,0,0} ,
     {  0, 0, 0, 0, 0}
   }; 
   
@@ -4233,7 +4235,7 @@ static void qcMicroRNA (QC *qc, RC *rc)
        else if (! strcmp (ti->tag, "Compute"))
 	{   
 	  BOOL ok ;
-	  int ir, j ;
+	  int ir, i, j ;
 	  long int zz[32] ;
 	  float z = 0, zzz = 0 ;
 	  float up = 0, um = 0 ;
@@ -4306,6 +4308,30 @@ static void qcMicroRNA (QC *qc, RC *rc)
 		  }
 	      if (! ok)
 		aceOutf (qc->ao, "\t\t\t") ;
+	      break ;
+	    case 5:  /* N_18_35\tKnown miR */
+	    case 6:  /* known miR support */
+	      tt = ac_tag_table (rc->ali, ti->col == 5 ? "N_18_35" : "Known_miR", h) ;
+	      for (i = -4 ; i >= -10 ; i--)
+		{
+		  int jr = 0 ;
+		  int jMax = tt ? tt->rows : 0 ;
+		  int t = 0, s = 0 ;
+		  for (jr = 0 ; jr < jMax ; jr++)
+		    if (i == ac_table_int (tt,jr,0,0))
+		      {
+			s = ac_table_int (tt,jr,1,0) ;
+			t = ac_table_int (tt,jr,2,0) ;
+		      }
+		  aceOutf (qc->ao, "\t%d\t%d", s, t) ;
+		  if (ti->col == 6) break ;
+		  if (i == -5) i = -9 ; /* export 10^-4, 10^-5, 10^-10==0 */
+		}
+	      ac_free (tt) ;
+	      tt = ac_tag_table (rc->ali, "Known_miR", h) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt,0,0,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt,0,2,0)) ;
+	      break ;
 	    }
 	  ac_free (tt) ;
 	}

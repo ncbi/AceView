@@ -299,6 +299,8 @@
       Small_RNA Clipped_multiplicity UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text
                 Preclipped_length Int UNIQUE Float
                 High_short Text UNIQUE Int
+                N_18_35 Int UNIQUE Int UNIQUE Int // seuil number of seqs number of reads
+                Known_miR Int Unique Int Unique Int // seuil number of distinct miR , number of supports
       Gene_expression Sex_ratio ?Target UNIQUE Float UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text
                       Zero_index ?Target UNIQUE Float // Plateau
                       Low_index ?Target UNIQUE Float // 97% of measured genes are above this index
@@ -456,7 +458,7 @@
           GeneBox ?Gene XREF  Boxed_variant UNIQUE Int UNIQUE Int // geneBox where detected,  position, strand
           mRNA  ?mRNA XREF Variant UNIQUE Int UNIQUE Int // mRNA where detected,  position, strand
           Site     IntMap ?Map UNIQUE Int UNIQUE Int UNIQUE Text // Plus    Minus
-                   VCF UNIQUE Int UNIQUE Text UNIQUE Text // the vcf position and names are slided left
+                   VCF UNIQUE ?Sequence UNIQUE Int UNIQUE Text UNIQUE Text // the vcf position and names are slided left
                    HGVS gName UNIQUE Text  // Human Genome Variation society
                         rName UNIQUE Text  // define aprecise nomenclature for
                         pName UNIQUE Text  // genomic, RNA-transcript and protein variants
@@ -515,10 +517,10 @@
                  8_30.NYU_Langone 
                  8_30.NYU_Langone.dp20 
                  8_31.Hard
-          Type Origin UNIQUE Found_in_genome
-                             Found_in_mRNA
-               Typ UNIQUE Text
-               Reference_sequence  UNIQUE Text UNIQUE Text UNIQUE  ?mRNA  UNIQUE  ?Product UNIQUE Int // dna    [translation  translated_mrna product coord_in_product]
+          Origin UNIQUE Found_in_genome
+                        Found_in_mRNA
+          Typ UNIQUE Text
+          Seq  Reference_sequence  UNIQUE Text UNIQUE Text UNIQUE  ?mRNA  UNIQUE  ?Product UNIQUE Int // dna    [translation  translated_mrna product coord_in_product]
                Observed__sequence  UNIQUE Text  UNIQUE Text UNIQUE  ?mRNA  UNIQUE  ?Product UNIQUE Int // dna    [translation  translated_mrna product coord_in_product]
                Observed_sequence  UNIQUE Text  UNIQUE Text UNIQUE  ?mRNA  UNIQUE  ?Product UNIQUE Int // dna    [translation  translated_mrna product coord_in_product]
                Reference_genomic_sequence  UNIQUE Text 
@@ -527,7 +529,7 @@
                Observed__RNAexon_sequence      UNIQUE Text 
                Reference_protein_sequence  UNIQUE Text UNIQUE Text 
                Observed__protein_sequence  UNIQUE Text UNIQUE Text UNIQUE Text 
-               Substitution Transition    A2G // RNA editing possibly
+          Type Substitution Transition    A2G // RNA editing possibly
                                           T2C // RNA editing possibly
                                           G2A
                                           C2T
@@ -559,10 +561,10 @@
                                            DimT
                                            DimG
                                            DimC
-               Sliding UNIQUE Int  // a 3 base  del sliding by 1 or 2 bases is not a Dim
                DelIns UNIQUE Int UNIQUE Int  UNIQUE Text UNIQUE Text
-               In_repeat Text // does not apply to LIF
-               Color_repeat  // special for LIF
+          Repeated     Sliding UNIQUE Int  // a 3 base  del sliding by 1 or 2 bases is not a Dim
+                       In_repeat Text // does not apply to LIF
+                       Color_repeat  // special for LIF
           Saint_Louis Text UNIQUE Text // project ESP, concurrent du projet CADD
           Counts fCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref

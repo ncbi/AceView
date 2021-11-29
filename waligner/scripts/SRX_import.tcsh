@@ -69,6 +69,10 @@ if ($species == rn) then
   set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/2016Nov05_6365_Rattus_norvegicus_Organism_NOT_biomol_dna_PropertiesSraRunInfo.txt'
   set date=2019_02_27
   set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/20190227_Rattus_norvegicus_RNA_12094_SraRunInfo.txt'
+  set date=2021_11_07
+  set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/20211107_Rat_miRNA_SRA_forLemingReview_SraRunInfo.txt'
+  set date=2021_11_08
+  set ff='/home/mieg/ACEVIEWHELP/Rat_DATA/20211107_3809miRNA_Rat_inSra_RunInfo.txt'
 endif
 if ($species == worm) then
   set date=2019_08_24

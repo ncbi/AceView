@@ -532,7 +532,12 @@ setenv inPhaseEntryAdaptor "$exitAdaptorIllumina"
 # 27 ATTCCT
 
 # 
-
+################   2021: Leming small RNA trueseq small rna lib prep kit
+# read 1 exit vector tggaattctcgggtgccaagg 
+# read 2 exit vector GATCGTCGGACTGTAGAACTCTGAAC  
+# equivalently the read 1 5'vector is the complement of the read 2 vector i.e. gttcagagttctacagtccgacgatc     
+# pcrprimer=aatgatacggcgaccaccgagatctacacgttcagagttctacagtccga 
+# pcerprimer with barcode  caagcagaagacggcatacgagatNNNNNNgtgactggagttccttggcacccgagaattcca K
 # gary mixed 100mers exit adaptor
 #  ATCTCGTATGCCGTCTTCTGCTTGAAAAAA
 # adaptor in warren

@@ -1429,8 +1429,8 @@ echo '   mi1: small RNA, identify the adaptors (alias of a0W)'
 echo '   mi2: small RNA, collate the adaptors (alias of a1W)'
 echo '   mi3: small RNA, construct the clipped tc file'
 echo '   mi4: small RNA, consolidate the tag counts'
-echo '   mi5: small RNA, covariance analysis'
-echo '   mi6: small RNA, map the clipped reads on the genome'
+echo '   mi5: small RNA, map the clipped reads on the genome'
+echo '   mi6: small RNA, covariance analysis'
 echo '   mi7: small RNA, assemble the unaligned short reads'
 echo '   mi8: small RNA, blast the assembled reads'
 
@@ -2271,9 +2271,12 @@ date
 if (! -d tmp/Adaptors) mkdir tmp/Adaptors
 foreach run (`cat MetaDB/$MAGIC/RunList`)
   set ok=0
-  foreach run2 (`cat MetaDB/$MAGIC/RunWithKnownAdaptorsList`)
-    if ($run == $run2) set ok=1
-  end
+  if (-e MetaDB/$MAGIC/RunWithKnownAdaptorsList) then
+    foreach run2 (`cat MetaDB/$MAGIC/RunWithKnownAdaptorsList`)
+      if ($run == $run2) set ok=1
+    end
+  endif
+  echo "mi1::$run $ok"
   if ($ok == 1) continue
   if (! -d tmp/Adaptors/$run) $mkDir Adaptors $run
   if (-e  tmp/Adaptors/$run/$run.1.walk) mv  tmp/Adaptors/$run/$run.1.walk  tmp/Adaptors/$run/r.1.walk
@@ -2340,7 +2343,12 @@ date
 if (! -d tmp/ClippedFastc) mkdir tmp/ClippedFastc
 set ok=0
 
-foreach run ( `cat MetaDB/$MAGIC/RunList ` ) 
+foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 
+  if (! -d tmp/ClippedFastc/$run) mkDir ClippedFastc/$run
+  scripts/submit tmp/ClippedFastc/$run/mi3a "bin/mir -m TARGET/GENES/known_micro_18_35.tc -i Fastc/$run/f2.1.fastc.gz -I fastc -o tmp/ClippedFastc/$run/mi3a"
+end
+
+foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 
   # echo "mi3 $run"
   if (0 && ! -e tmp/Adaptors/$run/r.1.walk) continue
   if (! -d tmp/ClippedFastc/$run) $mkDir ClippedFastc $run
@@ -2381,115 +2389,129 @@ echo -n "phase mi4: small RNA, consolidate the tag counts "
 date
 
 if (! -d tmp/ClippedFastc) goto phaseLoop
-if (-e tmp/GENEINDEX/$MAGIC.small.GENE.u.ace)  goto phaseLoop
+if (-e tmp/GENEINDEX/mi4.$MAGIC.small.GENE.u.aceZZZZZ)  goto phaseLoop
 
 # collate the stats
-if (! -e tmp/ClippedFastc/$MAGIC.stats.ace2) then
-  echo > tmp/ClippedFastc/$MAGIC.stats.ace
-  foreach run ( `cat MetaDB/$MAGIC/RunList `)
+if (! -e tmp/ClippedFastc/mi4.$MAGIC.stats.ace) then
+  echo > tmp/ClippedFastc/mi4.$MAGIC.stats.ace
+  foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 
     if (-e  tmp/ClippedFastc/$run/f.stats.ace) then
-      cat tmp/ClippedFastc/$run/f.stats.ace >> tmp/ClippedFastc/$MAGIC.stats.ace
+      cat tmp/ClippedFastc/$run/f.stats.ace >> tmp/ClippedFastc/mi4.$MAGIC.stats.ace
     endif
   end
-  echo "pparse tmp/ClippedFastc/$MAGIC.stats.ace" | bin/tacembly MetaDB -noprompt
+  echo "pparse tmp/ClippedFastc/mi4.$MAGIC.stats.ace" | bin/tacembly MetaDB -noprompt
 endif
 
 # collate the frequent reads, count them in all runs
+# 1000 means 10^-4 of all tags and at least 100 tags are in each read listed as R1000 in at least one sample
+# 1000 -> 10^-4   100->10^-5   10->10^-3
 
-set toto=tmp/GENEINDEX/$MAGIC.small_rna.preace
-foreach ii (10 100 1000)
-  echo '#' > $toto.$ii
+if (! -e tmp/ClippedFastc/mi4.$MAGIC.10.tc) then
+  if (-e tmp/ClippedFastc/toto.10) \rm tmp/ClippedFastc/toto.10
+  if (-e tmp/ClippedFastc/toto.100) \rm tmp/ClippedFastc/toto.100
+  if (-e tmp/ClippedFastc/toto.1000) \rm tmp/ClippedFastc/toto.1000
   foreach run ( `cat MetaDB/$MAGIC/RunList `)
-    if (-e  tmp/ClippedFastc/$run/f.filtered.$ii) then
-      cat tmp/ClippedFastc/$run/f.filtered.$ii | gawk -F '\t' '/^#/{next}{printf("%s\t%s\t%s\n",$1,run,$2);}' run=$run >> $toto.$ii
+    foreach min (10 100 1000)  
+      if (-e  tmp/ClippedFastc/$run/f.filtered.$min.tc) then
+        cat tmp/ClippedFastc/$run/f.filtered.$min.tc >> tmp/ClippedFastc/toto.$min
+      endif
+    end
+  end
+ 
+  date
+  cat tmp/ClippedFastc/toto.10 | sort | gawk -F '\t' '{if($1 != old) {if(old)printf("%s\t%d\n",old,n);n=0;old=$1;}n+=$2;}END{if(old)printf("%s\t%d\n",old,n);}' | sort -k 2nr | gawk -F '\t' '{k++;printf("%s\t%d\tn.%d#%d\n",$1,$2,k,$2);}' > tmp/ClippedFastc/mi4.RatMicro.10.tc
+  date
+  cat tmp/ClippedFastc/toto.100 ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.10.tc  | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$1]==1)print;}' > tmp/ClippedFastc/mi4.$MAGIC.100.tc
+  cat tmp/ClippedFastc/toto.1000 ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.100.tc  | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$1]==1)print;}' > tmp/ClippedFastc/mi4.$MAGIC.1000.tc
+
+  \rm tmp/ClippedFastc/toto.10
+  \rm tmp/ClippedFastc/toto.100
+  \rm tmp/ClippedFastc/toto.1000
+
+  date
+endif
+
+
+set toto=tmp/GENEINDEX/mi4.$MAGIC.small_rna.preace
+if (-e $toto) \rm $toto
+foreach ii (1000)
+  echo '#' > $toto.$ii
+  foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 
+    if (-e  tmp/ClippedFastc/$run/f.filtered.$ii.tc) then
+      cat tmp/ClippedFastc/mi4.$MAGIC.1000.tc ZZZZZ tmp/ClippedFastc/$run/f.filtered.10.tc | gawk -F '\t' '/^#/{next}/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{if(ok[$1]==1){printf("%s\t%s\t%s\n",$1,run,$2);}}' run=$run >> $toto.$ii
     endif
   end
-
-# sort
-
+  
+  #sort 
   cat $toto.$ii | sort -k 1,1 > $toto.$ii.s
   mv $toto.$ii.s $toto.$ii
   wc $toto.$ii
 
 # create an ace file 
-
-  cat $toto.$ii | gawk -F '\t' '/^#/{next}{if ($1 != old) printf ("\nGene %s\n",$1); old=$1;printf ("Run_U %s %d seq %d tags %d kb\n", $2, $3, $3, 100*$3);}END{printf ("\n");} ' > tmp/GENEINDEX/$MAGIC.small.GENE.u.ace.$ii
+  cat $toto.$ii | gawk -F '\t' '/^#/{next}{if ($1 != old) printf ("\nGene %s\n",$1); old=$1;printf ("Run_U %s %d seq %d tags %d kb\n", $2, $3, $3, 100*$3);}END{printf ("\n");} ' > tmp/GENEINDEX/mi4.$MAGIC.small.GENE.u.ace
+  \rm $toto.$ii
 end
  
 # global length statistics
-cat $toto.100 | gawk '{print length($1);}' | tags
-cat $toto.100 | gawk '{n[length($1)]+=$3;}END{for(i=1;i<=100;i++)if(n[i]>0)printf("%d\t%d\n",i,n[i]);}'
+# cat $toto.1000 | gawk '{n[length($1)]+=$3;}END{for(i=1;i<=100;i++)if(n[i]>0)printf("%d\t%d\n",i,n[i]);}'
 
 
 # map the reads exactly
 if (! -d  tmp/ClippedMap) mkdir tmp/ClippedMap
-cat $toto.100 | gawk -F '\t' '{n[$1]+= $3;}END{for(k in n)printf ("%s\t%d\n",k,n[k]);}' | sort -k 1n >  tmp/ClippedMap/$MAGIC.counts
-cat tmp/ClippedMap/$MAGIC.counts | gawk -F '\t' '/^#/{next;}{if(length($1)<32)printf(">%s#%d\n%s\n",$1,$2,$1);}' | dna2dna -minEntropy 12 -O fastc -I fastc >  tmp/ClippedMap/$MAGIC.fastc
-cat  tmp/ClippedMap/$MAGIC.fastc | gawk 'BEGIN{nn=0;}{if(n<1 && nn==0 || n==200000){nn++;n=0;f= out "." nn ".fastc";} n++;print > f;}' out=tmp/ClippedMap/$MAGIC.part
+if (! -e tmp/ClippedMap/mi4.$MAGIC.1000.hits) then
 
-if (0) then
-  foreach ff (`ls tmp/ClippedMap/$MAGIC.part.*.fastc`)
-    set k=`echo $ff | gawk '{i=split($1,aa,".");print aa[i-1];}'`
-    scripts/submit  tmp/ClippedMap/$MAGIC.part.$k "bin/clipalign -i $ff -t TARGET/Targets/$species.genome.fasta.gz -o  tmp/ClippedMap/$MAGIC.part.$k.hits -maxHit 500"
+  dna2dna -i tmp/ClippedFastc/mi4.$MAGIC.1000.tc -I tc -O fastc -o tmp/ClippedFastc/mi4.$MAGIC.1000
+
+
+  set ff=tmp/ClippedFastc/mi4.$MAGIC.1000.fastc
+  foreach target (genome RefSeq mito rrna)
+    bin/clipalign -i $ff -t TARGET/Targets/$species.$target.fasta.gz -o  tmp/ClippedMap/mi4.$MAGIC.1000.$target -maxHit 500 -minAli 18
   end
-  scripts/submit wait
-  cat tmp/ClippedMap/$MAGIC.part.*.hits | gawk -F '\t' '/^#/{next;}{n[$10]++;}END{for(k in n)print k, n[k]}' | sort -k 1nr > toto
-  foreach chrom ($chromSetAll)
-    cat  tmp/ClippedMap/$MAGIC.part.*.hits | gawk -F '\t' '{if($11 == chrom)print;}' chrom=$chrom > tmp/ClippedMap/$MAGIC.chrom$chrom.hits 
+  if (-e toto876) \rm toto876
+  foreach target (rrna mito RefSeq genome)
+    cat tmp/ClippedMap/mi4.$MAGIC.1000.$target.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)printf("%s\t%s\n",$1,$9)}' | sort -u > tmp/ClippedMap/mi4.$MAGIC.1000.$target.mapped
+    cat tmp/ClippedMap/mi4.$MAGIC.1000.$target.mapped ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.1000.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){m[$1]=1;next;}}{if(m[$3]==1)print;}' > tmp/ClippedMap/mi4.$MAGIC.1000.$target.mapped.tc
+    cat tmp/ClippedMap/mi4.$MAGIC.1000.$target.mapped ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.1000.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){m[$1]=1;g[$1]=$2;next;}}{if(m[$3]==1){u=t;if(t=="RefSeq")u=g[$3];printf("%s\t",u);print}}' t=$target >> toto876
   end
+  cat toto876 | gawk -F '\t' '{if(ok[$2]==1)next;ok[$2]=1;print}' >  tmp/ClippedMap/mi4.$MAGIC.1000.maps_in
+
+  if (-e leming.s1.fasta) then
+    set ff=leming.s1.fasta
+    foreach target (genome RefSeq mito rrna)
+      bin/clipalign -i $ff -t TARGET/Targets/$species.$target.fasta.gz -o  leming.s1.$target -maxHit 500 -minAli 18
+    end
+    if (-e toto876) \rm toto876
+    foreach target (rrna mito RefSeq genome)
+      cat leming.s1.$target.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)printf("%s\t%s\n",$1,$9)}' | sort -u > leming.s1.$target.mapped
+      cat leming.s1.$target.mapped ZZZZZ leming.s1.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){m[$1]=1;next;}}{if(m[$3]==1)print;}' > leming.s1.$target.mapped.tc
+      cat leming.s1.$target.mapped ZZZZZ leming.s1.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){m[$1]=1;g[$1]=$2;next;}}{if(m[$3]==1){u=t;if(t=="RefSeq")u=g[$3];printf("%s\t",u);print}}' t=$target >> toto876
+    end
+    cat toto876 | gawk -F '\t' '{if(ok[$2]==1)next;ok[$2]=1;print}' >  leming.s1.maps_in
+  endif
+
+
+
+
+  cat tmp/ClippedFastc/mi4.$MAGIC.1000.tc ZZZZZ tmp/ClippedMap/mi4.$MAGIC.1000.genome.mapped.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$3]=1;s++;t+=$2;next;}}{if (ok[$3]==1){ks++;kt+=$2;}}END{printf("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n",run,title,s,ks,100.0*ks/s,t,kt,100.0*kt/t);}' run="Union_320_runs" title="mapped" 
+
+
+  if (! -e TARGET/GENES/known_micro_18_35__genome.list) then
+    bin/clipalign -i TARGET/GENES/known_micro_18_35.fasta -t TARGET/Targets/$species.genome.fasta.gz -o  TARGET/GENES/known_micro_18_35__genome -maxHit 500 -minAli 18
+    cat TARGET/GENES/known_micro_18_35__genome.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u > TARGET/GENES/known_micro_18_35__genome.list
+  endif
+
 endif
 
-if (0) then
-  foreach run (SRR097865 ERR198981 SRR028728 SRR073602 SRR073601)
-     if (! -d  tmp/ClippedMap/$run) $mkDir  ClippedMap $run
-     cat  tmp/ClippedFastc/$run/f.filtered.1000 | sort -k 2nr | head -100 | dna2dna -I tc -O fastc -o tmp/ClippedFastc/$run/f.filtered.top
-     clipalign -i tmp/ClippedFastc/$run/f.filtered.top.fastc  -t  tmp/ClippedMap/miRNA.fasta -o tmp/ClippedMap/$run/f.filtered.top.miRNA
-     clipalign -i tmp/ClippedFastc/$run/f.filtered.top.fastc  -t  TARGET/Targets/$species.genome.fasta.gz -o tmp/ClippedMap/$run/f.filtered.top.genome
-  end
- foreach run (SRR097865 ERR198981 SRR028728 SRR073602 SRR073601)
-   echo $run
-   cat  tmp/ClippedFastc/$run/f.filtered.top.fastc | gawk '/^>/{printf("%s>",substr($1,2));next;}{printf("\t%s\n",$1);next;}' > toto
-   echo ZZZZZ >> toto
-   cat tmp/ClippedMap/miRNA.fasta | gawk '/^>/{printf("%s",substr($1,2)) ; n=index($0,"name=") ; z=substr($0,n);split(z,aa," ") ;printf("\t%s\n",substr(aa[1],6));}' | sed -e 's/;//' >> toto
-   echo ZZZZZ >> toto
-   cat toto  ZZZZZ tmp/ClippedMap/$run/f.filtered.top.miRNA.hits ZZZZZ  tmp/ClippedMap/$run/f.filtered.top.genome.hits | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){r2s[$1]=$2;next}}{if(zz<2){m2nam[$1]=$2;next}}{r=$1;mult=$3;hit=$11;if(rMapped[r]==zz-1)next;rMapped[r]=zz;printf("%s\t%s\t%d\t%s\t%s\n",run,r2s[r],mult,m2nam[hit],hit);}END{for(r in r2s)if(rMapped[r]<1){split(r,aa,"#");z=aa[2];gsub(/>/,"",z);printf("%s\t%s\t%s\tUnmapped\n",run,r2s[r],z);}}' run=$run | sort -u | sort -k 3nr >  tmp/ClippedMap/$run/f.filtered.top.comptages.txt
- end
- cat  tmp/ClippedMap/*/f.filtered.top.comptages.txt > RESULTS/SmallRNA/$MAGIC.f.filtered.top.comptages.txt
 
-
-
-endif
-
-# align exactly all runs on the seqs seen at least 1000 times
-dna2dna -i tmp/ClippedMap/$MAGIC.fastc  -minMultiplicity 10000  -I fastc -O fastc -o tmp/ClippedMap/$MAGIC.10000
-bin/clipalign -i  tmp/ClippedMap/$MAGIC.10000.fastc -t TARGET/Targets/$species.genome.fasta.gz -o  tmp/ClippedMap/$MAGIC.10000.hits -maxHit 500
-
-foreach run ( `cat MetaDB/$MAGIC/RunList `)
-   if (! -d  tmp/ClippedMap/$run) $mkDir  ClippedMap $run
-   if (! -e  tmp/ClippedFastc/$run/f.filtered.10.fastc) then
-     cat tmp/ClippedFastc/$run/f.filtered.10 | dna2dna -I tc -O fastc -o tmp/ClippedFastc/$run/f.filtered.10 
-   endif
-   scripts/submit tmp/ClippedMap/$run/10000 "bin/clipalign -t tmp/ClippedMap/$MAGIC.10000.fastc -i tmp/ClippedFastc/$run/f.filtered.10.fastc -minEntropy 12 -probeMinMultiplicity 10  -o tmp/ClippedMap/$run/10000"
-end
-
-scripts/submit wait
-# export the number of hits on each strand
-echo >   tmp/ClippedMap/$MAGIC.50k_small.ali.ace
-foreach run ( `cat MetaDB/$MAGIC/RunList `)
-   if (! -e  tmp/ClippedMap/$run/10000.hits ) continue
-   set pn=`cat  tmp/ClippedMap/$run/10000.hits | gawk -F '\t' '/^#/{next}{p=$1;if(p == oldp)next;oldp=$1;if($12 < $13)pp+=$3;else nn+=$3;}END{printf("%d:%d",pp+0,nn+0);}'`
-     echo $pn | gawk  '{z=0;split($1,aa,":");p=aa[1];n=aa[2]; if(p+n>0) z=100.0 * p/(n+p);printf("Ali %s\nStranding 50k_small %.2f %d plus %d minus\n\n",run,z,p,n);}' run=$run >>  tmp/ClippedMap/SMAGIC.50k_small.ali.ace
-end
-
-if (-e  tmp/ClippedMap/$MAGIC.10000.hits) then
+if (0 && -e  tmp/ClippedMap/mi4.$MAGIC.1000.genome.hits) then
   foreach chrom ($chromSetAll)
-     cat  tmp/ClippedMap/$MAGIC.10000.hits | gawk -F '\t' '{if($11 == chrom)print}' chrom=$chrom > toto.hits 
+     cat  tmp/ClippedMap/mi4.$MAGIC.1000.genome.hits | gawk -F '\t' '{if($11 == chrom)print}' chrom=$chrom > toto.hits 
      set n=`wc toto.hits | gawk '{print 0+$1}'`
      if ($n == 0) continue 
-     wiggle  -i toto.hits -I BHIT -strand -unique -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/$MAGIC.$chrom.u.f
-     wiggle  -i toto.hits -I BHIT -antistrand -unique -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/$MAGIC.$chrom.u.r
-     wiggle  -i toto.hits -I BHIT -strand  -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/$MAGIC.$chrom.nu.f
-     wiggle  -i toto.hits -I BHIT -antistrand  -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/$MAGIC.$chrom.nu.r
+     wiggle  -i toto.hits -I BHIT -strand -unique -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/mi4.$MAGIC.$chrom.u.f
+     wiggle  -i toto.hits -I BHIT -antistrand -unique -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/mi4.$MAGIC.$chrom.u.r
+     wiggle  -i toto.hits -I BHIT -strand  -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/mi4.$MAGIC.$chrom.nu.f
+     wiggle  -i toto.hits -I BHIT -antistrand  -peaks -out_step 1 -mapOnChrom $chrom -minCover 1000 -O BV -o tmp/ClippedMap/mi4.$MAGIC.$chrom.nu.r
   end
 endif
 
@@ -2497,35 +2519,219 @@ echo -n "phasemi4 done : "
 goto phaseLoop
 
 ###################################################################################
-## mi6: align the short reads with high counts on the known miRNA and smallRNA
+## mi5: align the short reads with high counts on the known miRNA and smallRNA
 
-phasemi6:
-echo -n "phase mi6: small RNA, consolidate the tag counts "
+phasemi5:
+echo -n "phase mi5: small RNA, consolidate the tag counts "
 date
 
 if (! -d tmp/ClippedFastc) goto phaseLoop
+if (! -d tmp/ClippedMap)  mkdir tmp/ClippedMap
+
+
+if (-e TARGET/GENES/known_micro.fasta) then
+  dna2dna -i TARGET/GENES/known_micro.fasta -minLength 18 -maxLength 35 -o TARGET/GENES/known_micro_18_35
+
+  bin/clipalign -i TARGET/GENES/known_micro_18_35.fasta -t tmp/ClippedFastc/mi4.$MAGIC.1000.fastc  -o  tmp/ClippedMap/mi5.$MAGIC.known21000 -minAli 18
+  bin/clipalign -t TARGET/GENES/known_micro.fasta -i tmp/ClippedFastc/mi4.$MAGIC.1000.fastc  -o  tmp/ClippedMap/mi5.$MAGIC.10002known -minAli 18
+
+  cat tmp/ClippedMap/mi5.$MAGIC.10002known.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)printf ("%s\t%s\n",$1,$11)}' | sort -u  > tmp/ClippedMap/mi5.$MAGIC.10002known.list
+  cat tmp/ClippedMap/mi5.$MAGIC.known21000.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)printf ("%s\t%s\n",$11,$1)}' | sort -u  > tmp/ClippedMap/mi5.$MAGIC.known21000.list
+  wc *known*.list
+  cat tmp/ClippedMap/mi5.$MAGIC.10002known.list tmp/ClippedMap/mi5.$MAGIC.known21000.list | sort -u > tmp/ClippedMap/mi5.$MAGIC.recognized.list
+  cat tmp/ClippedMap/mi5.$MAGIC.recognized.list ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.1000.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;u[$1]=$2;next;}}{if (ok[$3]==1)printf("%s\t%s\n",$1,u[$3]);}' > tmp/ClippedMap/mi5.$MAGIC.recognized.dna
+
+  set toto=RESULTS/$MAGIC.Known_micro.txt
+  echo -n "### $toto ; " > $toto
+  date >> $toto
+  echo "## Compare the 3878 reads clipped and seen at least 1000 times to the 1142 known MIR in the length range [18,35]" >> $toto
+  echo "#Run\tTitle\tSequence\tKnown\tKnown percentatge\tTag\tKnown\tKnown tag percentage" >> $toto 
+  cat tmp/ClippedFastc/mi4.$MAGIC.1000.tc ZZZZZ tmp/ClippedMap/mi4.$MAGIC.1000.genome.mapped.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$3]=1;s++;t+=$2;next;}}{if (ok[$3]==1){ks++;kt+=$2;}}END{printf("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n",run,title,s,ks,100.0*ks/s,t,kt,100.0*kt/t);}' run="Union_320_runs" title="mapped" >> $toto
+  cat tmp/ClippedMap/mi5.$MAGIC.recognized.list ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.1000.tc | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{if (ok[$3]==1){ks++;kt+=$2;}s++;t+=$2;}END{printf("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n",run,title,s,ks,100.0*ks/s,t,kt,100.0*kt/t);}' run="Union_320_runs"  title="Known in mirDB"  >> $toto
+  cat tmp/ClippedMap/mi5.$MAGIC.recognized.list ZZZZZ tmp/ClippedMap/mi4.$MAGIC.1000.genome.mapped.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{if (ok[$3]==1){ks++;kt+=$2;}s++;t+=$2;}END{printf("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n",run,title,s,ks,100.0*ks/s,t,kt,100.0*kt/t);}' run="Union_320_runs"  title="known and mapped"  >> $toto
+
+
+  echo "mi5AA"
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    set title=`cat MetaDB/$MAGIC/gtitle.txt | gawk -F '\t' '{gsub(/\"/,"",$0);gsub(/\\\//,"/",$0);gsub(/\\%/,"%",$0);if($1==run)print $6;}' run=$run`
+    set ff1=tmp/ClippedMap/mi4.$MAGIC.1000.genome.mapped.tc
+    set ff2=tmp/ClippedFastc/$run/f.filtered.10.tc
+    if (-e $ff1 && -e $ff2) then
+      cat tmp/ClippedMap/mi5.$MAGIC.recognized.dna ZZZZZ $ff1 ZZZZZ $ff2 | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{if(zz==1){ok2[$1]=1;next;}}{if (ok[$1]==1){ks++;kt+=$2;}if (ok2[$1]==1){s++;t+=$2;}}END{if(t==0){s=1;t=1;}printf("%s\t%s\t%d\t%d\t%.2f\t%d\t%d\t%.2f\n",run,title,s,ks,100.0*ks/s,t,kt,100.0*kt/t);}' run="$run"  title="$title"  >> $toto
+    endif
+  end
+
+endif
+  echo "mi5BB"
+cat TARGET/GENES/known_micro_18_35.fasta ZZZZZ tmp/ClippedMap/mi5.$MAGIC.recognized.dna | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^>/{i=index($1," ");s=substr($1,2,i-2);t=substr($1,i+1);s2t[s]=t;next;}{if(zz==1){printf("%s\t%s %s\n",$1,$2,s2t[$2]);}}' > tmp/ClippedMap/mi5.$MAGIC.recdna.s.t 
+cat tmp/ClippedMap/mi5.$MAGIC.recdna.s.t > toto
+echo ZZZZZ >> toto
+cat tmp/ClippedMap/mi4.$MAGIC.1000.maps_in >> toto
+echo ZZZZZ >> toto
+cat MetaDB/$MAGIC/gtitle.txt | gawk -F '\t' '{gsub(/\"/,"",$0);printf("%s\t%s\ttitle\ttitle\ttitle\n",$1,$6);}' | tail -n +2 >> toto
+echo ZZZZZ >> toto
+cat tmp/GENEINDEX/$MAGIC.small.GENE.u.ace | gawk '/^Gene/{s=$2;;next;}/Run_U/{printf("%s\t%s\t%d\n",s,$2,$3);}' >> toto
+
+  cat toto | gawk -F '\t' '{if(NF==5){nr++;i2r[nr]=$1;i2t[nr]=$2;next;}}END{printf("#Sequence\tMaps in\tMirDB\tUnion\tMax");for(i=1;i<=nr;i++)printf("\t%s",i2r[i]);printf("\n#Sequence\tMaps in\tMirDB\tUnion\tMax");for(i=1;i<=nr;i++)printf("\t%s",i2t[i]);}' > toto1
+  echo >> toto1
+  cat toto | gawk -F '\t' '{if(NF==5){nr++;i2r[nr]=$1;next;}if(NF==2){g2k[$1]=$2;next;}if(NF==4){g2m[$2]=$1;next;}if(NF==3){g=$1;gg[g]=1;z[g,$2]=$3;n[g]+=$3;if($3>x[g])x[g]=$3;next;}}END{for(g in gg){printf("\n%s\t%s\t%s\t%d\t%d",g,g2m[g],g2k[g],n[g],x[g]);if(1)for(i=1;i<=nr;i++)printf("\t%d",z[g,i2r[i]]);}printf("\n");}' > toto2
+set toto=RESULTS/$MAGIC.Small_RNA_counts.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+cat toto1 | head -12 | gawk '/^#/{print}' >> $toto
+cat toto2 | gawk '/^#/{next;}{print}' | tab_sort -k 4nr  >> $toto
+
+  echo "mi5CC"
+
+set toto=RESULTS/$MAGIC.Small_RNA_counts.txt
+set toto2=RESULTS/$MAGIC.Small_RNA_cumuls.txt
+echo -n "### $toto2 :" > $toto2
+date >> $toto2
+cat $toto | gawk -F '\t' '/^###/{next;}/^#/{print}' >> $toto2
+cat $toto | gawk -F '\t' '/^#/{next;}/genome/{next;}{if (length($3)>1)print;}' | tab_sort -k 4n  > toto10
+cat $toto | gawk -F '\t' '/^#/{next;}/genome/{next;}{if (length($3)>1)next; if(length($2)>1)print;}' | tab_sort -k 4n  > toto11
+cat toto10 | gawk -F '\t' '{s=$3;dna[s]=$1;if(length($2)>1)k[s]=$2;for(i=4;i<=NF;i++)z[s,i]+=$i;nf=NF;}END{for(s in dna){printf("%s\t%s\t%s",dna[s],k[s],s);x=0;for(i=4;i<=nf;i++)if(z[s,5]>x)x=z[s,5];z[s,5]=x;for(i=4;i<=nf;i++)printf("\t%d",z[s,i]);printf("\n");}}' > toto12
+cat toto11 | gawk -F '\t' '{s=$2;dna[s]=$1;if(length($3)>1)k[s]=$3;for(i=4;i<=NF;i++)z[s,i]+=$i;nf=NF;}END{for(s in dna){printf("%s\t%s\t%s",dna[s],s,k[s]);x=0;for(i=4;i<=nf;i++)if(z[s,5]>x)x=z[s,5];z[s,5]=x;for(i=4;i<=nf;i++)printf("\t%d",z[s,i]);printf("\n");}}' > toto13
+cat $toto | gawk -F '\t' '/^#/{next;}/genome/{print;next;}{if (length($2)>1)next;if (length($3)>1)next;;print;}' > toto14
+cat toto12 toto13 toto14  | tab_sort -k 4nr >> $toto2
+
+  echo "mi5DD"
+if (-e leming.s1.maps_in) then
+  cat tmp/ClippedMap/mi5.$MAGIC.recdna.s.t > toto
+  echo ZZZZZ >> toto
+  cat leming.s1.maps_in | gawk -F '\t' '{printf("%s\t%s\t",$1,$2);for(i=3;i<=NF;i++)printf("%s ",$i);}' >> toto
+  echo ZZZZZ >> toto
+  cat MetaDB/$MAGIC/gtitle.txt | gawk -F '\t' '{gsub(/\"/,"",$0);printf("%s\t%s\ttitle\ttitle\ttitle\n",$1,$6);}' | tail -n +2 >> toto
+  echo ZZZZZ >> toto
+  cat tmp/ClippedFastc/leming.s1.ace | gawk '/^Gene/{s=$2;;next;}/Run_U/{printf("%s\t%s\t%d\n",s,$2,$3);}' >> toto
+  cat leming.s1.tc | gawk -F '\t' '{printf ("%s\tjunk\t0\n",$1);}' >>  toto
+
+  cat toto | gawk -F '\t' '{if(NF==5){nr++;i2r[nr]=$1;i2t[nr]=$2;next;}}END{printf("#Sequence\tMaps in\tMirDB\tUnion\tMax");for(i=1;i<=nr;i++)printf("\t%s",i2r[i]);printf("\n#Sequence\tMaps in\tMirDB\tUnion\tMax");for(i=1;i<=nr;i++)printf("\t%s",i2t[i]);}' > toto1
+  echo >> toto1
+  cat toto | gawk -F '\t' '{if(NF==5){nr++;i2r[nr]=$1;next;}if(NF==2){g2k[$1]=$2;next;}if(NF==4){g2m[$2]=$1;next;}if(NF==3){g=$1;gg[g]=1;z[g,$2]=$3;n[g]+=$3;if($3>x[g])x[g]=$3;next;}}END{for(g in gg){printf("\n%s\t%s\t%s\t%d\t%d",g,g2m[g],g2k[g],n[g],x[g]);if(1)for(i=1;i<=nr;i++)printf("\t%d",z[g,i2r[i]]);}printf("\n");}' > toto2
+  set toto=RESULTS/leming.s1.counts.txt
+  echo -n "### $toto :" > $toto
+  date >> $toto
+  cat toto1 | head -12 | gawk '/^#/{print}' >> $toto
+  cat toto2 | gawk '/^#/{next;}{print}' | tab_sort -k 4nr  >> $toto
+endif
+
 # align on known mir precursor the short seq seen at leat 1000 times
-# dna2dna -i  tmp/ClippedMap/$MAGIC.fastc -I fastc -O fastc -minMultiplicity 1000 -o  tmp/ClippedMap/$MAGIC.1000
+# dna2dna -i  tmp/ClippedMap/mi4.$MAGIC.fastc -I fastc -O fastc -minMultiplicity 1000 -o  tmp/ClippedMap/mi5.$MAGIC.1000
 # droso use 
 # set tSmall=TARGET/Targets/dmel-all-miRNA-r6.12.fasta.gz
 
 # smallRNA
+  echo "mi5EE"
 foreach tSmall (miR smallRNA)
   if (-e TARGET/Targets/$species.$tSmall.fasta.gz) then
-    clipalign -i  tmp/ClippedMap/$MAGIC.10000.fastc -t TARGET/Targets/$species.$tSmall.fasta.gz  -strand     -o  tmp/ClippedMap/$MAGIC.10000.$tSmall.f -maxHit 12
-    clipalign -i  tmp/ClippedMap/$MAGIC.10000.fastc -t TARGET/Targets/$species.$tSmall.fasta.gz -antistrand -o  tmp/ClippedMap/$MAGIC.10000.$tSmall.r -maxHit 12
+    clipalign -i  tmp/ClippedMap/mi5.$MAGIC.10000.fastc -t TARGET/Targets/$species.$tSmall.fasta.gz  -strand     -o  tmp/ClippedMap/mi5.$MAGIC.10000.$tSmall.f -maxHit 12
+    clipalign -i  tmp/ClippedMap/mi5.$MAGIC.10000.fastc -t TARGET/Targets/$species.$tSmall.fasta.gz -antistrand -o  tmp/ClippedMap/mi5.$MAGIC.10000.$tSmall.r -maxHit 12
 
     # gunzip -c $tSmall | gawk '/^>/{ok=0;if(index($0,"pre-mi")==0)ok=1;}{if(ok)print;}' >  tmp/ClippedMap/miRNA.fasta
-    # clipalign -i  tmp/ClippedMap/$MAGIC.10000.fastc -t  tmp/ClippedMap/miRNA.fasta -strand -o  tmp/ClippedMap/$MAGIC.10000.mir.f -maxHit 12
+    # clipalign -i  tmp/ClippedMap/mi5.$MAGIC.10000.fastc -t  tmp/ClippedMap/miRNA.fasta -strand -o  tmp/ClippedMap/mi5.$MAGIC.10000.mir.f -maxHit 12
 
     # count the hits per mir in f or r direction, may be some runs are forward, some are reverse
-    cat tmp/ClippedMap/$MAGIC.10000.$tSmall.[fr].hits | gawk -F '\t' '{n[$11]+= $3;}END{for(k in n)print k,n[k];}' | sort -k 2n
+    cat tmp/ClippedMap/mi5.$MAGIC.10000.$tSmall.[fr].hits | gawk -F '\t' '{n[$11]+= $3;}END{for(k in n)print k,n[k];}' | sort -k 2n
   endif
 end
 
 
-echo -n "phasemi6 done : "
+echo -n "phasemi5 done : "
 goto phaseLoop
+
+
+  cat TARGET/GENES/known_micro_18_35.tc ZZZZZ tmp/ClippedFastc/$run/f.filtered.1000
+
+    ATCCCGGAC GAGCCCCCA
+ CCTCACTCAAGT CTCGGG
+
+### recognize the list that Leming exports as candidates
+
+ln -s /home/mieg/AW/Rat_DATA/20211107_GSE172269_List_novel_miRNA_candidates.txt leming.candidates.txt
+cat leming.candidates.txt | gawk '{printf(">%s\n%s\n",$1,$3);}'  | tail -n +3 | dna2dna -I fasta -O fasta -o leming.s1
+cat leming.candidates.txt | gawk '{printf(">%s\n%s\n",$1,$4);}'  | tail -n +3 | dna2dna -I fasta -O fasta -o leming.s2
+
+  bin/clipalign -i TARGET/GENES/known_micro_18_35.fasta -t leming.s1.fasta  -o  knwn_ls1 -minAli 18
+  bin/clipalign -t TARGET/GENES/known_micro_18_35.fasta -i leming.s1.fasta  -o  ls1_knwn -minAli 18 
+  bin/clipalign -i TARGET/GENES/known_micro_18_35.fasta -t leming.s2.fasta  -o  knwn_ls2 -minAli 18
+  bin/clipalign -t TARGET/GENES/known_micro_18_35.fasta -i leming.s2.fasta  -o  ls2_knwn -minAli 18
+
+
+  cat ls1_knwn.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls1_knwn.prelist
+  cat knwn_ls1.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls1_knwn.prelist
+  cat ls1_knwn.prelist | sort -u > ls1_knwn.list
+  cat ls2_knwn.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls2_knwn.prelist
+  cat knwn_ls2.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls2_knwn.prelist
+  cat ls2_knwn.prelist | sort -u > ls2_knwn.list
+  wc ls?_knwn.list
+
+  
+# do not transform 10.tc into fastc because the naming would be wrong
+  dna2dna -i tmp/ClippedFastc/mi4.$MAGIC.100.tc -o tmp/ClippedFastc/mi4.$MAGIC.100 -I tc -O fastc
+  dna2dna -i tmp/ClippedFastc/mi4.$MAGIC.10.tc -o tmp/ClippedFastc/mi4.$MAGIC.10 -I tc -O fastc
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.1000.fastc -t leming.s1.fasta  -o  R1000_ls1 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.1000.fastc -i leming.s1.fasta  -o  ls1_R1000 -minAli 18
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.100.fastc -t leming.s1.fasta  -o  R100_ls1 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.100.fastc -i leming.s1.fasta  -o  ls1_R100 -minAli 18
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.10.fastc -t leming.s1.fasta  -o  R10_ls1 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.10.fastc -i leming.s1.fasta  -o  ls1_R10 -minAli 18
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.1000.fastc -t leming.s2.fasta  -o  R1000_ls2 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.1000.fastc -i leming.s2.fasta  -o  ls2_R1000 -minAli 18
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.100.fastc -t leming.s2.fasta  -o  R100_ls2 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.100.fastc -i leming.s2.fasta  -o  ls2_R100 -minAli 18
+
+  bin/clipalign -i tmp/ClippedFastc/mi4.$MAGIC.10.fastc -t leming.s2.fasta  -o  R10_ls2 -minAli 18
+  bin/clipalign -t tmp/ClippedFastc/mi4.$MAGIC.10.fastc -i leming.s2.fasta  -o  ls2_R10 -minAli 18
+
+  cat ls1_R1000.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls1_R1000.prelist
+  cat R1000_ls1.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls1_R1000.prelist
+  cat ls1_R1000.prelist | sort -u > ls1_R1000.list
+
+  cat ls1_R1000.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  > ls1_R1000.prelist2
+  cat R1000_ls1.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  >> ls1_R1000.prelist2
+  cat ls1_R1000.prelist2 | sort -u > ls1_R1000.list2
+
+  cat ls1_R1000.list2 ZZZZZ tmp/ClippedFastc/mi4.$MAGIC.1000.tc | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{if(ok[$3]==1)print;}' 
+
+  cat ls1_R100.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls1_R100.prelist
+  cat R100_ls1.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls1_R100.prelist
+  cat ls1_R100.prelist | sort -u > ls1_R100.list
+
+  cat ls1_R10.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls1_R10.prelist
+  cat R10_ls1.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls1_R10.prelist
+  cat ls1_R10.prelist | sort -u > ls1_R10.list
+
+  cat ls2_R1000.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls2_R1000.prelist
+  cat R1000_ls2.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls2_R1000.prelist
+  cat ls2_R1000.prelist | sort -u > ls2_R1000.list
+
+  cat ls2_R100.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls2_R100.prelist
+  cat R100_ls2.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls2_R100.prelist
+  cat ls2_R100.prelist | sort -u > ls2_R100.list
+
+  cat ls2_R10.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $1}' | sort -u  > ls2_R10.prelist
+  cat R10_ls2.hits | gawk '/^#/{next;}{gsub(/>/,"",$1);if($5>=$4-3)print $11}' | sort -u  >> ls2_R10.prelist
+  cat ls2_R10.prelist | sort -u > ls2_R10.list
+
+cat leming.counts | sed -e 's/rno/AARno/' | gawk '{n++;if(n==1)printf("\t");print;}' | transpose > toto30
+cat toto30 | gawk -F '\t' '{split($1,a,"_");printf("%s_%s\t%s\t%s",a[2],a[3],a[4],a[5]);for(i=2;i<=NF;i++){nf=NF;printf("\t%s",$i);}printf("\n");}' | sort -k 1,1 -k 2n > toto31
+cat toto31 | gawk -F '\t' '{printf("%s_%s_%s",$1,$2,$3);for(i=4;i<=NF;i++){t[i]+=$i;nf=NF;printf("\t%s",$i);}printf("\n");}END{printf("Total");for(i=4;i<=nf;i++)printf("\t%d",t[i]);printf("\n");}' > toto32
+cat toto32 | grep ___ > toto33
+cat toto32 | grep Total >> toto33
+cat toto32 | grep -v Total | grep -v ___  >> toto33
+cat toto33 | transpose | sed -e 's/AARno/rno/' > toto34
+cat toto34 | grep  ___  > toto35
+cat toto34 | grep -v  ___ | sort -k 2nr  >> toto35
+
+cat toto35 > leming.counts.sorted.txt
+\cp leming.counts.sorted.txt ~/AW/Rat_DATA/
+
 
 ###################################################################################
 ## phase a0Ba: telomeres and polyA
@@ -4532,9 +4738,10 @@ goto phaseLoop
 phaseTSnp1b:
 
 foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
-  if (! -d tmp/TSNP/$run)      $mkDir TSNP $run
+  if (! -d tmp/TSNP/$run) continue
   foreach zone (`cat tmp/SNP_ZONE/ZoneList | grep -v mito`)
-    if (! -d tmp/TSNP/$run/$zone) mkdir tmp/TSNP/$run/$zone
+    if (! -d tmp/TSNP/$run/$zone) continue
+    if (! -e tmp/TSNP/$run/$zone/tsnp2.0.deUno.tsf) continue
     if (-e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) continue
     set ok=1
     echo >  tmp/TSNP/$run/$zone/_r
@@ -4546,7 +4753,7 @@ foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/r2sublib | cut -f 1 | sor
         cat  tmp/TSNP/$lib/$zone/tsnp1.2.*.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
       endif
     end
-echo "HHHH $zone $run $ok"
+
     if ($ok == 0) continue
     if (-e  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf)  then
        cat  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
@@ -12179,7 +12386,7 @@ cd $CaliRootDir
 scripts/submit run
 
 end
-echo "MAGIC done "
+echo "MAGIC $MAGIC done "
 
 
 exit 0
@@ -12384,3 +12591,7 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   echo $run
 end
 echo "parse toto.partials.ace" | tace MetaDB -noprompt 
+
+
+
+#  LocalWords:  endif

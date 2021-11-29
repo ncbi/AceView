@@ -21,7 +21,7 @@ typedef struct shadowStruct { int mrna, gene, x1, x2, target, a1, a2, ID, Parent
 
 typedef struct sxStruct {  
   DNAFORMAT in, out ; 
-  int minEntropy, minLength, minQuality, minMultiplicity, split, splitMb ;
+  int minEntropy, minLength, maxLength, minQuality, minMultiplicity, split, splitMb ;
   long int nProcessed, nRejected , fProcessed, fRejected, fmProcessed, fmRejected ;
   int  nSplit, nExported, count, maxCount, minLn, maxLn, splitByPrefix, letterNN ;
   long int *letterCount, *letterProfile, *letterLength ; 
@@ -4530,7 +4530,7 @@ static BOOL clipSequence (SX *sx, int pass)
   if ( 
       (pass == 1 || ! sx->ai2) &&
       (
-       n < 1 || n < sx->minLength || entropyReject (sx)
+       n < 1 || n < sx->minLength || (sx->maxLength && n > sx->maxLength) || entropyReject (sx)
        )
       )
     { 
@@ -5057,7 +5057,7 @@ static void usage (char *message)
 	    ) ;
   if (message)
     {
-      fprintf (stderr, "// %s\nFor more information try:  dna2dna -help\n", message) ;
+      fprintf (stderr, "// %s\nFor more information try:  dna2dna --help\n", message) ;
     }
   exit (1);
   
@@ -5146,6 +5146,7 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-minEntropy", &sx.minEntropy) ;
   getCmdLineInt (&argc, argv, "-minMultiplicity", &sx.minMultiplicity) ;
   getCmdLineInt (&argc, argv, "-minLength", &sx.minLength) ;
+  getCmdLineInt (&argc, argv, "-maxLength", &sx.maxLength) ;
   sx.minQuality = 0 ; /* do not look at the quality (beware it may start at '!'==33 or at '@'=64 */
   getCmdLineInt (&argc, argv, "-minQuality", &sx.minQuality) ;
   getCmdLineInt (&argc, argv, "-split", &sx.split) ;

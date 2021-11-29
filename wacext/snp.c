@@ -3995,7 +3995,7 @@ static int snpPhenotype (SNP *snp)
 /* extend the snpnet using the genome
  */
 /*************************************************************************************/
-/* returns sliding and edits the duffers */
+/* returns sliding and edits the buffers */
 static BOOL snpIsSliding (char *typ, char *buf1, char *buf2, BOOL isRNA, BOOL isDown, int *vcfPosp, char *vcfBuf)
 {
   int i, j, ddx = strlen(typ) - 3 ;
@@ -5155,7 +5155,7 @@ static int snpTranslate  (SNP *snp)
 	      /* see www.hgvs.org den Dunnen and Antonarakis nov 15, 2014  HGV human genone variations */
 	      if (hasCDS == 2 && pos >= 0 * x1 && pos <= x2)
 		{
-		  Array aa = arrayHandleCreate (64, char *, h1) ;
+		  Array aa = arrayHandleCreate (64, char, h1) ;
 		  char * translationTable = pepGetTranslationTable(ac_table_key (mrnas, ir, 0, 0), 0) ;
 		  char *cp1, *cp2 ;
 		  int dMet = 0, dStop = 0, stop1 = -1, stop2 = -1, ppos ;
@@ -5443,19 +5443,19 @@ static int snpTranslate  (SNP *snp)
 					, pepShortName[(int)cc11], ppos
 					, cc21 ? pepShortName[(int)cc21] : "" 
 					) ;
-			}
-		      else if (cc11 == cc21)
-			vtxtPrintf (txt, "AA_substitution  %s%dins%s"
-				    , pepShortName[(int)cc11], ppos
-				    , cc22 ? pepShortName[(int)cc22] : "" 
-				    ) ;
-		      else
-			vtxtPrintf (txt, "AA_substitution  %s%ddelins%s%s"
+			    }
+			  else if (cc11 == cc21)
+			    vtxtPrintf (txt, "AA_substitution  %s%dins%s"
+					, pepShortName[(int)cc11], ppos
+					, cc22 ? pepShortName[(int)cc22] : "" 
+					) ;
+			  else
+			    vtxtPrintf (txt, "AA_substitution  %s%ddelins%s%s"
 				    , cc11 ? pepShortName[(int)cc11] : "?"
-				    , ppos
-				    , cc21 ? pepShortName[(int)cc21] : "?"
-				    , cc22 ? pepShortName[(int)cc22] : "?" 
-				    ) ;
+					, ppos
+					, cc21 ? pepShortName[(int)cc21] : "?"
+					, cc22 ? pepShortName[(int)cc22] : "?" 
+					) ;
 			}	
 		      else if (isFrameshift % 3) 
 			{	 
