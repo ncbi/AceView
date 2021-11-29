@@ -2345,7 +2345,7 @@ set ok=0
 
 foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 
   if (! -d tmp/ClippedFastc/$run) mkDir ClippedFastc/$run
-  scripts/submit tmp/ClippedFastc/$run/mi3a "bin/mir -m TARGET/GENES/known_micro_18_35.tc -i Fastc/$run/f2.1.fastc.gz -I fastc -o tmp/ClippedFastc/$run/mi3a"
+  scripts/submit tmp/ClippedFastc/$run/mi3a "bin/mir -m TARGET/GENES/known_micro_18_35.tc -i Fastc/$run/f2.1.fastc.gz -I fastc -o tmp/ClippedFastc/$run/mi3a --run $run "
 end
 
 foreach run ( `cat MetaDB/$MAGIC/RunSmallRnaList ` ) 

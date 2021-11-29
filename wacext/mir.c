@@ -7,16 +7,18 @@ typedef enum { FASTA=0, FASTC, FASTQ, CSFASTA, CSFASTC, CCFA, CCFAR, RAW,  CRAW,
 typedef struct mirStruct { 
   AC_HANDLE h ;
   const char *inFileName, *outFileName, *mirFileName ;
+  const char *run ;
   BOOL gzi, gzo ;
   DNAFORMAT in ; 
   char fileType [16] ;
   Array mirs ;
   int v5[4][4*LNV], v3[4][4*LNV] ;
+  int tags ;
   DICT *mirDict ;
 } MIR ;
 
 typedef struct wStruct { 
-  int w, ln, mult, a, t, g, c ;
+  int w, ln, mult5, mult3, atgc5[4], atgc3[4], type ;
 } WW ;
 
 /*************************************************************************************/
@@ -27,6 +29,7 @@ static int mirWwOrder (const void *a, const void *b)
   const WW *up = (const WW *) a, *vp = (const WW *) b ;
   int n ;
   
+  n = up->type - vp->type ; if (n) return -n ;
   n = up->ln - vp->ln ; if (n) return -n ;
   n = up->w - vp->w ; if (n) return n ;
 
@@ -35,12 +38,12 @@ static int mirWwOrder (const void *a, const void *b)
 
 /*************************************************************************************/
 
-static int mirMultOrder (const void *a, const void *b)
+static int mirMult5Order (const void *a, const void *b)
 {
   const WW *up = (const WW *) a, *vp = (const WW *) b ;
   int n ;
   
-  n = up->mult - vp->mult ; if (n) return -n ;
+  n = up->mult5 - vp->mult5 ; if (n) return -n ;
   n = up->w - vp->w ; if (n) return n ;
 
   return 0 ;
@@ -48,21 +51,43 @@ static int mirMultOrder (const void *a, const void *b)
 
 /*************************************************************************************/
 
-static void mirRegister (MIR *mir, WW *up, char *cp, int mult)
+static int mirMult3Order (const void *a, const void *b)
+{
+  const WW *up = (const WW *) a, *vp = (const WW *) b ;
+  int n ;
+  
+  n = up->mult3 - vp->mult3 ; if (n) return -n ;
+  n = up->w - vp->w ; if (n) return n ;
+
+  return 0 ;
+}
+
+/*************************************************************************************/
+
+static void mirRegister (MIR *mir, WW *up, char *cp, int mult, BOOL isRead2)
 {
   int k = -4 ;
   int kk = 0 ;
   int *nn ;
-  
+
   switch ((int) *cp)
     {
-    case 'a' : case 'A': kk = 0 ; up->a += mult ; break ;
-    case 't' : case 'T': kk = 1 ; up->t += mult ; break ;
-    case 'g' : case 'G': kk = 2 ; up->g += mult ; break ;
-    case 'c' : case 'C': kk = 3 ; up->c += mult ; break ;
+    case 'a' : case 'A': kk = 0 ; break ;
+    case 't' : case 'T': kk = 1 ; break ; 
+    case 'g' : case 'G': kk = 2 ; break ;
+    case 'c' : case 'C': kk = 3 ; break ;
     }
-  
-  nn = mir->v5[kk] ;
+
+  if (isRead2)
+    {
+      up->atgc3[kk] += mult ;
+      nn = mir->v3[kk] ;
+    }
+  else
+    {
+      up->atgc5[kk] += mult ;
+      nn = mir->v5[kk] ;
+    }
   cp-- ;
   while (k += 4, *++cp)
     {
@@ -81,79 +106,145 @@ static void mirRegister (MIR *mir, WW *up, char *cp, int mult)
 static void mirExportCounts (MIR *mir)
 {
   int i ;
-  int k, nn, kk ;
+  int k, kk, NMX = 0, nmX = 0 ;
   WW *up ;
-  int NNN = 0, NN[4] ;
+  int NNN = 0, NN[4], X[4] ;
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (mir->outFileName, ".mirVector", mir->gzo, h) ; 
+  int isRead2 ;
 
-  for (kk = 0 ; kk < 4 ; kk++)
+  for (isRead2 = 0 ; isRead2<2 ; isRead2++)
     {
-      aceOutf (ao, "\n\n\n") ;
-      
-      int *nn = mir->v5[kk] ;
-      NN[kk] =  nn[0] + nn[1] + nn[2] + nn[3] ;
-      NNN += NN[kk] ;
-    }
+      /* count the ambiguous contributions */
+      for (kk = 0 ; kk < 4 ; kk++)
+	X[kk] = 0 ;
+      if (isRead2)
+	arraySort (mir->mirs, mirMult3Order) ;
+      else
+	arraySort (mir->mirs, mirMult5Order) ;
 
-
-
-  for (kk = 0 ; kk < 4 ; kk++)
-    {
-      char V5[LNV+2] ;
-      if (10*NN[kk] < NNN)
-	continue ;
-      aceOutf (ao, "\n\n\n") ;
-      
-      int *nn = mir->v5[kk] ;
-      for (i = 0 ; i < LNV ; i++)
+      for (k = 0, up = arrp (mir->mirs, 0, WW) ; k < 128 ; k++, up++)
 	{
-	  int N =  nn[4*i+0] + nn[4*i+1] + nn[4*i+2] + nn[4*i+3] ;
-	  char cc = 'N' ;
+	  int i, j, imx = -1, mx = 0 ;
+	  int mult = isRead2 ? up->mult3 : up->mult5 ;
+	  int *atgc = isRead2 ? up->atgc3 : up->atgc5 ;
 
-	  if (nn[4*i+0] > N/2) cc = 'A' ;
-	  if (nn[4*i+1] > N/2) cc = 'T' ;
-	  if (nn[4*i+2] > N/2) cc = 'G' ;
-	  if (nn[4*i+3] > N/2) cc = 'C' ;
-
-	  if (N == 0) 
-	    N = 1 ;
-	  aceOutf (ao, "%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%c\n"
-		  , i, N
-		  , nn[4*i+0]
-		  , nn[4*i+1]
-		  , nn[4*i+2]
-		  , nn[4*i+3]
-		  , (100.0 * nn[4*i+0])/N
-		  , (100.0 * nn[4*i+1])/N
-		  , (100.0 * nn[4*i+2])/N
-		  , (100.0 * nn[4*i+3])/N
-		  , cc
-		  ) ;
-	  V5[i] = cc ;
+	  if (! mult)
+	    continue ;
+	  for (i = 0 ; i < 4 ; i++)
+	    if (atgc[i] > mx)
+	      { mx = atgc[i] ; imx = i ; } 
+	  i = imx ;
+	  if (3*atgc[i] > mult)
+	    {
+	      for (j = 0 ; j < 4 ; j++)
+		if (i != j && mx < 3 * atgc[j])
+		  {   /* eliminate the ambiguous counts */
+		    X[i] += mult ;
+		    X[j] += mult ;
+		  }
+	    }
 	}
-      V5[i] = 0 ;
-      aceOutf (ao, "\n%s\t%d\tVECTOR_5\n\n", V5, NN[kk]) ;
+      
+      for (kk = 0 ; kk < 4 ; kk++)
+	{
+	  int *nn = isRead2 ? mir->v3[kk]  : mir->v5[kk] ;
+	  NN[kk] =  nn[kk] - X[kk] ;
+	  NNN += NN[kk] ;
+	  if (NN[kk] > NMX)
+	    NMX = NN[kk] ;
+	  if (nn[kk] > nmX)
+	    nmX = nn[kk] ;
+	}
+      for (kk = 0 ; kk < 4 ; kk++)
+	{
+	  int *nn = isRead2 ? mir->v3[kk]  : mir->v5[kk] ;
+	  char VV[LNV+2] ;
+	  
+	  if (10*NN[kk] < NNN)
+	    continue ;
+	  if (2*NN[kk] < NMX)
+	    continue ;
+	  if (2*nn[kk] < nmX)
+	    continue ;
+	  aceOutf (ao, "\n\n\n") ;
+	  
+	  for (i = 0 ; i < LNV ; i++)
+	    {
+	      int N =  nn[4*i+0] + nn[4*i+1] + nn[4*i+2] + nn[4*i+3] ;
+	      char cc = 'N' ;
+	      
+	      if (nn[4*i+0] > N/2) cc = 'A' ;
+	      if (nn[4*i+1] > N/2) cc = 'T' ;
+	      if (nn[4*i+2] > N/2) cc = 'G' ;
+	      if (nn[4*i+3] > N/2) cc = 'C' ;
+	      
+	      if (N == 0) 
+		N = 1 ;
+	      aceOutf (ao, "%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t%.2f\t%.2f\t%.2f\t%c\n"
+		       , i, N
+		       , nn[4*i+0]
+		       , nn[4*i+1]
+		       , nn[4*i+2]
+		       , nn[4*i+3]
+		       , (100.0 * nn[4*i+0])/N
+		       , (100.0 * nn[4*i+1])/N
+		       , (100.0 * nn[4*i+2])/N
+		       , (100.0 * nn[4*i+3])/N
+		       , cc
+		       ) ;
+	      VV[i] = cc ;
+	    }
+	  VV[i] = 0 ;
+	  if (0 && strchr (VV, 'N'))
+	    continue ;
+	  if (10 * nn[kk] < mir->tags && nn[kk] < 10000)
+	    continue ;
+	  if (!nn[kk])
+	    continue ;
+	  aceOutf (ao, "\n%s\t%d\t%s\t%s", VV, nn[kk], mir->run), isRead2 ? "VECTOR_5" : "VECTOR_3" ;
+	}
+      
+      if (1)
+	{
+	  aceOutf (ao, "\t#") ;
+	  for (i = 0; i < 4 ; i++)
+	    {
+	      int *nn = isRead2 ? mir->v3[kk]  : mir->v5[kk] ;
+	      aceOutf (ao, "\t%d", nn[i]) ;
+	    }
+	  for (i = 0; i < 4 ; i++)
+	    aceOutf (ao, "\t%d", X[i]) ;
+	  aceOut (ao, "\n") ;
+	}
+      
+      if (1)
+	for (k = 0, up = arrp (mir->mirs, 0, WW) ; k < 128 ; k++, up++)
+	  {
+	    int i ;
+	    int mult = isRead2 ? up->mult3 : up->mult5 ;
+	    int *atgc = isRead2 ? up->atgc3 : up->atgc5 ;
+	    aceOutf (ao, "%s\t%d\t%d\t", dictName (mir->mirDict, up->w), up->ln, mult) ;
+	    for (i = 0; i < 4 ; i++)
+	      aceOutf (ao, "\t%d", atgc[i]) ;
+	    aceOut (ao, "\n") ;
+	  }
+      aceOut (ao, "\n\n\n") ;
     }
-
-  arraySort (mir->mirs, mirMultOrder) ;
-  if (1)
-    for (k = 0, up = arrp (mir->mirs, 0, WW) ; k < 128 ; k++, up++)
-      aceOutf (ao, "%s\t%d\t%d\t%d\t%d\t%d\t%d\n", dictName (mir->mirDict, up->w), up->ln,up->mult, up->a,up->t,up->g,up->c) ;
-
   ac_free (h) ;
 } /* mirExportCounts */
-
+  
 /*************************************************************************************/
 
-static void mirCountOne (MIR *mir, char *word, int mult)
+static void mirCountOne (MIR *mir, char *word, int mult, BOOL isRead2)
 {
   int i ;
   DICT *dict = mir->mirDict ;
   Array mirs = mir->mirs ;
   WW *up ;
   int iMax = arrayMax (mirs) ;
-  
+
+  mir->tags += mult ;
   for (i = 0, up = arrp (mirs, 0, WW) ; i < iMax ; up++, i++)
     {
       const char *ccp ;
@@ -165,19 +256,22 @@ static void mirCountOne (MIR *mir, char *word, int mult)
 	{
 	  int k = cq - word ; /* offset */
 	  int wln = strlen (word) ;
-	  up->mult += mult ;  /* we found this mir */
+	  if (isRead2)
+	    up->mult3 += mult ;  /* we found this mir in read 2 */
+	  else
+	    up->mult5 += mult ;  /* we found this mir in read 1 */
 	  if (k + up->ln < wln)
 	    {
 	      cq = word + k + up->ln ;
 	      if (k + up->ln + LNV < wln)
 		word [k + up->ln + LNV] = 0 ;
-	      mirRegister (mir, up, cq, mult) ;
+	      mirRegister (mir, up, cq, mult, isRead2) ;
 	    }
 	  if (0 && k > 0)
 	    {
 	      memcpy (buf, cq + wln, LNV) ;
 	      buf[LNV] = 0 ; /* to be sure */ 
-	      mirRegister (mir, up, buf, 0) ;
+	      mirRegister (mir, up, buf, 0, isRead2) ;
 	    }
 	  break ;
 	}
@@ -207,20 +301,29 @@ static void mirGetCounts (MIR *mir)
 	  strncpy (buf, cp, 510) ;
 	  aceInStep (ai, '\t') ;
 	  if (aceInInt (ai, &mult))
-	    mirCountOne (mir, buf, mult) ; ;
+	    mirCountOne (mir, buf, mult, FALSE) ; ;
 	  break ;
 	case FASTC:
 	  if(cp[0]=='>')
 	    mult = fastcMultiplicity (cp, 0, 0) ;
 	  else
-	    { mirCountOne (mir, cp, mult) ;  mult = 1 ; }
+	    {   /* in FASTC, deal with the pairs */ 
+	      char *cq = strstr (cp, "><") ;
+	      if (cq) 
+		{
+		  mirCountOne (mir, cp+2, mult, TRUE) ;
+		  *cq = 0 ;
+		}
+	      mirCountOne (mir, cp, mult, FALSE) ;  
+	      mult = 1 ;
+	    }
 	  break ;
 	case FASTA:
 	  if(cp[0] != '>')
-	   mirCountOne (mir, cp, mult) ;  
+	   mirCountOne (mir, cp, mult, FALSE) ;  
 	  break ;
 	case RAW:
-	    mirCountOne (mir, cp, mult) ; 
+	    mirCountOne (mir, cp, mult, FALSE) ; 
 	  break ;
 	default:
 	  messcrash ("this -I format is not yet programmed in mir.c, sorry\n") ;
@@ -234,14 +337,25 @@ static void mirGetFrequentMir (MIR *mir)
 {
   AC_HANDLE  h = ac_new_handle () ;  
   ACEIN ai = aceInCreate (mir->mirFileName, mir->gzi, h) ;
-  int k, nn = 0 ;
+  int i, k, nn = 0 ;
   DICT *dict ; 
   Array aa ;
   WW *up ;
+  const char *vectors[] = {"tggaattctcgggt", 0} ;
 
   aa = mir->mirs = arrayHandleCreate (300, WW, mir->h) ;
   mir->mirDict = dict = dictHandleCreate (300, mir->h) ; 
-  if (ai)
+ 
+  for (i = 0 ; vectors[i] ; i++)
+    {
+      dictAdd (dict, vectors[i], &k) ;
+      up = arrayp (aa, nn++, WW) ;
+      up->w = k ;
+      up->ln = 0 ;
+      up->type = 1 ; 
+    }	
+
+ if (ai)
     while (aceInCard (ai))
       {
 	const char *ccp = aceInWord (ai) ;
@@ -395,6 +509,10 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-i", &mir.inFileName) ;
   getCmdLineOption (&argc, argv, "-m", &mir.mirFileName) ;
   getCmdLineOption (&argc, argv, "-o", &mir.outFileName) ;
+
+  mir.run = "xxx" ;
+  getCmdLineOption (&argc, argv, "-r", &mir.run) ;
+  getCmdLineOption (&argc, argv, "--run", &mir.run) ;
 
   if (getCmdLineOption (&argc, argv, "-I", &ccp))
     {
