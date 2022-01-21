@@ -763,18 +763,18 @@ static long int tsfMerge (TSF *tsf)
 	  if (strncmp (hit->types, hit2->types, n))
 	    break ;
 	  for (i = 0 ; i < n ; i++)
-	    if ( (i > all && hit->types[i] != i)  && 
+	    if ( (i > all || hit->types[i] != 'i')  && 
 		hit->x[i] && hit2->x[i] && hit->x[i] != hit2->x[i])
 	      break ;
 	  if (i < n)
-	    break ;
+	    continue ;
 	  /* ok, all text fileds are equal: merge */	  
 	  if (n1 < n2)
 	    memcpy (hit->types, hit2->types, n2) ;
 	  hit2->tag = 0 ;
 	  n = n1 > n2 ? n1 : n2 ;
 	  hit->n = n ;
-	  for (i = 0 ; i < 1 && i < n ; i++)
+	  for (i = 0 ; i < all && i < n ; i++)
 	    switch (hit->types[i])
 	      {
 	      case 'i':
