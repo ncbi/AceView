@@ -50,14 +50,24 @@ typedef struct pmbStruct {
   BOOL gzi, gzo ;
   BOOL sam ; /* inpt in SAM format, default:tabular */
   BOOL getIntrons ;
+  BOOL hasPair ;
 
   DICT *cloneDict, *targetDict, *target_classDict, *cigarDict, *intronDict ;
   Array alis ;
   Array introns ;
   int maxIntronLength ;
+  int incompatibleTopology ;
+
+  int alignedFragments ;
+  int compatiblePairs ;
+  int compatiblePairsInsideGene ;
+  int compatiblePairsInGenome ;
 } PMB ;
 
-typedef struct aliStruct { int clone, mult, flag, target, target_class, a1, a2, x1, x2, uu, score, pairScore, ln, ali, pairAli, nerr, nintron, cigar, dna ; BOOL isRead1 ; } ALI ;
+typedef struct aliStruct {
+  int clone, mult, flag, target, target_class, a1, a2, x1, x2, uu, score, pairScore, ln, ali, pairAli, nerr, nintron, cigar, dna ; 
+  BOOL isRead1 ;
+} ALI ;
 typedef struct intronStruct { int target, a1, a2, type, nr1, nr2 ; } ITR ;
 
 /*************************************************************************************/
@@ -69,7 +79,7 @@ static int bestAliOrder (const void *va, const void *vb)
   int n ;
 
   n = up->clone - vp->clone ; if (n) return n ;
-  n = (int)up->isRead1 - ((int)vp->isRead1) ; if (n) return n ;
+  n = (int)up->isRead1 - ((int)vp->isRead1) ; if (n) return -n ;
   n = up->pairScore - vp->pairScore ; if (n) return -n ;
   n = up->score - vp->score ; if (n) return -n ;
   n = up->target_class - vp->target_class ; if (n) return n ;
@@ -137,9 +147,14 @@ static void pmbPairScore (PMB *pmb)
 
 static void pmbSelect (PMB *pmb)
 {
-  int i, j, iMax = arrayMax (pmb->alis) ;
-  ALI *up, *vp ;
+  int i, j, k, iMax = arrayMax (pmb->alis) ;
+  ALI *up, *vp, *wp ;
+  int clone  ;
+  int genome ;
+  DICT *target_classDict = pmb->target_classDict ;
+  int MX = 1000000 ;
 
+  dictAdd (target_classDict, "Z_genome", &genome) ;
   for (i = j = 0, up = vp = arrp (pmb->alis, i, ALI) ; i < iMax ; i++, up++) 
     {
       if (!up->score || (up->clone == vp->clone && up->isRead1 == vp->isRead1 && up->pairScore < vp->pairScore))
@@ -149,6 +164,38 @@ static void pmbSelect (PMB *pmb)
     }
   arrayMax (pmb->alis) = j ;
   
+  for (clone = 0, i =  0, up = arrp (pmb->alis, i, ALI) ; i < iMax ; i++, up++) 
+    {
+      BOOL cpa = FALSE ;
+      BOOL cpaGenome = FALSE ;
+      BOOL cpaGene = FALSE ;
+
+      if (up->clone == clone)
+	continue ;
+      clone = up->clone ;
+      pmb->alignedFragments += up->mult ;
+      for (vp = up, j = i ; j < iMax && vp->clone == clone && vp->isRead1 ; j++, vp++)
+	for (wp = vp + 1, k = j + 1 ; k < iMax &&  wp->clone == clone ; k++, wp++)
+	  if (! wp->isRead1)
+	    {
+	      if (vp->target == wp->target 
+		  && 
+		  (
+		   (vp->a1 < vp->a2 && vp->a1 < wp->a1 && vp->a1 + MX > wp->a1 && wp->a1 > wp->a2) ||
+		   (vp->a1 > vp->a2 && vp->a1 > wp->a1 && vp->a1 - MX < wp->a1 && wp->a1 < wp->a2) 
+		   )
+		  )
+		{
+		  cpa = TRUE ;
+		  if (wp->target_class == genome) cpaGenome = TRUE ;
+		  if (dictName (target_classDict, wp->target_class)[1] == 'T') cpaGene = TRUE ;
+		}
+	    }
+
+      if (cpa) pmb->compatiblePairs += up->mult ;
+      if (cpaGene) pmb->compatiblePairsInsideGene += up->mult ;
+      if (cpaGenome) pmb->compatiblePairsInGenome += up->mult ;
+    }
   return ;
 } /* pmbSelect */
 
@@ -177,6 +224,7 @@ static void pmbIntronsExport (PMB *pmb)
 static void pmbClassCount (PMB *pmb)
 {
   AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (pmb->outFileName, ".stats.tsf", pmb->gzo, h) ;
   int i, ii, j, tc, iMax = arrayMax (pmb->alis) ;
   ALI *up, *vp ;
   int clone = 0 , isRead1 = 0 ;
@@ -194,6 +242,7 @@ static void pmbClassCount (PMB *pmb)
   Array lastBase2 = arrayHandleCreate (256, int, h) ;
   Array nerrs1 = arrayHandleCreate (256, int, h) ;
   Array nerrs2 = arrayHandleCreate (256, int, h) ;
+  Array aliLn = arrayHandleCreate (256, int, h) ;
 
   memset (ns, 0, sizeof(ns)) ;
   memset (nr, 0, sizeof(nr)) ;
@@ -209,6 +258,7 @@ static void pmbClassCount (PMB *pmb)
 
   memset (uuu, 0, sizeof(uuu)) ;
 
+  aceOutDate (ao, "###", "Lane stats exported by postMagicBlast.c tabular format") ;
   for (ii = 0, up = arrp (pmb->alis, ii, ALI) ; ii < iMax ; ii++, up++) 
     {
       BOOL ok = FALSE ;
@@ -224,6 +274,12 @@ static void pmbClassCount (PMB *pmb)
 	array (lastBase1, up->x2, int) += up->mult ;
       else
 	array (lastBase2, up->x2, int) += up->mult ;
+      {
+	int k = up->ali ;
+	int k1 = k/20 ;
+	if (k1>0) {k = k/k1 ; k = k * k1 ; }
+	array (aliLn, k, int) += up->mult ;
+      }
 
       if (up->x1 == 1 && up->x2 == up->ln && up->nerr == 0)
 	{
@@ -289,19 +345,19 @@ static void pmbClassCount (PMB *pmb)
   for (tc = 0 ; tc < cMax ; tc++)
     {
       if (hns[tc] > 0)
-	printf("h_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, hns[tc], hnr[tc], hnali[tc]/1000) ;
+	aceOutf (ao, "h_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, hns[tc], hnr[tc], hnali[tc]/1000) ;
       if (ns[tc] > 0)
-	printf("nh_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, ns[tc], nr[tc], nali[tc]/1000) ;
+	aceOutf (ao, "nh_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, ns[tc], nr[tc], nali[tc]/1000) ;
       if (nr[tc] > 0)
-	printf("Stranding__%s\t%s\tiii\t%d\t%d\t%d\t%d\t%.2f\t%.2f\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run
+	aceOutf (ao, "Stranding__%s\t%s\tiii\t%d\t%d\t%d\t%d\t%.2f\t%.2f\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run
 	       , nr[tc], nrp[tc], nrm[tc], nra[tc], 100.0*nrp[tc]/nr[tc], 100.0*nrm[tc]/nr[tc]) ;
       if (nr[tc] > 0)
 	{
 	  int j ;
-	  printf("Unicity__%s\t%s\t10i", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run) ;
+	  aceOutf (ao, "Unicity__%s\t%s\t10i", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run) ;
 	  for (j = 1 ; j <= 10 ; j++)
-	    printf("\t%d", uuu[tc][j]) ;
-	  printf ("\n") ;
+	    aceOutf (ao, "\t%d", uuu[tc][j]) ;
+	  aceOutf (ao, "\n") ;
 	}
     }
 
@@ -313,7 +369,12 @@ static void pmbClassCount (PMB *pmb)
       int n1 = array (firstBase1, i, int) ;
       int n2 = array (firstBase2, i, int) ;
       if (n1 + n2)
-	printf ("First_base_aligned__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1, n2) ;
+	{
+	  if (pmb->hasPair)
+	    aceOutf (ao, "First_base_aligned__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1, n2) ;
+	  else
+	    aceOutf (ao, "Last_base_aligned__%d\t%s\ti\t%d\n", i, pmb->run, n1) ;
+	}
     }
 
   array (lastBase2, arrayMax (lastBase1), int) += 0 ;
@@ -323,10 +384,27 @@ static void pmbClassCount (PMB *pmb)
       int n1 = array (lastBase1, i, int) ;
       int n2 = array (lastBase2, i, int) ;
       if (n1 + n2)
-	printf ("Last_base_aligned__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1, n2) ;
+	{
+	  if (pmb->hasPair)
+	    aceOutf (ao, "Last_base_aligned__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1, n2) ;
+	  else
+	    aceOutf (ao, "Last_base_aligned__%d\t%s\ti\t%d\n", i, pmb->run, n1) ;
+	}
     }
   
-  printf ("Perfect_reads\t%s\tii\t%d\t%d\n", pmb->run, perfect1, perfect2) ;
+  if (pmb->hasPair)  /* export the same number twwice: float then int in the ace database */
+    aceOutf (ao, "Perfect_reads\t%s\tii\t%d\t%d\n", pmb->run, perfect1 + perfect2, perfect1 + perfect2) ;
+  else
+    aceOutf (ao, "Perfect_reads\t%s\tii\t%d\n", pmb->run, perfect1, perfect1) ;
+
+  if (pmb->hasPair)
+    {
+      aceOutf (ao, "Aligned_fragments\t%s\ti\t%d\n", pmb->run, pmb->alignedFragments) ;
+      aceOutf (ao, "Compatible_pairs\t%s\ti\t%d\n", pmb->run, pmb->compatiblePairs) ;
+      aceOutf (ao, "Compatible_pairs_inside_gene\t%s\ti\t%d\n", pmb->run, pmb->compatiblePairsInsideGene) ;
+      aceOutf (ao, "Compatible_pairs_in_genome\t%s\ti\t%d\n", pmb->run, pmb->compatiblePairsInGenome) ;
+      aceOutf (ao, "Incompatible_topology\t%s\ti\t%d\n", pmb->run, pmb->incompatibleTopology) ;
+    }
 
   array (nerrs2, arrayMax (nerrs1), int) += 0 ;
   array (nerrs1, arrayMax (nerrs2), int) += 0 ;
@@ -335,10 +413,22 @@ static void pmbClassCount (PMB *pmb)
       int n1 = array (nerrs1, i, int) ;
       int n2 = array (nerrs2, i, int) ;
       if (n1 + n2)
-	printf ("Count_missmatch__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1, n2) ;
+	{
+	  if (pmb->hasPair)
+	    aceOutf (ao, "Count_mismatch__%d\t%s\tii\t%d\t%d\n", i, pmb->run, n1 + n2) ;
+	  else
+	    aceOutf (ao, "Count_mismatch__%d\t%s\tii\t%d\n", i, pmb->run, n1) ;
+	}
+    }
+
+  for (i = 0 ; i < arrayMax (aliLn) ; i++)
+    {
+      int n1 = array (aliLn, i, int) ;
+      if (n1)
+	aceOutf (ao, "Aligned_length__%d\t%s\ti\t%d\n", i, pmb->run, n1) ;
     }
   
-  printf ("N_intron_support\t%s\ti\t%d\n:",  pmb->run, nintronSupport) ;
+  aceOutf (ao, "N_intron_support\t%s\ti\t%d\n",  pmb->run, nintronSupport) ;
 
   ac_free (h) ;
   return ;
@@ -456,7 +546,7 @@ static void pmbParseSam (PMB *pmb)
 	    dictAdd (pmb->target_classDict, ccp+5, &(up->target_class)) ;
 	}
 
-      hasPair = flag & 0x1 ;
+      pmb->hasPair = hasPair = flag & 0x1 ;
       if (hasPair)
 	{
 	  /*
@@ -519,12 +609,12 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up, Array aa0)
       a1 += isDown * n ;
       if (*cp == 0)
 	break ;
-      else if (*cp == '#') /* deletion */
+      else if (*cp == '%') /* deletion */
 	{
 	  int nd = 0 ;
 	  cp++ ;
 	  cp += cigarMult (cp, &nd) ;
-	  if (*cp != '^') /* deletion end */
+	  if (*cp != '%') /* deletion end */
 	    messcrash ("Bad deletion sign ^ in %s\n", cigar) ;
 	}
       else if (*cp == '_') /* insertion */
@@ -559,7 +649,7 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up, Array aa0)
 	      else 
 		{ b1 = a1 ; b2 = a2 + 1 ; }
 
-	      if (0 && up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
+	      if (1 && up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
 	      intronName = hprintf (h, "%s__%d_%d", dictName (pmb->targetDict, up->target), b1, b2) ;
 	      dictAdd (pmb->intronDict, intronName, &k) ;
 	      ip = arrayp (pmb->introns, k, ITR) ;
@@ -616,7 +706,7 @@ static void pmbParseTabular (PMB *pmb)
       if (ccq[0] == '.' && (ccq[1] == '1' || ccq[1] == '2'))
 	{ 
 	  if (ccq[1] == '2')
-	    { up->isRead1 = FALSE ; }
+	    { up->isRead1 = FALSE ; pmb->hasPair = TRUE ; }
 	  ccq[0] = 0 ;
 	}
       
@@ -671,6 +761,8 @@ static void pmbParseTabular (PMB *pmb)
 	  int a0 = up->a1 ; up->a1 = up->a2 ; up->a2 = a0 ; 
 	  int x0 = up->x1 ; up->x1 = up->x2 ; up->x2 = x0 ; 
 	}
+
+      up->ali = up->x2 - up->x1 + 1 ;
 
       aceInStep (ai, '\t') ;
       ccp = aceInWord (ai) ; /* notused */
@@ -733,7 +825,7 @@ static void pmbParseTabular (PMB *pmb)
       aceInInt (ai, &(bonus)) ; 
 
       up->score += bonus ; up->pairScore += bonus ; 
-      up->ali = up->x2 - up->x1 + 1 ;
+
       nn++ ;
     }
   
