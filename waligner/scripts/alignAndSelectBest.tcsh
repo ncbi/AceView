@@ -152,13 +152,14 @@ foreach target (DNASpikeIn SpikeIn mito rrna chloro transposon $RNAtargets $DNAt
 
   set isSplice=" "
   set slBonus=" "
-  set bonus=0
   set maxHit2=$maxHit
   if ($target == virus) set maxHit2=30
   if ($target == bacteria) set maxHit2=30
 
 # if the bonus is changed, synchronize in snp.confirmation.tcsh the line
 # if($8=="A_mito" || $8 == "B_rrna")s--;
+# and synchronize a123M.MagicBlast.tcsh
+  set bonus=0
   if ($target == gdecoy) set bonus=2
   if ($target == genome) set bonus=0
   if ($target =~ chrom*) set bonus=0
@@ -344,10 +345,11 @@ if ($MAGIC_SAM == 1) set SAM="-sam"
 
 set targetMask=""
 if (-e TARGET/Targets/$species.$target.mask.txt) set targetMask="-targetMask TARGET/Targets/$species.$target.mask.txt"
+echo "TARGET\t$target" >> $mytmp/PHITS_$target/$lane.err
 
          echo "bin/clipalign -best -i Fastc/$lane.$dna2dnaFormat.gz  $isSolid $isLong -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength -target_class $target_class $t2g $jump5 $forceRightClip $overh -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane $SAM"
 
-  (bin/time -p bin/clipalign -best -i Fastc/$lane.$dna2dnaFormat.gz  $isSolid  $isLong -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength  -target_class $target_class $t2g $jump5 $forceRightClip $overh -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane $SAM) >& $mytmp/PHITS_$target/$lane.err
+  (bin/time -p bin/clipalign -best -i Fastc/$lane.$dna2dnaFormat.gz  $isSolid  $isLong -t TARGET/Targets/$species.$targetFasta.fasta.gz  -maxHit $maxHit2 $clipPolyA  $clipPolyT -minEntropy $minEntropy4 -seedLength $seedLength -probeMinLength $minAli  -clipN $clipN -minAli $minAli $isSplice $A2G $isMRNAH $slBonus  $targetBonus  $Xintrons $isStranded -seedOffset $off3 -intronMaxLength  $intronMaxLength  -target_class $target_class $t2g $jump5 $forceRightClip $overh -strategy $Strategy $targetMask $avoidPseudo $v1 $v2 $prevScore -gzo -o $mytmp/PHITS_$target/$lane $SAM) >>& $mytmp/PHITS_$target/$lane.err
 
  if ($status > 0) then
     set sss=$status
@@ -527,7 +529,7 @@ foreach target ($targets)
 end
 
 echo  "a3: jobstats "
-scripts/jobstats.tcsh $run $lane 1
+scripts/jobstats.tcsh $run $lane 1 0
 touch tmp/$COUNT/$lane.align.done
 
 echo  "a3: cleanup "

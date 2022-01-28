@@ -14,7 +14,7 @@ if (1 && $phase == makeDB) then
     if ($target == gdecoy) continue
     set ff=$species.$target
     if (-e Targets/$ff.fasta.gz && ! -e BLASTDB/$ff.nsq) then
-      gunzip -c Targets/$ff.fasta.gz | gawk '/^>/{split($1,aa,"|");ok=0;if(length(aa[1])<8 && length(aa[1])+length(aa[2])<47){ok=1;print aa[1]"|"aa[2];ok=1;next;}if(length(aa[1])<48){ok=1;print aa[1];}next;}{gsub("-","n",$0);if(ok==1)print;}' > BLASTDB/$ff
+      gunzip -c Targets/$ff.fasta.gz | gawk '/^>/{n=split($1,aa,"|");ok=0;if(length(aa[1])<48){ok=1;print aa[1];}next;}{gsub("-","n",$0);if(ok==1)print;}' > BLASTDB/$ff
       pushd BLASTDB
         echo "makeblastdb -in $ff -dbtype nucl -parse_seqids #target=$target"
         makeblastdb -in $ff -dbtype nucl -parse_seqids
@@ -51,80 +51,86 @@ if ($inok == 0) then
 endif
 
 
-foreach target ($RNAtargets)
+foreach target ($RNAtargets $DNAtargets)
+  if ($target == gdecoy) continue 
   # default on fasta but prefer using a blast database
   set subject="-subject TARGET/Targets/$species.$target.fasta.gz"
   if (-e TARGET/BLASTDB/$species.$target.nsq) then
     set subject="-db  TARGET/BLASTDB/$species.$target"
   endif
+  source scripts/target2target_class.txt
 
-# -outfmt tabular
-  if (-e  tmp/MAGICBLAST/$lane.$target.sam) continue
-  if (-e  tmp/MAGICBLAST/$lane.$target.sam.gz) continue
-  echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz  -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1"
-       echo -n "$target\tStart\t"
-       date
-       echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-       (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz  -no_unaligned -reftype transcriptome -splice F -limit_lookup F -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
-       echo -n "$target\tEnd\t"
-       date
-       ls -ls tmp/MAGICBLAST/$lane.$target.sam.gz       
-end
-
-foreach target ($DNAtargets)
-  echo "PPPPPPP $run $target"
-  # default on fasta but prefer using a blast database
-    if ($target == gdecoy) continue 
-  set subject="-subject TARGET/Targets/$species.$target.fasta.gz"
-  if (-e TARGET/BLASTDB/$species.$target.nsq) then
-    set subject="-db  TARGET/BLASTDB/$species.$target"
-  endif
+# if the bonus is changed, synchronize in snp.confirmation.tcsh the line
+# if($8=="A_mito" || $8 == "B_rrna")s--;
+# and synchronize a123M.MagicBlast.tcsh
+  set bonus=0
+  if ($target == gdecoy) set bonus=2
+  if ($target == genome) set bonus=0
+  if ($target =~ chrom*) set bonus=0
+  if ($target == cloud)  set bonus=-6
+  if ($target == snp)    set bonus=-6
+  if ($target == introns)    set bonus=-6
+  if ($target == rnaGene) set bonus=0
+  if ($target == smallRNA) set bonus=0
+  if ($target == mito) set bonus=1
+  if ($target == chloro) set bonus=1
+  if ($target == rrna) set bonus=1
+  if ($target == transposon) set bonus=1
+  if ($target == av2008) set bonus=-1
+  if ($target == RefSeqCurrent) set bonus=-2
+  if ($target == Gaj) set bonus=-3
+  if ($target == FBK) set bonus=-4
+  if ($target == virus) set bonus=-30
+  if ($target == bacteria) set bonus=-30
 
 # exemple de sortie de ./bin/time
 # 65.28user 7.82system 1:13.40elapsed 99%CPU (0avgtext+0avgdata 1933504maxresident)k
-  
- if (! -e  tmp/MAGICBLAST/$lane.$target.sam && ! -e  tmp/MAGICBLAST/$lane.$target.sam.gz) then
-    echo "./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1" 
-         echo -n "$target\tStart\t"
-         date
-         echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-         (./bin/time bin/magicblast $subject $infile -gzo -out tmp/MAGICBLAST/$lane.$target.sam.gz -no_unaligned -reftype genome -max_intron_length $intronMaxLength -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
-         echo -n "$target\tEnd\t"
-	 date
-         ls -ls tmp/MAGICBLAST/$lane.$target.sam.gz
- endif
 
-# ATTENTION, we assume that the run is stranded plus
-# because otherwise we of not know the strand of the intron
- if (-e tmp/MAGICBLAST/$lane.$target.sam.gz && ! -e  tmp/MAGICBLAST/$lane.$target.introns.gz) then 
-    # zcat tmp/MAGICBLAST/$lane.$target.sam.gz | gawk -F '\t' -f scripts/sam2introns.awk | gzip > tmp/MAGICBLAST/$lane.$target.introns.gz
- endif
+# -outfmt tabular
+  if (-e  tmp/MAGICBLAST/$lane.$target.mbhits.gz) continue
+   set gt="-reftype transcriptome -splice F -limit_lookup F "
+   foreach target2 ($DNAtargets)
+     if ($target == $target2) then
+       set gt="-reftype genome -splice T -max_intron_length $intronMaxLength"
+     endif
+   end
+
+  echo "./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular  -no_unaligned $gt -num_threads 1"
+       echo -n "$target\tStart\t"
+       date
+       echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
+       (./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular -no_unaligned $gt -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
+       cat tmp/MAGICBLAST/$lane.$target.mbhits | sed -e 's/$/\t'$target_class'\t'$bonus'/' | gzip > tmp/MAGICBLAST/$lane.$target.mbhits.gz
+       \rm tmp/MAGICBLAST/$lane.$target.mbhits
+       echo -n "$target\tEnd\t"
+       date
+       ls -ls tmp/MAGICBLAST/$lane.$target.mbhits.gz       
 end
-
-touch  tmp/MAGICBLAST/$lane.done
-
-## a kind of bestali
-foreach target ($DNAtargets $RNAtargets) 
-  if (-e  tmp/MAGICBLAST/$lane.$target.hits.gz && ! -e tmp/MAGICBLAST/$lane.$target.sorted_hits.gz) then 
-    if (! -e  tmp/MAGICBLAST/caption) then
-      gunzip -c  tmp/MAGICBLAST/$lane.$target.hits.gz  | head -3 | tail -1 >  tmp/MAGICBLAST/caption
-    endif
-    gunzip -c  tmp/MAGICBLAST/$lane.$target.hits.gz  | gawk -F '\t' '/^#/{next;}{printf("%s\t%09d\t%s\t", $1,$25,target); print;}' | sort | gzip >  tmp/MAGICBLAST/$lane.$target.sorted_hits.gz
-  endif
-end
-
-zcat  tmp/MAGICBLAST/$lane.*.sorted_hits.gz | sort | gawk -F '\t' '{if($1 == p && $2 < s)next ; p = $1;  s = $2; print}' | gzip >  tmp/MAGICBLAST/$lane.bestali.gz
-
 
 echo  "a3: jobstats "
-scripts/jobstats.tcsh $run $lane 1
-touch tmp/COUNT/$lane.align.done
+scripts/jobstats.tcsh $run $lane 1 1
+
+gunzip -c tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -expression -pair -gzo -o tmp/MAGICBLAST/$lane -geneinfo tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
+touch tmp/MAGICBLAST/$lane.align.done
 echo -n "done "
 date
 
-  if (-e tmp/COUNT/$MAGIC.job_statistics.txt) \rm tmp/COUNT/$MAGIC.job_statistics.txt
+  if (-e tmp/MAGICBLAST/$MAGIC.job_statistics.txt) \rm tmp/MAGICBLAST/$MAGIC.job_statistics.txt
   if (-d tmp/GENERUNS/$run) \rm -rf  tmp/GENERUNS/$run
   if (-d tmp/GENELANES/$run) \rm tmp/GENELANES/$lane.*
-  if (-e tmp/COUNT/$run/c2.alistats.ace) \rm tmp/COUNT/$run/c2.alistats.ace
+  if (-e tmp/MAGICBLAST/$run/c2.alistats.ace) \rm tmp/MAGICBLAST/$run/c2.alistats.ace
+
 exit 0
 
+
+
+foreach lane (`cat MetaDB/TestM/LaneList `)
+   scripts/submit toto55 "bin/postMagicBlast -run $lane -pair -clipali -i tmp/COUNT/$lane.hits.gz -o tmp/COUNT/$lane -expression"
+end
+qusage 1
+cat tmp/COUNT/RNA_AGLR1_A_1.*/f2.*.stats.tsf | bin/tsf -g RNA_AGLR1_A_1 --sumAll -o tmp/COUNT/RNA_AGLR1_A_1.stats
+
+
+foreach lane (`cat MetaDB/TestM/LaneList `)
+  scripts/submit toto55 tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression
+end

@@ -135,7 +135,7 @@ if ("$1" == init) then
   endif
 
   if ($2 == DNA || $2 == RNA) then
-    echo "#\!bin/tcsh -f " >! ./LIMIT
+    # echo "#\!bin/tcsh -f " >! ./LIMIT
     echo >> ./LIMITS
     echo "##############################################################" >> ./LIMITS
     echo -n "## MAGIC Project created ">>  ./LIMITS
@@ -355,7 +355,6 @@ date
 echo "=== Project $MAGIC"
 
 setenv Strategy ZERO
-if (! $?MAGIC_COUNT_DIR) setenv MAGIC_COUNT_DIR COUNT
 
 source scripts/LIMITS   # this will define basic default parameters
 source TARGET/LIMITS    # this will override the default in a species dependant way
@@ -365,6 +364,9 @@ if (-e ./LIMITS) then
   echo "..... User specified parameters were read in  ./LIMITS"
   source ./LIMITS   # this will override the defaults in a user-project specific way
 endif
+
+if (! $?MAGIC_COUNT_DIR) setenv MAGIC_COUNT_DIR COUNT
+if ($USEMAGICBLAST == 1)  setenv MAGIC_COUNT_DIR MAGICBLAST
 
 setenv Strategy ZERO
 if ($MOLECULE_TYPE == RNA) then
@@ -1025,8 +1027,7 @@ if ($phase == a0Bua) goto phasea0Bua
 if ($phase == a0Bur) goto phasea0Bur
 if ($phase == a0S) goto phasea0S
 if ($phase == a123) goto phasea123
-if ($phase == a123M) goto phasea123M
-# if ($phase == a123MH) goto phasea123MH
+
 if ($phase == ali_clean_up) goto phaseali_clean_up
 
 # NTM 25/03/2013: phasea4 is obsolete, goto stays as a place holder
@@ -1356,7 +1357,7 @@ echo '    a1: Align on mito, SpikeIn, rrna, rnaGene tRNA (as enumerated in LIMIT
 echo '    a2: Align on the transcriptomes (as enumerated in LIMITS.$species) with clipalign'
 echo '    a3: Count the best alignments of tmp/COUNT/*/*.hits.gz into *.count'
 echo '    a123: Do a1, a2, a3 at once'
-echo '    a123M: Do a1, a2, a3 using magicblast'
+echo '          set USEMAGICBLAST 1 in ./LIMITS to  do a123 using magicblast'
 # echo '    a123MH: Do a1, a2, a3 using matchhits'
 echo '    ali_clean_up: remove all alignment files if an error is reported in tmp/COUNT/$lane.a123.err'
 echo '    a5: evaluate the bar code statistics'
@@ -3106,31 +3107,21 @@ goto phaseLoop
 ## speyrubo  is the archetypal mito pseudogene present in the genome
 
 phasea123:
-  set useMagicBlast=0
-  if ($?USE_MAGIC_BLAST) then
-    set useMagicBlast=$USE_MAGIC_BLAST
+
+if ($USEMAGICBLAST == 1) then
+  if (! -x bin/magicblast) then
+    pushd bin
+    ln -s `which magicblast`
+    popd
   endif
-  goto phasea123X
-phasea123M:
-  set useMagicBlast=1
-  goto phasea123X
-phasea123MH:
-  set useMagicBlast=2
-  goto phasea123X
-phasea123X:
-
-if (! -x bin/magicblast) then
-  pushd bin
-  ln -s `which magicblast`
-  popd
-endif
-if (! -x bin/magicblast) then
-  echo "missing program bin/magicblast"
-  exit 1
+  if (! -x bin/magicblast) then
+    echo "missing program bin/magicblast"
+    exit 1
+  endif
 endif
 
-if ($useMagicBlast == 1) scripts/a123M.magicblast.tcsh makeDB
-if ($useMagicBlast == 2) scripts/a123MH.matchhits.tcsh makeDB
+if ($USEMAGICBLAST == 1) scripts/a123M.magicblast.tcsh makeDB
+# if ($USEMAGICBLAST == 2) scripts/a123MH.matchhits.tcsh makeDB
 
 if (! -d tmp/$MAGIC_COUNT_DIR) mkdir tmp/$MAGIC_COUNT_DIR
 if (! -d tmp/Unaligned) mkdir tmp/Unaligned
@@ -3155,15 +3146,13 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   endif
   set ok=1
   foreach lane (`cat Fastc/$run/LaneList`)
-    if ($useMagicBlast == 1) then
-        if (! -d tmp/MAGICBLAST) mkdir tmp/MAGICBLAST
-        if (! -d tmp/MAGICBLAST/$run) $mkDir MAGICBLAST $run
+    if ($USEMAGICBLAST == 1) then
         if (! -e  tmp/MAGICBLAST/$lane.done) then
           scripts/submit tmp/MAGICBLAST/$lane.a123 "scripts/a123M.magicblast.tcsh ALIGN $run $lane" 32G
         endif
       continue 
     endif
-     if ($useMagicBlast == 2) then
+    if ($USEMAGICBLAST == 2) then
         if (! -d tmp/MATCHHITS) mkdir tmp/MATCHHITS
         if (! -d tmp/MATCHHITS/$run) $mkDir MATCHHITS $run
         if (! -e tmp/MATCHHITS/$lane.done) then
@@ -3183,7 +3172,7 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
       if (-e tmp/COUNT/$run/c2.alistats.ace) \rm  tmp/COUNT/$run/c2.*
       if (-e RESULTS/Mapping/$MAGIC.job_statistics.txt) \rm RESULTS/Mapping/$MAGIC.job_statistics.txt
       if ( -e tmp/PLEASE_UPDATE) touch  tmp/$MAGIC_COUNT_DIR/$lane.update.done
-      scripts/submit tmp/COUNT/$lane.a123 "scripts/alignAndSelectBest.tcsh $run $lane $minInsertLength $useMagicBlast"    32G
+      scripts/submit tmp/COUNT/$lane.a123 "scripts/alignAndSelectBest.tcsh $run $lane $minInsertLength $USEMAGICBLAST"    32G
       set ok=0
     endif
   end
@@ -7096,10 +7085,36 @@ goto phaseLoop
 
 
 phasec1:
-echo -n 'phase c1: Create a report per lane with the CPU and alignment stats' 
+echo -n 'phase c1: Create a report per lane with the CPU and alignment stats :' 
 date
 
 if (! -d RESULTS/Mapping) mkdir RESULTS/Mapping
+
+if ($USEMAGICBLAST == 1) then
+  set toto=tmp/MAGICBLAST/cpu_stats.ace
+  echo > $toto
+  foreach run (`cat MetaDB/$MAGIC/RunList`)
+    echo "Ali $run\n-D CPU" >> $toto
+    cat tmp/MAGICBLAST/$run/*.jobstats.preace | gawk -F '\t' '/^CPU/{cpu[$4]+=$5;}END{for(c in cpu)printf("CPU %s %d seconds\n",c,cpu[c]);}' | sort -k 2  >> $toto
+
+    cat Fastc/$run/LaneList | gawk /^$run/'{n++;}END{printf("Number_of_lanes %d\n",n);}' >> $toto
+
+
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep _ALI | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s\t%s",aa[1],aa[2]);if(n==2)printf(" %d seq %d tags %d kb_ali\n",$4,$5,$6);}'  >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep Stranding | bin/tsf -g $run -t $run --sumAll | sort | gawk -F '\t' '/^#/{next}{p=$4;n=$5;a=$6;split($1,aa,"__");printf("%s  %s %.2f  %d plus %d minus %d ambiguous\n",aa[1],aa[2],100.0*p/(n+p),p,n,a);}' | sort -k 1,1 -k 2,2n   >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep -v _ALI | grep -v Stranding | grep -v N_intron | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s",aa[1]);if(n==2)printf(" %s ",aa[2]);for(i=4;i<=NF;i++)printf(" %s ",$i);printf("\n");}' | sort -k 1,1 -k 2,2n   >> $toto
+    echo >> $toto
+  end
+
+
+  cat $toto | sed -e 's/^Compatible_pairs_inside_genes/Compatible_pairs_inside_gene/' -e 's/Count_missmatch/Count_mismatch/' | grep -v N_intron > $toto.2
+  echo "pparse $toto.2" | tace MetaDB -no_prompt
+
+
+  goto phaseLoop
+endif
+
+
 
 if (-e tmp/$MAGIC_COUNT_DIR/$MAGIC.job_statistics.txt) goto phaseLoop
 
@@ -7169,7 +7184,7 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   if (! -d tmp/$MAGIC_COUNT_DIR/$run) continue
   foreach lane (`cat Fastc/$run/LaneList`)
     if (! -e tmp/$MAGIC_COUNT_DIR/$lane.jobstats) then
-      scripts/jobstats.tcsh $run $lane 0
+      scripts/jobstats.tcsh $run $lane 0 0
     endif
     set nx=`cat tmp/$MAGIC_COUNT_DIR/$lane.a123.err | gawk '/Exit Status/{n=$4;}END{print n;}'`
 #echo "$lane ALIGN exit-status=$nx"
@@ -7221,6 +7236,29 @@ date
 foreach run (`cat MetaDB/$MAGIC/RunList`) 
   set ok=1
   foreach lane (`cat Fastc/$run/LaneList`)
+    if ($USEMAGICBLAST == 0 && ! -e  tmp/$MAGIC_COUNT_DIR/$lane.count) then
+      set ok=0
+      echo "Missing tmp/$MAGIC_COUNT_DIR/$lane.count, please rerun MAGIC ALIGN, only the missing lanes will be recomputed"
+    endif
+    if ($USEMAGICBLAST == 1 && ! -e  tmp/MAGICBLAST/$lane.stats.tsf.gz) then
+      set ok=0
+      echo "Missing tmp/MAGICBLAST/$lane.stats.tsf, please rerun MAGIC ALIGN, only the missing lanes will be recomputed"
+    endif
+  end
+  if ($ok == 1 && ! -e tmp/$MAGIC_COUNT_DIR/$run/c2.alistats.ace) then
+      scripts/submit tmp/$MAGIC_COUNT_DIR/$run/c2.alistats "scripts/c2.alistats.tcsh $run" 1G
+  endif
+end
+
+goto phaseLoop
+
+phasec2:
+echo -n 'phase c2: Create an ace file per run with the alignment stats and parse it into MetaDB ' 
+date
+
+foreach run (`cat MetaDB/$MAGIC/RunList`) 
+  set ok=1
+  foreach lane (`cat Fastc/$run/LaneList`)
     if (! -e  tmp/$MAGIC_COUNT_DIR/$lane.count) then
       set ok=0
       echo "Missing tmp/$MAGIC_COUNT_DIR/$lane.count please rerun MAGIC ALIGN, only the missing lanes will be recomputed"
@@ -7257,9 +7295,6 @@ end
 
   if (! -d tmp/Profiles) mkdir  tmp/Profiles
   foreach run (`cat MetaDB/$MAGIC/RunList`)  
-    if (! -d tmp/COUNT/$run) continue
-    cat tmp/$MAGIC_COUNT_DIR/$run/*.Venn | gawk '{n[$2 "\t" $3]+= $1;}END{for (k in n) printf("%d\t%s\n",n[k],k);}' | scripts/tab_sort -k 2,2  -k 1,1nr >  tmp/$MAGIC_COUNT_DIR/$run/Venn.$run.txt
-
     if (! -d tmp/Profiles/$run) $mkDir  Profiles $run
     if (-e tmp/$MAGIC_COUNT_DIR/$run/c2.alistats.ace) cat tmp/$MAGIC_COUNT_DIR/$run/c2.alistats.ace >>  tmp/$MAGIC_COUNT_DIR/alistats.ace
 
@@ -7278,6 +7313,9 @@ end
       cat tmp/Profiles/$run/readsBeforeAlignment.ace | gawk  '/^Letter_profile/{for(i=10;i<=14;i++){n[i]+=$i;}}END{for(i=10;i<=14;i++){nn+=n[i];}printf("\nAli %s\n-D ATGC_kb\nATGC_kb",run); if(nn<1)nn=1;	 for(i=10;i<=14;i++) printf("\t%d",int(1000.0 * n[i]/nn)) ; for(i=10;i<=14;i++) printf("\t%d", n[i]/1000);printf("\n\n") ;}' run=$run >> tmp/$MAGIC_COUNT_DIR/alistats.ace
       touch  tmp/Profiles/$run/readsBeforeAlignment.parsed
     endif
+
+    if (! -d tmp/COUNT/$run) continue
+    cat tmp/$MAGIC_COUNT_DIR/$run/*.Venn | gawk '{n[$2 "\t" $3]+= $1;}END{for (k in n) printf("%d\t%s\n",n[k],k);}' | scripts/tab_sort -k 2,2  -k 1,1nr >  tmp/$MAGIC_COUNT_DIR/$run/Venn.$run.txt
 
   end
 
@@ -10447,7 +10485,7 @@ if (! -d RESULTS/Introns_exons_polyA) mkdir RESULTS/Introns_exons_polyA
 if (1 || $Strategy == RNA_seq) then
   if (! -d tmp/OR) mkdir tmp/OR
   foreach run (`cat MetaDB/$MAGIC/RunList`) 
-    if ((-d tmp/PHITS_genome/$run || -d tmp/PHITS_SpikeIn/$run)  && ! -e tmp/OR/$run/d1.de_uno.done) then
+    if ((-d tmp/PHITS_genome/$run || -d tmp/MAGICBLAST/$run || -d tmp/PHITS_SpikeIn/$run)  && ! -e tmp/OR/$run/d1.de_uno.done) then
       if (! -d  tmp/OR/$run) $mkDir OR $run
       scripts/submit tmp/OR/$run/d1.de_uno  "scripts/d1.de_uno.tcsh $run"
     endif
@@ -10531,7 +10569,7 @@ goto phaseLoop
 
 # ATTENTION scripts/GeneFusion.tcsh draft  has lots of stuff on geneLinks developped at the time of the NB project
 
-phaset2: 
+phasetgf2: 
 if ($Strategy != RNA_seq) goto phaseLoop
 foreach level (1 2 3 4 5 6 7 8 9)
   foreach target (av)
@@ -10547,7 +10585,7 @@ foreach level (1 2 3 4 5 6 7 8 9)
       endif
     end
   end
-  echo "t2 $level done"
+  echo "tgf2 $level done"
   scripts/submit wait
 end
 

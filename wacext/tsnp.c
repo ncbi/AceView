@@ -2984,11 +2984,13 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    char buf[da+1] ;
 		    int slide = 0 ;
 		    int am1 = fromMrna ? m1 : a1 ;
+		    int am2 = fromMrna ? m2 : a2 ;
 		    isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, (*ins) + 3, buf) ;
 		    if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		    else { a1 -= dx ; a2 -= dx ;}
 		    if (fromMrna) { m1 += dx ; m2 += dx ; }
 		    am1 = fromMrna ? m1 : a1 ;
+		    am2 = fromMrna ? m2 : a2 ;
 		    ok = TRUE ;
 		    ok = TRUE ;
 		    fs = 1 ;
@@ -3047,7 +3049,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	      tbl = ac_tag_table (Snp, "Multi_insertion", h) ;
 	      if (tbl)
 		{
-		  int am1, da = ac_table_int (tbl, 0, 0, 0) ;
+		  int am1, am2, da = ac_table_int (tbl, 0, 0, 0) ;
 		  const char *ccp = ac_table_printable (tbl, 0, 1, 0) ; 
 		  if (0 && ! ccp) {
 		    ccp = ac_name (Snp) ;
@@ -3066,6 +3068,8 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      char buf[da+1], bufN[15] ;
 		      int slide = 0 ;
 		      am1 = fromMrna ? m1 : a1 ;
+		      am2 = fromMrna ? m2 : a2 ;
+
 		      if (ccp && da == strlen (ccp))
 			isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, ccp, buf) ;
 		      else
@@ -3082,7 +3086,8 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      if (fromMrna) { m1 += dx ; m2 += dx ; }
 		      fs = da ;
 		      am1 = fromMrna ? m1 : a1 ;
-		      
+		      am2 = fromMrna ? m2 : a2 ;
+
 		    if (a1 < a2)
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases are inserted on plus strand between base %d and %d\"\n", name (seq), da,a1, a2, a1, a2) ;
 		    else

@@ -181,7 +181,7 @@ static int reportExactReads (JP *jp, int w, int oldW, int *oldiip)
 
 /***************************************************************/
 /* calls to  reportExactReads must preferably be done in ever increasing values of w */
-static void reportHitsReport (JP *jp, SEQ *seq, long unsigned int z1)
+static void reportHitsReport (const JP *jp, SEQ *seq, long unsigned int z1)
 {
   DICT *targetDict = jp->targetDict ;
   DICT *readDict = jp->readDict ;
@@ -192,9 +192,6 @@ static void reportHitsReport (JP *jp, SEQ *seq, long unsigned int z1)
   SEQ *chrom ;
   ACEOUT ao = jp->aoHits ;
  
-  if (! ao)
-    ao = jp->aoHits = aceOutCreate (jp->outFileName, ".hits", jp->gzo, jp->h) ;
-
   if (z1/1024 < d2cMax)
     { 
       chromIndex = chromIndexp[z1/1024] ;
@@ -1622,7 +1619,7 @@ static void jumpAlignDo (const PP *pp)
 /* split the function so the thread does not get killed */ 
 static void jumpAlignFilter (const void *vp)
 {
-  PP *pp = vp ;
+  PP *pp = (PP *)vp ;
   ZONE zone ;
 
   memset (&zone, 0, sizeof(zone)) ;
@@ -2198,6 +2195,9 @@ int main (int argc, const char **argv)
       )
     {
       int nReads = 0, nHits = 0 ;
+
+      jp.aoHits = aceOutCreate (jp.outFileName, ".hits", jp.gzo, jp.h) ;
+
       nFound = jumpAlign (&jp) ;  /* construct the jump extensions from wMax0 up to wMax */
       if (jp.reads)
 	nFound += reportHits (&jp, &nReads, &nHits) ;

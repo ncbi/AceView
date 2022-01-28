@@ -3,13 +3,21 @@
 set run=$1
 set lane=$2
 set inside=$3
+set MAGICBLAST=$4
 
 # sync targets2 between MAGIC and jobstats.tcsh
 
 setenv targets2 "any genome seqc av RefSeq UCSC mito rnaGene rrna SpikeIn DNASpikeIn gdecoy EBI smallRNA"
 setenv targets2 "any $RNAtargets $DNAtargets"
 
-set toto=tmp/COUNT/$lane.jobstats
+if ($MAGICBLAST == 0) then
+  set CMB=COUNT
+else
+  set CMB=MAGICBLAST
+endif
+
+set toto=tmp/$CMB/$lane.jobstats
+
 if (-e $toto) \rm $toto
 if (-e $toto.preace) \rm $toto.preace
 
@@ -28,14 +36,14 @@ if (-e $toto.preace) \rm $toto.preace
 
         end
 
-          set ff=tmp/COUNT/$lane.err
+          set ff=tmp/$CMB/$lane.err
           if (-e $ff) then
              gawk 'BEGIN{z=-1}/^Command exited with non-zero status/{z=$6 ;}/^user/{if(z==-1)z=0;}/Status/{n++;z=$4;}END{printf("\t%d",z);}' $ff >> $toto
           else
             printf "\t-1" >> $toto
           endif
 
-          set ff=tmp/COUNT/$lane.a123.err
+          set ff=tmp/$CMB/$lane.a123.err
           if (-e  $ff) then      
              gawk 'BEGIN{z=-1}/^Command exited with non-zero status/{z=$6 ;}/^user/{if(z==-1)z=0;}/Status/{n++;z=$4;}END{printf("\t%d",z);}' $ff >> $toto
           else
@@ -52,20 +60,20 @@ if (-e $toto.preace) \rm $toto.preace
         foreach target ($targets2)
           if ($target == any) continue
 
-          set ff1=tmp/MAGICBLAST/$lane.times
-          set ff2=tmp/PHITS_$target/$lane.err
+          set ff1=tmp/PHITS_$target/$lane.err
+          set ff2=tmp/MAGICBLAST/$lane.err
           set cpu=-10
           if (-e $ff1) then
-            set cpu=`cat $ff1 | gawk '{if($1 == target){ok=1;}}/user/{if(ok+0<1)next;ok=0;sp;split($1,aa,"user");split($2,bb,"system");s=aa[1]+bb[1]+0;n=1;}END{if(n==0)s=-10;printf("%d",s);}' target=$target`
+            set cpu=`cat $ff1 | gawk '/^TARGET/{ok=0;if($2 == target)ok=1;}/user/{if(ok+0<1)next;ok=0;split($1,aa,"user");split($2,bb,"system");s=aa[1]+bb[1]+0;n=1;}END{if(n==0)s=-10;printf("%d",s);}' target=$target`
           else if (-e $ff2) then
-            set cpu=`cat $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}'`
+            set cpu=`cat $ff2 | gawk '{if($1 != target)next;split($2,aa,"user");split($3,bb,"system");s=aa[1]+bb[1]+0;n=1;}END{if(n==0)s=-10;printf("%d",s);}' target=$target`
           endif
 	  printf "\t$cpu" >> $toto
           if ($cpu != -10) @ total = $total + $cpu
           if ($cpu != -10) printf "CPU\t$run\t$lane\t$target\t$cpu\n" >> $toto.preace
 
         end
-        set ff=tmp/COUNT/$lane.err
+        set ff=tmp/$CMB/$lane.err
         if (-e $ff) then
             set cpu=`cat  $ff | gawk '/^user/{n++;s+=$2;}/^sys/{n++;s+=$2;}END{if(n==0)s=-10;printf("%d",s);}'`
             printf "\t$cpu" >> $toto
@@ -85,7 +93,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t$lane" >> $toto
         foreach target ($targets2)
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%s",$4);}}}END{if(n==0)printf("\t0");}' target=$target $ff >> $toto
           else
@@ -96,7 +104,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t\t$lane" >> $toto
         foreach target ($targets2)
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if(sk==0)sk=1;if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%.2f",100*$4/sk);}}}END{if(n==0)printf("\t0");}' sk=$sk target=$target $ff >> $toto
           else
@@ -113,7 +121,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t\t$lane" >> $toto
         foreach target ($targets2 )
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%s",$8);}}}END{if(n==0)printf("\t0");}' target=$target $ff >> $toto
           else
@@ -124,7 +132,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t\t$lane" >> $toto
         foreach target ($targets2 )
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if(tk==0)tk=1;if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%.2f",100*$8/tk);}}}END{if(n==0)printf("\t0");}' tk=$tk target=$target $ff >> $toto
           else
@@ -141,7 +149,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t\t$lane" >> $toto
         foreach target ($targets2 )
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%s",$9);}}}END{if(n==0)printf("\t0");}' target=$target $ff >> $toto
           else
@@ -152,7 +160,7 @@ if (-e $toto.preace) \rm $toto.preace
         printf "\t\t$lane" >> $toto
         foreach target ($targets2 )
 
-          set ff=tmp/COUNT/$lane.count
+          set ff=tmp/$CMB/$lane.count
           if (-e $ff) then
             gawk '/HITS/{if($3=="any"){if(tk==0)tk=1;if (index($2,target)>0 && index($2,target)<5){n=1;printf("\t%.2f",100*$9/tk);}}}END{if(n==0)printf("\t0");}' tk=$tk target=$target $ff >> $toto
           else
@@ -166,8 +174,14 @@ if (-e $toto.preace) \rm $toto.preace
           if ($target == any) continue
 
           set ff=tmp/PHITS_$target/$lane.err
+          
           if (-e $ff) then
-            set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
+            if ($MAGICBLAST == 1)  then
+              set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
+            else
+               set ff=tmp/$CMB/$lane.err
+               set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
+            endif
             printf "\t$mem" >> $toto
             printf "Memory\t$run\t$lane\t$target\t$mem\n" >> $toto.preace
           else
@@ -175,7 +189,7 @@ if (-e $toto.preace) \rm $toto.preace
           endif
 
         end
-          set ff=tmp/COUNT/$lane.err
+          set ff=tmp/$CMB/$lane.err
           if (-e $ff) then
             set mem=`gawk -F '\n' '/max memory/{i = index($1,"max memory");s=substr($1,i+11);split(s,aa," ");mem=aa[1];}END{printf("\t%d",mem);}' $ff`
             printf "\t$mem" >> $toto

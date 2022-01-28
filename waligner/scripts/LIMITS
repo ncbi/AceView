@@ -64,6 +64,14 @@ setenv projectDir tmp
 ## the parameters you wish to change in the LIMITS file in the 
 ## project directory
 ##############################################################
+## Two distinct aligners are available clipalign and magicblast
+## In your project directory , at the end of the file LIMITS
+##  set USEMAGICBLAST to zero or one accordingly before aligning
+##  do not change it later
+## The default behaviour defined here selects clipalign
+setenv USEMAGICBLAST 0
+
+##############################################################
 ## Thresholds used in the alignments
 
 # Minimal alignment length considered by the system 
