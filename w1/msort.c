@@ -151,9 +151,9 @@ void mSort (void *b, mysize_t n, int s, int (*cmp)(const void *va, const void *v
   mysize_t size = n * s ;
   int s_of_i = sizeof (int) ;
   int s_of_v = sizeof (void*) ;
-  /*   char  sBuf [4*1024] ; */
+  char  sBuf [4*1024] ; 
   char *mBuf = 0, *buf ;
-  char bufBig [size] ;  /* 2022_01_28, always alloc big on the stack */
+  /* char bufBig [size] ;   2022_01_28, always alloc big on the stack */
 
   if (n < 2)
     return ;
@@ -162,13 +162,14 @@ void mSort (void *b, mysize_t n, int s, int (*cmp)(const void *va, const void *v
   /* optimize ? may be we should use malloc rather than messalloc
    * which initializes to zero
    * also we should have a size_of_void* dedicated code
-  
+   */
+
   if (size < 4*1024)
     buf = sBuf ;
   else
     buf = mBuf = (char *) messalloc (size) ;
-  */
-  buf = bufBig ;
+  
+    /* buf = bufBig ; */
 
   if (s == s_of_i &&   /* aligned integers.  Use direct int pointers.  */
       (((char *)b - (char *) 0) % s_of_i) == 0)

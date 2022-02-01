@@ -753,18 +753,22 @@ static long int tsfMerge (TSF *tsf)
       if ( !hit->tag)
 	continue ;
 
-      for (jj = ii + 1, hit2 = hit+1 ; jj < iMax && hit2->tag == hit->tag && hit2->sample == hit->sample ; jj++, hit2++)
+      for (jj = ii + 1, hit2 = hit+1 ; jj < iMax && (! hit2->tag || hit2->tag == hit->tag) && hit2->sample == hit->sample ; jj++, hit2++)
 	{
 	  int n, n1, n2, i ;
 	  
+	  if ( !hit2->tag)
+	    continue ;
 	  n1 = hit->n ;
-	  n2 = hit->n ;
+	  n2 = hit2->n ;
 	  n = n1 < n2 ? n1 : n2 ;
+	  if (n1 != n2)
+	    continue ;
 	  if (strncmp (hit->types, hit2->types, n))
-	    break ;
+	    continue ;
 	  for (i = 0 ; i < n ; i++)
 	    if ( (i > all || hit->types[i] != 'i')  && 
-		hit->x[i] && hit2->x[i] && hit->x[i] != hit2->x[i])
+	        hit->x[i] != hit2->x[i])
 	      break ;
 	  if (i < n)
 	    continue ;

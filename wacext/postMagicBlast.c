@@ -44,7 +44,7 @@ typedef struct pmbStruct {
   
   const char *run, *targetClassName ; 
   
-  const char *inFileName ; 
+  const char *inFileList ; 
   const char *outFileName ; 
 
   const char *geneInfoFileName ;
@@ -71,6 +71,8 @@ typedef struct pmbStruct {
   int compatiblePairs ;
   int compatiblePairsInsideGene ;
   int compatiblePairsInGenome ;
+
+  int r1Up, r1Down, r2Up, r2Down ;
 } PMB ;
 
 typedef struct aliStruct {
@@ -85,7 +87,7 @@ typedef struct aliStruct {
     , dna ; 
   BOOL isRead1 ;
 } ALI ;
-typedef struct intronStruct { int target, a1, a2, type, nr1, nr2 ; } ITR ;
+typedef struct intronStruct { int target, a1, a2, nr1, nr2 ; char feet[8] ;  } ITR ;
 typedef struct countStruct {
   int tc, gene, mrna, seqs, tags, ali ;
 } CNT ;
@@ -197,7 +199,7 @@ static void pmbPairScore (PMB *pmb)
 
 static void pmbSelect (PMB *pmb)
 {
-  int i, j = 0, k, iMax = bigArrayMax (pmb->alis) ;
+  long int ii, jj, kk, iiMax = bigArrayMax (pmb->alis) ;
   ALI *up, *vp, *wp ;
   int clone  ;
   int genome ;
@@ -207,22 +209,28 @@ static void pmbSelect (PMB *pmb)
   int mrnaMax = mrnaInfo ? arrayMax (mrnaInfo) : 0 ;
 
 
+  fprintf (stderr ,"pmbSelect before sort %ld %ld\n", iiMax, iiMax * pmb->alis->size) ;
   bigArraySort (pmb->alis, bestAliOrder) ;
+  fprintf (stderr ,"pmbSelect after sort %ld\n", iiMax) ;
   dictAdd (target_classDict, "Z_genome", &genome) ;
-  if (iMax)
+
+  fprintf (stderr ,"pmbSelect old iMax = %ld\n", iiMax) ;
+  if (iiMax)
     {
-      for (i = j = 0, up = vp = bigArrp (pmb->alis, i, ALI) ; i < iMax ; i++, up++) 
+      for (ii = jj = 0, up = vp = bigArrp (pmb->alis, ii, ALI) ; ii < iiMax ; ii++, up++) 
 	{
 	  if (!up->score || (up->clone == vp->clone && up->isRead1 == vp->isRead1 && up->pairScore < vp->pairScore))
 	    continue ;
-	  vp++ ; j++ ;
 	  if (up > vp) *vp = *up ;
+	  vp++ ; jj++ ;
 	}
-      iMax = bigArrayMax (pmb->alis) = j ;
+      iiMax = bigArrayMax (pmb->alis) = jj ;
     }
 
-  if (iMax)
-    for (clone = 0, i =  0, up = bigArrp (pmb->alis, i, ALI) ; i < iMax ; i++, up++) 
+
+  fprintf (stderr ,"pmbSelect new iMax = %ld\n", iiMax) ;
+  if (iiMax)
+    for (clone = 0, ii =  0, up = bigArrp (pmb->alis, ii, ALI) ; ii < iiMax ; ii++, up++) 
       {
 	BOOL cpa = FALSE ;
 	BOOL cpaGenome = FALSE ;
@@ -238,8 +246,8 @@ static void pmbSelect (PMB *pmb)
 	  continue ;
 	clone = up->clone ;
 	
-	for (vp = up, j = i ; j < iMax && vp->clone == clone && vp->isRead1 ; j++, vp++)
-	  for (wp = vp + 1, k = j + 1 ; k < iMax &&  wp->clone == clone ; k++, wp++)
+	for (vp = up, jj = ii ; jj < iiMax && vp->clone == clone && vp->isRead1 ; jj++, vp++)
+	  for (wp = vp + 1, kk = jj + 1 ; kk < iiMax &&  wp->clone == clone ; kk++, wp++)
 	    if (! wp->isRead1)
 	      {
 		if (vp->target == wp->target 
@@ -252,7 +260,7 @@ static void pmbSelect (PMB *pmb)
 		  {
 		    cpa = TRUE ;
 		    if (wp->target_class == genome) cpaGenome = TRUE ;
-		    if (dictName (target_classDict, wp->target_class)[1] == 'T') cpaGene = TRUE ;
+		    if (wp->target_class && wp->target_class <= dictMax (target_classDict) && dictName (target_classDict, wp->target_class)[1] == 'T') cpaGene = TRUE ;
 		  }
 	      }
 	
@@ -277,9 +285,11 @@ static void pmbCount (PMB *pmb)
   ALI *ap0, *ap ;
   GINFO *mp ;
 
-  if (pmb->expression && iMax)
+  if ((pmb->expression || pmb->introns) && iMax)
     {
         bigArraySort (alis, countOrder) ;
+	fprintf (stderr, "// parseCount sort0 done: %s\n", timeShowNow()) ;
+	
 	for (ii = 0, ap0 = bigArrayp (alis, 0, ALI) ; ii < iMax ; ii++, ap0++)
 	  {
 	    int clone = ap0->clone, geneOld = 0, mrnaOld = 0 ;
@@ -290,7 +300,7 @@ static void pmbCount (PMB *pmb)
 		if (! pmb->clipali && ap->cigar)
 		  ap->nErr = pmbTabularSmoke (pmb, ap) ;
 		if (ap->score == ap->pairScore || ap->isRead1)
-		  if (ap->score > 0 && mrna && mrna != mrnaOld && (pmb->clipali || mrna <arrayMax (mrnaInfo)))
+		  if (pmb->expression && ap->score > 0 && mrna && mrna != mrnaOld && (pmb->clipali || mrna <arrayMax (mrnaInfo)))
 		    {
 		      int gene ;
 		      CNT *mcp = bigArrayp (mrnaCounts, mrna, CNT) ;
@@ -318,10 +328,25 @@ static void pmbCount (PMB *pmb)
 			}
 		    }
 	      }
-	    bigArraySort (alis, bestAliOrder) ;
 	  }
+	fprintf (stderr, "// parseCount sort1 done: %s\n", timeShowNow()) ;
+	bigArraySort (alis, bestAliOrder) ;
+	fprintf (stderr, "// parseCount sort2 done: %s\n", timeShowNow()) ;
     }
 } /* pmbCount */
+
+/*************************************************************************************/
+
+static char *flipFeet (const char *old, char *new)
+{
+  new[0] = ace_lower(complementLetter(old[4])) ;
+  new[1] = ace_lower(complementLetter(old[3])) ;
+  new[2] = '_' ;
+  new[3] = ace_lower(complementLetter(old[1])) ;
+  new[4] = ace_lower(complementLetter(old[0])) ;
+  new[5] = 0 ;
+  return new ;
+}
 
 /*************************************************************************************/
 
@@ -331,16 +356,41 @@ static void pmbIntronsExport (PMB *pmb)
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (pmb->outFileName, ".introns.tsf", pmb->gzo, h) ;
   ITR *ip ;
-  DICT *intronDict = pmb->intronDict ;
+  DICT *targetDict = pmb->targetDict ;
+  int isDown ;
+  char newFeet[6] ;
+
+  int nF = pmb->r1Down + pmb->r2Up ;
+  int nR = pmb->r2Down + pmb->r1Up ;
+  
+  if (100 * nF > 55 * (nF + nR + 100)) isDown = 1 ;
+  if (100 * nR > 55 * (nF + nR + 100)) isDown = -1 ;
 
   aceOutDate (ao, "###", "Introns reported by Magic-Blast") ;
   if (iMax)
     for (i = 1, ip = arrp (pmb->introns, 1, ITR) ; i <= iMax ; i++, ip++)
       {
-	aceOutf (ao, "%s\t%s\tii\t%d\t%d\n", dictName (intronDict, i), pmb->run,  ip->nr1, ip->nr2) ;
+	int a1 = ip->a1 ;
+	int a2 = ip->a2 ;
+	int n = ip->nr1 + ip->nr2 ;
+	if (n > 0)
+	  {
+	    if (isDown == 1) /* flip the read2 */
+	      {
+		aceOutf (ao, "%s__%d_%d\t%s\tiiit\t%d\t%d\t%d\t%s\n", dictName (targetDict, ip->target), a1, a2, pmb->run, ip->nr1, ip->nr1, 0, ip->feet) ;
+		aceOutf (ao, "%s__%d_%d\t%s\tiiit\t%d\t%d\t%d\t%s\n", dictName (targetDict, ip->target), a2, a1, pmb->run, ip->nr2, 0, ip->nr2, flipFeet(ip->feet, newFeet)) ;
+	      }
+	    else if (isDown == -1) /* flip the read1 */
+	      {
+		aceOutf (ao, "%s__%d_%d\t%s\tiiit\t%d\t%d\t%d\t%s\n", dictName (targetDict, ip->target), a1, a2, pmb->run, ip->nr2,  0, ip->nr2, ip->feet) ;
+		aceOutf (ao, "%s__%d_%d\t%s\tiiit\t%d\t%d\t%d\t%s\n", dictName (targetDict, ip->target), a2, a1, pmb->run, ip->nr1,  ip->nr1, 0, flipFeet(ip->feet, newFeet)) ;
+	      }
+	    else
+	      aceOutf (ao, "%s__%d_%d\t%s\tiiit\t%d\t%d\t%d\t%s\n", dictName (targetDict, ip->target), a1, a2, pmb->run,  n, ip->nr1, ip->nr2, ip->feet) ;
+	  }
       }
   ac_free (h) ;
-
+  fprintf (stderr, "Exported %d introns\n", iMax) ;
 } /* pmbIntronsExport */
 
 /*************************************************************************************/
@@ -348,7 +398,7 @@ static void pmbIntronsExport (PMB *pmb)
 static void pmbGeneExpressionExport (PMB *pmb)
 {
   BigArray aa = pmb->geneCounts ;
-  int i, iMax = bigArrayMax (aa) ;
+  int i, iMax = bigArrayMax (aa), nn = 0 ;
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (pmb->outFileName, ".genes.tsf", pmb->gzo, h) ;
   CNT *up ;
@@ -359,9 +409,13 @@ static void pmbGeneExpressionExport (PMB *pmb)
     for (i = 1, up = bigArrp (aa, 1, CNT) ; i < iMax ; i++, up++)
       {
 	if (up->tags && up->gene)
-	  aceOutf (ao, "%s\t%s\tiii\t%d\t%d\t%d\n", dictName (geneDict, up->gene), pmb->run,  up->seqs, up->tags, up->ali) ;
+	  {
+	    nn++ ;
+	    aceOutf (ao, "%s\t%s\tiii\t%d\t%d\t%d\n", dictName (geneDict, up->gene), pmb->run,  up->seqs, up->tags, up->ali) ;
+	  }
       }
   ac_free (h) ;
+  fprintf (stderr, "Exported %d genes\n", nn) ;
 } /* pmbGeneExpressionExport */
 
 /*************************************************************************************/
@@ -424,94 +478,95 @@ static void pmbClassCount (PMB *pmb)
 
   memset (uuu, 0, sizeof(uuu)) ;
 
-  for (ii = 0, up = bigArrp (pmb->alis, ii, ALI) ; ii < iMax ; ii++, up++) 
-    {
-      BOOL ok = FALSE ;
-      if (up->clone == clone && up->isRead1 == isRead1)
-	continue ;
-      clone = up->clone ;
-      isRead1 = up->isRead1 ;
-      if (isRead1)
-	array (firstBase1, up->x1, int) += up->mult ;
-      else
-	array (firstBase2, up->x1, int) += up->mult ;
-      if (isRead1)
-	array (lastBase1, up->x2, int) += up->mult ;
-      else
-	array (lastBase2, up->x2, int) += up->mult ;
+  if (iMax)
+    for (ii = 0, up = bigArrp (pmb->alis, ii, ALI) ; ii < iMax ; ii++, up++) 
       {
-	int k = up->ali ;
-	int k1 = k/20 ;
-	if (k1>0) {k = k/k1 ; k = k * k1 ; }
-	array (aliLn, k, int) += up->mult ;
+	BOOL ok = FALSE ;
+	if (up->clone == clone && up->isRead1 == isRead1)
+	  continue ;
+	clone = up->clone ;
+	isRead1 = up->isRead1 ;
+	if (isRead1)
+	  array (firstBase1, up->x1, int) += up->mult ;
+	else
+	  array (firstBase2, up->x1, int) += up->mult ;
+	if (isRead1)
+	  array (lastBase1, up->x2, int) += up->mult ;
+	else
+	array (lastBase2, up->x2, int) += up->mult ;
+	{
+	  int k = up->ali ;
+	  int k1 = k/20 ;
+	  if (k1>0) {k = k/k1 ; k = k * k1 ; }
+	  array (aliLn, k, int) += up->mult ;
+	}
+
+	if (up->x1 == 1 && up->x2 == up->ln && up->nErr == 0)
+	  {
+	    if (isRead1)
+	      perfect1 += up->mult ;
+	    else
+	      perfect2 += up->mult ;
+	  }
+	nintronSupport += up->mult * up->nintron ;
+	
+	if (isRead1)
+	  array (nerrs1, up->nErr, int) += up->mult ;
+	else
+	  array (nerrs2, up->nErr, int) += up->mult ;
+	
+	for (tc = 0 ; tc < cMax ; tc++)
+	  {
+	    ok = FALSE ;
+	    for (j = ii, vp = up ; j < iMax && vp->clone == clone && vp->isRead1 == isRead1 ; j++, vp++)
+	      {
+		if (vp->target_class == tc)
+		  {
+		    int k, s = 0 ;
+		    ALI *wp ;
+		    int u = vp->uu ;
+		    
+		    if (u > 10) u = 10 ;
+		    ns[tc]++ ; nr[tc] += vp->mult ; nali[tc] += vp->ali ;
+		    uuu[tc][u] += vp->mult ;
+		    for (k = j, wp = vp ; k < iMax && wp->clone == clone && wp->isRead1 == isRead1 ; k++, wp++)
+		      if (wp->target_class == tc)
+			{
+			  if (wp->a1 < wp->a2) s |= 0x1 ;
+			  else s |= 0x2 ;
+			}
+		    if (s > 0 && s < 3 && pmb->strand == -1)
+		      s = 3 - s ;   /* flip values 1 and 2 */
+		    if (vp->isRead1)
+		      switch (s)
+			{
+			case 1: nrp[tc] += vp->mult ; break ;
+			case 2: nrm[tc] += vp->mult ; break ;
+			case 3: nra[tc] += vp->mult ; break ;
+			}
+		    else
+		      switch (s)
+			{
+			case 2: nrp[tc] += vp->mult ; break ;
+			case 1: nrm[tc] += vp->mult ; break ;
+			case 3: nra[tc] += vp->mult ; break ;
+			}
+		    
+		    if (!ok)
+		      {
+			hns[tc]++ ; hnr[tc] += vp->mult ; hnali[tc] += vp->ali ;
+		      }
+		    break ;
+		  }
+		ok = TRUE ;
+	      }
+	  }
       }
-
-      if (up->x1 == 1 && up->x2 == up->ln && up->nErr == 0)
-	{
-	  if (isRead1)
-	    perfect1 += up->mult ;
-	  else
-	    perfect2 += up->mult ;
-	}
-      nintronSupport += up->mult * up->nintron ;
-
-      if (isRead1)
-	array (nerrs1, up->nErr, int) += up->mult ;
-      else
-	array (nerrs2, up->nErr, int) += up->mult ;
-
-      for (tc = 0 ; tc < cMax ; tc++)
-	{
-	  ok = FALSE ;
-	  for (j = ii, vp = up ; j < iMax && vp->clone == clone && vp->isRead1 == isRead1 ; j++, vp++)
-	    {
-	      if (vp->target_class == tc)
-		{
-		  int k, s = 0 ;
-		  ALI *wp ;
-		  int u = vp->uu ;
-
-		  if (u > 10) u = 10 ;
-		  ns[tc]++ ; nr[tc] += vp->mult ; nali[tc] += vp->ali ;
-		  uuu[tc][u] += vp->mult ;
-		  for (k = j, wp = vp ; k < iMax && wp->clone == clone && wp->isRead1 == isRead1 ; k++, wp++)
-		    if (wp->target_class == tc)
-		      {
-			if (wp->a1 < wp->a2) s |= 0x1 ;
-			else s |= 0x2 ;
-		      }
-		  if (s > 0 && s < 3 && pmb->strand == -1)
-		    s = 3 - s ;   /* flip values 1 and 2 */
-		  if (vp->isRead1)
-		    switch (s)
-		      {
-		      case 1: nrp[tc] += vp->mult ; break ;
-		      case 2: nrm[tc] += vp->mult ; break ;
-		      case 3: nra[tc] += vp->mult ; break ;
-		      }
-		  else
-		    switch (s)
-		      {
-		      case 2: nrp[tc] += vp->mult ; break ;
-		      case 1: nrm[tc] += vp->mult ; break ;
-		      case 3: nra[tc] += vp->mult ; break ;
-		      }
-
-		  if (!ok)
-		    {
-		      hns[tc]++ ; hnr[tc] += vp->mult ; hnali[tc] += vp->ali ;
-		    }
-		  break ;
-		}
-	      ok = TRUE ;
-	    }
-	}
-    }
-
-  if (pmb->showStats)
+  
+  if (cMax && pmb->showStats)
     {
       ACEOUT ao = aceOutCreate (pmb->outFileName, ".stats.tsf", pmb->gzo, h) ;
-
+      
       if (! ao)
 	messcrash ("Cannot open outputfile %s.stats.tsf", pmb->outFileName ? pmb->outFileName : "./") ;
       aceOutDate (ao, "###", "Lane stats exported by postMagicBlast.c tabular format") ;
@@ -688,10 +743,8 @@ static void pmbParseSplitMrna (PMB *pmb)
 
 /*************************************************************************************/
 
-static void pmbParseSam (PMB *pmb)
+static void pmbParseSam (ACEIN ai, PMB *pmb)
 {
-  AC_HANDLE h = ac_new_handle () ;
-  ACEIN ai = aceInCreate (pmb->inFileName, pmb->gzi, h) ;
   DICT *cloneDict = pmb->cloneDict ;
   DICT *targetDict = pmb->targetDict ;
   DICT *cigarDict = pmb->cigarDict ;
@@ -699,7 +752,7 @@ static void pmbParseSam (PMB *pmb)
   int clone, flag, target, a1, cigar, ln, mult ;
   int target_class = pmb->target_class ;
   BigArray alis = pmb->alis ;
-  int nn = arrayMax (alis) ; ;
+  long int nn = bigArrayMax (alis) ; ;
   int hasPair
     , read1Reversed
     , read2Reversed
@@ -824,7 +877,6 @@ static void pmbParseSam (PMB *pmb)
 	{ int a0 = up->a1 ; up->a1 = up->a2 ; up->a2 = a0 ; }
     }
   
-  ac_free (h) ;
 
   pmbPairScore (pmb) ;
 } /* pmbParseSam */
@@ -879,8 +931,24 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
       else if (*cp == '^') /* intron */
 	{
 	  int ni = 0 ;
+	  char feet[6] ;
 	  cp++ ;
-	  cp += cigarMult (cp, &ni) ;
+	  feet[0] = 0 ;
+
+	  if (*cp >= 'a'&& *cp <='z') /* feet are reported */
+	    {
+	      feet[0] = cp[0] ;
+	      feet[1] = cp[1] ;
+	      cp+= 2 ;
+	      cp += cigarMult (cp, &ni) ;
+	      feet[2] = '_' ;
+	      feet[3] = cp[0] ;
+	      feet[4] = cp[1] ;
+	      feet[5] = 0 ;
+	      cp+= 2 ; ni += 4 ;
+	    }
+	  else
+	    cp += cigarMult (cp, &ni) ;
 
 
 	  if (*cp != '^') /* intron end */
@@ -901,19 +969,33 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
 	      if (pmb->strand == -1 && up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
 	      if (pmb->strand ==  1 && ! up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
 	      intronName[1023] = 0 ;
-	      sprintf (intronName, "%s__%d_%d", dictName (pmb->targetDict, up->target), b1, b2) ;
+	      sprintf (intronName, "%d__%d_%d", up->target, b1, b2) ;
 	      if (intronName[1023])
 		messcrash ("intronName length overflow because in file %s\n// the target name is too long: %s\n"
-			   , pmb->inFileName ?pmb->inFileName : "stdin"
+			   , pmb->inFileList ? pmb->inFileList : "stdin"
 			   , dictName (pmb->targetDict, up->target)
 			   ) ;
 	      dictAdd (pmb->intronDict, intronName, &k) ;
 	      ip = arrayp (pmb->introns, k, ITR) ;
 	      ip->a1 = b1 ; ip->a2 = b2 ; ip->target = up->target ;
 	      if (up->isRead1)
-		ip->nr1 += up->mult ;
+		{
+		  ip->nr1 += up->mult ;
+		  if (! strcmp(feet, "gt_ag"))
+		    pmb->r1Down += up->mult ;
+		  else if (! strcmp(feet, "ct_ac"))
+		    pmb->r1Up += up->mult ;
+		}
 	      else
-		ip->nr2 += up->mult ;
+		{
+		  ip->nr2 += up->mult ;
+		  if (! strcmp(feet, "gt_ag"))
+		    pmb->r2Down += up->mult ;
+		  else if (! strcmp(feet, "ct_ac"))
+		    pmb->r2Up += up->mult ;
+		}
+
+	      strcpy (ip->feet, feet) ;
 	    }
 	  a1 += isDown * ni ;
 	}
@@ -933,10 +1015,8 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
 
 /*************************************************************************************/
 
-static void pmbParseTabular (PMB *pmb)
+static void pmbParseTabular (ACEIN ai, PMB *pmb)
 {
-  AC_HANDLE h = ac_new_handle () ;
-  ACEIN ai = aceInCreate (pmb->inFileName, pmb->gzi, h) ;
   DICT *cloneDict = pmb->cloneDict ;
   DICT *targetDict = pmb->targetDict ;
   DICT *target_classDict = pmb->target_classDict ;
@@ -944,7 +1024,7 @@ static void pmbParseTabular (PMB *pmb)
   ALI *up ;
   int  mult ;
   BigArray alis = pmb->alis ;
-  int nn = arrayMax (alis) ;
+  long int nn = bigArrayMax (alis) ;
 
   aceInSpecial (ai, "\n") ;
   while (aceInCard (ai))
@@ -1084,16 +1164,13 @@ static void pmbParseTabular (PMB *pmb)
       nn++ ;
     }
   
-  ac_free (h) ;
 } /* pmbParseTabular */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void pmbParseClipAli (PMB *pmb)
+static void pmbParseClipAli (ACEIN ai, PMB *pmb)
 {
-  AC_HANDLE h = ac_new_handle () ;
-  ACEIN ai = aceInCreate (pmb->inFileName, pmb->gzi, h) ;
   DICT *cloneDict = pmb->cloneDict ;
   DICT *targetDict = pmb->targetDict ;
   DICT *target_classDict = pmb->target_classDict ;
@@ -1102,7 +1179,7 @@ static void pmbParseClipAli (PMB *pmb)
   DICT *dnaDict = pmb->dnaDict ;
   ALI *up ;
   BigArray alis = pmb->alis ;
-  int nn = arrayMax (alis) ;
+  long int nn = bigArrayMax (alis) ;
 
   aceInSpecial (ai, "\n") ;
   while (aceInCard (ai))
@@ -1238,8 +1315,6 @@ static void pmbParseClipAli (PMB *pmb)
 
       nn++ ;
     }
-  
-  ac_free (h) ;
 } /* pmbParseClipAli */
 
 /*************************************************************************************/
@@ -1255,7 +1330,7 @@ static void pmbInit (PMB *pmb)
       pmb->geneDict = dictHandleCreate (100000, h) ;
   pmb->intronDict = dictHandleCreate (1000, h) ;
 
-  if (pmb->expression)
+  if (pmb->expression || pmb->geneInfoFileName)
     {
       pmb->geneInfo = arrayHandleCreate (100000, GINFO, h) ;
       pmb->mrnaInfo = arrayHandleCreate (100000, GINFO, h) ;
@@ -1416,7 +1491,7 @@ int main (int argc, const char **argv)
   pmb.showStats = ! getCmdLineBool (&argc, argv, "-no_stats") ; /* do not show stats */
     
   getCmdLineOption (&argc, argv, "-run", &(pmb.run)) ;
-  getCmdLineOption (&argc, argv, "-i", &(pmb.inFileName)) ;
+  getCmdLineOption (&argc, argv, "-i", &(pmb.inFileList)) ;
   getCmdLineOption (&argc, argv, "-o", &(pmb.outFileName)) ;
   getCmdLineOption (&argc, argv, "-info", &(pmb.geneInfoFileName)) ;
 
@@ -1444,27 +1519,55 @@ int main (int argc, const char **argv)
       exit (1) ;
     }
 
+  fprintf (stderr, "// start: %s\n", timeShowNow()) ;
   pmbInit (&pmb) ;
   if (pmb.geneInfoFileName)
     pmbParseGeneInfo (&pmb) ;
   if (pmb.splitMrnaFileName)
     pmbParseSplitMrna (&pmb) ;
 
-  if (pmb.clipali)
-    pmbParseClipAli (&pmb) ;
-  else if (pmb.sam)
-    pmbParseSam (&pmb) ;
-  else  if (pmb.tabular)
-    pmbParseTabular (&pmb) ;
-  else
-    { 
-      fprintf (stderr, "Please specify the input file format (-tabular, -sam or -clipali), please try postMagicBlast -help\n") ;
-      exit (1) ;
+
+  if (1)
+    {
+      ACEIN ai = 0 ;
+      int nn = 0 ;
+      const char *error = 0 ;
+
+      /* check that all files exist */
+      if (pmb.inFileList)
+	{
+	  if (! aceInCheckList (pmb.inFileList, &error, h))
+	    messcrash ("Bad parameter -f, %s"
+		       ,  error
+		       ) ;
+	}
+      else 
+	pmb.inFileList = "-" ; /*  '-'  means stdin in aceInCreate */
+ 
+      /* parse a validated list of files */
+      while ((ai = aceInCreateFromList (ai, &nn, pmb.inFileList, pmb.gzi, h)))
+	{
+	  if (pmb.clipali)
+	    pmbParseClipAli (ai, &pmb) ;
+	  else if (pmb.sam)
+	    pmbParseSam (ai, &pmb) ;
+	  else  if (pmb.tabular)
+	    pmbParseTabular (ai, &pmb) ;
+	  else
+	    { 
+	      fprintf (stderr, "Please specify the input file format (-tabular, -sam or -clipali), please try postMagicBlast -help\n") ;
+	      exit (1) ;
+	    }
+	}
+      fprintf (stderr, "// parse done: %s, found %ld alis in %d files\n", timeShowNow(), bigArrayMax (pmb.alis), nn) ;
     }
     
     
+  fprintf (stderr, "// select start: %s\n", timeShowNow()) ;
   pmbSelect (&pmb) ;
+  fprintf (stderr, "// select done: %s\n", timeShowNow()) ;
   pmbCount (&pmb) ;
+  fprintf (stderr, "// pmbCount done: %s\n", timeShowNow()) ;
 
   pmbClassCount (&pmb) ;
   
@@ -1475,6 +1578,12 @@ int main (int argc, const char **argv)
       pmbGeneExpressionExport (&pmb) ;
       pmbMrnaExpressionExport (&pmb) ;
     }
+
+  {
+    int mx ;
+    messAllocMaxStatus (&mx) ;   
+    fprintf (stderr, "// done: %s\tmax memory %d Mb\n", timeShowNow(), mx) ;
+  }
 
   ac_free (h) ;
   if (1) sleep (1) ; /* to prevent a mix up between stdout and stderr */

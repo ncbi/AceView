@@ -91,9 +91,9 @@ end
 # we switch back  to length of longest as used in february 2014 for NB export
 # using the first variant of each gene, for AceView the .a
     
-\rm tmp/METADATA/$MAGIC .mrna_ln_gc_gene_geneid.txt
-foreach target ($allRNAtargets)
-    cat  tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt  >> tmp/METADATA/$MAGIC .mrna_ln_gc_gene_geneid.txt
+if (-e tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt) \rm tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
+foreach target ($Etargets)
+    cat  tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt  >> tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
     cat  tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt |  gawk -F '\t' '/^#/{next;}{g=$4;ln=$2;gc=$3;gid=$5;if(length(g)<1)next;if(length(gid)>0)g2gig[g]=gid;if(ln>g2ln[g] && g2n[g]<5){g2ln[g]=ln;g2gc[g]=gc;}g2n[g]++;}END{for(g in g2ln) { printf("Gene \"%s\"\n%s\nTargeted\nLength %d\nGC_percent %d\n",g,tag,g2ln[g],g2gc[g]);if(g2gid[g])printf("GeneId \"%s\"\n",g2gid[g]);printf("\n");}}' tag=$target >  tmp/METADATA/$target.GENE.ln.ace
 end
 

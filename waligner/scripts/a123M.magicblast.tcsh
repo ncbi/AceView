@@ -4,6 +4,9 @@ set phase=$1
 set run=$2
 set lane=$3
 
+#limit stacksize unlimited
+#limit datasize unlimited
+
 if (! -d TARGET/Targets) exit 1
 echo "# running: a123M.magicblast.tcsh $1 $2 $3"
 if (1 && $phase == makeDB) then
@@ -30,6 +33,14 @@ if (1 && $phase == makeDB) then
   end 
 
   popd
+  exit 0
+endif
+
+if ($phase == postMagic) then
+   set ttt=`ls tmp/MAGICBLAST/$lane.*.mbhits.gz | gawk '{n++;if(n>1)t=t ","; t=t $1;}END{print t}'`
+   echo $lane
+   echo "bin/postMagicBlast -i $ttt -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression -info  tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt" 
+         bin/postMagicBlast -i $ttt -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression -info  tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
   exit 0
 endif
 
@@ -95,13 +106,11 @@ foreach target ($RNAtargets $DNAtargets)
      endif
    end
 
-  echo "./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular  -no_unaligned $gt -num_threads 1"
+  echo "./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus"
        echo -n "$target\tStart\t"
        date
        echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-       (./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular -no_unaligned $gt -num_threads 1) >>&  tmp/MAGICBLAST/$lane.err
-       cat tmp/MAGICBLAST/$lane.$target.mbhits | sed -e 's/$/\t'$target_class'\t'$bonus'/' | gzip > tmp/MAGICBLAST/$lane.$target.mbhits.gz
-       \rm tmp/MAGICBLAST/$lane.$target.mbhits
+       (./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits.gz -outfmt tabular -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus) >>&  tmp/MAGICBLAST/$lane.err
        echo -n "$target\tEnd\t"
        date
        ls -ls tmp/MAGICBLAST/$lane.$target.mbhits.gz       
@@ -110,7 +119,7 @@ end
 echo  "a3: jobstats "
 scripts/jobstats.tcsh $run $lane 1 1
 
-gunzip -c tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -expression -pair -gzo -o tmp/MAGICBLAST/$lane -geneinfo tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
+gunzip -c tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -expression -pair -gzo -o tmp/MAGICBLAST/$lane -info tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
 touch tmp/MAGICBLAST/$lane.align.done
 echo -n "done "
 date
@@ -125,12 +134,18 @@ exit 0
 
 
 foreach lane (`cat MetaDB/TestM/LaneList `)
-   scripts/submit toto55 "bin/postMagicBlast -run $lane -pair -clipali -i tmp/COUNT/$lane.hits.gz -o tmp/COUNT/$lane -expression"
+   scripts/submit tmp/COUNT/$lane.toto55 "bin/postMagicBlast -run $lane -pair -clipali -i tmp/COUNT/$lane.hits.gz -o tmp/COUNT/$lane -expression"
 end
 qusage 1
 cat tmp/COUNT/RNA_AGLR1_A_1.*/f2.*.stats.tsf | bin/tsf -g RNA_AGLR1_A_1 --sumAll -o tmp/COUNT/RNA_AGLR1_A_1.stats
 
 
-foreach lane (`cat MetaDB/TestM/LaneList `)
-  scripts/submit toto55 tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression
+foreach lane (`cat MetaDB/TestMB/LaneList `)
+  scripts/submit toto55 "zcat tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression -info  tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt"
+end
+
+
+foreach lane (`cat MetaDB/TestMB/LaneList `)
+  echo $lane
+  scripts/submit tmp/MAGICBLAST/$lane.postMB "scripts/a123M.magicblast.tcsh postMagic xxx $lane"
 end

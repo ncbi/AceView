@@ -3109,6 +3109,11 @@ goto phaseLoop
 phasea123:
 
 if ($USEMAGICBLAST == 1) then
+  if (-e ~/bin/magicblast && ! -x bin/magicblast) then
+    pushd bin
+    ln -s `~/bin/magicblast`
+    popd
+  endif
   if (! -x bin/magicblast) then
     pushd bin
     ln -s `which magicblast`
@@ -10485,10 +10490,10 @@ if (! -d RESULTS/Introns_exons_polyA) mkdir RESULTS/Introns_exons_polyA
 if (1 || $Strategy == RNA_seq) then
   if (! -d tmp/OR) mkdir tmp/OR
   foreach run (`cat MetaDB/$MAGIC/RunList`) 
-    if ((-d tmp/PHITS_genome/$run || -d tmp/MAGICBLAST/$run || -d tmp/PHITS_SpikeIn/$run)  && ! -e tmp/OR/$run/d1.de_uno.done) then
-      if (! -d  tmp/OR/$run) $mkDir OR $run
-      scripts/submit tmp/OR/$run/d1.de_uno  "scripts/d1.de_uno.tcsh $run"
-    endif
+      if ((-d tmp/MAGICBLAST/$run ||-d tmp/PHITS_genome/$run || -d tmp/PHITS_SpikeIn/$run)  && ! -e tmp/OR/$run/d1.de_uno.done) then
+        if (! -d  tmp/OR/$run) $mkDir OR $run
+        scripts/submit tmp/OR/$run/d1.de_uno  "scripts/d1.de_uno.tcsh $run"
+      endif
   end 
 endif
 
@@ -10656,7 +10661,7 @@ goto phaseLoop
 phased2:
   echo -n "Phase d2 collect the alignment overhangs per chromosome"
   date
-if ($Strategy != RNA_seq) goto phaseLoop
+if ($Strategy != RNA_seq || $USEMAGICBLAST == 1) goto phaseLoop
 
   if (! -d tmp/OR) mkdir tmp/OR
   foreach run (`cat MetaDB/$MAGIC/RunList`)
@@ -10817,16 +10822,17 @@ else
   echo -n "##  tmp/introns/introns.known " > $tutu
   date >>  $tutu
   echo -n "## " >> $tutu 
+  set all_counts=""
   foreach target ($Etargets)
     set count=`cat tmp/METADATA/$target.[fr].introns | wc | gawk '{printf ("%d", $1);}'`
     set all_counts=$all_counts"_"$target"-"$count
   end
-  echo "# Group\tSupport\tde novo intron" >> tutu.$$
-  echo $all_counts >> tutu.$$
+  echo "# Group\tSupport\tde novo intron" >> $tutu
+  echo $all_counts >> $tutu
   foreach target ($Etargets)
-     echo -n "\tIn $target\tNot in $target" >> tutu.$$
+     echo -n "\tIn $target\tNot in $target" >> $tutu
   end
-  echo ' ' >>  tutu.$$
+  echo ' ' >>  $tutu
 
 endif
 

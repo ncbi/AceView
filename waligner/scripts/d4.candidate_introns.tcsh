@@ -47,6 +47,7 @@ endif
 if(! -e  tmp/OR/$group/d4.known.txt.gz) then
   echo ' ' > tmp/OR/$group/d4.known.txt.1
   set ok=0
+  if ($USEMAGICBLAST == 1) set ok=1  
   foreach run (`cat MetaDB/$MAGIC/g2r MetaDB/$MAGIC/r2sublib |  gawk -F '\t' '{if($1==g)print $2;}' g=$group  | sort -u`) 
     if (-e  tmp/INTRONRUNS/$run/$run.u.intronSupport.counts.gz) then
       gunzip -c tmp/INTRONRUNS/$run/$run.u.intronSupport.counts.gz >>  tmp/OR/$group/d4.known.txt.1
