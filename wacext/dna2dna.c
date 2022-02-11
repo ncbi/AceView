@@ -5365,7 +5365,7 @@ int main (int argc, const char **argv)
   if (sx.in != FASTQ && sx.out == FASTQ && ! sx.runQualityFileName)
     messcrash ("-O FASTQ requires -I FASTQ or -runQuality, to provide the quality values") ;
   if (sx.out == FASTQ &&  sx.maxLineLn)
-    messcrash ("-O FASTQ export fromat is incompatible with -maxLineLn, sorry") ;
+    messcrash ("-O FASTQ export format is incompatible with -maxLineLn, sorry") ;
   if (sx.out == TENSORFLOW &&  ! sx.rightClipAt)
     messcrash ("-O TENSORFLOW export fromat requires -rightClipAt, sorry") ;
   if (sx.in == TENSORFLOW)
