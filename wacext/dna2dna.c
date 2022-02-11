@@ -13,7 +13,7 @@
 #include <waceview/cgi.h>
 #include <bitset.h>
 
-typedef enum { FASTA=0, FASTC, FASTQ, CSFASTA, CSFASTC, CCFA, CCFAR, RAW,  CRAW, TAG_COUNT, CTAG_COUNT, COUNT, LETTER, LETTERPLOT, LETTERSHOW } DNAFORMAT ;
+typedef enum { FASTA=0, FASTC, FASTQ, CSFASTA, CSFASTC, CCFA, CCFAR, RAW,  CRAW, TAG_COUNT, CTAG_COUNT, COUNT, TENSORFLOW, LETTER, LETTERPLOT, LETTERSHOW } DNAFORMAT ;
 
 #define MAXMULT 16
 typedef struct seqStruct { int dna, count, dnaLn ; vTXT id ;  } SEQ ;
@@ -694,6 +694,7 @@ static BOOL getSequencePart (SX *sx, ACEIN ai)
 
   switch (sx->in)
     {
+    case TENSORFLOW:
     case COUNT:
     case LETTER:
     case LETTERPLOT:
@@ -1128,6 +1129,7 @@ static BOOL encodeSequence (SX *sx)
     case LETTER:
     case LETTERPLOT:
     case LETTERSHOW:
+    case TENSORFLOW:
       return TRUE ;
     case FASTA:
     case FASTC:
@@ -1145,6 +1147,7 @@ static BOOL encodeSequence (SX *sx)
 	  case LETTER:
 	  case LETTERPLOT:
 	  case LETTERSHOW:
+	  case TENSORFLOW:
 	    break ;
 	  case CSFASTA:
 	  case CSFASTC:
@@ -1170,6 +1173,7 @@ static BOOL encodeSequence (SX *sx)
 	case FASTQ:
 	case RAW:
 	case TAG_COUNT:
+	case TENSORFLOW:
 	  sx->out = CSFASTA ; cfa2cfa (sx) ; sx->out = old ;
 	  cfa2fa (sx) ;
 	  break ;
@@ -1928,6 +1932,28 @@ static void exportSequence (SX *sx)
 	    }
 	  else
 	    messcrash ("splitLongDna not programmed sorry") ;
+	}
+      break ;
+    case TENSORFLOW:
+      for (n = 0 ; n < sx->count ; n++)
+	{
+	  int i = sx->rightClipAt ;
+	  const char *ccp ;
+	  char cc = 0 ;
+	  aceOutf (ao, "%s,[", vtxtPtr (sx->id)) ;
+	  for (ccp = vtxtPtr (sx->dna) ; i > 0 ; i-- , ccp += (*ccp ? 1 : 0), cc = ',')
+	    {
+	      if (cc) aceOut (ao, ",") ;
+	      switch ((int)(*ccp))
+		{
+		case 'a': aceOut (ao, "[1,0,0,0]") ; break ;
+		case 'c': aceOut (ao, "[0,1,0,0]") ; break ;
+		case 'g': aceOut (ao, "[0,0,1,0]") ; break ;
+		case 't': aceOut (ao, "[0,0,0,1]") ; break ;
+		default:  aceOut (ao, "[0,0,0,0]") ; break ;
+		}
+	    }
+	  aceOut (ao, "]\n") ;
 	}
       break ;
     case TAG_COUNT:
@@ -4891,6 +4917,7 @@ static void usage (char *message)
 	    "//     Qualities are specific of the fastq format and dropped when exporting in any other format\n"
 	    "//     Hence -O fastq is only possible if -I fastq, for example to split or filter the input file\n"
 	    "//     or if we provide \n"
+	    "//   tensorflow -rightClipAt n : export identifier, coma, [[1,0,0,0],...[0,1,0,0]] n bases as one hot python arrays\n"
             "//   -runQuality <qualityFile> : 3 columns tab delimited: r x q\n"
 	    "//         r=1 for read 1, r=2 for read 2, exported as $out_[12].fastq[.gz]\n"
 	    "//         x position integer=1...n where n is at least as long as the longest read\n"
@@ -5070,10 +5097,10 @@ static BOOL checkFormat (const char *io, DNAFORMAT *ip, const char *ccp, char *f
 {
   int i ;
   const char **f ; 
-  const char *ff[] = { "fasta", "fastc", "fastq", "csfasta",  "csfastc", "ccfa", "ccfar", "raw", "craw", "tc", "ctc", "count", 0 } ; 
+  const char *ff[] = { "fasta", "fastc", "fastq", "csfasta",  "csfastc", "ccfa", "ccfar", "raw", "craw", "tc", "ctc", "count", "tensorflow", 0 } ; 
 
   for (i = 0 , f = ff ; *f ; i++, f++)
-    if (! strcmp (*f, ccp))
+    if (! strcasecmp (*f, ccp))
       { 
 	*ip = i ; 
 	if (*io == 'O')
@@ -5339,6 +5366,10 @@ int main (int argc, const char **argv)
     messcrash ("-O FASTQ requires -I FASTQ or -runQuality, to provide the quality values") ;
   if (sx.out == FASTQ &&  sx.maxLineLn)
     messcrash ("-O FASTQ export fromat is incompatible with -maxLineLn, sorry") ;
+  if (sx.out == TENSORFLOW &&  ! sx.rightClipAt)
+    messcrash ("-O TENSORFLOW export fromat requires -rightClipAt, sorry") ;
+  if (sx.in == TENSORFLOW)
+    messcrash ("-I TENSORFLOW is not an importation format, sorry") ;
   
   fprintf (stderr, "// start: %s\n", timeShowNow()) ;
 
