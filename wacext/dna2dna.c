@@ -1506,7 +1506,7 @@ static void makeTestWithSNP (SX *sx, BOOL isExact, BOOL forward)
   int LN =  sx->makeTestLength ;
   int LN2 =  sx->makeTestPairLength ?  sx->makeTestPairLength : sx->makeTestLength ;
   int period = sx->makeTestPeriod ;
-  char cc = 0, cc2, *cp, *cq, namBuf[1024], eNamBuf[1024], gNamBuf[1024], sNamBuf[1024], *atgc = "ATGC", *namType ;
+  char cc = 0, cc2, *cp, *cq, namBuf[4000], eNamBuf[1024], gNamBuf[1024], sNamBuf[1024], *atgc = "ATGC", *namType ;
   char eBuf[LN2+1], qBuf[LN2+1], buf[LN2+1] ;
   char eBuf2[LN2+1], qBuf2[LN2+1], buf2[LN2+1] ;
   static int nSeq[4], firstPass = 0 ;
