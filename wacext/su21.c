@@ -6677,7 +6677,7 @@ static MX *KasimirConstructAntiMatrices (KAS *kas)
   AC_HANDLE h = kas->h ;
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
 
-  kas->chi = -1 ;
+  kas->chi = 1 ;
   
   if (1)
     {
@@ -6834,7 +6834,7 @@ static MX *KasimirConstructTypicMatrices (KAS *kas, BOOL show)
   mu = kas->mu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
 
   kas->show = show ;
-  kas->chi = -1 ;
+  kas->chi = 1 ;
   s = a + 1 ; 
   kas->scale = s * s ;
   
@@ -7325,7 +7325,36 @@ static void  KasimirLowerMetric (KAS *kas)
   if (! isAdjoint && ! kas->isCycle)
     {
       float z0 = yyAdjoint[0] ;
+      float a = kas->a, b = kas->b ;
+      float alpha_adjoint = -2 ;
+      float alpha ;
+      int N = kas->COQ ;
+      
+      if (b == 0 && N == 0)
+	alpha = a * (a+1)/2.0 ;
+      else if (b == a+1 && N == 0)
+	alpha =  - b * (b+1)/2.0 ;
+      else
+	alpha = - (a+1) ;
+      
+      if (z0 != -alpha_adjoint)
+	{
+	  printf ("ERROR in lower metric adjoint g_yy = %.2f, expected %.2f\n", z0, alpha_adjoint) ;
+	  exit (1) ;
+	}
+      if (yy[0] != -alpha)
+	{
+	  printf ("ERROR in lower metric (a=%d,b=%d)  g_yy = %.2f, expected %.2f\n", kas->a,kas->b, yy[0], -alpha) ;
+	  exit (1) ;
+	}
+      if (yy[33] != alpha)
+	{
+	  printf ("ERROR in lower metric (a=%d,b=%d)  g_33 = %.2f, expected %.2f\n", kas->a,kas->b, yy[0], alpha) ;
+	  exit (1) ;
+	}
+      
       zscale = yy[0]/z0 ;
+      
       
       for (i = 0 ; i < 8 ; i++)
 	for (j = 0 ; j < 8 ; j++)
@@ -7334,11 +7363,11 @@ static void  KasimirLowerMetric (KAS *kas)
 	    z0 = yyAdjoint[10*i + j] ;
 	    if (zz != zscale * z0)
 	      {
-		printf ("ERROR in lower metric at i=%d j=%d  zz=%g z0=%g zscale=%g\n", i,j,zz,z0,zscale) ;
-		exit (1) ;;
+		printf ("ERROR in lower metric non uniform scale at i=%d j=%d  zz=%g z0=%g zscale=%g\n", i,j,zz,z0,zscale) ;
+		exit (1) ;
 	      }
 	  }
-      printf ("SUCCESS all lower metric entries scale up by a factor %g\n", zscale) ;
+      printf ("SUCCESS all lower metric entries scale up relative to the adjoint by a factor %g\n", zscale) ;
     }
 
   mxSet (gg, yy) ;
@@ -7389,7 +7418,7 @@ static void KasimirOperatorK2 (KAS *kas)
   AC_HANDLE h = ac_new_handle () ;
   const float *xx ;
   const int *yy ;
-  float zz [d*d], dz,dz1 ;
+  float zz [d*d], dz ;
   int s = kas->scale ;
   
   memset (zz, 0, sizeof (zz)) ;
@@ -7402,7 +7431,7 @@ static void KasimirOperatorK2 (KAS *kas)
 	  MX b = kas->mu[j] ;
 
 	  if (!a || !b)
-	    continue ;
+	    messcrash ("uninit generrator %d %d in KAS2",i,j) ;
 	  MX c = mxMatMult (a, b, h) ;
 	  float z = xx[10*i + j] ;
 
@@ -7414,14 +7443,23 @@ static void KasimirOperatorK2 (KAS *kas)
 	}
 
   MX kas2 = kas->kas2 = mxCreate (kas->h,  "KAS2", MX_FLOAT, d, d, 0) ;
-  dz = -2*b * (b - a - 1)/(a+1.0) ;
-  dz1 = 2*(2*b -a - 1)*(2*b - 1)/(a+1.0) ;
+  dz = 2*b * (b - a - 1)/(a+1.0) ;
+
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
   mxSet (kas2, zz) ;
 
-  printf ("Quadratic super-Casimir operator KAS2 = -2b(b-a-1)/(a+1) * %f 2(2b-a-1)(2b-1)/(a+1) * %f\n", zz[0],zz[d*d/2]*dz/dz1)  ;
+  if (dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
+    messcrash ("ERROR, non zero atypic KAS2 %f\n", zz[0]) ;
+  if (dz != 0 && ((zz[0]-1)*(zz[0]-1)) > 1/1000.0)
+    messcrash ("ERROR, KAS2 != 2b(b-a-1)/(a+1) bad ratio=%f should be 1\n", zz[0]) ;
+
+
+  if (dz != 0)
+    printf ("SUCCESS Quadratic super-Casimir operator (a=%d,b=%d)  KAS2 = 2b(b-a-1)/(a+1) * %f\n", kas->a, kas->b, zz[0]) ;
+  else
+    printf ("SUCCESS Quadratic super-Casimir operator (a=%d,b=%d) ATYPIC  KAS2 = %f expected 0\n", kas->a, kas->b, zz[0]) ;
   if (kas->show && a<4) niceShow (kas2) ;
 
   ac_free (h) ;
@@ -7430,14 +7468,14 @@ static void KasimirOperatorK2 (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
-static void GhostKasimirOperatorK2 (KAS *kas)
+static void GhostKasimirOperatorXtilde (KAS *kas)
 {
   int i, j, k, l, m1 ;
   int d = kas->d ;
   AC_HANDLE h = ac_new_handle () ;
   const float *xx ;
   const int *yy ;
-  float zz [d*d], dz, dz1 ;
+  float zz [d*d], dz ;
   MX kas2 = kas->CHI = mxCreate (kas->h,  "Ghost-Casimir2", MX_FLOAT, d, d, 0) ;
   
   memset (zz, 0, sizeof (zz)) ;
@@ -7468,7 +7506,7 @@ static void GhostKasimirOperatorK2 (KAS *kas)
 	}
 
   mxSet (kas2, zz) ;
-  niceShow (kas2) ;
+  if (0) niceShow (kas2) ;
   
   for (i = 4 ; i < 8 ; i++)
     for (j = 4 ; j < 8 ; j++)
@@ -7501,19 +7539,27 @@ static void GhostKasimirOperatorK2 (KAS *kas)
 
   int a = kas->a, b = kas->b ;
   dz = 6*b * (b - a - 1) ;
-  dz1 = -6*(2*b -a - 1)*(2*b - 1) ;
+  /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
   mxSet (kas2, zz) ;
-  
 
-  printf ("Quadratic Ghost-Casimir operator KAS2 = 6 * b * (b - a - 1) * %.3f, -6(2b-a-1)(2b-1)%f\n", zz[0],zz[d*d/2]*dz/dz1) ;
-  if (kas->show && kas->a<3) niceShow (kas2) ;
+  if (dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
+    messcrash ("ERROR, non zero ghost casimir %f\n", zz[0]) ;
+  if (dz != 0 && zz[0] != 1.0)
+    messcrash ("ERROR, ghost casimir != 6b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
+
+  if (dz == 0)
+    printf ("\nSUCCESS Ghost Casimir operator Xtilde (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+  else
+    printf ("SUCCESS Ghost-Casimir operator Xtilde (a=%d,b=%d) expect = 6 * b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
+
+  if (kas->show && kas->a<4) niceShow (kas2) ;
 
   ac_free (h) ;
   return ;
-} /* GhostKasimirOperatorK2 */
+} /* GhostKasimirOperatorXtilde */
 
 /***********************************************************************************************************************************************/
 /* Casimir proposed by Peter, july 28 */
@@ -7718,8 +7764,10 @@ static void KasimirOperatorK3 (KAS *kas)
   int mx0 = 0 ;
   int mx1 = 8 ;
   int s = kas->scale ;
-
-
+  float zexpected ;
+  int a = kas->a ;
+  int b = kas->b ;
+  
   memset (zz, 0, sizeof (zz)) ;
   mxValues (kas->CCC, 0, &xx, 0) ;
   for (i = mx0 ; i < mx1 ; i++)
@@ -7739,15 +7787,21 @@ static void KasimirOperatorK3 (KAS *kas)
 	      z = 1.0/s ;
 	      
 	    for (m = 0 ; m < d*d ; m++)
-	      zz[m] += z * n * yy[m] ;
+	      zz[m] += z * n * yy[m]/6 ;
 	  }
 
   MX kas3 = kas->kas3 = mxCreate (kas->h,  "KAS3", MX_FLOAT, d, d, 0) ;
   mxSet (kas3, zz) ;
 
-  z = kas->b * (kas->b - kas->a - 1) *(kas->a) ;
-  if (z == 0) z = 1 ;
-  printf ("\nCubic super-Casimir operator KAS3 b(b-a-1)32/9(a+1) * %f\n", 9*zz[0]/(32*z)) ;
+  z = b * (b - a - 1) ;
+  zexpected = 4 * (b - a)  * (b - a - 1) * (2*b - a - 1) * (2*b + a - 1)  ;
+  if (z == 0)
+    printf ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+  else if ( 1 || (a+1)*(a+1)*z == zexpected)
+    printf ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected=%f  = z * %f\n", kas->a, kas->b, zz[0] *(a+1)*(a+1), zexpected,  (a+1)*(a+1)*zz[0]/zexpected) ;
+  else
+    messcrash ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) expect b(b-a-1)32/9(a+1) * %f\n", kas->a, kas->b, 9*zz[0]/(32*z)) ;
+  
   if (kas->show && kas->a<6) niceShow (kas3) ;
 
   ac_free (h) ;
@@ -7787,7 +7841,7 @@ static void Kasimirs (int a, int b, BOOL show)
   
   
   KasimirOperatorK2 (&kas) ;
-  GhostKasimirOperatorK2 (&kas) ;
+  GhostKasimirOperatorXtilde (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
 
 
@@ -9584,7 +9638,7 @@ static void muInitNCoq (int a, int b, int COQ)
   KasimirUpperMetric (&kasQ) ;
   
   KasimirOperatorK2 (&kasQ) ;
-  GhostKasimirOperatorK2 (&kasQ) ;
+  GhostKasimirOperatorXtilde (&kasQ) ;
 
   if (0) KasimirOperatorK4 (&kasQ) ;
 
@@ -9845,7 +9899,7 @@ static void coqCycle (int nn, int a, int b)
   
   
   KasimirOperatorK2 (kas) ;
-  GhostKasimirOperatorK2 (kas) ;
+  GhostKasimirOperatorXtilde (kas) ;
   exit (0) ;
   return ;
 }
@@ -10409,6 +10463,32 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-a", &a) ;
   getCmdLineInt (&argc, argv, "-b", &b) ;
 
+  if (a==-1)
+    {
+      /* eigen values of the cubic super casimir Kas3, scaled by (a+1)^2 */
+      /* they were computed by this program called with params " su21 -a a -b b" */
+      int z,z1, a, b ;
+      int xx[8][8] = {
+		     { 0, 0, 0, 0, 0, 0, 0, 0} ,
+		     { 0, 0, -8, -48, -144, -1920, -4200, -8064},
+		     {72, 0, -8, 0, -24,-128, -48, -240},
+		     {600, 192, 0, -48, -24, 0, -48, -240},
+		     {2352,1152,400,0,-144,-128,-48,0},
+		     {6480, 3840,1960,720,0,-320, -360, -240},
+		     {14520,9600,5832,3072,1176,  0, -600, -768},
+		     {28392,20160,13552,8400,4536,1792,0,-1008}
+      } ;
+      for (a = 0 ; a < 7 ; a++)
+	for (b = 1 ; b < 8 ; b++)
+	  {
+	    /* the polynome z gives the eigen values and reported in the paper su21rep.tex with jarvis */
+	    z = 4 * b * (b - a -1) *( 2*b - a - 1) * (2*b - a- 1) ;
+	    z1 = z ? z : 1 ;
+	    printf ("a=%d b=%d x=%d z=%d x/z=%.2f\n", a, b, xx[b][a], z,  xx[b][a]*1.0/z1) ;
+
+	  }
+      if (1) exit (0) ;
+    }
   if (0)
     { /* sum of fibonnaci numbers, Euler set of problems as D programming language example,  2021_09_03 */
       int n[2] = {1,2} ;
