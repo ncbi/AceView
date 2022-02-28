@@ -1759,7 +1759,7 @@ cat $species.genome.$ref.fasta | gawk '/^>/{ok=1;}/^>mito/{ok=0;}{if(ok==1)print
 ## sort the fasta files for mRNAH and desambiguate the gene names
 ## av mrna, use bql to sort by genes then by mrna
 if ($species == worm) then
-  tace ~/yk <<EOF 
+  bin/tace ~/yk <<EOF 
     bql -o toto.bql.dna select g,tg,m,dna from g in ?gene, tg in g->transcribed_gene, m in tg->mrna, dna in DNA(m) where dna
 EOF
   cat  toto.bql.dna | gawk '{printf (">%s|GENE|%s\n%s\n",$3,$1,$4);}' | gzip > worm.av.fasta.gz
@@ -7106,14 +7106,14 @@ if ($USEMAGICBLAST == 1) then
 
 
     gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep _ALI | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s\t%s",aa[1],aa[2]);if(n==2)printf(" %d seq %d tags %d kb_ali\n",$4,$5,$6);}'  >> $toto
-    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep Stranding | bin/tsf -g $run -t $run --sumAll | sort | gawk -F '\t' '/^#/{next}{p=$4;n=$5;a=$6;split($1,aa,"__");printf("%s  %s %.2f  %d plus %d minus %d ambiguous\n",aa[1],aa[2],100.0*p/(n+p),p,n,a);}' | sort -k 1,1 -k 2,2n   >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep Stranding | bin/tsf -g $run -t $run --sumAll | sort | gawk -F '\t' '/^#/{next}{p=$5;n=$6;a=$7;split($1,aa,"__");printf("%s  %s %.2f  %d plus %d minus %d ambiguous\n",aa[1],aa[2],100.0*p/(n+p),p,n,a);}' | sort -k 1,1 -k 2,2n   >> $toto
     gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep -v _ALI | grep -v Stranding | grep -v N_intron | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s",aa[1]);if(n==2)printf(" %s ",aa[2]);for(i=4;i<=NF;i++)printf(" %s ",$i);printf("\n");}' | sort -k 1,1 -k 2,2n   >> $toto
     echo >> $toto
   end
 
 
   cat $toto | sed -e 's/^Compatible_pairs_inside_genes/Compatible_pairs_inside_gene/' -e 's/Count_missmatch/Count_mismatch/' | grep -v N_intron > $toto.2
-  echo "pparse $toto.2" | tace MetaDB -no_prompt
+  echo "pparse $toto.2" | bin/tacembly  MetaDB -no_prompt
 
 
   goto phaseLoop
@@ -12634,7 +12634,7 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   echo "Ali $run\nPartial_5p $p5a $p5b\nPartial_3p $p3a $p3b\n\n" >> toto.partials.ace
   echo $run
 end
-echo "parse toto.partials.ace" | tace MetaDB -noprompt 
+echo "parse toto.partials.ace" | bin/tace MetaDB -noprompt 
 
 
 

@@ -1,5 +1,5 @@
 // Spread sheet definition for the ACeDB software 
-// Date: 2019-11-09_19:00:34
+// Date: 2022-02-01_16:15:08
 
 // %n (%%n in the graphic)  are parameter to be given on the command line in tace
 // or by default by the Parameters given in this file
@@ -21,7 +21,7 @@ Class Ali
 Colonne 2
 Subtitle Column #2
 Width 12
-Mandatory
+Optional
 Visible
 Class
 Class Target
@@ -32,7 +32,7 @@ Condition IS any.*
 Colonne 3
 Subtitle Column #3
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 2
@@ -41,7 +41,7 @@ Tag HERE:1
 Colonne 4
 Subtitle Column #4
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 3
@@ -50,7 +50,7 @@ Tag HERE:1
 Colonne 5
 Subtitle Column #5
 Width 12
-Mandatory
+Optional
 Visible
 Class
 Class Target
@@ -61,7 +61,7 @@ Condition IS B_rrna* || IS ?T_* || IS 0_SpikeIn*
 Colonne 6
 Subtitle Column #6
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 5
@@ -70,7 +70,7 @@ Tag HERE
 Colonne 7
 Subtitle Column #7
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 6
@@ -79,7 +79,7 @@ Tag HERE
 Colonne 8
 Subtitle Column #8
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 7
@@ -89,7 +89,7 @@ Condition [\%7 + \%8] >[ .1 * (\%3+\%4)] || [\%7 + \%8] > 10000
 Colonne 9
 Subtitle Column #9
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Right_of 8
@@ -98,7 +98,7 @@ Tag HERE:1
 Colonne 10
 Subtitle Column #10
 Width 12
-Mandatory
+Optional
 Visible
 Float
 Compute

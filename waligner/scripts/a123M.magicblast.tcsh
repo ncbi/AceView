@@ -119,7 +119,7 @@ end
 echo  "a3: jobstats "
 scripts/jobstats.tcsh $run $lane 1 1
 
-gunzip -c tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -expression -pair -gzo -o tmp/MAGICBLAST/$lane -info tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
+gunzip -c tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -expression -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -info tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt
 touch tmp/MAGICBLAST/$lane.align.done
 echo -n "done "
 date
@@ -142,6 +142,9 @@ cat tmp/COUNT/RNA_AGLR1_A_1.*/f2.*.stats.tsf | bin/tsf -g RNA_AGLR1_A_1 --sumAll
 
 foreach lane (`cat MetaDB/TestMB/LaneList `)
   scripts/submit toto55 "zcat tmp/MAGICBLAST/$lane.*.mbhits.gz | bin/postMagicBlast -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane -expression -info  tmp/METADATA/$MAGIC.mrna_ln_gc_gene_geneid.txt"
+end
+foreach lane (`cat MetaDB/TestMB/LaneList `)
+  scripts/submit toto55 "zcat tmp/MAGICBLAST/$lane.genome.mbhits.gz | bin/postMagicBlast -run $lane -introns -pair -tabular -gzo -o tmp/MAGICBLAST/$lane.genome "
 end
 
 

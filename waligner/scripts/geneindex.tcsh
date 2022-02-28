@@ -1199,9 +1199,8 @@ if ($ok == 0) continue
    endif
 
    if ($phase == g4 && ! -e tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace) then 
-     if (-e tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace) \rm tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace
              # if case 2 exist do not retry by using the OTHER_RUNS symbolic link below
-     foreach run (`cat MetaDB/$MAGIC/RunsList | grep RNA_Total_A_4`)
+     foreach run (`cat MetaDB/$MAGIC/RunsList`)
          if (-e  tmp/GENERUNS/$run/$run.SpikeIn.GENE.$uu.geneSupport.ace.gz) then
            gunzip -c  tmp/GENERUNS/$run/$run.SpikeIn.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.GENE.$uu.ace
          endif
@@ -1338,7 +1337,7 @@ if ($phase == g4 || $phase == g4sp || $phase == gsnp4 ||  $phase == ma4  || $pha
   endif
 
   if (! -e $myace) then 
-    echo "FATAL ERROR: Phase $phase cannot access the expression data tmp/GENEINDEX/$MAGIC....ace"
+    echo "FATAL ERROR: Phase $phase cannot access the expression data $myace"
     exit 1
   endif
 ls -ls $myace

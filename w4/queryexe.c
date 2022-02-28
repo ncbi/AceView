@@ -1437,11 +1437,13 @@ static BOOL condCheck (double x, QOP qop, double y)
 {
   double delta = x - y , a, b, d ; 
   BOOL egaux = FALSE ;
+  float xf = x, yf = y ;
 
   a = x > 0 ? x : -x ;
   b = y > 0 ? y : -y ;
   d = delta > 0 ? delta : -delta ;
   if (
+      (xf == yf) || 
       (x == 0 && y == 0) ||
       (d < a * .25e-12 &&  d < b * .25e-12)
       )

@@ -31,7 +31,7 @@ static void tttShowPos (TTT *ttt, int ii0)
   int size = ttt->size ;
   float *s = ttt->scores ;
   float *q = ttt->Qscores ;
-
+  
   for (k = 0 ; k < size ; k++)
     {
       if (s[ttt->size * ii0 + k] < 2)
@@ -43,7 +43,7 @@ static void tttShowPos (TTT *ttt, int ii0)
 	printf ("\t") ;
     } 
   printf ("\n") ;
-
+  
   for (i = 0 ; i < 3 ; i++)
     {
       for (k = 0 ; k < size ; k++)
@@ -89,7 +89,7 @@ static NN *tttCreateNN (TTT *ttt)
   nn = nnInitialize (ttt->maxThreads, dimIn, dimOut, size, layerDims, layerActivations, 2) ;
   nn->learningRate = .1 ;
   nn->bMax = 1 ;
-
+  
   memset (x, 0, sizeof(x)) ;
   memset (y, 0, sizeof(y)) ;
   nnSetX (nn, x, FALSE) ;
@@ -115,7 +115,7 @@ static void tttInit (TTT  *ttt)
       1,0,0, 0,1,0, 0,0,1,
       0,0,1, 0,1,0, 1,0,0
     } ;
-
+  
   ttt->winScore = 3 ;
   ttt->maxWins = 8 ;
   ttt->maxPos = 9 ;
@@ -125,10 +125,10 @@ static void tttInit (TTT  *ttt)
   ttt->scores = (float*) halloc (ttt->size * ttt->maxPos * sizeof(float), ttt->h) ;
   ttt->Qscores = (float*) halloc (ttt->size * ttt->maxPos * sizeof(float), ttt->h) ;
   ttt->pp = (int*) halloc (ttt->size * ttt->maxPos  * ttt->maxPos * sizeof(int), ttt->h) ;
-
+  
   mxSet (ttt->wins, ww) ;
   mxShow (ttt->wins) ;
-
+  
 
   return ;
 } /* tttInit */
@@ -140,10 +140,10 @@ static void tttReinit (TTT *ttt)
   int i, iMax = ttt->size * ttt->maxPos ;
   float *s = ttt->scores ;
   float *q = ttt->Qscores ;
-
+  
   for (i = 0 ; i < iMax ; i++)
     q[i] = s[i] = 2 ;
-
+  
   memset (ttt->pp, 0, ttt->maxPos * ttt->maxPos * ttt->size * sizeof(int)) ;
 
   return ;
@@ -159,9 +159,9 @@ static BOOL tttIsWinningPosition (TTT *ttt, int ii0, int kk)
   BOOL isWin = FALSE ;
   const int *zip ;
   const float *zfp ;
-
+  
   zip = ttt->pp + ttt->maxPos * (ttt->size * ii0 + kk) ;
-
+  
   mxSet (ttt->onePos, zip) ;
   ttt->isWin = mxContractFirstIndex (ttt->isWin, ttt->wins, ttt->onePos, ttt->h) ;
   mxValues (ttt->isWin, 0, &zfp, 0) ;
@@ -198,12 +198,12 @@ static float tttScore (TTT *ttt, int ii0, int kk, BOOL *donep)
 /**********************************************************************/
 /* tttMove : perform a move, return FALSEis move is not allowed
  */
-  static BOOL tttMove (TTT *ttt, int ii0, int kk, int ii)
+static BOOL tttMove (TTT *ttt, int ii0, int kk, int ii)
 {
   int *zip, *zjp ;
   int ii1 = ii0 - 1 ;
   int who = ii0 % 2 ? -1 : 1 ;
-
+  
   zjp = ttt->pp + ttt->maxPos * (ttt->size * ii0 + kk) ;
   if (ii0)
     {
@@ -222,15 +222,15 @@ static float tttScore (TTT *ttt, int ii0, int kk, BOOL *donep)
 /**********************************************************************/
 /* tttPlay : plays from current position to end of game
  */
-  static BOOL tttPlay (TTT *ttt, int ii0, int kk)
+static BOOL tttPlay (TTT *ttt, int ii0, int kk)
 {
   int ii1 = ii0 + 1, iMax = ttt->maxPos ;
   int who, play, bestPlay = -1 ;
   float s, s1, bestScore = -1000 ;
   BOOL done = FALSE ;
-
+  
   who = ii0 % 2 ? -1 : 1 ;
-
+  
   for (play = 0 ; ! done && play < iMax ; play++)
     if (tttMove (ttt, ii0, kk, play))
       {
@@ -255,7 +255,7 @@ static float tttScore (TTT *ttt, int ii0, int kk, BOOL *donep)
       if (! done)
 	tttPlay (ttt, ii1, kk) ;
     }
-
+  
   return TRUE ;
 } /* tttPlay */
 
@@ -268,7 +268,7 @@ static void tttQscores (TTT *ttt)
   int iiMax = ttt->size * ttt->maxPos ;
   float *s = ttt->scores ;
   float *q = ttt->Qscores ;
-
+  
   for (ii = 0 ; ii < iiMax ; ii++)
     {
       float z = 1, zz = 0 ;
@@ -316,14 +316,14 @@ int main (int argc, const char *argv[])
   memset (&ttt, 0, sizeof (ttt)) ;
   ttt.size = 7 ;  
   ttt.maxThreads = 1 ;
-
+  
   getCmdLineInt (&argc, argv, "-t", &(test)) ;
   getCmdLineInt (&argc, argv, "-n", &(nIter)) ;
   getCmdLineInt (&argc, argv, "-s", &(ttt.size)) ;
   getCmdLineInt (&argc, argv, "-th", &(ttt.maxThreads)) ;
- 
+  
   aceInWaitAndRetry  (0) ; /* triggers the linker */
-
+  
   ttt.h = h ;
   tttInit (&ttt) ;
   for (i = 0 ; i < nIter ; i++)

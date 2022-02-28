@@ -577,7 +577,7 @@ static void pmbClassCount (PMB *pmb)
 	aceOutf (ao, "h_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, hns[tc], hnr[tc], hnali[tc]/1000) ;
 	  if (ns[tc] > 0)
 	    aceOutf (ao, "nh_ALI__%s\t%s\tiii\t%d\t%d\t%d\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run, ns[tc], nr[tc], nali[tc]/1000) ;
-	  if (nr[tc] > 0)
+	  if (nr[tc] > 10000)
 	    aceOutf (ao, "Stranding__%s\t%s\tiiii\t%d\t%d\t%d\t%d\t//%.2f\t%.2f\t%.2f\n", tc ? dictName (pmb->target_classDict, tc) : "zero", pmb->run
 		     , nr[tc], nrp[tc], nrm[tc], nra[tc], 100.0*nrp[tc]/nr[tc], 100.0*nrm[tc]/nr[tc], 100.0*nra[tc]/nr[tc]) ;
 	  if (nr[tc] > 0)

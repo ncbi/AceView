@@ -336,7 +336,7 @@ static void tttPlayOneGame (TTT *ttt, BOOL show)
 
 static void tttPlay (TTT *ttt)
 {
-  int i, n = 1000, n1 = n/10 ;
+  int i, n = 10, n1 = n/10 ;
   for (i = 0 ; i < n ; i++)
     {
       tttPlayOneGame (ttt, i>= n - 1 ? TRUE : FALSE) ;

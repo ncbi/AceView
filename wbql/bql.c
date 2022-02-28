@@ -3720,6 +3720,8 @@ static BOOL bqlExpandClass (BQL *bql, NODE *node, NODE *coma)
 static BOOL bqlNumberCompare (BQLTYPE type, double z1, double z2)
 {
   BOOL ok = FALSE ;
+  float z1f = z1, z2f = z2 ;
+  z1 = z1f ; z2 = z2f ;
 
   switch (type)
     {
