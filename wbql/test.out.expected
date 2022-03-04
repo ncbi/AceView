@@ -430,8 +430,26 @@ acedb> Jim
 // 1 Active Objects
 acedb> // Please type ? for a list of commands. 
 // 1 Active Objects
-acedb> // Comment "Filter on Text"
+acedb> // Comment "Filtering with a where not clause"
 // 1 Active Objects
+acedb> Jack
+Jim
+Kim
+Tom
+Xavier
+// 5 lines
+// 5 Active Objects
+acedb> Jack
+Jim
+Kim
+Tom
+Xavier
+// 5 lines
+// 5 Active Objects
+acedb> // Please type ? for a list of commands. 
+// 5 Active Objects
+acedb> // Comment "Filter on Text"
+// 5 Active Objects
 acedb> Abel
 Attim
 Baraki
