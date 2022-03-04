@@ -63,7 +63,7 @@ static const int bqlSide[] = {
   /* "Zero" */ 0 
   /* ";", "title", "order_by" */  , 5, 2, 2
   /* "from", "select", ",", "where" */, 10, 8, 6, 9
-  /* "__where_avoid", "__where_if__" */, 9, 9
+  /* "__where_avoid__", "__where_if__" */, 9, 9
   /* , "in" , ":=", "="  */  , 10, 10, 10
   /* , "||", "OR", "^^", "XOR", "&&" , "AND", "!", "NOT" */  , 10, 10, 10, 10, 10, 10, 8, 8
   /* , ISA */ , 1
@@ -392,8 +392,13 @@ static BOOL bqlGetTypes (BQL *bql, NODE *node, BOOL *okp)
 		    if (node->type == XOR2) node->type = XOR ;
 		    if (node->type == NOT2) node->type = NOT ;
 
-		    if (node->type == NOT && node->up && node->up->type == WHERE)
-		      node->type = WHERE_AVOID ;
+		    if (0)
+		      { /* 2022-03-04, remove this clause bqltest: see the example : tom where ! p->parent && p->papers
+			 * it wrongly parses   "where !a && b" into "where ! (a && b)" rateher than the correct "where (!a) && b"
+			 */
+			if (node->type == NOT && node->up && node->up->type == WHERE)
+			  node->type = WHERE_AVOID ;
+		      }
 		    if (node->type == SET_EQ) 
 		      {
 			NODE *up, *node2 = node ;

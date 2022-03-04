@@ -100,6 +100,10 @@ select ?person ; k*    //  short equivalent form
 comment "Filtering with a where clause"
 select ?Person Jim 
 select p in class "Person" where p == "Jim"
+
+comment "Filtering with a where not clause"
+select p in class "Person" where ! p#parent && p->papers
+select p in class "Person" where (! p#parent) && p->papers
  
 comment "Filter on Text"
 select p in ?Person where p
