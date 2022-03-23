@@ -7370,7 +7370,7 @@ static void  KasimirLowerMetric (KAS *kas)
       printf ("SUCCESS all lower metric entries scale up relative to the adjoint by a factor %g\n", zscale) ;
     }
 
-  mxSet (gg, yy) ;
+  mxSet (gg, yyAdjoint) ;
   ac_free (h) ;
   return  ;
 } /* KasimirMetric */
@@ -7443,24 +7443,26 @@ static void KasimirOperatorK2 (KAS *kas)
 	}
 
   MX kas2 = kas->kas2 = mxCreate (kas->h,  "KAS2", MX_FLOAT, d, d, 0) ;
-  dz = 2*b * (b - a - 1)/(a+1.0) ;
-
+  /* compute the casimir using the fixed adjoint metric */
+  dz = 2*b * (b - a - 1)/(a+1.0) ; /* natural metric STr(ab) in the same rep */
+  dz = b * (b - a - 1) ; /* fixed  metric STr(ab) in the adjoint rep */
+  mxSet (kas2, zz) ;
+  if (kas->show && a<4) niceShow (kas2) ;
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
-  mxSet (kas2, zz) ;
 
   if (dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
     messcrash ("ERROR, non zero atypic KAS2 %f\n", zz[0]) ;
   if (dz != 0 && ((zz[0]-1)*(zz[0]-1)) > 1/1000.0)
-    messcrash ("ERROR, KAS2 != 2b(b-a-1)/(a+1) bad ratio=%f should be 1\n", zz[0]) ;
+    messcrash ("ERROR, KAS2 != b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
 
 
   if (dz != 0)
-    printf ("SUCCESS Quadratic super-Casimir operator (a=%d,b=%d)  KAS2 = 2b(b-a-1)/(a+1) * %f\n", kas->a, kas->b, zz[0]) ;
+    printf ("SUCCESS Quadratic super-Casimir operator (a=%d,b=%d)  KAS2 = b(b-a-1) * %f\n", kas->a, kas->b, zz[0]) ;
   else
     printf ("SUCCESS Quadratic super-Casimir operator (a=%d,b=%d) ATYPIC  KAS2 = %f expected 0\n", kas->a, kas->b, zz[0]) ;
-  if (kas->show && a<4) niceShow (kas2) ;
+
 
   ac_free (h) ;
   return ;
@@ -7477,6 +7479,7 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
   const int *yy ;
   float zz [d*d], dz ;
   MX kas2 = kas->CHI = mxCreate (kas->h,  "Ghost-Casimir2", MX_FLOAT, d, d, 0) ;
+  BOOL isAdjoint = (kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
   
   memset (zz, 0, sizeof (zz)) ;
   /* mxValues (kas->GG, 0, &xx, 0) ; */
@@ -7537,26 +7540,30 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
 	  }
 
 
+  for (i = 0 ; i < d*d ; i++)
+    zz[i] /= 6.0 ;
+  
   int a = kas->a, b = kas->b ;
-  dz = 6*b * (b - a - 1) ;
+  dz = b * (b - a - 1) ;
   /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
+  mxSet (kas2, zz) ;
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
-  mxSet (kas2, zz) ;
+
 
   if (dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
     messcrash ("ERROR, non zero ghost casimir %f\n", zz[0]) ;
   if (dz != 0 && zz[0] != 1.0)
-    messcrash ("ERROR, ghost casimir != 6b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
+    messcrash ("ERROR, ghost casimir != b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
 
   if (dz == 0)
     printf ("\nSUCCESS Ghost Casimir operator Xtilde (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
   else
-    printf ("SUCCESS Ghost-Casimir operator Xtilde (a=%d,b=%d) expect = 6 * b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
+    printf ("SUCCESS Ghost-Casimir operator Xtilde (a=%d,b=%d) expect = b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
 
   if (kas->show && kas->a<4) niceShow (kas2) ;
-
+  if (0 && ! isAdjoint) exit (0) ;
   ac_free (h) ;
   return ;
 } /* GhostKasimirOperatorXtilde */
@@ -7632,8 +7639,11 @@ static void  KasimirLower3tensor (KAS *kas)
   int mx0 = 0 ;
   int mx1 = 8 ;
   static BOOL firstPass = TRUE ;
-  BOOL isAdjoint = (firstPass && kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+  BOOL isAdjoint = (firstPass && kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
 
+  if (! firstPass)
+    goto done ;
+  
   if (isAdjoint)
     firstPass = FALSE ;
   printf ("Lower ccc:: ") ;
@@ -7699,6 +7709,7 @@ static void  KasimirLower3tensor (KAS *kas)
       for (i = mx0 ; i < mx1 ; i++)
 	for (j = mx0 ; j < mx1 ; j++)
 	  for (k = mx0 ; k < mx1 ; k++)
+	    
 	    {
 	      zz = yy[100*i + 10*j + k] ;
 	      z0 = yyAdjoint[100*i + 10*j + k] ;
@@ -7710,7 +7721,14 @@ static void  KasimirLower3tensor (KAS *kas)
 	    }
       printf ("SUCCESS all lower 3 tensor scale up by a factor %g\n", zscale) ;
     }
-  mxSet (ccc, yy) ;
+
+  /* the lower 3 tensor scales (a,b) relative to the lepton (a=1,b=0) by a factor s=(a+1)(2b-a-1)
+   * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
+   * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
+   */
+ done:
+    mxSet (ccc, yyAdjoint) ;
+ 
   ac_free (h) ;
   return  ;
 } /* KasimirLower3tensor */
@@ -7795,12 +7813,13 @@ static void KasimirOperatorK3 (KAS *kas)
 
   z = b * (b - a - 1) ;
   zexpected = 4 * (b - a)  * (b - a - 1) * (2*b - a - 1) * (2*b + a - 1)  ;
+  zexpected = b * (b - a - 1) * (2*b - a - 1)  ;  /* using a fixed (adjoint) C_{abc} lifted using G^{ab} also adjoint, i.e. a fixed operator for all reps */
   if (z == 0)
-    printf ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
-  else if ( 1 || (a+1)*(a+1)*z == zexpected)
-    printf ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected=%f  = z * %f\n", kas->a, kas->b, zz[0] *(a+1)*(a+1), zexpected,  (a+1)*(a+1)*zz[0]/zexpected) ;
+    printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+  else if (0 ||  (2*zz[0] - zexpected)*(2*zz[0] - zexpected) < .1)
+    printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected= (b - a)  * (b - a - 1) * (2*b - a - 1)/2 = %f  = z * %f\n", kas->a, kas->b, zz[0] , zexpected/2, 2*zz[0]/zexpected) ;
   else
-    messcrash ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) expect b(b-a-1)32/9(a+1) * %f\n", kas->a, kas->b, 9*zz[0]/(32*z)) ;
+    messcrash ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) z = %f expect b(b-a-1)(2b - a -1)/2 =  %f\n", kas->a, kas->b, zz[0], zexpected/2.0) ;
   
   if (kas->show && kas->a<6) niceShow (kas3) ;
 
@@ -7888,8 +7907,9 @@ static void Kasimirs (int a, int b, BOOL show)
 	  {
 	    KasimirLower3tensor (&kas) ;
 	    KasimirUpper3tensor (&kas) ;
-	    KasimirOperatorK3 (&kas) ;
 	  }
+	if (show)
+	  KasimirOperatorK3 (&kas) ;
 } /* Kasimirs */
 
 /***********************************************************************************************************************************************/
@@ -9544,6 +9564,7 @@ static void muInitNCoq (int a, int b, int COQ)
   kasQ.h = h ;
 
   Kasimirs(1,1, FALSE) ;
+  Kasimirs(1,0, FALSE) ;
   KasimirConstructTypicMatrices (&kas, FALSE) ;
   KasimirConstructTypicMatrices (&kas2, FALSE) ;
   kasQ.COQ = COQ ;
@@ -9677,8 +9698,10 @@ static void muInitNCoq (int a, int b, int COQ)
 	  {
 	    KasimirLower3tensor (&kasQ) ;
 	    KasimirUpper3tensor (&kasQ) ;
-	    KasimirOperatorK3 (&kasQ) ;
 	  }
+	if (kasQ.show)
+	  KasimirOperatorK3 (&kasQ) ;
+
   exit(0) ;
   return ;
 } /* muInitNCoq */
