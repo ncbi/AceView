@@ -23,7 +23,7 @@ LINKER = gcc
 LIBS = -lm
 
 # adapt these lines if the X11 libs are not in /usr/X11/lib
-Xt_LIBS = -L/usr/X11R6/lib64 -lXaw -lXt -lXmu -lXext -lX11
+Xt_LIBS = -L/usr/X11R6/lib64 -lXaw7 -lXt -lXmu -lXext -lX11
 #Xt_LIBS = -L/usr/X11/lib64 /usr/X11/lib64/libX11.so \
 #			   /usr/X11/lib64/libXaw.so \
 #			   /usr/X11/lib64/libXt.so \

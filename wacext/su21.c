@@ -584,15 +584,16 @@ static double nicePrintFraction (const char *prefix, double x, const char *suffi
 
 static void niceComplexShow (MX a)
 {
-  int i,j, iMax = a->shapes[0] ;
+  int i,j, iMax = a->shapes[0], jMax = a->shapes[1] ;
   const complex float *zc ;
 
+  if (a->rank == 1) { jMax = iMax ; iMax = 1 ;}
   mxValues (a, 0, 0, &zc) ;
   printf ("## %s", a->name) ;
   for (i = 0 ; i < iMax ; i++)
     {
       printf ("\n") ;
-      for (j = 0 ; j < iMax ; j++)
+      for (j = 0 ; j < jMax ; j++)
 	nicePrint ("\t", zc[iMax*i + j]) ;
     }
   printf ("\n") ;
@@ -603,15 +604,16 @@ static void niceComplexShow (MX a)
 
 static void niceFloatShow (MX a)
 {
-  int i,j, iMax = a->shapes[0] ;
+  int i,j, iMax = a->shapes[0], jMax = a->shapes[1] ;
   const float *zf ;
 
+  if (a->rank == 1) { jMax = iMax ; iMax = 1 ;}
   mxValues (a, 0, &zf, 0) ;
   printf ("## %s", a->name) ;
   for (i = 0 ; i < iMax ; i++)
     {
       printf ("\n") ;
-      for (j = 0 ; j < iMax ; j++)
+      for (j = 0 ; j < jMax ; j++)
 	nicePrintFraction ("\t", zf[iMax*i + j],"") ;
     }
   printf ("\n") ;
@@ -621,15 +623,16 @@ static void niceFloatShow (MX a)
 /*******************************************************************************************/
 static void niceIntShow (MX a)
 {
-  int i,j, iMax = a->shapes[0] ;
+  int i,j, iMax = a->shapes[0], jMax = a->shapes[1] ;
   const int *zi ;
 
+  if (a->rank == 1) { jMax = iMax ; iMax = 1 ;}
   mxValues (a, &zi, 0, 0) ;
   printf ("## %s", a->name) ;
   for (i = 0 ; i < iMax ; i++)
     {
       printf ("\n") ;
-      for (j = 0 ; j < iMax ; j++)
+      for (j = 0 ; j < jMax ; j++)
 	printf ("\t%d", zi[iMax*i + j]) ;
     }
   printf ("\n") ;
@@ -6351,7 +6354,7 @@ static BOOL feynmanDiagrams (void)
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-typedef struct kasStruct { MX *mu, *QQ, gg, GG, kas2, CHI, ccc, CCC, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale, COQ ; BOOL isOSp, isSU2, isCycle, show ; AC_HANDLE h ; } KAS ;
+typedef struct kasStruct { MX *mu, *QQ, gg, GG, kas2, CHI, ccc, CCC, cccGhost, CCCGhost, c4, c5, C4, C5, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale, COQ ; BOOL isOSp, isSU2, isCycle, show ; float zc4, zC4 ; AC_HANDLE h ; } KAS ;
 typedef struct comtpStruct { int a, b, c, n, s ; } LC ;
 static MX KasCommut (MX a, MX b, int sign, KAS *kas) ;
   
@@ -7470,10 +7473,12 @@ static void KasimirOperatorK2 (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
-static void GhostKasimirOperatorXtilde (KAS *kas)
+static void GhostKasimirOperatorXtilde2 (KAS *kas)
 {
   int i, j, k, l, m1 ;
   int d = kas->d ;
+
+  return ;
   AC_HANDLE h = ac_new_handle () ;
   const float *xx ;
   const int *yy ;
@@ -7490,6 +7495,7 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
 	  MX a = kas->mu[i] ;
 	  MX b = kas->mu[j] ;
 	  float z = 0 ;
+	  BOOL ok = FALSE ;
 	  
 	  if (!a || !b)
 	    continue ;
@@ -7500,16 +7506,25 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
 	  else if (i == 5 && j == 4) z = -1 ;
 	  else if (i == 6 && j == 7) z = 1 ;
 	  else if (i == 7 && j == 6) z = -1 ;
-	  else continue ;
+	  else if (0) continue ;
 	  if (kas->scale) z /= kas->scale ;
 
 	  mxValues (c, &yy, 0, 0) ;
 	  for (k = 0 ; k < d*d ; k++)
-	    zz[k] -= z * yy[k] ;
+	    {
+	      zz[k] -= z * yy[k] ;
+	      if (yy[k] * yy[k] > 0)
+		ok = TRUE ;
+	    }
+	  if (0 && ok)
+	    {
+	      printf ("************************** X2 i = %d j = %d sign=%.2f\n", i, j, -z) ;
+	      niceShow (c) ;
+	    }
 	}
 
   mxSet (kas2, zz) ;
-  if (0) niceShow (kas2) ;
+  if (1) niceShow (kas2) ;
   
   for (i = 4 ; i < 8 ; i++)
     for (j = 4 ; j < 8 ; j++)
@@ -7517,7 +7532,8 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
 	for (l = 4 ; l < 8 ; l++)
 	  {
 	    int jj = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l);
-
+	    BOOL ok = FALSE ;
+	    
 	    if (jj)
 	      {
 		MX a = kas->mu[i] ;
@@ -7535,7 +7551,16 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
 		if (kas->scale) z /= (kas->scale * kas->scale) ;
 		mxValues (g, &yy, 0, 0) ;
 		for (m1 = 0 ; m1 < d*d ; m1++)
-		  zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
+		  {
+		    zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
+		    if (m1==0 && yy[m1] * yy[m1] > 0)
+		      ok = TRUE ;
+		  }
+		if (0 && ok)
+		  {
+		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
+		    niceShow (g) ;
+		  }
 	      }
 	  }
 
@@ -7558,15 +7583,405 @@ static void GhostKasimirOperatorXtilde (KAS *kas)
     messcrash ("ERROR, ghost casimir != b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
 
   if (dz == 0)
-    printf ("\nSUCCESS Ghost Casimir operator Xtilde (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+    printf ("\nSUCCESS Ghost Casimir operator Xtilde2 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
   else
-    printf ("SUCCESS Ghost-Casimir operator Xtilde (a=%d,b=%d) expect = b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
+    printf ("SUCCESS Ghost-Casimir operator Xtilde2 (a=%d,b=%d) expect = b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
 
   if (kas->show && kas->a<4) niceShow (kas2) ;
   if (0 && ! isAdjoint) exit (0) ;
   ac_free (h) ;
   return ;
-} /* GhostKasimirOperatorXtilde */
+} /* GhostKasimirOperatorXtilde2 */
+
+/***********************************************************************************************************************************************/
+
+static void GhostKasimirOperatorXtilde2New (KAS *kas)
+{
+  int i, j, k, l, m1 ;
+  int d = kas->d ;
+  AC_HANDLE h = ac_new_handle () ;
+  const float *xx ;
+  const int *yy ;
+  float zz [d*d], dz ;
+  float zC4 = kas->zC4 ;
+  const float *GG ;
+  MX XT2 = kas->CHI = mxCreate (kas->h,  "Ghost-Casimir2new", MX_FLOAT, d, d, 0) ;
+  BOOL isAdjoint = (kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+  
+  memset (zz, 0, sizeof (zz)) ;
+  mxValues (kas->GG, 0, &GG, 0) ;
+  for (i = 4 ; i < 8 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      if (1 || xx[10*i + j])
+	{
+	  MX a = kas->mu[i] ;
+	  MX b = kas->mu[j] ;
+	  float z = 0 ;
+	  BOOL ok = FALSE ;
+	  z = GG[10*i + j] ;	  
+	  if (z==0) continue ;
+
+	  if (!a || !b)
+	    continue ;
+	  MX c = mxMatMult (a, b, h) ;
+
+	  if (kas->scale) z /= kas->scale ;
+
+	  mxValues (c, &yy, 0, 0) ;
+	  for (k = 0 ; k < d*d ; k++)
+	    {
+	      zz[k] += z * yy[k] ;
+	      if (yy[k] * yy[k] > 0)
+		ok = TRUE ;
+	    }
+	  if (0 && ok)
+	    {
+	      printf ("************************** X2 i = %d j = %d sign=%.2f\n", i, j, -z) ;
+	      niceShow (c) ;
+	    }
+	}
+
+  mxSet (XT2, zz) ;
+  if (1) niceShow (XT2) ;
+  
+  if (0)   memset (zz, 0, sizeof (zz)) ;
+  for (i = 4 ; i < 8 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      for (k = 4 ; k < 8 ; k++)
+	for (l = 4 ; l < 8 ; l++)
+	  {
+	    int jj = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l);
+	    BOOL ok = FALSE ;
+	    
+	    if (jj)
+	      {
+		MX a = kas->mu[i] ;
+		MX b = kas->mu[j] ;
+		MX c = kas->mu[k] ;
+		MX d1 = kas->mu[l] ;
+		float z = 1 ;
+		
+		if (!a || !b || !c || !d)
+		  continue ;
+		MX e = mxMatMult (a, b, h) ;
+		MX f = mxMatMult (e,c, h) ;
+		MX g = mxMatMult (f,d1, h) ;
+
+		if (kas->scale) z /= (kas->scale * kas->scale) ;
+		mxValues (g, &yy, 0, 0) ;
+		for (m1 = 0 ; m1 < d*d ; m1++)
+		  {
+		    zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
+		    if (m1==0 && yy[m1] * yy[m1] > 0)
+		      ok = TRUE ;
+		  }
+		if (0 && ok)
+		  {
+		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
+		    niceShow (g) ;
+		  }
+	      }
+	  }
+
+
+  zC4 = 1 ;
+  for (i = 0 ; i < d*d ; i++)
+    zz[i] *= zC4/6.0 ;
+  
+  int a = kas->a, b = kas->b ;
+  dz = b * (b - a - 1) ;
+  /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
+  mxSet (XT2, zz) ;
+  if (dz != 0)
+    for (i = 0 ; i < d*d ; i++)
+      zz[i] /= dz ;
+
+
+  if (1 && dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
+    messcrash ("ERROR, non zero ghost casimir %f\n", zz[0]) ;
+  if (1 && dz != 0 && zz[0] != 1.0)
+    messcrash ("ERROR, ghost casimir != b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
+
+  if (dz == 0)
+    printf ("\nSUCCESS Ghost Casimir operator Xtilde2New (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+  else
+    printf ("SUCCESS Ghost-Casimir operator Xtilde2New (a=%d,b=%d) expect = b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
+
+  if (kas->show && kas->a<4) niceShow (XT2) ;
+  if (0 && ! isAdjoint) exit (0) ;
+  ac_free (h) ;
+  return ;
+} /* GhostKasimirOperatorXtilde2New */
+
+/***********************************************************************************************************************************************/
+
+static void GhostKasimirOperatorXtilde3 (KAS *kas)
+{
+  int i, j, k, l, m, m1 ;
+  int d = kas->d ;
+
+  if (! kas->show)
+    return ;
+
+  AC_HANDLE h = ac_new_handle () ;
+  const float *CCC ;
+  const float *C5 ;
+  const int *yy ;
+  float zz [d*d], dz ;
+  MX XT3 = mxCreate (kas->h,  "Ghost-Chisimir3", MX_FLOAT, d, d, 0) ;
+  BOOL isAdjoint = (kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+
+  mxValues (kas->CCC, 0, &CCC, 0) ;
+  memset (zz, 0, sizeof (zz)) ;
+  /* mxValues (kas->GG, 0, &xx, 0) ; */
+  for (i = 0 ; i < 8 ; i++)
+    for (j = 0 ; j < 8 ; j++)
+      for (k = 0 ; k < 8 ; k++)
+	if (1)
+	{
+	  int n ;
+	  MX a = kas->mu[i] ;
+	  MX b = kas->mu[j] ;
+	  MX c = kas->mu[k] ;
+	  float z = 0 ;
+	  z = CCC[100*i + 10*j + k] ;
+	  if (z == 0)
+	    continue ;
+	  BOOL ok = FALSE ;
+	  
+	  if (!a || !b || !c)
+	    continue ;
+
+	  n = 0 ;
+	  if (i < 4) n++ ;
+	  if (j < 4) n++ ;
+	  if (k < 4) n++ ;
+	  if (n != 1)
+	    continue ;
+	  
+	  MX e = mxMatMult (b, c, h) ;
+	  MX f = mxMatMult (a, e, h) ;
+
+	  if (kas->scale) z /= kas->scale ;
+
+	  mxValues (f, &yy, 0, 0) ;
+	  for (n = 0 ; n < d*d ; n++)
+	    {
+	      zz[n] -= 2 * z * yy[n] ;
+	      if (yy[n] * yy[n] > 0)
+		ok = TRUE ;
+	    }
+	  if (0 && i*j*k == 0 && ok)
+	    {
+	      printf ("***#######*********************** X2 i = %d j = %d k=%d sign=%.2f\n", i, j, k, z) ;
+	      niceShow (f) ;
+	    }
+	}
+
+  mxSet (XT3, zz) ;
+  printf ("#$#$#$#$#$ GHOST Chisimir 3\n") ;
+  if (1) niceShow (XT3) ;
+  niceShow (kas->CCC) ;
+
+
+
+  
+  mxValues (kas->C5, 0, &C5, 0) ;
+  if (0) memset (zz, 0, sizeof (zz)) ;
+  /* mxValues (kas->GG, 0, &xx, 0) ; */
+  for (i = 0 ; i < 4 ; i++)
+    for (j = 4 ; j < 6 ; j++)
+      for (k = 4 ; k < 6 ; k++)
+	for (l = 0 ; l < 8 ; l++)
+	  for (m = 0 ; m < 8 ; m++)
+	    if (1)
+	      {
+		int s, n, myA = 10 ;
+		MX a = kas->mu[i] ;
+		MX b = kas->mu[j] ;
+		MX c = kas->mu[k] ;
+		MX e = kas->mu[l] ;
+		MX f = kas->mu[m] ;
+		float z = 0 ;
+		
+		BOOL ok = FALSE ;
+		
+		if (!a || !b || !c || !e || !f)
+		  continue ;
+
+		/* order of even operator does not count */
+		if (i < 4) i -= 100 ; 
+		if (j < 4) j -= 100 ; 
+		if (k < 4) k -= 100 ; 
+		if (l < 4) l -= 100 ; 
+		if (m < 4) m -= 100 ; 
+		
+		/* cut the product in 2 pieces to avoid integer overflow */
+		s = (i-j)*(i-k)*(i-l)*(i-m)*(j-k) ;
+		
+		if (s > 0) s = 1 ;
+		else if (s < 0) s = -1 ;
+		else s = 0 ;
+		
+		s = s*(j-l)*(j-m)*(k-l)*(k-m)*(l-m) ;
+		
+		/* reset the even indices before issuing a continue */
+		if (i < 0) i += 100 ;
+		if (j < 0) j += 100 ;
+		if (k < 0) k += 100 ;
+		if (l < 0) l += 100 ;
+		if (m < 0) m += 100 ;
+		
+		if (s == 0) continue ;
+		if (s > 0) s = 1 ;
+		else s = -1 ;
+
+		n = 0 ;
+		if (i < 4) { myA = i ; n++ ; }
+		if (j < 4) { myA = j ; n++ ; }
+		if (k < 4) { myA = k ; n++ ; }
+		if (l < 4) { myA = l ; n++ ; }
+		if (m < 4) { myA = m ; n++ ; }
+		
+		if (n != 1 || myA == 10)
+		  continue ;
+		if (0 && myA == 0)
+		  continue ;
+
+		z = C5[myA] ;
+		if (z == 0)
+		  continue ;
+		
+		MX u = mxMatMult (a, b, h) ;
+		MX v = mxMatMult (u, c, h) ;
+		MX w = mxMatMult (v, e, h) ;
+		MX x = mxMatMult (w, f, h) ;
+		
+		if (kas->scale) z /= (kas->scale * kas->scale) ;
+		
+		mxValues (x, &yy, 0, 0) ;
+		for (n = 0 ; n < d*d ; n++)
+		  {
+		    zz[n] += 24 * s * z * yy[n] ;
+		    if (yy[n] * yy[n] > 0)
+		      ok = TRUE ;
+		  }
+		if (yy[6] > 0)
+		  {
+		    printf ("***#######*********************** X2 i = %d j = %d k=%d l=%d m=%d sign=%.2f\n", i, j, k, l, m, z) ;
+		    niceShow (x) ;
+		  }
+	      }
+
+  mxSet (XT3, zz) ;
+  printf ("#$#$#$#$#$ GHOST Chisimir 3\n") ;
+  if (1) niceShow (XT3) ;
+  niceShow (kas->C5) ;
+
+  return ;
+  
+  if (1)
+    {
+
+      MX Y = kas->mu[0] ;
+      
+      MX a = kas->mu[4] ;
+      MX b = kas->mu[5] ;
+
+      MX c = kas->mu[6] ;
+      MX d1 = kas->mu[7] ;
+
+      MX ab = mxMatMult (a,b, h) ;
+      MX ba = mxMatMult (b,a, h) ;
+
+      MX cd = mxMatMult (c,d1, h) ;
+      MX dc = mxMatMult (d1,c, h) ;
+
+      const int *yyY ;
+      const int *yyab ;
+      const int *yyba ;
+      const int *yycd ;
+      const int *yydc ;
+
+      mxValues (Y, &yyY, 0, 0) ;
+      mxValues (ab, &yyab, 0, 0) ;
+      mxValues (ba, &yyba, 0, 0) ;
+      mxValues (cd, &yycd, 0, 0) ;
+      mxValues (dc, &yydc, 0, 0) ;
+		
+      for (m1 = 0 ; m1 < d*d ; m1++)
+	{
+	  int m2 = m1 % d ;
+	  zz[m1] =  yyY[m2 + d * m2] *   (yyab[m1] - yyba[m1])*( yycd[m1] - yydc[m1]) ;
+	  if (kas->scale) zz[m1] /= (kas->scale * kas->scale) ;
+	}
+    }
+  for (i = 0 ; i < 0 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      for (k = 4 ; k < 8 ; k++)
+	for (l = 4 ; l < 8 ; l++)
+	  {
+	    int jj = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l);
+	    BOOL ok = FALSE ;
+	    
+	    if (jj)
+	      {
+		MX a = kas->mu[i] ;
+		MX b = kas->mu[j] ;
+		MX c = kas->mu[k] ;
+		MX d1 = kas->mu[l] ;
+		float z = 1 ;
+		
+		if (!a || !b || !c || !d)
+		  continue ;
+		MX e = mxMatMult (a, b, h) ;
+		MX f = mxMatMult (e,c, h) ;
+		MX g = mxMatMult (f,d1, h) ;
+
+		if (kas->scale) z /= (kas->scale * kas->scale) ;
+		mxValues (g, &yy, 0, 0) ;
+		for (m1 = 0 ; m1 < d*d ; m1++)
+		  {
+		    zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
+		    if (m1==0 && yy[m1] * yy[m1] > 0)
+		      ok = TRUE ;
+		  }
+		if (1 && ok)
+		  {
+		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
+		    niceShow (g) ;
+		  }
+	      }
+	  }
+
+
+  for (i = 0 ; i < d*d ; i++)
+    zz[i] /= 1.0 ;
+  
+  int a = kas->a, b = kas->b ;
+  dz = b * (b - a - 1) * (2*b - a - 1) ;
+  /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
+  mxSet (XT3, zz) ;
+  if (dz != 0)
+    for (i = 0 ; i < d*d ; i++)
+      zz[i] /= dz ;
+
+
+  if (0 && dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
+    messcrash ("ERROR, non zero ghost casimir %f\n", zz[0]) ;
+  if (0 && dz != 0 && zz[0] != 1.0)
+    messcrash ("ERROR, ghost casimir != b(b-a-1) bad ratio=%f should be 1\n", zz[0]) ;
+
+  if (0 && dz == 0)
+    printf ("\nSUCCESS Ghost Casimir operator Xtilde3 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
+  else
+    printf ("######QUESTION  Ghost-Casimir operator Xtilde3 (a=%d,b=%d) expect = b * (b - a - 1) * (2b - a - 1) = %d\n", kas->a, kas->b, b * (b-a-1)*(2*b-a-1)) ;
+
+  if (kas->show && kas->a<4) niceShow (XT3) ;
+  if (0 && ! isAdjoint) exit (0) ;
+  ac_free (h) ;
+  return ;
+} /* GhostKasimirOperatorXtilde3 */
 
 /***********************************************************************************************************************************************/
 /* Casimir proposed by Peter, july 28 */
@@ -7628,24 +8043,37 @@ static void KasimirOperatorK4 (KAS *kas)
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-static void  KasimirLower3tensor (KAS *kas)
+static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
 {
   int i, j, k, i1, scale ;
   float yy[1000] ;
   static  float yyAdjoint[1000] ;
   float zz, zscale = 0 ;
   AC_HANDLE h = ac_new_handle () ;
-  MX ccc = kas->ccc = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
+  MX ccc ;
   int mx0 = 0 ;
   int mx1 = 8 ;
   static BOOL firstPass = TRUE ;
-  BOOL isAdjoint = (firstPass && kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+  static BOOL firstPassGhost = TRUE ;
+  BOOL isAdjoint = (kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
 
-  if (! firstPass)
-    goto done ;
+  if (isGhost)
+    {
+      ccc = kas->cccGhost = mxCreate (kas->h,  "cccGhost", MX_FLOAT, 10, 10, 10, 0) ;
+      if (! firstPassGhost)
+	goto done ;
+      if (isAdjoint)
+	firstPassGhost = FALSE ;
+    }
+  else
+    {
+      ccc = kas->ccc = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
+      if (! firstPass)
+	goto done ;
+      if (isAdjoint)
+	firstPass = FALSE ;
+    }
   
-  if (isAdjoint)
-    firstPass = FALSE ;
   printf ("Lower ccc:: ") ;
   if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
   memset (yy, 0, sizeof (yy)) ;
@@ -7670,6 +8098,8 @@ static void  KasimirLower3tensor (KAS *kas)
 	x = mxMatMult (a, c, h) ;
 	y = mxMatMult (x, b, h) ;
 
+	if (isGhost  && i<4 && j<4 && k<4)
+	  continue ;
 	if (j >= 4 && j <= 7 && k >= 4 && k <= 7)
 	  s = -1 ;
 	else
@@ -7735,39 +8165,394 @@ static void  KasimirLower3tensor (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
+static void  KasimirLower4tensor (KAS *kas)
+{
+  int i, j, k, l, i1, scale ;
+  float zz, zc4 = 0 ;
+  static float zc4Adjoint = 0 ;
+  AC_HANDLE h = ac_new_handle () ;
+  int mx0 = 0 ;
+  int mx1 = 8 ;
+  static BOOL firstPass = TRUE ;
+  BOOL isAdjoint = (kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+
+  if (!firstPass || !isAdjoint)
+    {
+      kas->zc4 = zc4Adjoint ;
+      return ;
+    }
+  /* we do not ned to compute c4: it is always antisymmetrized, so it is dual to a scalar zc4
+     ccc = kas->c4 = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 10, 0) ;
+  */
+
+  if (isAdjoint)
+    firstPass = FALSE ;
+  
+  printf ("Lower c4:: ") ;
+  /*
+  if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
+  memset (yy, 0, sizeof (yy)) ;
+  */
+  for (i = mx0 ; i < mx1 ; i++)
+    for (j = mx0 ; j < mx1 ; j++)
+      for (k = mx0 ; k < mx1 ; k++)
+	for (l = mx0 ; l < mx1 ; l++)
+	  {
+	    int d = kas->d ;
+	    int d1 = kas->d1 ;
+	    int d2 = kas->d2 ;
+	    int d3 = kas->d3 ;
+	    int s ;
+	    MX a = kas->mu[i] ;
+	    MX b = kas->mu[j] ;
+	    MX c = kas->mu[k] ;
+	    MX e = kas->mu[l] ;
+	    MX u,v,w ;
+	    const int *xx ;
+	    
+	    s = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l) ;
+	    if (s == 0) continue ;
+	    if (s > 0) s = 1 ;
+	    else s = -1 ;
+	    
+	    
+	    
+	    
+	    
+	    u = mxMatMult (a, b, h) ;
+	    v = mxMatMult (u, c, h) ;
+	    w = mxMatMult (v, e, h) ;
+	    
+	    mxValues (w, &xx, 0, 0) ;
+	    
+	    /* compute the supertrace */
+	    zz = 0 ;
+	    for (i1 = 0 ; i1 < d ; i1++)
+	      {
+		int COQ = kas->COQ ;
+		int dd2 = COQ ? d/COQ : d ;
+		int i2 = i1 % dd2 ; 
+		zz += (i2 < d1 || i2 >= d1 + d2 + d3 ? xx[d*i1 + i1] : - xx[d*i1 + i1]) ;
+	      }
+	    zz *= s * kas->chi ;
+	    
+	    scale = kas->scale * kas->scale ; /* we use 4 odd operators */
+	    if (scale != 0)
+	      zz /= scale ;
+	    
+	    /*
+	      yy [1000*i + 100*j + 10*k + l] = zz ;
+	      if (isAdjoint)
+	      yyAdjoint [1000*i + 100*j + 10*k + l] = zz ;
+	    */
+	    zc4 += zz ;
+	    if (zz != 0)
+	      printf ("C3(%d%d%d%d)=%g ",i,j,k,l,zz) ;
+	  }
+
+  /* the lower 3 tensor scales (a,b) relative to the lepton (a=1,b=0) by a factor s=(a+1)(2b-a-1)
+   * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
+   * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
+   */
+
+  /*
+    mxSet (ccc, yyAdjoint) ;
+  */
+  zc4Adjoint = kas->zc4 = zc4/24 ;
+  
+  ac_free (h) ;
+  return  ;
+} /* KasimirLower4tensor */
+
+/***********************************************************************************************************************************************/
+
+static void  KasimirLower5tensor (KAS *kas)
+{
+  int i, j, k, l, m, p,  i1, scale ;
+  float yy[10] ;
+  static  float yyAdjoint[10] ;
+  float zz, zscale = 0 ;
+  AC_HANDLE h = ac_new_handle () ;
+  MX c5 ;
+  int mx0 = 0 ;
+  int mx1 = 8 ;
+  static BOOL firstPass = TRUE ;
+  BOOL isAdjoint = (kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+
+  if (! kas->c5)
+    kas->c5 = mxCreate (kas->h,  "c5", MX_FLOAT, 10, 0) ;
+  c5 = kas->c5 ;
+  if (!firstPass || !isAdjoint)
+    goto done ;
+
+  if (isAdjoint)
+    firstPass = FALSE ;
+  
+  printf ("Lower c5:: ") ;
+  if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
+  memset (yy, 0, sizeof (yy)) ;
+  for (i = mx0 ; i < mx1 ; i++)
+    for (j = mx0 ; j < mx1 ; j++)
+      for (k = mx0 ; k < mx1 ; k++)
+	for (l = mx0 ; l < mx1 ; l++)
+	  for (m = mx0 ; m < mx1 ; m++)
+	    {
+	      int myA = 0 ;
+	      int d = kas->d ;
+	      int d1 = kas->d1 ;
+	      int d2 = kas->d2 ;
+	      int d3 = kas->d3 ;
+	      int s ;
+	      MX a = kas->mu[i] ;
+	      MX b = kas->mu[j] ;
+	      MX c = kas->mu[k] ;
+	      MX e = kas->mu[l] ;
+	      MX f = kas->mu[m] ;
+	      MX u,v,w,x ;
+	     const int *xx ;
+	     
+	     /* count the even operator, keep one */
+	      s = 0 ;
+	      if (i < 4) s++ ;
+	      if (j < 4) s++ ;
+	      if (k < 4) s++ ;
+	      if (l < 4) s++ ;
+	      if (m < 4) s++ ;
+	      
+	      if (s != 1)
+		continue ;
+	      
+	      /* order of even operator does not count */
+	      if (i < 4) i -= 100 ; 
+	      if (j < 4) j -= 100 ; 
+	      if (k < 4) k -= 100 ; 
+	      if (l < 4) l -= 100 ; 
+	      if (m < 4) m -= 100 ; 
+	      
+	      /* cut the product in 2 pieces to avoid integer overflow */
+	      s = (i-j)*(i-k)*(i-l)*(i-m)*(j-k) ;
+
+	      if (s > 0) s = 1 ;
+	      else if (s < 0) s = -1 ;
+	      else s = 0 ;
+	      
+	      s = s*(j-l)*(j-m)*(k-l)*(k-m)*(l-m) ;
+
+	      /* reset the even indices before issuing a continue */
+	      if (i < 0) i += 100 ;
+	      if (j < 0) j += 100 ;
+	      if (k < 0) k += 100 ;
+	      if (l < 0) l += 100 ;
+	      if (m < 0) m += 100 ;
+
+	      if (s == 0) continue ;
+	      if (s > 0) s = 1 ;
+	      else s = -1 ;
+
+	      if (i < 4) myA = i ;
+	      if (j < 4) myA = j ;
+	      if (k < 4) myA = k ;
+	      if (l < 4) myA = l ;
+	      if (m < 4) myA = m ;
+
+
+	      
+	      u = mxMatMult (a, b, h) ;
+	      v = mxMatMult (u, c, h) ;
+	      w = mxMatMult (v, e, h) ;
+	      x = mxMatMult (w, f, h) ;
+	      
+	      mxValues (x, &xx, 0, 0) ;
+	      
+	      /* compute the supertrace */
+	      zz = 0 ;
+	      for (i1 = 0 ; i1 < d ; i1++)
+		{
+		  int COQ = kas->COQ ;
+		  int dd2 = COQ ? d/COQ : d ;
+		  int i2 = i1 % dd2 ; 
+		  zz += (i2 < d1 || i2 >= d1 + d2 + d3 ? xx[d*i1 + i1] : - xx[d*i1 + i1]) ;
+		}
+	      zz *= s * kas->chi ;
+	      
+	      scale = kas->scale * kas->scale ; /* we use 4 odd operators */
+	      if (scale != 0)
+		zz /= scale ;
+
+	      zz /= 24 ;
+	      yy [myA] += zz ;
+	      yyAdjoint [myA] += zz ;
+	    }
+  if (!firstPass && ! isAdjoint)
+    {
+      float z0 = yyAdjoint[0] ;
+      zscale = yy[0]/z0 ;
+      
+      for (p = 0 ; p < 4 ; p++)
+	{
+	  zz = yy[p] ;
+	  z0 = yyAdjoint[p] ;
+	  if (zz != zscale * z0)
+	    {
+	      printf ("ERROR in lower5tensor at i=%d zz=%g z0=%g zscale=%g\n", i,zz,z0,zscale) ;
+	      exit (1) ;;
+	    }
+	}
+      printf ("SUCCESS all lower 5 tensor scale up by a factor %g\n", zscale) ;
+    }
+
+  /* the lower 3 tensor scales (a,b) relative to the lepton (a=1,b=0) by a factor s=(a+1)(2b-a-1)
+   * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
+   * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
+   */
+ done:
+    mxSet (c5, yyAdjoint) ;
+    niceShow (c5) ; 
+  ac_free (h) ;
+  return  ;
+} /* KasimirLower5tensor */
+
+/***********************************************************************************************************************************************/
+
 static void  KasimirUpper3tensor (KAS *kas)
 {
   int i, j, k ;
   float yy[1000] ;
+  float yyGhost[1000] ;
   AC_HANDLE h = ac_new_handle () ;
-  MX CCC = kas->CCC = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
+  MX CCC = kas->CCC = mxCreate (kas->h,  "CCC", MX_FLOAT, 10, 10, 10, 0) ;
+  MX CCCGhost = kas->CCCGhost = mxCreate (kas->h,  "CCCGhost", MX_FLOAT, 10, 10, 10, 0) ;
   const float *GG ;
   const float *ccc ;
+  const float *cccGhost ;
 
   printf ("Upper CCC:: ") ;
   mxValues (kas->GG, 0,  &GG, 0) ;
   mxValues (kas->ccc, 0, &ccc, 0) ;
+  mxValues (kas->cccGhost, 0, &cccGhost, 0) ;
   memset (yy, 0, sizeof (yy)) ;
+  memset (yyGhost, 0, sizeof (yyGhost)) ;
   for (i = 0 ; i < 8 ; i++)
     for (j = 0 ; j < 8 ; j++)
       for (k = 0 ; k < 8 ; k++)
 	{
 	  int a, b, c ; /* dummy indices */
 	  float  z = 0 ;
+	  float  zGhost = 0 ;
 	  for (a = 0 ; a < 8 ; a++)
 	    for (b = 0 ; b < 8 ; b++)
 	      for (c = 0 ; c < 8 ; c++)
-		z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * ccc[100*a + 10 * b + c] ; 
+		{
+		  z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * ccc[100*a + 10 * b + c] ;
+		  zGhost += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * cccGhost[100*a + 10 * b + c] ;
+		}
 
 	  if (i>4 || j>4 || k>4) z = -z ;
 	  if (kas->show && z != 0)
 	    printf (" %d:%d:%d=%.2f",i,j,k,z) ;
 	  yy[100*i + 10*j + k] += z ;
+	  yyGhost[100*i + 10*j + k] += zGhost ;
 	}
   mxSet (CCC, yy) ;
+  mxSet (CCCGhost, yyGhost) ;
   ac_free (h) ;
   return  ;
 } /* KasimirUpper3tensor */
+
+/***********************************************************************************************************************************************/
+
+static void  KasimirUpper4tensor (KAS *kas)
+{
+  int i, j, k, l ;
+
+  if (kas->zc4)
+    kas->zC4 = 1/kas->zc4 ;
+  return ;
+  
+  if (! kas->c4) return ;
+  
+  float yy[10000] ;
+  AC_HANDLE h = ac_new_handle () ;
+  MX CCC = kas->C4 = mxCreate (kas->h,  "CCC", MX_FLOAT, 10, 10, 10, 10, 0) ;
+  const float *GG ;
+  const float *ccc ;
+
+  printf ("Upper CCC:: ") ;
+  mxValues (kas->GG, 0,  &GG, 0) ;
+  mxValues (kas->c4, 0, &ccc, 0) ;
+  memset (yy, 0, sizeof (yy)) ;
+  for (i = 4 ; i < 8 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      for (k = 4 ; k < 8 ; k++)
+	for (l = 4 ; l < 8 ; l++)
+	  {
+	    int a, b, c, d ; /* dummy indices */
+	    float  z = 0 ;
+	    for (a = 0 ; a < 8 ; a++)
+	      for (b = 0 ; b < 8 ; b++)
+		for (c = 0 ; c < 8 ; c++)
+		  for (d = 0 ; d < 8 ; d++)
+		    {
+		      z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * GG[10*l + d] * ccc[1000*a + 100 * b + 10*c + d] ;
+		    }
+	    if (kas->show && z != 0)
+	      printf (" %d:%d:%d:%d=%.2f",i,j,k,l,z) ;
+	    yy[1000*i + 100*j + 10*k + l] += z ;
+	  }
+  mxSet (CCC, yy) ;
+  ac_free (h) ;
+  return  ;
+} /* KasimirUpper4tensor */
+
+/***********************************************************************************************************************************************/
+/* this is really a single index tensor a */
+static void  KasimirUpper5tensor (KAS *kas)
+{
+  int i ;
+
+  if (! kas->c5) return ;
+  float yy[10] ;
+  AC_HANDLE h = ac_new_handle () ;
+  MX CCC = kas->C5 = mxCreate (kas->h,  "C5", MX_FLOAT, 10, 0) ;
+  const float *GG ;
+  const float *ccc ;
+
+  printf ("Upper C5:: ") ;
+  mxValues (kas->GG, 0,  &GG, 0) ;
+  mxValues (kas->c5, 0, &ccc, 0) ;
+  memset (yy, 0, sizeof (yy)) ;
+  for (i = 0 ; i < 8 ; i++)
+    {
+      int a ; /* dummy indices */
+      float  z = 0 ;
+      for (a = 0 ; a < 8 ; a++)
+	{
+	  z += GG[10*i + a] * ccc[a] ;
+	}
+      if (kas->show && z != 0)
+	printf (" %d=%.2f",i,z) ;
+      yy[i] += z * kas->zC4 ;
+    }
+  mxSet (CCC, yy) ;
+  niceShow (CCC) ;
+  ac_free (h) ;
+  return  ;
+} /* KasimirUpper5tensor */
+
+/***********************************************************************************************************************************************/
+
+static void KasimirUpperTensor (KAS *kas)
+{
+  KasimirLower3tensor (kas, FALSE) ;
+  KasimirLower3tensor (kas, TRUE) ;
+  KasimirLower4tensor (kas) ;
+  KasimirLower5tensor (kas) ;
+
+  KasimirUpper3tensor (kas) ;
+  KasimirUpper4tensor (kas) ;
+  KasimirUpper5tensor (kas) ;
+  return ;
+} /* KasimirUppertensor */
 
 /***********************************************************************************************************************************************/
 
@@ -7857,10 +8642,12 @@ static void Kasimirs (int a, int b, BOOL show)
 
   KasimirLowerMetric (&kas) ;
   KasimirUpperMetric (&kas) ;
-  
+  KasimirUpperTensor (&kas) ;
   
   KasimirOperatorK2 (&kas) ;
-  GhostKasimirOperatorXtilde (&kas) ;
+  GhostKasimirOperatorXtilde2 (&kas) ;
+  GhostKasimirOperatorXtilde2New (&kas) ;
+  GhostKasimirOperatorXtilde3 (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
 
 
@@ -7902,12 +8689,8 @@ static void Kasimirs (int a, int b, BOOL show)
 	SC3->name = "S-Casimir cube" ;
 	if (kas.show) niceShow (SC3) ;
 
+	KasimirUpperTensor (&kas) ;
 
-	if (1)
-	  {
-	    KasimirLower3tensor (&kas) ;
-	    KasimirUpper3tensor (&kas) ;
-	  }
 	if (show)
 	  KasimirOperatorK3 (&kas) ;
 } /* Kasimirs */
@@ -9657,10 +10440,13 @@ static void muInitNCoq (int a, int b, int COQ)
 
   KasimirLowerMetric (&kasQ) ;
   KasimirUpperMetric (&kasQ) ;
-  
+  KasimirUpperTensor (&kas) ;
+      
   KasimirOperatorK2 (&kasQ) ;
-  GhostKasimirOperatorXtilde (&kasQ) ;
-
+  GhostKasimirOperatorXtilde2 (&kasQ) ;
+  GhostKasimirOperatorXtilde2New (&kasQ) ;
+  GhostKasimirOperatorXtilde3 (&kasQ) ;
+  
   if (0) KasimirOperatorK4 (&kasQ) ;
 
 	printf ("Verify that the casimir commutes with H  4\n") ;
@@ -9696,8 +10482,7 @@ static void muInitNCoq (int a, int b, int COQ)
 
 	if(1)
 	  {
-	    KasimirLower3tensor (&kasQ) ;
-	    KasimirUpper3tensor (&kasQ) ;
+	    KasimirUpperTensor (&kasQ) ;
 	  }
 	if (kasQ.show)
 	  KasimirOperatorK3 (&kasQ) ;
@@ -9919,10 +10704,12 @@ static void coqCycle (int nn, int a, int b)
 
   KasimirLowerMetric (kas) ;
   KasimirUpperMetric (kas) ;
-  
+  KasimirUpperTensor (kas) ;
   
   KasimirOperatorK2 (kas) ;
-  GhostKasimirOperatorXtilde (kas) ;
+  GhostKasimirOperatorXtilde2 (kas) ;
+  GhostKasimirOperatorXtilde2New (kas) ;
+  GhostKasimirOperatorXtilde3 (kas) ;
   exit (0) ;
   return ;
 }
