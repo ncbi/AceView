@@ -7731,7 +7731,11 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
   MX XT3 = mxCreate (kas->h,  "Ghost-Chisimir3", MX_FLOAT, d, d, 0) ;
   BOOL isAdjoint = (kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
 
-  mxValues (kas->CCC, 0, &CCC, 0) ;
+
+  if (0)
+    mxValues (kas->CCC, 0, &CCC, 0) ;
+  else
+    mxValues (kas->CCCGhost, 0, &CCC, 0) ;
   memset (zz, 0, sizeof (zz)) ;
   /* mxValues (kas->GG, 0, &xx, 0) ; */
   for (i = 0 ; i < 8 ; i++)
@@ -7759,19 +7763,19 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  if (n != 1)
 	    continue ;
 	  
-	  MX e = mxMatMult (b, c, h) ;
-	  MX f = mxMatMult (a, e, h) ;
+	  MX e = mxMatMult (a, b, h) ;
+	  MX f = mxMatMult (e, c, h) ;
 
 	  if (kas->scale) z /= kas->scale ;
 
 	  mxValues (f, &yy, 0, 0) ;
 	  for (n = 0 ; n < d*d ; n++)
 	    {
-	      zz[n] -= 2 * z * yy[n] ;
+	      zz[n] -= 9 * z * yy[n] ;
 	      if (yy[n] * yy[n] > 0)
 		ok = TRUE ;
 	    }
-	  if (0 && i*j*k == 0 && ok)
+	  if (1 && i*j*k >= 0 && ok)
 	    {
 	      printf ("***#######*********************** X2 i = %d j = %d k=%d sign=%.2f\n", i, j, k, z) ;
 	      niceShow (f) ;
@@ -7789,9 +7793,9 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
   mxValues (kas->C5, 0, &C5, 0) ;
   if (0) memset (zz, 0, sizeof (zz)) ;
   /* mxValues (kas->GG, 0, &xx, 0) ; */
-  for (i = 0 ; i < 4 ; i++)
-    for (j = 4 ; j < 6 ; j++)
-      for (k = 4 ; k < 6 ; k++)
+  for (i = 0 ; i < 8 ; i++)
+    for (j = 0 ; j < 8 ; j++)
+      for (k = 0 ; k < 8 ; k++)
 	for (l = 0 ; l < 8 ; l++)
 	  for (m = 0 ; m < 8 ; m++)
 	    if (1)
@@ -7847,7 +7851,8 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		  continue ;
 		if (0 && myA == 0)
 		  continue ;
-
+		if (0 && j+k != 9) continue ;
+		
 		z = C5[myA] ;
 		if (z == 0)
 		  continue ;
@@ -7862,7 +7867,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		mxValues (x, &yy, 0, 0) ;
 		for (n = 0 ; n < d*d ; n++)
 		  {
-		    zz[n] += 24 * s * z * yy[n] ;
+		    zz[n] += 24  * s * z * yy[n] ;
 		    if (yy[n] * yy[n] > 0)
 		      ok = TRUE ;
 		  }
@@ -8048,6 +8053,7 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
   int i, j, k, i1, scale ;
   float yy[1000] ;
   static  float yyAdjoint[1000] ;
+  static  float yyAdjointGhost[1000] ;
   float zz, zscale = 0 ;
   AC_HANDLE h = ac_new_handle () ;
   MX ccc ;
@@ -8059,23 +8065,25 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
 
   if (isGhost)
     {
-      ccc = kas->cccGhost = mxCreate (kas->h,  "cccGhost", MX_FLOAT, 10, 10, 10, 0) ;
-      if (! firstPassGhost)
+      if (!kas->cccGhost)
+	kas->cccGhost = mxCreate (kas->h,  "cccGhost", MX_FLOAT, 10, 10, 10, 0) ;
+      ccc = kas->cccGhost ;
+      if (! isAdjoint || ! firstPassGhost)
 	goto done ;
-      if (isAdjoint)
-	firstPassGhost = FALSE ;
+      firstPassGhost = FALSE ;
     }
   else
     {
-      ccc = kas->ccc = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
-      if (! firstPass)
+      if (! kas->ccc)
+	kas->ccc = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
+      ccc = kas->ccc ;
+      if (! isAdjoint || ! firstPass)
 	goto done ;
-      if (isAdjoint)
-	firstPass = FALSE ;
+      firstPass = FALSE ;
     }
   
   printf ("Lower ccc:: ") ;
-  if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
+
   memset (yy, 0, sizeof (yy)) ;
   for (i = mx0 ; i < mx1 ; i++)
     for (j = mx0 ; j < mx1 ; j++)
@@ -8098,7 +8106,7 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
 	x = mxMatMult (a, c, h) ;
 	y = mxMatMult (x, b, h) ;
 
-	if (isGhost  && i<4 && j<4 && k<4)
+	if (1 && isGhost  && i<4 && j<4 && k<4)
 	  continue ;
 	if (j >= 4 && j <= 7 && k >= 4 && k <= 7)
 	  s = -1 ;
@@ -8126,8 +8134,6 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
 	  zz /= scale ;
 	
 	yy [100*i + 10*j + k] = zz ;
-	if (isAdjoint)
-	  yyAdjoint [100*i + 10*j + k] = zz ;
 	if (zz != 0)
 	  printf ("C3(%d%d%d)=%g ",i,j,k,zz) ;
       }
@@ -8152,11 +8158,19 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
       printf ("SUCCESS all lower 3 tensor scale up by a factor %g\n", zscale) ;
     }
 
+  niceShow (ccc) ;
   /* the lower 3 tensor scales (a,b) relative to the lepton (a=1,b=0) by a factor s=(a+1)(2b-a-1)
    * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
    * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
    */
+  if (isGhost)
+    memcpy (yyAdjointGhost, yy, sizeof (yy)) ;
+  else
+    memcpy (yyAdjoint, yy, sizeof (yy)) ;
  done:
+  if (isGhost)
+    mxSet (ccc, yyAdjointGhost) ;
+  else
     mxSet (ccc, yyAdjoint) ;
  
   ac_free (h) ;
@@ -8443,13 +8457,13 @@ static void  KasimirUpper3tensor (KAS *kas)
 	    for (b = 0 ; b < 8 ; b++)
 	      for (c = 0 ; c < 8 ; c++)
 		{
-		  z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * ccc[100*a + 10 * b + c] ;
+		       z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * ccc[100*a + 10 * b + c] ;
 		  zGhost += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * cccGhost[100*a + 10 * b + c] ;
 		}
 
-	  if (i>4 || j>4 || k>4) z = -z ;
+	  if (i>4 || j>4 || k>4) { z = -z ; zGhost = - zGhost ; }
 	  if (kas->show && z != 0)
-	    printf (" %d:%d:%d=%.2f",i,j,k,z) ;
+	    printf (" %d:%d:%d=%.2f ::ghost %.2f",i,j,k,z,zGhost) ;
 	  yy[100*i + 10*j + k] += z ;
 	  yyGhost[100*i + 10*j + k] += zGhost ;
 	}
@@ -8464,44 +8478,10 @@ static void  KasimirUpper3tensor (KAS *kas)
 static void  KasimirUpper4tensor (KAS *kas)
 {
   int i, j, k, l ;
-
+  
   if (kas->zc4)
     kas->zC4 = 1/kas->zc4 ;
   return ;
-  
-  if (! kas->c4) return ;
-  
-  float yy[10000] ;
-  AC_HANDLE h = ac_new_handle () ;
-  MX CCC = kas->C4 = mxCreate (kas->h,  "CCC", MX_FLOAT, 10, 10, 10, 10, 0) ;
-  const float *GG ;
-  const float *ccc ;
-
-  printf ("Upper CCC:: ") ;
-  mxValues (kas->GG, 0,  &GG, 0) ;
-  mxValues (kas->c4, 0, &ccc, 0) ;
-  memset (yy, 0, sizeof (yy)) ;
-  for (i = 4 ; i < 8 ; i++)
-    for (j = 4 ; j < 8 ; j++)
-      for (k = 4 ; k < 8 ; k++)
-	for (l = 4 ; l < 8 ; l++)
-	  {
-	    int a, b, c, d ; /* dummy indices */
-	    float  z = 0 ;
-	    for (a = 0 ; a < 8 ; a++)
-	      for (b = 0 ; b < 8 ; b++)
-		for (c = 0 ; c < 8 ; c++)
-		  for (d = 0 ; d < 8 ; d++)
-		    {
-		      z += GG[10*i + a] * GG[10*j + b] * GG[10*k + c] * GG[10*l + d] * ccc[1000*a + 100 * b + 10*c + d] ;
-		    }
-	    if (kas->show && z != 0)
-	      printf (" %d:%d:%d:%d=%.2f",i,j,k,l,z) ;
-	    yy[1000*i + 100*j + 10*k + l] += z ;
-	  }
-  mxSet (CCC, yy) ;
-  ac_free (h) ;
-  return  ;
 } /* KasimirUpper4tensor */
 
 /***********************************************************************************************************************************************/
@@ -10440,7 +10420,7 @@ static void muInitNCoq (int a, int b, int COQ)
 
   KasimirLowerMetric (&kasQ) ;
   KasimirUpperMetric (&kasQ) ;
-  KasimirUpperTensor (&kas) ;
+  KasimirUpperTensor (&kasQ) ;
       
   KasimirOperatorK2 (&kasQ) ;
   GhostKasimirOperatorXtilde2 (&kasQ) ;
