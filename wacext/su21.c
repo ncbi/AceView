@@ -7524,8 +7524,8 @@ static void GhostKasimirOperatorXtilde2 (KAS *kas)
 	}
 
   mxSet (kas2, zz) ;
-  if (1) niceShow (kas2) ;
-  
+  if (0) niceShow (kas2) ;
+  if (0) memset (zz, 0, sizeof (zz)) ;
   for (i = 4 ; i < 8 ; i++)
     for (j = 4 ; j < 8 ; j++)
       for (k = 4 ; k < 8 ; k++)
@@ -7553,10 +7553,10 @@ static void GhostKasimirOperatorXtilde2 (KAS *kas)
 		for (m1 = 0 ; m1 < d*d ; m1++)
 		  {
 		    zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
-		    if (m1==0 && yy[m1] * yy[m1] > 0)
+		    if (yy[m1] * yy[m1] > 0)
 		      ok = TRUE ;
 		  }
-		if (0 && ok)
+		if (0 &&  ok)
 		  {
 		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
 		    niceShow (g) ;
@@ -7571,7 +7571,9 @@ static void GhostKasimirOperatorXtilde2 (KAS *kas)
   int a = kas->a, b = kas->b ;
   dz = b * (b - a - 1) ;
   /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
+  if (1) niceShow (kas2) ;
   mxSet (kas2, zz) ;
+  if (1) niceShow (kas2) ;
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
@@ -7599,6 +7601,9 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 {
   int i, j, k, l, m1 ;
   int d = kas->d ;
+
+  if (! kas->show)
+    return ;
   AC_HANDLE h = ac_new_handle () ;
   const float *xx ;
   const int *yy ;
@@ -7608,6 +7613,8 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
   MX XT2 = kas->CHI = mxCreate (kas->h,  "Ghost-Casimir2new", MX_FLOAT, d, d, 0) ;
   BOOL isAdjoint = (kas->COQ == 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
   
+  zC4 = 1 ; /* fixed scale (the calculation gives -1) */
+
   memset (zz, 0, sizeof (zz)) ;
   mxValues (kas->GG, 0, &GG, 0) ;
   for (i = 4 ; i < 8 ; i++)
@@ -7618,9 +7625,9 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	  MX b = kas->mu[j] ;
 	  float z = 0 ;
 	  BOOL ok = FALSE ;
-	  z = GG[10*i + j] ;	  
+	  z = GG[10*j + i] ;  /* contract in direct order g^{ji} i j, that is UV = VU since g_UV = g^UV = 1 */	  
 	  if (z==0) continue ;
-
+	  z = -z ;
 	  if (!a || !b)
 	    continue ;
 	  MX c = mxMatMult (a, b, h) ;
@@ -7642,7 +7649,8 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	}
 
   mxSet (XT2, zz) ;
-  if (1) niceShow (XT2) ;
+  if (kas->show && kas->a<4) niceShow (XT2) ;
+  if (0 && kas->show) memset (zz, 0, sizeof (zz)) ;
   
   if (0)   memset (zz, 0, sizeof (zz)) ;
   for (i = 4 ; i < 8 ; i++)
@@ -7660,7 +7668,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 		MX c = kas->mu[k] ;
 		MX d1 = kas->mu[l] ;
 		float z = 1 ;
-		
+		z = z ;
 		if (!a || !b || !c || !d)
 		  continue ;
 		MX e = mxMatMult (a, b, h) ;
@@ -7672,21 +7680,23 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 		for (m1 = 0 ; m1 < d*d ; m1++)
 		  {
 		    zz[m1] += z * (jj>0  ? yy[m1] : -yy[m1]) ;
-		    if (m1==0 && yy[m1] * yy[m1] > 0)
+		    if (yy[m1] * yy[m1] > 0)
 		      ok = TRUE ;
 		  }
-		if (0 && ok)
+		if (kas->show && ok)
 		  {
 		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
-		    niceShow (g) ;
+		    if (0) niceShow (g) ;
 		  }
 	      }
 	  }
 
-
-  zC4 = 1 ;
+  mxSet (XT2, zz) ;
+  if (kas->show && kas->a<4) niceShow (XT2) ;
+  
+  /* we already added the 2 terms */
   for (i = 0 ; i < d*d ; i++)
-    zz[i] *= zC4/6.0 ;
+    zz[i] *= 1/6.0 ;           /* divide by 6 */
   
   int a = kas->a, b = kas->b ;
   dz = b * (b - a - 1) ;
@@ -7697,6 +7707,8 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
       zz[i] /= dz ;
 
 
+  if (kas->show && kas->a<4) niceShow (XT2) ;
+
   if (1 && dz == 0 && (zz[0]*zz[0]) > 1.0/10000)
     messcrash ("ERROR, non zero ghost casimir %f\n", zz[0]) ;
   if (1 && dz != 0 && zz[0] != 1.0)
@@ -7705,9 +7717,9 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
   if (dz == 0)
     printf ("\nSUCCESS Ghost Casimir operator Xtilde2New (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
   else
-    printf ("SUCCESS Ghost-Casimir operator Xtilde2New (a=%d,b=%d) expect = b * (b - a - 1) * %.3f\n", kas->a, kas->b, zz[0]) ;
+    printf ("SUCCESS Ghost-Casimir operator Xtilde2New (a=%d,b=%d) expect = b * (b - a - 1) * %.3f zC4=%.2f\n", kas->a, kas->b, zz[0],zC4) ;
 
-  if (kas->show && kas->a<4) niceShow (XT2) ;
+
   if (0 && ! isAdjoint) exit (0) ;
   ac_free (h) ;
   return ;
@@ -7752,7 +7764,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  if (z == 0)
 	    continue ;
 	  BOOL ok = FALSE ;
-	  
+	  z = 3 ;
 	  if (!a || !b || !c)
 	    continue ;
 
@@ -7762,20 +7774,24 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  if (k < 4) n++ ;
 	  if (n != 1)
 	    continue ;
+	  if (i < 4 && j > k) z = -z ;
+	  if (j < 4 && i > k) z = -z ;
+	  if (k < 4 && i > j) z = -z ;
 	  
 	  MX e = mxMatMult (a, b, h) ;
 	  MX f = mxMatMult (e, c, h) ;
 
 	  if (kas->scale) z /= kas->scale ;
-
+	  
 	  mxValues (f, &yy, 0, 0) ;
+	  if (i*j*k == 0)
 	  for (n = 0 ; n < d*d ; n++)
 	    {
-	      zz[n] -= 9 * z * yy[n] ;
+	      zz[n] += z * yy[n] ;
 	      if (yy[n] * yy[n] > 0)
 		ok = TRUE ;
 	    }
-	  if (1 && i*j*k >= 0 && ok)
+	  if (1 && i*j*k != 0 && ok)
 	    {
 	      printf ("***#######*********************** X2 i = %d j = %d k=%d sign=%.2f\n", i, j, k, z) ;
 	      niceShow (f) ;
@@ -7800,7 +7816,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  for (m = 0 ; m < 8 ; m++)
 	    if (1)
 	      {
-		int s, n, myA = 10 ;
+		int s, n, myA = 10, myI = 0 ;
 		MX a = kas->mu[i] ;
 		MX b = kas->mu[j] ;
 		MX c = kas->mu[k] ;
@@ -7841,19 +7857,22 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		else s = -1 ;
 
 		n = 0 ;
-		if (i < 4) { myA = i ; n++ ; }
-		if (j < 4) { myA = j ; n++ ; }
-		if (k < 4) { myA = k ; n++ ; }
-		if (l < 4) { myA = l ; n++ ; }
-		if (m < 4) { myA = m ; n++ ; }
+		if (i < 4) { myA = i ; myI = 1 ; n++ ; }
+		if (j < 4) { myA = j ; myI = 2 ; n++ ; }
+		if (k < 4) { myA = k ; myI = 3 ; n++ ; }
+		if (l < 4) { myA = l ; myI = 4 ; n++ ; }
+		if (m < 4) { myA = m ; myI = 5 ; n++ ; }
 		
 		if (n != 1 || myA == 10)
 		  continue ;
-		if (0 && myA == 0)
+		if (myI != 1 && myI != 3 && myI != 5)
+		  continue ;
+		if (1 && myA != 0)
 		  continue ;
 		if (0 && j+k != 9) continue ;
 		
 		z = C5[myA] ;
+		z = -1/12.0 ;
 		if (z == 0)
 		  continue ;
 		
@@ -8185,7 +8204,7 @@ static void  KasimirLower4tensor (KAS *kas)
   float zz, zc4 = 0 ;
   static float zc4Adjoint = 0 ;
   AC_HANDLE h = ac_new_handle () ;
-  int mx0 = 0 ;
+  int mx0 = 4 ;
   int mx1 = 8 ;
   static BOOL firstPass = TRUE ;
   BOOL isAdjoint = (kas->COQ >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
@@ -8199,14 +8218,9 @@ static void  KasimirLower4tensor (KAS *kas)
      ccc = kas->c4 = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 10, 0) ;
   */
 
-  if (isAdjoint)
-    firstPass = FALSE ;
-  
+  firstPass = FALSE ;
   printf ("Lower c4:: ") ;
-  /*
-  if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
-  memset (yy, 0, sizeof (yy)) ;
-  */
+
   for (i = mx0 ; i < mx1 ; i++)
     for (j = mx0 ; j < mx1 ; j++)
       for (k = mx0 ; k < mx1 ; k++)
@@ -8228,10 +8242,6 @@ static void  KasimirLower4tensor (KAS *kas)
 	    if (s == 0) continue ;
 	    if (s > 0) s = 1 ;
 	    else s = -1 ;
-	    
-	    
-	    
-	    
 	    
 	    u = mxMatMult (a, b, h) ;
 	    v = mxMatMult (u, c, h) ;
@@ -8264,15 +8274,7 @@ static void  KasimirLower4tensor (KAS *kas)
 	      printf ("C3(%d%d%d%d)=%g ",i,j,k,l,zz) ;
 	  }
 
-  /* the lower 3 tensor scales (a,b) relative to the lepton (a=1,b=0) by a factor s=(a+1)(2b-a-1)
-   * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
-   * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
-   */
-
-  /*
-    mxSet (ccc, yyAdjoint) ;
-  */
-  zc4Adjoint = kas->zc4 = zc4/24 ;
+  zc4Adjoint = kas->zc4 = zc4/4 ;
   
   ac_free (h) ;
   return  ;
@@ -8303,7 +8305,7 @@ static void  KasimirLower5tensor (KAS *kas)
     firstPass = FALSE ;
   
   printf ("Lower c5:: ") ;
-  if (isAdjoint) memset (yy, 0, sizeof (yyAdjoint)) ;
+
   memset (yy, 0, sizeof (yy)) ;
   for (i = mx0 ; i < mx1 ; i++)
     for (j = mx0 ; j < mx1 ; j++)
@@ -8627,9 +8629,10 @@ static void Kasimirs (int a, int b, BOOL show)
   KasimirOperatorK2 (&kas) ;
   GhostKasimirOperatorXtilde2 (&kas) ;
   GhostKasimirOperatorXtilde2New (&kas) ;
+  
   GhostKasimirOperatorXtilde3 (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
-
+  return ;
 
   MX qmuH = kas.mu[3] ;
   MX qmuX = kas.mu[6] ;
