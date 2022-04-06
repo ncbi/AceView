@@ -134,19 +134,19 @@ MX mxLinearCombine (MX a, complex float betaC, MX b, complex float gammaC, MX c,
   float * Restrict zfa, * Restrict zfb, * Restrict zfc ;
   complex float * Restrict zca, * Restrict zcb, * Restrict zcc ;
 
-  mxCheck (a, "mxAdd(a,...)") ;
+  if (a) mxCheck (a, "mxAdd(a,...)") ;
   mxCheck (b, "mxAdd(...,b,...)") ;
   mxCheck (c, "mxAdd(...,c)") ;
 
   if (b->rank < c->rank) /* switch, addition is Abelian */
     { MX m = b ; b = c ; c = m ; }
 
-  /*
+  
   if (!a)
     {
-      a = mxDuplicate (hprintf (h, "%s * %s", b->name, c->name), a, b, c, h) ;
+      a = mxCreate (h, hprintf (h, "%s +- %s", b->name, c->name), b->type, -999, b->shapes) ;
     }
-  */
+
 
   /* check the types */
   if (a->type < b->type)

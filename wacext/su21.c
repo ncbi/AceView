@@ -594,7 +594,7 @@ static void niceComplexShow (MX a)
     {
       printf ("\n") ;
       for (j = 0 ; j < jMax ; j++)
-	nicePrint ("\t", zc[iMax*i + j]) ;
+	nicePrint ("\t", zc[iMax*j + i]) ;
     }
   printf ("\n") ;
   return ;
@@ -614,7 +614,7 @@ static void niceFloatShow (MX a)
     {
       printf ("\n") ;
       for (j = 0 ; j < jMax ; j++)
-	nicePrintFraction ("\t", zf[iMax*i + j],"") ;
+	nicePrintFraction ("\t", zf[iMax*j + i],"") ;
     }
   printf ("\n") ;
   return ;
@@ -633,7 +633,7 @@ static void niceIntShow (MX a)
     {
       printf ("\n") ;
       for (j = 0 ; j < jMax ; j++)
-	printf ("\t%d", zi[iMax*i + j]) ;
+	printf ("\t%d", zi[iMax*j + i]) ;
     }
   printf ("\n") ;
   return ;
@@ -753,6 +753,7 @@ static void freePolynome (POLYNOME pp)
       ac_free (pp->p1) ;
       ac_free (pp->p2) ;
       ac_free (pp) ;
+      freePolynome (pp) ; /* for compiler happiness */
     }
   return ;
 }
@@ -7816,6 +7817,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  for (m = 0 ; m < 8 ; m++)
 	    if (1)
 	      {
+		BOOL ok = FALSE ;
 		int s, n, myA = 10, myI = 0 ;
 		MX a = kas->mu[i] ;
 		MX b = kas->mu[j] ;
@@ -7823,9 +7825,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		MX e = kas->mu[l] ;
 		MX f = kas->mu[m] ;
 		float z = 0 ;
-		
-		BOOL ok = FALSE ;
-		
+				
 		if (!a || !b || !c || !e || !f)
 		  continue ;
 
@@ -7890,7 +7890,7 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		    if (yy[n] * yy[n] > 0)
 		      ok = TRUE ;
 		  }
-		if (yy[6] > 0)
+		if (ok && yy[6] > 0)
 		  {
 		    printf ("***#######*********************** X2 i = %d j = %d k=%d l=%d m=%d sign=%.2f\n", i, j, k, l, m, z) ;
 		    niceShow (x) ;
@@ -8479,8 +8479,6 @@ static void  KasimirUpper3tensor (KAS *kas)
 
 static void  KasimirUpper4tensor (KAS *kas)
 {
-  int i, j, k, l ;
-  
   if (kas->zc4)
     kas->zC4 = 1/kas->zc4 ;
   return ;
@@ -8596,6 +8594,73 @@ static void KasimirOperatorK3 (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
+static void QFTscalar (KAS *kas)
+{
+  int i, j ;
+  if (! kas->show)
+    return ;
+
+  AC_HANDLE h = ac_new_handle () ;
+  const float *GG ;
+  const int *yy ;
+  int d = kas->d ;
+  float zz[d*d] ;
+  float scale = kas->scale ;
+  MX K = kas->mu[4] ;
+
+  if (scale == 0)
+    scale = 1 ;
+  memset (zz, 0, sizeof (zz)) ;
+  printf(" In the scalar psi-psi diagram g^ij (i j) 4 + 4 g^{ji}{i j} should look like 4\n") ;
+  
+  MX w = mxCreate (h, "wave function", MX_FLOAT, kas->d, kas->d, 0) ;
+  mxValues (kas->GG, 0, &GG, 0) ; 
+    for (i = 0 ; i < 8 ; i++)
+      for (j = 0 ; j < 8 ; j++)
+      {
+	float z = GG[10*i + j] ;
+	if (z)
+	  {
+	    int m ;
+	    MX a = kas->mu[i] ;
+	    MX b = kas->mu[j] ;
+
+	    MX c = mxMatMult (a, b, h) ;
+	    MX e = mxMatMult (c, K, h) ;
+	    MX f = mxMatMult (K, c, h) ;
+	    
+	    MX g ;
+	    if ( i >= 40)
+	      continue ;
+	    if (i >= 14)
+	      g = mxSubstract (0,e, f,h) ;
+	    else
+	      g = mxAdd (0,e, f,h) ;
+	    mxValues (g, &yy, 0, 0) ;
+	    for (m = 0 ; m < d*d ; m++)
+	      zz[m] += z * yy[m] / scale ;
+	    printf ("QFT i=%d j=%d\n", i, j) ;
+	    if (0)
+	      {
+		niceShow (a) ;
+		niceShow (b) ;
+		niceShow (c) ;
+		niceShow (e) ;
+		niceShow (f) ;
+	      }
+	    niceShow (g) ;
+	  }
+      }
+    
+    mxSet (w, zz) ;
+    niceShow (K) ;
+    niceShow (w) ;
+    
+    ac_free (h) ;
+} /* QFTscalr */
+
+  /***********************************************************************************************************************************************/
+
 static void Kasimirs (int a, int b, BOOL show)
 {
   KAS kas ;
@@ -8631,6 +8696,7 @@ static void Kasimirs (int a, int b, BOOL show)
   GhostKasimirOperatorXtilde2New (&kas) ;
   
   GhostKasimirOperatorXtilde3 (&kas) ;
+  QFTscalar (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
   return ;
 

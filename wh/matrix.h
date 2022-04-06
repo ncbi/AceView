@@ -72,6 +72,27 @@ typedef struct mxStruct {
 } MM ;
 #endif
 
+/* After type, give a zero termintaed list of integers
+ * For example: mxCreate (h, "test", MX_FLOAT, 7, 2, 0) ;
+ * create a 7 by 2 matrix
+ * 7 will be the fastest moving index
+ * The product of 2 matrices contracts by default the first index
+ * example (Einstein notation, the i repeated index is summed)
+ *      a(j,k,l,m) = b(i,j,k, l) c(i,m)
+ * therefore in a product the dim of the first index must match
+ *
+ * ALTERNATIVE CALL
+ *      int shapes[MAXRANK] = {3,4,0,...} ;
+ *   or int shapes = other_tensor->shapes ;
+ *    mxCreate (h, "test", MX_FLOAT, -999,  shapes);
+ *    creates a tensor with the given shapes
+ */ 
+MX mxCreate(AC_HANDLE h,const char *name, MX_TYPE type, ...) ;
+
+void uMxDestroy (void *va) ;
+#define mxDestroy(_mx) {uMxDestroy(_mx);(_mx) = 0;}
+
+
 /* Rank of the matrix. i.e. its number of indexes
  * 0: a scaler, 1: a vector, 2: a matrix, p>2 a tensor
  */
@@ -94,20 +115,6 @@ void mxShow (MX a) ;        /* show on stderr */
 void mxSet (MX a, const void *x) ; /* x is memcpy in a->z, it must have the correct type and size, no check */
 
 
-/* After type, give a zero termintaed list of integers
- * For example: mxCreate (h, "test",MX_FLOAT, 7, 2, 0) ;
- * create a 7 by 2 matrix
- * 7 will be the fastest moving index
- * The product of 2 matrices contracts by default the first index
- * example (Einstein notation, the i repeated index is summed)
- *      a(j,k,l,m) = b(i,j,k, l) c(i,m)
- * therefore in a product the dim of the first index must match
- */ 
-MX mxCreate(AC_HANDLE h,const char *name, MX_TYPE type, ...) ;
-
-void uMxDestroy (void *va) ;
-#define mxDestroy(_mx) {uMxDestroy(_mx);(_mx) = 0;}
-
 /* copy matrix b in matrix a, 
  * if a exists, a ann be must have same shape and type
  * copy content of b in a 
@@ -115,7 +122,7 @@ void uMxDestroy (void *va) ;
 MX mxCopy (MX a, MX b, AC_HANDLE h);
 
 /* reshape a matrix and or change its type
- * if a == NULL, cretates a as needed
+ * if a == NULL, creates a as needed
  * else check a type is equal or more precise than b type
  * check that the product of the a dims is equalt to the product of the b dims
  * returns a ;

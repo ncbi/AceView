@@ -152,8 +152,25 @@ MX mxCreate (AC_HANDLE h,const char *name, MX_TYPE type, ...)
     {
       int k = va_arg(args, int );  
 
+      if (k == -999)
+	{
+	  int *s = va_arg(args, int*) ;
+	  for (ii = 0 ; ii< MAXRANK ; ii++)
+	    {
+	      if (s[ii] > 0)
+		{
+		  a->rank++ ;
+		  shapes[ii] = s[ii] ;
+		}
+	      else if (s[ii] == 0)
+		break ;
+	      else
+		messcrash ("mxCreate %s, called with a negative dim[%d] = %d < 0 in shapes[]", a->name, ii, s[ii]) ;
+	    }
+	  break ;
+	}
       if (k < 0)
-	messcrash ("mxCreate %s, called with a dim %d = %d < 0", a->name, a->rank, k) ;
+	  messcrash ("mxCreate %s, called with a dim %d = %d < 0", a->name, a->rank, k) ;
       if (k == 0)
 	break ;
       a->rank++ ;
