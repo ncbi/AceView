@@ -1,1 +1,22 @@
 SU21
+
+To compile and run the su21 program:
+ 1) clone the aceview source code
+    This is a database system + a genome analyser, but the basic libraries are used by the su21 program
+         git clone ...
+ 2) compile the code (LINUX, you need a C compiler)
+    cd AceView
+    tcsh
+      setenv ACEDB_MACHINE LINUX_4
+      make -k libs
+      cd wacext
+      make su21
+ 3) Construct the matrices of the desired representations: say a=0, b=1, 3-families
+      ../bin.LINUX_4/su21 -a 0 -b 10  -N 3
+
+    The interface is not friendly because it is a single user code, 
+    but if I know some people are interested it could easily be improved
+    please email:  mieg@ncbi.nlm.nih.gov
+
+
+
