@@ -7650,7 +7650,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	}
 
   mxSet (XT2, zz) ;
-  if (kas->show && kas->a<4) niceShow (XT2) ;
+  if (0 && kas->show && kas->a<4) niceShow (XT2) ;
   if (0 && kas->show) memset (zz, 0, sizeof (zz)) ;
   
   if (0)   memset (zz, 0, sizeof (zz)) ;
@@ -7768,7 +7768,8 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  z = 3 ;
 	  if (!a || !b || !c)
 	    continue ;
-
+	  if (i*j*k != 0)
+	    continue ;
 	  n = 0 ;
 	  if (i < 4) n++ ;
 	  if (j < 4) n++ ;
@@ -7785,10 +7786,10 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	  if (kas->scale) z /= kas->scale ;
 	  
 	  mxValues (f, &yy, 0, 0) ;
-	  if (i*j*k == 0)
+
 	  for (n = 0 ; n < d*d ; n++)
 	    {
-	      zz[n] += z * yy[n] ;
+	      zz[n] += 1.25*z * yy[n] ;
 	      if (yy[n] * yy[n] > 0)
 		ok = TRUE ;
 	    }
@@ -7798,6 +7799,18 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 	      niceShow (f) ;
 	    }
 	}
+  if (1)
+    {
+      int n ;
+
+      MX a = kas->mu[0] ;
+      mxValues (a, &yy, 0, 0) ;
+
+      for (n = 0 ; n < d*d ; n++)
+	{
+	  zz[n] +=  yy[n]* yy[n]* yy[n]/3.0 ;
+	}
+    }
 
   mxSet (XT3, zz) ;
   printf ("#$#$#$#$#$ GHOST Chisimir 3\n") ;
@@ -7828,6 +7841,15 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 				
 		if (!a || !b || !c || !e || !f)
 		  continue ;
+		n = 0 ;
+		if (i < 4) { myA = i ; myI = 1 ; n++ ; }
+		if (j < 4) { myA = j ; myI = 2 ; n++ ; }
+		if (k < 4) { myA = k ; myI = 3 ; n++ ; }
+		if (l < 4) { myA = l ; myI = 4 ; n++ ; }
+		if (m < 4) { myA = m ; myI = 5 ; n++ ; }
+		
+		if (n != 1 || myA == 10)
+		  continue ;
 
 		/* order of even operator does not count */
 		if (i < 4) i -= 100 ; 
@@ -7856,15 +7878,6 @@ static void GhostKasimirOperatorXtilde3 (KAS *kas)
 		if (s > 0) s = 1 ;
 		else s = -1 ;
 
-		n = 0 ;
-		if (i < 4) { myA = i ; myI = 1 ; n++ ; }
-		if (j < 4) { myA = j ; myI = 2 ; n++ ; }
-		if (k < 4) { myA = k ; myI = 3 ; n++ ; }
-		if (l < 4) { myA = l ; myI = 4 ; n++ ; }
-		if (m < 4) { myA = m ; myI = 5 ; n++ ; }
-		
-		if (n != 1 || myA == 10)
-		  continue ;
 		if (myI != 1 && myI != 3 && myI != 5)
 		  continue ;
 		if (1 && myA != 0)
@@ -8692,11 +8705,12 @@ static void Kasimirs (int a, int b, BOOL show)
   KasimirUpperTensor (&kas) ;
   
   KasimirOperatorK2 (&kas) ;
-  GhostKasimirOperatorXtilde2 (&kas) ;
+  if (0) GhostKasimirOperatorXtilde2 (&kas) ;
   GhostKasimirOperatorXtilde2New (&kas) ;
-  
+
+  KasimirOperatorK3 (&kas) ;
   GhostKasimirOperatorXtilde3 (&kas) ;
-  QFTscalar (&kas) ;
+  if (0) QFTscalar (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
   return ;
 
@@ -8738,7 +8752,7 @@ static void Kasimirs (int a, int b, BOOL show)
 	SC3->name = "S-Casimir cube" ;
 	if (kas.show) niceShow (SC3) ;
 
-	KasimirUpperTensor (&kas) ;
+	if (0)	KasimirUpperTensor (&kas) ;
 
 	if (show)
 	  KasimirOperatorK3 (&kas) ;
@@ -11315,7 +11329,7 @@ int main (int argc, const char **argv)
   int COQ = 0 ;
   int CYCLE = 0 ;
   
-  getCmdLineInt (&argc, argv, "-coq", &COQ) ;
+  getCmdLineInt (&argc, argv, "-N", &COQ) ;
   getCmdLineInt (&argc, argv, "-cycle", &CYCLE) ;
 
   int a = 0, b = 0 ;
