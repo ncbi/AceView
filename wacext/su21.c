@@ -23,7 +23,7 @@
  * 
  * expand: allows to flatten the products of polynomes
  * contractIndices: sort and reduces the Einstein repeated indices and the epsilons
- * PaukiTrace:  transforms the ordered products of Pauli matrices into a polynome in g_mn and epsilon
+ * PauliTrace:  transforms the ordered products of Pauli matrices into a polynome in g_mn and epsilon
  *
  * Z2: Construct the Feynman diagram of a propagator given the field types
  *        by hooking the relevant Feynam rules
@@ -7572,9 +7572,9 @@ static void GhostKasimirOperatorXtilde2 (KAS *kas)
   int a = kas->a, b = kas->b ;
   dz = b * (b - a - 1) ;
   /* dz1 = -6*(2*b -a - 1)*(2*b - 1) ; */
-  if (1) niceShow (kas2) ;
+  if (0) niceShow (kas2) ;
   mxSet (kas2, zz) ;
-  if (1) niceShow (kas2) ;
+  if (0) niceShow (kas2) ;
   if (dz != 0)
     for (i = 0 ; i < d*d ; i++)
       zz[i] /= dz ;
@@ -7650,7 +7650,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	}
 
   mxSet (XT2, zz) ;
-  if (kas->show && kas->a<4) niceShow (XT2) ;
+  if (0 && kas->show && kas->a<4) niceShow (XT2) ;
   if (0 && kas->show) memset (zz, 0, sizeof (zz)) ;
   
   if (0)   memset (zz, 0, sizeof (zz)) ;
@@ -7684,7 +7684,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 		    if (yy[m1] * yy[m1] > 0)
 		      ok = TRUE ;
 		  }
-		if (kas->show && ok)
+		if (0 && kas->show && ok)
 		  {
 		    printf ("*** X2 i = %d j = %d  k=%d  l=%d sign=%d\n", i, j,k,l,jj> 0 ? 1 : -1) ;
 		    if (0) niceShow (g) ;
@@ -7693,7 +7693,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	  }
 
   mxSet (XT2, zz) ;
-  if (kas->show && kas->a<4) niceShow (XT2) ;
+  if (0 && kas->show && kas->a<4) niceShow (XT2) ;
   
   /* we already added the 2 terms */
   for (i = 0 ; i < d*d ; i++)
@@ -8695,8 +8695,8 @@ static void Kasimirs (int a, int b, BOOL show)
   GhostKasimirOperatorXtilde2 (&kas) ;
   GhostKasimirOperatorXtilde2New (&kas) ;
   
-  GhostKasimirOperatorXtilde3 (&kas) ;
-  QFTscalar (&kas) ;
+  if (0) GhostKasimirOperatorXtilde3 (&kas) ;
+  if (0) QFTscalar (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
   return ;
 
@@ -9858,7 +9858,7 @@ static MX muMarcuComposeIntMatrix (int NN, int d, int ii, MX mm, MX mu, MX nu, B
     {
       int w = 1 ;
       int diag ;
-      int diagMax = nu ? NN : 1 ; /* if nu==0, just populate the block diagonal: good for SU(2) */
+      int diagMax = nu ? (new ? 1 : NN) : 1 ; /* if nu==0, just populate the block diagonal: good for SU(2) */
 
       mxValues (mu, &zi, 0, 0) ;
       for (diag = 0 ; diag < diagMax ; diag += 2)
