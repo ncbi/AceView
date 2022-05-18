@@ -1,4 +1,12 @@
 SU21
+Instructions on how to download, compile and use the 'su21' C program
+In case of difficulty, please mail the author
+   Jean Thierry-Mieg:  jeanielle.mieg@gmail,com,   mieg@ncbi.nlm.nih.gov
+
+This program was used to check numerically most of the equations fo several articles listed below
+dealing with irreducible and indecomposable representations of the simple Lie superalgebra
+   SU(2/1)  alias A(1/0) in Kac's classification
+
 
 To compile and run the su21 program:
  1) clone the aceview source code
@@ -31,10 +39,11 @@ To compile and run the su21 program:
       ../bin.*/su21 -help
     If you get the instructions for the command line, it works.  
 
- 4) Run the su21 program
+ 4) Run the su21 program in one of the following modes:
 
-    Construct the matices of the desired representations: say a=0, b=10, N=3 families
+   4A)    Construct the matices of the desired representations: say a=0, b=10, N=3 families
       ../bin.*/su21 -a 0 -b 10  -N 3
+
 
     You will see first the matrices in the Chevalley basis
     The SU(2) geberatoirs are called as usual H,E,F
@@ -45,6 +54,35 @@ To compile and run the su21 program:
     The interface is not very friendly because it is a single user code, 
     but if I know some people are interested, the interface could easily be improved
     please email:  mieg@ncbi.nlm.nih.gov
+
+  4B)    Compute the groups trace of different Feynman diagrams
+      Undocumented, sorry
+
+
+  4C)    Compute the pole part of several scalar-vector-tensor Feynman diagrams
+      Undocumented, sorry
+
+
+Reference:
+
+  Jean Thierry-Mieg:
+  Scalar anomaly cancellation reveals the hidden superalgebraic structure of the quantum chiral
+  SU (2/1) model of leptons and quarks
+  Journal of High Energy Physics 2020 (10), 1-26
+
+  Jean Thierry-Mieg and Peter Jarvis:
+  SU (2/1) superchiral self-duality: a new quantum, algebraic and geometric paradigm
+  to describe the electroweak interactions
+  Journal of High Energy Physics 2021 (4), 1-25
+
+  Peter Jarvis and Jean Thierry-Mieg:
+  Indecomposable doubling for representations of the type I Lie superalgebras sl (m/n) and osp (2/2n)
+  arXiv preprint arXiv:2204.08662, 2022
+
+  Jean Thierry-Mieg, Peter Jarvis and Jerome Germoni,
+  Explicit construction of the finite dimensional indecomposable representations of the simple Lie-Kac
+  SU (2/1) superalgebra and their low level non diagonal  super Casimir operators.
+  to be submitted, 2022
 
 
 
