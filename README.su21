@@ -2,20 +2,48 @@ SU21
 
 To compile and run the su21 program:
  1) clone the aceview source code
-    This is a database system + a genome analyser, but the basic libraries are used by the su21 program
-         git clone ...
- 2) compile the code (LINUX, you need a C compiler)
+      git clone git@github.com:ncbi/AceView
+
+    As you will see, this is a large C code containing an object oriented database engine called acedb
+    and a collection of genome analysis programs. It has been in use for the genome project since 1990
+    and is very secure and entirely self-contained.
+    We need to clone this code-platform because su21 uses some of the underlying C libraries.
+
+ 2) compile the su21 code ( you need a C compiler)
     cd AceView
     tcsh
       setenv ACEDB_MACHINE LINUX_4
       make -k libs
       cd wacext
       make su21
- 3) Construct the matrices of the desired representations: say a=0, b=1, 3-families
-      ../bin.LINUX_4/su21 -a 0 -b 10  -N 3
 
-    The interface is not friendly because it is a single user code, 
-    but if I know some people are interested it could easily be improved
+    For a Mac please repace LINUX_4
+         setenv ACEDB_MACHINE MAC_X_64    (or MAC_X)
+    For Ubuntu use
+         setenv ACEDB_MACHINE Ubuntu   (or Ubuntu_OPT)
+    The code also compiles on any Unix platform ever tested, see wmake/*_DEF for a full list
+	 
+    The code is constructed in the directory
+      ../bin.$ACEDB_MACHINE
+
+	 
+ 3) Test the su21 program
+      ../bin.*/su21 -help
+    If you get the instructions for the command line, it works.  
+
+ 4) Run the su21 program
+
+    Construct the matices of the desired representations: say a=0, b=10, N=3 families
+      ../bin.*/su21 -a 0 -b 10  -N 3
+
+    You will see first the matrices in the Chevalley basis
+    The SU(2) geberatoirs are called as usual H,E,F
+        [H,E] = E,  [H,F] = -F,  [E,F] = H
+    The U(1) gewne
+
+
+    The interface is not very friendly because it is a single user code, 
+    but if I know some people are interested, the interface could easily be improved
     please email:  mieg@ncbi.nlm.nih.gov
 
 
