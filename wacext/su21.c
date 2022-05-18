@@ -8582,7 +8582,7 @@ static void KasimirOperatorK3 (KAS *kas)
   if (z == 0)
     printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) ATYPIC %f  expect 0\n", kas->a, kas->b, zz[0]) ;
   else if (0 ||  (2*zz[0] - zexpected)*(2*zz[0] - zexpected) < .1)
-    printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected= (b - a)  * (b - a - 1) * (2*b - a - 1)/2 = %f  = z * %f\n", kas->a, kas->b, zz[0] , zexpected/2, 2*zz[0]/zexpected) ;
+    printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected= b  * (b - a - 1) * (2*b - a - 1)/2 = %f  = z * %f\n", kas->a, kas->b, zz[0] , zexpected/2, 2*zz[0]/zexpected) ;
   else
     messcrash ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) z = %f expect b(b-a-1)(2b - a -1)/2 =  %f\n", kas->a, kas->b, zz[0], zexpected/2.0) ;
   
@@ -8698,50 +8698,53 @@ static void Kasimirs (int a, int b, BOOL show)
   if (0) GhostKasimirOperatorXtilde3 (&kas) ;
   if (0) QFTscalar (&kas) ;
   if (0) KasimirOperatorK4 (&kas) ;
-  return ;
+  if (0) return ;
 
   MX qmuH = kas.mu[3] ;
   MX qmuX = kas.mu[6] ;
   int d = kas.d ;
-  	printf ("Verify that the casimir commutes with H\n") ;
-	MX CKX = mxMatMult (kas.kas2, qmuH, h) ;
-	MX CXK = mxMatMult (qmuH, kas.kas2, h) ;
-	MX Com =  mxCreate (h, "[casimir,H]", MX_COMPLEX,d,d, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
-	if (kas.show)
-	  niceShow (Com) ;
-	
-  	printf ("Verify that the casimir commutes with X\n") ;
-	MX CKX2 = mxMatMult (kas.kas2, qmuX, h) ;
-	MX CXK2 = mxMatMult (qmuX, kas.kas2, h) ;
-	MX Com2 =  mxCreate (h, "[casimir,X]", MX_COMPLEX,d,d, 0) ;
-	Com = mxSubstract (Com2, CKX2, CXK2, h) ;
-	if (kas.show)
-	  niceShow (Com2) ;
-	
-	printf ("Verify that the S-casimir anticommutes with XU and YV\n") ;
-	MX SCKX = mxMatMult (kas.CHI, qmuX, h) ;
-	MX SCXK = mxMatMult (qmuX, kas.CHI, h) ;
-	MX SCom =  mxCreate (h, "{S-casimir,X}", MX_COMPLEX, d,d, 0) ;
-	SCom = mxAdd (SCom, SCKX, SCXK, h) ;
-	if (kas.show) niceShow (SCom) ;
-	
-	printf ("Compute the square of the S-casimir\n") ;
-	MX SC2 = mxMatMult (kas.CHI,kas.CHI, h) ;
-	if (0) SC2 = mxLinearCombine (SC2, 1, SC2, -1, kas.kas2, h) ;
-	SC2->name = "S-Casimir square" ;
-	if (kas.show) niceShow (SC2) ;
-	
-	printf ("Compute the product of the Casimir by the S-casimir Q^3 = Q\n") ;
-	MX SC3 = mxMatMult (kas.kas2, kas.CHI, h) ;
-	if (0) SC3 = mxLinearCombine (SC3, 1, SC3, -1, kas.CHI, h) ;
-	SC3->name = "S-Casimir cube" ;
-	if (kas.show) niceShow (SC3) ;
 
-	KasimirUpperTensor (&kas) ;
-
-	if (show)
-	  KasimirOperatorK3 (&kas) ;
+  if (kas.show)
+    {
+      printf ("Verify that the casimir commutes with H\n") ;
+      MX CKX = mxMatMult (kas.kas2, qmuH, h) ;
+      MX CXK = mxMatMult (qmuH, kas.kas2, h) ;
+      MX Com =  mxCreate (h, "[casimir,H]", MX_COMPLEX,d,d, 0) ;
+      Com = mxSubstract (Com, CKX, CXK, h) ;
+      if (kas.show)
+	niceShow (Com) ;
+      
+      printf ("Verify that the casimir commutes with X\n") ;
+      MX CKX2 = mxMatMult (kas.kas2, qmuX, h) ;
+      MX CXK2 = mxMatMult (qmuX, kas.kas2, h) ;
+      MX Com2 =  mxCreate (h, "[casimir,X]", MX_COMPLEX,d,d, 0) ;
+      Com = mxSubstract (Com2, CKX2, CXK2, h) ;
+      if (kas.show)
+	niceShow (Com2) ;
+      
+      printf ("Verify that the S-casimir anticommutes with XU and YV\n") ;
+      MX SCKX = mxMatMult (kas.CHI, qmuX, h) ;
+      MX SCXK = mxMatMult (qmuX, kas.CHI, h) ;
+      MX SCom =  mxCreate (h, "{S-casimir,X}", MX_COMPLEX, d,d, 0) ;
+      SCom = mxAdd (SCom, SCKX, SCXK, h) ;
+      if (kas.show) niceShow (SCom) ;
+      
+      printf ("Compute the square of the S-casimir\n") ;
+      MX SC2 = mxMatMult (kas.CHI,kas.CHI, h) ;
+      if (0) SC2 = mxLinearCombine (SC2, 1, SC2, -1, kas.kas2, h) ;
+      SC2->name = "S-Casimir square" ;
+      if (kas.show) niceShow (SC2) ;
+      
+      printf ("Compute the product of the Casimir by the S-casimir Q^3 = Q\n") ;
+      MX SC3 = mxMatMult (kas.kas2, kas.CHI, h) ;
+      if (0) SC3 = mxLinearCombine (SC3, 1, SC3, -1, kas.CHI, h) ;
+      SC3->name = "S-Casimir cube" ;
+      if (kas.show) niceShow (SC3) ;
+    }
+  KasimirUpperTensor (&kas) ;
+  
+  if (show)
+    KasimirOperatorK3 (&kas) ;
 } /* Kasimirs */
 
 /***********************************************************************************************************************************************/
@@ -9891,7 +9894,7 @@ static MX muMarcuComposeIntMatrix (int NN, int d, int ii, MX mm, MX mu, MX nu, B
 	  for (marcu = 0 ; marcu < NN - diag ; marcu++)
 	    {
 	      di = d * (diag + marcu) ; dj = d * (marcu) ;
-	      if (diag == 1 && marcu) w = 2 * w ;
+	      if (diag == 1 && marcu) w = 1 * w ;
 	      if (diag == 3 && marcu) w = 8 * w ; /* to be determined */
 	  w = w ;
 	      for (i = 0 ; i < iMax ; i++)
@@ -11496,13 +11499,65 @@ static void mu4p (const char *title, int type)
   ac_free (h) ;
 } /* mu4p */
 
+
 /*************************************************************************************************/
 /*************************************************************************************************/
 /*************************************************************************************************/
 
+/*************************************************************************************/
+/***************************** Public interface **************************************/
+/*************************************************************************************/
+
+static void usage (char *message)
+{
+  if (! message)
+  fprintf  (stderr,
+	    "// su21: Construction of su(2/1) representations and Feynman diagrams\n"
+	    "// Authors: Jean Thierry-Mieg, NCBI, 2020-, mieg@ncbi.nlm.nih.gov\n"
+	    "// Purpose\n"
+	    "// Construct the matrices of irreducible and indecomposable representations\n"
+	    "// Construct the Casimirs, super Casimirs, Gorelik ghost Casimir\n"
+	    "// \n"
+	    "// Also compute the anomalies and the feynman diagrams supporting my JHEP su(2/1) papers\n"
+	    "//\n"
+	    "// Syntax:\n"
+	    "// su21 [options]\n"
+	    "//   [] [-h] [-help] [--help] : this message\n"
+	    "// A: Representations\n"
+	    "//   su21 -a <int> -b <int> [-N <int>]\n"
+	    "//     export the matrices, Casimirs and verifications for the module with \n"
+	    "//     Dynkin lables (a,b), a positive integer, b signed integer\n"
+	    "//     Number of generations N (N >= 2)\n"
+	    "//       In theory, b can be any complex number,\n"
+	    "//     for numerical convenience, we restrict here to signed integers\n"
+	    "//     but the formulas like the Casimir eigen values are anlytic in b\n"
+	    "//       When a or N are large, many outputs are suppressed, try first a<=3, N<=3\n"
+	    "//\n"
+	    "// B: Feynman diagrams\n"
+	    "//   Not documented, sorry: check the source code !\n"
+	    ) ;
+  if (message)
+    {
+      fprintf (stderr, "// %s\nFor more information try:  dna2dna --help\n", message) ;
+    }
+  exit (1);
+  
+} /* usage */
+
+/*************************************************************************************/
+/*************************************************************************************/
+
 int main (int argc, const char **argv)
 {
   AC_HANDLE h = ac_new_handle () ;
+
+  freeinit () ;
+  if (argc == 1 ||
+      getCmdLineOption (&argc, argv, "-h", 0) ||
+      getCmdLineOption (&argc, argv, "-help", 0) ||
+      getCmdLineOption (&argc, argv, "--help", 0)
+      )
+    usage (0) ;
 
   getCmdLineInt (&argc, argv, "-c3Mask", &c3Mask) ;
   getCmdLineInt (&argc, argv, "-t", &myType) ;
@@ -11510,14 +11565,16 @@ int main (int argc, const char **argv)
   int NN = 0 ;
   int CYCLE = 0 ;
   
-  getCmdLineInt (&argc, argv, "-NN", &NN) ;
+  getCmdLineInt (&argc, argv, "-N", &NN) ; /* Number of generations >= 2 */
+  getCmdLineInt (&argc, argv, "-NN", &NN) ; /* synonim */
+
   getCmdLineInt (&argc, argv, "-cycle", &CYCLE) ;
 
   int a = 0, b = 0 ;
   getCmdLineInt (&argc, argv, "-a", &a) ;
   getCmdLineInt (&argc, argv, "-b", &b) ;
 
-  if (a==-1)
+  if (a==-1) /* a test */
     {
       /* eigen values of the cubic super casimir Kas3, scaled by (a+1)^2 */
       /* they were computed by this program called with params " su21 -a a -b b" */
@@ -11543,6 +11600,13 @@ int main (int argc, const char **argv)
 	  }
       if (1) exit (0) ;
     }
+
+  if (a < 0)
+    usage ("SU(2) Dynkin weigth a should be a positiver integer") ; 
+  if (NN != 0 && NN < 2)
+    usage ("The number of generations N should be an integer >= 2") ;
+  
+
   if (0)
     { /* sum of fibonnaci numbers, Euler set of problems as D programming language example,  2021_09_03 */
       int n[2] = {1,2} ;
