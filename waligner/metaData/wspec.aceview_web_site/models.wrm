@@ -3560,6 +3560,7 @@
              Exit_adaptor_clipping UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text 
              Min_probe_length UNIQUE Int
              Max_probe_length UNIQUE Int
+             Length_distribution_1_5_50_95_99_mode_av UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int
 	     Maximal_read_multiplicity UNIQUE Int
       Strandedness stranded_a_priori
                    stranding ?Target  UNIQUE Float    UNIQUE Float UNIQUE Text      UNIQUE Float    UNIQUE Text   UNIQUE Float    UNIQUE Text  // e.g. on rRNA, RefSeq, av

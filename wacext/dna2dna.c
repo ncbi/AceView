@@ -49,6 +49,7 @@ typedef struct sxStruct {
   BOOL selectDictHasSpace ;
   DICT *selectDict, *rejectDict, *shadowDict ;
   Array shadowArray, gnam2genes ;
+  Array lnDistrib ;
   KEYSET rnaId2mrna ;
   int xor ; /* compare 2 sequences, parameter -xor */
   BOOL gzi, gzo, doCount, getTm, appendByPrefix, keepName , keepName1 , keepName2, keepNameBam, isGff3, gffTAIR ;
@@ -1990,13 +1991,6 @@ static void exportSequence (SX *sx)
 	}
       break ;
     }
-  n = strlen (vtxtPtr (sx->dna)) ;
-  if (n>0 && strchr(vtxtPtr (sx->dna), '>')) n-- ;
-  if (n>0 && strchr(vtxtPtr (sx->dna), '<')) n-- ;
-  if (sx->minLn == 0 || n < sx->minLn) 
-    sx->minLn = n ;
-  if (n > sx->maxLn) 
-    sx->maxLn = n ;
   sx->nExported++ ;
 } /* exportSequence */
 
@@ -4617,7 +4611,17 @@ static void dna2dnaRun (SX *sx)
 	if (sx->subsample && (sx->fProcessed % sx->subsample))
 	  continue ;
 	sx->fmProcessed += sx->count ;
-
+	if (sx->doCount && sx->dna && sx->count)
+	  {
+	    int n = strlen (vtxtPtr (sx->dna)) ;
+	    if (n>0 && strchr(vtxtPtr (sx->dna), '>')) n-- ;
+	    if (n>0 && strchr(vtxtPtr (sx->dna), '<')) n-- ;
+	    if (sx->minLn == 0 || n < sx->minLn) 
+	      sx->minLn = n ;
+	    if (n > sx->maxLn) 
+	      sx->maxLn = n ;
+	    keySet (sx->lnDistrib, n) += sx->count ;
+	  }
 	if (sx->getTm)
 	  exportTm (sx) ;  
 	else if (sx->spongeFileName || sx->shadowFileName || sx->gtfFileName || sx->refGeneFileName)
@@ -5549,6 +5553,9 @@ int main (int argc, const char **argv)
       sx.aoTestSeqs = sx.ao ; /* aceOutCreate (sx.outFileName, ".modified.fasta", sx.gzo, h) ; */
       sx.aoTestSnps = aceOutCreate (sx.outFileName, ".snps", sx.gzo, h) ;
     }
+
+  if (sx.doCount)
+    sx.lnDistrib = keySetHandleCreate (h) ;
   if (! sx.gtfFileName || sx.gtfGenomeFastaFileName)
     dna2dnaRun (&sx) ;
 
@@ -5582,6 +5589,37 @@ int main (int argc, const char **argv)
       aceOutf (ao, "Min_probe_length\t%d\nMax_probe_length\t%d\n", sx.minLn, sx.maxLn
 	       ) ; 
       aceOutf (ao, "Max_count\t%d\n", sx.maxCount) ;
+
+      if (sx.lnDistrib)
+	{
+	  KEYSET ks = sx.lnDistrib ;
+	  int ln1 = 0, ln5 = 0, ln50 = 0, ln95 = 0, ln99 = 0 ;
+	  int i, iMax ;
+	  int mode, maxN = 0 ;
+	  long int cumul = 0,  n, nn, average ;
+
+	  /* count the reads */
+	  iMax = keySetMax (ks) ;
+	  for (nn = 0, i = 0 ; i < iMax ; i++)
+	    {
+	      n = keySet (ks, i) ;
+	      nn +=  n ;
+	      cumul += i * n ;
+	      if (n > maxN) { maxN  = n ; mode = i ; }
+	    }
+	  average = cumul / nn ; 
+	  /* find the median */
+	  for (n = 0, i = 0 ; i < iMax ; i++)
+	    { 
+	      n += keySet (ks, i) ;
+	      if (ln1 == 0 && 100*n >= nn) ln1 = i ;
+	      if (ln5 == 0 && 100*n >= 5*nn) ln5 = i ;
+	      if (ln50 == 0 && 100*n >= 50*nn) ln50 = i ;
+	      if (ln95 == 0 && 100*n >= 95*nn) ln95 = i ;
+	      if (ln99 == 0 && 100*n >= 99*nn) ln99 = i ;
+	    }
+	  aceOutf (ao, "Length_distribution_1_5_50_95_99_mode_av\t%d\t%d\t%d\t%d\t%d\t%d\t%ld\n", ln1, ln5, ln50, ln95, ln99, mode, average) ;
+	}
       ac_free (ao) ;
       
     }

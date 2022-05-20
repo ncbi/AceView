@@ -535,7 +535,6 @@ cat <<EOF > _x.awk
   if (gx + mx > 0) ph = ph "  wait  c7 g4 " ;
   if (mx > 1000)       ph = ph "  wait  c7 m4H " ;
   if (tsnp > 0) ph = ph "wait  tsnp3" ;
-  if (ix > 0)      ph = ph "  wait  c7 wait " ;
   if (gx + mx > 1  )  ph = ph " g10 g11 g12a wait g12b FDR1 wait FDR2 " ;
   if (a + small + qc +gx + mx + ix + snp + w > 0) ph = ph " wait c7 "
 
@@ -676,7 +675,7 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
   comment magic_list 5
   show -a -f MetaDB/$MAGIC/ali.ace
   comment magic_list 5b
-  query Counts  ; > run ; Is_run 
+  query Counts && Length_distribution_1_5_50_91_99_mode_av  ; > run ; Is_run 
   spush
   query find project IS $MAGIC ; > run ; Is_run 
   comment magic_list 6
@@ -2222,7 +2221,7 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   endif
 
 #
-  if (! -e Fastc/$run/fastc_count.ace) then
+  if (! -e Fastc/$run/fastc.count.ace) then
     echo "........ 3 $run"
     if (-e Fastc/$run/_c) \rm  Fastc/$run/_c
     foreach lane (`cat Fastc/$run/LaneList`)
@@ -2230,7 +2229,8 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
         cat Fastc/$lane.count >> Fastc/$run/_c
       endif
     end
-    cat Fastc/$run/_c | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,maxCnt);}}'  run=$run >  Fastc/$run/fastc_count.ace
+    zcat Fastc/$run/*.fastc.gz | dna2dna -I fastc -o Fastc/$run/fastc -count
+    cat Fastc/$run/fastc.count | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}/^Length_distribution/{distrib=$0;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\n%s\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,distrib,maxCnt);}}'  run=$run >  Fastc/$run/fastc.count.ace
    # the older version was called  Fastc/$run/fastc_counts.ace, it did not include the max-multiplicity
     \rm Fastc/$run/_c
     if (-e Fastc/$run/fastc_counts.ace) \rm  Fastc/$run/fastc_counts.ace
@@ -2250,7 +2250,8 @@ foreach run (`cat MetaDB/$MAGIC/RunNoCountList`)
   echo "Ali $run" >>  toto.ace
   echo >> toto.ace
   cat Fastc/$run/original_counts.ace >> toto.ace
-  cat Fastc/$run/fastc_count.ace >> toto.ace
+  # cat Fastc/$run/fastc_count.ace >> toto.ace
+  cat Fastc/$run/fastc.count.ace >> toto.ace
   if (-e Fastc/$run/first_line.txt) then
     cat  Fastc/$run/first_line.txt | gawk '{printf ("Run %s\nFirst_line \"%s\"\n\n",run,$0);}' run=$run >>  toto.ace
   endif
@@ -8133,7 +8134,7 @@ EOF
 touch MetaDB/$MAGIC/stranding.txt
 cat MetaDB/$MAGIC/stranding.txt | gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' > MetaDB/$MAGIC/stranding.txt2
 cat MetaDB/$MAGIC/stranding.txt | grep -v rrna |  grep -v smallRNA | grep -v mito  | grep -v chloro  | grep -v transposon | grep -v virus | grep -v bacteria  | grep -v Spike | grep -v genome | gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' >> MetaDB/$MAGIC/stranding.txt2
-cat MetaDB/$MAGIC/stranding.txt2 | gawk -F '\t' '{split($2,aa,"_");split(aa[2],bb,".");printf ("Run %s\nObserved_strandedness_in_ns_mapping %s %f %s plus %s minus %s ambiguous\n\n", $1,bb[1],$6,$3,$4,$5);}' > MetaDB/$MAGIC/stranding.ace
+cat MetaDB/$MAGIC/stranding.txt2 | gawk -F '\t' '{gsub(/NULL/,"0",$0);split($2,aa,"_");split(aa[2],bb,".");printf ("Run %s\nObserved_strandedness_in_ns_mapping %s %f %s plus %s minus %s ambiguous\n\n", $1,bb[1],$6,$3,$4,$5);}' > MetaDB/$MAGIC/stranding.ace
 
 echo "pparse MetaDB/$MAGIC/stranding.ace" | bin/tacembly MetaDB -no_prompt
 

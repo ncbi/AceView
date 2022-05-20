@@ -173,7 +173,7 @@ static int av_get_proteins (AV *av)
   vTXT txt = vtxtHandleCreate (h) ;
   AC_KEYSET ks, ks1 ;
 
-  system ("mkdir Blastp") ;
+  system ("mkdir -p Blastp") ;
 
 
   if (1) /* worm */
@@ -357,30 +357,27 @@ static int a2_align (AV *av)
 
   /* mkdir the relevant directories */
   
-  vtxtPrintf (mkdir, " if (! -d tmp) mkdir tmp\n") ;
+  vtxtPrintf (mkdir, " mkdir -p tmp\n") ;
   system (vtxtPtr (mkdir)) ;
 
   for (targetp = targets ; *targetp ;  targetp++)
     {
       vtxtClear (mkdir) ;
-      vtxtPrintf (mkdir, " if (! -d tmp/PHITS_%s) mkdir tmp/PHITS_%s\n"
-		  , *targetp
+      vtxtPrintf (mkdir, " mkdir -p tmp/PHITS_%s\n"
 		  , *targetp
 		  ) ;
       system (vtxtPtr (mkdir)) ;
       for (manipp = manips ; *manipp ; manipp++)
 	{ 
 	  vtxtClear (mkdir) ;
-	  vtxtPrintf (mkdir, " if (! -d tmp/PHITS_%s/%s) mkdir tmp/PHITS_%s/%s\n"
-		      , *targetp, *manipp
+	  vtxtPrintf (mkdir, " mkdir -p  tmp/PHITS_%s/%s\n"
 		      , *targetp, *manipp
 		      ) ;
 	  system (vtxtPtr (mkdir)) ;
 	  for (tissuep = tissues ; *tissuep ; tissuep++)
 	    { 
 	      vtxtClear (mkdir) ;
-	      vtxtPrintf (mkdir, " if (! -d tmp/PHITS_%s/%s/%s) mkdir tmp/PHITS_%s/%s/%s\n"
-			  , *targetp, *manipp, *tissuep
+	      vtxtPrintf (mkdir, " mkdir -p tmp/PHITS_%s/%s/%s\n"
 			  , *targetp, *manipp, *tissuep
 			  ) ;
 	      system (vtxtPtr (mkdir)) ;

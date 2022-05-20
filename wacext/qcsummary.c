@@ -1800,8 +1800,20 @@ static void qcInsertSize (QC *qc, RC *rc)
 	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
-       else
+      else if (ac_tag_int (rc->ali, "Fragment_length_average", 0))
 	qcShowTag (qc, rc, ti) ;
+      else if (ac_has_tag (rc->ali, "Length_distribution_1_5_50_95_99_mode_av"))
+	{
+	  AC_TABLE tt = ac_tag_table (rc->ali, "Length_distribution_1_5_50_95_99_mode_av", h) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,0,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,1,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,5,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,2,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,6,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,3,0)) ;
+	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,4,0)) ;
+	  break ;
+	}
     }
    ac_free (h) ;
   return;
@@ -4210,7 +4222,7 @@ static void qcMicroRNA (QC *qc, RC *rc)
     { "Compute", "High small",3, 0, 0} ,
     { "Compute", "Mapped on 70k-small_ref\t% Mapped on 70k-small_ref\t% strand plus on 70k small ref", 4, 0, 0} ,
     { "Compute", "Distinct tags clipped  to [18,35] at frequency >= 10^-4 and seen at least 10 times\tTags clipped  to [18,35] at frequency >= 10^-4 and seen at least 10 times\tDistinct tags clipped  to [18,35] at frequency >= 10^-5 and seen at least 10 times\tTags clipped  to [18,35] at frequency >= 10^-5 and seen at least 10 times\tDistinct tags clipped  to [18,35] seen at least 10 times\tTags clipped  to [18,35] seen at least 10 times", 5,0,0} ,
-    { "Compute", "Recognized miR [18,35] at frequency >= 10^-4\tSupport", 6,0,0} ,
+    { "Compute", "Recognized miR [18,35] at frequency >= 10^-4\tSupport\t\t\t\t", 6,0,0} ,
     {  0, 0, 0, 0, 0}
   }; 
   

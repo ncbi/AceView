@@ -6092,6 +6092,8 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
   Array cpu = arrayHandleCreate (100, float,h) ;
   Array maxmem = arrayHandleCreate (100, float,h) ;
 
+  Array lnDistrib = arrayHandleCreate (12, long int, h) ;
+
   Array errPos = arrayHandleCreate (100, float,h) ;
   Array NNPos = arrayHandleCreate (100, float,h) ;
   Array ErSpike = arrayHandleCreate (100, int,h) ;
@@ -6250,6 +6252,9 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
       ErSpike = arrayReCreate (ErSpike,100,int) ;
       cumulMiss = arrayReCreate (cumulMiss, 6, float) ;
       cumulNN = arrayReCreate (cumulNN, 6, float) ;
+
+      lnDistrib = arrayReCreate (lnDistrib, 12, long int) ;
+
       errProf1 = arrayReCreate (errProf1, 1000, float) ;
       errProf2 = arrayReCreate (errProf2, 1000, float) ;
       clippedLn1 = arrayReCreate (clippedLn1, 1000, float) ;
@@ -6390,17 +6395,30 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 	      raw_tags += ac_table_float (let, 0, 2, 0) ;
 	      raw_kb += ac_table_float (let, 0, 4, 0) ;
 	    }
+
+	  n = 0 ;
 	  if ((let = ac_tag_table (Ali, "Accepted", h1)))
 	    {
 	      acc_seq += ac_table_float (let, 0, 0, 0) ;
-	      acc_tags += ac_table_float (let, 0, 2, 0) ;
+	      n = ac_table_float (let, 0, 2, 0) ;
+	      acc_tags += n ;
 	      acc_kb += ac_table_float (let, 0, 4, 0) ;
 	    }
 	  else
 	    if (! ac_has_tag (Ali, "Raw_data") && ! ac_has_tag (Ali, "h_Ali"))
 	      badGroup = 2 ;
 
-	  
+	  if (n && (let = ac_tag_table (Ali, "Length_distribution_1_5_50_95_99_mode_av", h1)))   /* read length distribution */
+	    {
+	      int j ;	  
+	      array (lnDistrib, 0, long int) += n ;
+	      for (j = 0 ; let && j < let->cols ; j++)
+		{
+		  int n1 = ac_table_int (let, 0, j, 0) ;
+		  array (lnDistrib, j+1, long int) += n * n1 ;
+		}
+	    }
+
 	  if (1) /* perfect */
 	    {
 	       if ((let = ac_tag_table (Ali, "Perfect_reads", h1)))
@@ -6434,11 +6452,11 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		 }
 	    }
 
-	   if (1) /* pair fate */
+	  if (1) /* pair fate */
 	    {
 	      float z ;
 	      z = ac_tag_float (Ali, "Aligned_fragments", 0) ;
-	     z = ac_tag_float (Ali, "Aligned_fragments", 0) ;
+	      z = ac_tag_float (Ali, "Aligned_fragments", 0) ;
 	      if (z == 0)
 		z = ac_tag_float (Ali, "Aligned_pairs", 0) ; /* old tag name prior to 2014_08_21 */
 	      if (z > 0)
@@ -7079,6 +7097,19 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 			    , x1, x2, x3, x4, x5, x6, x7, x8
 			    ) ;
 	    }
+
+	  if (arrayMax (lnDistrib))    /* read length distribution */
+	    {
+	      long int nn = array (lnDistrib, 0, long int) ;
+	      if (nn)
+		{
+		  int i ;
+		  vtxtPrint (txt, "\nLength_distribution_1_5_50_95_99_mode_av ") ;
+		  for (i = 1 ; i < arrayMax (lnDistrib) ; i++)
+		    vtxtPrintf (txt, " %ld ", array (lnDistrib, i, long int)/nn) ;
+		}
+	    }
+
 	  for (n = 0 ; n < arrayMax (clippedLn1) ; n++)
 	    {
 	      float x1, x2, x3, x4, x5, x6, x7, x8 ;

@@ -4095,7 +4095,7 @@ static int sxDoVentilate (SX *sx, const char *fNam, DICT *dict, Array outs, AC_H
 	    if (*cp == '/')
 	      {
 		*cp = 0 ;
-		dummy = system (messprintf (" mkdir %s", outNam)) ;
+		dummy = system (messprintf ("mkdir -p %s", outNam)) ;
 		*cp = '/' ;
 		if (dummy) {} ; /* for compiler happiness */
 	      }

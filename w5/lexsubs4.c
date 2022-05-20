@@ -2341,7 +2341,7 @@ void lexSessionEnd (void)
     f = cp ? fopen (cp, "w") : 0 ;
     if (!f) 
       { 
-	sprintf (lexBuffer, "mkdir %s", sessionFilName("database/new", 0,0)) ;
+	sprintf (lexBuffer, "mkdir -p %s", sessionFilName("database/new", 0,0)) ;
 	callSystem (lexBuffer) ;
 	sprintf (lexBuffer, "database/new/new-%s", name(thisSession.userKey)) ;
 	cp = sessionFilName(lexBuffer, 0, 0) ;
@@ -2382,7 +2382,7 @@ void lexSessionEnd (void)
 	{ 
 	  if (!sessionFilName("database/touched", 0,"r"))
 	    {
-	      sprintf (lexBuffer, "mkdir %s", sessionFilName("database/touched", 0,0)) ;
+	      sprintf (lexBuffer, "mkdir -p %s", sessionFilName("database/touched", 0,0)) ;
 	      callSystem (lexBuffer) ;
 	    }
 	  sprintf (lexBuffer, "database/touched/touched-%s", name(thisSession.userKey)) ;
