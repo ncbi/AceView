@@ -202,7 +202,7 @@ static void mirExportCounts (MIR *mir)
 	    continue ;
 	  if (!nn[kk])
 	    continue ;
-	  aceOutf (ao, "\n%s\t%d\t%s\t%s", VV, nn[kk], mir->run), isRead2 ? "VECTOR_5" : "VECTOR_3" ;
+	  aceOutf (ao, "\n%s\t%d\t%s\t%s", VV, nn[kk], mir->run, isRead2 ? "VECTOR_5" : "VECTOR_3") ;
 	}
       
       if (1)
