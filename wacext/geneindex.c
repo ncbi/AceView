@@ -2452,7 +2452,7 @@ static void gxGlobalCounts (GX *gx)
 			ao = aceOutCreate (gx->outFileName, ".big_intron.txt", FALSE, h) ;
 		      else
 			ao = aceOutCreate (gx->outFileName, ".big_gene.txt", FALSE, h) ;
-		      aceOutDate (ao, "##", gx->title) ;
+		      aceOutDate (ao, "###", gx->title) ;
 		      if (gx->isINTRON)
 			aceOutf (ao, "# Intron") ;
 		      else if (gx->isSNP)
@@ -3919,7 +3919,7 @@ static void gxFineTuneOneRun (GX *gx, int pass, int run0, int run, float maxVar)
   if (! ao)
     {
       ao = gx->aoFineTune = aceOutCreate (gx->outFileName, ".fineTune.txt", FALSE, gx->h) ;
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       aceOut (ao, "## Linear regression towards the global run: run(gene) = a*global(gene) + b ;  r,w = usual stats\n") ;
       aceOut (ao, "#Pass\tRun\tRunId\tTitle\tGenes\ta\tb\tdb\tr\tw\n") ;
     }
@@ -4173,7 +4173,7 @@ static void gxSeedGroup (GX *gx, int pass)
   if (dictFind (gx->geneDict, gx->seedGene, &gene))
     {
       ao = aceOutCreate (gx->outFileName, messprintf (".SG%d_seededOn_%s.txt", pass, gx->seedGene), FALSE, h) ;
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       aceOutf (ao, "## 20%% runs with highest then lowest expression of the %s\n", gx->seedGene) ;
       aceOut (ao, "# Run\tLow/High\tIndex\n") ;
       pp = arrayHandleCreate (dictMax (gx->geneDict), PC, h) ;
@@ -4310,7 +4310,7 @@ static void gxAllGeneCorrelations (GX *gx)
   ACEOUT ao = aceOutCreate (gx->outFileName, ".gene_correl.txt", gx->gzo, h) ;
   DICT *dict = gx->geneDict ;
   
-  aceOutDate (ao, "##", "Correlation of all expressed genes") ;
+  aceOutDate (ao, "###", "Correlation of all expressed genes") ;
   aceOutf (ao, "# Gene 1\tGene 2\tCorrelation coefficient <xy>/sqrt(<x2><y2>)\n") ;
   
   for (run = 1, rc = arrayp (gx->runs, run, RC); run < runMax ; rc++, run++)
@@ -4970,7 +4970,7 @@ static void gxTitration (GX *gx)
       int jj ;
       int nbb, nbbMax = 200 ; /* limit the number of titration quadratic comparisons */
 
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       /* export the run names in as many lines as needed, one column per titration group */
       aceOutf (ao, "\nCompare") ;
       for (ii = 0, tp = arrp (tt, ii, TT) ; ii < arrayMax (tt) ; tp++, ii++)
@@ -5092,7 +5092,7 @@ static void gxTitration (GX *gx)
       ACEOUT ao = aceOutCreate (gx->outFileName, ".NumberOfTitratingGeneAboveGivenIndex.txt", FALSE, h) ;
       const char *ccp ;
     
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       aceOutf (ao, "\n## Histogram of the number of titrating genes at least once above a given differential index: %s", gx->title ? gx->title  : "") ;
       aceOut (ao, "\n## The first column gives the minimal difference d of index between the first and last run using a log2 scale") ;
       aceOutf (ao, "\n## The remaining columns give the number of genes for which the index follow the requested shape"
@@ -7070,7 +7070,7 @@ static void gxDghExportHistos (GX *gx, COMPARE *compare, int run1, int run2, int
 				      , dictName (gx->runDict, run2)
 				      )
 			 , FALSE, 0) ;
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       
       
       aceOutf (ao, 
@@ -8203,7 +8203,7 @@ static void gxExportTableHeader  (GX *gx, ACEOUT ao, int type)
   if (type >= 1000)
     { type = 51 ; doNotExportMetaData = 1 ; }
   else
-    aceOutDate (ao, "##", gx->title) ;
+    aceOutDate (ao, "###", gx->title) ;
 
   if (runMax > arrayMax(gx->runs))
     runMax = arrayMax(gx->runs) ;
@@ -9432,7 +9432,7 @@ static int gxExportMeanversusVariancePlot (GX *gx)
   double X, X2, z, w ;
   
   /* export a table one line per gene, one run or group per column */
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   gxExportTableHeader (gx, ao, 100) ;
   
   for (level = 0 ; level < 30 ; level++)
@@ -9919,7 +9919,7 @@ static int gxExportComparison (GX *gx, COMPARE *compare, Array rws, KEYSET geneP
 				)
 		     ,  FALSE, h
 		     ) ;
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   aceOutf (ao, "## %s : This classifier is based on the comparison of the groups \t%s\t%s\n"
 	   , dictName (gx->compareDict, compare->compare)
 	   , dictName (gx->runDict, run1)
@@ -10400,7 +10400,7 @@ static void gxOneShowAllHistos (GX *gx, int iCompare, int gMax)
 
   ACEOUT ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), ".allHistos.txt", FALSE, h) ;
 
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   aceOutf (ao, "## All expression histograms for %s, for each gene  minFoldChange %f between the most extreme groups\n",  dictName (gx->compareDict, iCompare), gx->minFoldChange) ;
   aceOutf (ao, "# Gene\tGroup\tTitle") ;
   for (gene = 0 ; gene <= 260 ; gene += 5) 
@@ -10523,7 +10523,7 @@ static int gxExportDiffGenes (GX *gx, COMPARE *compare, Array pp, int run1, int 
 					)
 			     , FALSE, h
 			     ) ;
-	  aceOutDate (ao, "##", gx->title) ;
+	  aceOutDate (ao, "###", gx->title) ;
 	  aceOutf (ao, "## Parameters:  Minimal score selected by optimizing the FDR on %d randomized trials, %% FDR = %.2f at threshold = %d. %s  %s R= %.2f"
 		   ,  compare->nVirtualStrata 
 		   , 100 * fdr[fdrThreshold] , fdrThreshold 
@@ -10762,7 +10762,7 @@ static void gxExportSignatures (GX *gx, int run1, int run2, int run3, int run4, 
     {
       h = ac_new_handle () ;
       ao = aceOutCreate (gx->outFileName, ".newSampleClassificationBySignature.txt", FALSE, h) ;
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       gxExportTableHeader (gx, ao, 32) ;
       return ;
     }
@@ -11172,7 +11172,7 @@ static void gxOneCorrelationExport (GX *gx, int iCompare, int lowAll, int NR1
 							 , dictName (gx->compareDict, iCompare)
 							 , lowAll)
 			    , FALSE, h) ;
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   aceOutf (ao, "## %s.Correlation.%s.MinIndex%d.txt\n"
 	   , gx->outFileName ? gx->outFileName : "stdout"
 	   , dictName (gx->compareDict, iCompare)
@@ -12133,7 +12133,7 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
 
   if (rMax > 100) rMax = 100 ;
   
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   aceOut (ao, "#Order") ; n1 = 1 ;
   if (gx->isINTRON) { aceOut (ao, "\t#Intron (chrom__from_to)") ; n1++ ;}
   else if (gx->isTranscript) { aceOut (ao, "\t#Transcript") ; n1++ ;}
@@ -13276,7 +13276,7 @@ static BOOL gxWhoIsWhoOneChronoOrdering (GX *gx, Array aa, float delta, float z,
   int i, j, iMax, jMax ;
   float minZ = gx->minWhoScore ;
 
-  aceOutDate (ao, "##", gx->title) ;
+  aceOutDate (ao, "###", gx->title) ;
   aceOutf (ao, "## Pairs of runs, probably coming from the same individual, are sorted\n") ;
   aceOutf (ao, "## The comparison is based on the correlation of substitution SNPs seen as high in at least 2 runs\n") ;
   aceOutf (ao, "## The differential correlation is given for each pair, and the table is sorted by chronological ordering\n") ;
@@ -13504,7 +13504,7 @@ static BOOL gxOneSamplePairing (ACEOUT ao, GX *gx, int iCompare, COMPARE *compar
       float z, delta ;
       ACEOUT ao = aceOutCreate (gx->outFileName, messprintf(".%s.who_is_who.txt", dictName (gx->compareDict, iCompare)), FALSE, h) ;
 
-      aceOutDate (ao, "##", gx->title) ;
+      aceOutDate (ao, "###", gx->title) ;
       aceOutf (ao, "## Pairs of runs, probably coming from the same individual, are listed\n") ;
       aceOutf (ao, "## The comparison is based on the correlation of substitution SNPs seen as high in at least 2 runs\n") ;
       aceOutf (ao, "## Only pairs with differential correlation above 20 are listed\n") ;
@@ -13570,7 +13570,7 @@ static void gxSamplePairing (GX *gx)
 	 {
 	   AC_HANDLE h = ac_new_handle () ;
 	   ACEOUT ao = aceOutCreate (gx->outFileName, messprintf(".%s.sample_pairing.txt", dictName (gx->compareDict, iCompare)), FALSE, h) ;
-	   aceOutDate (ao, "##", gx->title) ;
+	   aceOutDate (ao, "###", gx->title) ;
 	   aceOutf (ao, "# Run\tTitle") ;
 	   for (n = 1 ; n<=20 ; n++)
 	     aceOutf (ao, "\tClosest %d", n) ;
@@ -14352,7 +14352,7 @@ static void gxSnpCorrelation (GX *gx)
 	  ACEOUT ao = aceOutCreate (gx->outFileName
 				    , messprintf(".%s.SNP_profile.txt", dictName (gx->compareDict, iCompare))
 				    , FALSE, h) ;
-	  aceOutDate (ao, "##", gx->title) ;
+	  aceOutDate (ao, "###", gx->title) ;
 	  
 	  messAllocMaxStatus (&mx) ;   
 	  fprintf (stderr, "... gxSnpCorrelation  \t%s\tmax memory %d Mb\tstart\t%s\n", timeShowNow(), mx, dictName (gx->compareDict, iCompare)) ;

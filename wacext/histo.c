@@ -181,7 +181,7 @@ static int histoSnpGetData (SX *sx)
       ao = aceOutCreate (sx->outFileName, ".txt", FALSE, h0) ;
       if (ao)
 	{
-	  aceOutDate (ao, "##", sx->title) ;
+	  aceOutDate (ao, "###", sx->title) ;
 	  aceOut (ao, "Value") ;
 	  for (jj = 1 ; jj < hMax ; jj++)
 	    {

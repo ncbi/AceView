@@ -1124,9 +1124,10 @@ if ($ok == 0) continue
 
    set CAPT=""
    if (1) then
-     set CAPT=A2R2
+     set CAPT=A1A2R1R2I2I3   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
+     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) continue
     endif
    set uu=u 
    if ($?myUU) then

@@ -541,7 +541,7 @@ cat <<EOF > _x.awk
   printf ("#!bin/tcsh -f\n") ;
   printf ("# command line was %s\n", z) ;
   if (ph != " ") printf ("set phaseSet=\"%s\"\n", ph) ;
-}
+} 
 EOF
 
 echo  "$*" > _x.param
@@ -2168,7 +2168,10 @@ date
 
 set ok=1
 foreach run (`cat MetaDB/$MAGIC/RunList`)
- foreach lane (`gawk '{i=index($1,"/");if(run == substr($1,1,i-1))print $1;}' run=$run MetaDB/$MAGIC/LaneList`)
+  if (! -e Fastc/$run/fastc.count) then
+    scripts/submit scripts/a0C.lengthDistrib.tcsh $run
+  endif
+  foreach lane (`gawk '{i=index($1,"/");if(run == substr($1,1,i-1))print $1;}' run=$run MetaDB/$MAGIC/LaneList`)
 
   if (! -e Fastc/$lane.count) then
     set ok=0
@@ -2221,15 +2224,9 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
   endif
 
 #
-  if (! -e Fastc/$run/fastc.count.ace) then
-    echo "........ 3 $run"
+  if (! -e Fastc/$run/fastc.count && ! -e Fastc/$run/fastc.count.ace) then
     if (-e Fastc/$run/_c) \rm  Fastc/$run/_c
-    foreach lane (`cat Fastc/$run/LaneList`)
-      if (-e Fastc/$lane.count) then
-        cat Fastc/$lane.count >> Fastc/$run/_c
-      endif
-    end
-    zcat Fastc/$run/*.fastc.gz | dna2dna -I fastc -o Fastc/$run/fastc -count
+    scripts/a0C.lengthDistrib.tcsh $run
     cat Fastc/$run/fastc.count | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}/^Length_distribution/{distrib=$0;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\n%s\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,distrib,maxCnt);}}'  run=$run >  Fastc/$run/fastc.count.ace
    # the older version was called  Fastc/$run/fastc_counts.ace, it did not include the max-multiplicity
     \rm Fastc/$run/_c
@@ -4117,8 +4114,36 @@ goto phaseLoop
 
 phase8kb_histo:
   echo "phase 8kb_histo: Export histogram of 8kb coverage"
+
+if (! -d  tmp/GENEGROUPS) mkdir  tmp/GENEGROUPS
 foreach kb (8kb 5kb)
   if (! -d RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias) mkdir RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias
+
+# construct the group crocodiles
+  foreach gr (`cat MetaDB/$MAGIC/g2r | cut -f 1`)
+    if (! -d  tmp/GENEGROUPS/$gr) tmp/GENEGROUPS/$gr
+    set totogr=tmp/GENEGROUPS/$gr/$gr.coverage_of_"$kb"_transcripts.txt
+    echo -n "### $totogr : " > $totogr
+    date >> $totogr
+    # copy the title lines
+    foreach run (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if($1 == gr) print $2;}' gr=$gr | sort -u | head -1`)
+      set totorun=tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt
+      if (-e $totorun.gz) then
+        gunzip -c $totorun.gz | tail -n +2 | head -8 | gawk '/^#/{print}' >> $totogr
+      endif
+    end
+    # cumulate the content
+    echo "#" > $totogr.1
+    foreach run (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if($1 == gr) print $2;}' gr=$gr | sort -u`)
+      set totorun=tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt
+      if (-e $totorun.gz) then
+        gunzip -c $totorun.gz | gawk '/^#/{next;}{print}' >> $totogr.1
+      endif
+    end
+    cat $totogr.1 | gawk -F '\t' '{gene=$2;for(i=3;i<=NF;i++)z[gene,i]+=$i;gg[gene]=1;if(NF>nf)nf=NF}END{for(gene in gg){printf("%s\t%s",gene,gr);for(i=3;i<=nf;i++)printf("\t%d",z[gene,i]+0);printf("\n");}}' gr=$gr | sort -k 3nr >> $totogr
+    \rm $totogr.1
+    \cp $totogr RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$gr.cumulated_3prime_coverage_of_"$kb"_genes.txt/$gr.coverage_of_"$kb"_transcripts.txt
+  end
 
   set toto=RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$MAGIC.cumulated_3prime_coverage_of_"$kb"_genes.txt
   echo -n "## $MAGIC.cumulated_3prime_coverage_of_"$kb"_genes.txt : " > $toto
@@ -4139,7 +4164,7 @@ EOF
       set xMax=`gunzip -c tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz | gawk -F '\t' '{if(50*NF > n)n= 50*NF}END{print n}' n=$xMax`
    endif
   end
-  echo toto | gawk '{printf("#\t# Run\tAverage coverage of the first "$kb"");for(i=0;i<=xMax-200;i+=50)printf("\t%d bp",i);printf("\n");}' xMax=$xMax > $toto.2
+  echo toto | gawk '{printf("#\t# Run\tAverage coverage of the first %s",kb);for(i=0;i<=xMax-200;i+=50)printf("\t%d bp",i);printf("\n");}' xMax=$xMax kb=$kb > $toto.2
   cat $toto.2 $toto.1 |  scripts/transpose  >>  $toto
   cat $toto.1 |  gawk -F '\t' '{printf("%s\t%s",$1,$2); for(i=8;i<NF;i+=10){n=0;for(j=-4;j<5;j++){k=i+j;n+=$k/9;}$i=n;}for(i=13;i<NF-10;i+=10){$i=($(i-5)+$(i+5))/2;$3=2*$13-$23;for(i=3;i<=NF;i+=5)printf("\t%d",$i);}printf("\n");}' | scripts/transpose  >>  $toto
 
@@ -4153,9 +4178,9 @@ EOF
   cat <<EOF >>  $toto4.txt
 ## Une belle idee de Danielle
 EOF
-  cat $toto | gawk -F '\t' '/^##/{next}/^# Run/{for(i=2;i<=NF;i++)rr[i]=$i;next;}/^Average/{for(i=2;i<=NF;i++)cover[i]=$i;next;}/^#/{if(substr($2,1,5)=="Kept "){for(i=2;i<=NF;i++){split($i,aa," ");split(aa[2],bb,"/");nKept[i]=bb[1];nCandidates[i]=bb[2];}}next;}/^#/{next}/ bp/{x=$1;gsub(" bp","",x);x=x+0;if(x<=8000)for(i=2;i<=NF;i++){rrx[i,x]=$i;rt[i]+=$i;}next;}END{printf("#Run\tKept\tCandidates\tCover\tH 30p%\tH 25p%\tH 20p%\th 10%\tSurface 30%\tSurface 40%\tSurface 50%\tSurface 60%\tSurface 70%\tSurface 75%\tSurface 80%\tSurface 90%\tSurface 95%\tSurface 98%\tSurface 100%\n");for(r in rr){tt=rt[r];h=rrx[r,100];t=0;h10=0;h20=0;h25=0;h30=0;a30=0;a40=0;a50=0;a60=0;a70=0;a75=0;a80=0;a90=0;a95=0;a98=0;for(x=0;x<=8000;x+=50){y=rrx[r,x];t+=y;if(h10==0 && 10*y < h){h10=x;}if(h20==0 && 5*y < h)h20=x;if(h25==0 && 4*y < h)h25=x;if(h30==0 && 3.33*y < h)h30=x;if(a30==0 && 100*t > 30*tt)a30=x;if(a40==0 && 100*t > 40*tt)a40=x;if(a50==0 && 100*t > 50*tt)a50=x;if(a60==0 && 100*t > 60*tt)a60=x;if(a70==0 && 100*t > 70*tt)a70=x;if(a75==0 && 100*t > 75*tt)a75=x;if(a80==0 && 100*t > 80*tt)a80=x;if(a90==0 && 100*t > 90*tt)a90=x;if(a95==0 && 100*t > 95*tt)a95=x;if(a98==0 && 100*t > 98*tt)a98=x;if(a100==0 && 100*t >= 100*tt)a100=x;}if (h10==0)h10=8000;if (h20==0)h20=8000;if (h25==0)h25=8000;if (h30==0)h30=8000;if (nKept[r] >= 1){printf("%s\t%d\t%d\t%d",rr[r],nKept[r],nCandidates[r],cover[r]) ; printf("\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",h30,h25,h20,h10,a30,a40,a50,a60,a70,a75,a80,a90,a95,a98,a100);}}}' | scripts/tab_sort -k 3n  >>  $toto4.txt
-
-  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$13;if(x==0)x=8000;printf("Ali %s\nAccessible_length %s %s %s %s\n\n",$1,x,$2,$3,$4);}'  > $toto4.ace
+  cat $toto | gawk -F '\t' '/^##/{next}/^# Run/{for(i=2;i<=NF;i++)rr[i]=$i;next;}/^Average/{for(i=2;i<=NF;i++)cover[i]=$i;next;}/^#/{if(substr($2,1,5)=="Kept "){for(i=2;i<=NF;i++){split($i,aa," ");split(aa[2],bb,"/");nKept[i]=bb[1];nCandidates[i]=bb[2];}}next;}/^#/{next}/ bp/{x=$1;gsub(" bp","",x);x=x+0;if(x<=8000)for(i=2;i<=NF;i++){rrx[i,x]=$i;rt[i]+=$i;}next;}END{printf("#Run\tKept\tCandidates\tCover\tH 30p%\tH 25p%\tH 20p%\tH 10%\tSurface 30%\tSurface 40%\tSurface 50%\tSurface 60%\tSurface 70%\tSurface 75%\tSurface 80%\tSurface 90%\tSurface 95%\tSurface 98%\tSurface 100%\n");for(r in rr){tt=rt[r];h=rrx[r,100];t=0;h10=0;h20=0;h25=0;h30=0;a30=0;a40=0;a50=0;a60=0;a70=0;a75=0;a80=0;a90=0;a95=0;a98=0;for(x=0;x<=8000;x+=50){y=rrx[r,x];t+=y;if(h10==0 && 10*y < h){h10=x;}if(h20==0 && 5*y < h)h20=x;if(h25==0 && 4*y < h)h25=x;if(h30==0 && 3.33*y < h)h30=x;if(a30==0 && 100*t > 30*tt)a30=x;if(a40==0 && 100*t > 40*tt)a40=x;if(a50==0 && 100*t > 50*tt)a50=x;if(a60==0 && 100*t > 60*tt)a60=x;if(a70==0 && 100*t > 70*tt)a70=x;if(a75==0 && 100*t > 75*tt)a75=x;if(a80==0 && 100*t > 80*tt)a80=x;if(a90==0 && 100*t > 90*tt)a90=x;if(a95==0 && 100*t > 95*tt)a95=x;if(a98==0 && 100*t > 98*tt)a98=x;if(a100==0 && 100*t >= 100*tt)a100=x;}if (h10==0)h10=8000;if (h20==0)h20=8000;if (h25==0)h25=8000;if (h30==0)h30=8000;if (nKept[r] >= 1){printf("%s\t%d\t%d\t%d",rr[r],nKept[r],nCandidates[r],cover[r]) ; printf("\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",h30,h25,h20,h10,a30,a40,a50,a60,a70,a75,a80,a90,a95,a98,a100);}}}' | scripts/tab_sort -k 3n  >>  $toto4.txt
+  # $15 =  accessible length = 80% of surface of 8kb crocodile
+  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$15;if(x==0)x=8000;printf("Ali %s\nAccessible_length %s %s %s %s\n\n",$1,x,$2,$3,$4);}'  > $toto4.ace
   bin/tacembly MetaDB <<EOF
       read-models
       pparse  $toto4.ace
@@ -4164,11 +4189,13 @@ EOF
 EOF
   tags  $toto4.ace
   \rm  $toto4.ace
-
+  # Danielle is not interested by the $toto file
+  mv $toto tmp/GENEGROUPS
 
 # end 5kb 8kb loop
 end
 goto phaseLoop
+
 
 phasem4H:
   echo "phase m4H: Export hierarchic mRNA expression tables in RESULTS/Expression and analyse differential expression according to the Compare class"
@@ -11573,7 +11600,7 @@ foreach chrom ($chromSetAll)
   endif
 
         if (! -e tmp/EHITS.$MAGIC/$chrom/f1.done) then
-          scripts/submit "tmp/EHITS.$MAGIC/$chrom/f1" "scripts/f1.double_collect_by_section.tcsh $MAGIC $chrom"
+          scripts/submit "tmp/EHITS.$MAGIC/$chrom/f1" "scripts/f1.double_collect_by_section.tcsh $MAGIC $chrom" 32G
         endif
 
 end

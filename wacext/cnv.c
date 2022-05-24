@@ -491,7 +491,7 @@ static int cnvCoverons2Genes (CNV *cnv)
       ACEOUT ao = aceOutCreate (cnv->outFileName, ".coveron2genes", FALSE, h) ;
       int n = 0, i, coveron, coveronMax = dictMax (cnv->coveronDict) + 1 ;
 
-      aceOutDate (ao, "##", "Each gene is associated to each coveron it partially overlaps ina non stranded way") ;
+      aceOutDate (ao, "###", "Each gene is associated to each coveron it partially overlaps ina non stranded way") ;
       aceOut (ao, "# Ordinal\tCoveron internal number\tNumber of overlapping gene\tCoveron\tChomosome\tBegin of coveron\tEnd\tGenes\n" ) ;
       for (coveron = 1, gc = arrp (cnv->coverons, coveron, GC) ; coveron < coveronMax ; coveron++, gc++)
 	if (gc->coveron && (gc->coveron2genes || gc->gene))
@@ -918,7 +918,7 @@ static void cnvReportCoverage (CNV *cnv, BOOL byCoveron)
   int cMax = arrayMax (cnv->coverons) ;
 
 
-  aceOutDate (ao, "##", cnv->title) ;
+  aceOutDate (ao, "###", cnv->title) ;
   
   
   aceOutf (ao, "# Coveron\tChromosome\ta1\ta2\tCoveron Length (bp)\tGene\tAbsolute average coverage in normal tissues\tAbsolute average coverage in tumor tissues\trelative average coverage : tumor/normal\t\tRun") ;
@@ -1237,7 +1237,7 @@ static void cnvExportCoverage (CNV *cnv, BOOL byCoveron, BOOL normalize)
 	case 1 : ao = aoL ; break ;
 	case 2 : ao = aoH ; break ;
 	}
-      aceOutDate (ao, "##", cnv->title) ;
+      aceOutDate (ao, "###", cnv->title) ;
       aceOutf (ao, "## Genome wide %s gene base normalized relative to the median of the normal samples, excluding the 3 MAD.\n"
 	       , byCoveron ? "coveron" : "gene"
 	       ) ;

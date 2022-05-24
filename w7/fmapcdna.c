@@ -403,11 +403,20 @@ void fMapcDNAReportLine (char *buffer, SEG *seg1, int maxBuf)
     }
   if ((obj = bsCreate(seg1->key)))
     {
+      int n = 0, n1 = 0 ;
       if (bsGetKey(obj,_DNA,&dnaKey))
 	bsGetData (obj, _bsRight, _Int, &ln) ;
       bsGetData (obj, _PolyA_after_base, _Int, &polyA) ; 
       bsGetKey (obj, _cDNA_clone, &cdna_clone) ;
-      bsGetData (obj, _Composite, _Int, &composite) ;
+
+      if (bsGetData (obj, _Composite, _Int, &n) && n > 0)
+	{
+	  if (bsGetData (obj, _bsRight, _Int, &n1) && n1 > 0 &&
+	      bsGetData (obj, _bsRight, _Int, &n1) && n1 > n
+	      )
+	    n = n1 ;
+	}
+      composite = n ;
       bsDestroy(obj) ;
     }
 
@@ -703,6 +712,7 @@ static void estBubbleInfo (int box, SEG *seg, int origin, int type)
 		     ) ;
   else if (type == 0 || type == 1)
     {
+      char support [80] ;
       KEY tissue = keyGetKey (est, str2tag ("Tissue")) ;
       BOOL inverted = keyFindTag (est, str2tag ("Inverted")) ;
       BOOL pa = keyFindTag (est, str2tag ("polyA_after_base")) ;
@@ -723,8 +733,23 @@ static void estBubbleInfo (int box, SEG *seg, int origin, int type)
 	       , seg->x2 - seg->x1 + 1
 	       , type == 1 ? " Intron\n" : "\n") ;
 
+      support [0] = 0 ;
+      if (est && keyFindTag (est, _Composite))
+	{
+	  OBJ Est = bsCreate (est) ;
+	  int n = 0, n1 = 0 ;
+	  if (bsGetData (Est, _Composite, _Int, &n) && n > 0)
+	    {
+	      if (bsGetData (Est, _bsRight, _Int, &n1) && n1 > 0 &&
+		  bsGetData (Est, _bsRight, _Int, &n1) && n1 > n
+		  )
+		n = n1 ;
+	    }
+	    sprintf (support, "Seen %d times", n) ;
+	  bsDestroy (Est) ;
+	}
       graphBubbleInfo (box, clone, "cDNA_clone", 
-		       messprintf("%s%s%s%s%s%s%s%s%s%s%s"
+		       messprintf("%s%s%s%s%s%s%s%s%s%s%s%s"
 				  , tissue ? name(tissue) : ""
 				  , tissue ? "\n" : ""
 				  , bf1
@@ -737,6 +762,7 @@ static void estBubbleInfo (int box, SEG *seg, int origin, int type)
 				  , pp ? ", primed in A rich region of mRNA or genome" : ""
 				  , pp1 ? ", internal priming" : ""
 				  , pa ? ", polyA included" : ""
+				  , support[0] ? support : ""
 				  )) ;
       keySetDestroy (capping) ;
       keySetDestroy (pairs) ;
@@ -2208,6 +2234,7 @@ void fMapcDNAShowGenes (LOOK look, float *offset)
 
       if (class(seg->key) == _VMethod)
 	continue ;
+
       isCloud = keyFindTag (seg->key, _Cloud_gene) ;
       /*
 	if (!keyFindTag (seg->key, _Transcribed_gene) &&
@@ -2272,6 +2299,16 @@ void fMapcDNAShowGenes (LOOK look, float *offset)
 	  graphRectangle (x , y1, x + 1.4, y2) ;
 	}
       graphBoxEnd () ;
+
+      if (keyFindTag (gene, _Colour))
+	{
+	  KEY geneCol = color2 ;
+	  OBJ Gene = bsCreate (gene) ;
+	  if (Gene && bsGetKeyTags (Gene, _Colour, &(geneCol)))
+	    color2 = geneCol - _WHITE + WHITE ;
+	  bsDestroy (Gene) ;
+	}
+
       graphBoxDraw (box, color, color2) ;
 
       n = strlen(name(gene)) ;

@@ -854,7 +854,7 @@ static int  svDeDuoParseOverhangs (const SV *sv, SDU *sdu, SW *sw)
   if (1)
     {
       ao = aceOutCreate (sv->outFileName, command, sv->gzo, h) ;
-      aceOutDate (ao, "##", "de-duo breakpoint analysis") ;
+      aceOutDate (ao, "###", "de-duo breakpoint analysis") ;
       aceOutf (ao, "## Requested minimal_support %d\n",  sv->min_support) ;
     }
   if (sv->clientId) 
@@ -1712,7 +1712,7 @@ static void  svWiggleReport (const SV *sv, SDU *sdu, SW *sw, int unoDuo)
   char *command = hprintf (sw->h, ".%s.de_%s.txt", sdu->runName, unoDuo == 1 ? "uno" : "duo") ;
   ACEOUT ao = aceOutCreate (sv->outFileName, command, sv->gzo, sw->h) ;
 
-  aceOutDate (ao, "##", hprintf (sw->h, "de-%s breakpoint analysis",  unoDuo == 1 ? "uno" : "duo")) ;
+  aceOutDate (ao, "###", hprintf (sw->h, "de-%s breakpoint analysis",  unoDuo == 1 ? "uno" : "duo")) ;
 
   aceOutf (ao, "## Requested minimal_support %d\n",  min) ;
   aceOutf (ao, "# Breakpoint type\tLeft element sequence\tStrand\tCoordinate\tRight element sequence\tStrand\tCoordinate\tReaaranged fragment length\tSequence at boundary\tRun\tNumber of sequences supporting the left element\tNumber of sequences supporting the right element") ;
@@ -2237,7 +2237,7 @@ static void svDeAvReportGenePairs (const SV *sv, SDU *sdu, SW *sw)
 
   command = hprintf (h, ".%s.gene_pairs.txt", sdu->runName) ;
   ao = aceOutCreate (sv->outFileName, command, sv->gzo, h) ;
-  aceOutDate (ao, "##", "de-av breakpoint analysis") ;
+  aceOutDate (ao, "###", "de-av breakpoint analysis") ;
   aceOutf (ao, "## %s Requested minimal_support %d\n",  sdu->runName, sv->min_support) ;
 
   for (i = 0 ; i < iMax ; i++)
@@ -2247,7 +2247,7 @@ static void svDeAvReportGenePairs (const SV *sv, SDU *sdu, SW *sw)
 	aceOutf (ao, "%s\t%d\n", dictName (dict, i), n) ;
     }
 
-  aceOutDate (ao, "##", "de-av breakpoint analysis done ") ;
+  aceOutDate (ao, "###", "de-av breakpoint analysis done ") ;
   ac_free (h) ;
 } /* svReportGenePairs */
 

@@ -718,6 +718,7 @@
                      Pseudogene // COUNT {>transcribed_gene;!gt_ag && !gc_ag;>mrna;COUNT cdna_clone>3 && tiling_error>10}>0
                      Non_protein_coding // non protein coding gene
          Reference ?Paper XREF Gene
+         Colour #Colour
          SEQC SEQC_acdb_plus  UNIQUE Int
               SEQC_acdb_minus UNIQUE Int
               SEQC_avg_signal  UNIQUE Float

@@ -56,7 +56,6 @@ KEY _Alternative_exon
 , _Coding_gap
 , _Coding_length
 , _Complete
-, _Composite
 , _Confirmed_exon
 , _Confirmed_intron
 , _Constructed_from
@@ -266,7 +265,6 @@ void cDNAAlignInit (void)
  _Coding_gap = str2tag ("Coding_gap") ;
  _Coding_length = str2tag ("Coding_length") ;
  _Complete = str2tag ("Complete") ;
- _Composite = str2tag ("Composite") ;
  _Confirmed_exon = str2tag ("Confirmed_exon") ;
  _Confirmed_intron = str2tag ("Confirmed_intron") ;
  _Constructed_from = str2tag ("Constructed_from") ;

@@ -436,7 +436,7 @@ static int sblCountSnps (PP *pp)
       int n, cumulK, cumulpA = 0, jMax, jGlobalMax = 0 ;
       ACEOUT ao = aceOutCreate (pp->outFileName, ".telomere_distribution.txt", pp->gzo, h) ;
 
-      aceOutDate (ao, "##", "Histogram of the number of fragments with n 13-mers matching the canonical telomere motif ") ;
+      aceOutDate (ao, "###", "Histogram of the number of fragments with n 13-mers matching the canonical telomere motif ") ;
       aceOutf (ao, "## Found %d fragments, %d distinct fragments\n", nTags, nSeqs) ;
       aceOutf (ao, "#Number of motifs\tNumber of fragments with x TERRA 13mers TTAGGGTTAGGGT\tNumber of fragments with x homopolymers of 13 consecutive A\tCumul TERRA\tCumul pA\n") ;
 

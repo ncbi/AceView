@@ -315,8 +315,8 @@ static void parmsLoadName (char *s)
     float rp = 2.0 ;
     if (!bsGetData (obj, str2tag ("Right_priority"), _Float, 0))
       bsAddData (obj, str2tag ("Right_priority"), _Float, &rp) ;
-    if (!bsGetKeyTags (obj, str2tag ("Colour"), 0))
-      if (bsAddTag (obj, str2tag ("Colour")) && bsPushObj (obj))
+    if (!bsGetKeyTags (obj, _Colour, 0))
+      if (bsAddTag (obj, _Colour) && bsPushObj (obj))
 	{ bsAddTag (obj, _BLUE) ;
 	  bsGoto (obj, 0) ;
 	}
@@ -392,8 +392,8 @@ static void parmsSave (void)
     float rp = 2.0 ;
     if (!bsGetData (obj, str2tag ("Right_priority"), _Float, 0))
       bsAddData (obj, str2tag ("Right_priority"), _Float, &rp) ;
-    if (!bsGetKeyTags (obj, str2tag ("Colour"), 0))
-      if (bsAddTag (obj, str2tag ("Colour")) && bsPushObj (obj))
+    if (!bsGetKeyTags (obj, _Colour, 0))
+      if (bsAddTag (obj, _Colour) && bsPushObj (obj))
 	{ bsAddTag (obj, _BLUE) ;
 	  bsGoto (obj, 0) ;
 	}
@@ -1166,8 +1166,8 @@ static void setTempGene (LOOK look, Array a, int k, int frame,
     if (mobj)
       { if (!bsGetData (mobj, str2tag ("Right_priority"), _Float, 0))
 	  bsAddData (mobj, str2tag ("Right_priority"), _Float, &rp) ;
-	if (!bsGetKeyTags (mobj, str2tag ("Colour"), 0))
-	  if (bsAddTag (mobj, str2tag ("Colour")) && bsPushObj (mobj))
+	if (!bsGetKeyTags (mobj, _Colour, 0))
+	  if (bsAddTag (mobj, _Colour) && bsPushObj (mobj))
 	    bsAddTag (mobj, isByHand ? _DARKBLUE : _BLUE) ;
 	bsSave (mobj) ;
       }

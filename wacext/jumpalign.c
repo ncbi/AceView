@@ -376,7 +376,7 @@ static int jumpAlignExportRepeats (const JP *jp)
   ii = bigArrayMax (bb) + 1 ; /* we want to loop once more to export the last segment */
   rp = bigArrp (bb, 0, RP) - 1 ;
   k = 0 ; pos1 = pos2 = 0 ; 
-  aceOutDate (ao, "##", "Repeats") ;
+  aceOutDate (ao, "###", "Repeats") ;
   aceOutf (ao, "## Number of exact repeats of length %d  centered at each position\n", jp->wMax) ;
   
   aceOutf (ao, "## Sequence\tStrand\tFrom\tTo\tRepeats\tdebug dx mseq start seaq\n") ;

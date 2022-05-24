@@ -868,7 +868,7 @@ static void s2gAnalyze (S2G *s2g)
   ao = aceOutCreate (s2g->outFileName, ".qc", 0, h) ;
   aotsv = aceOutCreate (s2g->outFileName, ".introns.tsv", 0, h) ;
 
-  aceOutDate (ao, "#", "sam to gold") ;
+  aceOutDate (ao, "###", "sam to gold") ;
   aceOutf (ao, "# Method\tReads in run\tExact alignments\tPartial alignments\tOverlapping alignments\tWild alignments\tExact reads\tPartial reads\tOverlapping reads\tWild reads\tUniquely mapped reads\tMulti mapped reads\tUnaligned reads\tFully_alignedExact\tFully_alignedWithError\tPartialExact\tPartialWithError\n") ;
   for (m = 1 ; m <= dictMax(s2g->methodDict) ; m++)
     {
@@ -953,7 +953,7 @@ static void s2gExportIntronSupport (S2G *s2g)
   for (type = 0 ; type < 3 ; type++)
     {
       ao = aceOutCreate (s2g->outFileName, titles[type], s2g->gzo, h) ;
-      aceOutDate (ao, "#", hprintf (h, "%s", titles[type])) ;
+      aceOutDate (ao, "###", hprintf (h, "%s", titles[type])) ;
       for (ii = 0, up = bigArrp (intronSupport, ii, HIT) ; ii < iMax ; ii++, up++) 
 	if (up->type == types[type])
 	  aceOutf (ao, "%s\t%s:%d-%d\t%s\t%s\t%s\n"
@@ -1031,7 +1031,7 @@ static void s2gExportIntrons (S2G *s2g)
   for (type = 0 ; type < 3 ; type++)
     {
       ao = aceOutCreate (s2g->outFileName, hprintf (h,".%s", titles[type]), s2g->gzo, h) ;
-      aceOutDate (ao, "##", hprintf (h, "%s support in various methods", titles[type])) ; 
+      aceOutDate (ao, "###", hprintf (h, "%s support in various methods", titles[type])) ; 
       aceOutf (ao, "# %s", titles[type]) ;
       for (m = 1 ; m < mMax ; m++)
 	aceOutf (ao, "\t%s", dictName (s2g->methodDict, m)) ;
@@ -1286,7 +1286,7 @@ static void s2gViewTsv (S2G *s2g, DICT *tagDict, DICT *runDict, Array tags)
   dictAdd (runDict, "GOLD", &gold) ;
   for (i = 1 ; i < 21 ; i++)
     dictAdd (tagDict, hprintf (h, "Introns_%d", i), &(itr[i])) ;
-  aceOutDate (ao, "##", "Comparison of detected introns to the Gold standard") ;
+  aceOutDate (ao, "###", "Comparison of detected introns to the Gold standard") ;
   aceOutf (ao, "Run\tMethod\tMinimal intron support\tGOLD set\tDetected\tTrue Positives\tFalsePositives\tFalse Negatives\tPrecision\tRecall\tF score\n") ;
 
   for (ii = 0, tt = arrp (tags, ii, TT) ; ii < iMax ; ii++, tt++)

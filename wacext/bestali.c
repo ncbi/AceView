@@ -2211,7 +2211,7 @@ static int baAutoHierarchy (BA *ba)
   
   arraySort (counts, bestAutoHitOrder) ;
    
-  aceOutDate (ao, "##", "Winners take all: Bayesian read counts across similar targets") ;
+  aceOutDate (ao, "###", "Winners take all: Bayesian read counts across similar targets") ;
   aceOut (ao, "## Column 1: Run name, as declared in the project\n") ;
   aceOut (ao, "## Column 2: Best mapping reads, reattributed only to the target with most hits\n") ;
   aceOut (ao, "## Column 3: Best mapping reads, including those mapping equally well to several targets\n") ;
@@ -3924,11 +3924,11 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
       wao8 = aceOutCreate (ba->outFileName, ".3pHisto.8kb.txt", FALSE, h) ;
       wiggle3p8kb = keySetHandleCreate (h) ;
 
-      aceOutDate (wao8, "##", ba->run) ;
+      aceOutDate (wao8, "###", ba->run) ;
       aceOutf (wao8, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", dictMax (ba->selected8kbDict)) ;
       aceOutf (wao8,
-	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 8kb from the 5' end of the annotated transcript.\n"
-	       "## This implies that the histogram below 8kb represents the 3' biais, and above 8kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
+	       "## The transcripts are selected such that the maximum of their coverage plot, usually representing the major polyA addition site, is further than 8kb from the 5' end of the annotated transcript.\n"
+	       "## This implies that the histogram below 8kb represents the 3' biais, and above 8kb a commbination of the 3'bias and the prevalence of very long transcripts\n"
 	       "## The coverage plots were piled up, aligning the maxima at position zero. The x coordinates run 3' to 5' and represent the distance to the 3' end\n"
 	       "# Run\tDistance from 3' end"
 	       ) ;
@@ -3941,11 +3941,11 @@ static int baExportGeneSupport (BA *ba, BOOL unique)
       wao5 = aceOutCreate (ba->outFileName, ".3pHisto.5kb.txt", FALSE, h) ;
       wiggle3p5kb = keySetHandleCreate (h) ;
 
-      aceOutDate (wao5, "##", ba->run) ;
+      aceOutDate (wao5, "###", ba->run) ;
       aceOutf (wao5, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", dictMax (ba->selected5kbDict)) ;
       aceOutf (wao5,
-	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 5kb from the 5' end of the annotated transcript.\n"
-	       "## This implies that the histogram below 5kb represents the 3' biais, and above 5kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
+	       "## The transcripts are selected such that the maximum of their coverage plot, usually representing the major polyA addition site, is further than 8kb from the 5' end of the annotated transcript.\n"
+	       "## This implies that the histogram below 8kb represents the 3' biais, and above 8kb a commbination of the 3'bias and the prevalence of very long transcripts\n"
 	       "## The coverage plots were piled up, aligning the maxima at position zero. The x coordinates run 3' to 5' and represent the distance to the 3' end\n"
 	       "# Run\tDistance from 3' end"
 	       ) ;

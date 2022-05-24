@@ -2211,7 +2211,7 @@ static KEY defaultSubsequenceKey (char* name, int colour,
       { float width = 2 ;
         KEY colourTag = _WHITE + colour ;
 
-        if (bsAddTag (obj, str2tag ("Colour")))
+        if (bsAddTag (obj, _Colour))
 	  { bsPushObj (obj) ;
 	    bsAddTag (obj, colourTag) ;
 	    bsGoto (obj, 0) ;
@@ -4168,6 +4168,17 @@ void fMapReportLine (LOOK look, SEG *seg, BOOL isGIF, float x)
 			COORD (look, seg->x1), COORD (look, seg->x2),
 			1 - COORD (look, seg->x1) + COORD (look, seg->x2))) ;
   
+  if (0 && seg->key && keyFindTag (seg->key, _Composite))
+	{
+	  OBJ Obj = bsCreate (seg->key) ;
+	  int n = 0 ;
+	  if (bsGetData (Obj, _Composite, _Int, &n) && n > 0)
+	    strcat (look->segTextBuf, 
+		    messprintf ("Seen %d", n)) ;
+	  bsDestroy (Obj) ;
+	}
+
+
 				/* description */
   if (seqDragBox)
     seg2 = BOXSEG (seqDragBox) ;

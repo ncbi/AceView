@@ -2950,7 +2950,7 @@ static void parseGtfFeature (SX *sx, const char *featureType, const char *fileSu
   if (wantGene || wantMRNA || wantCDS)
     goto done ;
   ao = aceOutCreate (sx->outFileName, ".introns", sx->gzo, h) ;
-  aceOutDate (ao, "#", sx->title) ;
+  aceOutDate (ao, "###", sx->title) ;
   if (! sx->gffTAIR && arrayMax (shadows))
     {
       for (old = i = 0, shadow = arrp(shadows, i, SHADOW); i < arrayMax (shadows) ; i++, shadow++)
@@ -3887,7 +3887,7 @@ static  void sxLetterDistribReport (SX* sx)
   for (jmax = 255 ; jmax > 1 && b[jmax] == 0 ; jmax--) ;
 
   ao = aceOutCreate (sx->outFileName, ".profile.txt", FALSE, h) ;
-  aceOutDate (ao, "#", sx->title) ;
+  aceOutDate (ao, "###", sx->title) ;
 
   for (i = NN  ; i >= 0 ; i--)
     if (ns[i] > 0)
@@ -4040,7 +4040,7 @@ static  void sxLetterDistribReport (SX* sx)
     {
       system (messprintf("\\rm %s %s.tcsh %s.ps", sx->outFileName, sx->outFileName, sx->outFileName)) ;
       ao = aceOutCreate (sx->outFileName, ".txt", FALSE, h) ;
-      aceOutDate (ao, "#", sx->title) ;
+      aceOutDate (ao, "###", sx->title) ;
 
       if (ao)
 	{
@@ -5530,11 +5530,11 @@ int main (int argc, const char **argv)
     {
       sx.encodedDna = arrayHandleCreate (1000, char, h) ;
       sx.aoTm = aceOutCreate (sx.outFileName, ".TM.txt", sx.gzo, h) ;
-      aceOutDate (sx.aoTm, "#", sx.title) ;
-      aceOutf (sx.aoTm, "# N is the length of the sequence in base, GC the percentage of GC\n") ;
-      aceOutf (sx.aoTm, "# The melting temperature is computed according to Maniatis Tm = 62.3 + 0.41*(%G+C) - 500/N\n") ;
-      aceOutf (sx.aoTm, "# The dimer entropy is defined S = - Sum[over all ij dimers] (n_ij log16 n_ij/N)\n") ;
-      aceOutf (sx.aoTm, "# Sequence\tLength\tEntropy\tTm\t%%GC\n") ;
+      aceOutDate (sx.aoTm, "###", sx.title) ;
+      aceOutf (sx.aoTm, "## N is the length of the sequence in base, GC the percentage of GC\n") ;
+      aceOutf (sx.aoTm, "## The melting temperature is computed according to Maniatis Tm = 62.3 + 0.41*(%G+C) - 500/N\n") ;
+      aceOutf (sx.aoTm, "## The dimer entropy is defined S = - Sum[over all ij dimers] (n_ij log16 n_ij/N)\n") ;
+      aceOutf (sx.aoTm, "## Sequence\tLength\tEntropy\tTm\t%%GC\n") ;
     }
   if (sx.shadowFileName)
     parseShadowFile (&sx, 1) ;
@@ -5562,7 +5562,7 @@ int main (int argc, const char **argv)
   if (sx.doCount)
     {
       ACEOUT ao = aceOutCreate (sx.outFileName, ".count", FALSE, sx.h) ;
-      aceOutDate (ao, "#", sx.title) ;
+      aceOutDate (ao, "###", sx.title) ;
 
       aceOutf (ao, "Distinct_fragment_processed\t%ld\nDistinct_fragment_kept\t%ld\nDistinct_fragment_rejected\t%ld\n"
 	       , sx.fProcessed + sx.fRejected, sx.fProcessed, sx.fRejected

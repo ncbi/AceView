@@ -3301,16 +3301,16 @@ static int snpBRS2snpExport (SNP *snp)
   BOOL wDebug = FALSE ;
   BOOL wDebug2 = FALSE ;
 
-  if (0 &&  /* the wiggles are transfeerred back to bestali->mrnaSupport */
+  if (0 &&  /* the wiggles are transfered back to bestali->mrnaSupport */
       ! oldSnps &&  snp->strategy == STRATEGY_RNA_SEQ)  /* detect mode, RNA_seq mode, compute the cover histogram to allow a better evaluation of the 3' bias */
     {
       wao = aceOutCreate (snp->outFileName, ".3pHisto.txt", FALSE, h) ;
       
-      aceOutDate (wao, "##", snp->run) ;
+      aceOutDate (wao, "###", snp->run) ;
       aceOutf (wao, "## Number of contributing transcripts\t%d\tCumul\t%ld\n", wCountTranscripts) ;
       aceOutf (wao,
-	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 8kb from the 5' end of the annotated transcript.\n"
-	       "## This implies that the histogram below 8kb represents the 3' biais, and above 8kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
+	       "## The maxima of the contributing transcripts, usually representing the major polyA addition site, is further than 5kb from the 5' end of the annotated transcript.\n"
+	       "## This implies that the histogram below 5kb represents the 3' biais, and above 5kb a commbination of the 3'biaias and the prevalence of very long transcripts\n"
 	       "## The coverage plots were piled up, aligning the maxima at position. The x coordinates run 3' to 5' and represent the distance to the 3' end\n"
 	       "# Run\tDistance from 3' end"
 	       ) ;
@@ -3322,7 +3322,7 @@ static int snpBRS2snpExport (SNP *snp)
 
   if (showTitle)
     {
-      aceOutDate (ao, "##", snp->project) ;
+      aceOutDate (ao, "###", snp->project) ;
       aceOutf (ao, 
 	       "##  1: Target :: Reference chromosome or transcript.\n"
 	       "##  2: Pos :: Position in the reference of the hook base, \n"
@@ -5691,7 +5691,7 @@ static int snpOoFrequency (SNP *snp)
     }
 
   /* report */
-  aceOutDate (ao, "##", snp->project) ;
+  aceOutDate (ao, "###", snp->project) ;
   aceOutf (ao, "# Frequency of incoherent transitions between base %d and %d a %d-mer in Solid data\n", LN/2, LN/2+1,LN) ;
   aceOutf (ao, "Oligo\tThe central ransition is coherent read on strand +\tThe central transition is incoherent read on strand +\tFrequency of incoherent transition read on strand +") ;
   aceOutf (ao, "\tOligo\tThe central transition is coherent read on strand -\tThe central transition is incoherent read on strand -\tFrequency of incoherent transition read on strand -") ;
@@ -7080,7 +7080,7 @@ static int snpPhasingExport (SNP *snp, BigArray ph, Array raw)
 
   mm = ww = mw = wm = m1 = w1 = m2 = w2 =  M1 = W1 = M2 = W2 = pb = line = 0 ;
 
-  aceOutDate (ao, "##", "Phasing info") ;
+  aceOutDate (ao, "###", "Phasing info") ;
   aceOutf (ao, "# SNP1 ....\t SNP2 ....\tmm\tww\tmw\twm\tm1\tw1\tm2\tw2\tam\taw\tbm\tbw\tdistance\tk>3\ta/a or b/b\n") ;
 
   for (pass = pb = 0 ; pass < 3 ; pb = 0, pass++)
@@ -7244,7 +7244,7 @@ static int snpPhasingExport (SNP *snp, BigArray ph, Array raw)
     {
       int ii, iMax = arrayMax (raw) ;
       
-      aceOutDate (ao, "##", "Phasing success and arrors") ;
+      aceOutDate (ao, "###", "Phasing success and arrors") ;
       aceOutf (ao, "# SNP\tPhases correctly with n other SPS using at least 3 molecules\tMild problems\tMore that 5%% cis/trans or vice versa\tOnly problematic links\n") ;
 
       for (ii = 0 ; ii < iMax ; ii++)
@@ -7900,7 +7900,7 @@ static int snpAnalyzeEditedHits (SNP *snp)
 
   /* export the results */
   ao = aceOutCreate (snp->outFileName, ".countEdited", snp->gzo, h) ;
-  aceOutDate (ao, "##", snp->project) ;
+  aceOutDate (ao, "###", snp->project) ;
   aceOutf (ao, "## Number of reads supporting the SNP or the wild type, per strand\n") ;
   aceOutf (ao, "## The position is one based and indicate the first modified base, [mw]+- refers to strand +/-\n") ;
   aceOutf (ao, "## In case of break points, columns 4 and 5 refer to the other half of the breakpointThe position is one based and indicate the first modified base, [mw]+- refers to strand +/-\n") ;
@@ -8103,7 +8103,7 @@ static int snpAnalyzeEditedHits (SNP *snp)
 	    }
 	}
 
-      aceOutDate (ao, "##", snp->project) ;
+      aceOutDate (ao, "###", snp->project) ;
       aceOutf (ao, "## Number of variants validated with frequency above 20%% and coverage 4 or more\n") ;
       aceOutf (ao, "# Run\tAny variants\tSubstitutions\tTransitions\tTransversions\tInsertions\tDeletions\tOther") ;
       for (typep = types ; *typep ; typep++)
@@ -8239,7 +8239,7 @@ static int snpDeepTableReport (SNP *snp)
 
   if (1)
     {
-      aceOutDate (ao, "##", snp->title) ;
+      aceOutDate (ao, "###", snp->title) ;
       aceOutf (ao, "# SNPs across %d runs at threshold %d%% and minimal count %d and minimal coverage %d\n"
 	       , dictMax (runDict)
 	       , snp->minFrequency
@@ -8709,7 +8709,7 @@ static void snpIntersect (SNP *snp)
   int cover ;
   float dosage, fq ;
   
-  aceOutDate (ao, "##", snp->title) ;
+  aceOutDate (ao, "###", snp->title) ;
 
   if (snp->db && snp->project)
     {
@@ -10730,7 +10730,7 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
 	    break ;
 	  }
 	    
-	aceOutDate (ao, "##", snp->project) ;
+	aceOutDate (ao, "###", snp->project) ;
 	if (maxNHLBI)
 	  {
 	    aceOutf (ao, "## The NHLBI columns were downloaded for comparison from\n") ;
@@ -11357,7 +11357,7 @@ static int snpFrequencyTable (SNP *snp, BOOL preRun)
     {
       int zi, dzi = 0 ;
       ao = aceOutCreate (snp->outFileName, ".SNP_frequency_histos.txt", FALSE, h) ;
-      aceOutDate (ao, "##", snp->project) ;
+      aceOutDate (ao, "###", snp->project) ;
       aceOutf (ao, "# Run") ;
       for (ir = 0 ; ir < runs->rows ; ir++)
 	aceOutf (ao, "\t%s", ac_table_printable (runs, ir, 1, "-")) ;
@@ -11979,7 +11979,7 @@ static int snpPrevalenceTable (SNP *snp)
       }
   
   ao = aceOutCreate (snp->outFileName, ".snp_prevalence_per_gene.txt", snp->gzo, h) ;
-  aceOutDate (ao, "##", snp->project) ;
+  aceOutDate (ao, "###", snp->project) ;
   aceOutf (ao, "# Gene") ;
   /*
   const char *types[] = { "%s NA"

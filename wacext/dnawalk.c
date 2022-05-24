@@ -131,7 +131,7 @@ void dwReportCount (void *vp)
     }
   bigArraySort (aa, wordCountOrder) ;
 
-  aceOutDate (ao, "#", "Walk") ;
+  aceOutDate (ao, "###", "Walk") ;
 aceOutf (ao, "# Run\tRead\tMultiplicity\tTouching 3p end of read\n") ;
 
   for (k = 0, wc = bigArrp (aa, 0, WC) ; k < bigArrayMax (aa) ; wc++, k++)
@@ -165,7 +165,7 @@ void dwReportWalk (void *vp)
   if (1) ac_free (pp->ass) ;
   bigArraySort (pp->wordCount, wordCountOrder) ;
 
-  aceOutDate (ao, "#", "Walk") ;
+  aceOutDate (ao, "###", "Walk") ;
   aceOutf (ao, "# Run\tRead\tSeq\tTag\tScore\tTailScore\tLength\tWord_length\tSequence\tProfile..\n") ;
   {
     register long unsigned int wordNumber = (*pp->wordNumberp)/10000 ;

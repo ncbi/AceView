@@ -2718,6 +2718,7 @@
            GenBank_reference ?Paper XREF Gene_gb
            DbXref Text UNIQUE Text
            Method ?Method          // a vider
+           Colour #Colour
            Element Intron ?Intron XREF Gene  // contains the deep sequencing info
                    Fusion1 ?Fusion XREF Gene1 @Support  // contains the deep sequencing info
                    Fusion2 ?Fusion XREF Gene2 @Support  // contains the deep sequencing info

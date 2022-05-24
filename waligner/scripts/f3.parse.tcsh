@@ -48,6 +48,8 @@ printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
       parse tmp/METADATA/gtf.$target.f.intron.ace
       parse tmp/METADATA/gtf.$target.r.intron.ace
       parse tmp/METADATA/gtf.RefSeq.transcripts.ace.gz
+      parse tmp/METADATA/$MAGIC.$target.captured_genes.ace
+      parse tmp/METADATA/av.GENE.info.ace
       query find sequence locuslink
       spush
       query intmap == $chrom
@@ -74,8 +76,13 @@ printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
 EOF
 
 # in Xcds the score is independant of the coverage, it just reflects the length of the CDS, so that all long CDS are shown with all their exons
-if (-e tmp/METADATA/gtf.$target.ns.cds_sponge.gz) then
-  gunzip -c  tmp/METADATA/gtf.$target.ns.cds_sponge.gz ZZZZZ.gz tmp/METADATA/gtf.$target.ns.cds_sponge.gz | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (chrom != $3)next;}{a1=$4;a2=$5;ln=a2-a1;if(ln<0)ln = -ln;ln++;}{if(zz<1){t2ln[$1]+=ln;next;}}{nnn=t2ln[$1];if(nnn >= 450)printf("Xcds_%s__%d_%d\t1\t%d\t%s\t%d\t%d\t%d\n",chrom,a1,a2,ln,chrom,a1,a2,nnn);}' chrom=$chrom | sort -u | sort -V >  tmp/XH$chrom/f3.$target.cds.txt2
+set ffcds=tmp/METADATA/gtf.$target.ns.cds.spongeZZZZZ
+if (! -e $ffcds) then
+  set ffcds=tmp/METADATA/$target.ns.cds.sponge
+endif
+
+if (-e $ffcds) then
+  cat $ffcds ZZZZZ $ffcds | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (chrom != $3)next;}{a1=$4;a2=$5;ln=a2-a1;if(ln<0)ln = -ln;ln++;}{if(zz<1){t2ln[$1]+=ln;next;}}{nnn=t2ln[$1];if(nnn >= 450)printf("Xcds_%s__%d_%d\t1\t%d\t%s\t%d\t%d\t%d\n",chrom,a1,a2,ln,chrom,a1,a2,nnn);}' chrom=$chrom | sort -u | sort -V >  tmp/XH$chrom/f3.$target.cds.txt2
     bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/XH$chrom/f3.$target.cds.txt2 >  tmp/XH$chrom/f3.$target.cds.fasta
     cat  tmp/XH$chrom/f3.$target.cds.txt2 | gawk -F '\t' '{printf("Sequence %s\ncdna_clone %s\nForward\nColour LIGHTVIOLET\nIntMap %s %d %d\nIs_read\nComposite %d\n\n",$1,$1,$4,$5,$6,$7);}' >  tmp/XH$chrom/f3.$target.cds.ace
     bin/tacembly  tmp/XH$chrom << EOF
@@ -111,7 +118,7 @@ endif
 if (! -e tmp/XH$chrom/f3.parse.done) then
 
   touch tmp/XH$chrom/f3.genes.ace
-  if (0 && -e TARGET/GENES/av.gene.ace) then
+  if (1 && -e TARGET/GENES/av.gene.ace) then
     # cree des gene box
     cat TARGET/GENES/av.gene.ace | gawk '/^IntMap/{m=$2;gsub(/\"/,"",m);if(m!=chrom)next;{ok=1;gg = gg "IntMap " m " " $3 " "  $4 "\n"; cc=cc "Genes " g " " $3 " " $4 "\n";}next;}/^av/{next;}/^Transcribed_gene/{next;}/^Gene /{if(ok==1)print gg "\n";ok=0;gg=$0 "\n"; g = $2;next;}{gg = gg $0 "\n" ;next;}END{if(ok)print gg "\n";print "Sequence " chrom "\n" cc "\n"}' chrom=$chrom > tmp/XH$chrom/f3.genes.ace
   else 
@@ -253,12 +260,13 @@ if (-e MetaDB/$MAGIC/GroupW_strandedList) then
   if ($ggS1 != "") set ggS=$ggS1
 endif
 
-# restranding the non stranded wiggle using the starnded wiggle
+set WGR="toto"
+# restranding the non stranded wiggle using the stranded wiggle
   if (-d  tmp/WIGGLEGROUP/$ggS) set WGR=WIGGLEGROUP
   if (-d  tmp/WIGGLERUN/$ggS) set WGR=WIGGLERUN
 echo "ggS=$ggs#"
 echo "WGR=$WGR#"
-if ($ggS != $ggNS && $ggS != toto && $ggNS != toto && ! -e  tmp/$WGR/$ggNS/$chrom/R.chrom.u0.r.BF.gz) then
+if ($ggS != $ggNS && $ggS != toto && $ggNS != toto && $WGR != toto && ! -e  tmp/$WGR/$ggNS/$chrom/R.chrom.u0.r.BF.gz) then
 
   echo "restranding the non stranded wiggle using the stranded wiggle"
   mv  tmp/$WGR/$ggNS/$chrom/R.chrom.u.f.BF.gz  tmp/$WGR/$ggNS/$chrom/R.chrom.u0.f.BF.gz
@@ -369,6 +377,8 @@ laba:
     pparse MetaDB/$MAGIC/samples.ace
     pparse MetaDB/$MAGIC/ali.ace
     // pparse my.chrom.alias.ace
+    pparse tmp/EHITS.$MAGIC/$chrom/f1.ace.gz
+    pparse tmp/EHITS.$MAGIC/$chrom/f1.fasta.gz
     pparse tmp/XH$chrom/XG.f.ace 
     pparse tmp/XH$chrom/XG.f.fasta
     pparse tmp/XH$chrom/XG.r.ace 
