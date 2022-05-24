@@ -6,9 +6,10 @@ set run=$3
 set COUNT=$4
 set lane=$5
 set stranded=$6
+set SUBSAMPLING=$7
 
 set uGeneSupport=""
-if ($7 != "") set uGeneSupport=" -unique_gene_support $7"
+if ($8 != "") set uGeneSupport=" -unique_gene_support $8"
 
 set test=2
 if ($target == mito || $target == SpikeIn) set test=0
@@ -75,8 +76,8 @@ endif
    if (-e tmp/METADATA/$target.selected5kbTranscriptList.txt && ($GM == MRNA || $GM == MRNAH)) set m5kb="-selected5kbList tmp/METADATA/$target.selected5kbTranscriptList.txt"
 
 if (-e $toto) then
-        echo "bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap"
-              bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap 
+        echo "bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap -subsampling $SUBSAMPLING"
+              bin/bestali -i $toto $gm2 -run $run -target_class $target_class $splitM -pureNsStrand 1 -maxErr $maxWigErr -maxErrRate $maxWigErrRate $pair $ss $st $uGeneSupport $m5kb $m8kb -gzo -o  tmp/GENELANES/$lane.$target.$GM $remap  -subsampling $SUBSAMPLING
 endif
 
 exit 0

@@ -104,6 +104,7 @@ typedef struct baStruct {
   int target_class ;   /* entry in targetDict, A_mito ... Z_genome */
   int intronClass ;
   int maxErr, maxErrRate ;
+  int subsampling ;
   BOOL solid ;      /* auto-recognized on existence of oo errors, affects the filter */
   BOOL greg2ace ;
 
@@ -426,6 +427,31 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   ccp = aceInWordCut (ai, "\t", &cutter) ;
   if (! ccp || ! *ccp || *ccp == '#')
     return FALSE ;
+  if (ba->subsampling)
+    {
+      static char oldClone[256] ;
+      static int keep = 0 ;
+      char *cr ;
+      char newClone[256] ;
+
+      strncpy (newClone, ccp, 255) ; /* remove <> in my own private buffer */
+      newClone[255] = 0 ;
+      for (cr = newClone ; *cr ; cr++) 
+	;
+      cr-- ;
+      if (*cr == '>' || *cr == '<')
+	*cr = 0 ;
+      if (strcmp (newClone, oldClone))
+	{ /* new clone */
+	  float z = randfloat() ;
+	  keep = ba->subsampling * z > 1 ? TRUE : FALSE ;
+	  
+	  strcpy (oldClone, newClone) ;
+	}
+      if (! keep)
+	return FALSE ;
+    }
+
   dictAdd (ba->tagDict,ccp, &(up->tag)) ;
   up->nn = nn ;
   up2 = arrayp (ba->hits2, up->nn, HIT2) ;
@@ -9108,6 +9134,8 @@ static void usage (char *message)
 	    "//   -pureNsStrand int\n"
 	    "//        If 1 or 2, tags hitting targets on opposite strands are discarded\n"
 	    "//        except that if 2, tags hitting exactly 2 targets on opposite strands are kept\n"
+	    "//   -subsampling int\n"
+	    "//        optional, if s>0 keep randomly 1 fragment out of every s fragments seen in the hits file\n" 
 	    "//   -filter [filter_name | minAli_number]\n"
 	    "//        apply a named quality filter, (worm | ce | ara | at | sc | any other name treated as human)\n"
 	    "//        or give a number usually equal to minAli if you use minAli < 24\n"
@@ -9452,6 +9480,7 @@ int main (int argc, const char **argv)
   ba.maxErr = ba.maxErrRate = 0 ; /* defaults */
   getCmdLineInt(&argc, argv, "-maxErr", &(ba.maxErr)) ;
   getCmdLineInt(&argc, argv, "-maxErrRate", &(ba.maxErrRate)) ;
+  getCmdLineInt(&argc, argv, "-subsampling", &(ba.subsampling)) ;
 
   ba.geneSupport2ace = getCmdLineOption (&argc, argv, "-geneSupport2ace", 0) ;
   ba.mrnaSupport2ace = getCmdLineOption (&argc, argv, "-mrnaSupport2ace", 0) ;

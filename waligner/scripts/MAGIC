@@ -11600,6 +11600,7 @@ foreach chrom ($chromSetAll)
   endif
 
         if (! -e tmp/EHITS.$MAGIC/$chrom/f1.done) then
+          echo "scripts/submit tmp/EHITS.$MAGIC/$chrom/f1"
           scripts/submit "tmp/EHITS.$MAGIC/$chrom/f1" "scripts/f1.double_collect_by_section.tcsh $MAGIC $chrom" 32G
         endif
 

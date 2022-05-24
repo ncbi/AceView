@@ -33,6 +33,13 @@ if ($phase == TGx) then
   goto phaseTGx.$TGx2.$TGx3
 endif
 
+
+# if set to N in the directory GENERUNS, the parsing of the lane hits with randomly keep 1/N of the fragments
+set SUBSAMPLING=0
+if (-e tmp/GENERUNS/SUBSAMPLING) then
+  set SUBSAMPLING=`cat tmp/GENERUNS/SUBSAMPLING | gawk '/^SUBSAMPLING/{if ($2>1)n=$2;}END{print n+0;}'`
+endif
+
 if ($phase == g1a) goto phaseg1a
 if ($phase == g1b) goto phaseg1b
 if ($phase == g1c) goto phaseg1c
@@ -537,8 +544,8 @@ foreach target ($Etargets )
         if (! -d tmp/GENELANES/$run) source scripts/mkDir GENELANES $run
         if (! -e  tmp/GENELANES/$lane.$target.$GM."$gm"Support.$uu.gz) then
           if (-e  tmp/GENELANES/$lane.$target.$GM.$phase.err) \rm  tmp/GENELANES/$lane.$target.$GM.$phase.*
-	  #echo  "scripts/elements.hits2genes.tcsh $GM $target $run  COUNT $lane $stranded $uGeneSupport "
-          scripts/submit tmp/GENELANES/$lane.$target.$GM.$phase "scripts/elements.hits2genes.tcsh $GM $target $run  COUNT $lane $stranded $uGeneSupport "
+	  #echo  "scripts/elements.hits2genes.tcsh $GM $target $run  COUNT $lane $stranded $SUBSAMPLING $uGeneSupport "
+          scripts/submit tmp/GENELANES/$lane.$target.$GM.$phase "scripts/elements.hits2genes.tcsh $GM $target $run  COUNT $lane $stranded $SUBSAMPLING $uGeneSupport "
         endif
       endif
     end
@@ -1123,11 +1130,12 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if (1) then
-     set CAPT=A1A2R1R2I2I3   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
+   if (0) then
+     set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
+     set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
+     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) continue
      set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
-     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) continue
     endif
    set uu=u 
    if ($?myUU) then
