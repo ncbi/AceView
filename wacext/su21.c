@@ -11587,13 +11587,14 @@ static POLYNOME newSymbol (char a, int n)
   p->tt.type = 1 ;
   p->tt.z = 1.0/n ;
   p->tt.x[0] = a ;
+  p->tt.N = 1 ;
   return p ;
 }
 
 /*************************************************************************************************/
 
 /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
-static POLYNOME exponential (char *a, int NN, int sign, BOOL chi)
+static POLYNOME exponential (char *a, int NN, int sign)
 {
   int i, j, k, m,  fac = 1 ;
   POLYNOME pp, p[NN+2] ;
@@ -11615,15 +11616,39 @@ static POLYNOME exponential (char *a, int NN, int sign, BOOL chi)
   return pp ;
 }
 
+static POLYNOME expPol (POLYNOME pp, int NN, int sign)
+{
+  int i, j, fac = 1 ;
+  POLYNOME ppp, p[NN+2], q[NN+2] ;
+
+  p[0] = newScalar (1) ;
+  for (i = 1 ; i <= NN ; i++)
+    {
+      fac = fac * i * sign ;
+      q[i-1] = copyPolynome (pp) ;
+      q[0]->tt.z = 1.0/fac ;
+      q[i] = 0 ;
+      p[i] = newMultiProduct (q) ; 
+    }
+  p[i] = 0 ;
+  ppp = newMultiSum (p) ;
+  ppp = expand (ppp) ;
+  return ppp ;
+}
+
 static void superExponential (int NN)
 {
-  POLYNOME pp, p[6] ;
+  POLYNOME qa, qb, pp, p[6] , rr, r[6], s[6] ;
 
-  p[0] = exponential ("i", NN, 1, FALSE) ;
+  qa = newSymbol ('i', 1) ;
+  qb = newSymbol ('a', 1) ;
+  qb->tt.x[1] = 'x' ;
+
+  p[0] = expPol (qa, NN, 1) ;
   showPol (p[0]) ;
-  p[1] = exponential ("bx", NN, 1, FALSE) ;
+  p[1] = expPol (qb, NN, 1) ;
   showPol (p[1]) ;
-  p[2] = exponential ("i", NN, -1, FALSE) ;
+  p[2] = expPol (qa, NN, -1) ;
   showPol (p[2]) ;
   p[3]= 0 ;
 
@@ -11634,12 +11659,25 @@ static void superExponential (int NN)
   pp = expand (pp) ;
   showPol (pp) ;
 
+  s[0] = qb ;
+  if (0) qa->tt.z = .5 ;
+  r[0] = newProduct (qa, qb) ;
+  r[1] = newProduct (qb, qa) ;
+  r[2]= 0 ;
+  s[1]= newMultiSum (r) ;
+  s[2] = 0 ;
+
+  rr = newMultiSum (s) ;
+  rr = newSum (qa, qb) ;
+  showPol (rr) ;
+  rr = expPol (rr, NN, 1) ;
+  rr = expand (rr) ;
+  rr = limitN (rr, NN) ;
+  rr = expand (rr) ;
+  showPol (rr) ;
+
   return ;
 }
-
-/*************************************************************************************************/
-/*************************************************************************************************/
-/*************************************************************************************************/
 
 /*************************************************************************************/
 /***************************** Public interface **************************************/
