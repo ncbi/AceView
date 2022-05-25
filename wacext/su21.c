@@ -49,6 +49,8 @@ typedef struct termStruct {
   double complex z ;/* complex scalar multiplier. If zero, the whole TT is NULL */
   char sigma[GMAX] ; /* sigma     matrices : non-commutative list of index "ab" means sigma_a sigma-bar_b */
   char sigB[GMAX] ;  /* sigma-bar matrices : non-commutative list of index "ab" means sigma-bar_a sigma_b */
+  int N ; /* Taylor degree in x  symbol */
+  char x[GMAX]  ; /* a,b,  i,j  x(meaning chi)  symbol to exponentiate */
   char g[GMAX] ;     /* Lorentz metric */
   char gg[GMAX] ;    /* group metric */
   char eps[GMAX] ; /* espislon anti symmetric set of n times 4 indices */ 
@@ -510,6 +512,7 @@ static BOOL ppIsNumber (POLYNOME pp)
 {
   TT tt = pp->tt ;
   BOOL ok = tt.type ;
+  if (tt.x[0])  ok = FALSE ;
   if (tt.mm[0][0])  ok = FALSE ;
   if (tt.mm[1][0])  ok = FALSE ;
   if (tt.mm[2][0])  ok = FALSE ;
@@ -676,7 +679,8 @@ static void showTT (POLYNOME pp)
     }
   else
     { tt.z = nicePrint ("", tt.z) ; }
-  
+
+  if (*tt.x) printf (" %s ", tt.x) ;
   if (*tt.g) printf (" g_%s ", tt.g) ;
   if (*tt.gg) printf (" gg_%s ", tt.gg) ;
   if (*tt.eps) printf (" epsilon_%s ", tt.eps) ;
@@ -1382,6 +1386,60 @@ static int contractTTProducts (POLYNOME pp, POLYNOME p1, POLYNOME p2)
       return 0 ;
     }
 
+  /* merge symbols */
+  if (1)
+    {
+      u = tt.x ;
+      v = t1.x ;
+      w = t2.x ;
+      while (*v)
+	*u++ = *v++ ;
+      while (*w)
+	*u++ = *w++ ;
+      *u = 0 ;
+      tt.N = t1.N + t2.N ;
+    }
+  
+  /* count the chi to know if at the end we get one on zero x */
+  if (1)
+    {
+      int nx = 0, s = 1 ;
+      u = tt.x ;
+      while (*u)
+	if (*u++ == 'x') 
+	  {
+	    nx++ ;
+	    v = u ;
+	    while (*v)
+	      {
+		/* evaluate the sign search the sign */
+		if (*v >= 'i' && *v < 'm')
+		  s = -s ;
+		v++ ;
+	      }
+	  }
+      tt.z *= s ;
+      /* copy the non chi symbols */
+      u = v = tt.x ; 
+      while (*v)
+	{
+	  if (*v != 'x')
+	    *u++ = *v ;
+	  v++ ;
+	}
+      if (nx %2)
+	*u++ = 'x' ;
+      *u = 0 ;
+      /* kill the odd square */
+      u = tt.x ; 
+      while (*u)
+	{
+	  if (u[0] == u[1] && u[0] >= 'i' && u[0] <= 'm')
+	    tt.z = 0 ;
+	  u++ ;
+	}
+    }
+
   /* merge denoms */
   for (i = 0 ; i < 4 ; i++)
     {
@@ -1740,6 +1798,26 @@ static POLYNOME contractEpsilon (POLYNOME pp)
   return pp ;
 } /* contractEpsilon */
   
+/*******************************************************************************************/
+/* kill monomes with Taylor symbol degree > NN */ 
+static POLYNOME limitN (POLYNOME pp, int NN)
+{
+  if (!pp)
+    return 0 ;
+
+  if (pp->isSum)
+    {
+      pp->p1 = limitN (pp->p1, NN) ;
+      pp->p2 = limitN (pp->p2, NN) ;
+    }
+  if (! pp->isProduct)
+    {
+      if (pp->tt.N > NN)
+	pp->tt.z = 0 ;
+    }
+  return pp ;
+} /* limitN */
+
 /*******************************************************************************************/
 
 static POLYNOME contractProducts (POLYNOME pp)
@@ -11502,6 +11580,65 @@ static void mu4p (const char *title, int type)
 
 /*************************************************************************************************/
 /*************************************************************************************************/
+
+static POLYNOME newSymbol (char a, int n)
+{
+  POLYNOME p = newPolynome () ;
+  p->tt.type = 1 ;
+  p->tt.z = 1.0/n ;
+  p->tt.x[0] = a ;
+  return p ;
+}
+
+/*************************************************************************************************/
+
+/* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
+static POLYNOME exponential (char *a, int NN, int sign, BOOL chi)
+{
+  int i, j, k, m,  fac = 1 ;
+  POLYNOME pp, p[NN+2] ;
+
+  p[0] = newScalar (1) ;
+  for (i = 1 ; i <= NN ; i++)
+    {
+      fac = fac * i * sign ;
+      p[i] = newSymbol ('a', fac) ;
+      for (m = j = 0 ; j < i ; j++)
+	for (k = 0 ; k < strlen (a) ; k++) 
+	  p[i]->tt.x[m++] = a[k] ;
+      p[i]->tt.x[m] = 0 ;
+      p[i]->tt.N = i ;
+    }
+  p[i] = 0 ;
+  pp = newMultiSum (p) ;
+  pp = expand (pp) ;
+  return pp ;
+}
+
+static void superExponential (int NN)
+{
+  POLYNOME pp, p[6] ;
+
+  p[0] = exponential ("i", NN, 1, FALSE) ;
+  showPol (p[0]) ;
+  p[1] = exponential ("bx", NN, 1, FALSE) ;
+  showPol (p[1]) ;
+  p[2] = exponential ("i", NN, -1, FALSE) ;
+  showPol (p[2]) ;
+  p[3]= 0 ;
+
+  pp = newMultiProduct (p) ;
+  showPol (pp) ;
+  pp = expand (pp) ;
+  pp = limitN (pp, NN) ;
+  pp = expand (pp) ;
+  showPol (pp) ;
+
+  return ;
+}
+
+/*************************************************************************************************/
+/*************************************************************************************************/
 /*************************************************************************************************/
 
 /*************************************************************************************/
@@ -11571,8 +11708,11 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-cycle", &CYCLE) ;
 
   int a = 0, b = 0 ;
+  int king = 0 ;
+
   getCmdLineInt (&argc, argv, "-a", &a) ;
   getCmdLineInt (&argc, argv, "-b", &b) ;
+  getCmdLineInt (&argc, argv, "-king", &king) ;
 
   if (a==-1) /* a test */
     {
@@ -11627,6 +11767,12 @@ int main (int argc, const char **argv)
   if (CYCLE)
     {
       marcuCycle (NN, a, b) ;
+      exit (0) ;
+    }
+
+  if (king > 0) /* a test */
+    { /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
+      superExponential (king) ;
       exit (0) ;
     }
 
