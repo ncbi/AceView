@@ -11618,16 +11618,19 @@ static POLYNOME newSymbol (char *a)
 /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
 static POLYNOME expPol (POLYNOME pp, int NN, int sign)
 {
-  int i ;
+  int i, fac = 1 ;
   POLYNOME ppp, p[NN+2], q[NN+2] ;
 
   p[0] = newScalar (1) ;
+  q[0] = newScalar (1.0) ;
   for (i = 1 ; i <= NN ; i++)
     {
-      q[i-1] = copyPolynome (pp) ;
-      polynomeScale (q[0], 1.0/(i*sign)) ;
-      q[i] = 0 ;
-      p[i] = newMultiProduct (q) ; 
+      fac *= sign * i ;
+      q[0]->tt.z = 1.0/fac ;
+      q[i] = copyPolynome (pp) ;
+      q[i+1] = 0 ;
+      p[i] = newMultiProduct (q) ;
+      showPol (p[i]) ;
     }
   p[i] = 0 ;
   ppp = newMultiSum (p) ;
@@ -11696,8 +11699,8 @@ static void superExponential (int NN)
 {
   POLYNOME qa, qb, pp, p[6] , rr, r[6], ss ;
 
-  char *a = "i" ;
-  char *b = "ax" ;
+  char *a = "a" ;
+  char *b = "b" ;
   
   qa = newSymbol (a) ;
   qb = newSymbol (b) ;
@@ -11706,6 +11709,7 @@ static void superExponential (int NN)
   p[0] = expPol (qa, NN, 1) ;
   printf (" exp(%s) = ", a) ;
   showPol (p[0]) ;
+  exit (0) ;
   p[1] = expPol (qb, NN, 1) ;
   printf (" exp(%s) = ", b) ;
   showPol (p[1]) ;
