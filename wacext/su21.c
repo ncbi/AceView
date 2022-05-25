@@ -1055,6 +1055,28 @@ static POLYNOME newProduct (POLYNOME p1, POLYNOME p2)
 
 /*************************************************************************************************/
 
+static POLYNOME polynomeScale (POLYNOME pp, double complex z)
+{
+  if (! pp)
+    return 0 ;
+  
+  if (pp->isSum)
+    {
+      polynomeScale (pp->p1, z) ;
+      polynomeScale (pp->p2, z) ;
+    }
+  else if (pp->isProduct)
+    {
+      polynomeScale (pp->p1, z) ;
+    }
+  else
+    pp->tt.z *= z ;
+  
+  return pp ;
+} /* superCommutator */
+
+/*************************************************************************************************/
+
 static POLYNOME newMultiSum (POLYNOME ppp[])
 {
   POLYNOME pp, p1, p2 ;
@@ -11581,52 +11603,29 @@ static void mu4p (const char *title, int type)
 /*************************************************************************************************/
 /*************************************************************************************************/
 
-static POLYNOME newSymbol (char a, int n)
+static POLYNOME newSymbol (char *a)
 {
   POLYNOME p = newPolynome () ;
   p->tt.type = 1 ;
-  p->tt.z = 1.0/n ;
-  p->tt.x[0] = a ;
+  p->tt.z = 1.0 ;
+  strcpy (p->tt.x, a) ;
   p->tt.N = 1 ;
   return p ;
-}
+} /* newSymbol */
 
 /*************************************************************************************************/
 
 /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
-static POLYNOME exponential (char *a, int NN, int sign)
-{
-  int i, j, k, m,  fac = 1 ;
-  POLYNOME pp, p[NN+2] ;
-
-  p[0] = newScalar (1) ;
-  for (i = 1 ; i <= NN ; i++)
-    {
-      fac = fac * i * sign ;
-      p[i] = newSymbol ('a', fac) ;
-      for (m = j = 0 ; j < i ; j++)
-	for (k = 0 ; k < strlen (a) ; k++) 
-	  p[i]->tt.x[m++] = a[k] ;
-      p[i]->tt.x[m] = 0 ;
-      p[i]->tt.N = i ;
-    }
-  p[i] = 0 ;
-  pp = newMultiSum (p) ;
-  pp = expand (pp) ;
-  return pp ;
-}
-
 static POLYNOME expPol (POLYNOME pp, int NN, int sign)
 {
-  int i, j, fac = 1 ;
+  int i ;
   POLYNOME ppp, p[NN+2], q[NN+2] ;
 
   p[0] = newScalar (1) ;
   for (i = 1 ; i <= NN ; i++)
     {
-      fac = fac * i * sign ;
       q[i-1] = copyPolynome (pp) ;
-      q[0]->tt.z = 1.0/fac ;
+      polynomeScale (q[0], 1.0/(i*sign)) ;
       q[i] = 0 ;
       p[i] = newMultiProduct (q) ; 
     }
@@ -11636,46 +11635,124 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
   return ppp ;
 }
 
+static POLYNOME superCommutator (POLYNOME p1, POLYNOME p2)
+{
+  if (p1 && p1->isSum)
+    {
+      POLYNOME r1 = superCommutator (p1->p1, p2) ;
+      POLYNOME r2 = superCommutator (p1->p2, p2) ;
+      
+      return newSum (r1, r2) ;
+    }
+  if (p2 && p2->isSum)
+    {
+      POLYNOME r1 = superCommutator (p1, p2->p1) ;
+      POLYNOME r2 = superCommutator (p1, p2->p2) ;
+
+      return newSum (r1, r2) ;
+    }
+
+  POLYNOME r1 = newProduct (p1, p2) ;
+  POLYNOME r2 = newProduct (p2, p1) ;
+  POLYNOME r3 ;
+  
+  int sign = -1 ;
+  char *u  = r1->tt.x ;
+  while (*u)
+    {
+      char *v  = r2->tt.x ;
+      while (*v)
+	{
+	  if (*u >= 'i' && *u < 'm' && *v == 'x')
+	    sign = -sign ;
+	  if (*v >= 'i' && *v < 'm' && *u == 'x')
+	    sign = -sign ;
+	  v++ ;
+	}
+    }
+  
+  r3 = r2 ;
+  if (sign == -1)
+    {
+      r3 = copyPolynome (r2) ;
+      polynomeScale (r3, -1) ;
+    }
+  return expand (newSum (r1, r3)) ;
+} /* superCommutator */
+
+static POLYNOME repeatedSuperCommutator (POLYNOME p1, POLYNOME p2, int NN)
+{
+
+  POLYNOME p3 = p2 ;
+
+  if (NN < 1)
+    messcrash ("NN=%d < 1 in repeatedSuperCommutator", NN) ;
+  if (NN > 1)
+    p3 = repeatedSuperCommutator (p1, p2, NN - 1) ;
+  return superCommutator (p1, p3) ;
+} /* repeatedSuperCommutator */
+
 static void superExponential (int NN)
 {
-  POLYNOME qa, qb, pp, p[6] , rr, r[6], s[6] ;
+  POLYNOME qa, qb, pp, p[6] , rr, r[6], ss ;
 
-  qa = newSymbol ('i', 1) ;
-  qb = newSymbol ('a', 1) ;
-  qb->tt.x[1] = 'x' ;
+  char *a = "i" ;
+  char *b = "ax" ;
+  
+  qa = newSymbol (a) ;
+  qb = newSymbol (b) ;
+
 
   p[0] = expPol (qa, NN, 1) ;
+  printf (" exp(%s) = ", a) ;
   showPol (p[0]) ;
   p[1] = expPol (qb, NN, 1) ;
+  printf (" exp(%s) = ", b) ;
   showPol (p[1]) ;
   p[2] = expPol (qa, NN, -1) ;
+  printf (" exp(-%s) = ", a) ;
   showPol (p[2]) ;
   p[3]= 0 ;
 
   pp = newMultiProduct (p) ;
+  pp = expand (pp) ;
   showPol (pp) ;
   pp = expand (pp) ;
   pp = limitN (pp, NN) ;
   pp = expand (pp) ;
+  printf (" exp(%s)exp(%s)exp(-%s) = ", a, b, a) ;
   showPol (pp) ;
 
-  s[0] = qb ;
-  if (0) qa->tt.z = .5 ;
-  r[0] = newProduct (qa, qb) ;
-  r[1] = newProduct (qb, qa) ;
-  r[2]= 0 ;
-  s[1]= newMultiSum (r) ;
-  s[2] = 0 ;
+  r[0] = qb ;
+  r[1] = superCommutator (qa, qb) ;
+  printf ("\n\n[%s,%s] =", a, b) ;
+  showPol (r[1]) ;
 
-  rr = newMultiSum (s) ;
-  rr = newSum (qa, qb) ;
+  polynomeScale (r[1], .5) ;
+  r[2] = 0 ;
+  rr = newMultiSum (r) ;
+  printf (" %s + [%s,%s]/2 =", b, a, b) ;  
   showPol (rr) ;
+  
   rr = expPol (rr, NN, 1) ;
   rr = expand (rr) ;
   rr = limitN (rr, NN) ;
   rr = expand (rr) ;
+  printf ("exp( %s + [%s,%s]/2) =", b, a, b) ;  r[2]= 0 ;
   showPol (rr) ;
 
+  polynomeScale (rr, -1) ;
+
+  printf ("\n\nexp(%s)exp(%s)exp(%s) - exp( %s + [%s,%s]/2) =", a, b, a, b, a, b) ;
+  showPol (pp) ;
+  showPol (rr) ;
+  ss = newSum (pp, rr) ;
+  ss = expand (ss) ;
+
+
+  showPol (ss) ;
+
+  
   return ;
 }
 
