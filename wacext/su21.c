@@ -11622,15 +11622,13 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
   POLYNOME ppp, p[NN+2], q[NN+2] ;
 
   p[0] = newScalar (1) ;
-  q[0] = newScalar (1.0) ;
   for (i = 1 ; i <= NN ; i++)
     {
       fac *= sign * i ;
-      q[0]->tt.z = 1.0/fac ;
+      q[0] = newScalar (1.0/fac) ;
       q[i] = copyPolynome (pp) ;
       q[i+1] = 0 ;
       p[i] = newMultiProduct (q) ;
-      showPol (p[i]) ;
     }
   p[i] = 0 ;
   ppp = newMultiSum (p) ;
@@ -11701,6 +11699,7 @@ static void superExponential (int NN)
 
   char *a = "a" ;
   char *b = "b" ;
+  int n ;
   
   qa = newSymbol (a) ;
   qb = newSymbol (b) ;
@@ -11709,7 +11708,7 @@ static void superExponential (int NN)
   p[0] = expPol (qa, NN, 1) ;
   printf (" exp(%s) = ", a) ;
   showPol (p[0]) ;
-  exit (0) ;
+
   p[1] = expPol (qb, NN, 1) ;
   printf (" exp(%s) = ", b) ;
   showPol (p[1]) ;
@@ -11731,9 +11730,19 @@ static void superExponential (int NN)
   r[1] = superCommutator (qa, qb) ;
   printf ("\n\n[%s,%s] =", a, b) ;
   showPol (r[1]) ;
+  polynomeScale (r[1], 1) ;
 
-  polynomeScale (r[1], .5) ;
-  r[2] = 0 ;
+  int fac = 1 ;
+  for (n = 2 ; n <  NN ; n++)
+    {
+      fac *= n ;
+      r[n] = repeatedSuperCommutator (qa, qb, n) ;
+      printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, a, a, b) ;
+      showPol (r[n]) ;
+      polynomeScale (r[n], 1.0/fac) ;
+    }
+
+  r[NN] = 0 ;
   rr = newMultiSum (r) ;
   printf (" %s + [%s,%s]/2 =", b, a, b) ;  
   showPol (rr) ;
