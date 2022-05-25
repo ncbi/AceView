@@ -1019,6 +1019,7 @@ static POLYNOME newSigB (char cc)
 
 static POLYNOME newSum (POLYNOME p1, POLYNOME p2)
 {
+  if (p1 && ! p1->isSum && ! p1->isProduct && ! p1->tt.z) p1 = 0 ;
   if (p1 && p2)
     {
       POLYNOME p = newPolynome () ;
@@ -1837,7 +1838,7 @@ static POLYNOME limitN (POLYNOME pp, int NN)
       if (pp->tt.N > NN)
 	pp->tt.z = 0 ;
     }
-  return pp ;
+  return expand (pp) ;
 } /* limitN */
 
 /*******************************************************************************************/
@@ -11693,13 +11694,22 @@ static POLYNOME repeatedSuperCommutator (POLYNOME p1, POLYNOME p2, int NN)
   return superCommutator (p1, p3) ;
 } /* repeatedSuperCommutator */
 
-static void superExponential (int NN)
+static void superExponential (int NN, int type)
 {
   POLYNOME qa, qb, pp, p[6] , rr, r[6], ss ;
 
   char *a = "a" ;
   char *b = "b" ;
   int n ;
+  
+
+  switch (type)
+    {
+    case 1: a = "i" ; b = "j" ; break ;
+    case 2: a = "i" ; b = "ax" ; break ;
+    case 3: a = "a" ; b = "i" ; break ;
+    default: a = "a" ; b = "b" ; break ;
+    }
   
   qa = newSymbol (a) ;
   qb = newSymbol (b) ;
@@ -11708,7 +11718,7 @@ static void superExponential (int NN)
   p[0] = expPol (qa, NN, 1) ;
   printf (" exp(%s) = ", a) ;
   showPol (p[0]) ;
-
+  exit (0) ;
   p[1] = expPol (qb, NN, 1) ;
   printf (" exp(%s) = ", b) ;
   showPol (p[1]) ;
@@ -11900,7 +11910,7 @@ int main (int argc, const char **argv)
 
   if (king > 0) /* a test */
     { /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
-      superExponential (king) ;
+      superExponential (king, a) ;
       exit (0) ;
     }
 
