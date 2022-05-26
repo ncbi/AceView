@@ -77,7 +77,7 @@ typedef struct rcStruct {
 } RC ;
 
 typedef struct gcStruct { 
-  int title, affy, geneId, geneModel, intronGene, nmid, gene_type, fromGene, fromTranscript, length, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
+  int title, affy, geneId, geneModel, intronGene, nmid, gene_type, fromGene, fromTranscript, length, boxLength, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
   BOOL isSNP, notIsTranscriptA, targeted, captured, hasGoodProduct, isGood ;
   Array geneGroup ;
   KEYSET captures, capturesTouch ;
@@ -184,7 +184,7 @@ typedef struct gxStruct {
   int histo_shifting, maxGenePlus ;
   BOOL isINTRON, isTranscript, isSNP, isMRNAH, isMicroRNA, keepIndex, medianCenter, noHisto, exportDiffGenes, hasSelectedVariance, skipEmptyGenes ;
   BOOL hasRunId, hasRunSample, hasMachine, hasRunTitle, hasRunOtherTitle, hasRunSortingTitle, hasRunSortingTitle2, hasGroup, hasCompare, hasTitration ;
-  BOOL hasGeneAffy, hasGeneId, hasGeneModel, hasGeneNm, hasGeneType, hasGeneTitle, hasGeneAlias, hasGeneLength, hasGeneChrom, hasIntronType, hasIntronShared,hasKnownDonorAcceptor,hasFromGene, hasFromTranscript, hasRefSeqAv, hasGoodProduct, hasCapture, hasCaptureTouch ;
+  BOOL hasGeneAffy, hasGeneId, hasGeneModel, hasGeneNm, hasGeneType, hasGeneTitle, hasGeneAlias, hasGeneLength, hasGeneBoxLength,hasGeneChrom, hasIntronType, hasIntronShared,hasKnownDonorAcceptor,hasFromGene, hasFromTranscript, hasRefSeqAv, hasGoodProduct, hasCapture, hasCaptureTouch ;
   BOOL hasAccessibleLength ;
   ACEOUT aoFineTune, aoAUC2 ;
 
@@ -1847,8 +1847,16 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 		  gc->a2 = a0 ; 
 		  gc->strand = '-' ;
 		}
-	      gc->length = gc->a2 - gc->a1 + 1 ;
-	      gx->hasGeneLength = TRUE ; 
+	      if (gc->a1 < gc->a2)
+		{
+		  gc->boxLength = gc->a2 - gc->a1 + 1 ;
+		  gx->hasGeneBoxLength = TRUE ; 
+		  if (1) /* since at least sept 2021, probably a bug */
+		    { 
+		      gc->length = gc->a2 - gc->a1 + 1 ;
+		      gx->hasGeneLength = TRUE ; 
+		    }
+		}
 	    }
 	  continue ;
 	}

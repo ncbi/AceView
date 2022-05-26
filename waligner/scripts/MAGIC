@@ -4142,13 +4142,13 @@ foreach kb (8kb 5kb)
     end
     cat $totogr.1 | gawk -F '\t' '{gene=$2;for(i=3;i<=NF;i++)z[gene,i]+=$i;gg[gene]=1;if(NF>nf)nf=NF}END{for(gene in gg){printf("%s\t%s",gene,gr);for(i=3;i<=nf;i++)printf("\t%d",z[gene,i]+0);printf("\n");}}' gr=$gr | sort -k 3nr >> $totogr
     \rm $totogr.1
-    \cp $totogr RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$gr.cumulated_3prime_coverage_of_"$kb"_genes.txt/$gr.coverage_of_"$kb"_transcripts.txt
+    \cp $totogr RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$gr.coverage_of_"$kb"_transcripts.txt
   end
 
   set toto=RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$MAGIC.cumulated_3prime_coverage_of_"$kb"_genes.txt
   echo -n "## $MAGIC.cumulated_3prime_coverage_of_"$kb"_genes.txt : " > $toto
   date >> $toto
-  gunzip -c tmp/GENERUNS/*/*.coverage_of_"$kb"_transcripts.txt.gz | head -20 | gawk '/^## /{n++;if(n>=2 && n<=4)print}' >> $toto
+  cat tmp/GENERUNS/*/*.coverage_of_"$kb"_transcripts.txt | head -20 | gawk '/^## /{n++;if(n>=2 && n<=4)print}' >> $toto
   if (-e $toto.1) \rm $toto.1
   touch $toto.1
   set xMax=0
@@ -4159,9 +4159,12 @@ EOF
   # (`cat MetaDB/$MAGIC/AliList_noLn.list'`)
   foreach run (`cat MetaDB/$MAGIC/RunsList `)
     if (-e tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz) then
-      bin/rsync -avh  tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias >& /dev/null
-      gunzip -c tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz | grep Kept | grep transcripts | grep -v raw | gawk -F '\t' '{r=$1;split($2,aa," ");split(aa[2],bb,"/");x+=bb[1];y+=bb[2];for(i=3;i<=NF;i++)z[i]+=$i;if(nf<NF)nf=NF;}END{printf("Kept %d/%d transcripts\t%s",x,y,r);if(nf > 803)nf=803;for(i=3;i<=nf;i++)printf("\t%d",z[i]);printf("\n");}' >> $toto.1
-      set xMax=`gunzip -c tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz | gawk -F '\t' '{if(50*NF > n)n= 50*NF}END{print n}' n=$xMax`
+      gunzip -f tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz
+    endif
+    if (-e tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt) then
+      bin/rsync -avh  tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias >& /dev/null
+      cat tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt | grep Kept | grep transcripts | grep -v raw | gawk -F '\t' '{r=$1;split($2,aa," ");split(aa[2],bb,"/");x+=bb[1];y+=bb[2];for(i=3;i<=NF;i++)z[i]+=$i;if(nf<NF)nf=NF;}END{printf("Kept %d/%d transcripts\t%s",x,y,r);if(nf > 803)nf=803;for(i=3;i<=nf;i++)printf("\t%d",z[i]);printf("\n");}' >> $toto.1
+      set xMax=`cat  tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt | gawk -F '\t' '{if(50*NF > n)n= 50*NF}END{print n}' n=$xMax`
    endif
   end
   echo toto | gawk '{printf("#\t# Run\tAverage coverage of the first %s",kb);for(i=0;i<=xMax-200;i+=50)printf("\t%d bp",i);printf("\n");}' xMax=$xMax kb=$kb > $toto.2
@@ -4180,7 +4183,8 @@ EOF
 EOF
   cat $toto | gawk -F '\t' '/^##/{next}/^# Run/{for(i=2;i<=NF;i++)rr[i]=$i;next;}/^Average/{for(i=2;i<=NF;i++)cover[i]=$i;next;}/^#/{if(substr($2,1,5)=="Kept "){for(i=2;i<=NF;i++){split($i,aa," ");split(aa[2],bb,"/");nKept[i]=bb[1];nCandidates[i]=bb[2];}}next;}/^#/{next}/ bp/{x=$1;gsub(" bp","",x);x=x+0;if(x<=8000)for(i=2;i<=NF;i++){rrx[i,x]=$i;rt[i]+=$i;}next;}END{printf("#Run\tKept\tCandidates\tCover\tH 30p%\tH 25p%\tH 20p%\tH 10%\tSurface 30%\tSurface 40%\tSurface 50%\tSurface 60%\tSurface 70%\tSurface 75%\tSurface 80%\tSurface 90%\tSurface 95%\tSurface 98%\tSurface 100%\n");for(r in rr){tt=rt[r];h=rrx[r,100];t=0;h10=0;h20=0;h25=0;h30=0;a30=0;a40=0;a50=0;a60=0;a70=0;a75=0;a80=0;a90=0;a95=0;a98=0;for(x=0;x<=8000;x+=50){y=rrx[r,x];t+=y;if(h10==0 && 10*y < h){h10=x;}if(h20==0 && 5*y < h)h20=x;if(h25==0 && 4*y < h)h25=x;if(h30==0 && 3.33*y < h)h30=x;if(a30==0 && 100*t > 30*tt)a30=x;if(a40==0 && 100*t > 40*tt)a40=x;if(a50==0 && 100*t > 50*tt)a50=x;if(a60==0 && 100*t > 60*tt)a60=x;if(a70==0 && 100*t > 70*tt)a70=x;if(a75==0 && 100*t > 75*tt)a75=x;if(a80==0 && 100*t > 80*tt)a80=x;if(a90==0 && 100*t > 90*tt)a90=x;if(a95==0 && 100*t > 95*tt)a95=x;if(a98==0 && 100*t > 98*tt)a98=x;if(a100==0 && 100*t >= 100*tt)a100=x;}if (h10==0)h10=8000;if (h20==0)h20=8000;if (h25==0)h25=8000;if (h30==0)h30=8000;if (nKept[r] >= 1){printf("%s\t%d\t%d\t%d",rr[r],nKept[r],nCandidates[r],cover[r]) ; printf("\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",h30,h25,h20,h10,a30,a40,a50,a60,a70,a75,a80,a90,a95,a98,a100);}}}' | scripts/tab_sort -k 3n  >>  $toto4.txt
   # $15 =  accessible length = 80% of surface of 8kb crocodile
-  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$15;if(x==0)x=8000;printf("Ali %s\nAccessible_length %s %s %s %s\n\n",$1,x,$2,$3,$4);}'  > $toto4.ace
+  # $13 =  accessible length = 70% of surface of 8kb crocodile
+  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$13;if(x==0)x=8000;printf("Ali %s\nAccessible_length %s %s %s %s\n\n",$1,x,$2,$3,$4);}'  > $toto4.ace
   bin/tacembly MetaDB <<EOF
       read-models
       pparse  $toto4.ace

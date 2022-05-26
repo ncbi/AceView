@@ -17,7 +17,8 @@ endif
 foreach kb (8kb 5kb)
 
   set tutu=tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts
-  if ($phase == m2bH && ! -e $tutu.txt.gz) then
+  if (-e $tutu.gz) gunzip -f $tutu.gz  
+  if ($phase == m2bH && ! -e $tutu.txt) then
     set ok=0
     echo "... constructing tmp/GENERUNS/$run/$run.3pHisto.$kb.txt"
     echo -n "## $run\tfile $tutu.txt\t" > $tutu.txt
@@ -41,7 +42,7 @@ foreach kb (8kb 5kb)
     else
       \rm  $tutu.txt
     endif
-   gzip $tutu.txt
+   # gzip $tutu.txt
    \rm tmp/GENERUNS/$run/toto.$$ tmp/GENERUNS/$run/toto1.$$ tmp/GENERUNS/$run/toto2.$$
   endif
 

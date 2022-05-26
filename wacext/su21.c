@@ -1020,6 +1020,7 @@ static POLYNOME newSigB (char cc)
 static POLYNOME newSum (POLYNOME p1, POLYNOME p2)
 {
   if (p1 && ! p1->isSum && ! p1->isProduct && ! p1->tt.z) p1 = 0 ;
+  if (p2 && ! p2->isSum && ! p2->isProduct && ! p2->tt.z) p2 = 0 ;
   if (p1 && p2)
     {
       POLYNOME p = newPolynome () ;
@@ -1043,6 +1044,8 @@ static POLYNOME newSum (POLYNOME p1, POLYNOME p2)
 
 static POLYNOME newProduct (POLYNOME p1, POLYNOME p2)
 {
+  if (p1 && ! p1->isSum && ! p1->isProduct && ! p1->tt.z) p1 = 0 ;
+  if (p2 && ! p2->isSum && ! p2->isProduct && ! p2->tt.z) p2 = 0 ;
   if (p1 && p2)
     {
       POLYNOME p = newPolynome () ;
@@ -1458,7 +1461,10 @@ static int contractTTProducts (POLYNOME pp, POLYNOME p1, POLYNOME p2)
       while (*u)
 	{
 	  if (u[0] == u[1] && u[0] >= 'i' && u[0] <= 'm')
-	    tt.z = 0 ;
+	    {
+	      tt.z = 0 ;
+	      tt.type = 1 ;
+	    }
 	  u++ ;
 	}
     }
@@ -1931,6 +1937,9 @@ static POLYNOME contractProducts (POLYNOME pp)
     }
   
 
+  if (pp->isProduct && !p1 && !p2)
+    pp = 0 ;
+
   if (pp->isProduct && p1 && p2 && p1->tt.type && p2->tt.type)
     {
       pp->isProduct = FALSE ;
@@ -1943,6 +1952,8 @@ static POLYNOME contractProducts (POLYNOME pp)
 	}
       pp->p1 = pp->p2 = 0 ;
       if (debug) showPol(pp) ;
+      if (pp->tt.z == 0)
+	pp = 0 ;
     }
   return pp ;
 }
@@ -11625,14 +11636,18 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
   p[0] = newScalar (1) ;
   for (i = 1 ; i <= NN ; i++)
     {
-      fac *= sign * i ;
-      q[0] = newScalar (1.0/fac) ;
-      q[i] = copyPolynome (pp) ;
-      q[i+1] = 0 ;
-      p[i] = newMultiProduct (q) ;
+      p[i] = newProduct (p[i-1], pp) ;
+      p[i] = expand (p[i]) ;
+      p[i] = limitN (p[i], NN) ;
     }
   p[i] = 0 ;
+  for (i = 1 ; i <= NN ; i++)
+    {
+      fac *= sign * i ;
+      polynomeScale (p[i], 1.0/fac)  ;
+    }
   ppp = newMultiSum (p) ;
+  ppp = expand (ppp) ;
   ppp = expand (ppp) ;
   return ppp ;
 }
@@ -11711,6 +11726,18 @@ static void superExponential (int NN, int type)
     default: a = "a" ; b = "b" ; break ;
     }
   
+  if (0)
+    {
+      qa = newScalar (2) ;
+      qb = newSymbol ("ii") ;
+      qa = newProduct (qa, qb) ;
+      showPol (qa) ;
+      qb = expand (qa) ;
+      showPol (qb) ;
+      exit (0) ;
+    }
+
+
   qa = newSymbol (a) ;
   qb = newSymbol (b) ;
 
@@ -11718,7 +11745,7 @@ static void superExponential (int NN, int type)
   p[0] = expPol (qa, NN, 1) ;
   printf (" exp(%s) = ", a) ;
   showPol (p[0]) ;
-  exit (0) ;
+
   p[1] = expPol (qb, NN, 1) ;
   printf (" exp(%s) = ", b) ;
   showPol (p[1]) ;
@@ -11729,7 +11756,6 @@ static void superExponential (int NN, int type)
 
   pp = newMultiProduct (p) ;
   pp = expand (pp) ;
-  showPol (pp) ;
   pp = expand (pp) ;
   pp = limitN (pp, NN) ;
   pp = expand (pp) ;
@@ -11754,21 +11780,22 @@ static void superExponential (int NN, int type)
 
   r[NN] = 0 ;
   rr = newMultiSum (r) ;
-  printf (" %s + [%s,%s]/2 =", b, a, b) ;  
+  printf (" %s + [%s,%s] =", b, a, b) ;  
   showPol (rr) ;
   
   rr = expPol (rr, NN, 1) ;
   rr = expand (rr) ;
   rr = limitN (rr, NN) ;
   rr = expand (rr) ;
-  printf ("exp( %s + [%s,%s]/2) =", b, a, b) ;  r[2]= 0 ;
+  printf ("                     exp( %s + [%s,%s]) =\n", b, a, b) ;  r[2]= 0 ;
   showPol (rr) ;
+  showPol (pp) ;
 
-  polynomeScale (rr, -1) ;
 
   printf ("\n\nexp(%s)exp(%s)exp(%s) - exp( %s + [%s,%s]/2) =", a, b, a, b, a, b) ;
-  showPol (pp) ;
-  showPol (rr) ;
+
+
+  polynomeScale (rr, -1) ;
   ss = newSum (pp, rr) ;
   ss = expand (ss) ;
 
