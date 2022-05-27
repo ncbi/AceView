@@ -4121,7 +4121,7 @@ foreach kb (8kb 5kb)
 
 # construct the group crocodiles
   foreach gr (`cat MetaDB/$MAGIC/g2r | cut -f 1`)
-    if (! -d  tmp/GENEGROUPS/$gr) tmp/GENEGROUPS/$gr
+    if (! -d  tmp/GENEGROUPS/$gr) mkdir tmp/GENEGROUPS/$gr
     set totogr=tmp/GENEGROUPS/$gr/$gr.coverage_of_"$kb"_transcripts.txt
     echo -n "### $totogr : " > $totogr
     date >> $totogr
@@ -4171,11 +4171,11 @@ EOF
   cat $toto.2 $toto.1 |  scripts/transpose  >>  $toto
   cat $toto.1 |  gawk -F '\t' '{printf("%s\t%s",$1,$2); for(i=8;i<NF;i+=10){n=0;for(j=-4;j<5;j++){k=i+j;n+=$k/9;}$i=n;}for(i=13;i<NF-10;i+=10){$i=($(i-5)+$(i+5))/2;$3=2*$13-$23;for(i=3;i<=NF;i+=5)printf("\t%d",$i);}printf("\n");}' | scripts/transpose  >>  $toto
 
-  if (-e $toto.1) \rm $toto.1 $toto.2 
+  #if (-e $toto.1) \rm $toto.1 $toto.2 
 
   if ($kb == 5kb) continue
 
-  set toto4=RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$MAGIC.seuil
+  set toto4=tmp/GENEGROUPS/$MAGIC.seuil
   echo -n "## $toto4.txt " > $toto4.txt
   date >>  $toto4.txt
   cat <<EOF >>  $toto4.txt
@@ -4192,9 +4192,6 @@ EOF
       quit
 EOF
   tags  $toto4.ace
-  \rm  $toto4.ace
-  # Danielle is not interested by the $toto file
-  mv $toto tmp/GENEGROUPS
 
 # end 5kb 8kb loop
 end

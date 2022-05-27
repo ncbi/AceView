@@ -1077,7 +1077,7 @@ static POLYNOME polynomeScale (POLYNOME pp, double complex z)
     pp->tt.z *= z ;
   
   return pp ;
-} /* superCommutator */
+} /* polynomeScale */
 
 /*************************************************************************************************/
 
@@ -11633,12 +11633,50 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
   int i, fac = 1 ;
   POLYNOME ppp, p[NN+2], q[NN+2] ;
 
+  pp = expand (pp) ;
+  if (1)
+    {
+      POLYNOME q2 ;
+      q2 = copyPolynome (pp) ;
+      printf (".Q2...... expPol") ;
+      showPol (q2) ;
+      q2 = limitN (q2, NN-1) ;
+      printf (".Q2..... expPol") ;
+      showPol (q2) ;
+    }
+
   p[0] = newScalar (1) ;
   for (i = 1 ; i <= NN ; i++)
     {
-      p[i] = newProduct (p[i-1], pp) ;
+      if (i==1)
+	p[i] = newProduct (p[i-1], pp) ;
+      else
+	{
+	  POLYNOME q1, q2 ;
+	  q1 = copyPolynome (p[i-1]) ;
+	  q1 = limitN (q1, NN-1) ;
+	  q2 = copyPolynome (pp) ;
+      printf (".Q2..... expPol") ;
+      showPol (q2) ;
+	  q2 = limitN (q2, NN-i+1) ;
+      printf (".QQ2..... expPol") ;
+      showPol (q2) ;
+	  p[i] = newProduct (q1, q2) ;
+	}
+      if (1)
+	{
+	  printf (".A...... expPol[x^%d]", i) ;
+	  showPol (p[i]) ;
+	}
       p[i] = expand (p[i]) ;
+      if (1)
+	{
+	  printf (".B...... expPol[x^%d]", i) ;
+	  showPol (p[i]) ;
+	}
       p[i] = limitN (p[i], NN) ;
+      printf (".C...... expPol[x^%d]", i) ;
+      showPol (p[i]) ;
     }
   p[i] = 0 ;
   for (i = 1 ; i <= NN ; i++)
@@ -11654,6 +11692,9 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
 
 static POLYNOME superCommutator (POLYNOME p1, POLYNOME p2)
 {
+  if (!p1 || !p2)
+    return 0 ;
+
   if (p1 && p1->isSum)
     {
       POLYNOME r1 = superCommutator (p1->p1, p2) ;
@@ -11792,11 +11833,12 @@ static void superExponential (int NN, int type)
   showPol (pp) ;
 
 
-  printf ("\n\nexp(%s)exp(%s)exp(%s) - exp( %s + [%s,%s]/2) =", a, b, a, b, a, b) ;
+  printf ("\n\nexp(%s)exp(%s)exp(%s) - exp( %s + [%s,%s]) =", a, b, a, b, a, b) ;
 
 
   polynomeScale (rr, -1) ;
   ss = newSum (pp, rr) ;
+  ss = expand (ss) ;
   ss = expand (ss) ;
 
 

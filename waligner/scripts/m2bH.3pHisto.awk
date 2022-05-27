@@ -5,7 +5,7 @@
 }
 {
     if (index($2, "Kept ") > 0) next ;
-    if (NF > 10) run = $1 ;
+    if (NF > 10) runsublib = $1 ;
     it = t2it[$2] ; 
     if (it+ 0  < 1)
     {

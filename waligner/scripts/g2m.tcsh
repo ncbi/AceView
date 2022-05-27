@@ -17,7 +17,7 @@ endif
 foreach kb (8kb 5kb)
 
   set tutu=tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts
-  if (-e $tutu.gz) gunzip -f $tutu.gz  
+  if (-e $tutu.txt.gz) gunzip -f $tutu.txt.gz  
   if ($phase == m2bH && ! -e $tutu.txt) then
     set ok=0
     echo "... constructing tmp/GENERUNS/$run/$run.3pHisto.$kb.txt"
@@ -35,7 +35,7 @@ foreach kb (8kb 5kb)
     end
     set nMax=`cat tmp/GENERUNS/$run/toto1.$$ | gawk '/^#/{next;}{n++}END{print n}'`
     if ($ok > 0) then
-      cat  tmp/GENERUNS/$run/toto.$$ | gawk -F '\t' -f scripts/m2bH.3pHisto.awk nMax=$nMax kb=$kb > tmp/GENERUNS/$run/toto2.$$
+      cat  tmp/GENERUNS/$run/toto.$$ | gawk -F '\t' -f scripts/m2bH.3pHisto.awk nMax=$nMax kb=$kb run=$run > tmp/GENERUNS/$run/toto2.$$
       cat  tmp/GENERUNS/$run/toto2.$$ | head -12 | gawk '/^##/{print}' >>  $tutu.txt
       cat  tmp/GENERUNS/$run/toto2.$$ | head -12 | gawk '/^##/{next}/^#/{print}' >> $tutu.txt
       cat  tmp/GENERUNS/$run/toto2.$$ | gawk '/^#/{next}{print}' | scripts/tab_sort -k 4nr >> $tutu.txt

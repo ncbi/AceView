@@ -684,15 +684,18 @@ foreach target ($Etargets)
 
     if (-e  tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list) mv  tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list   tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list.old
     if (-e   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list) mv   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list
+
     foreach run (`cat MetaDB/$MAGIC/r2sublib | gawk -F '\t' '{if($1 == lib)print $2;}END{print lib}' lib=$lib | cut -f 1 | sort -u`)
       if (! -d Fastc/$run) continue
         foreach lane (`cat Fastc/$run/LaneList`)
 	  if (-e tmp/GENELANES/$lane.$target.$GM."$gm"Support.$uu.gz) then
             echo  tmp/GENELANES/$lane.$target.$GM."$gm"Support.$uu.gz >> tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list
           else
-            if ($ok==1) echo "missing file  tmp/GENELANES/$lane.$target.$GM."$gm"Support.$uu.gz"
+
+            if ($ok == 1) echo "missing file  tmp/GENELANES/$lane.$target.$GM."$gm"Support.$uu.gz"
             set ok=0
           endif
+
           foreach kb (8kb 5kb)	  
             if (-e tmp/GENELANES/$lane.$target.$GM.3pHisto.$kb.txt) then 
               echo  tmp/GENELANES/$lane.$target.$GM.3pHisto.$kb.txt >> tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.$kb.list
@@ -1133,7 +1136,10 @@ if ($ok == 0) continue
    if (1) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
-     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) continue
+     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
+       echo "ERROR: missing file TARGET/GENES/$CAPT.capture.$target.gene_list"
+       continue
+     endif
      set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
     endif
