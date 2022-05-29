@@ -1415,21 +1415,23 @@ static int contractTTProducts (POLYNOME pp, POLYNOME p1, POLYNOME p2)
   /* merge symbols */
   if (1)
     {
+      int i = 0 ;
       u = tt.x ;
       v = t1.x ;
       w = t2.x ;
       while (*v)
-	*u++ = *v++ ;
+	{ *u++ = *v++ ; i++ ; }
       while (*w)
-	*u++ = *w++ ;
-      *u = 0 ;
+	{ *u++ = *w++ ; i++ ; }
+      for (;i < GMAX ; i++)
+	*u++ = 0 ;
       tt.N = t1.N + t2.N ;
     }
   
   /* count the chi to know if at the end we get one on zero x */
   if (1)
     {
-      int nx = 0, s = 1 ;
+      int nx = 0, s = 1, i = 0 ;
       u = tt.x ;
       while (*u)
 	if (*u++ == 'x') 
@@ -1450,12 +1452,14 @@ static int contractTTProducts (POLYNOME pp, POLYNOME p1, POLYNOME p2)
       while (*v)
 	{
 	  if (*v != 'x')
-	    *u++ = *v ;
+	    { *u++ = *v ; i++ ; }
 	  v++ ;
 	}
       if (nx %2)
-	*u++ = 'x' ;
-      *u = 0 ;
+	{ *u++ = 'x' ; i++ ; }
+      for (;i < GMAX ; i++)
+	*u++ = 0 ;
+
       /* kill the odd square */
       u = tt.x ; 
       while (*u)
