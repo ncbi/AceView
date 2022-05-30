@@ -1063,15 +1063,16 @@ static POLYNOME polynomeScale (POLYNOME pp, double complex z)
 {
   if (! pp)
     return 0 ;
-  
+
+  pp = copyPolynome (pp) ;
   if (pp->isSum)
     {
-      polynomeScale (pp->p1, z) ;
-      polynomeScale (pp->p2, z) ;
+      pp->p1 = polynomeScale (pp->p1, z) ;
+      pp->p2 = polynomeScale (pp->p2, z) ;
     }
   else if (pp->isProduct)
     {
-      polynomeScale (pp->p1, z) ;
+      pp->p1 = polynomeScale (pp->p1, z) ;
     }
   else
     pp->tt.z *= z ;
@@ -1835,9 +1836,17 @@ static POLYNOME contractEpsilon (POLYNOME pp)
 /* kill monomes with Taylor symbol degree > NN */ 
 static POLYNOME limitN (POLYNOME pp, int NN)
 {
+  static int level = 0 ;
   if (!pp)
     return 0 ;
 
+  if (! level)
+    pp = expand (pp) ;
+  if (!pp)
+    return 0 ;
+
+
+  level++ ;
   if (pp->isSum)
     {
       pp->p1 = limitN (pp->p1, NN) ;
@@ -1848,7 +1857,12 @@ static POLYNOME limitN (POLYNOME pp, int NN)
       if (pp->tt.N > NN)
 	pp->tt.z = 0 ;
     }
-  return expand (pp) ;
+
+  level-- ;
+
+  if (! level)
+    pp = expand (pp) ;
+  return pp ;
 } /* limitN */
 
 /*******************************************************************************************/
@@ -11642,11 +11656,17 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
     {
       POLYNOME q2 ;
       q2 = copyPolynome (pp) ;
-      printf (".Q2...... expPol") ;
-      showPol (q2) ;
+      if (0)
+	{
+	  printf (".Q2...... expPol") ;
+	  showPol (q2) ;
+	}
       q2 = limitN (q2, NN-1) ;
-      printf (".Q2..... expPol") ;
-      showPol (q2) ;
+      if (0)
+	{
+	  printf (".Q2..... expPol") ;
+	  showPol (q2) ;
+	}
     }
 
   p[0] = newScalar (1) ;
@@ -11660,33 +11680,42 @@ static POLYNOME expPol (POLYNOME pp, int NN, int sign)
 	  q1 = copyPolynome (p[i-1]) ;
 	  q1 = limitN (q1, NN-1) ;
 	  q2 = copyPolynome (pp) ;
-      printf (".Q2..... expPol") ;
-      showPol (q2) ;
-	  q2 = limitN (q2, NN-i+1) ;
-      printf (".QQ2..... expPol") ;
-      showPol (q2) ;
-	  p[i] = newProduct (q1, q2) ;
+	  if (0)
+	    {
+	      printf (".Q2..... expPol") ;
+	      showPol (q2) ;
+	    }
+      q2 = limitN (q2, NN-i+1) ;
+      if (0)
+	{
+	  printf (".QQ2..... expPol") ;
+	  showPol (q2) ;
 	}
-      if (1)
+      p[i] = newProduct (q1, q2) ;
+	}
+      if (0)
 	{
 	  printf (".A...... expPol[x^%d]", i) ;
 	  showPol (p[i]) ;
 	}
       p[i] = expand (p[i]) ;
-      if (1)
+      if (0)
 	{
 	  printf (".B...... expPol[x^%d]", i) ;
 	  showPol (p[i]) ;
 	}
       p[i] = limitN (p[i], NN) ;
-      printf (".C...... expPol[x^%d]", i) ;
-      showPol (p[i]) ;
+      if (0)
+	{
+	  printf (".C...... expPol[x^%d]", i) ;
+	  showPol (p[i]) ;
+	}
     }
   p[i] = 0 ;
   for (i = 1 ; i <= NN ; i++)
     {
       fac *= sign * i ;
-      polynomeScale (p[i], 1.0/fac)  ;
+      p[i] = polynomeScale (p[i], 1.0/fac)  ;
     }
   ppp = newMultiSum (p) ;
   ppp = expand (ppp) ;
@@ -11736,8 +11765,7 @@ static POLYNOME superCommutator (POLYNOME p1, POLYNOME p2)
   r3 = r2 ;
   if (sign == -1)
     {
-      r3 = copyPolynome (r2) ;
-      polynomeScale (r3, -1) ;
+      r3 = polynomeScale (r3, -1) ;
     }
   return expand (newSum (r1, r3)) ;
 } /* superCommutator */
@@ -11756,7 +11784,7 @@ static POLYNOME repeatedSuperCommutator (POLYNOME p1, POLYNOME p2, int NN)
 
 static void superExponential (int NN, int type)
 {
-  POLYNOME pp, ss, qa,  qb, qc, qa2, qb2,  rr, p[6], q[6], r[6] ;
+  POLYNOME pp, ss, qa,  qb, qc, qa2, qb2,  rr, p[6], q[6], r[6], pa, pb, pc, pa2, pb2 ;
 
   char *a = "a" ;
   char *b = "b" ;
@@ -11812,7 +11840,7 @@ static void superExponential (int NN, int type)
   r[1] = superCommutator (qa, qb) ;
   printf ("\n\n[%s,%s] =", a, b) ;
   showPol (r[1]) ;
-  polynomeScale (r[1], 1) ;
+  r[1] = polynomeScale (r[1], 1) ;
 
   int fac = 1 ;
   for (n = 2 ; n <  NN ; n++)
@@ -11821,7 +11849,7 @@ static void superExponential (int NN, int type)
       r[n] = repeatedSuperCommutator (qa, qb, n) ;
       printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, a, a, b) ;
       showPol (r[n]) ;
-      polynomeScale (r[n], 1.0/fac) ;
+      r[n] = polynomeScale (r[n], 1.0/fac) ;
     }
 
   r[NN] = 0 ;
@@ -11841,7 +11869,7 @@ static void superExponential (int NN, int type)
   printf ("\n\nexp(%s)exp(%s)exp(%s) - exp( %s + [%s,%s]) =", a, b, a, b, a, b) ;
 
 
-  polynomeScale (rr, -1) ;
+  rr = polynomeScale (rr, -1) ;
   ss = newSum (pp, rr) ;
   ss = expand (ss) ;
   ss = expand (ss) ;
@@ -11849,75 +11877,130 @@ static void superExponential (int NN, int type)
 
   showPol (ss) ;
 
-  
+  switch (b)
+    {
+    case 1: a='a" ; b = "b" ; c = "k" ; break ;
+    case 2: a='a" ; b = "ix" ; c = "c" ; break ;
+    case 3: a='a" ; b = "ix" ; c = "k" ; break ;
+    case 4: a='i" ; b = "b" ; c = "c" ; break ;
+    case 5: a='i" ; b = "b" ; c = "k" ; break ;
+    case 6: a='i" ; b = "jx" ; c = "c" ; break ;
+    case 7: a='i" ; b = "jx" ; c = "k" ; break ;
+    default: 0: a='a" ; b = "b" ; c = "c" ; break ;
+    }
+
   qa = newSymbol (a) ;
   qb = newSymbol (b) ;
   qc = newSymbol (c) ;
   
-  qa2 = newSymbol (a) ;
-  qb2 = newSymbol (b) ;
-  qa2->tt.z = -1 ;
-  qb2->tt.z = -1 ;
+  pa = expPol (qa, NN, 1) ;
+  pb = expPol (qb, NN, 1) ;
+  pc = expPol (qc, NN, 1) ;
+  pa2 = expPol (qa, NN, -1) ;
+  pb2 = expPol (qb, NN, -1) ;
+
+  pp = newProduct (pa, pc) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pa2) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pb, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pb2) ;   pp = limitN (pp, NN) ;
+
+  pp = newProduct (pa2, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pa) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pb2, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pb) ;   pp = limitN (pp, NN) ;
+
+  printf (".............Holonomy\n") ;
+  showPol(pp) ;
+  q[0] = qc ;
   
-  p[0] = expPol (qa, NN, 1) ;
-  printf (" exp(%s) = ", a) ;
-  showPol (p[0]) ;
-  p[1] = expPol (qb, NN, 1) ;
-  printf (" exp(%s) = ", b) ;
-  showPol (p[0]) ;
-  p[2] = expPol (qc, NN, 1) ;
-  printf (" exp(%s) = ", c) ;
-  showPol (p[0]) ;
-  p[3] = expPol (qb2, NN, 1) ;
-  printf (" exp(-%s) = ", b) ;
-  showPol (p[0]) ;
-  p[4] = expPol (qa2, NN, 1) ;
-  printf (" exp(-%s) = ", a) ;
-  showPol (p[0]) ;
-
-  p[5] = 0 ;
-  pp = newMultiProduct (p) ;
-  q[0] = expand (pp) ;
-  q[0] = limitN (q[1], NN) ;
-  showPol(q[0]) ;
 
 
-  p[0] = expPol (qb, NN, 1) ;
+  p[0] = newProduct (qa, qb) ;
+  p[1] = newProduct (qb, qa) ;
+  p[1] = polynomeScale (p [1], -1) ;
+  ss = newSum (p[0], p[1]) ; /* commutator [a,b] */
+  showPol (ss) ;
+
+
+  fac = 1 ;
+  r[0] = qc ;
+  r[1] = superCommutator (ss, qc) ;
+  for (n = 2 ; n <  NN ; n++)
+    {
+      fac *= n ;
+      r[n] = repeatedSuperCommutator (ss, qc, n) ;
+      printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, ss, ss, c) ;
+      showPol (r[n]) ;
+      r[n] = polynomeScale (r[n], 1.0/fac) ;
+    }
+
+  r[NN] = 0 ;
+  rr = newMultiSum (r) ;
+  printf (" %s + [%s,%s] =", b, a, b) ;  
+  showPol (rr) ;
+
+
+  exit (0) ;
+
+  p[0] = newProduct (ss, qc) ;
+  p[1] = newProduct (qc, ss) ;
+  p[0] = polynomeScale (p [0], -1) ;
+  rr = newSum (p[0], p[1]) ; /* commutator [[a,b],c] */
+  rr = newSum (qc, rr) ;    /* c + [[a,b],c] */
+  rr = expPol (rr, NN, 1) ;
+  printf ("exp (c + [[a,b],c]") ;
+  showPol (rr) ;
+
+  rr = polynomeScale (rr, -1) ;
+  ss = newSum (rr, pp) ;
+  ss = expand (ss) ;
+  showPol (ss) ;
+  exit (0) ;
+  
   printf (" exp(%s) = ", b) ;
   showPol (p[0]) ;
   p[1] = expPol (qa, NN, 1) ;
   printf (" exp(%s) = ", a) ;
-  showPol (p[0]) ;
+  showPol (p[1]) ;
   p[2] = expPol (qc, NN, 1) ;
   printf (" exp(%s) = ", c) ;
-  showPol (p[0]) ;
+  showPol (p[2]) ;
   p[3] = expPol (qa2, NN, 1) ;
   printf (" exp(-%s) = ", a) ;
-  showPol (p[0]) ;
+  showPol (p[3]) ;
   p[4] = expPol (qb2, NN, 1) ;
-  q[1] = 0 ;
   printf (" exp(-%s) = ", b) ;
-  showPol (p[0]) ;
+  showPol (p[4]) ;
 
   p[5] = 0 ;
   pp = newMultiProduct (p) ;
-  q[1] = expand (pp) ;
-  limitN (q[1], NN) ;
-  showPol(q[1]) ;
+  pp = expand (pp) ;
+  pp = limitN (pp, NN) ;
+  showPol(pp) ;
+  pp = polynomeScale (pp, -1) ;
+  q[1] = pp ;
 
-  p[0] = newSum (qa,qb) ;
-  p[1] = newSum (qb,qa) ;
-  p[1]->tt.z = -1 ;
 
-  p[2] = 0 ;
-  q[2] = newSum (p[0],p[1]) ;
+  p[0] = newProduct (qa,qb) ;
+  p[1] = newProduct (qb,qa) ;
+  showPol (p[1]) ;
+  p[1] = polynomeScale (p[1], -1) ;
+  showPol (p[1]) ;
+
+  p[2] = qc ;
+  p[3] = 0 ;
+  q[2] = newMultiSum (p) ;
   q[2] = expand (q[2]) ;
   showPol (q[2]) ;
+
   q[2] = expPol(q[2], NN, 1) ;
   q[2] = expand (q[2]) ;
   showPol (q[2]) ;
 
+
+  q[2] = polynomeScale (q[2], -1) ;
   q[3] = 0 ;
+  
   pp = newMultiSum (q) ;
   pp = expand (pp) ;
   showPol (pp) ;
@@ -12000,8 +12083,8 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-b", &b) ;
   getCmdLineInt (&argc, argv, "-king", &king) ;
 
-  if (1)
-    {
+  if (0)
+    {      /* a test to time the and evaluate the ranfloat function */
       int i = a ;
       int n = 0, nn = 0 ;
       float z ;
