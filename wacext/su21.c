@@ -11635,7 +11635,7 @@ static POLYNOME newSymbol (char *a)
 static POLYNOME expPol (POLYNOME pp, int NN, int sign)
 {
   int i, fac = 1 ;
-  POLYNOME ppp, p[NN+2], q[NN+2] ;
+  POLYNOME ppp, p[NN+2] ;
 
   pp = expand (pp) ;
   if (1)
@@ -11756,10 +11756,11 @@ static POLYNOME repeatedSuperCommutator (POLYNOME p1, POLYNOME p2, int NN)
 
 static void superExponential (int NN, int type)
 {
-  POLYNOME qa, qb, pp, p[6] , rr, r[6], ss ;
+  POLYNOME pp, ss, qa,  qb, qc, qa2, qb2,  rr, p[6], q[6], r[6] ;
 
   char *a = "a" ;
   char *b = "b" ;
+  char *c = "c" ;
   int n ;
   
 
@@ -11849,6 +11850,79 @@ static void superExponential (int NN, int type)
   showPol (ss) ;
 
   
+  qa = newSymbol (a) ;
+  qb = newSymbol (b) ;
+  qc = newSymbol (c) ;
+  
+  qa2 = newSymbol (a) ;
+  qb2 = newSymbol (b) ;
+  qa2->tt.z = -1 ;
+  qb2->tt.z = -1 ;
+  
+  p[0] = expPol (qa, NN, 1) ;
+  printf (" exp(%s) = ", a) ;
+  showPol (p[0]) ;
+  p[1] = expPol (qb, NN, 1) ;
+  printf (" exp(%s) = ", b) ;
+  showPol (p[0]) ;
+  p[2] = expPol (qc, NN, 1) ;
+  printf (" exp(%s) = ", c) ;
+  showPol (p[0]) ;
+  p[3] = expPol (qb2, NN, 1) ;
+  printf (" exp(-%s) = ", b) ;
+  showPol (p[0]) ;
+  p[4] = expPol (qa2, NN, 1) ;
+  printf (" exp(-%s) = ", a) ;
+  showPol (p[0]) ;
+
+  p[5] = 0 ;
+  pp = newMultiProduct (p) ;
+  q[0] = expand (pp) ;
+  q[0] = limitN (q[1], NN) ;
+  showPol(q[0]) ;
+
+
+  p[0] = expPol (qb, NN, 1) ;
+  printf (" exp(%s) = ", b) ;
+  showPol (p[0]) ;
+  p[1] = expPol (qa, NN, 1) ;
+  printf (" exp(%s) = ", a) ;
+  showPol (p[0]) ;
+  p[2] = expPol (qc, NN, 1) ;
+  printf (" exp(%s) = ", c) ;
+  showPol (p[0]) ;
+  p[3] = expPol (qa2, NN, 1) ;
+  printf (" exp(-%s) = ", a) ;
+  showPol (p[0]) ;
+  p[4] = expPol (qb2, NN, 1) ;
+  q[1] = 0 ;
+  printf (" exp(-%s) = ", b) ;
+  showPol (p[0]) ;
+
+  p[5] = 0 ;
+  pp = newMultiProduct (p) ;
+  q[1] = expand (pp) ;
+  limitN (q[1], NN) ;
+  showPol(q[1]) ;
+
+  p[0] = newSum (qa,qb) ;
+  p[1] = newSum (qb,qa) ;
+  p[1]->tt.z = -1 ;
+
+  p[2] = 0 ;
+  q[2] = newSum (p[0],p[1]) ;
+  q[2] = expand (q[2]) ;
+  showPol (q[2]) ;
+  q[2] = expPol(q[2], NN, 1) ;
+  q[2] = expand (q[2]) ;
+  showPol (q[2]) ;
+
+  q[3] = 0 ;
+  pp = newMultiSum (q) ;
+  pp = expand (pp) ;
+  showPol (pp) ;
+  
+  
   return ;
 }
 
@@ -11900,6 +11974,7 @@ int main (int argc, const char **argv)
   AC_HANDLE h = ac_new_handle () ;
 
   freeinit () ;
+
   if (argc == 1 ||
       getCmdLineOption (&argc, argv, "-h", 0) ||
       getCmdLineOption (&argc, argv, "-help", 0) ||
@@ -11924,6 +11999,23 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-a", &a) ;
   getCmdLineInt (&argc, argv, "-b", &b) ;
   getCmdLineInt (&argc, argv, "-king", &king) ;
+
+  if (1)
+    {
+      int i = a ;
+      int n = 0, nn = 0 ;
+      float z ;
+      
+      while (i--)
+	{
+	  z = randfloat () ;
+	  nn++ ;
+	  if (z > .5) n++ ;
+	}
+      printf("#RAND nn=%d n=%d f=%g\n", nn , n , 2.0*n/nn - 1.0) ;
+      exit (0) ;
+
+    }
 
   if (a==-1) /* a test */
     {
