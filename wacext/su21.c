@@ -11899,58 +11899,63 @@ static void superExponential (int NN, int type, int typeb)
   pa2 = expPol (qa, NN, -1) ;
   pb2 = expPol (qb, NN, -1) ;
 
-  pp = newProduct (pa, pc) ;   pp = limitN (pp, NN) ;
-  pp = newProduct (pp, pa2) ;   pp = limitN (pp, NN) ;
-  pp = newProduct (pb, pp) ;   pp = limitN (pp, NN) ;
-  pp = newProduct (pp, pb2) ;   pp = limitN (pp, NN) ;
-
-  pp = newProduct (pa2, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pa2, pc) ;   pp = limitN (pp, NN) ;
   pp = newProduct (pp, pa) ;   pp = limitN (pp, NN) ;
   pp = newProduct (pb2, pp) ;   pp = limitN (pp, NN) ;
   pp = newProduct (pp, pb) ;   pp = limitN (pp, NN) ;
 
+  pp = newProduct (pa, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pa2) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pb, pp) ;   pp = limitN (pp, NN) ;
+  pp = newProduct (pp, pb2) ;   pp = limitN (pp, NN) ;
+
   printf (".............Holonomy\n") ;
   showPol(pp) ;
-  q[0] = qc ;
-  
-
 
   p[0] = newProduct (qa, qb) ;
   p[1] = newProduct (qb, qa) ;
   p[1] = polynomeScale (p [1], -1) ;
   ss = newSum (p[0], p[1]) ; /* commutator [a,b] */
+  ss = expand(ss) ;
+  printf (".............[%s,%s]\n",a,b) ;
   showPol (ss) ;
 
 
   fac = 1 ;
   r[0] = qc ;
-  r[1] = superCommutator (ss, qc) ;
-  for (n = 2 ; n <  NN ; n++)
+  for (n = 1 ; n <  NN ; n++)
     {
-      fac *= n ;
+      fac *= -n ;
       r[n] = repeatedSuperCommutator (ss, qc, n) ;
       printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, "[]","[[]]", c) ;
-      showPol (r[n]) ;
+      r[n] = limitN (r[n], NN) ;
       r[n] = polynomeScale (r[n], 1.0/fac) ;
+      showPol (r[n]) ;
     }
 
   r[NN] = 0 ;
   rr = newMultiSum (r) ;
-  printf (" %s + [%s,%s] =", b, a, b) ;  
+  printf ("............... iterated commutator\n") ;
   showPol (rr) ;
-
-
-  exit (0) ;
-
-  p[0] = newProduct (ss, qc) ;
-  p[1] = newProduct (qc, ss) ;
-  p[0] = polynomeScale (p [0], -1) ;
-  rr = newSum (p[0], p[1]) ; /* commutator [[a,b],c] */
-  rr = newSum (qc, rr) ;    /* c + [[a,b],c] */
   rr = expPol (rr, NN, 1) ;
-  printf ("exp (c + [[a,b],c]") ;
+  printf ("...............exp (minus iterated commutator)\n") ;
   showPol (rr) ;
 
+  rr = polynomeScale (rr, -1) ;
+  ss = newSum (pp, rr) ;
+  ss = expand (ss) ;
+  printf ("............... holonomy - exp (-[])\n") ;
+  showPol (ss) ;
+      
+  
+  exit (0) ;
+  
+  rr = expand (rr) ;
+  showPol (rr) ;
+  rr = limitN (rr, NN) ;
+  showPol (rr) ;
+  exit (0) ;
+  
   rr = polynomeScale (rr, -1) ;
   ss = newSum (rr, pp) ;
   ss = expand (ss) ;
