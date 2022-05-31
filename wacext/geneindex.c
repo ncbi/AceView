@@ -179,6 +179,7 @@ typedef struct gxStruct {
   int maxGroupLevel ;
   int maxGeneGroupLevel ;
   int runAny, runAnySolid, runAnyILM, isRunMax, nHistoRun ;         /* global counts */
+  int subsample ; /* max number of Million reads per run */
   float ratio_bound, minVariance ;
   float genomeLengthInKb ;
   int histo_shifting, maxGenePlus ;
@@ -644,7 +645,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
   Stack buf = stackHandleCreate (1000,h) ;
   DICT *markerSelectDict = 0 ;
   DICT *markerRejectDict = 0 ;
-  BOOL wantDaa = gx->export && strchr (gx->export, 'v') ? TRUE : FALSE ;
+  BOOL wantDaa = gx->export && !gx->subsample && strchr (gx->export, 'v') ? TRUE : FALSE ;
 
   if (gx->markerSelectFileName)
     {
@@ -1851,7 +1852,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 		{
 		  gc->boxLength = gc->a2 - gc->a1 + 1 ;
 		  gx->hasGeneBoxLength = TRUE ; 
-		  if (1) /* since at least sept 2021, probably a bug */
+		  if (0) /* this was 1 between at least sept 2021 and may 27 2022, a bug, because we only had length and not yet boxLength */
 		    { 
 		      gc->length = gc->a2 - gc->a1 + 1 ;
 		      gx->hasGeneLength = TRUE ; 
@@ -2329,6 +2330,55 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 
   return nn ;
 } /* gxAceParse */
+
+/*************************************************************************************/
+
+static void gxSubsample (GX *gx)
+{
+  int run, runMax = gx->runs ? arrayMax (gx->runs) : 0 ;
+
+  for (run = 1 ; run < runMax ; run++)
+    {
+      int iAA = 0 ;
+      float zMin ;
+
+      RC *rc = arrayp (gx->runs, gx->runAny, RC) ;
+
+      if (rc->tags < 1000000.0 * gx->subsample)
+	continue ;
+      zMin = gx->subsample * 1000000.0 / rc->tags ;
+
+      for (iAA = 0 ; iAA < 2 ; iAA++)
+	{
+	  Array aa = iAA ? rc->aa : rc->antiAa ;
+	  
+	  if (aa && arrayMax (aa))
+	    {
+	      int gene, gMax = arrayMax (aa) ;
+	      DC *dc ;
+	      GC *gc ; 
+	      
+	      for (gene = 0, dc = arrp (aa, 0, DC) ; gene < gMax ; gene++)
+		{
+		  int j = dc->tags, k = 0 ;
+		  double z ;
+
+		  while (j--)
+		    if (randfloat() < zMin)
+		      k++ ;
+		  z = dc->tags ? (1.0 * k)/dc->tags : 0 ;
+		  dc->seqs *= z ;
+		  dc->kb *= z ;
+
+		  gc =  arrp (gx->genes, gene, GC) ; /* make room */
+		  gc->tags = gc->tags - dc->tags + k ;
+		  dc->tags = k ;
+		}
+	    }
+	}
+    }
+  return ;
+} /* gxSubsample */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -14486,6 +14536,8 @@ static void usage (char *message)
 	    "//        do not contribute to the denominator in the normalization of the gene index\n"
 	    "//   -referenceGenome text : name of genome release i.e. GRCh38\n"
 	    "//   -genomeLengthInKb float : Length of the genome in kilobases, default : 3 10^6\n"
+	    "//   -subsample int : desired max number of million reads per run\n"
+	    "//      In each gene random subsample to keep a total of n Million aligned read per run\n"
 	    "// Caveat:\n"
 	    "//   Lines starting with '#' are considered as comments and dropped out\n"
 	    ) ;
@@ -14553,6 +14605,7 @@ int main (int argx, const char **argv)
 
   gx.maxGenePlus = 500 ;
   gx.maxGenePlus = 5000 ;
+
 
   gx.ratio_bound = 1.0 ; /* was 4,  2.5 ; */
   gx.histo_shifting = 1 ;  /* unit is dixieme de point d'index */
@@ -14626,6 +14679,11 @@ int main (int argx, const char **argv)
   gx.skipEmptyGenes = getCmdLineBool (&argx, argv, "-skipEmptyGenes"); 
   gx.exportDiffGenes = getCmdLineBool (&argx, argv, "-exportDiffGenes");
   gx.TGx = getCmdLineBool (&argx, argv, "-TGx");
+
+  gx.subsample = 3 ;
+  getCmdLineInt (&argx, argv, "-subsample", &gx.subsample) ;
+  if (gx.subsample && gx.keepIndex)
+    messcrash ("Sorry options -subsample a nd -keepIndex are incompatible") ;
 
   gx.targeted = getCmdLineBool (&argx, argv, "-targeted");
   getCmdLineOption (&argx, argv, "-captured", &gx.captured);
@@ -14802,6 +14860,8 @@ int main (int argx, const char **argv)
       if (! gxAceParse (&gx, gx.deepFileName,FALSE))
 	messcrash ("Cannot parse the .ace file %s given as intput, expecting run->Deep counts\n"
 		   , gx.deepFileName ? gx.deepFileName : "stdin" ) ;
+      if (gx.subsample)
+	gxSubsample (&gx) ;
       if (gx.geneClustersFileName)
 	gxPrepareGeneClusters (&gx) ;
       /*  gxHackZeroCounts (&gx) ; */

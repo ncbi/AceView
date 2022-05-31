@@ -10982,7 +10982,7 @@ if (! -e  tmp/OR/d5.$MAGIC.minS) then
 EOF
 endif
 
-if (! -e tmp/introns/d5.$MAGIC.parse.done) then
+if (0 && ! -e tmp/introns/d5.$MAGIC.parse.done) then
   foreach chrom ($chromSetAll)
     if (! -e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then
       scripts/submit INTRON_DB/$chrom/d5.$MAGIC.parse "scripts/d5.intronDB.tcsh chromCumul $MAGIC $chrom"

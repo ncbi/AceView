@@ -1,6 +1,8 @@
 #!bin/tcsh -f
 
 set phase=$1
+
+if ($phase == subsampling) goto subsampling
 set SNPCHROM=""
 if ($phase == ii4) set SNPCHROM=$2
 
@@ -1133,7 +1135,7 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if (1) then
+   if (0) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
@@ -3500,5 +3502,70 @@ gunzip -c tmp/SNP_DB/Who.characteristic_substitutions.snp.gz | grep F2_MCS-015 >
 
 
 cat toto81 | gawk -F '\t' '/A>G/{next;}{k++;if(k%1)next;}/>/{x=$8;if($7<.4)x=0;if($7>1.8)x=100;if($9<10)next;if(x<=4)x=0;else if(x>=98)x=200;else x=100;}{if($6 != old6)f2++;old6=$6;}{s=$1 $2 $3;ss[s]++;z[s,f2]=1+x/100;}END{for(s in ss) {x = 0+z[s,1] ; y = 0+z[s,2] ; if(x*y==0 || x*y == 100 || x == 20 || y == 20 )continue;uu[x-1,y-1]++ ; X += x ; X2 += x*x ; Y += y ; Y2 += y * y ; XY += x*y ;N++; if(x*y==60 || x*y==9)print s,x,y; }printf("%d\t%d\t%d\n%d\t%d\t%d\n%d\t%d\t%d\n\n",uu[0,0],uu[0,1],uu[0,2],uu[1,0],uu[1,1],uu[1,2],uu[2,0],uu[2,1],uu[2,2]);x = X2/N - X*X/(N*N);y=Y2/N - Y*Y/(N*N);w=XY/N - X*Y/(N*N);printf("\nCorrel %.2f\n",100*w/sqrt(x*y));print X,Y,X2,Y2,x,y,w;}' | tail -20
+
+
+
+
+exit 0
+
+# 27 mai 2022, global statistiques
+subsampling:
+
+# $2 should be 1M or 3M or normal
+set Expression=Expression.normal
+set Expression=Expression.$2
+if (! -d RESULTS/$Expression) then
+  echo "$Expression should be "
+  ls -d RESULTS/Expression* 
+  exit 1
+endif
+set ln=geneBox_length
+set ln=mRNA_length
+set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_profile_stats.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+
+foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*.score.genes.profiles.txt`)
+  cat $ff | head -1 >> $toto
+  cat $ff | tail -6 >> $toto
+end
+
+set toto=RESULTS/$Expression/unique/av/AECDB_diff.GENE.$ln.DEG_u_profile_stats.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+
+foreach ff (`ls  RESULTS/$Expression/unique/av/AECDB_diff.AceView.GENE.u.*.score.genes.profiles.txt`)
+  cat $ff | head -1 >> $toto
+  cat $ff | tail -6 >> $toto
+end
+
+set ln=mRNA_length
+set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+
+date > $toto.1
+foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*AECDB_Profile.score.genes.profiles.txt`)
+  cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
+end
+date > $toto.2
+foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*ACB_Profile.score.genes.profiles.txt`)
+  cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
+end
+cat $toto.[12] |  gawk -F '\t' '{if($5+$6+1 == 0)next;f=$1;ff[f]=1;g=$2;gg[g]=1;ln[g]=$3;cap[g]=$4;g1[g]+=$5;g2[g]+=$6;z1[f,g]=$5;z2[f,g]=$6;}END{nf=split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",") ;printf("#Gene\tLength\tCapture\tSum B>A\tSum A>B\tInconsistent\tSum B>A no capture\tSum A>B no capture");for(i=1;i<=nf;i++)printf("\t%s B>A",ff[i]);for(i=1;i<=nf;i++)printf("\t%s A>B",ff[i]);for(i=1;i<=nf;i++)printf("\t%s inconsistent",ff[i]);for(g in gg){bad="";if(g1[g]*g2[g]>0)bad="Inconsistent";printf("\n%s\t%d\t%s\t%.0f\t%.0f\t%s",g,ln[g],cap[g],g1[g],g2[g],bad);printf("\t%d\t%d",z1[ff[1],g]+z1[ff[2],g],z2[ff[1],g]+z2[ff[2],g]);for(i=1;i<=nf;i++)printf("\t%s",z1[ff[i],g]);for(i=1;i<=nf;i++)printf("\t%s",z2[ff[i],g]);for(i=1;i<=nf;i++){bad="";if(z1[ff[i],g]*z2[ff[i],g]>0)bad="Inconsistent";printf("\t%s",bad);}}printf("\n");}' | sort  >> $toto
+
+
+set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A2R2I3.txt
+echo -n "### $toto2 :" > $toto2
+date >> $toto2
+
+cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A2")*index(c,"R2")*index(c,"I3")>0)print;}' > $toto2
+
+
+set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A1A2I2I3R1R2.txt
+echo -n "### $toto2 :" > $toto2
+date >> $toto2
+
+cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A1")*index(c,"A2")*index(c,"I2")*index(c,"I3")*index(c,"R1")*index(c,"R2")>0)print;}' > $toto2
 
 
