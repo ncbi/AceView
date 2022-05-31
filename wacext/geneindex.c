@@ -2342,7 +2342,7 @@ static void gxSubsample (GX *gx)
       int iAA = 0 ;
       float zMin ;
 
-      RC *rc = arrayp (gx->runs, gx->runAny, RC) ;
+      RC *rc = arrayp (gx->runs, run, RC) ;
 
       if (rc->tags < 1000000.0 * gx->subsample)
 	continue ;
@@ -2358,7 +2358,7 @@ static void gxSubsample (GX *gx)
 	      DC *dc ;
 	      GC *gc ; 
 	      
-	      for (gene = 0, dc = arrp (aa, 0, DC) ; gene < gMax ; gene++)
+	      for (gene = 0, dc = arrp (aa, 0, DC) ; gene < gMax ; dc++, gene++)
 		{
 		  int j = dc->tags, k = 0 ;
 		  double z ;
@@ -14680,7 +14680,7 @@ int main (int argx, const char **argv)
   gx.exportDiffGenes = getCmdLineBool (&argx, argv, "-exportDiffGenes");
   gx.TGx = getCmdLineBool (&argx, argv, "-TGx");
 
-  gx.subsample = 3 ;
+  gx.subsample = 2 ;
   getCmdLineInt (&argx, argv, "-subsample", &gx.subsample) ;
   if (gx.subsample && gx.keepIndex)
     messcrash ("Sorry options -subsample a nd -keepIndex are incompatible") ;

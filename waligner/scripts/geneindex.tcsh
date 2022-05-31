@@ -1135,7 +1135,7 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if (0) then
+   if (1) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
