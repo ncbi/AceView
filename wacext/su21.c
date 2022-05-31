@@ -11886,6 +11886,15 @@ static void superExponential (int NN, int type, int typeb)
     case 5: a="i" ; b = "b" ; c = "k" ; break ;
     case 6: a="i" ; b = "jx" ; c = "c" ; break ;
     case 7: a="i" ; b = "jx" ; c = "k" ; break ;
+
+    case 8: a="a" ; b = "bx" ; c = "k" ; break ;
+    case 9: a="a" ; b = "i" ; c = "c" ; break ;
+    case 10: a="a" ; b = "i" ; c = "k" ; break ;
+    case 11: a="i" ; b = "bx" ; c = "c" ; break ;
+    case 12: a="i" ; b = "bx" ; c = "k" ; break ;
+    case 13: a="i" ; b = "j" ; c = "c" ; break ;
+    case 14: a="i" ; b = "j" ; c = "k" ; break ;
+
     default: a="a" ; b = "b" ; c = "c" ; break ;
     }
 
