@@ -11782,7 +11782,7 @@ static POLYNOME repeatedSuperCommutator (POLYNOME p1, POLYNOME p2, int NN)
   return superCommutator (p1, p3) ;
 } /* repeatedSuperCommutator */
 
-static void superExponential (int NN, int type)
+static void superExponential (int NN, int type, int typeb)
 {
   POLYNOME pp, ss, qa,  qb, qc, qa2, qb2,  rr, p[6], q[6], r[6], pa, pb, pc, pa2, pb2 ;
 
@@ -11877,16 +11877,16 @@ static void superExponential (int NN, int type)
 
   showPol (ss) ;
 
-  switch (b)
+  switch (typeb)
     {
-    case 1: a='a" ; b = "b" ; c = "k" ; break ;
-    case 2: a='a" ; b = "ix" ; c = "c" ; break ;
-    case 3: a='a" ; b = "ix" ; c = "k" ; break ;
-    case 4: a='i" ; b = "b" ; c = "c" ; break ;
-    case 5: a='i" ; b = "b" ; c = "k" ; break ;
-    case 6: a='i" ; b = "jx" ; c = "c" ; break ;
-    case 7: a='i" ; b = "jx" ; c = "k" ; break ;
-    default: 0: a='a" ; b = "b" ; c = "c" ; break ;
+    case 1: a="a" ; b = "b" ; c = "k" ; break ;
+    case 2: a="a" ; b = "ix" ; c = "c" ; break ;
+    case 3: a="a" ; b = "ix" ; c = "k" ; break ;
+    case 4: a="i" ; b = "b" ; c = "c" ; break ;
+    case 5: a="i" ; b = "b" ; c = "k" ; break ;
+    case 6: a="i" ; b = "jx" ; c = "c" ; break ;
+    case 7: a="i" ; b = "jx" ; c = "k" ; break ;
+    default: a="a" ; b = "b" ; c = "c" ; break ;
     }
 
   qa = newSymbol (a) ;
@@ -11929,7 +11929,7 @@ static void superExponential (int NN, int type)
     {
       fac *= n ;
       r[n] = repeatedSuperCommutator (ss, qc, n) ;
-      printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, ss, ss, c) ;
+      printf ("\n\nn=%d [%s,.. [%s,%s]..] =", n, "[]","[[]]", c) ;
       showPol (r[n]) ;
       r[n] = polynomeScale (r[n], 1.0/fac) ;
     }
@@ -12158,7 +12158,7 @@ int main (int argc, const char **argv)
 
   if (king > 0) /* a test */
     { /* check the non Abelian expansion exp(a)exp(b)exp(-b) = exp (b + [a,b] + [a,[a,b]]/2! + [a,[a[a,b]]]/3! ...) */
-      superExponential (king, a) ;
+      superExponential (king, a, b) ;
       exit (0) ;
     }
 
