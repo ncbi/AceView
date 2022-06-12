@@ -2168,24 +2168,24 @@ date
 
 set ok=1
 foreach run (`cat MetaDB/$MAGIC/RunList`)
-  if (! -e Fastc/$run/fastc.count) then
-    scripts/submit scripts/a0C.lengthDistrib.tcsh $run
-  endif
-  foreach lane (`gawk '{i=index($1,"/");if(run == substr($1,1,i-1))print $1;}' run=$run MetaDB/$MAGIC/LaneList`)
+   if (! -e Fastc/$run/fastc.count) then
+     scripts/submit scripts/a0C.lengthDistrib.tcsh $run
+   endif
+   foreach lane (`gawk '{i=index($1,"/");if(run == substr($1,1,i-1))print $1;}' run=$run MetaDB/$MAGIC/LaneList`)
 
-  if (! -e Fastc/$lane.count) then
-    set ok=0
+     if (! -e Fastc/$lane.count) then
+       set ok=0
 
 # do not clip the no insert here, this will be done in clipalign with a nicer report
-    set fastctype=fastc
-    foreach run2 (`cat MetaDB/$MAGIC/RunSolidList`)
-      if ($run == $run2) set fastctype=csfastc
-    end
+       set fastctype=fastc
+       foreach run2 (`cat MetaDB/$MAGIC/RunSolidList`)
+         if ($run == $run2) set fastctype=csfastc
+       end
 
 # echo "$run $v2"
-    scripts/submit Fastc/$lane.count "bin/dna2dna -i Fastc/$lane.$fastctype.gz -I $fastctype -gzi -O count -minEntropy $minEntropy  -minLength $minLength  -clipN $clipN  -o Fastc/$lane" 
-  endif
- end
+       scripts/submit Fastc/$lane.count "bin/dna2dna -i Fastc/$lane.$fastctype.gz -I $fastctype -gzi -O count -minEntropy $minEntropy  -minLength $minLength  -clipN $clipN  -o Fastc/$lane" 
+     endif
+   end
 end
 
 if ($ok == 1) then
@@ -2222,24 +2222,39 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
     echo "........ 1 $run"
     cat Fastc/$run/original.count | gawk '/^Processed/{if($3=="sequences"){nt+=$2;ns+=$2;nb+=$4;}}/^Sequence_processed/{ns+=$2}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/Tissue/{ts[$2]+=$3;tt[$2]+=$5;tb[$2]+=$7;tvet[$2]+=$9;tvxt[$2]+=$11;tvebp[$2]+=$13;tvxbp[$2]+=$15;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Raw_data %d Id %d Accepted %.3f kb\n\n", ns, nt, nb/1000);}}'  run=$run > Fastc/$run/original_counts.ace
   endif
+end
 
-#
-  if (! -e Fastc/$run/fastc.count && ! -e Fastc/$run/fastc.count.ace) then
-    if (-e Fastc/$run/_c) \rm  Fastc/$run/_c
-    scripts/a0C.lengthDistrib.tcsh $run
-    cat Fastc/$run/fastc.count | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}/^Length_distribution/{distrib=$0;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\n%s\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,distrib,maxCnt);}}'  run=$run >  Fastc/$run/fastc.count.ace
-   # the older version was called  Fastc/$run/fastc_counts.ace, it did not include the max-multiplicity
-    \rm Fastc/$run/_c
+set ok=0
+foreach run (`cat MetaDB/$MAGIC/RunNoCountList`)
+    # force recount but not one new runs never processed before
+    if (-e Fastc/$run/fastc_counts.ace && -e Fastc/$run/fastc.count) \rm Fastc/$run/fastc.count
     if (-e Fastc/$run/fastc_counts.ace) \rm  Fastc/$run/fastc_counts.ace
+    if (! -e Fastc/$run/fastc.count) then
+      scripts/submit Fastc/$run/a0C.length_distrib    "scripts/a0C.lengthDistrib.tcsh $run"
+      set ok=1    
+    endif 
+end
+if ($ok == 1) scripts/submit wait
+
+
+foreach run (`cat MetaDB/$MAGIC/RunList`)
+  if (! -e Fastc/$run/fastc.count) then
+    cat Fastc/$run/fastc.count | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}/^Length_distribution/{distrib=$0;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\n%s\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,distrib,maxCnt);}}'  run=$run >  Fastc/$run/fastc.count.ace
+  endif
+  # the older version was called  Fastc/$run/fastc_counts.ace, it did not include the max-multiplicity
+  if (-e Fastc/$run/fastc_counts.ace) \rm  Fastc/$run/fastc_counts.ace
+
+
+  if (! -e  Fastc/$run/first_line.txt) then
+    foreach lane (`head -1 Fastc/$run/LaneList`)
+      if (-e Fastc/$lane.fastc.dz) then
+        gunzip -c Fastc/$lane.fastc.fz | head -1 > Fastc/$run/first_line.txt
+       endif
+     end
   endif
 end
-if (! -e  Fastc/$run/first_line.txt) then
-  foreach lane (`head -1 Fastc/$run/LaneList`)
-    if (-e Fastc/$lane.fastc.dz) then
-      gunzip -c Fastc/$lane.fastc.fz | head -1 > Fastc/$run/first_line.txt
-    endif
-  end
-endif
+
+
 echo ' ' >  toto.ace
 if (-e  Fastc/$MAGIC.first_line.ace) cat Fastc/$MAGIC.first_line.ace >> toto.ace
 foreach run (`cat MetaDB/$MAGIC/RunNoCountList`)
@@ -3183,10 +3198,6 @@ foreach run (`cat MetaDB/$MAGIC/RunList`)
 end
 
 goto phaseLoop
-
-phasec2M:
-   scripts/alignAndSelectBest.tcsh CUMUL
-
 
 phased6:
  echo -n "Phase d6:  align on the candidate introns "
@@ -7289,21 +7300,6 @@ goto phaseLoop
 phasec2:
 echo -n 'phase c2: Create an ace file per run with the alignment stats and parse it into MetaDB ' 
 date
-
-foreach run (`cat MetaDB/$MAGIC/RunList`) 
-  set ok=1
-  foreach lane (`cat Fastc/$run/LaneList`)
-    if (! -e  tmp/$MAGIC_COUNT_DIR/$lane.count) then
-      set ok=0
-      echo "Missing tmp/$MAGIC_COUNT_DIR/$lane.count please rerun MAGIC ALIGN, only the missing lanes will be recomputed"
-    endif
-  end
-  if ($ok == 1 && ! -e tmp/$MAGIC_COUNT_DIR/$run/c2.alistats.ace) then
-      scripts/submit tmp/$MAGIC_COUNT_DIR/$run/c2.alistats "scripts/c2.alistats.tcsh $run" 1G
-  endif
-end
-
-goto phaseLoop
 
 ####################################################################################
 ## Construct the global report on the error rates according to the target and on error types

@@ -627,7 +627,8 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   
   /* if pair == false, do not compute dPair, but if known reexport it */
    deltaPair = 0 ;
-   aceInStep (ai, '-') ; aceInInt (ai, & deltaPair)  ; aceInStep (ai, '\t') ;
+   if (0) aceInStep (ai, '-') ; /* 2022__06_11 why kill the sign */
+   aceInInt (ai, & deltaPair)  ; aceInStep (ai, '\t') ;
    if (deltaPair == -14) deltaPair = 0 ;
    if (deltaPair)
     {
@@ -1281,6 +1282,8 @@ static int baPairFilterOne (BA *ba, int iiMin, int iiMax, Array geneLinks)
       hasNegativeUnicity = FALSE ; hasGoodClone = 0 ; 
       for (ii = iiMin, up = arrp (aa, ii, HIT), tag1 = up->tag, nHits1 = nHits = 0 ; ii < iiMax ; up++, ii++)
 	{ 
+	  HIT2 *bestUp2 = 0, *bestVp2 = 0 ;
+
 	  up2 = arrp (aa2, up->nn, HIT2) ;
 	  if (up2->target_class != cl)
 	    continue ;
@@ -1305,9 +1308,9 @@ static int baPairFilterOne (BA *ba, int iiMin, int iiMax, Array geneLinks)
 		{
 		  b1 = vp2->a1 ; b2 = vp2->a2 ;
 		  if (a1 < a2 && b1 > b2 && b1 + 10 > a1 && a2 - 10 <= b1 && a1 - 10 <= b2 && b1 - a1 + 1 + x1 + vp->x1 - 2 < bestDa)
-		    { bestDa = b1 - a1  + 1 + x1 + vp->x1 - 2 ; bestjj = jj ; }
+		    { bestDa = b1 - a1  + 1 + x1 + vp->x1 - 2 ; bestjj = jj ; bestUp2 = up2 ; bestVp2 = vp2 ;}
 		  if (a1 > a2 && b1 < b2 && b1 - 10 < a1 && b2 - 10 <= a1 && b1 - 10 <= a2 && a1 - b1  + 1 + x1 + vp->x1 - 2 < bestDa)
-		    { bestDa = a1 - b1  + 1 + x1 + vp->x1 - 2 ; bestjj = jj ; }
+		    { bestDa = a1 - b1  + 1 + x1 + vp->x1 - 2 ; bestjj = jj ; bestUp2 = vp2 ;  bestVp2 = up2 ;}
 		}
 	      else
 		{
@@ -1323,6 +1326,9 @@ static int baPairFilterOne (BA *ba, int iiMin, int iiMax, Array geneLinks)
 	      if (bestDa < 0 && bestDa >  NON_COMPATIBLE_PAIR) bestDa =  NON_COMPATIBLE_PAIR  -1 ; /* NON_COMPATIBLE_PAIR - 1 is first compatible value, synchronize to hack, values up to -14 are types of pairs */
 	      wp->x1 = ii ; wp->score = 1 ; wp->x2 = bestjj ; 
 	      wp->nn = (bestDa < maxDa ? bestDa : 1000000) ;
+
+	      if (bestUp2) bestUp2->dPair = wp->nn ;
+	      if (bestVp2) bestVp2->dPair = -wp->nn ;
 	      if (bestDa < maxDa && hasGoodClone <= 0) 
 		{
 		  if (cl == tMito && (hasGoodClone <= 0 || hasGoodClone > 4)) hasGoodClone = 4 ;

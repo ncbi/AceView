@@ -2344,9 +2344,9 @@ static void gxSubsample (GX *gx)
 
       RC *rc = arrayp (gx->runs, run, RC) ;
 
-      if (rc->tags < 1000000.0 * gx->subsample)
+      if (rc->tags < 1000.0 * gx->subsample)
 	continue ;
-      zMin = gx->subsample * 1000000.0 / rc->tags ;
+      zMin = gx->subsample * 1000.0 / rc->tags ;
 
       for (iAA = 0 ; iAA < 2 ; iAA++)
 	{
@@ -14536,8 +14536,8 @@ static void usage (char *message)
 	    "//        do not contribute to the denominator in the normalization of the gene index\n"
 	    "//   -referenceGenome text : name of genome release i.e. GRCh38\n"
 	    "//   -genomeLengthInKb float : Length of the genome in kilobases, default : 3 10^6\n"
-	    "//   -subsample int : desired max number of million reads per run\n"
-	    "//      In each gene random subsample to keep a total of n Million aligned read per run\n"
+	    "//   -subsample int : desired max number of thousands reads per run\n"
+	    "//      In each gene random subsample to keep a total of n kilo aligned read per run\n"
 	    "// Caveat:\n"
 	    "//   Lines starting with '#' are considered as comments and dropped out\n"
 	    ) ;
@@ -14680,7 +14680,7 @@ int main (int argx, const char **argv)
   gx.exportDiffGenes = getCmdLineBool (&argx, argv, "-exportDiffGenes");
   gx.TGx = getCmdLineBool (&argx, argv, "-TGx");
 
-  gx.subsample = 2 ;
+  gx.subsample = 50000 ;
   getCmdLineInt (&argx, argv, "-subsample", &gx.subsample) ;
   if (gx.subsample && gx.keepIndex)
     messcrash ("Sorry options -subsample a nd -keepIndex are incompatible") ;

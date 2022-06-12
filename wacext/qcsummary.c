@@ -1800,20 +1800,27 @@ static void qcInsertSize (QC *qc, RC *rc)
 	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
-      else if (ac_tag_int (rc->ali, "Fragment_length_average", 0))
-	qcShowTag (qc, rc, ti) ;
-      else if (ac_has_tag (rc->ali, "Length_distribution_1_5_50_95_99_mode_av"))
+      else if (ti->tag[0] == 'F')
 	{
-	  AC_TABLE tt = ac_tag_table (rc->ali, "Length_distribution_1_5_50_95_99_mode_av", h) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,0,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,1,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,5,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,2,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,6,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,3,0)) ;
-	  aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,4,0)) ;
-	  break ;
+	  if (ac_tag_int (rc->ali, "Fragment_length_average", 0))
+	    qcShowTag (qc, rc, ti) ;
+	  else if (ac_has_tag (rc->ali, "Length_distribution_1_5_50_95_99_mode_av"))
+	    {
+	      AC_TABLE tt = ac_tag_table (rc->ali, "Length_distribution_1_5_50_95_99_mode_av", h) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,0,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,1,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,5,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,2,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,6,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,3,0)) ;
+	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,4,0)) ;
+	      break ;
+	    }
+	  else
+	    aceOutf (qc->ao, "\t") ;
 	}
+      else
+	aceOutf (qc->ao, "\t") ;
     }
    ac_free (h) ;
   return;

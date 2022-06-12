@@ -263,9 +263,12 @@ if (-e GeneIndexDB/database && ! -e  GeneIndexDB/g1b.done) then
       echo "parse tmp/METADATA/gtf.$target.goodProduct.ace" >> $toto
       echo "parse tmp/METADATA/gtf.$target.f.intron.ace" >> $toto
       echo "parse tmp/METADATA/gtf.$target.r.intron.ace" >> $toto
+      if (-e tmp/METADATA/$target.split_mrnas.gene2length.ace) then
+        echo "parse tmp/METADATA/$target.split_mrnas.gene2length.ace" >> $toto
+      endif
   end 
-  parse tmp/METADATA/av.f.mrna2intron.ace
-  parse tmp/METADATA/av.r.mrna2intron.ace
+  # echo "parse tmp/METADATA/av.f.mrna2intron.ace" >> $toto
+  # echo "parse tmp/METADATA/av.r.mrna2intron.ace" >> $toto
   echo "parse TARGET/MRNAS/good_product.ace" >> $toto
   echo "parse TARGET/MRNAS/very_good_product.ace" >> $toto
   echo "parse TARGET/MRNAS/$species.introns.ace.gz" >> $toto
@@ -1046,7 +1049,10 @@ set chrom=""
   if ( $phase == g4 && -e tmp/METADATA/$MAGIC.$target.captured_genes.ace) cat  tmp/METADATA/$MAGIC.$target.captured_genes.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ( $phase == g4sp && -e TARGET/GENES/$target.gene2geneid.ace) cat TARGET/GENES/$target.gene2geneid.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ( $phase == g4sp && -e tmp/METADATA/$MAGIC.$target.captured_genes.ace) cat  tmp/METADATA/$MAGIC.$target.captured_genes.ace  >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
-  
+  if ( $phase == g4 && -e tmp/METADATA/$target.split_mrnas.gene2length.ace) cat tmp/METADATA/$target.split_mrnas.gene2length.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ( $phase == g4sp && -e tmp/METADATA/$target.split_mrnas.gene2length.ace) cat tmp/METADATA/$target.split_mrnas.gene2length.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+
+
   # if ( $target == RefSeq && -e TARGET/GENES/RefSeq.gene_model.ace) cat  TARGET/GENES/RefSeq.gene_model.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == g4 && -e TARGET/GENES/$target.gene2nm_id.ace) cat  TARGET/GENES/$target.gene2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == g4sp && -e TARGET/GENES/$target.gene2nm_id.ace) cat  TARGET/GENES/$target.gene2nm_id.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1135,7 +1141,7 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if (1) then
+   if (0) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
@@ -3525,9 +3531,19 @@ set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_profile_
 echo -n "### $toto :" > $toto
 date >> $toto
 
+set cap=A1A2I2I3R1R2
+set toto$cap=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$cap.$ln.DEG_nu_profile_stats.txt
+echo -n "### $toto :" > $toto
+date >> $toto
+
 foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*.score.genes.profiles.txt`)
   cat $ff | head -1 >> $toto
   cat $ff | tail -6 >> $toto
+end
+
+foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.$cap.nu.*.score.genes.profiles.txt`)
+  cat $ff | head -1 >> $toto$cap
+  cat $ff | tail -6 >> $toto$cap
 end
 
 set toto=RESULTS/$Expression/unique/av/AECDB_diff.GENE.$ln.DEG_u_profile_stats.txt
@@ -3569,3 +3585,28 @@ date >> $toto2
 cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A1")*index(c,"A2")*index(c,"I2")*index(c,"I3")*index(c,"R1")*index(c,"R2")>0)print;}' > $toto2
 
 
+exit 0
+
+# hack 2022_06_12    pour rattrapper le fait que l'histo des lg des fragments dans bestali avait une erreur ,introduite en juillet 2021 (covid)
+foreach run (`cat toto.bad.runs`)
+  foreach lane (`cat Fastc/$run/LaneList`)
+    scripts/submit tmp/COUNT/$lane.pair_stats_fix "bin/bestali -target_class ET_av -i tmp/COUNT/$lane.hits.gz -run $run -pair 500 -seqc  -strategy RNA_seq -o tmp/COUNT/$lane.fix"
+  end
+end
+
+foreach run (`cat toto.bad.runs`)
+  foreach lane (`cat Fastc/$run/LaneList`)
+    scripts/submit tmp/COUNT/$lane.pair_stats_fix "bin/bestali -target_class ET_av -i tmp/COUNT/$lane.hits.gz -run $run -pair 500 -seqc  -strategy RNA_seq -o tmp/COUNT/$lane.fix"
+  end
+end
+foreach run (`cat toto.bad.runs`)
+  foreach lane (`cat Fastc/$run/LaneList`)
+    cat tmp/COUNT/$lane.pairStats | head -25 > tmp/COUNT/$lane.fix2
+    cat tmp/COUNT/$lane.fix.pairStats | tail -2 >> tmp/COUNT/$lane.fix2
+  end
+end
+foreach run (`cat toto.bad.runs`)
+  foreach lane (`cat Fastc/$run/LaneList`)
+    \mv  tmp/COUNT/$lane.fix2  tmp/COUNT/$lane.pairStats 
+  end
+end

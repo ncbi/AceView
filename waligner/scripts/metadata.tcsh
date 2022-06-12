@@ -432,9 +432,14 @@ end
 ######################################################
 # supplementary information not from .fasta and not from .gtf
 
-if (-e PROBES/hs.av.split_mrnas.txt && ! -e tmp/METADATA/av.split_mrnas.gz) then
-  cp  PROBES/hs.av.split_mrnas.txt tmp/METADATA/av.split_mrnas
-  gzip tmp/METADATA/av.split_mrnas
+if (-e TARGET/GENES/$species.av.split_mrnas.txt && ! -e tmp/METADATA/av.split_mrnas.gz) then
+  cat  TARGET/GENES/$species.av.split_mrnas.txt | gzip > tmp/METADATA/av.split_mrnas.gz
+# find their length
+  cat TARGET/GENES/av.genes2length.ace | gawk '/^Gene/{gsub(/\"/,"",$2);g=$2;}/^Length/{x=$2+0;if(x>0)printf("%s\t%d\n",g,x);}' > _tln
+  echo ZZZZZ >> _tln
+  gunzip -c TARGET/Targets/$species.av.TM.txt.gz ZZZZZ.gz tmp/METADATA/av.split_mrnas.gz >> _tln
+  cat _tln | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){g2l[$1]=$2;next;}}{if(zz==1){split($1,aa,"|");m2l[aa[1]]=$2;next;}}{g=$7;x=0;if($2=="*")x=g2l[$1];if(x==0){a=$3;b=$4;x=b-a;}if(x==0)x=m2l[$2]+0;if(x>0 && x>ln[g]+0)ln[g]=x;}END{for(g in ln)printf("Gene %s\nLength %d\n\n",g,ln[g]);}' > tmp/METADATA/av.split_mrnas.gene2length.ace
+  \rm _tln
 endif
 
 ######################################################
