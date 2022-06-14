@@ -2341,12 +2341,14 @@ static void gxSubsample (GX *gx)
     {
       int iAA = 0 ;
       float zMin ;
+      double z, targetKb = 0 ;
 
       RC *rc = arrayp (gx->runs, run, RC) ;
 
       if (rc->tags < 1000.0 * gx->subsample)
 	continue ;
       zMin = gx->subsample * 1000.0 / rc->tags ;
+      rc->tags = 0 ;
 
       for (iAA = 0 ; iAA < 2 ; iAA++)
 	{
@@ -2361,7 +2363,6 @@ static void gxSubsample (GX *gx)
 	      for (gene = 0, dc = arrp (aa, 0, DC) ; gene < gMax ; dc++, gene++)
 		{
 		  int j = dc->tags, k = 0 ;
-		  double z ;
 
 		  while (j--)
 		    if (randfloat() < zMin)
@@ -2373,9 +2374,17 @@ static void gxSubsample (GX *gx)
 		  gc =  arrp (gx->genes, gene, GC) ; /* make room */
 		  gc->tags = gc->tags - dc->tags + k ;
 		  dc->tags = k ;
+		  rc->tags += dc->tags ;
+		  targetKb += dc->kb ;
 		}
 	    }
 	}
+      z = rc->targetKb > 0 ? targetKb / rc->targetKb : 0 ;
+      rc->targetKb = targetKb ;
+      rc->anyTargetKb *= z ;
+      rc->genomicKb *= z ;
+      rc->intergenicKb *= z ;
+      rc->intergenicDensity *= z ;
     }
   return ;
 } /* gxSubsample */
@@ -3085,7 +3094,7 @@ static float gxComputeOneIndex (int run, int gene, GX *gx, DC *dc, int *isLowp)
       return dc->index - 1000 ;
     }
 
-  if (! isIntron && ! gx->target_class && rc->tags < 100000) 
+  if (! isIntron && ! gx->target_class && rc->tags < 90000)  /* 2022_06 allow 100k, useful for subsampling studies */
     return -999 ;
   if (rc->tags < 1000 && ! gx->target_class) 
     return -999 ;
@@ -9287,6 +9296,12 @@ static int gxExportGeneAceFileSummary (GX *gx, int type)
   if (! gx->isINTRON && ! gx->isTranscript)
     {
       const char *target2 = target ;
+      char subsamp[256] ;
+
+      memset (subsamp, 0, sizeof(subsamp)) ;
+      if (gx->subsample)
+	sprintf (subsamp, "_%dk", gx->subsample) ;
+
       if (gx->captured)
 	target2 = hprintf (h, "%s.%s", target, gx->captured) ;
       
@@ -9297,7 +9312,7 @@ static int gxExportGeneAceFileSummary (GX *gx, int type)
 	    continue ;
 	  if (rc->private == 2)
 	    continue ;
-	  aceOutf (ao, "Ali \"%s\"\n", dictName (gx->runDict, run)) ;
+	  aceOutf (ao, "Ali%s \"%s\"\n", subsamp, dictName (gx->runDict, run)) ;
 	  aceOutf (ao, "Zero_index %s %.1f\nLow_index  %s %.1f\nCross_over_index  %s %.1f\nGenes_touched  %s %d\nGenes_with_index %s  %d\nGenes_with_index_over_10 %s  %d\nGenes_with_index_over_12  %s %d\nGenes_with_index_over_15 %s  %d\nGenes_with_index_over_18  %s %d\n-D High_genes  %s \n"
 		   , target2 , rc->zeroIndex
 		   , target2 , rc->Low_index
@@ -14680,7 +14695,7 @@ int main (int argx, const char **argv)
   gx.exportDiffGenes = getCmdLineBool (&argx, argv, "-exportDiffGenes");
   gx.TGx = getCmdLineBool (&argx, argv, "-TGx");
 
-  gx.subsample = 50000 ;
+  gx.subsample = 20 ;
   getCmdLineInt (&argx, argv, "-subsample", &gx.subsample) ;
   if (gx.subsample && gx.keepIndex)
     messcrash ("Sorry options -subsample a nd -keepIndex are incompatible") ;

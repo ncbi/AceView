@@ -1455,6 +1455,7 @@ endif
 echo "... $phase $target $myace MAGIC=$MAGIC GeneGroup=$GeneGroup"
      set out=$MAGIC$mNam.$targetBeau.$GM$CAPT.$uu
      \rm tmp/GENEINDEX/Results/$out.*
+     \rm RESULTS/Expression/AceFiles/$out.*
      echo "bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg  $refG $rjm $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare" 
            bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg  $refG $rjm  $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare
      if (! -e tmp/GENEINDEX/Results/$out.done) then
@@ -1595,9 +1596,8 @@ mv RESULTS/Expression/unique/$target/ZFAND6.expressio.MRNAH.txt RESULTS/Expressi
 endif
 
 
-  if ($uu == u && ($phase == g4 || $phase == m4H)) then 
+  if (-e RESULTS/Expression/AceFiles/$out.withIndex.ace.gz && $uu == u && ($phase == g4 || $phase == m4H)) then 
        echo "pparse RESULTS/Expression/AceFiles/$out.withIndex.ace.gz" | bin/tacembly MetaDB -no_prompt
-       # echo "pparse          tmp/GENEINDEX/Results/$MAGIC.$targetBeau.$GM.u.withIndex.ace.gz" | bin/tacembly MetaDB -no_prompt
   endif
 
   if (0) then
@@ -3560,6 +3560,11 @@ set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.
 echo -n "### $toto :" > $toto
 date >> $toto
 
+
+
+# gep index min/max et fold change
+cat RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("MiMxFc\t%s\t%s\t%s\t%s\n",$2,$41,$42,$40);}' > $toto.0
+
 date > $toto.1
 foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*AECDB_Profile.score.genes.profiles.txt`)
   cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
@@ -3568,23 +3573,23 @@ date > $toto.2
 foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*ACB_Profile.score.genes.profiles.txt`)
   cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
 end
-cat $toto.[12] |  gawk -F '\t' '{if($5+$6+1 == 0)next;f=$1;ff[f]=1;g=$2;gg[g]=1;ln[g]=$3;cap[g]=$4;g1[g]+=$5;g2[g]+=$6;z1[f,g]=$5;z2[f,g]=$6;}END{nf=split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",") ;printf("#Gene\tLength\tCapture\tSum B>A\tSum A>B\tInconsistent\tSum B>A no capture\tSum A>B no capture");for(i=1;i<=nf;i++)printf("\t%s B>A",ff[i]);for(i=1;i<=nf;i++)printf("\t%s A>B",ff[i]);for(i=1;i<=nf;i++)printf("\t%s inconsistent",ff[i]);for(g in gg){bad="";if(g1[g]*g2[g]>0)bad="Inconsistent";printf("\n%s\t%d\t%s\t%.0f\t%.0f\t%s",g,ln[g],cap[g],g1[g],g2[g],bad);printf("\t%d\t%d",z1[ff[1],g]+z1[ff[2],g],z2[ff[1],g]+z2[ff[2],g]);for(i=1;i<=nf;i++)printf("\t%s",z1[ff[i],g]);for(i=1;i<=nf;i++)printf("\t%s",z2[ff[i],g]);for(i=1;i<=nf;i++){bad="";if(z1[ff[i],g]*z2[ff[i],g]>0)bad="Inconsistent";printf("\t%s",bad);}}printf("\n");}' | sort  >> $toto
-
+cat $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk | sort  >> $toto
+\rm $toto.[012]
 
 set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A2R2I3.txt
 echo -n "### $toto2 :" > $toto2
 date >> $toto2
 
-cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A2")*index(c,"R2")*index(c,"I3")>0)print;}' > $toto2
+cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A2")*index(c,"R2")*index(c,"I3")>0)print;}' >> $toto2
 
 
 set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A1A2I2I3R1R2.txt
 echo -n "### $toto2 :" > $toto2
 date >> $toto2
 
-cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A1")*index(c,"A2")*index(c,"I2")*index(c,"I3")*index(c,"R1")*index(c,"R2")>0)print;}' > $toto2
+cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A1")*index(c,"A2")*index(c,"I2")*index(c,"I3")*index(c,"R1")*index(c,"R2")>0)print;}' >> $toto2
 
-
+echo $toto
 exit 0
 
 # hack 2022_06_12    pour rattrapper le fait que l'histo des lg des fragments dans bestali avait une erreur ,introduite en juillet 2021 (covid)
@@ -3610,3 +3615,5 @@ foreach run (`cat toto.bad.runs`)
     \mv  tmp/COUNT/$lane.fix2  tmp/COUNT/$lane.pairStats 
   end
 end
+
+exit 0

@@ -621,6 +621,7 @@ if ($?MAGIC_jump) then
   if ($MAGIC_jump == 1) goto plusbas
 endif
 
+
 touch MetaDB/$MAGIC/_t
 \rm  MetaDB/$MAGIC/*
 
@@ -2238,17 +2239,19 @@ if ($ok == 1) scripts/submit wait
 
 
 foreach run (`cat MetaDB/$MAGIC/RunList`)
-  if (! -e Fastc/$run/fastc.count) then
+  ls -ls Fastc/$run/fastc.count.ace
+  if (! -e Fastc/$run/fastc.count.ace) then
     cat Fastc/$run/fastc.count | gawk 'BEGIN{minLn=100000000;}/Sequence_kept/{ns+=$2}/Sequence_rejected/{srej+=$2;}/Tags_rejected/{trej+=$2;}/Bases_tags_rejected/{bprej+=$2;}/Exit_adaptor/{nvxt+=$3;nvxbp+=$4}/Entry_adaptor/{nvet+=$3;nvebp+=$4}/Tags_kept/{nt+=$2}/Bases_tags_kept/{nb+=$2}/^Min_probe_length/{if($2<minLn)minLn=$2;}/^Max_probe_length/{if($2>maxLn)maxLn=$2;}/^Max_count/{if($2>maxCnt)maxCnt=$2;}/^Length_distribution/{distrib=$0;}END{if (ns>0){printf("Ali %s\nRun %s\n",run,run) ; printf("Accepted %d Seq %d Tags %.3f kb %.2f bp\n", ns, nt, nb/1000, nb/nt);if(bprej>0)printf("Rejected 0 NA %d Tags %.3f kb\n", trej, bprej/1000);if(nvet>0)printf("Entry_Adaptor_clipping  %d tags %.3f  kb\n",nvet,nvebp/1000);if(nvxt>0)printf("Exit_Adaptor_clipping  %d tags %.3f  kb\n",nvxt,nvxbp/1000);printf("Min_probe_length %d\nMax_probe_length %d\n%s\nMaximal_read_multiplicity %d\n\n",minLn,maxLn,distrib,maxCnt);}}'  run=$run >  Fastc/$run/fastc.count.ace
   endif
+  ls -ls Fastc/$run/fastc.count.ace
   # the older version was called  Fastc/$run/fastc_counts.ace, it did not include the max-multiplicity
   if (-e Fastc/$run/fastc_counts.ace) \rm  Fastc/$run/fastc_counts.ace
 
 
   if (! -e  Fastc/$run/first_line.txt) then
     foreach lane (`head -1 Fastc/$run/LaneList`)
-      if (-e Fastc/$lane.fastc.dz) then
-        gunzip -c Fastc/$lane.fastc.fz | head -1 > Fastc/$run/first_line.txt
+      if (-e Fastc/$lane.fastc.gz) then
+        gunzip -c Fastc/$lane.fastc.gz | head -1 > Fastc/$run/first_line.txt
        endif
      end
   endif
@@ -2271,7 +2274,7 @@ end
 
 # tace -noprompt options implies a save
 echo "pparse toto.ace" | bin/tacembly MetaDB -noprompt
-\rm toto.ace
+#\rm toto.ace
 
 goto phaseLoop
 
