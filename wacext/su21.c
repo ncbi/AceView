@@ -7604,7 +7604,47 @@ static void KasimirOperatorK2 (KAS *kas)
 
 /***********************************************************************************************************************************************/
 
-static void GhostKasimirOperatorXtilde2 (KAS *kas)
+static void GhostKasimirOperatorMinus (KAS *kas)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int d = kas->d ;
+  MX u = kas->mu[4] ;
+  MX v = kas->mu[5] ;
+  MX w = kas->mu[6] ;
+  MX x = kas->mu[7] ;
+
+  MX uv = mxMatMult (u,v, h) ;
+  MX vu = mxMatMult (v,u, h) ;
+  MX wx = mxMatMult (w,x, h) ;
+  MX xw = mxMatMult (x,w, h) ;
+
+  MX p =  mxCreate (kas->h,  "p", MX_INT, d, d, 0) ;
+  MX q =  mxCreate (kas->h,  "q", MX_INT, d, d, 0) ;
+  mxAdd (p, uv, wx, h) ;
+  mxAdd (q, vu, xw, h) ;
+  MX r = mxMatMult (p,q, h) ;
+
+  int zz [d*d], dz = kas->scale * kas->scale ;
+  if (dz)
+    {
+      const int *xx1 = messalloc (d*d*sizeof(int)) ;
+      mxValues (r, &xx1, 0, 0) ;
+      memset (zz, 0, sizeof (zz)) ;
+      int i ;
+      for (i = 0 ; i < d*d ; i++)
+	zz[i] = xx1[i]/dz ;
+      mxSet (r, zz) ;
+    }
+  printf( "Ghost Casimir Minus\n") ;
+  niceShow(r) ;
+  
+  ac_free (h) ;
+  return ;
+} /* GhostKasimirOperatorMinus */
+
+/***********************************************************************************************************************************************/
+
+  static void GhostKasimirOperatorXtilde2 (KAS *kas)
 {
   int i, j, k, l, m1 ;
   int d = kas->d ;
@@ -8210,7 +8250,7 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
   int mx1 = 8 ;
   static BOOL firstPass = TRUE ;
   static BOOL firstPassGhost = TRUE ;
-  BOOL isAdjoint = (kas->NN >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
+  BOOL isAdjoint = (kas->NN >= 0 && kas->a == 1 && kas->b == 1) ? TRUE : FALSE ;
 
   if (isGhost)
     {
@@ -8714,7 +8754,7 @@ static void KasimirOperatorK3 (KAS *kas)
   else if (0 ||  (2*zz[0] - zexpected)*(2*zz[0] - zexpected) < .1)
     printf ("\nSUCCESS Cubic super-Casimir operator KAS3 (a=%d,b=%d) = %f, zexpected= b  * (b - a - 1) * (2*b - a - 1)/2 = %f  = z * %f\n", kas->a, kas->b, zz[0] , zexpected/2, 2*zz[0]/zexpected) ;
   else
-    messcrash ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) z = %f expect b(b-a-1)(2b - a -1)/2 =  %f\n", kas->a, kas->b, zz[0], zexpected/2.0) ;
+    messerror ("\nCubic super-Casimir operator KAS3 (a=%d,b=%d) z = %f expect b(b-a-1)(2b - a -1)/2 =  %f\n", kas->a, kas->b, zz[0], zexpected/2.0) ;
   
   if (kas->show && kas->a<6) niceShow (kas3) ;
 
@@ -8824,6 +8864,7 @@ static void Kasimirs (int a, int b, BOOL show)
   KasimirOperatorK2 (&kas) ;
   GhostKasimirOperatorXtilde2 (&kas) ;
   GhostKasimirOperatorXtilde2New (&kas) ;
+  GhostKasimirOperatorMinus (&kas) ;
   
   if (0) GhostKasimirOperatorXtilde3 (&kas) ;
   if (0) QFTscalar (&kas) ;
@@ -10629,7 +10670,8 @@ static void muInitNMarcuOld (int a, int b, int NN)
   KasimirOperatorK2 (&kasQ) ;
   GhostKasimirOperatorXtilde2 (&kasQ) ;
   GhostKasimirOperatorXtilde2New (&kasQ) ;
-  GhostKasimirOperatorXtilde3 (&kasQ) ;
+  if (0) GhostKasimirOperatorXtilde3 (&kasQ) ;
+  GhostKasimirOperatorMinus (&kasQ) ;
   
   if (0) KasimirOperatorK4 (&kasQ) ;
 
@@ -10668,7 +10710,7 @@ static void muInitNMarcuOld (int a, int b, int NN)
 	  {
 	    KasimirUpperTensor (&kasQ) ;
 	  }
-	if (kasQ.show)
+	if (0 && kasQ.show)
 	  KasimirOperatorK3 (&kasQ) ;
 
   exit(0) ;
@@ -10822,7 +10864,9 @@ static void muInitNMarcu (int a, int b, int NN)
   KasimirOperatorK2 (&kasQ) ;
   GhostKasimirOperatorXtilde2 (&kasQ) ;
   GhostKasimirOperatorXtilde2New (&kasQ) ;
-  GhostKasimirOperatorXtilde3 (&kasQ) ;
+  if (0) GhostKasimirOperatorXtilde3 (&kasQ) ;
+  GhostKasimirOperatorMinus (&kasQ) ;
+
   
   if (0) KasimirOperatorK4 (&kasQ) ;
 
@@ -10861,7 +10905,7 @@ static void muInitNMarcu (int a, int b, int NN)
 	  {
 	    KasimirUpperTensor (&kasQ) ;
 	  }
-	if (kasQ.show)
+	if (0 && kasQ.show)
 	  KasimirOperatorK3 (&kasQ) ;
 
   exit(0) ;
@@ -11086,7 +11130,8 @@ static void marcuCycle (int nn, int a, int b)
   KasimirOperatorK2 (kas) ;
   GhostKasimirOperatorXtilde2 (kas) ;
   GhostKasimirOperatorXtilde2New (kas) ;
-  GhostKasimirOperatorXtilde3 (kas) ;
+  GhostKasimirOperatorMinus (kas) ;
+ if (0)  GhostKasimirOperatorXtilde3 (kas) ;
   exit (0) ;
   return ;
 }
