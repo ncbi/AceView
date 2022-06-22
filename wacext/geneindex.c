@@ -58,7 +58,7 @@ typedef struct compareStruct {
 typedef struct rcStruct { 
   int run, runid, sample, machine, title, otherTitle, sortingTitle, sortingTitle2, nRuns ; 
   int Genes_with_index,  Genes_with_reliable_index,  Genes_with_one_reliable_index, Genes_with_index_over_8, Genes_with_index_over_10, Genes_with_index_over_12, Genes_with_index_over_15, Genes_with_index_over_18 ;
-  double Low_index, zeroIndex, NA_crossover_index, seqs, tags, genomicKb, intergenicKb, intergenicDensity, targetKb, prunedTargetKb, bigGenesKb, anyTargetKb, X2, alpha, beta1, beta2, fineTune ; 
+  double Low_index, zeroIndex, NA_crossover_index, seqs, tags, geneTags, genomicKb, intergenicKb, intergenicDensity, targetKb, prunedTargetKb, bigGenesKb, anyTargetKb, X2, alpha, beta1, beta2, fineTune ; 
   Array aa, daa, aag, antiAa ;
   KEYSET runs, compare_to, titration ;
   Array bigGenes ;
@@ -1025,7 +1025,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  if (ccp && strncmp (ccp, "G_Any_", 6))
 	    {
 	      char *cr ;
-	      if (! strcmp (ccp, "MIF(SLC2A11andMIF)"))
+	      if (0 && ! strcmp (ccp, "MIF(SLC2A11andMIF)"))
 		invokeDebugger() ;
 	      if (gx->maskDict &&  dictFind (gx->maskDict, ccp, 0))
 		continue ;
@@ -1088,6 +1088,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  dc->seqs += tags ;
 	  dc->tags += tags ;
 	  gc->tags += tags ;
+	  rc->geneTags += tags ;
 	  gc->isGood = TRUE ;
 	  if (tags && ! kb) kb = tags/10.0 ; /* assume length = 100bp */
 	  dc->kb += tags ;
@@ -1222,6 +1223,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  dc->seqs += seqs ;
 	  dc->tags += tags ;
 	  gc->tags += tags ;
+	  rc->geneTags += tags ;
 	  gc->isGood = TRUE ;
 	  if (tags && ! kb) kb = tags/50.0 ; /* assume length = 20bp */
 	  dc->kb += kb ;
@@ -2341,14 +2343,25 @@ static void gxSubsample (GX *gx)
     {
       int iAA = 0 ;
       float zMin ;
-      double z, targetKb = 0 ;
+      double z, targetKb = 0, oldTags ;
 
       RC *rc = arrayp (gx->runs, run, RC) ;
 
-      if (rc->tags < 1000.0 * gx->subsample)
-	continue ;
-      zMin = gx->subsample * 1000.0 / rc->tags ;
-      rc->tags = 0 ;
+      if (rc->geneTags < 1000.0 * gx->subsample)
+	{
+	  if (0)
+	    {
+	      int n = rc->aa ? arrayMax (rc->aa) : 0 ;
+	      rc->tags = rc->seqs = rc->targetKb = 1 ;
+	      if (n)
+		rc->aa = arrayCreate (n, DC) ;
+	    }
+	  if (0) fprintf (stderr, "#SUBSAMPLING %d %s %.0f %.0f  keep\n", gx->subsample, dictName (gx->runDict, run), rc->tags, rc->geneTags) ;
+	  continue ;
+	}
+      zMin = gx->subsample * 1000.0 / rc->geneTags ;
+      oldTags = rc->geneTags ;
+      rc->geneTags = 0 ;
 
       for (iAA = 0 ; iAA < 2 ; iAA++)
 	{
@@ -2374,11 +2387,12 @@ static void gxSubsample (GX *gx)
 		  gc =  arrp (gx->genes, gene, GC) ; /* make room */
 		  gc->tags = gc->tags - dc->tags + k ;
 		  dc->tags = k ;
-		  rc->tags += dc->tags ;
+		  rc->geneTags += dc->tags ;
 		  targetKb += dc->kb ;
 		}
 	    }
 	}
+      if (0) fprintf (stderr, "#SUBSAMPLING %d %s %.0f %.0f %.0f\n", gx->subsample, dictName (gx->runDict, run), rc->tags, oldTags, rc->geneTags) ;
       z = rc->targetKb > 0 ? targetKb / rc->targetKb : 0 ;
       rc->targetKb = targetKb ;
       rc->anyTargetKb *= z ;
@@ -2386,6 +2400,7 @@ static void gxSubsample (GX *gx)
       rc->intergenicKb *= z ;
       rc->intergenicDensity *= z ;
     }
+
   return ;
 } /* gxSubsample */
 
@@ -2727,7 +2742,7 @@ static void gxGroupCumul (GX *gx, RC *rc, int myGene)
       rc->nRuns = keySetMax (rc->runs) ;
       if (gx->isMA) rc->isMA = gx->isMA ;
       aa = rc->aa ; daa = rc->daa ; antiAa = rc->antiAa ;
-      rc->seqs = rc->tags = rc->prunedTargetKb = 0 ; 
+      rc->seqs = rc->tags = rc->geneTags = rc->prunedTargetKb = 0 ; 
       rc->genomicKb = rc->intergenicKb = rc->targetKb = rc->anyTargetKb = 0 ;
       rc->Genes_with_one_reliable_index = 0 ;
       rc->PolyA_selected_RNA = rc->accessibleLength = 0 ;
@@ -2783,6 +2798,7 @@ static void gxGroupCumul (GX *gx, RC *rc, int myGene)
 	  rc->intergenicKb += rc2->intergenicKb ;
 	  rc->seqs += rc2->seqs ;
 	  rc->tags += rc2->tags ;
+	  rc->geneTags += rc2->geneTags ;
 	  rc->prunedTargetKb += rc2->prunedTargetKb ;
 	  rc->bigGenesKb += rc2->bigGenesKb ;
 	  PolyA_selected_RNA += rc2->PolyA_selected_RNA ;
@@ -8674,13 +8690,13 @@ static void gxExportTableHeader  (GX *gx, ACEOUT ao, int type)
 	  if (! gx->keepIndex)
 	    {
 	      char *MB = (gx->isINTRON ? "Junction support" : "MB") ;
-	      gxExportTableHeaderLegend (gx, ao, hprintf (h, "%s aligned in this run, including non-unique" , MB), type) ;
+	      gxExportTableHeaderLegend (gx, ao, hprintf (h, "%s aligned in this run, including non-unique" , "reads"), type) ;
 	      for (run = 1, rc = arrayp (gx->runs, run, RC); run < runMax ; rc++, run++) 
 		{
 		  if (rc->private || ! rc->aa || (type == 3 && run > 1 && ! rc->runs) || (type == 5 && ! rc->selectedVariance)) continue ;
 		  for (iDoubleTitle = 0 ; iDoubleTitle < doubleTitle ; iDoubleTitle++)
 		    {
-		      aceOutf (ao, "\t%.1f", rc->anyTargetKb/1000 ) ;
+		      aceOutf (ao, "\t%.0f", rc->tags ) ;
 		    }
 		}
 
@@ -14695,8 +14711,24 @@ int main (int argx, const char **argv)
   gx.exportDiffGenes = getCmdLineBool (&argx, argv, "-exportDiffGenes");
   gx.TGx = getCmdLineBool (&argx, argv, "-TGx");
 
-  gx.subsample = 20 ;
-  getCmdLineInt (&argx, argv, "-subsample", &gx.subsample) ;
+  gx.subsample = 0 ;
+  if (1)
+    {
+      const char *ssBuf = 0 ;
+      if (getCmdLineOption (&argx, argv, "-subsample", &ssBuf))
+	{
+	  char cc = 0 ;
+	  sscanf (ssBuf, "%d%c", &gx.subsample, &cc) ;
+	  switch ((int)cc)
+	    {
+	    case 'k' : break ;
+	    case 'M' : gx.subsample *= 1000 ; break ;
+	    case 'G' : gx.subsample *= 1000000 ; break ;
+	    default: usage ("-subsample xx requires <int>[kMG]\n") ; break ;
+	    }
+	}
+      fprintf (stderr , "sub=%d\n", gx.subsample) ;
+    }
   if (gx.subsample && gx.keepIndex)
     messcrash ("Sorry options -subsample a nd -keepIndex are incompatible") ;
 

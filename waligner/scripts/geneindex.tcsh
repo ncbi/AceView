@@ -914,18 +914,24 @@ phaseii4:
 set ok=1
 
   set chrom=$SNPCHROM
-  if (! -e tmp/INTRON_DB/$chrom/d5.introns.final.ace) then
+  if ($chrom == "") then
+    echo "Missing parameter chrom in call to : genetindex.tcsh ii4 chrom"
+    exit 1
+  endif
+  # if (! -e tmp/INTRON_DB/$chrom/d5.introns.final.ace) echo xxx
   if (! -d tmp/INTRON_DB) mkdir tmp/INTRON_DB
-  if (! -d tmp/INTRON_DB/$chrom) then
+
+  if (! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.done) then
    echo hello $chrom
     mkdir tmp/INTRON_DB/$chrom 
     scripts/submit tmp/INTRON_DB/$chrom/d5 "scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom"
     set ok=0
   endif
 
+
 if ($ok == 0) goto phaseLoop
 
-#goto phaseLoop
+# goto phaseLoop
 
 # g4sp expression based on sponge file is not yet written as of 2019_10_14
 phaseg4sp:
@@ -947,7 +953,11 @@ phaseSF31B:
 
 if ($mySeaLevel != "") goto justRunG4
 
+echo LALALA0========A
+
 bin/bestali -checkGroupHierarchy -project $MAGIC -db MetaDB
+
+echo LALALA0========B
 
 if (! -d RESULTS/Expression)  mkdir RESULTS/Expression
 if (! -d RESULTS/Expression/unique) mkdir RESULTS/Expression/unique
@@ -956,6 +966,8 @@ if (! -d RESULTS/Expression/ERCC) mkdir RESULTS/Expression/ERCC
 if (! -d RESULTS/Expression/unique/Mitochondria) mkdir RESULTS/Expression/unique/Mitochondria
 if (! -d RESULTS/Expression/quasi_unique/Mitochondria) mkdir RESULTS/Expression/quasi_unique/Mitochondria
 if (! -d tmp/GENEINDEX/Results) mkdir tmp/GENEINDEX/Results
+
+echo LALALA0========C
 
 # one may wih to use -minIndex 10
 # av RefSeq seqc SpikeIn
@@ -1006,7 +1018,9 @@ foreach target ($Etargets introns snp $other_targets)
   echo -n "phase $phase : geneindex export table and correlation analysis: $target "
   date
 
-if ($mySeaLevel == "") then
+echo LALALA0==================
+
+# if ($mySeaLevel == "") 
 
 set ok=1
 if (1) then
@@ -1021,8 +1035,9 @@ if (1) then
   if ($phase == m4)   set GM=MRNA
   if ($phase == m4H)  set GM=MRNAH
   if ($phase == ii4)  set GM=INTRON
-  if ($phase =~ SF*)  set GM=$phase
+  if ($phase =~ SF* )  set GM=$phase
 
+echo LALALA0==================+++
   echo  "phase $phase : geneindex export table and correlation analysis: $target GM=$GM"
 
 # export the runs and groups
@@ -1031,13 +1046,16 @@ if (1) then
   cat MetaDB/$MAGIC/compares.ace  >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 # export the sea level
-set chrom=""
+  set chrom=""
   if ($phase == ii4) set chrom=$SNPCHROM
   if ($phase != ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Intergenic/{print}/^Accessible_length/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Candidate_introns any/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+echo LALALA1====================++99
   if ($phase == ii4 && -e tmp/METADATA/$MAGIC.av.captured_genes.ace) cat tmp/METADATA/$MAGIC.av.captured_genes.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if ($phase == ii4) scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom
   if ($phase == ii4) cat tmp/INTRON_DB/$chrom/d5.info.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+
+echo LALALA1====================
 
 # export the general METADATA.ace
   if (($GM == GENE || $GM == GENESP || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1096,7 +1114,10 @@ set chrom=""
 
 
 endif
-endif
+
+echo LALALA2
+
+
 if ($SNPCHROM == 000) exit 0
 if ($ok == 0) continue
 
@@ -3514,84 +3535,6 @@ cat toto81 | gawk -F '\t' '/A>G/{next;}{k++;if(k%1)next;}/>/{x=$8;if($7<.4)x=0;i
 
 exit 0
 
-# 27 mai 2022, global statistiques
-subsampling:
-
-# $2 should be 1M or 3M or normal
-set Expression=Expression.normal
-set Expression=Expression.$2
-if (! -d RESULTS/$Expression) then
-  echo "$Expression should be "
-  ls -d RESULTS/Expression* 
-  exit 1
-endif
-set ln=geneBox_length
-set ln=mRNA_length
-set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_profile_stats.txt
-echo -n "### $toto :" > $toto
-date >> $toto
-
-set cap=A1A2I2I3R1R2
-set toto$cap=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$cap.$ln.DEG_nu_profile_stats.txt
-echo -n "### $toto :" > $toto
-date >> $toto
-
-foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*.score.genes.profiles.txt`)
-  cat $ff | head -1 >> $toto
-  cat $ff | tail -6 >> $toto
-end
-
-foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.$cap.nu.*.score.genes.profiles.txt`)
-  cat $ff | head -1 >> $toto$cap
-  cat $ff | tail -6 >> $toto$cap
-end
-
-set toto=RESULTS/$Expression/unique/av/AECDB_diff.GENE.$ln.DEG_u_profile_stats.txt
-echo -n "### $toto :" > $toto
-date >> $toto
-
-foreach ff (`ls  RESULTS/$Expression/unique/av/AECDB_diff.AceView.GENE.u.*.score.genes.profiles.txt`)
-  cat $ff | head -1 >> $toto
-  cat $ff | tail -6 >> $toto
-end
-
-set ln=mRNA_length
-set toto=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.txt
-echo -n "### $toto :" > $toto
-date >> $toto
-
-
-
-# gep index min/max et fold change
-cat RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("MiMxFc\t%s\t%s\t%s\t%s\n",$2,$41,$42,$40);}' > $toto.0
-
-date > $toto.1
-foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*AECDB_Profile.score.genes.profiles.txt`)
-  cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
-end
-date > $toto.2
-foreach ff (`ls  RESULTS/$Expression/quasi_unique/av/AECDB_diff.AceView.GENE.nu.*ACB_Profile.score.genes.profiles.txt`)
-  cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/quasi_unique\/av\/AECDB_diff.AceView.GENE.nu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
-end
-cat $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk | sort  >> $toto
-\rm $toto.[012]
-
-set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A2R2I3.txt
-echo -n "### $toto2 :" > $toto2
-date >> $toto2
-
-cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A2")*index(c,"R2")*index(c,"I3")>0)print;}' >> $toto2
-
-
-set toto2=RESULTS/$Expression/quasi_unique/av/AECDB_diff.GENE.$ln.DEG_nu_heatmap.A1A2I2I3R1R2.txt
-echo -n "### $toto2 :" > $toto2
-date >> $toto2
-
-cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A1")*index(c,"A2")*index(c,"I2")*index(c,"I3")*index(c,"R1")*index(c,"R2")>0)print;}' >> $toto2
-
-echo $toto
-exit 0
-
 # hack 2022_06_12    pour rattrapper le fait que l'histo des lg des fragments dans bestali avait une erreur ,introduite en juillet 2021 (covid)
 foreach run (`cat toto.bad.runs`)
   foreach lane (`cat Fastc/$run/LaneList`)
@@ -3616,4 +3559,22 @@ foreach run (`cat toto.bad.runs`)
   end
 end
 
+
+
+
 exit 0
+
+# analyse des ali de type -2, pour voir la distance sur le genome
+# dans pacbio on pense que c'est peut etre une fausse interpretation de la strand dans la boucle de sequencage
+
+# en fait l'immense majorite represente deux reads aligne a la meme position x1,x2, donc deux annotations antisense avec un sequencage non-strande
+
+set run=PacBio2.ccs3_AGLR2_A-F1_run1
+zcat tmp/COUNT/$run/f2.*.hits.gz | gawk -F '\t' '/ET_av/{if ( $10 == -2 ) { gsub("<",">",$1) ; }' | cut -f 1,6,7,9 > toto1
+cat toto1 | gawk -F '\t' '{if($1!=r){aa=$0;r=$1;x1=$2;x2=$3;g1=$4;next;}if(x1==$2 && x2==$3)next;print aa;print}' > toto2
+cat toto1 | gawk -F '\t' '{if($1!=r){aa=$0;r=$1;x1=$2;x2=$3;g1=$4;next;}if(x1==$2 && x2==$3)next;print aa;print}' > toto2
+cat toto1 | gawk -F '\t' '{if($1!=r){aa=$0;r=$1;x1=$2;x2=$3;g1=$4;next;}if(x1==$2 && x2==$3)next;if(g1=="MALAT1" || $4=="MALAT1")print aa;print}' > toto3
+wc toto[123]
+cat toto2 | cut -f 4 | tags | sort -k 2nr | head -12
+
+

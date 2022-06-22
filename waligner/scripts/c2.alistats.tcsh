@@ -76,15 +76,16 @@ echo "report the CPU and RAM"
 ## h_Ali, nh_Ali,  stranding, multiplicity
 
 # hits per prefix
+set prefix=f2
 if (-e $toto.hits1) \rm $toto.hits1
-foreach prefix (f f1 f2 f3)
-  set n=`grep -c /${prefix}\\. Fastc/$run/LaneList`
-  if ($n == 0)  continue 
+
   # create a non empty $toto.txt
   echo 'toto' > $toto.txt
-  cat tmp/$MAGIC_COUNT_DIR/$run/$prefix.*.count | gawk  -F '\t' '/^#/{next}/^$/{next}{printf("%s\t",run);print}' run=$run > $toto.txt
+  foreach lane (`cat Fastc/$run/LaneList`)
+    cat tmp/$MAGIC_COUNT_DIR/$lane.count | gawk  -F '\t' '/^#/{next}/^$/{next}{printf("%s\t",run);print}' run=$run >> $toto.txt
+  end
   cat  $toto.txt | gawk -F '\t' '/HITS/{z= $1 "\t" $3 "." prefix  ; if (t[z]<1){t[z]=1;nt++;t2z[nt]=z;z2t[z]=nt;}it=z2t[z];if(imax<NF)imax=NF;for (i=5;i<=NF;i++)nn[it,i]+=$i;}END{for(it=1;it<=nt;it++){printf("\n%s",t2z[it]);for (i=5;i<=imax;i++)printf("\t%d",nn[it,i]);}printf("\n");}' prefix=$prefix  >> $toto.hits1
-end
+
 sort  $toto.hits1 >  $toto.hits
 cat $toto.hits |  gawk -F '\t' '{z = $1  ; if($3<1)next;  n=$4+$5; namb = $6 ; if (n && $2 != "ZZZ0_SpikeIn") printf ("Stranding %s %.3f  %d plus %d minus %d ambiguous\n", $2, 100 * $4/n, $4, $5, namb); }'  >>  $toto.ace
 

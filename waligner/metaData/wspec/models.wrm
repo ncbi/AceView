@@ -296,7 +296,7 @@
            nh_median  ?Target  UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text    // Seq Tag kb bp
            nh_average  ?Target  UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text    // Seq Tag kb bp
            nh_sigma  ?Target  UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text   UNIQUE Float  UNIQUE Text UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text    // Seq Tag kb bp
-      Unicity ?Target  UNIQUE Float REPEAT
+      Unicity ?Target  UNIQUE Float REPEAT  // -2 ambiguous, -3 ambiguous but not at overlapping positions on the read
       Small_RNA Clipped_multiplicity UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text
                 Preclipped_length Int UNIQUE Float
                 High_short Text UNIQUE Int

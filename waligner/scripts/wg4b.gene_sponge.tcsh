@@ -113,7 +113,7 @@ foreach capture ($CAPTURES)
   foreach level (`seq 1 1 $groupLevelMax`)
     set okk=0
     foreach group (`cat MetaDB/$MAGIC/GroupList`)
-      cat MetaDB/$MAGIC/g2r ZZZZZ $capture.capture_ali.count | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){if($1 == g)rr[$2]=1;next;}}{if(rr[$1]==1){bp+=$2;nr+=$4;}}END{printf("%s\t%.2f\tkb\t%d\treads\n", g,bp,nr);}' g=$group > $toto.1
+      cat MetaDB/$MAGIC/g2r ZZZZZ $toto | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){if($1 == g)rr[$2]=1;next;}}{if(rr[$1]==1){bp+=$2;nr+=$4;}}END{printf("%s\t%.2f\tkb\t%d\treads\n", g,bp,nr);}' g=$group > $toto.1
       cat $toto >> $toto.1
       cat $toto.1 | sort -u > $toto
       \rm $toto.1

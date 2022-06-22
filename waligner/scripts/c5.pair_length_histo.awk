@@ -22,7 +22,7 @@
 /^Insert_length_in_pairs/ { 
   z=$2 ; r = r2i[z] ;  if(r<1) next ;
   if(good[r]==1) ok[r] = 1 ;
-  for (i = 3 + 4 ; i <= NF  ; i++)
+  for (i = 20 ; i <= NF  ; i++) # jump the error codes 14 and so on
     {
       # smooth using Pascal coeff 
       z = $i ; 

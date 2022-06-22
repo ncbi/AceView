@@ -6194,7 +6194,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
   Array amv_tag = arrayHandleCreate (1000, Array, h) ;
   Array amv_kb = arrayHandleCreate (1000, Array, h) ;
   Array amv_bp = arrayHandleCreate (1000, Array, h) ;
-  Array unic[12] ; 
+  Array unic[13] ; 
   AC_HANDLE amv_h = 0 ;
   Array compatibleArray =  arrayHandleCreate (50, float, h) ;
   Array orphanArray =  arrayHandleCreate (50, float, h) ;
@@ -6203,7 +6203,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
   Array spongeArray =  arrayHandleCreate (50, float, h) ;
 
   dictAdd (errTypeDict, "Any", 0) ;
-  for (iu = 0 ; iu < 12 ; iu++)
+  for (iu = 0 ; iu < 13 ; iu++)
     unic[iu] = arrayHandleCreate (20, float, h) ;
   
   ks = arrayHandleCreate (1000, float, h) ;
@@ -6361,7 +6361,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
       compatibleArray = arrayReCreate (compatibleArray, 30, float) ;
       orphanArray = arrayReCreate (orphanArray, 30, float) ;
 
-      for (iu = 0 ; iu < 12 ; iu++)
+      for (iu = 0 ; iu < 13 ; iu++)
 	unic[iu] = arrayReCreate (unic[iu], 20, float) ;
       /* this is not good enough, in case of intersection and minus we must navigate back to the runs */
       myquery2 = hprintf (h, "{> union_of} SETOR {> sublibraries} ; project == \"%s\" ", ba->project ? ba->project : "*") ;
@@ -6908,7 +6908,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		  cpp2 = ac_table_printable (let, kr, 0, "Number_of_targets") ;
 		  if (! strcmp (cpp2, "Number_of_targets")) continue ;
 		  dictAdd (targetDict, cpp2, &n) ;
-		  for (iu = 0 ; iu < 12 ; iu++)
+		  for (iu = 0 ; iu < 13 ; iu++)
 		    array (unic[iu], n, float) += ac_table_float (let, kr, iu, 0) ;
 		}
 	    }
@@ -7266,7 +7266,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 	      if (x >= 1)
 		vtxtPrintf (txt, "\nMax_memory %s %d Mb", dictName (targetDict, n), (int)array (maxmem, n,float)) ;
 	    } 
-	  vtxtPrintf (txt, "\nUnicity Number_of_targets 1 2 3 4 5 6 7 8 9 10 -2") ;
+	  vtxtPrintf (txt, "\nUnicity Number_of_targets 1 2 3 4 5 6 7 8 9 10 -2 -3") ;
 	  for (n = 0 ; n < arrayMax (unic[1]) ; n++)
 	    {
 	      double x  =  array (unic[1], n, float) ;
@@ -7275,7 +7275,7 @@ static int baGroupLetterProfileByLevel (BA *ba, int groupLevel)
 		  if (strcmp (dictName (targetDict, n), "Target")) /* bug in previous code layer, dismiss */
 		    {
 		      vtxtPrintf (txt, "\nUnicity %s", dictName (targetDict, n)) ;
-		      for (iu = 1 ; iu < 12 ; iu++)
+		      for (iu = 1 ; iu < 13 ; iu++)
 			vtxtPrintf (txt, "  %g", array (unic[iu], n, float)) ;
 		    }
 		}
@@ -9653,7 +9653,7 @@ int main (int argc, const char **argv)
       if (! ba.db)
 	messcrash ("-groupLetterProfile requires -db dbName, cannot open the acedb database, sorry: %s", errors ? errors : "") ;
       baGroupLetterProfile (&ba) ;  /* 2016_03_24: recurse through group levels; 2014_08_24, use a sigle pass{ >runs} SETOR {>subgroup;>runs} */
-      baSetStrand (&ba) ;
+      if (0) baSetStrand (&ba) ; /* obsolete */
       if (ba.addQualityFactors)
 	baAddQualityFactors (&ba) ;
    }

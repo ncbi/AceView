@@ -853,13 +853,15 @@ cat  MetaDB/$MAGIC/gtitle.pretxt | gawk -F '\t' '{printf("%s",$1);for (i=2;i<=NF
 # cat  MetaDB/$MAGIC/g2r.pre | gawk '/^"/{gsub (/\"/,"",$0);printf ("%s\t%s\n",$1,$3);}' | grep -v NULL | $tab_sort -u | gawk '/^\//{next;}{if($2!="")print;}' > MetaDB/$MAGIC/r2sublib
 # create the group<->runs correspondance 
 # cat  MetaDB/$MAGIC/g2r.pre | gawk '/^"/{gsub (/\"/,"",$0);printf ("%s\t%s\t%s\n",$1,$2,$4);}' | grep -v NULL | $tab_sort -u | gawk '/^\//{next;}{if($2!="")print;}' > MetaDB/$MAGIC/g2r
+touch MetaDB/$MAGIC/g2r MetaDB/$MAGIC/r2sublib 
 
 ## clean up the lists (acedb exports "" around the names)
 foreach ff (Run Runs RunNoCount Group GroupDeDuo GroupSnp  GroupAdditive GroupSnpAdditive GroupWiggle GroupW_stranded  GroupW_new_exon GroupGene_element_index RunRna RunNonStranded RunForward RunReverse RunSolid RunNanopore RunPacBio RunSingleIndividual RunPaired RunSnp RunSmallRna RunPrivate RunPublic RunSequin RunWiggle GroupVariance GroupIntron RunsIntron GroupTransloc UcscWiggle RunHasSubLib RunSublibrary_of RunWithKnownAdaptors)
 # create even the empty lists, because most scrits/* use constructs like
 # cat XxxList, is XxxList is missing, there would be an error and since we execute  tcsh -e, the whole script would fail
-  touch  MetaDB/$MAGIC/$ff.list
-  cat MetaDB/$MAGIC/$ff.list | gawk '/^Run/{gsub (/\\\//,"/",$2); gsub (/\"/,"",$2); print $2 ; }'  > MetaDB/$MAGIC/$ff'List'
+  touch  MetaDB/$MAGIC/$ff.list 
+  cat MetaDB/$MAGIC/$ff.list | gawk '/^Run/{gsub (/\\\//,"/",$2); gsub (/\"/,"",$2); print $2 ; }'  > MetaDB/$MAGIC/$ff'List' 
+  touch MetaDB/$MAGIC/$ff'List'
   \rm MetaDB/$MAGIC/$ff.list
 end 
 
@@ -1424,7 +1426,7 @@ echo '   wpA: Export the polyA wiggle'
 echo '   wmito1: Export the mito/ERCC  Wiggle per lane'
 echo '   wmito2: Consolidate the mito wiggles per manip'
 echo '   wmitopA1: Export the mito polyA Wiggle '
-echo '   wmitopA2: Centrelize the mito polyA Wiggle '
+echo '   wmitopA2: Centralize the mito polyA Wiggle '
 
 echo '   mi1: small RNA, identify the adaptors (alias of a0W)'
 echo '   mi2: small RNA, collate the adaptors (alias of a1W)'
@@ -7589,7 +7591,7 @@ echo $toto
 
 
 echo  "Position of the ambiguous bases, N or error corrected transitions in SOLiD, in read coordinates at their best unique alignment in $MAGIC" >> $toto
-cat MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Ambiguous_position.txt | gawk  -F '\t' -f scripts/c4.Error_position.awk | sed -e 's/_/ /g' >> $toto
+cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Ambiguous_position.txt | gawk  -F '\t' -f scripts/c4.Error_position.awk | sed -e 's/_/ /g' >> $toto
 
 \cp $toto RESULTS/Mismatches
 
@@ -7607,7 +7609,7 @@ set mytitle="Distribution of mismatches in best unique alignment in $MAGIC"
   echo -n "# $toto : " > $toto
   date >> $toto
 
-cat MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ  tmp/$MAGIC_COUNT_DIR/toto.c4.Error_type.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Cumulated_ambiguous.txt | gawk  -F '\t' -f scripts/c4.Error_type.awk mydate="$mydate" mytitle="$mytitle" | sed -e 's/_/ /g' >> $toto
+cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ  tmp/$MAGIC_COUNT_DIR/toto.c4.Error_type.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Cumulated_ambiguous.txt | gawk  -F '\t' -f scripts/c4.Error_type.awk mydate="$mydate" mytitle="$mytitle" | sed -e 's/_/ /g' >> $toto
 
 set n=`cat MetaDB/$MAGIC/RunList | gawk '{n++}END{print n}'`
 if ($n>200) then
@@ -7643,7 +7645,7 @@ aligned length on this imperfect but useful target.
 EOF
 endif
 
-  cat MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.av_ali.txt | gawk  -F '\t' -f scripts/c4.av_ali.awk | sed -e 's/_/ /g' >> $toto
+  cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.av_ali.txt | gawk  -F '\t' -f scripts/c4.av_ali.awk | sed -e 's/_/ /g' >> $toto
 
   \cp $toto RESULTS/Mapping
 endif
@@ -7664,7 +7666,7 @@ echo >> $toto
 
 echo  "Number of reads with exactly 1 to $maxHit alignments on best target at best score in $MAGIC" >> $toto
 echo  "Reads with $maxHit or more best alignments are discarded" >> $toto
-cat MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_any.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.any.txt | gawk  -F '\t' -f scripts/c4.unicity.awk  type=site tt="in best target" | sed -e 's/_/ /g' >> $toto
+cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_any.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.any.txt | gawk  -F '\t' -f scripts/c4.unicity.awk  type=site tt="in best target" | sed -e 's/_/ /g' >> $toto
 
 \cp $toto RESULTS/Mapping
 
@@ -7679,7 +7681,7 @@ echo >> $toto
 set n="NA" ;
 echo  "Number of reads with exactly 1 to 9 alignments on the genome at best score in $MAGIC" >> $toto
 echo  "Reads with 10 or more best alignments are discarded" >> $toto
-cat   MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_genome.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.genome.txt | gawk  -F '\t' -f scripts/c4.unicity.awk type=site  tt="in genome" | sed -e 's/_/ /g' >> $toto
+cat   MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_genome.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.genome.txt | gawk  -F '\t' -f scripts/c4.unicity.awk type=site  tt="in genome" | sed -e 's/_/ /g' >> $toto
 
   endif
 end
@@ -7694,29 +7696,12 @@ echo >> $toto
 
 echo  "Number of reads with exactly 1 to 9 alignments on AceView transcripts at best score in $MAGIC" >> $toto
 echo  "Reads with 10 or more best alignments are discarded" >> $toto
-cat  MetaDB/$MAGIC/GroupListSortedMetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_av.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.av.txt | gawk  -F '\t' -f scripts/c4.unicity.awk  type=gene  tt="in aceview" | sed -e 's/_/ /g' >> $toto
+cat  MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.h_Ali_av.txt  ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Rejected.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.Unicity.av.txt | gawk  -F '\t' -f scripts/c4.unicity.awk  type=gene  tt="in aceview" | sed -e 's/_/ /g' >> $toto
 
   endif
 end
 
 \cp $toto RESULTS/Mapping
-
-if (0) then
-
-# 2011_06_06
-# Histogram of length in different targets, 
-# we used to adjust -minAli, hance 35 in Amish exome chosen on decoy in Ghs103
-  set toto = tmp/$MAGIC_COUNT_DIR/$MAGIC.Ghs103.ali_target.histo.txt
-  echo $toto
-  echo -n "# $toto : " > $toto
-  date >> $toto
-
-  echo "Histogram of length aligned on the different targets" >> $toto
-gunzip -c tmp/$MAGIC_COUNT_DIR/Ghs103/f.*.hits.gz | gawk -F '\t' '{c=$8;a=0+$5;m=0+$3;if(a>amax)amax=a;cc[c]=1;ca[c,a]+=m;ct[c]+=m;if(0)printf("####%s=%d=%s\n",c,a,ca[c,a]);}END{printf("ali");for(c in cc)printf("\t%s",c);for(c in cc)printf("\t%s",c);for(a=1;a<=amax;a++){printf("\n%d",a);for(c in cc)printf("\t%d",ca[c,a]);for(c in cc)printf("\t%.1f",100*ca[c,a]/ct[c]);}printf("\nTotal");for(c in cc)printf("\t%d",ct[c]);for(c in cc)printf("\t100");printf("\n");}' >> $toto
-  \cp $toto RESULTS
-
-endif
-
 
 # export a nice document 
 
@@ -7730,7 +7715,7 @@ echo  "This measures the frequency of errors in the first and last few bases" >>
 echo  "as any mismatch closer than 8 bases in RNA-seq or 4 in Genome seq from the edges"  >> $toto
 echo  "of the alignment is clipped." >> $toto
 
-cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.first_base.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.last_base.txt | gawk -f scripts/c4.first_last_base.awk | sed -e 's/_/ /g' >> $toto
+cat MetaDB/$MAGIC/GroupListSorted MetaDB/$MAGIC/RunsListSorted ZZZZZ MetaDB/$MAGIC/gtitle.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.first_base.txt ZZZZZ tmp/$MAGIC_COUNT_DIR/toto.c4.last_base.txt | gawk -f scripts/c4.first_last_base.awk | sed -e 's/_/ /g' >> $toto
 
 \cp $toto RESULTS/Mapping
 
@@ -7894,13 +7879,28 @@ if (0 && -d tmp/ALIa) then
   \cp $toto RESULTS
 endif
 
+if (! -d tmp/Profiles) mkdir tmp/Profiles
 if (-d tmp/$MAGIC_COUNT_DIR) then
   set toto=tmp/$MAGIC_COUNT_DIR/$MAGIC.insert_size_from_pairs.Histo.txt
   echo toto > $toto.1
   foreach run (`cat MetaDB/$MAGIC/RunListSorted`)
     foreach run2 (`cat MetaDB/$MAGIC/RunPairedList`)
-      if ($run == $run2 && -e tmp/$MAGIC_COUNT_DIR/$run/runPairHisto.txt) then
-        cat tmp/$MAGIC_COUNT_DIR/$run/runPairHisto.txt  | sed -e 's/\tNULL/\t/g' >> $toto.1
+      if ($run != $run2) continue
+      if (! -d tmp/Profiles/$run)  mkdir tmp/Profiles/$run
+      if (! -e tmp/Profiles/$run/runPairHisto.txt) then
+        if (-e tmp/$MAGIC_COUNT_DIR/$run/runPairHisto.txt) then
+          \cp tmp/$MAGIC_COUNT_DIR/$run/runPairHisto.txt tmp/Profiles/$run/runPairHisto.txt
+        else
+          if (-e tmp/Profiles/$run/toto)  \rm tmp/Profiles/$run/toto
+          foreach lib (`cat MetaDB/$MAGIC/r2sublib | gawk -F '\t' '{if($1 == gr) print $2;}' gr=$run | sort -u `)
+            cat tmp/COUNT/$lib/*.pairStats >> tmp/Profiles/$run/toto
+          end
+          cat tmp/Profiles/$run/toto | gawk '/^#Number/{for(i=2;i<NF;i++)n[i]+=$i;if(NF > imax)imax=NF;}END{printf("Insert_length_in_pairs\t%s",r);for(i=4;i<=imax;i++)printf("\t%d",n[i]);printf("\n");}' r=$run >  tmp/Profiles/$run/runPairHisto.txt
+          \rm  tmp/Profiles/$run/toto
+        endif
+      endif
+      if (-e tmp/Profiles/$run/runPairHisto.txt) then
+        cat tmp/Profiles/$run/runPairHisto.txt  | sed -e 's/\tNULL/\t/g' >> $toto.1
       endif
     end
   end
@@ -8159,7 +8159,7 @@ bin/tacembly MetaDB <<EOF
   table -o MetaDB/$MAGIC/stranding.txt -active -f tables/c3.observed_strandedness.def
 EOF
 touch MetaDB/$MAGIC/stranding.txt
-cat MetaDB/$MAGIC/stranding.txt | gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' > MetaDB/$MAGIC/stranding.txt2
+cat MetaDB/$MAGIC/stranding.txt |                                                                                                                                                                gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' > MetaDB/$MAGIC/stranding.txt2
 cat MetaDB/$MAGIC/stranding.txt | grep -v rrna |  grep -v smallRNA | grep -v mito  | grep -v chloro  | grep -v transposon | grep -v virus | grep -v bacteria  | grep -v Spike | grep -v genome | gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' >> MetaDB/$MAGIC/stranding.txt2
 cat MetaDB/$MAGIC/stranding.txt2 | gawk -F '\t' '{gsub(/NULL/,"0",$0);split($2,aa,"_");split(aa[2],bb,".");printf ("Run %s\nObserved_strandedness_in_ns_mapping %s %f %s plus %s minus %s ambiguous\n\n", $1,bb[1],$6,$3,$4,$5);}' > MetaDB/$MAGIC/stranding.ace
 
