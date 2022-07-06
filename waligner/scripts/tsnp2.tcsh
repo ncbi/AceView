@@ -4,6 +4,7 @@ set phase=$1
 set zone=$2
 set run=$3
 
+if ($phase == snp2a) goto snp2a
 if ($phase == tsnp2a) goto tsnp2a
 if ($phase == tsnp2b) goto tsnp2b
 if ($phase == tsnp2c) goto tsnp2c
@@ -12,6 +13,8 @@ echo "bad phase in tsnp2.tcsh $1 $2 $3"
 date
 exit 1
 
+
+snp2a:
 tsnp2a:
 
 if (1 && ! -e tmp/TSNP_DB/$zone/database) then
@@ -59,6 +62,12 @@ EOF
     set foundIn=Found_in_mRNA
     set mapIn=mRNA
   endif
+
+
+  echo '#' > $toto.M.tsf  
+  echo '#' > $toto.MB.tsf  
+  echo '#' > $toto.BRS.tsf  
+
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     set minSnpFrequency2=$minSnpFrequency
     if (-e tmp/TSNP/$MAGIC.minFrequency.txt) then
@@ -68,12 +77,48 @@ EOF
     endif
 
     if (-e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) then
-      cat tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf | gawk -F '\t' '/^#/{next;}{v=$1;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}}' minF=$minSnpFrequency2 minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
+      cat tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf | gawk -F '\t' '/^#/{next;}{print}' >> $toto.M.tsf  
     endif
     if (-e tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf) then
-      cat tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf | gawk -F '\t' '/^#/{next;}{v=$1;run=$2;a1=$4;a2=$5;m=$7;c=$9;if(m>c)c=m;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}}' minF=$minSnpFrequency2  minC=$minSnpCover foundIn=$foundIn  mapIn=$mapIn >> $toto.ace
+      cat tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf |  gawk -F '\t' '/^#/{next;}{print;}'  >> $toto.MB.tsf 
     endif    
+    if (-e  tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz) then
+      gunzip -c tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz | gawk -F '\t' -f  scripts/tsnp2a.awk  run=$run  >> $toto.BRS.tsf 
+    endif
+
   end
+
+# throw in the groups
+foreach gr (`cat MetaDB/$MAGIC/g2r | cut -f 1`)
+  continue
+  echo > _x.$$
+  foreach run (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if($1==g)print $2;}' g=$gr`)
+    echo $gr >> _x.$$
+  end
+  cat _x.$$ ZZZZZ $toto.BRS.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]==1;next;}if (ok[$2]==1)print;}' > toto.$gr
+end 
+
+# extract a list of good snps
+echo 'toto'  > $toto.list
+cat $toto.M.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
+cat $toto.MB.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
+
+cat $toto.list | sort -u | wc
+cat $toto.BRS.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$8;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
+cat $toto.list | sort -u | wc
+
+cat $toto.list | sort -u > $toto.sorted_list
+\mv $toto.sorted_list $toto.list
+
+# export an ace file
+cat $toto.M.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.M_sorted.tsf 
+cat $toto.MB.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.MB_sorted.tsf 
+cat $toto.BRS.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.BRS_sorted.tsf 
+
+cat $toto.list ZZZZZ $toto.M_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn > $toto.ace
+cat $toto.list ZZZZZ $toto.MB_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
+cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}printf("BRS_counts %s %d %d %d Frequency %.2f\n",run,m,w,c,f);}END{printf("\n");}' minF=$minSnpFrequency2 minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
+ 
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     if (-e tmp/TSNP/$run/$zone/tsnp1.2.0.bridges.ace) then
@@ -85,6 +130,10 @@ EOF
       cat  tmp/TSNP/$run/$zone/tsnp1.MB.*.bridges.ace | gawk '/^Variant/{v=$2;}/^nsCounts/{m[v]+=$3;r[v]+=$4;c[v]+=$5;}END{for(v in c){f=100*m[v]/c[v];if (f>=-95)printf("Variant %s\n%s %s %d %d %d Frequency %.2f\n\n",v,cc,run,m[v],r[v],c[v],100.0*m[v]/c[v]);}}' run=$run cc=MBCounts  >> $toto.ace
     endif
   end
+
+  if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then
+    echo "pparse tmp/METADATA/$MAGIC.av.captured_genes.ace" >> $toto
+  endif
   echo "pparse tmp/TSNP/map.rename.ace" >> $toto
   echo 'save' >> $toto
   echo 'quit' >> $toto
@@ -95,17 +144,53 @@ date
   cat $toto.preace | gawk '/^-/{next}{print}' > $toto.ace
 
   bin/tace tmp/TSNP_DB/$zone <  $toto
+
+  if (! -e tmp/TSNP_DB/$zone/av.parse.done) then
+    tace tmp/TSNP_DB/$zone <<EOF
+      find mrna
+      spush
+      follow gene
+      sor
+      undo
+      follow product 
+      sor
+      spop
+      list -a -f tmp/TSNP_DB/$zone/mrna.list
+      quit
+EOF
+    tace tmp/TSNP_DB/Genes <<EOF
+      key tmp/TSNP_DB/$zone/mrna.list
+      spush
+      follow dna
+      sor
+      spop
+      show -a -f tmp/TSNP_DB/$zone/mrna.ace
+      quit
+EOF
+
+    tace tmp/TSNP_DB/$zone <<EOF
+      pparse tmp/TSNP_DB/$zone/mrna.ace
+      save
+      quit
+EOF
+
+    touch tmp/TSNP_DB/$zone/av.parse.done
+  endif
+
+
+
+
   echo -n " remap and translate "
 date
 
   set remap2g=remap2genes
   if ($Strategy == RNA_seq) then
     set remap2g=remap2genome
+# if -o filename is not provided, tsnp directly edits the database
     bin/tsnp -db_$remap2g  tmp/METADATA/mrnaRemap.gz  -db tmp/TSNP_DB/$zone 
-    bin/tsnp -db_translate -db tmp/TSNP_DB/$zone > tmp/TSNP_DB/$zone/tsnp2.translate.ace
-    echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
+    bin/tsnp -db_translate -db tmp/TSNP_DB/$zone 
   endif
-touch tmp/TSNP_DB/$zone/tsnp2a.done
+touch tmp/TSNP_DB/$zone/$MAGIC.$phase.done
 echo -n "tsnp2a: done "
 date
 

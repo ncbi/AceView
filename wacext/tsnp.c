@@ -1,4 +1,4 @@
- /*  File: tricoteur.c
+/*  File: tricoteur.c
  *  Author:  D and J Thierry-Mieg (mieg@ncbi.nlm.nih.gov)
  *  Copyright (C) D and J Thierry-Mieg 2005
  * -------------------------------------------------------------------
@@ -74,9 +74,10 @@
 
 #define VERSION "1.1"
 
-#define MALLOC_CHECK   
-#define ARRAY_CHECK   
-
+/* 
+   #define MALLOC_CHECK   
+   #define ARRAY_CHECK   
+*/
 #include "ac.h"
 #include "channel.h"
 #include "query.h"
@@ -1855,7 +1856,7 @@ static void tsnpReportMethod (ACEOUT ao, TSNP *tsnp, int line, SNP *up, AC_KEYSE
 
       ac_free (h) ;
     }
-} /* tsnpReportCoding */
+} /* tsnpReportMethod */
 
 /*************************************************************************************/
 
@@ -2844,7 +2845,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		  int am2 = fromMrna ? m2 : a2 ;
 		  BOOL isDim = tsnpSlide (dna, dnaLn, am1, da, &dx, &slide) ;
 		  char bufN[15] ;
-		  char bufVC[51] ;
+		  /* 		  char bufVC[51] ; */
 		  if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		  else { a1 -= dx ; a2 -= dx ;}
 		  if (fromMrna) { m1 += dx ; m2 += dx ; }
@@ -3000,30 +3001,30 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    else
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c is inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, (*ins)[3], a1, a2) ;
 		    if (a1 < a2)
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], ins[0][3]) ;
+		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], inss[0][3]) ;
 		    else
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( ins[0][3]))) ;
+		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
 		    vtxtPrintf (txt, "-D Sliding\n") ;
 		    vtxtPrint (txt, "-D Insertion\n") ; /* cleanup */
 		    vtxtPrintf (txt,"%s\n", *ins) ; /* reinstate */
 		    if (isDup)
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a1+slide, a2+slide, ins[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a1+slide, a2+slide, inss[0][3]) ;
 			else
 			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
-			vtxtPrintf (txt, "Typ \"Dup%c\"\n", ins[0][3]) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddup%c\"\n", name(mrna), am1+slide, ins[0][3]) ;
+			vtxtPrintf (txt, "Typ \"Dup%c\"\n", inss[0][3]) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddup%c\"\n", name(mrna), am1+slide, inss[0][3]) ;
 			vtxtPrintf (txt, "Duplication\n") ;
 		      }
 		    else
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins%c\"\n", name(seq), a1+slide, a2+slide, ins[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins%c\"\n", name(seq), a1+slide, a2+slide, inss[0][3]) ;
 			else
 			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
-			vtxtPrintf (txt, "Typ \"Ins%c\"\n", ins[0][3]) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%c\"\n", name(mrna), am1+slide, am2+slide, ins[0][3]) ;
+			vtxtPrintf (txt, "Typ \"Ins%c\"\n", inss[0][3]) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%c\"\n", name(mrna), am1+slide, am2+slide, inss[0][3]) ;
 		      }
 		      
 		    if (slide) 
@@ -3092,10 +3093,21 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases are inserted on plus strand between base %d and %d\"\n", name (seq), da,a1, a2, a1, a2) ;
 		    else
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases are inserted on minus strand between base %d and %d\"\n", name (seq), da,a1, a2, a1, a2) ;
-		    if (a1 < a2)
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], ins[0][3]) ;
+		    if (0 && fromMrna)
+		      {
+			if (a1 < a2)
+			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(mrna), a1, Rdna[am1-1], Rdna[am1-1], inss[0][3]) ;
+			else
+			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(mrna), a2-slide, ace_lower(complementLetter(Rdna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
+		      }
 		    else
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( ins[0][3]))) ;
+		      {
+			if (a1 < a2)
+			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], inss[0][3]) ;
+			else
+			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
+		      }
+		      
 
 		      vtxtPrintf (txt, "-D Sliding\n") ;
 		      vtxtPrint (txt, "-D Insertion\n") ; /* cleanup */
@@ -3371,8 +3383,9 @@ static DICT *tsnpMakeVarTypeDict (AC_HANDLE h)
 static void tsnpDbTranslate (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".translate.ace", tsnp->gzo, h) ;
-  AC_ITER iter = ac_query_iter (tsnp->db, TRUE, "Find Variant", 0, h) ;
+  ACEOUT ao = tsnp->outFileName ? aceOutCreate (tsnp->outFileName, ".translate.ace", tsnp->gzo, h) : 0 ;
+  AC_DB db = tsnp->db ;
+  AC_ITER iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
   int nn = 0, nm = 0, nt = 0 ;
   AC_OBJ Snp = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
@@ -3392,7 +3405,15 @@ static void tsnpDbTranslate (TSNP *tsnp)
 
       */
       vtxtPrint (txt,"\n") ;
-      aceOutf (ao, "%s\n", vtxtPtr (txt)) ;
+      if (ao)
+	aceOutf (ao, "%s\n", vtxtPtr (txt)) ;
+      else
+	{
+	  const char *errors = 0 ;
+	  ac_parse (db, vtxtPtr (txt), &errors, 0, h) ; 
+	  if (errors && *errors)
+	    messerror (errors) ;
+	}
     }
 
   fprintf (stderr, "Found %d SNPs, remapped %d, translated %d\n", nn, nm, nt) ;
@@ -3470,7 +3491,7 @@ static int locateMet (const char *dna,  const char *translationTable, int pos1, 
 
 /***************/
 /* look for snp in geneBox but not in transcript */
-static int tsnpPotential_splice_disruption (TSNP *tsnp)
+static int tsnpPotential_splice_disruption (TSNP *tsnp, ACEOUT ao)
 {
   AC_HANDLE  h1 = 0, h2 = 0, h = ac_new_handle () ;
   AC_DB db = tsnp->db ;
@@ -3478,7 +3499,6 @@ static int tsnpPotential_splice_disruption (TSNP *tsnp)
   AC_OBJ variant = 0 ;
   AC_TABLE spl, iMap, viMap = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
-  const char *errors = 0 ;
   int nn = 0, vPos ;
 
   iter = ac_query_iter (db, TRUE, "find variant geneBox && !mRNA", 0, h) ;
@@ -3558,9 +3578,15 @@ static int tsnpPotential_splice_disruption (TSNP *tsnp)
 	}
       /* edit this variant */
       vtxtPrintf (txt, "\n") ;
-      ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ; 
-      if (errors && *errors)
-	messerror (errors) ;
+      if (ao)
+	aceOutf (ao, "%s\n", vtxtPtr (txt)) ;
+      else
+	{
+	  const char *errors = 0 ;
+	  ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ; 
+	  if (errors && *errors)
+	    messerror (errors) ;
+	}
     }
 
   
@@ -3573,15 +3599,16 @@ static int tsnpPotential_splice_disruption (TSNP *tsnp)
 static int tsnpCodingModif  (TSNP *tsnp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
+  ACEOUT ao = tsnp->outFileName ? aceOutCreate (tsnp->outFileName, ".coding.ace", tsnp->gzo, h) : 0 ;
   int nn = 0, nnnn = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
   vTXT gTxt = vtxtHandleCreate (h) ;
   vTXT cTxt = vtxtHandleCreate (h) ;
   vTXT pTxt = vtxtHandleCreate (h) ;
   vTXT qq = vtxtHandleCreate (h) ;
-   vTXT geneboxes = vtxtHandleCreate (h) ;
+  vTXT geneboxes = vtxtHandleCreate (h) ;
   vTXT avgeneboxes = vtxtHandleCreate (h) ;
-  vTXT location = vtxtHandleCreate (h) ;
+  /*   vTXT location = vtxtHandleCreate (h) ; */
   vTXT gsnippet = vtxtHandleCreate (h) ;
   vTXT snippet = vtxtHandleCreate (h) ;
   vTXT pSnippet = vtxtHandleCreate (h) ; 
@@ -3968,7 +3995,7 @@ static int tsnpCodingModif  (TSNP *tsnp)
 	    {
 	      int pos, u1, u2, delta1, delta2, i, j, ln ;
 	      const char *dna, *cd1, *cd2 = 0, *cd22 = 0 ;
-	      char cc, *cd3, *buf ;
+	      char cc, *cd3 ;
 	      char buf1[1024], buf2[1024] ;
 	      char tbuf1[1024], tbuf2[1024] ;
 	      
@@ -4508,15 +4535,17 @@ static int tsnpCodingModif  (TSNP *tsnp)
       
       /* edit this variant */
       vtxtPrintf (txt, "\n") ;
-      ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ; 
-      if (errors && *errors)
-	messerror (errors) ;
+      if (ao)
+	aceOutf (ao, "%s\n", vtxtPtr (txt)) ;
+      else
+	{
+	  ac_parse (db, vtxtPtr (txt), &errors, 0, h1) ; 
+	  if (errors && *errors)
+	    messerror (errors) ;
+	}
       vtxtClear (txt) ;
       if (1)
 	{
-	  int gMap = 0, gPos = 0 ;
-	  const char *ccp ;
-	  char gType[64], cType[64] ;
 	  vtxtClear (gTxt) ;
 	  vtxtClear (cTxt) ;
 	  vtxtClear (pTxt) ;
@@ -4526,14 +4555,18 @@ static int tsnpCodingModif  (TSNP *tsnp)
 	  vtxtClear (snippet) ;
 	  vtxtClear (pSnippet) ;
 	  vtxtClear (pType) ;
-	  gType[0] = 0 ;
-	  cType[0] = 0 ;
 	  
-	  ccp = ac_tag_printable (variant, "Typ", 0) ;
 	  /*
-	  if (ccp && strlen (ccp) < 64)
+	    const char *ccp ;
+	    ccp = ac_tag_printable (variant, "Typ", 0) ;
+	    if (ccp && strlen (ccp) < 64)
 	    {
-	      strcpy (gType, ccp) ;
+	    int gMap = 0, gPos = 0 ;
+	    char gType[64], cType[64] ; 
+	    gType[0] = 0 ;
+	    cType[0] = 0 ; 
+	    
+	    strcpy (gType, ccp) ;
 	      snpPrettyNames (snp, variant, gTxt, cTxt, pTxt, &gMap, &gPos, gType, cType, pType, location, geneboxes, avgeneboxes, gsnippet, snippet, pSnippet) ;
 	    }
 	  */
@@ -4542,9 +4575,10 @@ static int tsnpCodingModif  (TSNP *tsnp)
   if (tsnp != tsnp0)
     invokeDebugger () ;
 
+  tsnpPotential_splice_disruption (tsnp, ao) ;
+
   ac_free (h1) ;
   ac_free (h) ;
-  tsnpPotential_splice_disruption (tsnp) ;
 
   return nn ;
 } /* tsnpCodingModif */
@@ -5310,7 +5344,7 @@ int main (int argc, const char **argv)
   if (tsnp.dbTranslate)
     {
       tsnpDbTranslate (&tsnp) ;
-      if (0) tsnpCodingModif (&tsnp) ;
+      if (1) tsnpCodingModif (&tsnp) ;
     }
   if (tsnp.remap2genome)
     {

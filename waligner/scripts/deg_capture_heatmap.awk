@@ -1,234 +1,268 @@
-/^MiMxFc/ { 
-    g=$2 ; gg[g]=1 ; gMin[g]=$4 ; gMax[g]=$3 ; gFc[g]=$5 ; next ; 
+/^LnMiMxFc/ { 
+    g=$2 ; gg[g]=1 ; g1[g] = 0 ; g2[g] = 0 ; ln[g] = $3 ; gMin[g]=$5 ; gMax[g]=$4 ; gFc[g]=$6 ; next ; 
 }
 {
-    if ($5+$6+1 == 0) next ; 
+    if ($5+$6+0 == 0) next ; 
     if ($2+0>0) next ; 
-    f = $1 ; ff[f] = 1 ; g = $2 ; gg[g] = 1 ; ln[g] = $3 ; cap[g] = $4 ; 
+    f = $1 ; ff[f] = 1 ; g = $2 ; gg[g] = 1 ; cap[g] = $4 ; 
     g1[g] += $5 ; g2[g] += $6 ; z1[f,g] = $5 ; z2[f,g] = $6 ; 
 }
 END {
     nf = split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",")  ; 
-    split("Total,PolyA,I3,A2,R2,A2,A2,R3,R3,I2,I2,A1,R1,I1,B1",fCap,",")  ; 
-    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tSum B>A\tSum A>B\tInconsistent\tSum B>A no capture\tSum A>B no capture") ; 
+    nf = split("RNA_Total,RNA_PolyA,AGLR1,AGLR2,ROCR1,ROCR2,ILMR1,ILMR2_lowQ,ILMR2,ILMR3,BSPR1,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3",ff,",")  ; 
+    split("Total,PolyA,A1,A2,R1,R2,I1,I2,I2,I3,B1,A2,A2,R3,R3",fCap,",")  ; 
+    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s A>B",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
-	printf ("\t%s inconsistent",ff[i]) ; 
+	printf ("\t%s problem",ff[i]) ; 
 
-    for(g in gg)
+    for (g in gg)
     {
-	bad = "" ; trueg = "non-DEG" ; 
+	if (length(g) == 0 || g == 0)
+	    continue ;
+	bad = "" ; 
+	ok1 = 0 ;
+	ok2 = 0 ;
+	okW = 0 ;
+	okI = 0 ;
 	gnc1 = z1[ff[1],g] + z1[ff[2],g] ; 
 	gnc2 = z2[ff[1],g] + z2[ff[2],g] ; 
 	gc1 = g1[g] - gnc1 ; 
 	gc2 = g2[g] - gnc2 ; 
-
-	if (g1[g]*g2[g]>0)
-	    bad = "Inconsistent" ; 
 	
-	if (gnc1*gnc2>0)
+	if (0) printf ("\nzzz %s", g) ;
+	trueg = "non-DEG" ; 
+	if (g1[g] + g2[g] > 0)
 	{
-	    if (gnc1 > gnc2)
+	    if (g2[g] >= 3 *g1[g])       
 	    {
-		if ((gnc1 > 400 && gnc1 > 2 * gnc2) || (gc1 > 500 && gc1 > 3 * gc2))
-		    trueg = "TrueB_" ;
-		else
-		    trueg = "TrueBA_" ;
-		trueg = trueg  int((g1[g]+50)/100) "_a" int((g2[g]+50)/100) ; 
-	    }
-	    else
-	    {
-		if ((gnc2 > 400 && gnc2 > 2 * gnc1) || (gc2 > 500 && gc2 > 3 * gc1))
-		    trueg = "TrueA_" ;
-		else
-		    trueg = "TrueAB_a" ;
-		trueg = trueg int((g2[g]+50)/100) "_b" int((g1[g]+50)/100) ; 
-	    }
-	}
-	else if (gnc1>0)
-	{
-	    if (5*gc2<g1[g])
-	    {
-		trueg = "TrueB_" ;
-		trueg  = trueg int((g1[g]+50)/100) ; 
-		if (gc2>0) trueg = trueg "_a" int((gc2+50)/100) ; 
-	    }
-	    else
-	    {
-		trueg  =  "InconsistentAB_a"int((g2[g]+50)/100)"_b"int((g1[g]+50)/100) ; 
-	    }
-	}
-	else if (gnc2>0)
-	{
-	    if (5*gc1<g2[g])
-	    {
-		trueg = "TrueA_" ;
-		trueg = trueg  int((g2[g]+50)/100) ; 
-		if (gc1>0) trueg = trueg "_b" int((gcc+50)/100) ; 
-	    }
-	    else 
-	    {
-		trueg  =  "InconsistentAB_a"int((g2[g]+50)/100)"_b"int((g1[g]+50)/100) ; 
-	    }
-	    
-	}
-	else
-	{
-	    if (gc1 > 0)
-	    {
-		if (gc1 > 2*gc2)
+		if (gnc2 > 0 && gnc1 == 0)
 		{
-		    if (gc1 >= 500)
-			trueg  =  "NewTrueB_" ;
-		    else if (gc1 >= 500)
-			trueg  =  "NewBprobable_" ;
-		    else if (gc1 >= 0)
-			trueg  =  "NewDubiousB_" ;
-		    else
-			trueg  =  "NewBignore_" ;
-
-		    trueg  = trueg int((gc1+50)/100) ; 
-		    if (gc2 > 0) trueg = trueg "_a" int((gc2+50)/100) ;
+		    trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
+		    if (g1[g] > 50)
+			trueg = trueg "_b" int((g1[g]+50)/100) ; 
+		    ok2 = 1 ;
 		}
-		else if (gc2 > 2*gc1)
-		{
-		    if (gc2 >= 500)
-			trueg  =  "NewTrueA_" ;
-		    else if (gc2 >= 500)
-			trueg  =  "NewAprobable_" ;
-		    else if (gc2 >= 0)
-			trueg  =  "NewDubiousA_" ;
-		    else
-			trueg  =  "NewAignore_" ;
-		    trueg  = trueg int((gc2+50)/100) ; 
-		    if (gc1 > 0) trueg = trueg "_b" int((gc1+50)/100) ;
-		}
-		else if (gc1 >= gc2)
-		{		
-		    trueg  =  "InconsistentAB_a"int((gc2+50)/100) "_b" int((gc1+50)/100) ; 
-		}
-		else 
-		{		
-		    trueg  =  "InconsistentAB_a"int((gc2+50)/100) "_b" int((gc1+50)/100) ; 
-		}
-	    }
-	    else if (gc2 > 0)
-	    {
-		if (gc2 >= 500)
-		    trueg  =  "NewTrueA_" ;
-		else if (gc2 >= 500)
-		    trueg  =  "NewAprobable_" ;
-		else if (gc2 >= 0)
-		    trueg  =  "NewDubiousA_" ;
 		else
-		    trueg  =  "NewAignore_" ;
-		trueg  = trueg int((gc2+50)/100) ; 
+		{   # at least 1 capture platforms or 3 platforms 
+		    k = 0 ; k2 = 0 ;
+		    for (i = 1 ; i <= nf ; i++)
+		    {
+			if (z2[ff[i],g] > 1 * z1[ff[i],g] && z2[ff[i],g]>0)
+			{
+			    if (index(cap[g], fCap[i]) > 0)
+				k++ ;
+			    else
+				k2++ ;
+			}
+		    }
+		    if (k >= 1)
+		    {
+			trueg = sprintf ("NewTrueA_%03d",  int((g2[g]+50)/100)) ;
+			if (g1[g] > 50)
+			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
+			ok2 = 1 ;
+		    }
+		    if (k2 >= 3)
+		    {
+			trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
+			if (g1[g] > 50)
+			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
+			ok2 = 1 ;
+		    }
+		}
 	    }
-
+	    else if (g1[g] >= 3 *g2[g])
+	    {
+		if (gnc1 > 0 && gnc2 == 0)
+		{
+		    trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
+		    if (g2[g] > 50)
+			trueg = trueg "_a" int((g2[g]+50)/100) ; 
+		    ok1 = 1 ;
+		}
+		else
+		{   # at least 2 platforms or 300
+		    k = 0 ; k2 = 0 ;
+		    for (i = 1 ; i <= nf ; i++)
+		    {
+			if (z1[ff[i],g] > 1 * z2[ff[i],g] && z1[ff[i],g]>0)	
+			{
+			    if (index(cap[g], fCap[i]) > 0)
+				k = k + 1 ;
+			    else
+				k2 = k2 + 1 ;
+			}
+			if (0 && 1 + z1[ff[i],g] +  z2[ff[i],g] > 0)
+			    printf ("######## %s %s %f %f k=%d k2=%d\n" , g, ff[i], z1[ff[i],g], z2[ff[i],g], k, k2) ;
+		    }
+		    if (k >= 1)
+		    {
+			trueg = sprintf ("NewTrueB_%03d", int((g1[g]+50)/100)) ;
+			if (g2[g] > 50)
+			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
+			ok1 = 1 ;
+		    }
+		    if (k2 >= 3)
+		    {
+			trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
+			if (g2[g] > 50)
+			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
+			ok1 = 1 ;
+		    }
+		    if (0) printf ("######### %s k=%d k2=%d\n",g,k,k2);
+		}
+	    }
 	}
 
 	split (trueg, aa, "_") ;
-	ttt[aa[1]] += 1 ;
 	gTrue[g] = aa[1] ;
-
-	printf ("\n%s\t%d\t%s\t%s\t%s\t%s\t%s\t%.0f\t%.0f\t%s",g,ln[g],gMax[g],gMin[g],gFc[g],cap[g],trueg,gc1,gc2,bad) ; 
-	printf ("\t%d\t%d", gnc1, gnc2) ; 
-	for (i = 1 ; i <= nf ; i++)
-	    printf ("\t%s",z1[ff[i],g]) ; 
-	for (i = 1 ; i <= nf ; i++)
-	    printf ("\t%s",z2[ff[i],g]) ; 
-	for (i = 1 ; i <= nf ; i++)
-	{
-	    bad = "" ; 
-	    if (z1[ff[i],g]*z2[ff[i],g]>0)
-		bad = "Inconsistent" ; 
-	    printf ("\t%s",bad) ; 
+	
+	if (ok1 + ok2 == 0 && g1[g] * g2[g] > 0)
+	{ 
+	    trueg = "Inconsistent undecidable" ; 	    
+	    okI = 1 ;
 	}
-    }
-    printf ("\n") ; 
 
+######################################################
 ######  stats
-    for(g in gg)
-    {
-	t = gTrue[g] ;
-	gnc1 = z1[ff[1],g] + z1[ff[2],g] ; 
-	gnc2 = z2[ff[1],g] + z2[ff[2],g] ; 
-	gc1 = g1[g] - gnc1 ; 
-	gc2 = g2[g] - gnc2 ; 
-        N1 = g1[g] ; N2 = g2[g] ;
 
+	t = gTrue[g] ;
 	for (i = 1 ; i <= nf ; i++)
 	{
+	    bads[i] = "" ;
 	    isCap = 0 ;
+	    nt = "nt " ;
 	    if (index(cap[g], fCap[i]) > 0)
-		isCap = 1 ;
+	    { isCap = 1 ; nt = "" ; }
+	    isCap2 = isCap ;
+	    if (i < 3) { isCap2 = 1 ; nt = "" ; };
 	    n1 = z1[ff[i],g] ; 
 	    n2 = z2[ff[i],g] ; 
-	    if (n1+n2 == 0)
-		ss[t,i,3,isCap]++ ;          # missed
-	    else if (n1*n2 >0)
-		ss[t,i,2,isCap]++ ;          # false
-	    else if (n1>0 && N1 > N2)
-		ss[t,i,1,isCap]++ ;          # true
-	    else if (n2 >0 && N2 > N1)
-		ss[t,i,1,isCap]++ ;          # true
-	    else if (n1>0 && N1 > N2)
-		ss[t,i,2,isCap]++ ;          # false
-	    else if (n2 >0 && N1 > N2)
-		ss[t,i,2,isCap]++ ;          # false
+	    if (n1 + n2 == 0)
+	    {
+		if (ok1 > 0 && isCap2)
+		{  t= "B Missed" ; ss[t,i,isCap]++ ; BMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
+		else if (ok2 > 0 && isCap2)
+		{  t= "A Missed" ; ss[t,i,isCap]++ ; AMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
+	    }
+	    else if (ok1 + ok2 && n1 > 3*n2)
+	    {
+		if (ok1 > 0)
+		{  t= gTrue[g] ; ss[t,i,isCap]++ ; bads[i] = nt t " seen" ; dd[g,i, nt "Seen"] = 1 ; }          # true
+		else if (ok2 > 0) 
+		{ t = "Opposite" ; ss[t,i,isCap]++ ; Opposite[g] = 1 ; bads[i] = t ; dd[g,i, nt "Problem"] = 1 ; }         # false
+	    }
+	    else if (ok1 + ok2 && n2 > 3*n1)
+	    {
+		if (ok2 > 0)
+		{  t= gTrue[g] ; ss[t,i,isCap]++ ;  bads[i] = nt t " seen" ; dd[g,i, nt "Seen"] = 1 ; }          # true
+		else if (ok1 > 0) 
+		{ t = "Opposite" ; ss[t,i,isCap]++ ; Opposite[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }         # false
+	    }
+	    else if (ok1 + ok2 + okI == 1 && n1 * n2 > 0)
+	    { t = "InternalInconsistency" ; ss[t,i,isCap]++ ; IntInc[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }     
+	    else if (okI == 1 && n1 * n2 == 0)
+	    { t = "Inconsistent undecidable" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
+	    else if (n1 + n2 > 0)
+	    { t = "Weak" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
 	}
-    }
-    
-    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,TrueAB,TrueBA,NewAB,NewBA,NewDubiousA,NewDubiousB,InconsistentAB,InconsistentBA,non-DEG", i2t, ",") ;
-    i2tMax = split ("True,True,NewTrue,NewTrue,TrueAB,TrueAB,NewAB,NewAB,NewDubious,NewDubious,Inconsistent,Inconsistent,non-DEG", i2t2, ",") ;
 
+
+	if (Opposite[g] == 1)
+	    ttt["Opposite"]++ ;
+	if (AMissed[g] == 1)
+	    ttt["A Missed"]++ ;
+	if (BMissed[g] == 1)
+	    ttt["B Missed"]++ ;
+	if (IntInc[g] == 1)
+	    ttt["InternalInconsistency"]++ ;
+	if (ExtInc[g] == 1)
+	    ttt["ExternalInconsistency"]++ ; 
+	
+	newT = 0 ; bad= "-" ;
+	if (IntInc[g] == 1)
+	{
+	    bad = "InternalInconsistency" ;
+	}
+	else if (Opposite[g] == 1)
+	{
+	    bad = "ExternalInconsistency" ; 
+	}
+	else if (okI == 1)
+	{ 
+	    trueg = "Inconsistent undecidable" ; 	    
+	    bad = trueg ;
+	    okI = 1 ;
+	    newT = 1 ; 
+	}
+	else if (ok1 + ok2 == 0 && g1[g] + g2[g] > 0)
+	{ 
+	    trueg = "Weak" ; 
+	    newT = 1 ; 
+	}
+
+	if (newT + okI >= 1)
+	{
+	    gTrue[g] = trueg ;
+	    if (g2[g] > 50)
+		trueg = trueg "_a" int((g2[g]+50)/100) ; 
+	    if (g1[g] > 50)
+		trueg = trueg "_b" int((g1[g]+50)/100) ; 
+	}
+    
+	split (trueg, aa, "_") ;
+	t = aa[1] ;
+	gTrue[g] = aa[1] ;
+	ttt[t] ++ ;
+    
+##################################################
+
+	if (cap[g]=="") cap[g]="-";
+
+	printf ("\n%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s",g,ln[g],gMax[g],gMin[g],gFc[g],cap[g],trueg, bad) ; 
+
+	printf ("\t%d\t%d", gc1, gc2) ; 
+	printf ("\t%d\t%d", gnc1, gnc2) ; 
+	for (i = 1 ; i <= nf ; i++)
+	    printf ("\t%.0f",z1[ff[i],g]) ; 
+	for (i = 1 ; i <= nf ; i++)
+	    printf ("\t%.0f",z2[ff[i],g]) ; 
+	for (i = 1 ; i <= nf ; i++)
+	    printf ("\t%s", bads[i]) ; 
+    }
+    printf ("\n") ;
+
+################################
     out = outf".deg_truth.txt" ;
+    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A Missed,B Missed,Opposite,Weak,InternalInconsistency,ExternalInconsistent,Inconsistent undecidable,non-DEG", i2t, ",") ;
+
     printf ("### Sensitivity and specificity of the captured platforms, in each case the numbers are seen:contradicted:not seen\n") > out ;    
+    printf ("### File %s : %s\n", outf".deg_truth.txt", strftime())  > out ; 
     printf ("# Type\tCumul") > out ;
     for (i = 1 ; i <= nf ; i++)
 	printf ("\tTargeted %s", ff[i]) > out ;
     for (i = 1 ; i <= nf ; i++)
 	printf ("\tNot targeted %s", ff[i])  > out ;
-    split ("true,false,missed", nam,",") ;
+    split ("seen,seen opposite,missed", nam,",") ;
     for (j = 1 ; j <= i2tMax ; j++)
     {
 	t = i2t [j] ;
 	done[t] = 1 ;
 	if (ttt[t] < 1) continue ;
-	for (k = 1 ; k <= 3 ; k++)
-	{
-	    printf ("\n%s.%s\t%d", t,nam[k],ttt[t])  > out ;
-	    for (i = 1 ; i <= 2 ; i++)
-		printf ("\t%d", ss[t,i,k,0])  > out ;
+
+	    printf ("\n%s\t%d", t, ttt[t])  > out ;
+	    for (i = 1 ; i <= 2 ; i++)   # for the truth columns we export the non-captured values
+		printf ("\t%d", ss[t,i,0])  > out ;
 	    for (i = 3 ; i <= nf ; i++)
-		printf ("\t%d", ss[t,i,k,1])  > out ;
+		printf ("\t%d", ss[t,i,1])  > out ;
 	    printf ("\t") ;
 	    for (i = 1 ; i <= nf ; i++)
-		printf ("\t%d", ss[t,i,k,0])  > out ;
-	}
-    }
-    printf ("\n")  > out ;
-    for (j = 1 ; j <= i2tMax ; j+=2)
-    {
-	t = i2t [j] ;
-	t2 = i2t[j+1] ;
-	t3 = i2t2[j] ;
-	done[t] = 1 ;
-	if (ttt[t] < 1) continue ;
-	for (k = 1 ; k <= 3 ; k++)
-	{
-	    printf ("\n%s.%s\t%d", t3,nam[k],ttt[t]+ttt[t2])  > out ;
-	    for (i = 1 ; i <= 2 ; i++)
-		printf ("\t%d", ss[t,i,k,0]+ss[t2,i,k,0])  > out ;
-	    for (i = 3 ; i <= nf ; i++)
-		printf ("\t%d", ss[t,i,k,1]+ss[t2,i,k,1])  > out ; 
-	    printf ("\t") ;
-	    for (i = 1 ; i <= nf ; i++)
-		printf ("\t%d",  ss[t,i,k,0]+ss[t2,i,k,0])  > out ;
-	}
+		printf ("\t%d", ss[t,i,0])  > out ;
+
     }
     printf ("\n")  > out ;
 
@@ -239,41 +273,123 @@ END {
 
 ################################
     out = outf ".deg_truth.histos.txt" ; 
+    printf ("### File %s : %s\n", outf".deg_truth.histo.txt", strftime())  > out ; 
     printf ("### Histograms per type\n# type") > out ; 
 
     for (g in gg)
     {
 	t = gTrue [g] ;
-	i = int(gMax[g] + .5) ; wMax[t,i] += 1 ;
+	i = int(gMax[g] + .5) ; if (i > 22) i = 22 ;  wMax[t,i] += 1 ;
 	i = int(gMin[g]+ .5) ; wMin[t,i] += 1 ;
-	i = int((gMax[g]-gMin[g])*5 + .5) ;if (i>30)i=30; wFc[t,i] += 1 ;
+	i = int(ln[g]/200 + .5) ; if (i>30)i=30;wLn[t,i] += 1 ;
+	dz = 2**(gMax[g]-gMin[g]) ; i = int(5*(dz-1) + .5) ; if (i>22)i=22; wFc[t,i] += 1 ;
 	# printf ("%s %s %s %d\n", g, gMax[g], gMin[g], i) > out
     }
-    
 
     printf("\tx") > out ;
     for (j = 1 ; j <= i2tMax ; j++)
-	printf ("\t%s Max ", i2t[j])  > out;
+	if (ttt[i2t[j]] > 0)
+	    printf ("\t%s Max ", i2t[j])  > out;
+    printf("\t\t")  > out ;
+    if (0)
+    {
+	for (j = 1 ; j <= i2tMax ; j++)
+	    if (ttt[i2t[j]] > 0)
+		printf ("\t%s Min ", i2t[j])  > out ;
+	printf("\t\t")  > out ;
+    }
+    for (j = 1 ; j <= i2tMax ; j++)
+	if (ttt[i2t[j]] > 0)
+	    printf ("\t%s FC ", i2t[j])  > out ;
     printf("\t\t")  > out ;
     for (j = 1 ; j <= i2tMax ; j++)
-	printf ("\t%s Min ", i2t[j])  > out ;
-    printf("\t\t")  > out ;
-    for (j = 1 ; j <= i2tMax ; j++)
-	printf ("\t%s FC ", i2t[j])  > out ;
-
-
-    for (i = 0 ; i <= 30 ; i++)
+	if (ttt[i2t[j]] > 0)
+	    printf ("\t%s Ln ", i2t[j])  > out ;
+    
+    for (i = 0 ; i <= 22 ; i++)
     {
 	printf ("\n\t%d", i)  > out ;
 	for (j = 1 ; j <= i2tMax ; j++)
-	    printf ("\t%d", wMax[i2t[j], i])  > out ;
-	printf ("\t\t%d", i)  > out ;
+	    if (ttt[i2t[j]] > 0)
+		printf ("\t%d", wMax[i2t[j], i])  > out ;
+	if (0)
+	{
+	    printf ("\t\t%d", i)  > out ;
+	    for (j = 1 ; j <= i2tMax ; j++)
+		if (ttt[i2t[j]] > 0)
+		    printf ("\t%d", wMin[i2t[j], i])  > out ;
+	}
+	printf ("\t\t%.2f", 1+i/5.0)  > out ;
 	for (j = 1 ; j <= i2tMax ; j++)
-	    printf ("\t%d", wMin[i2t[j], i])  > out ;
-	printf ("\t\t%.1f", 2**(i/5.0))  > out ;
+	    if (ttt[i2t[j]] > 0)
+		printf ("\t%d", wFc[i2t[j], i])  > out ;
+	printf ("\t\t%d", 200 * i)  > out ;
 	for (j = 1 ; j <= i2tMax ; j++)
-	    printf ("\t%d", wFc[i2t[j], i])  > out ;
+	    if (ttt[i2t[j]] > 0)
+		printf ("\t%d", wLn[i2t[j], i])  > out ;
     }
     printf ("\n\t%d", i) > out ;
 
+
+################################
+
+    d2tMax = split ("Seen,Missed,Problem,nt Seen,nt Problem", d2t,",") ;
+
+    out = outf ".deg_truth.histos_per_platform.txt" ; 
+    printf ("### File %s : %s\n", outf".deg_truth.histo.txt", strftime())  > out ; 
+    printf ("### Histograms per type per platform\n# type") > out ; 
+
+
+    for (d = 1 ; d <= d2tMax ; d++)
+    {
+	t = d2t[d] ;
+	for (f = 1 ; f <= nf ; f++)
+	    for (g in gg)
+	    {
+		if (dd[g,f,t] == 1)
+		{
+		    i = int(gMax[g] + .5) ; if (i > 22) i = 22 ;  wdMax[t,f,i] += 1 ;
+		    i = int(ln[g]/200 + .5) ; if (i>30)i=30;wdLn[t,f,i] += 1 ;
+		    dz = 2**(gMax[g]-gMin[g]) ; i = int(5*(dz-1) + .5) ; if (i>22)i=22; wdFc[t,f,i] += 1 ;
+		}
+	    }
+
+    
+	printf ("\n### %s", t) > out
+
+	printf("\tx") > out ;
+	for (f = 1 ; f <= nf ; f++)
+	    printf ("\t%s Max %s", t, ff[f])  > out;
+	printf("\t\t")  > out ;
+	for (f = 1 ; f <= nf ; f++)
+	    printf ("\t%s FC %s", t, ff[f])  > out;
+	printf("\t\t")  > out ;
+	for (f = 1 ; f <= nf ; f++)
+	    printf ("\t%s LN %s", t, ff[f])  > out;
+	printf("\t\t")  > out ;
+	
+	
+	for (i = 0 ; i <= 22 ; i++)
+	{
+	    printf ("\n\t%d", i)  > out ;
+	    for (f = 1 ; f <= nf ; f++)
+		printf ("\t%d", wdMax[t,f,i]) > out ;
+
+
+	    printf ("\t\t%.2f", 1+i/5.0)  > out ;
+	    for (f = 1 ; f <= nf ; f++)
+		printf ("\t%d", wdFc[t,f,i]) > out ;
+
+	    printf ("\t\t%d", 200*i)  > out ;
+	    for (f = 1 ; f <= nf ; f++)
+		printf ("\t%d", wdLn[t,f,i]) > out ;
+	}
+
+	printf ("\n\n\n") > out ;
+    }
+    
+    
+    
 }
+
+################################

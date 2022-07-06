@@ -571,6 +571,7 @@
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  nsCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
                  nuCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
+                 BRS_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency BRS recount
                  MCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  MBCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery
                  MUCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery

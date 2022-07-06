@@ -527,7 +527,7 @@ cat <<EOF > _x.awk
   if (w > 0) ph = ph " wg1 wait wg2a wait wg2ba wait wg2bb wait wg2bb wait wg2bb wait wg2bb wait wg3a wait wg3b  wait wg4 wg4b wait  wg4c wg5 wait wg6 wg4d sponge1 wait sponge2 wait sponge3 wait " ;
 # s2c (extend, must come after s3a (detect) and would influence the BRS, so we would do s1 s2a s2b s3a,  extend which would create a modified BRS file, then s3b:count
   if (cnv > 0)  ph = ph " cnv wait cnv "
-  if (snp > 0) ph = ph " snp0 wait s1 wait s1A2G wait s2a wait s2b wait s2A2G wait s3a wait s3b  wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
+  if (snp > 0) ph = ph " snp0 wait s1 wait s1A2G wait s2a wait s2b wait s2A2G wait s3a wait s3b  wait snp2a wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
   if (ix > 0) ph = ph " wait d5  "
   if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a wait tsnp2b wait tsnp2c " ;
   if (iv > 0) ph = ph " wait d6 wait d7 wait d8 " ;
@@ -1216,6 +1216,7 @@ if ($phase == s3am) goto phases3a
 if ($phase == s3bm) goto phases3b
 
 if ($phase == s2c) goto phases2c
+if ($phase == snp2a) goto phasesnp2a
 if ($phase == s10) goto phases10
 if ($phase == s11) goto phases11
 if ($phase == s12) goto phases12
@@ -1557,7 +1558,9 @@ echo 's3b:   Count the candidate SNPs per run or group filtered on cover/frequen
 # echo 's3c:   Locally reextend the alignments of the corresponding SNPs using the COUNT/..hits.gz files'
 
 
+echo "snp2a:  Centralize the tsf files in TSNP_DB for each zone"
 echo "s10:   Report the per run and type the mismatches in RESULTS/SNV"
+
 echo "s11:   Collate in tmp/SNPH all SNPs, filter, and look for differential"
 echo "s12:   Report the per run and type the quality filtered and differential SNPs, and the rejected and the A2G  in RESULTS/SNV"
 
@@ -4671,6 +4674,42 @@ if ($Strategy == RNA_seq && -e TARGET/GENES/av.gene.ace  && ! -e tmp/SNP_ZONE/zo
   scripts/s1.CreateGeneSet.tcsh
 endif
 
+if ($Strategy == RNA_seq && ! -e tmp/TSNP_DB/Genes/tsnp0.parse.done) then
+  if (! -e tmp/TSNP_DB) mkdir tmp/TSNP_DB
+  if (! -e tmp/TSNP_DB/Genes) then
+    mkdir tmp/TSNP_DB/Genes
+    pushd tmp/TSNP_DB/Genes
+      ln -s ../../../metaData/wspec
+      mkdir database
+      tace . <<EOF
+y
+      save
+      quit
+EOF
+    popd
+  endif
+
+
+  set toto=tmp/TSNP_DB/Genes/_r
+    echo "read-models" > $toto
+
+    echo "pparse tmp/METADATA/av.MRNA.info.ace" >> $toto
+    echo "pparse tmp/METADATA/av.GENE.info.ace" >> $toto
+    if (-e tmp/METADATA/c7.av.captured_genes.ace) echo "pparse tmp/METADATA/c7.av.captured_genes.ace" >> $toto
+    if (-e TARGET/MRNAS/mrna2product.ace ) echo "pparse TARGET/MRNAS/mrna2product.ace" >> $toto
+    if (-e TARGET/MRNAS/good_product.ace ) echo "pparse TARGET/MRNAS/good_product.ace" >> $toto
+    zcat TARGET/Targets/hs.av.fasta.gz | sed -e 's/^>/>mRNA:/' -e 's/|/ /' | gzip > tmp/TSNP_DB/Genes/mrna.fasta.gz
+    echo "pparse tmp/TSNP_DB/Genes/mrna.fasta.gz" > $toto
+    echo save >> $toto
+    echo quit >> $toto
+
+  bin/tace tmp/TSNP_DB/Genes < $toto
+
+  touch tmp/TSNP_DB/Genes/tsnp0.parse.done
+endif
+
+
+
 
  
 if (strategyOk == 0) then
@@ -4735,15 +4774,15 @@ tace MetaDB <<EOF
 EOF
 
 if (-e TARGET/Targets/$species.mito.fasta.gz && ! -e tmp/SNP_ZONE/mito.fasta.gz) then
-  cp TARGET/Targets/$species.mito.fasta.gz && ! -e tmp/SNP_ZONE/mito.fasta.gz
+  cp TARGET/Targets/$species.mito.fasta.gz tmp/SNP_ZONE/mito.fasta.gz
 endif
 
 foreach run (`cat MetaDB/$MAGIC/RunsList`)
-  if (! -e Fastc/$run/LaneList) continue 
+  if (! -e tmp/TSNP/$run/LaneList) continue 
   cat tmp/TSNP/$run/LaneList | gawk '{f[nn+0]=$1;nn++;}END{p = int((nn+9)/10);n=int(nn/p);dp=nn-n*p;m=0;for(i=0;i<p;i++){dq=0;if(dp>0)dq=1;dp--;for(j=0;j<n+dq;j++)printf("%d %s\n", i,f[m++]);}}' >  tmp/TSNP/$run/_t
   set nn=`cat tmp/TSNP/$run/_t | gawk '{n=$1;}END{print n}'`
   set nt=`cat  tmp/TSNP/r2t | gawk '{if($1==run)t=$2;}END{print t+0;}' run=$run`
-  echo $nt
+  echo "$run desired number of bases $nt"
   if ($nt < 20000000) then
     set nn=0
     touch tmp/TSNP/$run/LaneList.0
@@ -4760,8 +4799,13 @@ foreach run (`cat MetaDB/$MAGIC/RunsList`)
     foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
       if (! -d  tmp/TSNP/$run/$zone) mkdir tmp/TSNP/$run/$zone
       if (! -e tmp/TSNP/$run/$zone/tsnp1.$MB.0.deUno.tsf) then
-        set t1=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$2;next;}END{print n+0;}' zone=$zone`
-        set t2=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$3;next;}END{print n+0;}' zone=$zone`
+        if ($Strategy == RNA_seq) then
+	  set t1=0
+	  set t2=0
+        else
+          set t1=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$2;next;}END{print n+0;}' zone=$zone`
+          set t2=`cat tmp/SNP_ZONE/_allG | gawk -F '\t' '{if("zoneG."$4==zone)n=$3;next;}END{print n+0;}' zone=$zone`
+        endif
         if (! -e tmp/TSNP/$run/$zone/tsnp1.$MB.$part.deUno.tsf) then
           scripts/submit tmp/TSNP/$run/$zone/tsnp1.$MB.$part "scripts/tsnp1.tcsh $run $zone $MB $Strategy tmp/SNP_ZONE/$zone.fasta.gz tricoteur $part $t1 $t2" 32G
         endif
@@ -4774,13 +4818,16 @@ goto phaseLoop
 
 ###################################################################################
 ## using tsf   merge sublib counts in run counts, not important because the sublibs files were merged in tsnp1a
+# kept as an example of merging files using bin/tsf
 phaseTSnp1b:
+
+goto phaseLoop
 
 foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/r2sublib | cut -f 1 | sort -u`)
   if (! -d tmp/TSNP/$run) continue
   foreach zone (`cat tmp/SNP_ZONE/ZoneList | grep -v mito`)
     if (! -d tmp/TSNP/$run/$zone) continue
-    if (! -e tmp/TSNP/$run/$zone/tsnp2.0.deUno.tsf) continue
+    if (! -e tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf) continue
     if (-e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) continue
     set ok=1
     echo >  tmp/TSNP/$run/$zone/_r
@@ -4794,10 +4841,10 @@ foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/r2sublib | cut -f 1 | sor
     end
 
     if ($ok == 0) continue
-    if (-e  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf)  then
-       cat  tmp/TSNP/$run/$zone/tsnp1.2.1.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
+    if (-e  tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf)  then
+       cat  tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf >>  tmp/TSNP/$run/$zone/_r
     endif
-    scripts/submit tmp/TSNP/$run/$zone/tsnp1b "scripts/tsnp1b.tcsh $run $zone $minSnpCount $minSnpCover $minSnpFrequency" 32G
+    scripts/submit tmp/TSNP/$run/$zone/tsnp1b "scripts/tsnp1b.tcsh $run $zone $minSnpCount $minSnpCover $minSnpFrequency" 
   end
 end
 
@@ -4805,14 +4852,15 @@ goto phaseLoop
 
 ###################################################################################
 ## create a TSNP_DB database and parse the tsf files and the gene data
+phasesnp2a:
 phaseTSnp2a:
 
 if (! -d tmp/TSNP_DB) mkdir tmp/TSNP_DB
 
 foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
   if (! -d tmp/TSNP_DB/$zone) mkdir tmp/TSNP_DB/$zone
-  if (! -e tmp/TSNP_DB/$zone/tsnp2a.done) then
-    scripts/submit tmp/TSNP_DB/$zone/tsnp2a  "scripts/tsnp2.tcsh tsnp2a $zone"
+  if (! -e tmp/TSNP_DB/$zone/$MAGIC.$phase.done) then
+    scripts/submit tmp/TSNP_DB/$zone/tsnp2a  "scripts/tsnp2.tcsh $phase $zone"
   endif
 end
  

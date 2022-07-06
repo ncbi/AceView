@@ -981,7 +981,7 @@ static void qcMismatchTypes (QC *qc, RC *rc)
   } ; 
   
   const char *caption =
-    "Number of variant alleles, per type" ;
+    "Number of mismatches, per type" ;
     ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
@@ -1262,7 +1262,7 @@ static void qcSnpTypesDo (QC *qc, RC *rc, BOOL isRejected)
   } ; 
   
   const char *caption =
-    "Number of variant alleles, per type" ;
+    "Number of rejected variant alleles, per type. Designed for clinical cohorts with sequenced diploid tissues. SNPs which are monomodal across all samples, usually with MAF in the 1-30% range, come most probably from systematic noise and are rejected." ;
     ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
@@ -5340,7 +5340,7 @@ static void qcInterGenic (QC *qc, RC *rc)
     {  0, 0, 0, 0, 0}
   }; 
   const char *caption =
-    "Intergenic"
+    "Intergenic, used to estimate background noise"
     ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
@@ -5398,7 +5398,7 @@ static void qcIntergenic2 (QC *qc, RC *rc)
     {  0, 0, 0, 0, 0}
   }; 
   const char *caption =
-    "Intergenic/Intronic/Exonic"
+    "Intergenic/Intronic/UTR or non-coding/Protein coding region"
     ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
