@@ -990,3 +990,48 @@ int main (int argc, const char **argv)
 /********************************************************************************************/
 /********************************************************************************************/
 /********************************************************************************************/
+#ifdef 0
+
+Cher Jerome,
+
+  Tout d'abord, j'espere que bebe va bien ainsi que les parents !
+  
+  Ceci dit, je suis bien ennuye de ton silence sur le draft slmn
+
+  A:
+    De mon point de vue, le resultat est tyres interessant, je me pose cette question activemnent
+  depuis l'apparition des articles de Coquereaux ... en 89
+  a) peut on construire des indecomposables a N>3 generations dans sl(2/1)
+  b) peut on construire3 des indecomposables a3 3 geenrations dans sl(5/1)
+
+    ce qui se trauit en physique par:
+    a') sl(2/1) impose t'elle qu'il n'exsite pas plus de 3 generation (ce qui semble experimentallement demontre)
+    b') le modle super-grand-unifie sl(5/1) qui unifie su(3) et su(2/1) ademet il les 3 generations
+
+      D'autre part notre article recent avec Peter sur la cohomologie ne traite que le cas N=2, donc ne repond pas aux 2 questions a' et b'
+
+  B:
+    La solution proposee, utiliser la derivee u' des matrices impaires par rapport a l'hypercharge est tres simp-le et elegante
+
+  C:
+    Je pense que ces resultats sont nouveaux
+
+
+  J'ai donc redige un brouillon dans mon style de physicien en deux jours et depuis j'edite des phrases par ci par la, sans trouver de defaut majeur.
+
+ ====
+
+  Je trouve que tu merites tout a fait de signer car je n'aurais jamais trouve l'idee de u' si tu ne m'avais pas envoye les matrices P
+  qui dans le cas de sl(2/1) conduisait a v' (partie non bloc diagonale de v) valait zero
+  Donc bien il me faut savoir si tu veux signer
+  Dans les deux cas j'aimerais tes commentaires
+      tu peux trouver que c'est deja connu, c'est faux, c'est mal regige c'est ok
+      bien sur si ce'st faux ou deja connu, moi non plus je ne veux pas signer !
+
+ ===
+
+  avec mes remerciement pour le beau changement de variable P et toutes mes amities
+
+jean
+	 
+#endif
