@@ -43,7 +43,7 @@ static MX *constructSU3Matrices (KAS *kas)
 
   kas->chi = 1 ;
   
-  kas->a1 = 1 ;
+  kas->a1 = 0 ;
   kas->a2 = 0 ;
   int b = kas->b ;
   
@@ -729,11 +729,95 @@ static void checkCommutators (KAS *kas)
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void checkCasimirs (KAS *kas)
+static int mxSuperTrace (KAS *kas, MX m)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  
+  MX M = mxMatMult (kas->mu[0], m, kas->h) ;
+  int i, t = 0, d = kas->d  ;
+  const int *xx ;
+  mxValues (M, &xx, 0, 0) ;
+  for (i = 0 ; i < d ; i++)
+    t += xx[d*i + i] ;
+
+  ac_free (h) ;
+  return t ;
+} /* mxSuperTrace */
+
+/*************************************************************************************/
+
+static void lowerMetric (KAS *kas)
+{
+  int i,j ;
+  int xx [2500] ;
+
+  memset (xx, 0, sizeof (xx)) ;
+  /* even sector */
+  for (i = 1 ; i < 30 ; i++)
+    for (j = 1 ; j < 30 ; j++)
+      {
+	MX a = kas->mu[i] ;
+	MX b = kas->mu[j] ;
+
+	if (a && b)
+	  {
+	    MX m = mxMatMult (a,  b, kas->h) ;
+	    int  t = mxSuperTrace (kas, m) ;
+	    xx[50*i+j] = t ;
+	    xx[50*j+i] = -t ;
+	    
+	    if (t)
+	      printf ("gg[%d,%d] = %d\n", i,j,t) ;
+	  }
+      }
+
+  /* odd sector */
+  for (i = 31 ; i < 50 ; i++)
+    for (j = 31 ; j < 50 ; j++)
+      {
+	MX a = kas->mu[i] ;
+	MX b = kas->mu[j] ;
+
+	if (a && b)
+	  {
+	    MX m = mxMatMult (a, b, kas->h) ;
+	    int  t = mxSuperTrace (kas, m) ;
+	    xx[50*i+j] = t ;
+	    xx[50*j+i] = -t ;
+	    
+	    if (t)
+	      printf ("gg[%d,%d] = %d\n", i,j,t) ;
+	  }
+      }
+  
+  return ;
+} /* lowerMetric */
+
+/*************************************************************************************/
+
+static void upperMetric (KAS *kas)
+{
+    
+  return ;
+} /* upperMetric */
+
+/*************************************************************************************/
+/*************************************************************************************/
+
+static void KillingCasimir (KAS *kas)
+{
+    
+  return ;
+} /* KillingCasimir */
+
+/*************************************************************************************/
+
+static void ghostCasimirs (KAS *kas)
 {
   MX uv1 = mxMatMult (kas->mu[31],kas->mu[41], kas->h) ;
   MX uv2 = mxMatMult (kas->mu[32],kas->mu[42], kas->h) ;
   MX uv3 = mxMatMult (kas->mu[33],kas->mu[43], kas->h) ;
+  MX muY = kas->mu[4] ;
 
   MX vu1 = mxMatMult (kas->mu[41],kas->mu[31], kas->h) ;
   MX vu2 = mxMatMult (kas->mu[42],kas->mu[32], kas->h) ;
@@ -751,12 +835,30 @@ static void checkCasimirs (KAS *kas)
   vu123 = mxAdd (vu123, vu12, vu3, kas->h) ;
 
 
-  MX w = mxMatMult (uv123, vu123, kas->h) ;
+  MX w1 = mxMatMult (uv123, vu123, kas->h) ;
+  MX w2 = mxMatMult (vu123,uv123, kas->h) ;
+  int a1 = kas->a1 ;
+  int a2 = kas->a2 ;
+  int b = kas->b ;
+  
+  printf ("##### GHOST CASIMIR\n") ;
+  printf ("##### expect %d\n",
+	  (2*b - (2*a1 + a2))*(2*b -( 3+a1-a2))*(2*b -(6 + a1 + 2*a2))
+	  ) ;
+  mxShow (uv123) ;
+  mxShow (vu123) ;
+  mxShow (muY) ;
+  MX w12 = mxCreate (kas->h, "w12", MX_INT, kas->d, kas->d, 0) ;
+  w12 = mxAdd (w12, w1, w2, kas->h) ;
 
-  printf ("##### CASIMIR\n") ;
-  mxShow (w) ;
+  
+  mxShow (w1) ;
+  mxShow (w2) ;
+  printf ("##### GHOST CASIMIR w12  of course uv123 + vu123 = 6 Y by construction, not interesting\n") ;
+  mxShow (w12) ;
 
 
+  /* Gorelik ghost Casimir */
   MX u12 = mxMatMult (kas->mu[31],kas->mu[32], kas->h) ;
   MX u123 = mxMatMult (u12,kas->mu[33], kas->h) ;
   MX u1234 = mxMatMult (u123,kas->mu[41], kas->h) ;
@@ -764,6 +866,13 @@ static void checkCasimirs (KAS *kas)
   MX u123456 = mxMatMult (u12345,kas->mu[43], kas->h) ;
 
   mxShow (u123456) ;
+
+  
+  /* on the h.w. we get
+   *  1/8 (2b - (2a1 + a2))(2b -( 3+a1-a2)) (2b -(6 + a1 + 2a2))
+   * the other combinations give the same values on the other weights
+   * up to lower terms
+   */
     
   return ;
 } /* checkCasimirs */
@@ -858,7 +967,10 @@ int main (int argc, const char **argv)
       kas.a2 = a2 ;
       constructSU3Matrices (&kas) ;
       checkCommutators (&kas) ;
-      checkCasimirs (&kas) ;
+      ghostCasimirs (&kas) ;
+      lowerMetric (&kas) ;
+      upperMetric (&kas) ;
+      KillingCasimir (&kas) ;
 #ifdef JUNK
       Kasimirs (1,0,1, FALSE) ;  /* adjopint */
       Kasimirs (1,0,0, FALSE) ;  /* fundamental */
@@ -878,3 +990,48 @@ int main (int argc, const char **argv)
 /********************************************************************************************/
 /********************************************************************************************/
 /********************************************************************************************/
+#ifdef 0
+
+Cher Jerome,
+
+  Tout d'abord, j'espere que bebe va bien ainsi que les parents !
+  
+  Ceci dit, je suis bien ennuye de ton silence sur le draft slmn
+
+  A:
+    De mon point de vue, le resultat est tyres interessant, je me pose cette question activemnent
+  depuis l'apparition des articles de Coquereaux ... en 89
+  a) peut on construire des indecomposables a N>3 generations dans sl(2/1)
+  b) peut on construire3 des indecomposables a3 3 geenrations dans sl(5/1)
+
+    ce qui se trauit en physique par:
+    a') sl(2/1) impose t'elle qu'il n'exsite pas plus de 3 generation (ce qui semble experimentallement demontre)
+    b') le modle super-grand-unifie sl(5/1) qui unifie su(3) et su(2/1) ademet il les 3 generations
+
+      D'autre part notre article recent avec Peter sur la cohomologie ne traite que le cas N=2, donc ne repond pas aux 2 questions a' et b'
+
+  B:
+    La solution proposee, utiliser la derivee u' des matrices impaires par rapport a l'hypercharge est tres simp-le et elegante
+
+  C:
+    Je pense que ces resultats sont nouveaux
+
+
+  J'ai donc redige un brouillon dans mon style de physicien en deux jours et depuis j'edite des phrases par ci par la, sans trouver de defaut majeur.
+
+ ====
+
+  Je trouve que tu merites tout a fait de signer car je n'aurais jamais trouve l'idee de u' si tu ne m'avais pas envoye les matrices P
+  qui dans le cas de sl(2/1) conduisait a v' (partie non bloc diagonale de v) valait zero
+  Donc bien il me faut savoir si tu veux signer
+  Dans les deux cas j'aimerais tes commentaires
+      tu peux trouver que c'est deja connu, c'est faux, c'est mal regige c'est ok
+      bien sur si ce'st faux ou deja connu, moi non plus je ne veux pas signer !
+
+ ===
+
+  avec mes remerciement pour le beau changement de variable P et toutes mes amities
+
+jean
+	 
+#endif
