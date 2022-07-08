@@ -11,6 +11,7 @@ typedef struct wStruct
   int x[RMAX] ;
   BOOL ok[RMAX] ;
   int mult ;
+  int k ;
 } WW ; /* representation weigth vector */
 
 typedef struct saStruct
@@ -37,14 +38,11 @@ static int wwOrder (const void *a, const void *b)
 {
   const WW *up = (WW *)a ;
   const WW *vp = (WW *)b ;
-  int n = 0, r ;
+  int n = 0 ;
 
-  for (r = 0 ; r < RMAX ; r++)
-    {
-      n = up->x[r] - vp->x[r] ; if (n) return -n ;
-    }
+  n = up->k - vp->k ;
   return n ;  
-} /* intOrder */
+} /* wwOrder */
 
 /******************************************************************************************************/
 
@@ -149,79 +147,116 @@ static void getHighestWeight (SA *sa)
 {
   WW *hw ;
   Array wws ;
-  int n = 0 ;
+  int k = 0 ;
   char buf[1024] ;
   
   wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
   hw = arrayp (wws, 0, WW) ;
   if (sa->wws)
-    n = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
+    k = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
   else
     messcrash ("Missing argument --s, expectirn -wws 1:0:2;...    giving the Dynkin lables of the highest weight ") ;
-  if (n != sa->rank)
-    messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, n) ;
+  if (k != sa->rank)
+    messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
   hw->mult = 1 ;
 
   sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", hw->x[0] , hw ->x[1] , hw ->x[2] , hw ->x[3] , hw ->x[4] , hw ->x[5] , hw ->x[6] , hw ->x[7] ) ;
-  dictAdd (sa->dict, buf, &n) ;
-  array (sa->mult, n, int) = hw->mult ;  
+  dictAdd (sa->dict, buf, &k) ;
+  array (sa->mult, k, int) = hw->mult ;
+  hw->k = k ;
 } /* getHighestWeight */
+
+/******************************************************************************************************/
+
+static void compress (SA *sa)
+{
+  int i, jj ;
+  WW *w, *w1 ;
+  Array wws = sa->wws ;
+
+  arraySort (wws, wwOrder) ;
+  w = arrp (wws, 0, WW) ;
+  
+  for (i = jj = 0 ; i < arrayMax (wws) ; w++, i++)
+      {
+	if (! w->mult)
+	  continue ;
+	if (w1 && w->k == w1->k)
+	  w1->mult += w->mult ;
+	else
+	  {
+	    w1 = arrp (wws, jj++, WW) ;
+	    if (w != w1)
+	      *w1 = *w ;
+	  }
+      }
+  arrayMax (wws) = jj ;
+  return ;
+} /* compress */
 
 /******************************************************************************************************/
 
 static BOOL demazure (SA *sa, int r1, int *dimp, BOOL show)
 {
   BOOL new = FALSE ;
+  BOOL new2 = FALSE ;
   Array wws ;
-  Array old = sa->wws ;
+  Array old = 0 ;
   int i, dim, rank = sa->rank, jj = 0 ;
   static int pass = 0 ;
-  wws = sa->wws = arrayHandleCreate (256, WW, sa->h) ; 
-  pass++ ;
-  WW *w, *w1 ;
+
+
   char buf[1024] ;
   Array oldMult = sa->mult ;
 
-  if (pass == 1) new = TRUE ;
+  if (++pass == 1) new2 = TRUE ;
+    
+ redo:
+  jj = 0 ;
+  ac_free (old) ;
+  old = sa->wws ;
+  oldMult = sa->mult ;
+  wws = sa->wws = arrayHandleCreate (256, WW, sa->h) ;
   
   sa->mult = arrayCreate (4 * arrayMax (old), int) ;
+
   for (i = 0 ; i < arrayMax (old) ; i++) 
     {
       WW *w = arrayp (old, i, WW) ;
       int jMax = w->x[r1] ;
-      int r, n1, n2, k1, k2 ;
-      
-      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-      dictAdd (sa->dict, buf, &n1) ;
+      int r, n1, n2, k2 ;
 
-      for (r = 0 ; r < rank ; r++)
-	w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * jMax ;
-      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-      dictAdd (sa->dict, buf, &n2) ;
-      for (r = 0 ; r < rank ; r++)
-	w->x[r] += array(sa->Cartan, rank * r1 + r, int) * jMax ;
+      n1 = w->mult ;
 
-
-      k1 = array (oldMult, n1, int) ;
-      k2 = array (oldMult, n2, int) ;
-      if (n1 == n2) k2 = -1 ;
-      
-      if (jMax <= 0 || w->ok[r1] || k1 <= k2)
+      if (jMax > 0)
 	{
-	  int n = 0 ;
+	  for (r = 0 ; r < rank ; r++)
+	    w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * jMax ;
+	  memset (buf, 0, sizeof (buf)) ;
+	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
+	  dictAdd (sa->dict, buf, &k2) ;
+	  for (r = 0 ; r < rank ; r++)
+	    w->x[r] += array(sa->Cartan, rank * r1 + r, int) * jMax ;
+	  n2 = array (oldMult, k2, int) ;
+	}
+      
+      if (jMax <= 0 || n1 <= n2)
+	{
+	  int k = 0 ;
 	  WW *w1 = arrayp (wws, jj++, WW) ;
 	  *w1 = *w ;
 
+	  memset (buf, 0, sizeof (buf)) ;
 	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w1->x[0] , w1->x[1] , w1->x[2] , w1->x[3] , w1->x[4] , w1->x[5] , w1->x[6] , w1->x[7] ) ;
-	  dictAdd (sa->dict, buf, &n) ;
-	  array (sa->mult, n, int) += w->mult ;  
+	  dictAdd (sa->dict, buf, &k) ;
+	  array (sa->mult, k, int) = w->mult ;  
 	}
       else
 	{
 	  int j ;
 	  for (j =  0 ; j < jMax + 1 ; j++)
 	    {
-	      int n = 0,  r ;
+	      int k = 0,  r ;
 	      WW *w1 = arrayp (wws, jj++, WW) ;
 	      *w1 = *w ;
 	      for (r = 0 ; r < rank ; r++)
@@ -229,53 +264,55 @@ static BOOL demazure (SA *sa, int r1, int *dimp, BOOL show)
 		  w1->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
 		  if (j) w1->ok[r] = FALSE ;
 		}
-	      w1->ok[r1] = TRUE ;
-	      new = TRUE ;
+	      if (1) w1->ok[r1] = TRUE ;
+	      if (j) new = TRUE ;
 
-	      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w1->x[0] , w1->x[1] , w1->x[2] , w1->x[3] , w1->x[4] , w1->x[5] , w1->x[6] , w1->x[7] ) ;
-	      dictAdd (sa->dict, buf, &n) ;
-	      array (sa->mult, n, int) += w->mult ;  
+	      if (! w->k)
+		{
+		  memset (buf, 0, sizeof (buf)) ;
+		  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w1->x[0] , w1->x[1] , w1->x[2] , w1->x[3] , w1->x[4] , w1->x[5] , w1->x[6] , w1->x[7] ) ;
+		  dictAdd (sa->dict, buf, &k) ;
+		  w1->k = k ;
+		}
+	      w1->mult = n1 ;
+	      array (sa->mult, w->k, int) = n1 ;
 	    }
 	}
-    }
-
-  arraySort (wws, wwOrder) ;
-  w = w1 = arrp (wws, 0, WW) ;
-
-  for (i = jj = 1, w++ ; i < arrayMax (wws) ; w++, i++)
-    {
-      int r ;
-      BOOL same = TRUE ;
-
-      for (r = 0 ; r < rank ; r++)
-	if (w->x[r] != w1->x[r])
-	  same = FALSE ;
-      if (same)
-	w1->mult += w->mult ;
-      else
+      if (new)
 	{
-	  w1++ ; jj++ ;
-	  *w1 = *w ;
+	  int j ;
+	  
+	  for (j = i + 1 ; j < arrayMax (old) ; j++)
+	    {
+	      WW *w1 = arrayp (wws, jj++, WW) ;
+	      w = arrayp (old, j, WW) ;
+	      *w1 = *w ;
+	    }
+	  compress (sa) ;
+	  new = FALSE ;
+	  new2= TRUE ;
+	  goto redo ;
 	}
     }
-  arrayMax (wws) = jj ;
+
 
   for (dim = 0, i = 0 ; i < arrayMax (wws) ; i++)
     {
       WW *w = arrp (wws, i, WW) ;
       dim += w->mult ;
     }
-  
-  if (show && new)
+
+  arraySort (wws, wwOrder) ;
+  if (show && new2)
     {
       printf ("................Demazure, pass %d, r=%d dim = %d\n", pass, r1, dim) ;
       for (i = 0 ; i < arrayMax (wws) ; i++)
 	{
 	  int j ;
 	  WW *w = arrp (wws, i, WW) ;
-	  for (j = 0 ; j < rank ; j++)
-	    printf ("\t%d:%s", w->x[j], w->ok[j]? "B" : "") ;
-	  printf ("\tmult=%d\n", w->mult) ;
+	  for (j = rank -1 ; j >= 0 ; j--)
+	    printf (" %d", w->x[j]) ;
+	  printf ("\tmult=%d k=%d\n", w->mult, w->k) ;
 	}
       printf ("\n") ;
     }
@@ -283,7 +320,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, BOOL show)
   ac_free (oldMult) ;
   *dimp = dim ;
   
-  return new ;
+  return new2 ;
 } /* demazure */
 
 /******************************************************************************************************/
@@ -327,7 +364,7 @@ int main  (int argc, const char **argv)
        while (ok)
 	 {
 	   ok = FALSE ;
-	   for (r = 0 ; r < sa.rank ; r++)
+	   for (r = sa.rank - 1 ; r >= 0 ; r--)
 	     ok |= demazure (&sa, r, &dim, show) ;
 	 }
        printf ("*************************** %s m=%d n=%d %s dim=%d\n ", sa.type, sa.m, sa.n, sa.DynkinWeights, dim) ;
