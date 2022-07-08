@@ -18,6 +18,7 @@ typedef struct saStruct
 {
   AC_HANDLE h ;
   
+  BOOL table ;
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   int m, n, rank ;
@@ -303,6 +304,7 @@ int main  (int argc, const char **argv)
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
    getCmdLineInt (&argc, argv, "-n", &sa.n) ;
    show = getCmdLineBool (&argc, argv, "-show") ;
+   sa.table = getCmdLineBool (&argc, argv, "-table") ;
    getCmdLineOption (&argc, argv, "-type", &sa.type) ;
    getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
    if (sa.m < 0) messcrash ("argument -m m of SU(m/n) must be positive or null") ;
@@ -314,14 +316,24 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
-   getHighestWeight (&sa) ;
-   printf ("## Weights of the representations\n") ;
-   if (1)
+    printf ("## Weights of the representations\n") ;
+
+   if (table)
+     {
+       int cumul, i ;
+       char w0 = "0:0:0:0:0:0:0:0:" ;
+       w0{2*sa.rank] = 0 ;
+       sa.DynkinWeights = w0 ;
+       sa.dict = dictHandleCreate (32, sa.h) ;
+     }
+
+   else 
      {
        int r = -1, dim = 0 ;
        BOOL ok = TRUE ;
 
-       while (ok)
+       getHighestWeight (&sa) ;
+      while (ok)
 	 {
 	   ok = FALSE ;
 	   for (r = sa.rank - 1 ; r >= 0 ; r--)
