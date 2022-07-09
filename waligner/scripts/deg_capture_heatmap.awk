@@ -123,7 +123,7 @@ END {
 	
 	if (ok1 + ok2 == 0 && g1[g] * g2[g] > 0)
 	{ 
-	    trueg = "Inconsistent undecidable" ; 	    
+	    trueg = "Inconsistent-undecidable" ; 	    
 	    okI = 1 ;
 	}
 
@@ -163,10 +163,10 @@ END {
 		else if (ok1 > 0) 
 		{ t = "Opposite" ; ss[t,i,isCap]++ ; Opposite[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }         # false
 	    }
-	    else if (ok1 + ok2 + okI == 1 && n1 * n2 > 0)
-	    { t = "InternalInconsistency" ; ss[t,i,isCap]++ ; IntInc[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }     
+	    else if (ok1 + ok2 + okI >= 1 && n1 * n2 > 0)
+	    { t = "Internal-inconsistency" ; ss[t,i,isCap]++ ; IntInc[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }     
 	    else if (okI == 1 && n1 * n2 == 0)
-	    { t = "Inconsistent undecidable" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
+	    { t = "Inconsistent-undecidable" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
 	    else if (n1 + n2 > 0)
 	    { t = "Weak" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
 	}
@@ -179,22 +179,22 @@ END {
 	if (BMissed[g] == 1)
 	    ttt["B Missed"]++ ;
 	if (IntInc[g] == 1)
-	    ttt["InternalInconsistency"]++ ;
+	    ttt["Internal-inconsistency"]++ ;
 	if (ExtInc[g] == 1)
-	    ttt["ExternalInconsistency"]++ ; 
+	    ttt["External-inconsistency"]++ ; 
 	
 	newT = 0 ; bad= "-" ;
 	if (IntInc[g] == 1)
 	{
-	    bad = "InternalInconsistency" ;
+	    bad = "Internal-inconsistency" ;
 	}
 	else if (Opposite[g] == 1)
 	{
-	    bad = "ExternalInconsistency" ; 
+	    bad = "External-inconsistency" ; 
 	}
 	else if (okI == 1)
 	{ 
-	    trueg = "Inconsistent undecidable" ; 	    
+	    trueg = "Inconsistent-undecidable" ; 	    
 	    bad = trueg ;
 	    okI = 1 ;
 	    newT = 1 ; 
@@ -238,7 +238,7 @@ END {
 
 ################################
     out = outf".deg_truth.txt" ;
-    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A Missed,B Missed,Opposite,Weak,InternalInconsistency,ExternalInconsistent,Inconsistent undecidable,non-DEG", i2t, ",") ;
+    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A Missed,B Missed,Opposite,Internal-inconsistency,External-inconsistent,Inconsistent-undecidable,Weak,non-DEG", i2t, ",") ;
 
     printf ("### Sensitivity and specificity of the captured platforms, in each case the numbers are seen:contradicted:not seen\n") > out ;    
     printf ("### File %s : %s\n", outf".deg_truth.txt", strftime())  > out ; 

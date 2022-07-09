@@ -76,6 +76,42 @@ static void getCartan (SA *sa)
       }
       break ;
       
+    case 'B':
+      if (m < 2)
+	messcrash ("Type B(m)): m should be at least 2:  m=%d n=%d", m,n) ;
+      r = m ;
+      rr = r*r ;
+      Cartan = arrayCreate (rr, int) ;
+      {
+	int i ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    array (Cartan, r*i + i, int) = 2 ;
+	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
+	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	  }
+      }
+      array (Cartan, r*1 + 0, int) = -2 ;
+      break ;
+      
+    case 'C':
+      if (m < 2)
+	messcrash ("Type C(m)): m should be at least 2:  m=%d n=%d", m,n) ;
+      r = m ;
+      rr = r*r ;
+      Cartan = arrayCreate (rr, int) ;
+      {
+	int i ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    array (Cartan, r*i + i, int) = 2 ;
+	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
+	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	  }
+      }
+      array (Cartan, r*0 + 1, int) = -2 ;
+      break ;
+      
     case 'D':
       if (m<3)
 	messcrash ("Type D(m): m should be >=3 and even m=%d n=%d", m,n) ;
@@ -87,26 +123,49 @@ static void getCartan (SA *sa)
 	for (i = 0 ; i < r ; i++)
 	  {
 	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i >= 2) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i>= 2 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	    if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
+	    if (i> 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	  }
 	array (Cartan, r*0 + 2, int) = -1 ;
 	array (Cartan, r*2 + 0, int) = -1 ;
-	array (Cartan, r*1 + 2, int) = -1 ;
       }
       break ;
       
-    case 'C':
-      if (m != 2)
-	messcrash ("Type G(2)): m should be 2 m=%d n=%d", m,n) ;
-      r = 2 ;
+    case 'E':
+      if (m < 6 || m > 8)
+	messcrash ("Type E(m): m should be 6, 7 or 8 : m=%d n=%d", m,n) ;
+      r = sa->rank = m ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
       {
-	array (Cartan, r*0 + 0, int) = 2 ;
-	array (Cartan, r*0 + 1, int) = -2 ;
-	array (Cartan, r*1 + 1, int) = 2 ;
-	array (Cartan, r*1 + 0, int) = -1 ;
+	int i ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    array (Cartan, r*i + i, int) = 2 ;
+	    if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
+	    if (i > 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	  }
+	array (Cartan, r*0 + 3, int) = -1 ;
+	array (Cartan, r*3 + 0, int) = -1 ;
+      }
+      break ;
+      
+    case 'F':
+      if (m != 4)
+	messcrash ("Type F(4): m should be 4 : m=%d n=%d", m,n) ;
+      r = 4 ;
+      rr = r*r ;
+      Cartan = arrayCreate (rr, int) ;
+
+      {
+	int i ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    array (Cartan, r*i + i, int) = 2 ;
+	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
+	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	  }
+	array (Cartan, r*1 + 2, int) = -2 ;
       }
       break ;
       
@@ -165,34 +224,6 @@ static void getHighestWeight (SA *sa)
 
   hw->k = k ;
 } /* getHighestWeight */
-
-/******************************************************************************************************/
-
-static void compress (SA *sa)
-{
-  int i, jj ;
-  WW *w, *w1 ;
-  Array wws = sa->wws ;
-
-  arraySort (wws, wwOrder) ;
-  w = arrp (wws, 0, WW) ;
-  
-  for (i = jj = 0 ; i < arrayMax (wws) ; w++, i++)
-      {
-	if (! w->mult)
-	  continue ;
-	if (w1 && w->k == w1->k)
-	  w1->mult += w->mult ;
-	else
-	  {
-	    w1 = arrp (wws, jj++, WW) ;
-	    if (w != w1)
-	      *w1 = *w ;
-	  }
-      }
-  arrayMax (wws) = jj ;
-  return ;
-} /* compress */
 
 /******************************************************************************************************/
 
@@ -318,11 +349,10 @@ int main  (int argc, const char **argv)
    getCartan (&sa) ;
     printf ("## Weights of the representations\n") ;
 
-   if (table)
+   if (sa.table)
      {
-       int cumul, i ;
-       char w0 = "0:0:0:0:0:0:0:0:" ;
-       w0{2*sa.rank] = 0 ;
+       char *w0 = "0:0:0:0:0:0:0:0:" ;
+       w0[2*sa.rank] = 0 ;
        sa.DynkinWeights = w0 ;
        sa.dict = dictHandleCreate (32, sa.h) ;
      }

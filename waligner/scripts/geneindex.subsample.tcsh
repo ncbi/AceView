@@ -163,13 +163,27 @@ endif
 
 #############################################################################
 
-goto done
+if ($phase == cumul) then
+    if  ($uu == u) set UU=unique
+    if  ($uu == nu) set UU=quasi_unique
 
-date > toto
-foreach kk ($kks)
-  cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.$kk.GENE.mRNA_length.DEG.$uu.profile_stats.txt | gawk -F '\t' '/^## Stat/{r=$1;n=0;next;}{n++;}{if(kk=="0k")kk=1000000000;gsub("M","000k",kk);gsub("k","",kk);if(n==2)printf ("%s\t%010d\t%d\n", r,kk, $2)}' kk=$kk >> toto
-end
-cat toto | sort -k 1,1 -k 2nr
+    set toto=RESULTS/Expression.0k/deg_truth_per_depth.txt
+    echo $toto > $toto.1
+    echo -n "### $toto : " > $toto
+    date >> $toto
+    set k=0
+    foreach kk ($kks)
+      set k=`echo $k | gawk '{print $1+1;}'`
+      cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,$i);}' k=$k kk=$kk >> toto.1
+    end
+    cat toto.1 | sort -k 1,1n -k 2,2n -k 3,3n > toto.2
+    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",z[i,j,k]);}}}' >> $toto
+    \rm toto.[12]
+    
+
+
+  goto done
+endif
 
 #############################################################################
 

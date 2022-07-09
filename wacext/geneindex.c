@@ -6719,10 +6719,10 @@ static Array gxDoCompare_to (GX *gx, int pass, COMPARE *compare
 	      u2 = rc2->runs ? keySetMax (rc2->runs) : 0 ; 
 	      if (u1 < 4 || u2 < 4)
 		minFoldChange = 1.0 ;
-	      else if (u1 + u2 < 50 &&	minFoldChange < 1 &&
-		       minFoldChange < 1.5 - 1.1 * (u1+u2)/50.0
+	      else if (u1 + u2 < 8 &&	minFoldChange < 1 &&
+		       minFoldChange < 1.5 - 1.1 * (u1+u2)/8.0
 		       )
-		minFoldChange = 1.0 - 1.1 * (u1+u2)/50.0 ;  /* interpolate down to .4 at or over 50 */
+		minFoldChange = 1.5 - 1.1 * (u1+u2)/8.0 ;  /* interpolate down to .4 at or over 50 */
 	    }
 
 	  for (gene = 1, dc1 = arrayp (aa1, 1, DC), dc2 = arrayp (aa2, 1, DC) ; gene < aaMax ; gene++, dc1++, dc2++) 
