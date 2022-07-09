@@ -12,6 +12,7 @@ typedef struct wStruct
   BOOL ok[RMAX] ;
   int mult ;
   int k ;
+  BOOL odd ;
 } WW ; /* representation weigth vector */
 
 typedef struct saStruct
@@ -26,6 +27,7 @@ typedef struct saStruct
   Array dd ;   /* dims of all the submodules */
   MX chi ;
   Array Cartan ;
+  BOOL odd[RMAX] ;
   WW hw ; /* HIGHEST WEIGHT */
   Array wws ; /* weights */
   DICT *dict ;
@@ -51,6 +53,7 @@ static void getCartan (SA *sa)
 {
   Array Cartan = 0 ;
   int m = sa->m, n = sa->n, r = 0, rr ;
+
   switch ((int)sa->type[0])
     {
     case 'A':
@@ -69,9 +72,11 @@ static void getCartan (SA *sa)
 	  }
 	if (m*n > 0)
 	  {
-	      array (Cartan, r*m + m , int) = 0 ;
-	      if (m > 0) array (Cartan, r*m + m - 1 , int) = 1 ;
-	      if (m < r-1) array (Cartan, r*m + m + 1, int) = -1 ;
+	    int o = m - 1 ;
+	    sa->odd[o] = TRUE ;
+	    array (Cartan, r*o + o , int) = 0 ;
+	    if (o > 0) array (Cartan, r*o + o - 1 , int) = -1 ;
+	    else array (Cartan, r*o + o + 1, int) = 1 ;
 	  }
       }
       break ;
@@ -79,7 +84,7 @@ static void getCartan (SA *sa)
     case 'B':
       if (m < 2)
 	messcrash ("Type B(m)): m should be at least 2:  m=%d n=%d", m,n) ;
-      r = m ;
+      sa->rank = r = m ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
       {
@@ -153,7 +158,7 @@ static void getCartan (SA *sa)
     case 'F':
       if (m != 4)
 	messcrash ("Type F(4): m should be 4 : m=%d n=%d", m,n) ;
-      r = 4 ;
+      sa->rank = r = 4 ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
 
@@ -170,9 +175,9 @@ static void getCartan (SA *sa)
       break ;
       
     case 'G':
-      if (m != 2)
-	messcrash ("Type G(2)): m should be 2 m=%d n=%d", m,n) ;
-      r = 2 ;
+      if (m != 2 && m != 3)
+	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
+      sa->rank = r = m ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
       {
@@ -181,6 +186,12 @@ static void getCartan (SA *sa)
 	array (Cartan, r*1 + 1, int) = 2 ;
 	array (Cartan, r*1 + 0, int) = -1 ;
       }
+      if (m == 3)
+	{
+	  sa->odd[2] = TRUE ;
+	  array (Cartan, r*2 + 2 , int) = 0 ;
+	  array (Cartan, r*2 + 1, int) = -1 ;
+	}
       break ;
       
     default:
@@ -227,14 +238,14 @@ static void getHighestWeight (SA *sa)
 
 /******************************************************************************************************/
 
-static BOOL demazure (SA *sa, int r1, int *dimp, BOOL show)
+static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
-  int i, dim, rank = sa->rank ;
+  int i, dim, sdim, rank = sa->rank ;
   static int pass = 0 ;
-
-
+  BOOL odd = sa->odd[r1] ;
+  
   char buf[1024] ;
 
   if (++pass == 1) new = TRUE ;
@@ -242,76 +253,134 @@ static BOOL demazure (SA *sa, int r1, int *dimp, BOOL show)
   for (i = 1 ; i < arrayMax (wws) ; i++) 
     {
       WW *w = arrayp (wws, i, WW) ;
-      int jMax = w->x[r1] ;
-      int r, n1, n2, k2 ;
+      int n1 = w->mult ;
+      int n2 = 0 ;
+      int na = 0 ;
+      int dn = 0 ;
+      int jMax = w->x[r1] ; /* default even values */
+      BOOL oddLayer = w->odd ;
 
-      n1 = w->mult ;
-      n2 = 0 ;
       
-      if (jMax > 0)
+      if (odd) /* assess the multiplicity of the ancestor descendent  */
 	{
-	  int j ;
+	  int r, k2 = 0 ;
+	  int j = 1 ;
+
+	  oddLayer = ! w->odd ;
+	  
+	  /* position to ancestor */
+	  for (r = 0 ; r < rank ; r++)
+	    w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
+	  memset (buf, 0, sizeof (buf)) ;
+	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
+	  if (dictFind (sa->dict, buf, &k2))
+	    {
+	      WW * w2 = arrayp (wws, k2, WW) ;
+	      na = w2->mult ;
+	    }
+	  else
+	    na = 0 ; /* no ancestor */
+	  
+	  if (na >=  n1)  /* status quo */
+	    jMax = 0 ;
+	  else
+	    jMax = 1 ;   /* odd value */
+
+	  /* reposition w to its original location */
+	  for (r = 0 ; r < rank ; r++)
+	    w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
+	}
+	  
+      if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
+	{
+	  int j, r, k2 ;
 	  WW *w2 ;
+	  
 	  for (j = 1 ; j <= jMax ; j++)
 	    {
+	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
+	      
+	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      memset (buf, 0, sizeof (buf)) ;
 	      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
 	      dictAdd (sa->dict, buf, &k2) ;
+	      
+	      /* create w2(k2) it if needed */
 	      w2 = arrayp (wws, k2, WW) ;
-	      w = arrayp (wws, i, WW) ; 
+	      w = arrayp (wws, i, WW) ;  /* needed because the wws aray may be relocated in RAM upon extension */ 
 	      if (! w2->k)
 		{
 		  *w2 = *w ;
 		  w2->k = k2 ;
 		  w2->mult = 0 ;
+		  w2->odd = oddLayer ;
 		}
+	      n2 = na + w2->mult ;
+	      
+	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
-	      n2 = w2->mult ;
 	    }
-	  if (n2 < n1) /* populate */
-	    for (j = 1 ; j <= jMax ; j++)
-	      {
-		new = TRUE ;
-		for (r = 0 ; r < rank ; r++)
-		  w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
-		memset (buf, 0, sizeof (buf)) ;
-		sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-		dictAdd (sa->dict, buf, &k2) ;
-		w2 = arrayp (wws, k2, WW) ;
-		w2->mult += n1 - n2 ;
-		for (r = 0 ; r < rank ; r++)
-		  w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
-	    }
-	    
 	}
+
+      dn = n1 - n2 ; /* defect multiplicity */
+      if (jMax > 0 && dn > 0)   /* populate the new multiplate */
+	{
+	  int j, r, k2 ;
+	  WW *w2 ;
+	  
+	  new = TRUE ;
+	  for (j = 1 ; j <= jMax ; j++)
+	    {
+	      /* position to the new weight */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
+	      
+	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
+	      memset (buf, 0, sizeof (buf)) ;
+	      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
+	      dictFind (sa->dict, buf, &k2) ; /* notice, w2(k2) was created just above */
+	      w2 = arrayp (wws, k2, WW) ;
+	      
+	      /* increase multiplicity of the new multiplet */
+	      w2->mult += dn ;
+	      
+	      /* reposition w to its original location */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
+	    }
+	}
+      
     }
 
-
-  for (dim = 0, i = 1 ; i < arrayMax (wws) ; i++)
+  for (dim = sdim = 0, i = 1 ; i < arrayMax (wws) ; i++)
     {
       WW *w = arrp (wws, i, WW) ;
-      dim += w->mult ;
+      if (w->odd)
+	sdim += w->mult ;
+      else
+	dim += w->mult ;
     }
 
   if (0)   arraySort (wws, wwOrder) ;
   if (show && new)
     {
-      printf ("................Demazure, pass %d, r=%d dim = %d\n", pass, r1, dim) ;
+      printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", pass, r1, dim + sdim, dim - sdim) ;
       for (i = 1 ; i < arrayMax (wws) ; i++)
 	{
 	  int j ;
 	  WW *w = arrp (wws, i, WW) ;
-	  for (j = rank -1 ; j >= 0 ; j--)
+	  for (j = 0 ; j < rank ; j++)
 	    printf (" %d", w->x[j]) ;
-	  printf ("\tmult=%d k=%d\n", w->mult, w->k) ;
+	  printf ("\tmult=%d k=%d %s\n", w->mult, w->k, w->odd ? "Odd" : "" ) ;
 	}
       printf ("\n") ;
     }
 
-  *dimp = dim ;
+  *dimp = dim + sdim ;
+  *sdimp = dim - sdim ;
   
   return new ;
 } /* demazure */
@@ -359,17 +428,18 @@ int main  (int argc, const char **argv)
 
    else 
      {
-       int r = -1, dim = 0 ;
+       int r = -1, dim = 0, sdim = 0 ;
        BOOL ok = TRUE ;
 
        getHighestWeight (&sa) ;
       while (ok)
 	 {
 	   ok = FALSE ;
-	   for (r = sa.rank - 1 ; r >= 0 ; r--)
-	     ok |= demazure (&sa, r, &dim, show) ;
+	   for (r = 0 ; r < sa.rank ; r++)
+	     ok |= demazure (&sa, r, &dim, &sdim, show) ;
 	 }
-       printf ("*************************** %s m=%d n=%d %s dim=%d\n ", sa.type, sa.m, sa.n, sa.DynkinWeights, dim) ;
+       printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
+	       , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
      }
    
 #ifdef JUNK
