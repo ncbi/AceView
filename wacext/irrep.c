@@ -12,7 +12,8 @@ typedef struct wStruct
   BOOL ok[RMAX] ;
   int mult ;
   int k ;
-  BOOL odd ;
+  int layer ;
+  BOOL odd, hw ;
 } WW ; /* representation weigth vector */
 
 typedef struct saStruct
@@ -233,6 +234,7 @@ static void getHighestWeight (SA *sa)
   sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", hw->x[0] , hw ->x[1] , hw ->x[2] , hw ->x[3] , hw ->x[4] , hw ->x[5] , hw ->x[6] , hw ->x[7] ) ;
   dictAdd (sa->dict, buf, &k) ;
 
+  hw->hw = TRUE ;
   hw->k = k ;
 } /* getHighestWeight */
 
@@ -266,6 +268,14 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  int r, k2 = 0 ;
 	  int j = 1 ;
 
+	  if (! w->hw)  /* only consider the Kac crystal */ 
+	    continue ;
+	  if (i == 1 && w->x[r1] == 0) /* atypical type one */
+	    continue ;
+	  if (r1 > 0 && i == 2 && w->x[r1] == w->x[r1-1]+ 1) /* atypical type 2 */
+	    continue ;
+	  if (r1 > 1 && i == 3 && w->x[r1] == w->x[r1-1]+ w->x[r1-2] + 2) /* atypical type 3 */
+	    continue ;
 	  oddLayer = ! w->odd ;
 	  
 	  /* position to ancestor */
@@ -280,7 +290,8 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	    }
 	  else
 	    na = 0 ; /* no ancestor */
-	  
+	  if (w->layer && ! na && arr(wws,1,WW).x[r1]== arr(wws,1,WW).x[r1-1] + 0)
+	    na = n1 ;
 	  if (na >=  n1)  /* status quo */
 	    jMax = 0 ;
 	  else
@@ -315,10 +326,15 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 		  *w2 = *w ;
 		  w2->k = k2 ;
 		  w2->mult = 0 ;
+		  w2->hw = FALSE ;
 		  w2->odd = oddLayer ;
+		  if (odd)
+		    w2->layer++ ;
+		  if (j == 1 && w->hw)
+		    w2->hw = TRUE ;
 		}
 	      n2 = na + w2->mult ;
-	      
+
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
@@ -374,7 +390,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  WW *w = arrp (wws, i, WW) ;
 	  for (j = 0 ; j < rank ; j++)
 	    printf (" %d", w->x[j]) ;
-	  printf ("\tmult=%d k=%d %s\n", w->mult, w->k, w->odd ? "Odd" : "" ) ;
+	  printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
 	}
       printf ("\n") ;
     }

@@ -80,7 +80,10 @@ if ($phase == reportOne) then
     if  ($uu == u) set UU=unique
     if  ($uu == nu) set UU=quasi_unique
 
-  if (-e RESULTS/Expression.$kk/$UU/av/report.done) goto done
+  set totog=RESULTS/Expression.0k/unique/av/gene_truth.list.0k
+  touch $totog
+
+  if (-e RESULTS/Expression.$kk/$UU/av/report.done2) goto done
   set Expression=Expression.$kk
 
   set ln=geneBox_length
@@ -133,7 +136,7 @@ if ($phase == reportOne) then
     end
   end
 
-  cat $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk outf=RESULTS/$Expression/$UU/av/AECDB_diff    > $toto.3
+  cat $totog $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk outf=RESULTS/$Expression/$UU/av/AECDB_diff    > $toto.3
   cat $toto.3 | head -8 | gawk '/^#/{print}' >> $toto
   cat $toto.3 | gawk '/^#/{next;}{print}' | sort -k 7,7 -k 1,1  >> $toto
   #\rm $toto.[0123]
@@ -155,6 +158,7 @@ if ($phase == reportOne) then
 ls -ls $toto
 wc $toto
 goto done
+ 
 
   echo $toto.done
   touch RESULTS/Expression.$kk/$UU/av/report.done
@@ -167,18 +171,24 @@ if ($phase == cumul) then
     if  ($uu == u) set UU=unique
     if  ($uu == nu) set UU=quasi_unique
 
+  # establish the truth list
+  set totog=RESULTS/Expression.0k/unique/av/gene_truth.list
+    if (! -e $totog.ZZ) then
+      cat RESULTS/Expression.0k/unique/av/AECDB_diff.0k.GENE.mRNA_length.DEG.u.heatmap.txt | gawk -F '\t' '{printf("Truth\t%s\t%s\n",$1,$7);}' > $totog.0k
+    endif
+
     set toto=RESULTS/Expression.0k/deg_truth_per_depth.txt
-    echo $toto > $toto.1
+    echo $toto > toto.1
     echo -n "### $toto : " > $toto
     date >> $toto
     set k=0
     foreach kk ($kks)
       set k=`echo $k | gawk '{print $1+1;}'`
-      cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,$i);}' k=$k kk=$kk >> toto.1
+      cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,0+$i);}' k=$k kk=$kk >> toto.1
     end
     cat toto.1 | sort -k 1,1n -k 2,2n -k 3,3n > toto.2
-    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",z[i,j,k]);}}}' >> $toto
-    \rm toto.[12]
+    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",0+z[i,j,k]);}}printf("\n");}' >> $toto
+    #\rm toto.[12]
     
 
 

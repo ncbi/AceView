@@ -1,6 +1,13 @@
 /^LnMiMxFc/ { 
     g=$2 ; gg[g]=1 ; g1[g] = 0 ; g2[g] = 0 ; ln[g] = $3 ; gMin[g]=$5 ; gMax[g]=$4 ; gFc[g]=$6 ; next ; 
 }
+
+/^Truth/ {
+    g = $2 ;
+    nTruth++ ; truth[g] = $3 ;
+    next ;
+}
+
 {
     if ($5+$6+0 == 0) next ; 
     if ($2+0>0) next ; 
@@ -9,8 +16,8 @@
 }
 END {
     nf = split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",")  ; 
-    nf = split("RNA_Total,RNA_PolyA,AGLR1,AGLR2,ROCR1,ROCR2,ILMR1,ILMR2_lowQ,ILMR2,ILMR3,BSPR1,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3",ff,",")  ; 
-    split("Total,PolyA,A1,A2,R1,R2,I1,I2,I2,I3,B1,A2,A2,R3,R3",fCap,",")  ; 
+    nf = split("RNA_Total,RNA_PolyA,AGLR1,AGLR2,ROCR1,ROCR2,ILMR1,ILMR2_lowQ,ILMR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,BSPR1,ILMR3",ff,",")  ; 
+    split("Total,PolyA,A1,A2,R1,R2,I1,I2,I2,A2,A2,R3,R3,B1,I3",fCap,",")  ; 
     printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
@@ -23,10 +30,10 @@ END {
     {
 	if (length(g) == 0 || g == 0)
 	    continue ;
+
 	bad = "" ; 
 	ok1 = 0 ;
 	ok2 = 0 ;
-	okW = 0 ;
 	okI = 0 ;
 	gnc1 = z1[ff[1],g] + z1[ff[2],g] ; 
 	gnc2 = z2[ff[1],g] + z2[ff[2],g] ; 
@@ -35,97 +42,109 @@ END {
 	
 	if (0) printf ("\nzzz %s", g) ;
 	trueg = "non-DEG" ; 
-	if (g1[g] + g2[g] > 0)
+
+	if (nTruth < 100)
 	{
-	    if (g2[g] >= 3 *g1[g])       
+	    if (g1[g] + g2[g] > 0)
 	    {
-		if (gnc2 > 0 && gnc1 == 0)
+		if (g2[g] >= 3 *g1[g])       
 		{
-		    trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
-		    if (g1[g] > 50)
-			trueg = trueg "_b" int((g1[g]+50)/100) ; 
-		    ok2 = 1 ;
-		}
-		else
-		{   # at least 1 capture platforms or 3 platforms 
-		    k = 0 ; k2 = 0 ;
-		    for (i = 1 ; i <= nf ; i++)
-		    {
-			if (z2[ff[i],g] > 1 * z1[ff[i],g] && z2[ff[i],g]>0)
-			{
-			    if (index(cap[g], fCap[i]) > 0)
-				k++ ;
-			    else
-				k2++ ;
-			}
-		    }
-		    if (k >= 1)
-		    {
-			trueg = sprintf ("NewTrueA_%03d",  int((g2[g]+50)/100)) ;
-			if (g1[g] > 50)
-			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
-			ok2 = 1 ;
-		    }
-		    if (k2 >= 3)
+		    if (gnc2 > 0 && gnc1 == 0)
 		    {
 			trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
 			if (g1[g] > 50)
 			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
 			ok2 = 1 ;
 		    }
-		}
-	    }
-	    else if (g1[g] >= 3 *g2[g])
-	    {
-		if (gnc1 > 0 && gnc2 == 0)
-		{
-		    trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
-		    if (g2[g] > 50)
-			trueg = trueg "_a" int((g2[g]+50)/100) ; 
-		    ok1 = 1 ;
-		}
-		else
-		{   # at least 2 platforms or 300
-		    k = 0 ; k2 = 0 ;
-		    for (i = 1 ; i <= nf ; i++)
-		    {
-			if (z1[ff[i],g] > 1 * z2[ff[i],g] && z1[ff[i],g]>0)	
+		    else
+		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
+			k = 0 ; k2 = 0 ;
+			for (i = 1 ; i <= nf - 2 ; i++)
 			{
-			    if (index(cap[g], fCap[i]) > 0)
-				k = k + 1 ;
-			    else
-				k2 = k2 + 1 ;
+			    if (z2[ff[i],g] > 1 * z1[ff[i],g] && z2[ff[i],g]>0)
+			    {
+				if (index(cap[g], fCap[i]) > 0)
+				    k++ ;
+				else
+				    k2++ ;
+			    }
 			}
-			if (0 && 1 + z1[ff[i],g] +  z2[ff[i],g] > 0)
-			    printf ("######## %s %s %f %f k=%d k2=%d\n" , g, ff[i], z1[ff[i],g], z2[ff[i],g], k, k2) ;
+			if (k >= 1)
+			{
+			    trueg = sprintf ("NewTrueA_%03d",  int((g2[g]+50)/100)) ;
+			    if (g1[g] > 50)
+				trueg = trueg "_b" int((g1[g]+50)/100) ; 
+			    ok2 = 1 ;
+			}
+			if (k2 >= 3)
+			{
+			    trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
+			    if (g1[g] > 50)
+				trueg = trueg "_b" int((g1[g]+50)/100) ; 
+			    ok2 = 1 ;
+			}
 		    }
-		    if (k >= 1)
-		    {
-			trueg = sprintf ("NewTrueB_%03d", int((g1[g]+50)/100)) ;
-			if (g2[g] > 50)
-			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
-			ok1 = 1 ;
-		    }
-		    if (k2 >= 3)
+		}
+		else if (g1[g] >= 3 *g2[g])
+		{
+		    if (gnc1 > 0 && gnc2 == 0)
 		    {
 			trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
 			if (g2[g] > 50)
 			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
 			ok1 = 1 ;
 		    }
-		    if (0) printf ("######### %s k=%d k2=%d\n",g,k,k2);
+		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
+			k = 0 ; k2 = 0 ;
+			for (i = 1 ; i <= nf - 2 ; i++)
+			{
+			    if (z1[ff[i],g] > 1 * z2[ff[i],g] && z1[ff[i],g]>0)	
+			    {
+				if (index(cap[g], fCap[i]) > 0)
+				    k = k + 1 ;
+				else
+				    k2 = k2 + 1 ;
+			    }
+			    if (0 && 1 + z1[ff[i],g] +  z2[ff[i],g] > 0)
+				printf ("######## %s %s %f %f k=%d k2=%d\n" , g, ff[i], z1[ff[i],g], z2[ff[i],g], k, k2) ;
+			}
+			if (k >= 1)
+			{
+			    trueg = sprintf ("NewTrueB_%03d", int((g1[g]+50)/100)) ;
+			    if (g2[g] > 50)
+				trueg = trueg "_a" int((g2[g]+50)/100) ; 
+			    ok1 = 1 ;
+			}
+			if (k2 >= 3)
+			{
+			    trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
+			    if (g2[g] > 50)
+				trueg = trueg "_a" int((g2[g]+50)/100) ; 
+			    ok1 = 1 ;
+			}
+			if (0) printf ("######### %s k=%d k2=%d\n",g,k,k2);
+		    }
 		}
 	    }
+	    if (ok1 + ok2 == 0 && g1[g] * g2[g] > 0)
+	    { 
+		trueg = "Inconsistent-undecidable" ; 	    
+		okI = 1 ;
+	    }
 	}
-
+	else
+	{
+	    trueg = truth[g] ;
+	    split (trueg, aa, "_") ;
+	    gTrue[g] = aa[1] ;
+	    if (aa[1] == "TrueB" || aa[1] == "NewTrueB") ok1 = 1 ;
+	    if (aa[1] == "TrueA" || aa[1] == "NewTrueA") ok2 = 1 ;
+	    if (aa[1] == "Inconsistent-undecidable") okI = 1 ;
+	}
+	    
 	split (trueg, aa, "_") ;
 	gTrue[g] = aa[1] ;
-	
-	if (ok1 + ok2 == 0 && g1[g] * g2[g] > 0)
-	{ 
-	    trueg = "Inconsistent-undecidable" ; 	    
-	    okI = 1 ;
-	}
+
 
 ######################################################
 ######  stats
@@ -145,9 +164,9 @@ END {
 	    if (n1 + n2 == 0)
 	    {
 		if (ok1 > 0 && isCap2)
-		{  t= "B Missed" ; ss[t,i,isCap]++ ; BMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
+		{  t= "B-Missed" ; ss[t,i,isCap]++ ; BMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
 		else if (ok2 > 0 && isCap2)
-		{  t= "A Missed" ; ss[t,i,isCap]++ ; AMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
+		{  t= "A-Missed" ; ss[t,i,isCap]++ ; AMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
 	    }
 	    else if (ok1 + ok2 && n1 > 3*n2)
 	    {
@@ -163,21 +182,26 @@ END {
 		else if (ok1 > 0) 
 		{ t = "Opposite" ; ss[t,i,isCap]++ ; Opposite[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }         # false
 	    }
+	    else if (ok1 > 0 && isCap2)
+	    {  t= "B-Missed" ; ss[t,i,isCap]++ ; BMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
+	    else if (ok2 > 0 && isCap2)
+	    {  t= "A-Missed" ; ss[t,i,isCap]++ ; AMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
 	    else if (ok1 + ok2 + okI >= 1 && n1 * n2 > 0)
 	    { t = "Internal-inconsistency" ; ss[t,i,isCap]++ ; IntInc[g] = 1 ; bads[i] = t ;  dd[g,i, nt "Problem"] = 1 ; }     
 	    else if (okI == 1 && n1 * n2 == 0)
 	    { t = "Inconsistent-undecidable" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
-	    else if (n1 + n2 > 0)
-	    { t = "Weak" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
+	    else
+	    { t = "Weak" ; ss[t,i,isCap]++ ; bads[i] = t ; }
+	    
 	}
 
 
 	if (Opposite[g] == 1)
 	    ttt["Opposite"]++ ;
 	if (AMissed[g] == 1)
-	    ttt["A Missed"]++ ;
+	    ttt["A-Missed"]++ ;
 	if (BMissed[g] == 1)
-	    ttt["B Missed"]++ ;
+	    ttt["B-Missed"]++ ;
 	if (IntInc[g] == 1)
 	    ttt["Internal-inconsistency"]++ ;
 	if (ExtInc[g] == 1)
@@ -205,7 +229,7 @@ END {
 	    newT = 1 ; 
 	}
 
-	if (newT + okI >= 1)
+	if (nTruth < 100 && newT + okI >= 1)
 	{
 	    gTrue[g] = trueg ;
 	    if (g2[g] > 50)
@@ -238,7 +262,7 @@ END {
 
 ################################
     out = outf".deg_truth.txt" ;
-    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A Missed,B Missed,Opposite,Internal-inconsistency,External-inconsistent,Inconsistent-undecidable,Weak,non-DEG", i2t, ",") ;
+    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A-Missed,B-Missed,Opposite,Internal-inconsistency,Inconsistent-undecidable,Weak,non-DEG", i2t, ",") ;
 
     printf ("### Sensitivity and specificity of the captured platforms, in each case the numbers are seen:contradicted:not seen\n") > out ;    
     printf ("### File %s : %s\n", outf".deg_truth.txt", strftime())  > out ; 
@@ -252,7 +276,7 @@ END {
     {
 	t = i2t [j] ;
 	done[t] = 1 ;
-	if (ttt[t] < 1) continue ;
+	if (ttt[t]+0 < 0) continue ;
 
 	    printf ("\n%s\t%d", t, ttt[t])  > out ;
 	    for (i = 1 ; i <= 2 ; i++)   # for the truth columns we export the non-captured values
