@@ -268,13 +268,13 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  int r, k2 = 0 ;
 	  int j = 1 ;
 
-	  if (! w->hw)  /* only consider the Kac crystal */ 
+	  if (0 && ! w->hw)  /* only consider the Kac crystal */ 
 	    continue ;
-	  if (i == 1 && w->x[r1] == 0) /* atypical type one */
+	  if (0 && i == 1 && w->x[r1] == 0) /* atypical type one */
 	    continue ;
-	  if (r1 > 0 && i == 2 && w->x[r1] == w->x[r1-1]+ 1) /* atypical type 2 */
+	  if (0 && r1 > 0 && i == 2 && w->x[r1] == w->x[r1-1]+ 1) /* atypical type 2 */
 	    continue ;
-	  if (r1 > 1 && i == 3 && w->x[r1] == w->x[r1-1]+ w->x[r1-2] + 2) /* atypical type 3 */
+	  if (0 && r1 > 1 && i == 3 && w->x[r1] == w->x[r1-1]+ w->x[r1-2] + 2) /* atypical type 3 */
 	    continue ;
 	  oddLayer = ! w->odd ;
 	  
@@ -290,7 +290,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	    }
 	  else
 	    na = 0 ; /* no ancestor */
-	  if (w->layer && ! na && arr(wws,1,WW).x[r1]== arr(wws,1,WW).x[r1-1] + 0)
+	  if (0 && w->layer && ! na && arr(wws,1,WW).x[r1]== arr(wws,1,WW).x[r1-1] + 0)
 	    na = n1 ;
 	  if (na >=  n1)  /* status quo */
 	    jMax = 0 ;
@@ -361,7 +361,13 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	      w2 = arrayp (wws, k2, WW) ;
 	      
 	      /* increase multiplicity of the new multiplet */
-	      w2->mult += dn ;
+	      if (1)
+		{
+		  if (w2->mult < w->mult + dn)
+		    w2->mult += dn ;
+		}
+	      else /* classic demazure , correct for Lie algebras */
+		w2->mult += dn ;
 	      
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
@@ -425,9 +431,6 @@ int main  (int argc, const char **argv)
    getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
    if (sa.m < 0) messcrash ("argument -m m of SU(m/n) must be positive or null") ;
    if (sa.n < 0) messcrash ("argument -n n of SU(m/n) must be positive or null") ;
-   if (sa.m + sa.n < 2) messcrash ("In SU(m/n) m+n must be >2") ;
-   if (sa.m == sa.n) messcrash ("SU(m/m) must be treated separatelly") ; 
-   sa.rank = sa.m + sa.n ;
 
    sa.dict = dictHandleCreate (32, sa.h) ;
    
@@ -450,9 +453,17 @@ int main  (int argc, const char **argv)
        getHighestWeight (&sa) ;
       while (ok)
 	 {
+	   while (ok)
+	     {
+	       ok = FALSE ;
+	       for (r = 0 ; r < sa.rank ; r++)
+		 if (! sa.odd[r])
+		   ok |= demazure (&sa, r, &dim, &sdim, show) ;
+	     }
 	   ok = FALSE ;
 	   for (r = 0 ; r < sa.rank ; r++)
-	     ok |= demazure (&sa, r, &dim, &sdim, show) ;
+	     if (sa.odd[r])
+	       ok |= demazure (&sa, r, &dim, &sdim, show) ;
 	 }
        printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
 	       , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
@@ -481,3 +492,74 @@ int main  (int argc, const char **argv)
 
   return 0 ;
 }
+
+/************************************************************************
+SU(3/2) shifted trivial, layer 2, should be 6S * 1A   + 3'A * 3S  == 9+6 = 15
+................Demazure, pass 17, r=2 dim = 12 sdim = 0
+
+layer 1 and first contact to layer 2 viy the odd root
+ 0 0 10 0	mult=1 k=1 l=0  *
+
+ 0 1 10 1	mult=1 k=2 l=1 Odd *
+ 1 -1 11 1	mult=1 k=3 l=1 Odd *
+ -1 0 11 1	mult=1 k=6 l=1 Odd *
+
+ 0 1 11 -1	mult=1 k=4 l=1 Odd *
+ 1 -1 12 -1	mult=1 k=5 l=1 Odd *
+ -1 0 12 -1	mult=1 k=7 l=1 Odd *
+
+ 1 0 11 2	mult=1 k=8 l=2  *
+ 0 2 11 0	mult=1 k=9 l=2  *
+ 1 0 12 0	mult=1 k=10 l=2  *
+ -1 1 11 2	mult=1 k=11 l=2  *
+ -1 1 12 0	mult=1 k=12 l=2  *
+
+
+ **** full layer 2, obtained by even iteration
+ **** wrong, we do not expect multiplicity 3, we expect 2
+ ****  we have 18 states in place of 15, why ?
+
+1 0 11 2	mult=1 k=8 l=2  *
+ 1 0 12 0	mult=3 k=10 l=2  *
+ 1 0 13 -2	mult=1 k=16 l=2  
+
+ 0 -1 12 2	mult=1 k=14 l=2  *
+ 0 -1 13 0	mult=3 k=15 l=2  *
+ 0 -1 14 -2	mult=1 k=18 l=2  
+
+ -1 1 11 2	mult=1 k=11 l=2  *
+ -1 1 12 0	mult=3 k=12 l=2  *
+ -1 1 13 -2	mult=1 k=17 l=2  
+
+
+
+ 2 -2 13 0	mult=1 k=13 l=2  
+ 0 2 11 0	mult=1 k=9 l=2  *
+ -2 0 13 0	mult=1 k=19 l=2  
+
+
+ ************************************************************************
+
+ SU(3) rep 0:2 == dim 6
+
+...............Demazure, pass 3, r=0 dim = 6 sdim = 6
+ 0 2	mult=1 k=1 l=0  *
+ 1 0	mult=1 k=2 l=0  *
+ 2 -2	mult=1 k=3 l=0  
+ -1 1	mult=1 k=4 l=0  *
+ 0 -1	mult=1 k=5 l=0  
+ -2 0	mult=1 k=6 l=0  
+
+ **************************
+ SU(3) rep 0:1 ................Demazure, pass 3, r=0 dim = 3 sdim = 3
+ 0 1	mult=1 k=1 l=0  *
+ 1 -1	mult=1 k=2 l=0  *
+ -1 0	mult=1 k=3 l=0  *
+
+ **************************
+  SU(3) rep 1:0 ..............Demazure, pass 2, r=1 dim = 3 sdim = 3
+ 1 0	mult=1 k=1 l=0  *
+ -1 1	mult=1 k=2 l=0  *
+ 0 -1	mult=1 k=3 l=0  *
+
+*/
