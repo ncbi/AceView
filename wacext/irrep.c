@@ -24,14 +24,17 @@ typedef struct saStruct
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   int m, n, rank ;
+  Array Cartan ;
+  int hasOdd ;
+  BOOL odd[RMAX] ;
+  Array Kac ; /* Kac crystal */ 
+  Array oddRoots ; /* odd roots */
+  Array wws ; /* weights */
+  DICT *dict ;
+  int pass ;
   int D1, D2 ; /* number of even and odd generators of the adjoiunt rep */
   Array dd ;   /* dims of all the submodules */
   MX chi ;
-  Array Cartan ;
-  BOOL odd[RMAX] ;
-  WW hw ; /* HIGHEST WEIGHT */
-  Array wws ; /* weights */
-  DICT *dict ;
 } SA ; /* SuperAlgebra struct */
 
 
@@ -204,6 +207,8 @@ static void getCartan (SA *sa)
       printf ("\n### Cartan Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
       for (i = 0 ; i < r ; i++)
 	{
+	  if (sa->odd[i])
+	    sa->hasOdd = i + 1 ;
 	  for (j = 0 ; j < r ; j++)
 	    printf ("\t%d", arr (Cartan, r*i + j, int)) ;
 	  printf ("\n") ;
@@ -211,6 +216,72 @@ static void getCartan (SA *sa)
     }
   sa->Cartan = Cartan ;
 }  /* getCartan */
+
+/******************************************************************************************************/
+/* construct the KacCrystal */
+static void kacCrystal (SA *sa, BOOL show)
+{
+  Array wws = sa->wws ;
+  int jj = arrayMax (wws) ;
+  Array oddRoots = sa->oddRoots ;
+  int r, rank = sa->rank ;
+  int k, kMax = arrayMax (oddRoots) - 1 ;
+  int k2, ii, iiMax = 1 ;
+  WW *w1, *w ;
+  char buf[1024] ;
+
+  if (show)
+    printf("\n####### Kac Crystal \n") ;
+  for (k = 0 ; k < kMax ; k++)
+    iiMax *= 2 ;   /* 2^oddroots = size of the KacCrystal */
+  for (ii = 0 ; ii < iiMax ; ii++) /* all points in the Kac Crystal */
+    {
+      int layer = 0 ;
+      int x = ii ;
+      BOOL ok = TRUE ;
+
+      w = arrayp (wws, jj++, WW) ; /* new node */
+      w1 = arrayp (wws, 1, WW) ; /* the heighest weight */
+      *w = *w1 ;
+      for (k = 0 ; k < kMax ; k++)
+	{
+	  int yes  = x % kMax ; /* odd root k is used in ii */
+	  x /= kMax ;
+	  if (yes)
+	    {
+	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
+	      layer++ ;
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] -= wodd->x[r] ;
+	    }
+	}
+      for (r = 0 ; ok && r < rank ; r++)
+	if (w->x[r] < 0)
+	  {
+	    /* reject */
+	    jj-- ;
+	    arrayMax (wws) = jj ;
+	    ok = FALSE ;
+	  }
+      if (ok)
+	{
+	  memset (buf, 0, sizeof (buf)) ;
+	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
+	  dictAdd (sa->dict, buf, &k2) ;
+	  w->k = k2 ;
+	  w->hw = TRUE  ;
+	  w->layer = layer ;
+	  w->odd = layer %2 ;
+
+	  if (show)
+	    {
+	      for (r = 0 ; r < rank ; r++)
+		printf (" %d", w->x[r]) ;
+	      printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+	    }
+	}
+    }
+} /* kacCrystal */
 
 /******************************************************************************************************/
 
@@ -245,12 +316,11 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
   BOOL new = FALSE ;
   Array wws = sa->wws ;
   int i, dim, sdim, rank = sa->rank ;
-  static int pass = 0 ;
   BOOL odd = sa->odd[r1] ;
   
   char buf[1024] ;
 
-  if (++pass == 1) new = TRUE ;
+  if (sa->pass++ == 0) new = TRUE ;
     
   for (i = 1 ; i < arrayMax (wws) ; i++) 
     {
@@ -330,7 +400,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 		  w2->odd = oddLayer ;
 		  if (odd)
 		    w2->layer++ ;
-		  if (j == 1 && w->hw)
+		  if (odd)
 		    w2->hw = TRUE ;
 		}
 	      n2 = na + w2->mult ;
@@ -361,9 +431,9 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	      w2 = arrayp (wws, k2, WW) ;
 	      
 	      /* increase multiplicity of the new multiplet */
-	      if (1)
+	      if (0)
 		{
-		  if (w2->mult < w->mult + dn)
+		  if (w2->mult < w->mult + dn  + (w2->hw ? 1 : 0))
 		    w2->mult += dn ;
 		}
 	      else /* classic demazure , correct for Lie algebras */
@@ -389,7 +459,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
   if (0)   arraySort (wws, wwOrder) ;
   if (show && new)
     {
-      printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", pass, r1, dim + sdim, dim - sdim) ;
+      printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", sa->pass, r1, dim + sdim, dim - sdim) ;
       for (i = 1 ; i < arrayMax (wws) ; i++)
 	{
 	  int j ;
@@ -408,6 +478,25 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 } /* demazure */
 
 /******************************************************************************************************/
+
+static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
+{
+  BOOL ok = TRUE ;
+  int r, dim = 0, sdim = 0 ;
+
+  while (ok)
+    {
+      ok = FALSE ;
+      for (r = 0 ; r < sa->rank ; r++)
+	if (! sa->odd[r])
+	  ok |= demazure (sa, r, &dim, &sdim, show) ;
+    }
+  *dimp = dim ; 
+  *sdimp = sdim ;
+  return ;
+} /* demazure */
+
+/******************************************************************************************************/
 /******************************************************************************************************/
 
 
@@ -416,6 +505,8 @@ int main  (int argc, const char **argv)
    AC_HANDLE h = handleCreate () ;
    SA sa ;
    BOOL show = FALSE ;
+   int dim = 0, sdim = 0 ;
+
    freeinit () ;
 
 
@@ -435,58 +526,36 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
-    printf ("## Weights of the representations\n") ;
+   getHighestWeight (&sa) ;
 
-   if (sa.table)
+   if (sa.hasOdd)
      {
-       char *w0 = "0:0:0:0:0:0:0:0:" ;
-       w0[2*sa.rank] = 0 ;
-       sa.DynkinWeights = w0 ;
+       int rank = sa.rank ;
+       int r, r1 = sa.hasOdd - 1 ;
+
+       /* use as h.w. the lowering simple root */
+       WW *w = arrp (sa.wws, 1, WW) ;
+       for (r = 0 ; r < rank ; r++)
+	 w->x[r] = - array(sa.Cartan, rank * r1 + r, int) ;
+       /* construct the first layer using Demazure */
+       demazureEven (&sa, &dim, &sdim, show) ;
+       sa.oddRoots = sa.wws ;
+       sa.wws = 0 ;
+       /* reinitialize a single hw.w */
+       sa.pass = 0 ;
        sa.dict = dictHandleCreate (32, sa.h) ;
-     }
-
-   else 
-     {
-       int r = -1, dim = 0, sdim = 0 ;
-       BOOL ok = TRUE ;
-
        getHighestWeight (&sa) ;
-      while (ok)
-	 {
-	   while (ok)
-	     {
-	       ok = FALSE ;
-	       for (r = 0 ; r < sa.rank ; r++)
-		 if (! sa.odd[r])
-		   ok |= demazure (&sa, r, &dim, &sdim, show) ;
-	     }
-	   ok = FALSE ;
-	   for (r = 0 ; r < sa.rank ; r++)
-	     if (sa.odd[r])
-	       ok |= demazure (&sa, r, &dim, &sdim, show) ;
-	 }
-       printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
-	       , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
+       /* consruct the antisymmetric Kac crystal */
+       kacCrystal (&sa, show) ; 
+       /* we end up with wws just containing the Kac Crystal */
      }
    
-#ifdef JUNK
-  showCartan (g) ;
-  constructSimpleRoots (g) ;
-  constructAllRoots (g) ;
-  constructRho (g) ;
-  constructRotate (g) ;
-  showRotate (g) ;
-  showAllRoots (g, TRUE) ;
+   /* apply Demazure of the even group */
+   printf ("## Weights of the representations\n") ;
 
-  constructPools (g) ;
-  showPools (g) ;
-
-  constructTests (g, 2) ;
-  showTests (g) ;
-  printf ("%d tests constructed\n", g->nTests) ;
-  constructDistances (g) ;
-  if (0) showDistances (g) ;
-#endif
+   demazureEven (&sa, &dim, &sdim, show) ;
+   printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
+	       , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
   messfree (h) ;
   printf ("A bientot\n") ;
 

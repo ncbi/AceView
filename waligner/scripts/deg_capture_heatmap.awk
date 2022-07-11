@@ -9,7 +9,7 @@
 }
 
 {
-    if ($5+$6+0 == 0) next ; 
+    if ($5+$6+0 == -1) next ; 
     if ($2+0>0) next ; 
     f = $1 ; ff[f] = 1 ; g = $2 ; gg[g] = 1 ; cap[g] = $4 ; 
     g1[g] += $5 ; g2[g] += $6 ; z1[f,g] = $5 ; z2[f,g] = $6 ; 
@@ -43,11 +43,11 @@ END {
 	if (0) printf ("\nzzz %s", g) ;
 	trueg = "non-DEG" ; 
 
-	if (nTruth < 100)
+	if (nTruth < 1)
 	{
 	    if (g1[g] + g2[g] > 0)
 	    {
-		if (g2[g] >= 3 *g1[g])       
+		if (g2[g] >= 3 *g1[g] && g2[g] >= 350)       
 		{
 		    if (gnc2 > 0 && gnc1 == 0)
 		    {
@@ -85,7 +85,7 @@ END {
 			}
 		    }
 		}
-		else if (g1[g] >= 3 *g2[g])
+		else if (g1[g] >= 3 *g2[g] && g1[g] >= 350)       
 		{
 		    if (gnc1 > 0 && gnc2 == 0)
 		    {
@@ -163,6 +163,7 @@ END {
 	    n2 = z2[ff[i],g] ; 
 	    if (n1 + n2 == 0)
 	    {
+		# print "g=" g " t=" t " ok1=" ok1 " ok2=" ok2 " ff=" ff[i] " cap2=" isCap2 ;
 		if (ok1 > 0 && isCap2)
 		{  t= "B-Missed" ; ss[t,i,isCap]++ ; BMissed[g] = 1 ; bads[i] = t ; dd[g,i,"Missed"] = 1 ; }          # missed
 		else if (ok2 > 0 && isCap2)
