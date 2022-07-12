@@ -253,7 +253,7 @@ static void kacCrystal (SA *sa, BOOL show)
 	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
 	      layer++ ;
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] -= wodd->x[r] ;
+		w->x[r] += wodd->x[r] ;
 	    }
 	}
       for (r = 0 ; ok && r < rank ; r++)

@@ -47,7 +47,7 @@ END {
 	{
 	    if (g1[g] + g2[g] > 0)
 	    {
-		if (g2[g] >= 3 *g1[g] && g2[g] >= 350)       
+		if (g2[g] >= 3 *g1[g] && g2[g] >= 0)       
 		{
 		    if (gnc2 > 0 && gnc1 == 0)
 		    {
@@ -56,7 +56,7 @@ END {
 			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
 			ok2 = 1 ;
 		    }
-		    else
+		    else if (g2[g] > 350)
 		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
 			k = 0 ; k2 = 0 ;
 			for (i = 1 ; i <= nf - 2 ; i++)
@@ -85,7 +85,7 @@ END {
 			}
 		    }
 		}
-		else if (g1[g] >= 3 *g2[g] && g1[g] >= 350)       
+		else if (g1[g] >= 3 *g2[g] && g1[g] >= 0)       
 		{
 		    if (gnc1 > 0 && gnc2 == 0)
 		    {
@@ -94,6 +94,7 @@ END {
 			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
 			ok1 = 1 ;
 		    }
+		    else if (g1[g] > 350)
 		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
 			k = 0 ; k2 = 0 ;
 			for (i = 1 ; i <= nf - 2 ; i++)
