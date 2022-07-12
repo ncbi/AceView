@@ -46,6 +46,7 @@ static int wwOrder (const void *a, const void *b)
   const WW *vp = (WW *)b ;
   int n = 0 ;
 
+  n = up->layer - vp->layer ; if (n) return n ;
   n = up->k - vp->k ;
   return n ;  
 } /* wwOrder */
@@ -222,7 +223,7 @@ static void getCartan (SA *sa)
 static void kacCrystal (SA *sa, BOOL show)
 {
   Array wws = sa->wws ;
-  int jj = arrayMax (wws) ;
+  int jj = arrayMax (wws) - 1 ; /* -1 because we include no-root ii=0 */
   Array oddRoots = sa->oddRoots ;
   int r, rank = sa->rank ;
   int k, kMax = arrayMax (oddRoots) - 1 ;
@@ -456,7 +457,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	dim += w->mult ;
     }
 
-  if (0)   arraySort (wws, wwOrder) ;
+  if (1)   arraySort (wws, wwOrder) ;
   if (show && new)
     {
       printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", sa->pass, r1, dim + sdim, dim - sdim) ;
