@@ -247,13 +247,13 @@ static void kacCrystal (SA *sa, BOOL show)
       *w = *w1 ;
       for (k = 0 ; k < kMax ; k++)
 	{
-	  int yes  = x % kMax ; /* odd root k is used in ii */
-	  x /= kMax ;
+	  int yes  = x % 2 ; /* odd root k is used in ii */
+	  x /= 2 ;
 	  if (yes == 1)
 	    {
 	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
 
-	      vtxtPrintf (txt, " yes %d", k) ;
+	      vtxtPrintf (txt, " %d", k) ;
 	      layer++ ;
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += wodd->x[r] ;
@@ -279,7 +279,7 @@ static void kacCrystal (SA *sa, BOOL show)
 
 	  if (show)
 	    {
-	      printf ("Kac crystal: ii=%d jj=%d %s :: ", ii, jj, vtxtPtr (txt)) ; 
+	      printf ("Kac crystal: ii=%d jj=%d yes:%s :: ", ii, jj, vtxtPtr (txt)) ; 
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", w->x[r]) ;
 	      printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
@@ -287,6 +287,7 @@ static void kacCrystal (SA *sa, BOOL show)
 	}
       ac_free (txt) ;
     }
+  exit (0) ;
 } /* kacCrystal */
 
 /******************************************************************************************************/
