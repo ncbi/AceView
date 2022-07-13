@@ -40,7 +40,19 @@ typedef struct saStruct
 
 /******************************************************************************************************/
 
-static int wwOrder (const void *a, const void *b)
+static int wwCreationOrder (const void *a, const void *b)
+{
+  const WW *up = (WW *)a ;
+  const WW *vp = (WW *)b ;
+  int n = 0 ;
+
+  n = up->k - vp->k ;
+  return n ;  
+} /* wwCreationOrder */
+
+/******************************************************************************************************/
+
+static int wwLayerOrder (const void *a, const void *b)
 {
   const WW *up = (WW *)a ;
   const WW *vp = (WW *)b ;
@@ -49,7 +61,24 @@ static int wwOrder (const void *a, const void *b)
   n = up->layer - vp->layer ; if (n) return n ;
   n = up->k - vp->k ;
   return n ;  
-} /* wwOrder */
+} /* wwLayerOrder */
+
+/******************************************************************************************************/
+
+static int locateWeight (SA *sa, WW *w, BOOL create)
+{
+  int kk = 0 ;
+  char buf[1024] ;
+
+  /* locate it to construct the multiplicity */
+  memset (buf, 0, sizeof (buf)) ;
+  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w->x[1] , w->x[2] , w->x[3] , w->x[4] , w->x[5] , w->x[6] , w->x[7] ) ;
+  if (create)
+    dictAdd (sa->dict, buf, &kk) ;
+  else
+    dictFind (sa->dict, buf, &kk) ;
+  return kk ;
+} /* locateWeight */
 
 /******************************************************************************************************/
 
@@ -219,32 +248,74 @@ static void getCartan (SA *sa)
 }  /* getCartan */
 
 /******************************************************************************************************/
-/* construct the KacCrystal */
-static void kacCrystal (SA *sa, BOOL show)
+
+static void getHighestWeight (SA *sa, int type)
 {
-  Array wws = sa->wws ;
-  int jj = arrayMax (wws) - 1 ; /* -1 because we include no-root ii=0 */
+  WW *hw ;
+  Array wws ;
+  int k = 0 ;
+  int rank = sa->rank ;
+  int r, r1 = sa->hasOdd - 1 ;
+
+  /* reinitialize a single hw.w */
+  sa->pass = 0 ;
+  sa->dict = dictHandleCreate (32, sa->h) ;
+
+
+  wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
+  hw = arrayp (wws, 1, WW) ;
+
+  switch (type)
+    {
+    case 0: /* trivial h.w. */
+      break ;
+    case 1: /* use as h.w. the lowering simple root */
+      for (r = 0 ; r < rank ; r++)
+	hw->x[r] = - array(sa->Cartan, rank * r1 + r, int) ;
+    case 2: /* construct from the parameters */
+      if (sa->wws)
+	k = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
+      else
+	messcrash ("Missing argument --s, expectirn -wws 1:0:2;...    giving the Dynkin lables of the highest weight ") ;
+      if (k != sa->rank)
+	messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
+    }
+  hw->mult = 1 ;
+  hw->hw = TRUE ;
+  hw->k = locateWeight (sa, hw, TRUE) ;
+} /* getHighestWeight */
+
+/******************************************************************************************************/
+/* construct the KacCrystal */
+static void getKacCrystal (SA *sa, BOOL show)
+{
+  Array wws ;
   Array oddRoots = sa->oddRoots ;
   int r, rank = sa->rank ;
   int k, kMax = arrayMax (oddRoots) - 1 ;
-  int k2, ii, iiMax = 1 ;
+  int ii, iiMax = 1 ;
   WW *w1, *w ;
-  char buf[1024] ;
 
+  /* reinitialize on the trivial h.w */
+  getHighestWeight (sa, 0) ;
+  wws = sa->wws ;
   if (show)
     printf("\n####### Kac Crystal \n") ;
   for (k = 0 ; k < kMax ; k++)
     iiMax *= 2 ;   /* 2^oddroots = size of the KacCrystal */
-  for (ii = 0 ; ii < iiMax ; ii++) /* all points in the Kac Crystal */
+  for (ii = 1 ; ii < iiMax ; ii++) /* all points in the Kac Crystal, h.w. already included */
     {
       int layer = 0 ;
       int x = ii ;
       BOOL ok = TRUE ;
       vTXT txt = vtxtHandleCreate (0) ;
-      
-      w = arrayp (wws, jj++, WW) ; /* new node */
+      WW w0 ;
+
+      memset (&w0, 0, sizeof (w0)) ;
+
       w1 = arrayp (wws, 1, WW) ; /* the heighest weight */
-      *w = *w1 ;
+      w1->hw = 1 ;
+      w0 = *w1 ;
       for (k = 0 ; k < kMax ; k++)
 	{
 	  int yes  = x % 2 ; /* odd root k is used in ii */
@@ -256,30 +327,30 @@ static void kacCrystal (SA *sa, BOOL show)
 	      vtxtPrintf (txt, " %d", k) ;
 	      layer++ ;
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] += wodd->x[r] ;
+		w0.x[r] += wodd->x[r] ;
 	    }
 	}
       for (r = 0 ; ok && r < rank ; r++)
-	if (w->x[r] < 0)
+	if (0 && ! sa->odd[r] && w0.x[r] < 0)
 	  {
 	    /* reject */
-	    jj-- ;
-	    arrayMax (wws) = jj ;
 	    ok = FALSE ;
 	  }
       if (ok)
 	{
-	  memset (buf, 0, sizeof (buf)) ;
-	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-	  dictAdd (sa->dict, buf, &k2) ;
-	  w->k = k2 ;
+	  int k2 = locateWeight (sa, &w0, TRUE) ;
+	  w = arrayp (wws, k2, WW) ; /* new node */
+	  w->k = locateWeight (sa, &w0, TRUE)  ;
+
 	  w->hw = TRUE  ;
 	  w->layer = layer ;
 	  w->odd = layer %2 ;
-
+	  w->mult++ ;
+	  for (r = 0 ; ok && r < rank ; r++)
+	    w->x[r] = w0.x[r] ;
 	  if (show)
 	    {
-	      printf ("Kac crystal: ii=%d jj=%d yes:%s :: ", ii, jj, vtxtPtr (txt)) ; 
+	      printf ("Kac crystal: ii=%d  yes:%s :: ", ii, vtxtPtr (txt)) ; 
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", w->x[r]) ;
 	      printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
@@ -287,34 +358,72 @@ static void kacCrystal (SA *sa, BOOL show)
 	}
       ac_free (txt) ;
     }
-
-} /* kacCrystal */
+  sa->Kac = sa->wws ;
+  sa->wws = 0 ;
+} /* getKacCrystal */
 
 /******************************************************************************************************/
 
-static void getHighestWeight (SA *sa)
+
+static void getTensorProduct (SA *sa, BOOL show)
 {
-  WW *hw ;
+  int rank = sa->rank ;
+  int r, ii, kk ;
   Array wws ;
-  int k = 0 ;
-  char buf[1024] ;
+  Array old = sa->wws ;
+  Array oddRoots = sa->oddRoots ;
+  int kMax = arrayMax (sa->oddRoots) ;
+  int iMax = arrayMax (old) ;
   
-  wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
-  hw = arrayp (wws, 1, WW) ;
-  if (sa->wws)
-    k = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
-  else
-    messcrash ("Missing argument --s, expectirn -wws 1:0:2;...    giving the Dynkin lables of the highest weight ") ;
-  if (k != sa->rank)
-    messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
-  hw->mult = 1 ;
+  sa->wws = 0 ;
+  getHighestWeight (sa, 0) ; /* reinitialize wws and the dictionary */
+  wws = sa->wws ;
+  if (1)
+    { /* avoid overcounting */
+      WW *ww = arrp (wws, 1, WW) ;
+      ww->mult = 0 ;
+    }
+  
+  for (ii = 1 ; ii < iMax ; ii++)
+    {
+      WW *w1 = arrp (old, ii, WW) ;
+      
+      for (kk = 1 ; kk < kMax ; kk++)
+	{
+	  WW *wo = arrp (oddRoots, kk, WW) ;
+	  WW w, *ww ;
+	  int r, k2 ;
 
-  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", hw->x[0] , hw ->x[1] , hw ->x[2] , hw ->x[3] , hw ->x[4] , hw ->x[5] , hw ->x[6] , hw ->x[7] ) ;
-  dictAdd (sa->dict, buf, &k) ;
-
-  hw->hw = TRUE ;
-  hw->k = k ;
-} /* getHighestWeight */
+	  /* set the corrds of the next point of the tensor product */
+	  memset (&w, 0, sizeof (w)) ;
+	  w = *w1 ;
+	  for (r = 0 ; r < rank ; r++)
+	    w.x[r] += wo->x[r] ;
+	  
+	  /* locate it to construct the multiplicity */
+	  k2 = locateWeight (sa, &w, TRUE)  ;
+	  ww = arrayp (wws, k2, WW) ; /* new node */
+	  ww->layer = wo->layer ;
+	  ww->odd = wo->odd ;
+	  ww->mult += w1->mult * wo->mult ;
+	  for (r = 0 ; r < rank ; r++)
+	    ww->x[r] = w.x[r] ;
+	}
+    }
+  if (show)
+    {
+      printf ("\nTensorProduct:") ;
+      for (ii = 1 ; ii < iMax ; ii++)
+	{
+	  WW *w = arrp (wws, ii, WW) ;
+	  for (r = 0 ; r < rank ; r++)
+	    printf (" %d", w->x[r]) ;
+	  printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+	}
+    }
+  
+  return ;
+} /* getTensorProduct */
 
 /******************************************************************************************************/
 
@@ -325,8 +434,6 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
   int i, dim, sdim, rank = sa->rank ;
   BOOL odd = sa->odd[r1] ;
   
-  char buf[1024] ;
-
   if (sa->pass++ == 0) new = TRUE ;
     
   for (i = 1 ; i < arrayMax (wws) ; i++) 
@@ -358,9 +465,8 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  /* position to ancestor */
 	  for (r = 0 ; r < rank ; r++)
 	    w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
-	  memset (buf, 0, sizeof (buf)) ;
-	  sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-	  if (dictFind (sa->dict, buf, &k2))
+	  k2 = locateWeight (sa, w, FALSE) ;
+	  if (k2) 
 	    {
 	      WW * w2 = arrayp (wws, k2, WW) ;
 	      na = w2->mult ;
@@ -391,9 +497,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
 	      
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
-	      memset (buf, 0, sizeof (buf)) ;
-	      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-	      dictAdd (sa->dict, buf, &k2) ;
+	      k2 = locateWeight (sa, w, TRUE)  ;
 	      
 	      /* create w2(k2) it if needed */
 	      w2 = arrayp (wws, k2, WW) ;
@@ -432,15 +536,13 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
 	      
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
-	      memset (buf, 0, sizeof (buf)) ;
-	      sprintf (buf, "%d:%d:%d:%d:%d:%d:%d:%d", w->x[0] , w ->x[1] , w ->x[2] , w ->x[3] , w ->x[4] , w ->x[5] , w ->x[6] , w ->x[7] ) ;
-	      dictFind (sa->dict, buf, &k2) ; /* notice, w2(k2) was created just above */
+	      k2 = locateWeight (sa, w, TRUE) ;
 	      w2 = arrayp (wws, k2, WW) ;
 	      
 	      /* increase multiplicity of the new multiplet */
-	      if (0)
+	      if (1)
 		{
-		  if (w2->mult < w->mult + dn  + (w2->hw ? 1 : 0))
+		  if (! w2->hw)
 		    w2->mult += dn ;
 		}
 	      else /* classic demazure , correct for Lie algebras */
@@ -463,7 +565,7 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	dim += w->mult ;
     }
 
-  if (1)   arraySort (wws, wwOrder) ;
+  if (1)   arraySort (wws, wwLayerOrder) ;
   if (show && new)
     {
       printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", sa->pass, r1, dim + sdim, dim - sdim) ;
@@ -477,7 +579,8 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	}
       printf ("\n") ;
     }
-
+  if (1)   arraySort (wws, wwCreationOrder) ;
+  
   *dimp = dim + sdim ;
   *sdimp = dim - sdim ;
   
@@ -498,10 +601,29 @@ static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
 	if (! sa->odd[r])
 	  ok |= demazure (sa, r, &dim, &sdim, show) ;
     }
-  *dimp = dim ; 
-  *sdimp = sdim ;
+  if (dimp) *dimp = dim ; 
+  if (sdimp) *sdimp = sdim ;
   return ;
-} /* demazure */
+} /* demazureEven */
+
+/******************************************************************************************************/
+
+
+static void getOddRoots (SA *sa, BOOL show)
+{
+  int dim = 0 ;
+  
+  /* use as h.w. the lowering simple root */
+  getHighestWeight (sa, 1) ;
+  /* construct the first layer using Demazure */
+  demazureEven (sa, &dim, 0, show) ;
+  sa->oddRoots = sa->wws ;
+  sa->wws = 0 ;
+
+  printf ("# Constructed %d odd roots\n", dim) ;
+
+  return ;
+} /* getOddRoots */
 
 /******************************************************************************************************/
 /******************************************************************************************************/
@@ -533,40 +655,30 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
-   getHighestWeight (&sa) ;
 
    if (sa.hasOdd)
-     {
-       int rank = sa.rank ;
-       int r, r1 = sa.hasOdd - 1 ;
-
-       /* use as h.w. the lowering simple root */
-       WW *w = arrp (sa.wws, 1, WW) ;
-       for (r = 0 ; r < rank ; r++)
-	 w->x[r] = - array(sa.Cartan, rank * r1 + r, int) ;
-       /* construct the first layer using Demazure */
-       demazureEven (&sa, &dim, &sdim, show) ;
-       sa.oddRoots = sa.wws ;
-       sa.wws = 0 ;
-       /* reinitialize a single hw.w */
-       sa.pass = 0 ;
-       sa.dict = dictHandleCreate (32, sa.h) ;
-       getHighestWeight (&sa) ;
-       /* consruct the antisymmetric Kac crystal */
-       kacCrystal (&sa, show) ; 
-       /* we end up with wws just containing the Kac Crystal */
+     {                        /* contruct the kasCrystal */
+       getOddRoots (&sa, show) ;
+       getKacCrystal (&sa, show) ; 
      }
    
    /* apply Demazure of the even group */
+   getHighestWeight (&sa, 2) ;
    printf ("## Weights of the representations\n") ;
-
+   
    demazureEven (&sa, &dim, &sdim, show) ;
    printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
-	       , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
-  messfree (h) ;
-  printf ("A bientot\n") ;
+	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
 
-  return 0 ;
+   if (sa.hasOdd)
+     { 
+       getTensorProduct (&sa, show) ;
+     }
+   
+   messfree (h) ;
+   printf ("A bientot\n") ;
+   
+   return 0 ;
 }
 
 /************************************************************************
