@@ -119,7 +119,7 @@ if ($phase == reportOne) then
 
 
 # grep index min/max et fold change
-  cat RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENE.$uu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("LnMiMxFc\t%s\t%s\t%s\t%s\t%s\n",$2,$3,$41,$42,$40);}' > $toto.0
+  cat RESULTS/Expression.0k/$UU/av/AECDB_diff.0k.AceView.GENE.$uu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("LnMiMxFc\t%s\t%s\t%s\t%s\t%s\n",$2,$3,$41,$42,$40);}' > $toto.0
 
   date > $toto.1
   date > $toto.2
@@ -181,16 +181,32 @@ if ($phase == cumul) then
     echo $toto > toto.1
     echo -n "### $toto : " > $toto
     date >> $toto
+
+    set toto2=RESULTS/Expression.0k/deg_truth_per_depth_per_platform.txt
+    echo -n "### $toto2 : " > $toto2
+    date >> $toto2
+    cat $toto | gawk -F '\t' '/^##/{next;}/^#/{print;}' >> $toto2
+
+
     set k=0
     foreach kk ($kks)
       set k=`echo $k | gawk '{print $1+1;}'`
       cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,0+$i);}' k=$k kk=$kk >> toto.1
     end
     cat toto.1 | sort -k 1,1n -k 2,2n -k 3,3n > toto.2
-    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",0+z[i,j,k]);}}printf("\n");}' >> $toto
-    #\rm toto.[12]
-    
+    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){if (length(a[i])*length(b[j])>0){ printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",0+z[i,j,k]);}}}printf("\n");}' >> $toto
 
+    cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (j=1;j<=jMax;j++){printf("\n\n##%s\tRun",b[j]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (i=1;i<=iMax;i++){if (length(a[i])*length(b[j])>0){ printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",0+z[i,j,k]);}}}printf("\n");}' >> $toto2
+
+  goto done
+
+   # print
+   $2 vide ->jette
+   $2 Cumul print
+   $2  Traget no total polya 
+      trueA trueB newtrieA newtrueB amissed Bmissed InternalIn   Opposite inconsUndec 
+   $2  non tragtte
+      trueA trueB newtrieA newtrueB InternalIn   Opposite inconsUndec  weak
 
   goto done
 endif

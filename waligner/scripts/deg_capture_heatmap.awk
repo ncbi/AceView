@@ -56,7 +56,7 @@ END {
 			    trueg = trueg "_b" int((g1[g]+50)/100) ; 
 			ok2 = 1 ;
 		    }
-		    else if (g2[g] > 350)
+		    else if (g2[g] > 50)
 		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
 			k = 0 ; k2 = 0 ;
 			for (i = 1 ; i <= nf - 2 ; i++)
@@ -94,7 +94,7 @@ END {
 			    trueg = trueg "_a" int((g2[g]+50)/100) ; 
 			ok1 = 1 ;
 		    }
-		    else if (g1[g] > 350)
+		    else if (g1[g] > 50)
 		    {   # at least 1 capture platforms or 3 platforms  excluding BSPR1 and ILMR3
 			k = 0 ; k2 = 0 ;
 			for (i = 1 ; i <= nf - 2 ; i++)
@@ -193,7 +193,7 @@ END {
 	    else if (okI == 1 && n1 * n2 == 0)
 	    { t = "Inconsistent-undecidable" ; ss[t,i,isCap]++ ; bads[i] = t ; }     
 	    else
-	    { t = "Weak" ; ss[t,i,isCap]++ ; bads[i] = t ; }
+	    { t = "Weak-DEG" ; ss[t,i,isCap]++ ; bads[i] = t ; }
 	    
 	}
 
@@ -227,7 +227,7 @@ END {
 	}
 	else if (ok1 + ok2 == 0 && g1[g] + g2[g] > 0)
 	{ 
-	    trueg = "Weak" ; 
+	    trueg = "Weak-DEG" ; 
 	    newT = 1 ; 
 	}
 
@@ -264,7 +264,7 @@ END {
 
 ################################
     out = outf".deg_truth.txt" ;
-    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A-Missed,B-Missed,Opposite,Internal-inconsistency,Inconsistent-undecidable,Weak,non-DEG", i2t, ",") ;
+    i2tMax = split ("TrueA,TrueB,NewTrueA,NewTrueB,A-Missed,B-Missed,Opposite,Internal-inconsistency,Inconsistent-undecidable,Weak-DEG,non-DEG", i2t, ",") ;
 
     printf ("### Sensitivity and specificity of the captured platforms, in each case the numbers are seen:contradicted:not seen\n") > out ;    
     printf ("### File %s : %s\n", outf".deg_truth.txt", strftime())  > out ; 

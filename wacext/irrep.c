@@ -26,6 +26,7 @@ typedef struct saStruct
   int m, n, rank ;
   Array Cartan ;
   int hasOdd ;
+  int hasAtypic ;
   BOOL odd[RMAX] ;
   Array Kac ; /* Kac crystal */ 
   Array oddRoots ; /* odd roots */
@@ -34,6 +35,8 @@ typedef struct saStruct
   int pass ;
   int D1, D2 ; /* number of even and odd generators of the adjoiunt rep */
   Array dd ;   /* dims of all the submodules */
+  Array atypic ;
+  Array wwsShifted ;
   MX chi ;
 } SA ; /* SuperAlgebra struct */
 
@@ -297,15 +300,10 @@ static void getKacCrystal (SA *sa, BOOL show)
   int k, kMax = arrayMax (oddRoots) - 1 ;
   int ii, iiMax = 1 ;
   WW *w1, *w ;
-  int atypic[rank] ;
 
   getHighestWeight (sa, 2) ;
   w = arrp (sa->wws, 1, WW) ;
 
-  memset (atypic, 0, sizeof (atypic)) ;
-  if (w->x[sa->hasOdd-1] == 0)
-    atypic[0] = 1 ;
-  
   /* reinitialize on the trivial h.w */
   getHighestWeight (sa, 0) ;
   wws = sa->wws ;
@@ -332,17 +330,12 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  x /= 2 ;
 	  if (yes == 1)
 	    {
-	      if (atypic[k])
-		ok = FALSE ;
-	      else
-		{
-		  WW *wodd = arrayp (oddRoots, k + 1, WW) ;
-		  
-		  vtxtPrintf (txt, " %d", k) ;
-		  layer++ ;
-		  for (r = 0 ; r < rank ; r++)
-		    w0.x[r] += wodd->x[r] ;
-		}
+	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
+	      
+	      vtxtPrintf (txt, " %d", k) ;
+	      layer++ ;
+	      for (r = 0 ; r < rank ; r++)
+		w0.x[r] += wodd->x[r] ;
 	    }
 	}
 
@@ -454,6 +447,27 @@ static void getTensorProduct (SA *sa, BOOL show)
 
 /******************************************************************************************************/
 
+static void getShiftedTensorProducts (SA *sa, BOOL show)
+{
+  getTensorProduct (sa, show) ;
+  if (sa->hasAtypic)
+    {
+    }
+  return ;
+} /* getShiftedTensorProducts */
+
+/******************************************************************************************************/
+
+static void intersectShiftedTensorProducts (SA *sa, BOOL show)
+{
+  if (sa->hasAtypic)
+    {
+    }
+  return ;
+} /* getShiftedTensorProducts */
+
+/******************************************************************************************************/
+
 static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 {
   BOOL new = FALSE ;
@@ -479,14 +493,6 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  int r, k2 = 0 ;
 	  int j = 1 ;
 
-	  if (0 && ! w->hw)  /* only consider the Kac crystal */ 
-	    continue ;
-	  if (0 && i == 1 && w->x[r1] == 0) /* atypical type one */
-	    continue ;
-	  if (0 && r1 > 0 && i == 2 && w->x[r1] == w->x[r1-1]+ 1) /* atypical type 2 */
-	    continue ;
-	  if (0 && r1 > 1 && i == 3 && w->x[r1] == w->x[r1-1]+ w->x[r1-2] + 2) /* atypical type 3 */
-	    continue ;
 	  oddLayer = ! w->odd ;
 	  
 	  /* position to ancestor */
@@ -500,8 +506,6 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	    }
 	  else
 	    na = 0 ; /* no ancestor */
-	  if (0 && w->layer && ! na && arr(wws,1,WW).x[r1]== arr(wws,1,WW).x[r1-1] + 0)
-	    na = n1 ;
 	  if (na >=  n1)  /* status quo */
 	    jMax = 0 ;
 	  else
@@ -653,6 +657,47 @@ static void getOddRoots (SA *sa, BOOL show)
 } /* getOddRoots */
 
 /******************************************************************************************************/
+
+static void getAtypic (SA *sa, BOOL show)
+{
+  WW *hw ;
+  int rank = sa->rank ;
+  int r, r1 = sa->hasOdd - 1 ;
+  int z = 0 ;
+
+  sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;
+  /* use as h.w. the declared h.w. */
+  getHighestWeight (sa, 2) ;
+  hw = arrp (sa->wws, 1, WW) ;
+  
+  /* construct the sum of the even roots rho0 */
+  /* construct the sum of the even roots rho1 */
+  /* rho = rho0 - rho1 */
+  /* the correct equation uses the half supersum of the roots, but i do not want to divide by 2 my integers */
+  /* for each odd root beta[i] compute   <2 * hw + rho | beta[i]> , so i use 2*hw to compensate the 2*rho */
+  /* if (zero, atypic[i] = TRUE */
+  
+  /* for the moment we do something crude for sl(m/1) ; */
+  switch ((int)sa->type[0])
+    {
+    case 'A':
+      for (r = 0 ; r + r1 < rank ; r++)
+	{
+	  if (hw->x[r1] == z )
+	    {
+	      array (sa->atypic, r, int) = 1 ;
+	      sa->hasAtypic++ ;
+	    }
+	  z += hw->x[r1 - r - 1] + 1 ;
+	}
+      break ;
+    default :
+      break ;
+    }
+  return ;
+} /* getAtypic */
+
+/******************************************************************************************************/
 /******************************************************************************************************/
 
 
@@ -686,6 +731,7 @@ int main  (int argc, const char **argv)
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
        getOddRoots (&sa, show) ;
+       getAtypic (&sa, show) ;
        getKacCrystal (&sa, show) ; 
      }
    
@@ -699,7 +745,8 @@ int main  (int argc, const char **argv)
 
    if (sa.hasOdd)
      { 
-       getTensorProduct (&sa, show) ;
+       getShiftedTensorProducts (&sa, show) ;
+       intersectShiftedTensorProducts (&sa, show) ;
      }
    
    messfree (h) ;
