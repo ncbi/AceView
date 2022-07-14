@@ -272,6 +272,7 @@ static void getHighestWeight (SA *sa, int type)
     case 1: /* use as h.w. the lowering simple root */
       for (r = 0 ; r < rank ; r++)
 	hw->x[r] = - array(sa->Cartan, rank * r1 + r, int) ;
+      break ;
     case 2: /* construct from the parameters */
       if (sa->wws)
 	k = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
@@ -279,6 +280,7 @@ static void getHighestWeight (SA *sa, int type)
 	messcrash ("Missing argument --s, expectirn -wws 1:0:2;...    giving the Dynkin lables of the highest weight ") ;
       if (k != sa->rank)
 	messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
+      break ;
     }
   hw->mult = 1 ;
   hw->hw = TRUE ;
@@ -295,7 +297,15 @@ static void getKacCrystal (SA *sa, BOOL show)
   int k, kMax = arrayMax (oddRoots) - 1 ;
   int ii, iiMax = 1 ;
   WW *w1, *w ;
+  int atypic[rank] ;
 
+  getHighestWeight (sa, 2) ;
+  w = arrp (sa->wws, 1, WW) ;
+
+  memset (atypic, 0, sizeof (atypic)) ;
+  if (w->x[sa->hasOdd-1] == 0)
+    atypic[0] = 1 ;
+  
   /* reinitialize on the trivial h.w */
   getHighestWeight (sa, 0) ;
   wws = sa->wws ;
@@ -316,26 +326,26 @@ static void getKacCrystal (SA *sa, BOOL show)
       w1 = arrayp (wws, 1, WW) ; /* the heighest weight */
       w1->hw = 1 ;
       w0 = *w1 ;
-      for (k = 0 ; k < kMax ; k++)
+      for (k = 0 ; ok && k < kMax ; k++)
 	{
 	  int yes  = x % 2 ; /* odd root k is used in ii */
 	  x /= 2 ;
 	  if (yes == 1)
 	    {
-	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
-
-	      vtxtPrintf (txt, " %d", k) ;
-	      layer++ ;
-	      for (r = 0 ; r < rank ; r++)
-		w0.x[r] += wodd->x[r] ;
+	      if (atypic[k])
+		ok = FALSE ;
+	      else
+		{
+		  WW *wodd = arrayp (oddRoots, k + 1, WW) ;
+		  
+		  vtxtPrintf (txt, " %d", k) ;
+		  layer++ ;
+		  for (r = 0 ; r < rank ; r++)
+		    w0.x[r] += wodd->x[r] ;
+		}
 	    }
 	}
-      for (r = 0 ; ok && r < rank ; r++)
-	if (0 && ! sa->odd[r] && w0.x[r] < 0)
-	  {
-	    /* reject */
-	    ok = FALSE ;
-	  }
+
       if (ok)
 	{
 	  int k2 = locateWeight (sa, &w0, TRUE) ;
@@ -371,8 +381,8 @@ static void getTensorProduct (SA *sa, BOOL show)
   int r, ii, kk ;
   Array wws ;
   Array old = sa->wws ;
-  Array oddRoots = sa->oddRoots ;
-  int kMax = arrayMax (sa->oddRoots) ;
+  Array Kac = sa->Kac ;
+  int kMax = arrayMax (Kac) ;
   int iMax = arrayMax (old) ;
   
   sa->wws = 0 ;
@@ -390,7 +400,7 @@ static void getTensorProduct (SA *sa, BOOL show)
       
       for (kk = 1 ; kk < kMax ; kk++)
 	{
-	  WW *wo = arrp (oddRoots, kk, WW) ;
+	  WW *wo = arrp (Kac, kk, WW) ;
 	  WW w, *ww ;
 	  int r, k2 ;
 
@@ -408,19 +418,36 @@ static void getTensorProduct (SA *sa, BOOL show)
 	  ww->mult += w1->mult * wo->mult ;
 	  for (r = 0 ; r < rank ; r++)
 	    ww->x[r] = w.x[r] ;
+	  if (1)
+	    {
+	      printf ("\n---------------------- ii=%d kk=%d k2 = %d m=%d\n", ii, kk, k2, ww->mult) ;
+	      for (r = 0 ; r < rank ; r++)
+		printf (" %d", w1->x[r]) ;
+	      for (r = 0 ; r < rank ; r++)
+		printf (" %d", wo->x[r]) ;
+	      for (r = 0 ; r < rank ; r++)
+		printf (" %d", ww->x[r]) ;
+	    }
 	}
     }
+
   if (show)
     {
+      int dimE = 0, dimO = 0 ;
       printf ("\nTensorProduct:") ;
+      iMax = arrayMax (wws) ;
       for (ii = 1 ; ii < iMax ; ii++)
 	{
-	  WW *w = arrp (wws, ii, WW) ;
+	  WW *ww = arrp (wws, ii, WW) ;
 	  for (r = 0 ; r < rank ; r++)
-	    printf (" %d", w->x[r]) ;
-	  printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+	    printf (" %d", ww->x[r]) ;
+	  printf ("\tmult=%d k=%d l=%d %s %s\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "" ) ;
+	  if (ww->odd)
+	    dimO += ww->mult ;
+	  else
+	    dimE += ww->mult ;
 	}
-    }
+      printf ("## TensorProduct dimE=%d dimO=%d dim=%d sdim=%d\n", dimE, dimO, dimE+dimO, dimE - dimO) ;    }
   
   return ;
 } /* getTensorProduct */
@@ -635,7 +662,7 @@ int main  (int argc, const char **argv)
    SA sa ;
    BOOL show = FALSE ;
    int dim = 0, sdim = 0 ;
-
+   
    freeinit () ;
 
 
@@ -651,7 +678,7 @@ int main  (int argc, const char **argv)
    getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
    if (sa.m < 0) messcrash ("argument -m m of SU(m/n) must be positive or null") ;
    if (sa.n < 0) messcrash ("argument -n n of SU(m/n) must be positive or null") ;
-
+   
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
