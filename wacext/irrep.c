@@ -62,7 +62,14 @@ static int wwLayerOrder (const void *a, const void *b)
   int n = 0 ;
 
   n = up->layer - vp->layer ; if (n) return n ;
-  n = up->k - vp->k ;
+  n = up->k - vp->k ;  if (n) return n ;
+
+  n = up->x[0] - vp->x[0] ;  if (n) return -n ;
+  n = up->x[1] - vp->x[1] ;  if (n) return -n ;
+  n = up->x[2] - vp->x[2] ;  if (n) return -n ;
+  n = up->x[3] - vp->x[3] ;  if (n) return -n ;
+  n = up->x[4] - vp->x[4] ;  if (n) return -n ;
+
   return n ;  
 } /* wwLayerOrder */
 
@@ -250,6 +257,38 @@ static void getCartan (SA *sa)
   sa->Cartan = Cartan ;
 }  /* getCartan */
 
+/******************************************************************************************************/  
+
+static void wwsShow (SA *sa, char *title, Array wws)
+{
+  if (wws)  
+    {
+      int dimE = 0, dimO = 0 ;
+      int ii, iMax = arrayMax (wws) ;
+      int r, rank = sa->rank ;
+
+      arraySort (wws, wwLayerOrder) ;
+      printf ("\n##################### %s:\n", title) ;
+
+      for (ii = 1 ; ii < iMax ; ii++)
+	{
+	  WW *ww = arrp (wws, ii, WW) ;
+	  if (ww->mult)
+	    {
+	      for (r = 0 ; r < rank ; r++)
+		printf (" %d", ww->x[r]) ;
+	      printf ("\tmult=%d k=%d l=%d %s %s\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "" ) ;
+	      if (ww->odd)
+		dimO += ww->mult ;
+	      else
+		dimE += ww->mult ;
+	    }
+	}
+      printf ("## %s dimE=%d dimO=%d dim=%d sdim=%d\n", title, dimE, dimO, dimE+dimO, dimE - dimO) ;
+      arraySort (wws, wwCreationOrder) ;
+    }
+} /* wwsShow */
+
 /******************************************************************************************************/
 
 static void getHighestWeight (SA *sa, int type)
@@ -264,10 +303,9 @@ static void getHighestWeight (SA *sa, int type)
   sa->pass = 0 ;
   sa->dict = dictHandleCreate (32, sa->h) ;
 
-
   wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
   hw = arrayp (wws, 1, WW) ;
-
+  hw[-1].layer = -1000 ;
   switch (type)
     {
     case 0: /* trivial h.w. */
@@ -288,6 +326,9 @@ static void getHighestWeight (SA *sa, int type)
   hw->mult = 1 ;
   hw->hw = TRUE ;
   hw->k = locateWeight (sa, hw, TRUE) ;
+
+  if (type == 2)
+    wwsShow (sa, "Highest Weight", wws) ;
 } /* getHighestWeight */
 
 /******************************************************************************************************/
@@ -309,6 +350,16 @@ static void getKacCrystal (SA *sa, BOOL show)
   wws = sa->wws ;
   if (show)
     printf("\n####### Kac Crystal \n") ;
+
+  if (show)
+    {
+      w = arrp (wws, 1, WW) ;
+      printf ("Kac crystal: ii=%d  yes:     :: ", 0) ;
+      for (r = 0 ; r < rank ; r++)
+	printf (" %d", w->x[r]) ;
+      printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+    }
+
   for (k = 0 ; k < kMax ; k++)
     iiMax *= 2 ;   /* 2^oddroots = size of the KacCrystal */
   for (ii = 1 ; ii < iiMax ; ii++) /* all points in the Kac Crystal, h.w. already included */
@@ -351,7 +402,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  w->mult++ ;
 	  for (r = 0 ; ok && r < rank ; r++)
 	    w->x[r] = w0.x[r] ;
-	  if (show)
+	  if (0)
 	    {
 	      printf ("Kac crystal: ii=%d  yes:%s :: ", ii, vtxtPtr (txt)) ; 
 	      for (r = 0 ; r < rank ; r++)
@@ -363,6 +414,10 @@ static void getKacCrystal (SA *sa, BOOL show)
     }
   sa->Kac = sa->wws ;
   sa->wws = 0 ;
+  if (show)
+    wwsShow (sa, "Kac crystal", sa->Kac) ;
+  printf ("# Constructed %d Kac weigthst\n", arrayMax (sa->Kac) - 1) ;
+
 } /* getKacCrystal */
 
 /******************************************************************************************************/
@@ -371,7 +426,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 static void getTensorProduct (SA *sa, BOOL show)
 {
   int rank = sa->rank ;
-  int r, ii, kk ;
+  int ii, kk ;
   Array wws ;
   Array old = sa->wws ;
   Array Kac = sa->Kac ;
@@ -411,7 +466,7 @@ static void getTensorProduct (SA *sa, BOOL show)
 	  ww->mult += w1->mult * wo->mult ;
 	  for (r = 0 ; r < rank ; r++)
 	    ww->x[r] = w.x[r] ;
-	  if (1)
+	  if (0)
 	    {
 	      printf ("\n---------------------- ii=%d kk=%d k2 = %d m=%d\n", ii, kk, k2, ww->mult) ;
 	      for (r = 0 ; r < rank ; r++)
@@ -425,25 +480,10 @@ static void getTensorProduct (SA *sa, BOOL show)
     }
 
   if (show)
-    {
-      int dimE = 0, dimO = 0 ;
-      printf ("\nTensorProduct:") ;
-      iMax = arrayMax (wws) ;
-      for (ii = 1 ; ii < iMax ; ii++)
-	{
-	  WW *ww = arrp (wws, ii, WW) ;
-	  for (r = 0 ; r < rank ; r++)
-	    printf (" %d", ww->x[r]) ;
-	  printf ("\tmult=%d k=%d l=%d %s %s\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "" ) ;
-	  if (ww->odd)
-	    dimO += ww->mult ;
-	  else
-	    dimE += ww->mult ;
-	}
-      printf ("## TensorProduct dimE=%d dimO=%d dim=%d sdim=%d\n", dimE, dimO, dimE+dimO, dimE - dimO) ;    }
-  
+    wwsShow (sa, "Tensor Product", wws) ;
   return ;
 } /* getTensorProduct */
+
 
 /******************************************************************************************************/
 
@@ -634,6 +674,10 @@ static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
     }
   if (dimp) *dimp = dim ; 
   if (sdimp) *sdimp = sdim ;
+
+  if (show)
+    wwsShow (sa, "DemazureEven", sa->wws) ;
+  
   return ;
 } /* demazureEven */
 
@@ -643,7 +687,9 @@ static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
 static void getOddRoots (SA *sa, BOOL show)
 {
   int dim = 0 ;
-  
+
+  if (show)
+    printf ("\n####### Odd roots \n") ;
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, 1) ;
   /* construct the first layer using Demazure */
@@ -651,6 +697,8 @@ static void getOddRoots (SA *sa, BOOL show)
   sa->oddRoots = sa->wws ;
   sa->wws = 0 ;
 
+  if (show)
+    wwsShow (sa, "Odd roots", sa->oddRoots) ;
   printf ("# Constructed %d odd roots\n", dim) ;
 
   return ;
@@ -665,7 +713,9 @@ static void getAtypic (SA *sa, BOOL show)
   int r, r1 = sa->hasOdd - 1 ;
   int z = 0 ;
 
-  sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;
+  sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;  if (show)
+    wwsShow (sa, "DemazureEven", sa->wws) ;
+
   /* use as h.w. the declared h.w. */
   getHighestWeight (sa, 2) ;
   hw = arrp (sa->wws, 1, WW) ;
@@ -753,75 +803,8 @@ int main  (int argc, const char **argv)
    printf ("A bientot\n") ;
    
    return 0 ;
-}
+} /* main */
 
-/************************************************************************
-SU(3/2) shifted trivial, layer 2, should be 6S * 1A   + 3'A * 3S  == 9+6 = 15
-................Demazure, pass 17, r=2 dim = 12 sdim = 0
-
-layer 1 and first contact to layer 2 viy the odd root
- 0 0 10 0	mult=1 k=1 l=0  *
-
- 0 1 10 1	mult=1 k=2 l=1 Odd *
- 1 -1 11 1	mult=1 k=3 l=1 Odd *
- -1 0 11 1	mult=1 k=6 l=1 Odd *
-
- 0 1 11 -1	mult=1 k=4 l=1 Odd *
- 1 -1 12 -1	mult=1 k=5 l=1 Odd *
- -1 0 12 -1	mult=1 k=7 l=1 Odd *
-
- 1 0 11 2	mult=1 k=8 l=2  *
- 0 2 11 0	mult=1 k=9 l=2  *
- 1 0 12 0	mult=1 k=10 l=2  *
- -1 1 11 2	mult=1 k=11 l=2  *
- -1 1 12 0	mult=1 k=12 l=2  *
-
-
- **** full layer 2, obtained by even iteration
- **** wrong, we do not expect multiplicity 3, we expect 2
- ****  we have 18 states in place of 15, why ?
-
-1 0 11 2	mult=1 k=8 l=2  *
- 1 0 12 0	mult=3 k=10 l=2  *
- 1 0 13 -2	mult=1 k=16 l=2  
-
- 0 -1 12 2	mult=1 k=14 l=2  *
- 0 -1 13 0	mult=3 k=15 l=2  *
- 0 -1 14 -2	mult=1 k=18 l=2  
-
- -1 1 11 2	mult=1 k=11 l=2  *
- -1 1 12 0	mult=3 k=12 l=2  *
- -1 1 13 -2	mult=1 k=17 l=2  
-
-
-
- 2 -2 13 0	mult=1 k=13 l=2  
- 0 2 11 0	mult=1 k=9 l=2  *
- -2 0 13 0	mult=1 k=19 l=2  
-
-
- ************************************************************************
-
- SU(3) rep 0:2 == dim 6
-
-...............Demazure, pass 3, r=0 dim = 6 sdim = 6
- 0 2	mult=1 k=1 l=0  *
- 1 0	mult=1 k=2 l=0  *
- 2 -2	mult=1 k=3 l=0  
- -1 1	mult=1 k=4 l=0  *
- 0 -1	mult=1 k=5 l=0  
- -2 0	mult=1 k=6 l=0  
-
- **************************
- SU(3) rep 0:1 ................Demazure, pass 3, r=0 dim = 3 sdim = 3
- 0 1	mult=1 k=1 l=0  *
- 1 -1	mult=1 k=2 l=0  *
- -1 0	mult=1 k=3 l=0  *
-
- **************************
-  SU(3) rep 1:0 ..............Demazure, pass 2, r=1 dim = 3 sdim = 3
- 1 0	mult=1 k=1 l=0  *
- -1 1	mult=1 k=2 l=0  *
- 0 -1	mult=1 k=3 l=0  *
-
-*/
+/************************************************************************/
+/************************************************************************/
+/************************************************************************/
