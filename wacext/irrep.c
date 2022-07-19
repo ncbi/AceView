@@ -314,7 +314,7 @@ static void getHighestWeight (SA *sa, int type)
       for (r = 0 ; r < rank ; r++)
 	hw->x[r] = - array(sa->Cartan, rank * r1 + r, int) ;
       break ;
-    case 2: /* construct from the parameters */
+    case -1: /* construct from the parameters */
       if (sa->wws)
 	k = sscanf (sa->DynkinWeights, "%d:%d:%d:%d:%d:%d:%d:%d", &hw->x[0] , &hw ->x[1] , &hw ->x[2] , &hw ->x[3] , &hw ->x[4] , &hw ->x[5] , &hw ->x[6] , &hw ->x[7] ) ;
       else
@@ -342,9 +342,10 @@ static void getKacCrystal (SA *sa, BOOL show)
   int ii, iiMax = 1 ;
   WW *w1, *w ;
 
-  getHighestWeight (sa, 2) ;
-  w = arrp (sa->wws, 1, WW) ;
-
+  /*
+    getHighestWeight (sa, -2) ;
+    w = arrp (sa->wws, 1, WW) ;
+  */
   /* reinitialize on the trivial h.w */
   getHighestWeight (sa, 0) ;
   wws = sa->wws ;
@@ -423,7 +424,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 /******************************************************************************************************/
 
 
-static void getTensorProduct (SA *sa, BOOL show)
+static Array getTensorProduct (SA *sa, int atypic, BOOL show)
 {
   int rank = sa->rank ;
   int ii, kk ;
@@ -434,7 +435,7 @@ static void getTensorProduct (SA *sa, BOOL show)
   int iMax = arrayMax (old) ;
   
   sa->wws = 0 ;
-  getHighestWeight (sa, 0) ; /* reinitialize wws and the dictionary */
+  getHighestWeight (sa, atypic) ; /* reinitialize wws and the dictionary */
   wws = sa->wws ;
   if (1)
     { /* avoid overcounting */
@@ -481,28 +482,53 @@ static void getTensorProduct (SA *sa, BOOL show)
 
   if (show)
     wwsShow (sa, "Tensor Product", wws) ;
-  return ;
+  return wws ;
 } /* getTensorProduct */
 
 
 /******************************************************************************************************/
 
-static void getShiftedTensorProducts (SA *sa, BOOL show)
+static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
 {
-  getTensorProduct (sa, show) ;
-  if (sa->hasAtypic)
-    {
+  WW *ww, *xx ;
+  int j, k ;
+  
+  for (j = 0 ; j < arrayMax (wws) ; j++)
+    {                 /* locate the Kac module weigths in the parent module */
+      ww = arrp (wws, j, WW) ;
+      k = locateWeight (sa, xx, FALSE) ;
+      xx = k ? arrayp (xxs, k, WW) : 0 ;
+      if (! xx || ! xx->mult)
+	ww->mult = 0 ;
     }
   return ;
 } /* getShiftedTensorProducts */
 
 /******************************************************************************************************/
 
-static void intersectShiftedTensorProducts (SA *sa, BOOL show)
+static void getShiftedTensorProducts (SA *sa, BOOL show)
 {
+  Array wws = getTensorProduct (sa, -1, show) ;
   if (sa->hasAtypic)
     {
+      int ii ;
+      DICT *dict = sa->dict ; 
+
+      for (ii = 0 ; ii < arrayMax (sa->atypic) ; ii++)
+	{
+	  if (array (sa->atypic, ii, int))
+	    {
+	      Array xxs = getTensorProduct (sa, ii, show) ;
+	      intersectTensorProducts (sa, wws, xxs) ;
+	      ac_free (xxs) ;
+	    }
+	}
+      sa->dict = dict ;
+      sa->wws = wws ;
     }
+  if (show)
+    wwsShow (sa, "Atypical Tensor Product", wws) ;
+
   return ;
 } /* getShiftedTensorProducts */
 
@@ -691,7 +717,7 @@ static void getOddRoots (SA *sa, BOOL show)
   if (show)
     printf ("\n####### Odd roots \n") ;
   /* use as h.w. the lowering simple root */
-  getHighestWeight (sa, 1) ;
+  getHighestWeight (sa, -1) ;
   /* construct the first layer using Demazure */
   demazureEven (sa, &dim, 0, show) ;
   sa->oddRoots = sa->wws ;
@@ -717,7 +743,7 @@ static void getAtypic (SA *sa, BOOL show)
     wwsShow (sa, "DemazureEven", sa->wws) ;
 
   /* use as h.w. the declared h.w. */
-  getHighestWeight (sa, 2) ;
+  getHighestWeight (sa, -2) ;
   hw = arrp (sa->wws, 1, WW) ;
   
   /* construct the sum of the even roots rho0 */
@@ -731,11 +757,11 @@ static void getAtypic (SA *sa, BOOL show)
   switch ((int)sa->type[0])
     {
     case 'A':
-      for (r = 0 ; r + r1 < rank ; r++)
+      for (r = z = 0 ; r + r1 < rank ; r++)
 	{
 	  if (hw->x[r1] == z )
 	    {
-	      array (sa->atypic, r, int) = 1 ;
+	      array (sa->atypic, r+1, int) = 1 ;
 	      sa->hasAtypic++ ;
 	    }
 	  z += hw->x[r1 - r - 1] + 1 ;
@@ -744,6 +770,22 @@ static void getAtypic (SA *sa, BOOL show)
     default :
       break ;
     }
+  if (1 || show)
+    {
+      int i ;
+      
+      if (sa->hasAtypic)
+	{
+	printf ("##############  Aypical") ;
+	  for (i = 0 ; i < arrayMax (sa->atypic) ; i++)
+	    if (array (sa->atypic, i, int))
+	      printf (" %d", i) ;
+	  printf ("\n") ;
+	}
+      else
+	printf ("############## Typical\n") ;
+    }
+  
   return ;
 } /* getAtypic */
 
@@ -786,7 +828,7 @@ int main  (int argc, const char **argv)
      }
    
    /* apply Demazure of the even group */
-   getHighestWeight (&sa, 2) ;
+   getHighestWeight (&sa, -2) ;
    printf ("## Weights of the representations\n") ;
    
    demazureEven (&sa, &dim, &sdim, show) ;
@@ -796,7 +838,6 @@ int main  (int argc, const char **argv)
    if (sa.hasOdd)
      { 
        getShiftedTensorProducts (&sa, show) ;
-       intersectShiftedTensorProducts (&sa, show) ;
      }
    
    messfree (h) ;
