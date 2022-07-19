@@ -191,7 +191,9 @@ if ($phase == cumul) then
     set k=0
     foreach kk ($kks)
       set k=`echo $k | gawk '{print $1+1;}'`
-      cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,0+$i);}' k=$k kk=$kk >> toto.1
+      set kkD=$kk
+      if ($kk == 0k) set kkD="Entire dataset" 
+      cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,0+$i);}' k=$k kk=$kkD >> toto.1
     end
     cat toto.1 | sort -k 1,1n -k 2,2n -k 3,3n > toto.2
     cat toto.2 | gawk -F '\t' '{i=$1;j=$2;k=$3;a[i]=$5;b[j]=$4;kk[k]=$6;z[i,j,k]=$7;if(i+0>iMax)iMax=i;if(j+0>jMax)jMax=j;if(k+0>kMax)kMax=k;}END{for (i=1;i<=iMax;i++){printf("\n\n##%s\tRun",a[i]);for(k2=1;k2<=kMax;k2++)printf("\t%s",kk[k2]);for (j=1;j<=jMax;j++){if (length(a[i])*length(b[j])>0){ printf("\n%s\t%s",a[i],b[j]);for(k=1;k<=kMax;k++)printf("\t%d",0+z[i,j,k]);}}}printf("\n");}' >> $toto
