@@ -27,9 +27,12 @@ typedef struct saStruct
   Array Cartan ;
   int hasOdd ;
   int hasAtypic ;
-  int nOdd ;
+  int nEven, nOdd ;
   BOOL odd[RMAX] ;
-  Array Kac ; /* Kac crystal */ 
+  BOOL extended[RMAX] ;
+  Array Kac ; /* Kac crystal */
+  WW evenHw ;
+  Array evenRoots ; /* odd roots */
   Array oddRoots ; /* odd roots */
   Array wws ; /* weights */
   WW hw ;
@@ -120,11 +123,21 @@ static void getCartan (SA *sa)
 	  {
 	    int o = m - 1 ;
 	    sa->odd[o] = TRUE ;
+	    sa->extended[r] = TRUE ;
 	    array (Cartan, r*o + o , int) = 0 ;
 	    if (o > 0) array (Cartan, r*o + o - 1 , int) = -1 ;
 	    else array (Cartan, r*o + o + 1, int) = 1 ;
 	  }
+	
+	if (n > 1)
+	  {
+	    sa->evenHw.x[m + 1] = 1 ;
+	    sa->evenHw.x[m + n -1] = 1 ;
+	  }
       }
+
+      sa->evenHw.x[0] = 1 ;
+      sa->evenHw.x[r - 1] = 1 ;
       break ;
       
     case 'B':
@@ -143,6 +156,8 @@ static void getCartan (SA *sa)
 	  }
       }
       array (Cartan, r*1 + 0, int) = -2 ;
+
+      sa->evenHw.x[0] = 1 ;
       break ;
       
     case 'C':
@@ -161,6 +176,8 @@ static void getCartan (SA *sa)
 	  }
       }
       array (Cartan, r*0 + 1, int) = -2 ;
+
+      sa->evenHw.x[0] = 1 ;
       break ;
       
     case 'D':
@@ -198,6 +215,8 @@ static void getCartan (SA *sa)
 	  }
 	array (Cartan, r*0 + 3, int) = -1 ;
 	array (Cartan, r*3 + 0, int) = -1 ;
+
+	sa->evenHw.x[0] = 1 ;
       }
       break ;
       
@@ -217,13 +236,17 @@ static void getCartan (SA *sa)
 	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	  }
 	array (Cartan, r*1 + 2, int) = -2 ;
+
+	sa->evenHw.x[0] = 1 ;
       }
       break ;
       
     case 'G':
       if (m != 2 && m != 3)
 	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
-      sa->rank = r = m ;
+      if (m == 3)
+	n = 1 ;
+      sa->rank = r = m + n ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
       {
@@ -231,12 +254,19 @@ static void getCartan (SA *sa)
 	array (Cartan, r*0 + 1, int) = -3 ;
 	array (Cartan, r*1 + 1, int) = 2 ;
 	array (Cartan, r*1 + 0, int) = -1 ;
+
+	sa->evenHw.x[0] = 1 ;
       }
       if (m == 3)
 	{
 	  sa->odd[2] = TRUE ;
 	  array (Cartan, r*2 + 2 , int) = 0 ;
 	  array (Cartan, r*2 + 1, int) = -1 ;
+	  array (Cartan, r*3 + 2 , int) = 1 ;
+	  array (Cartan, r*3 + 1, int) = 2 ;
+
+	  sa->evenHw.x[3] = 1 ;
+	  sa->extended[3] = 1 ;
 	}
       break ;
       
@@ -324,6 +354,9 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
 
       if (k != sa->rank)
 	messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
+      break ;
+    case -3:
+      *hw = sa->evenHw ;
       break ;
     default:
       if (sa->oddRoots && type <= arrayMax (sa->oddRoots))
@@ -738,6 +771,31 @@ static void getOddRoots (SA *sa, BOOL show)
   printf ("# Constructed %d odd roots\n", dim) ;
 
    sa->dict = dictHandleCreate (32, sa->h) ;
+
+  return ;
+} /* getOddRoots */
+
+/******************************************************************************************************/
+
+
+static void getAdjoint (SA *sa, BOOL show)
+{
+  int dimE = 0 ;
+
+  if (show)
+    printf ("\n####### Odd roots \n") ;
+  /* use as h.w. the lowering simple root */
+  getHighestWeight (sa, -3, show) ;
+  /* construct the first layer using Demazure */
+  sa->nEven = demazure (sa, &dimE, 0, show) ;
+  sa->evenRoots = sa->wws ;
+  sa->wws = 0 ;
+
+  if (show)
+    wwsShow (sa, "Odd roots", 1, sa->oddRoots) ;
+  printf ("# Constructed %d adjoint even roots\n", dimE) ;
+
+   sa->dict = dictHandleCreate (32, sa->h) ;
   return ;
 } /* getOddRoots */
 
@@ -832,6 +890,7 @@ int main  (int argc, const char **argv)
    if (sa.hasOdd) /* do this first then destroy the dict */
      getOddRoots (&sa, show) ;
 
+   getAdjoint (&sa, show) ;
    /* apply Demazure of the even group */
    getHighestWeight (&sa, -2, show) ;
    printf ("## Weights of the representations\n") ;
