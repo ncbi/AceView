@@ -267,7 +267,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
       int ii, iMax = arrayMax (wws) ;
       int r, rank = sa->rank ;
 
-      arraySort (wws, wwLayerOrder) ;
+      if (0)arraySort (wws, wwLayerOrder) ;
       printf ("\n##################### %s: t=%d : \n", title, type) ;
 
       for (ii = 1 ; ii < iMax ; ii++)
@@ -285,7 +285,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
 	    }
 	}
       printf ("## %s dimE=%d dimO=%d dim=%d sdim=%d\n", title, dimE, dimO, dimE+dimO, dimE - dimO) ;
-      arraySort (wws, wwCreationOrder) ;
+      if (0) arraySort (wws, wwCreationOrder) ;
     }
 } /* wwsShow */
 
@@ -328,7 +328,7 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
 	{
 	  WW *wo = arrp (sa->oddRoots, type, WW) ;
 	  for (r = 0 ; r < rank ; r++)
-	    hw->x[r] = wo->x[r] ;
+	    hw->x[r] = - wo->x[r] ;
 	}
       else
 	messcrash ("getHighestWeight received type=%d out of range of odd roots", type) ;
@@ -420,18 +420,27 @@ static void getKacCrystal (SA *sa, BOOL show)
 /******************************************************************************************************/
 
 
-static Array getOneTensorProduct (SA *sa, int atypic, BOOL show)
+static Array getOneTensorProduct (SA *sa, int atypic,   Array old, BOOL show)
 {
   int rank = sa->rank ;
   int ii, kk ;
   Array wws ;
-  Array old = sa->wws ;
   Array Kac = sa->Kac ;
   int kMax = arrayMax (Kac) ;
   int iMax = arrayMax (old) ;
-  
+  WW deltaW ;
+  DICT *dict ;
+
   sa->wws = 0 ;
-  getHighestWeight (sa, atypic, show) ; /* reinitialize wws and the dictionary */
+  memset (&deltaW, 0, sizeof(deltaW)) ;
+  /* reinitialize wws and but not the dictionary */
+  dict = sa->dict ;
+  getHighestWeight (sa, -2, show) ;
+  ac_free (sa->dict) ;
+  sa->dict = dict ;
+  if (atypic > 0)
+    deltaW = arr (sa->oddRoots, atypic, WW) ;
+
   wws = sa->wws ;
   if (1)
     { /* avoid overcounting */
@@ -453,11 +462,12 @@ static Array getOneTensorProduct (SA *sa, int atypic, BOOL show)
 	  memset (&w, 0, sizeof (w)) ;
 	  w = *w1 ;
 	  for (r = 0 ; r < rank ; r++)
-	    w.x[r] += wo->x[r] ;
+	    w.x[r] += wo->x[r] - deltaW.x[r] ;
 	  
 	  /* locate it to construct the multiplicity */
 	  k2 = locateWeight (sa, &w, TRUE)  ;
 	  ww = arrayp (wws, k2, WW) ; /* new node */
+	  ww->k = k2 ;
 	  ww->layer = wo->layer ;
 	  ww->odd = wo->odd ;
 	  ww->mult += w1->mult * wo->mult ;
@@ -487,16 +497,18 @@ static Array getOneTensorProduct (SA *sa, int atypic, BOOL show)
 static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
 {
   WW *ww, *xx ;
-  int j, k ;
+  int j ;
   
+  wwsShow (sa, "INTERSECT wws", 0, wws) ;
+  wwsShow (sa, "INTERSECT xxs", 1, xxs) ;
   for (j = 0 ; j < arrayMax (wws) ; j++)
-    {                 /* locate the Kac module weigths in the parent module */
+    { /* we use a single dict */
       ww = arrp (wws, j, WW) ;
-      k = locateWeight (sa, ww, FALSE) ;
-      xx = k ? arrayp (xxs, k, WW) : 0 ;
-      if (! xx || ! xx->mult)
-	ww->mult = 0 ;
+      xx = arrayp (xxs, j, WW) ;
+      if (xx->mult < ww->mult)
+	ww->mult = xx->mult ;
     }
+  wwsShow (sa, "SUBTRACTED wws", 0, wws) ;
   return ;
 } /* intersectTensorProducts */
 
@@ -504,7 +516,8 @@ static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
 
 static void getTensorProducts (SA *sa, BOOL show)
 {
-  Array wws = getOneTensorProduct (sa, -1, show) ;
+  Array old = sa->wws ;
+  Array wws = getOneTensorProduct (sa, -2, old, show) ;
   if (sa->hasAtypic)
     {
       int ii ;
@@ -514,12 +527,13 @@ static void getTensorProducts (SA *sa, BOOL show)
 	{
 	  if (array (sa->atypic, ii, int))
 	    {
-	      Array xxs = getOneTensorProduct (sa, ii, show) ;
+	      Array xxs = getOneTensorProduct (sa, ii, old, show) ;
 	      intersectTensorProducts (sa, wws, xxs) ;
 	      ac_free (xxs) ;
+
+	      if (show)
+		wwsShow (sa, "Subtracted Atypical Tensor Product", ii, wws) ;
 	    }
-	  if (show)
-	    wwsShow (sa, "Atypical Tensor Product", ii, wws) ;
 	}
       sa->dict = dict ;
       sa->wws = wws ;

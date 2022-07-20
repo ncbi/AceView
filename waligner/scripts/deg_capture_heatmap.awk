@@ -12,19 +12,31 @@
     if ($5+$6+0 == -1) next ; 
     if ($2+0>0) next ; 
     f = $1 ; ff[f] = 1 ; g = $2 ; gg[g] = 1 ; cap[g] = $4 ; 
-    g1[g] += $5 ; g2[g] += $6 ; z1[f,g] = $5 ; z2[f,g] = $6 ; 
+    z1[f,g] = $5 ; z2[f,g] = $6 ; 
 }
 END {
     nf = split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",")  ; 
     nf = split("RNA_Total,RNA_PolyA,AGLR1,AGLR2,ROCR1,ROCR2,ILMR1,ILMR2_lowQ,ILMR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,BSPR1,ILMR3",ff,",")  ; 
     split("Total,PolyA,A1,A2,R1,R2,I1,I2,I2,A2,A2,R3,R3,B1,I3",fCap,",")  ; 
-    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ; 
+
+    nclones = 0 ;
+    if (CL+0 ==1)
+	nclones = split ("CL1-Brain,CL10-Testis,CL2-Breast,CL3-Cervix,CL4-Liver,CL5-Lipo,CL6-Blym,CL7-Tlym,CL8-Macr,CL9-Skin", clones,",") ;
+
+    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ;
+    if (CL+0 ==1)
+        printf ("\tSum B>CL AGLR1\tSum CL>A AGLR1") ;
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s A>B",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s problem",ff[i]) ; 
+    for (i = 1 ; i <= nclones ; i++)
+	printf ("\tB > %s ", clones[i]) ; 
+    for (i = 1 ; i <= nclones ; i++)
+	printf ("\t%s > B ", clones[i]) ; 
+    
 
     for (g in gg)
     {
@@ -35,11 +47,26 @@ END {
 	ok1 = 0 ;
 	ok2 = 0 ;
 	okI = 0 ;
+
+	g1[g] = 0 ;
+	for (i = 1 ; i <= nf ; i++)
+	    g1[g] = g1[g] + 0 + z1[ff[i],g] ; 
+	g2[g] = 0 ;
+	for (i = 1 ; i <= nf ; i++)
+	    g2[g] = g2[g] + 0 + z2[ff[i],g] ; 
 	gnc1 = z1[ff[1],g] + z1[ff[2],g] ; 
 	gnc2 = z2[ff[1],g] + z2[ff[2],g] ; 
 	gc1 = g1[g] - gnc1 ; 
 	gc2 = g2[g] - gnc2 ; 
-	
+
+
+	gCL1 = 0 ;
+	for (i = 1 ; i <= nclones ; i++)
+	    gCL1 = gCL1 + 0 + z1[clones[i],g] ; 
+	gCL2 = 0 ;
+	for (i = 1 ; i <= nclones ; i++)
+	    gCL2 = gCL2 + 0 + z2[clones[i],g] ; 
+
 	if (0) printf ("\nzzz %s", g) ;
 	trueg = "non-DEG" ; 
 
@@ -251,14 +278,20 @@ END {
 
 	printf ("\n%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s",g,ln[g],gMax[g],gMin[g],gFc[g],cap[g],trueg, bad) ; 
 
-	printf ("\t%d\t%d", gc1, gc2) ; 
-	printf ("\t%d\t%d", gnc1, gnc2) ; 
+	printf ("\t%.0f\t%d", gc1, gc2) ; 
+	printf ("\t%.0f\t%d", gnc1, gnc2) ; 
+	if (CL+0 == 1)
+	    printf ("\t%.0f\t%.0f", gCL2, gCL1) ; 
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%.0f",z1[ff[i],g]) ; 
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%.0f",z2[ff[i],g]) ; 
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%s", bads[i]) ; 
+	for (i = 1 ; i <= nclones ; i++)
+	    printf ("\t%.0f",z2[clones[i],g]) ; 
+	for (i = 1 ; i <= nclones ; i++)
+	    printf ("\t%.0f",z1[clones[i],g]) ; 
     }
     printf ("\n") ;
 

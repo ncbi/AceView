@@ -1239,7 +1239,7 @@
           Sorting_title UNIQUE ?Text
           Details ?Text    // DEG_summary ?Compare XREF In_summary obsolte, removed 2019_05
           Project ?Project XREF Compare
-          Runs ?Run  XREF Compare UNIQUE Int // 2 or more runs or groups to be compared
+          Runs ?Run  XREF Compare UNIQUE Int UNIQUE Int // 2 or more runs or groups to be compared: the secon number is the supposed mixing ratio
           Apply Pair Chrom_density // obsolete Force_threshold UNIQUE Int  // 0 to 200, impose a DEG score threshold rather than relying on the FDR system	     
                 Intron // Use differential SNPs to perform the comparisons
                 Alternative_Intron Int UNIQUE ?RUN UNIQUE ?RUN             // compute the chi2 of alternative introns between these 2 runs
@@ -1254,6 +1254,7 @@
                 Profile   // profile all genes: export gene, metadata, significance of most distinct runs and the expression profile, Replaces obsolete Titration
                 Classify_by_homozygous_SNPs   // profile all runs via their homozygote SNPs, export the list of significant SNPs
                 Show_all_histos  // for each gene, if compare contains N groups, show N histo, limiting to minFoldChange between the most extreme groups
+                Mixing_ratios  // estimate the mixing ratio of run marked 100 in terms of runs marker 10 10 30 50
           Counts  Diff_Gene  Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int // 1>2 av 23 FDR  5.96 DEG 478
                   Diff_mRNAH Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int
                   Diff_MA    Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int

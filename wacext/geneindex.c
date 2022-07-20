@@ -42,12 +42,14 @@ typedef struct compareStruct {
   int compare ; 
   KEYSET runs ; 
   KEYSET predicts ; 
+  KEYSET ratios ;
   Array shape ;
   BOOL correlation, autosort, show_all_runs, private ;
   BOOL samplePairing, expressionProfile, snpProfile, showAllHistos ;
   BOOL compareSNP ;
   BOOL compareINTRON ;
   BOOL who_is_who ;
+  BOOL mixing_ratios ;
   int nDEG[3] ;
   int nDEG185[3] ;
   float fdr[3] ; int fdrThreshold[3] ; 
@@ -190,7 +192,7 @@ typedef struct gxStruct {
   ACEOUT aoFineTune, aoAUC2 ;
 
   BOOL gene2deep2index, intronGeneMix, hasDaa ;
-  BOOL correlation, compare_to, samplePairing, expressionProfile, snpProfile, showAllHistos, html, who_is_who ;
+  BOOL correlation, compare_to, samplePairing, expressionProfile, snpProfile, showAllHistos, html, who_is_who, mixing_ratios ;
   float threshold, minFoldChange, minWhoScore ;
   const char *export ;
   const char *htmlSpecies ;
@@ -860,8 +862,19 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 		  i = keySetMax (ks) ;
 		  aceInInt (ai, &i) ;
 		  keySet (ks, i) = run1 ; /* ordered list of runs */
+		  if (aceInInt (ai, &i))
+		    {
+		      if (! up->ratios)
+			up->ratios = keySetHandleCreate (gx->h) ;
+		      keySet (up->ratios, run1) = i ; /* a priori ratio */
+		    }
 		}
 
+	      continue ;
+	    }
+	  if (!strcasecmp (ccp, "Mixing_ratios"))
+	    {
+	      gx->mixing_ratios = up->mixing_ratios = TRUE ;
 	      continue ;
 	    }
 	  if (!strcasecmp (ccp, "Correlation") || !strcasecmp (ccp, "Correlation_analysis"))
@@ -13234,7 +13247,7 @@ static void  gxOneExpressionProfileCreatePrivatePairs (GX *gx, int iCompare, DIC
      }
 } /* gxOneExpressionProfileCreatePrivatePairs  */
  
- /*************************************************************************************/
+/*************************************************************************************/
 
 static void gxExpressionProfile (GX *gx, int pass)
 {
@@ -13303,8 +13316,25 @@ static void gxExpressionProfile (GX *gx, int pass)
 /*************************************************************************************/
 /*************************************************************************************/
 
-/*************************************************************************************/
+static void gxMixingRatios (GX *gx)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int iCompare = 0 ;
+  COMPARE *compare ;
+  
+   for (iCompare = 0 ; iCompare < arrayMax (gx->compares) ; iCompare++)
+     { 
+       compare = arrp(gx->compares, iCompare, COMPARE) ;
+       if (! compare->mixing_ratios)
+	 continue ;
+       if (keySetMax (compare->runs) < 3)
+	 continue ;
+       if (keySetMax (compare->ratios) < 3)
+	 continue ;
+     }
 
+   ac_free (h) ;
+} /* gxMixingRatios */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -15006,6 +15036,8 @@ int main (int argx, const char **argv)
 	}
       if (gx.expressionProfile && gx.compare_to)
 	gxExpressionProfile (&gx, 1) ;  /* use registered value */
+      if (gx.mixing_ratios && gx.compare_to)
+	gxMixingRatios (&gx) ;  /* use registered value */
 
       if (0) 
 	gxExportMeanversusVariancePlot (&gx) ;

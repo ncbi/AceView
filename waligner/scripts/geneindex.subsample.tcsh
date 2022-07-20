@@ -116,6 +116,10 @@ if ($phase == reportOne) then
   echo -n "### $toto :" > $toto
   date >> $toto
 
+  set totoCL=RESULTS/Expression/$UU/av/AECDB_diff.CL.GENE.DEG.$uu.heatmap.txt
+  echo -n "### $totoCL :" > $totoCL
+  date >> $totoCL
+
 
 
 # grep index min/max et fold change
@@ -123,24 +127,41 @@ if ($phase == reportOne) then
 
   date > $toto.1
   date > $toto.2
+  date > $toto.3
 
   foreach comp (AGLR1_AECDB AGLR2_AECDB BSPR1_AECDB ROCR1_AECDB ROCR2_AECDB ILMR1_AECDB ILMR2_AECDB ILMR2_lowQ_AECDB ILMR3_AECDB)
     foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENE.$uu.$comp'_Profile'.score.genes.profiles.txt`)
-      cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENE.$uu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
+      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENE.$uu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
     end
   end
 
   foreach comp (RNA_Total_ACB RNA_PolyA_ACB Nanopore.titr_AGLR2_ACB PacBio2.titr.ccs3_AGLR2_ACB Nanopore.titr_ROCR3_ACB PacBio2.titr.ccs3_ROCR3_ACB)
     foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENE.$uu.$comp'_Profile'.score.genes.profiles.txt`)
-      cat $ff | gawk -F '\t' '{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENE.$uu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
+      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENE.$uu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
     end
   end
 
-  cat $totog $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk outf=RESULTS/$Expression/$UU/av/AECDB_diff    > $toto.3
-  cat $toto.3 | head -8 | gawk '/^#/{print}' >> $toto
-  cat $toto.3 | gawk '/^#/{next;}{print}' | sort -k 7,7 -k 1,1  >> $toto
-  #\rm $toto.[0123]
-  ls -ls $toto.[0123]
+  if ($kk == 0k) then
+    \rm $toto.3
+    foreach cl (CL1-Brain CL10-Testis CL2-Breast CL3-Cervix CL4-Liver CL5-Lipo CL6-Blym CL7-Tlym CL8-Macr CL9-Skin)
+      set ff=RESULTS/Expression/unique/av/CL.AceView.GENE.u.$cl'-B_priv-2sA1.score.genes.profiles.txt'
+      set n1=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the even columns' | gawk -F : '{print $1}'`
+      set n2=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the odd columns' | gawk -F : '{print $1}'`
+      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",cl,$2,$3,$5,$n1,$n2);}' cl=$cl n1=$n1 n2=$n2 >> $toto.3 
+    end
+    cat $totog $toto.[0123] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk CL=1 outf=RESULTS/$Expression/$UU/av/AECDB_diff    > $toto.4
+    cat $toto.4 | head -8 | gawk '/^#/{print}' >> $totoCL
+    cat $toto.4 | gawk '/^#/{next;}{print}' | sort -k 7,7r -k 1,1  | grep -v non-DEG | grep -v Weak >> $totoCL
+    cat $toto.4 | gawk '/^#/{next;}{print}' | sort -k 7,7r -k 1,1  | grep Weak >> $totoCL
+    cat $toto.4 | gawk '/^#/{next;}{print}' | sort -k 7,7r -k 1,1  | grep non-DEG  >> $totoCL
+  endif
+
+  cat $totog $toto.[012] |  gawk -F '\t' -f scripts/deg_capture_heatmap.awk outf=RESULTS/$Expression/$UU/av/AECDB_diff    > $toto.5
+  cat $toto.5 | head -8 | gawk '/^#/{print}' >> $toto
+  cat $toto.5 | gawk '/^#/{next;}{print}' | sort -k 7,7r -k 1,1  >> $toto
+
+  # \rm $toto.[012345]
+  ls -ls $toto.[012345]
 
   set toto2=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENE.$ln.DEG.$uu.heatmap.A2R2I3.txt
   echo -n "### $toto2 :" > $toto2
@@ -192,7 +213,7 @@ if ($phase == cumul) then
     foreach kk ($kks)
       set k=`echo $k | gawk '{print $1+1;}'`
       set kkD=$kk
-      if ($kk == 0k) set kkD="Entire dataset" 
+      if ($kk == 0k) set kkD="Entire_dataset" 
       cat RESULTS/Expression.$kk/$UU/av/AECDB_diff.deg_truth.txt | gawk -F '\t' '/^##/{next;}/^#/{for(i=2;i<= NF;i++){tt[i]=$i;}nf=NF;jj=0;next;}{jj++;for(i=2;i<=nf;i++)printf("%d\t%d\t%d\t%s\t%s\t%s\t%d\n",jj,i,k,tt[i],$1,kk,0+$i);}' k=$k kk=$kkD >> toto.1
     end
     cat toto.1 | sort -k 1,1n -k 2,2n -k 3,3n > toto.2
