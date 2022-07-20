@@ -737,6 +737,7 @@ static void getOddRoots (SA *sa, BOOL show)
     wwsShow (sa, "Odd roots", 1, sa->oddRoots) ;
   printf ("# Constructed %d odd roots\n", dim) ;
 
+   sa->dict = dictHandleCreate (32, sa->h) ;
   return ;
 } /* getOddRoots */
 
@@ -827,15 +828,16 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
+
+   if (sa.hasOdd) /* do this first then destroy the dict */
+     getOddRoots (&sa, show) ;
+
    /* apply Demazure of the even group */
    getHighestWeight (&sa, -2, show) ;
    printf ("## Weights of the representations\n") ;
    
-   demazure (&sa, &dim, &sdim, show) ;
-
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
-       getOddRoots (&sa, show) ;
        getAtypic (&sa, show) ;
        getKacCrystal (&sa, show) ; 
      }
@@ -843,6 +845,7 @@ int main  (int argc, const char **argv)
    printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
 
+   demazure (&sa, &dim, &sdim, show) ;
    if (sa.hasOdd)
      { 
        getTensorProducts (&sa, show) ;
