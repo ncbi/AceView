@@ -27,10 +27,12 @@ typedef struct saStruct
   Array Cartan ;
   int hasOdd ;
   int hasAtypic ;
+  int nOdd ;
   BOOL odd[RMAX] ;
   Array Kac ; /* Kac crystal */ 
   Array oddRoots ; /* odd roots */
   Array wws ; /* weights */
+  WW hw ;
   DICT *dict ;
   int pass ;
   int D1, D2 ; /* number of even and odd generators of the adjoiunt rep */
@@ -287,6 +289,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
       printf ("## %s dimE=%d dimO=%d dim=%d sdim=%d\n", title, dimE, dimO, dimE+dimO, dimE - dimO) ;
       if (0) arraySort (wws, wwCreationOrder) ;
     }
+  return ;
 } /* wwsShow */
 
 /******************************************************************************************************/
@@ -301,7 +304,6 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
 
   /* reinitialize a single hw.w */
   sa->pass = 0 ;
-  sa->dict = dictHandleCreate (32, sa->h) ;
 
   wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
   hw = arrayp (wws, 1, WW) ;
@@ -338,6 +340,8 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
   hw->hw = TRUE ;
   hw->k = locateWeight (sa, hw, TRUE) ;
 
+  if (type == -2)
+    sa->hw = *hw ;
   if (show || type == 2)
     wwsShow (sa, "Highest Weight", type, wws) ;
 } /* getHighestWeight */
@@ -349,7 +353,7 @@ static void getKacCrystal (SA *sa, BOOL show)
   Array wws ;
   Array oddRoots = sa->oddRoots ;
   int r, rank = sa->rank ;
-  int k, kMax = arrayMax (oddRoots) - 1 ;
+  int k, kMax = sa->nOdd ;
   int ii, iiMax = 1 ;
   WW *w ;
 
@@ -394,8 +398,8 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  w->hw = TRUE  ;
 	  w->layer = layer ;
 	  w->odd = layer %2 ;
-	  if (ii)
-	    w->mult++ ;
+	  if (1)
+	    {  w->mult++ ; printf("Kac... ii=%d  mult=%d\n", ii, w->mult) ; }
 	  for (r = 0 ; ok && r < rank ; r++)
 	    w->x[r] = w0.x[r] ;
 	  if (1)
@@ -429,15 +433,11 @@ static Array getOneTensorProduct (SA *sa, int atypic,   Array old, BOOL show)
   int kMax = arrayMax (Kac) ;
   int iMax = arrayMax (old) ;
   WW deltaW ;
-  DICT *dict ;
 
   sa->wws = 0 ;
   memset (&deltaW, 0, sizeof(deltaW)) ;
   /* reinitialize wws and but not the dictionary */
-  dict = sa->dict ;
   getHighestWeight (sa, -2, show) ;
-  ac_free (sa->dict) ;
-  sa->dict = dict ;
   if (atypic > 0)
     deltaW = arr (sa->oddRoots, atypic, WW) ;
 
@@ -521,7 +521,6 @@ static void getTensorProducts (SA *sa, BOOL show)
   if (sa->hasAtypic)
     {
       int ii ;
-      DICT *dict = sa->dict ; 
 
       for (ii = 0 ; ii < arrayMax (sa->atypic) ; ii++)
 	{
@@ -535,7 +534,6 @@ static void getTensorProducts (SA *sa, BOOL show)
 		wwsShow (sa, "Subtracted Atypical Tensor Product", ii, wws) ;
 	    }
 	}
-      sa->dict = dict ;
       sa->wws = wws ;
     }
   if (show)
@@ -546,7 +544,7 @@ static void getTensorProducts (SA *sa, BOOL show)
 
 /******************************************************************************************************/
 
-static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
+static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
@@ -694,11 +692,11 @@ static BOOL demazure (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
   *sdimp = dim - sdim ;
   
   return new ;
-} /* demazure */
+} /* demazureEven */
 
 /******************************************************************************************************/
 
-static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
+static int demazure (SA *sa, int *dimp, int *sdimp, BOOL show)
 {
   BOOL ok = TRUE ;
   int r, dim = 0, sdim = 0 ;
@@ -708,16 +706,16 @@ static void demazureEven (SA *sa, int *dimp, int *sdimp, BOOL show)
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	if (! sa->odd[r])
-	  ok |= demazure (sa, r, &dim, &sdim, show) ;
+	  ok |= demazureEven (sa, r, &dim, &sdim, show) ;
     }
   if (dimp) *dimp = dim ; 
   if (sdimp) *sdimp = sdim ;
 
   if (show)
-    wwsShow (sa, "DemazureEven", 0, sa->wws) ;
+    wwsShow (sa, "Demazure", 0, sa->wws) ;
   
-  return ;
-} /* demazureEven */
+  return dim ;
+} /* demazure */
 
 /******************************************************************************************************/
 
@@ -731,7 +729,7 @@ static void getOddRoots (SA *sa, BOOL show)
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -1, show) ;
   /* construct the first layer using Demazure */
-  demazureEven (sa, &dim, 0, show) ;
+  sa->nOdd = demazure (sa, &dim, 0, show) ;
   sa->oddRoots = sa->wws ;
   sa->wws = 0 ;
 
@@ -746,18 +744,15 @@ static void getOddRoots (SA *sa, BOOL show)
 
 static void getAtypic (SA *sa, BOOL show)
 {
-  WW *hw ;
+  WW hw ;
   int rank = sa->rank ;
   int r, r1 = sa->hasOdd - 1 ;
   int z = 0 ;
 
   sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;  
-  if (show)
-    wwsShow (sa, "DemazureEven", 0, sa->wws) ;
 
   /* use as h.w. the declared h.w. */
-  getHighestWeight (sa, -2, show) ;
-  hw = arrp (sa->wws, 1, WW) ;
+  hw = sa->hw ;
   
   /* construct the sum of the even roots rho0 */
   /* construct the sum of the even roots rho1 */
@@ -772,12 +767,12 @@ static void getAtypic (SA *sa, BOOL show)
     case 'A':
       for (r = z = 0 ; r + r1 < rank ; r++)
 	{
-	  if (hw->x[r1] == z )
+	  if (hw.x[r1] == z )
 	    {
 	      array (sa->atypic, r+1, int) = 1 ;
 	      sa->hasAtypic++ ;
 	    }
-	  z += hw->x[r1 - r - 1] + 1 ;
+	  z += hw.x[r1 - r - 1] + 1 ;
 	}
       break ;
     default :
@@ -832,6 +827,11 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa) ;
+   /* apply Demazure of the even group */
+   getHighestWeight (&sa, -2, show) ;
+   printf ("## Weights of the representations\n") ;
+   
+   demazure (&sa, &dim, &sdim, show) ;
 
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
@@ -840,11 +840,6 @@ int main  (int argc, const char **argv)
        getKacCrystal (&sa, show) ; 
      }
    
-   /* apply Demazure of the even group */
-   getHighestWeight (&sa, -2, show) ;
-   printf ("## Weights of the representations\n") ;
-   
-   demazureEven (&sa, &dim, &sdim, show) ;
    printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
 
