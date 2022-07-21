@@ -46,6 +46,8 @@ typedef struct saStruct
 } SA ; /* SuperAlgebra struct */
 
 
+static int demazure (SA *sa, int *dimp, BOOL show) ;
+
 /******************************************************************************************************/
 
 static int wwCreationOrder (const void *a, const void *b)
@@ -125,19 +127,22 @@ static void getCartan (SA *sa)
 	    sa->odd[o] = TRUE ;
 	    sa->extended[r] = TRUE ;
 	    array (Cartan, r*o + o , int) = 0 ;
-	    if (o > 0) array (Cartan, r*o + o - 1 , int) = -1 ;
-	    else array (Cartan, r*o + o + 1, int) = 1 ;
+	    if (m > 1) array (Cartan, r*(o-1) + o , int) = 1 ;
+	    if (n > 1) array (Cartan, r*(o+1) + o, int) = 1 ;
 	  }
 	
 	if (n > 1)
 	  {
-	    sa->evenHw.x[m + 1] = 1 ;
-	    sa->evenHw.x[m + n -1] = 1 ;
+	    sa->evenHw.x[m] += 1 ;
+	    sa->evenHw.x[m + n -2] += 1 ;
 	  }
       }
 
-      sa->evenHw.x[0] = 1 ;
-      sa->evenHw.x[r - 1] = 1 ;
+      if (m > 0)
+	{
+	  sa->evenHw.x[0] += 1 ;
+	  sa->evenHw.x[m - 2] += 1 ;
+	}
       break ;
       
     case 'B':
@@ -216,7 +221,7 @@ static void getCartan (SA *sa)
 	array (Cartan, r*0 + 3, int) = -1 ;
 	array (Cartan, r*3 + 0, int) = -1 ;
 
-	sa->evenHw.x[0] = 1 ;
+	sa->evenHw.x[m-1] = 1 ;
       }
       break ;
       
@@ -363,7 +368,7 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
 	{
 	  WW *wo = arrp (sa->oddRoots, type, WW) ;
 	  for (r = 0 ; r < rank ; r++)
-	    hw->x[r] = - wo->x[r] ;
+	    hw->x[r] = sa->hw.x[r] - wo->x[r] ;
 	}
       else
 	messcrash ("getHighestWeight received type=%d out of range of odd roots", type) ;
@@ -373,10 +378,17 @@ static void getHighestWeight (SA *sa, int type, BOOL show)
   hw->hw = TRUE ;
   hw->k = locateWeight (sa, hw, TRUE) ;
 
-  if (type == -2)
-    sa->hw = *hw ;
-  if (show || type == 2)
-    wwsShow (sa, "Highest Weight", type, wws) ;
+  if (1 || type == -2)
+    {
+      sa->hw = *hw ;
+      if (show)
+	{
+	  printf ("####### Highest weight ") ;
+	  for (r = 0 ; r < rank ; r++)
+	    printf (" %d", hw->x[r]) ;
+	  printf ("\n") ;
+	}
+    }
 } /* getHighestWeight */
 
 /******************************************************************************************************/
@@ -391,6 +403,7 @@ static void getKacCrystal (SA *sa, BOOL show)
   WW *w ;
 
   /* reinitialize on the trivial h.w */
+  sa->dict = dictHandleCreate (32, sa->h) ;
   getHighestWeight (sa, 0, show) ;
   wws = sa->wws ;
 
@@ -431,8 +444,8 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  w->hw = TRUE  ;
 	  w->layer = layer ;
 	  w->odd = layer %2 ;
-	  if (1)
-	    {  w->mult++ ; printf("Kac... ii=%d  mult=%d\n", ii, w->mult) ; }
+	  if (ii)
+	    w->mult++ ;
 	  for (r = 0 ; ok && r < rank ; r++)
 	    w->x[r] = w0.x[r] ;
 	  if (1)
@@ -547,27 +560,49 @@ static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
 
 /******************************************************************************************************/
 
-static void getTensorProducts (SA *sa, BOOL show)
+static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
 {
   Array old = sa->wws ;
   Array wws = getOneTensorProduct (sa, -2, old, show) ;
   if (sa->hasAtypic)
     {
       int ii ;
-
+      
       for (ii = 0 ; ii < arrayMax (sa->atypic) ; ii++)
+	if (array (sa->atypic, ii, int))
+	  {
+	    Array top, xxs ;
+	    getHighestWeight (sa, ii, show) ;
+	    demazure (sa, 0, show) ;
+	    top = sa->wws ;
+	    xxs = getOneTensorProduct (sa, ii, top, show) ;
+	    intersectTensorProducts (sa, wws, xxs) ;
+	    ac_free (xxs) ;
+	    ac_free (top) ;
+	    
+	    if (show)
+	      wwsShow (sa, "Subtracted Atypical Tensor Product", ii, wws) ;
+	  }
+    }
+  sa->wws = wws ;
+  if (dimp)
+    {
+      int dimE = 0, dimO = 0 ;
+      WW *ww ;
+      int ii ;
+      for (ii = 0 ; ii < arrayMax (wws) ; ii++)
 	{
-	  if (array (sa->atypic, ii, int))
+	  ww = arrp (wws, ii, WW) ;
+	  if (ww->mult > 0)
 	    {
-	      Array xxs = getOneTensorProduct (sa, ii, old, show) ;
-	      intersectTensorProducts (sa, wws, xxs) ;
-	      ac_free (xxs) ;
-
-	      if (show)
-		wwsShow (sa, "Subtracted Atypical Tensor Product", ii, wws) ;
+	      if (ww->odd)
+		dimO += ww->mult ;
+	      else
+		dimE += ww->mult ; 
 	    }
 	}
-      sa->wws = wws ;
+      *dimp = dimE + dimO ;
+      *sdimp = dimE - dimO ;
     }
   if (show)
     wwsShow (sa, "Final Atypical Tensor Product", 999, wws) ;
@@ -577,12 +612,11 @@ static void getTensorProducts (SA *sa, BOOL show)
 
 /******************************************************************************************************/
 
-static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
+static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
   int i, dim, sdim, rank = sa->rank ;
-  BOOL odd = sa->odd[r1] ;
   
   if (sa->pass++ == 0) new = TRUE ;
     
@@ -594,36 +628,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
       int na = 0 ;
       int dn = 0 ;
       int jMax = w->x[r1] ; /* default even values */
-      BOOL oddLayer = w->odd ;
 
-      
-      if (odd) /* assess the multiplicity of the ancestor descendent  */
-	{
-	  int r, k2 = 0 ;
-	  int j = 1 ;
-
-	  oddLayer = ! w->odd ;
-	  
-	  /* position to ancestor */
-	  for (r = 0 ; r < rank ; r++)
-	    w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
-	  k2 = locateWeight (sa, w, FALSE) ;
-	  if (k2) 
-	    {
-	      WW * w2 = arrayp (wws, k2, WW) ;
-	      na = w2->mult ;
-	    }
-	  else
-	    na = 0 ; /* no ancestor */
-	  if (na >=  n1)  /* status quo */
-	    jMax = 0 ;
-	  else
-	    jMax = 1 ;   /* odd value */
-
-	  /* reposition w to its original location */
-	  for (r = 0 ; r < rank ; r++)
-	    w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
-	}
 	  
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
@@ -648,11 +653,6 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 		  w2->k = k2 ;
 		  w2->mult = 0 ;
 		  w2->hw = FALSE ;
-		  w2->odd = oddLayer ;
-		  if (odd)
-		    w2->layer++ ;
-		  if (odd)
-		    w2->hw = TRUE ;
 		}
 	      n2 = na + w2->mult ;
 
@@ -699,10 +699,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
   for (dim = sdim = 0, i = 1 ; i < arrayMax (wws) ; i++)
     {
       WW *w = arrp (wws, i, WW) ;
-      if (w->odd)
-	sdim += w->mult ;
-      else
-	dim += w->mult ;
+      dim += w->mult ;
     }
 
   if (1)   arraySort (wws, wwLayerOrder) ;
@@ -715,34 +712,32 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, int *sdimp, BOOL show)
 	  WW *w = arrp (wws, i, WW) ;
 	  for (j = 0 ; j < rank ; j++)
 	    printf (" %d", w->x[j]) ;
-	  printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+	  printf ("\tmult=%d k=%d l=%d %s\n", w->mult, w->k, w->layer, w->hw ? "*" : "" ) ;
 	}
       printf ("\n") ;
     }
   if (1)   arraySort (wws, wwCreationOrder) ;
   
   *dimp = dim + sdim ;
-  *sdimp = dim - sdim ;
   
   return new ;
 } /* demazureEven */
 
 /******************************************************************************************************/
 
-static int demazure (SA *sa, int *dimp, int *sdimp, BOOL show)
+static int demazure (SA *sa, int *dimp, BOOL show)
 {
   BOOL ok = TRUE ;
-  int r, dim = 0, sdim = 0 ;
+  int r, dim = 0 ;
 
   while (ok)
     {
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	if (! sa->odd[r])
-	  ok |= demazureEven (sa, r, &dim, &sdim, show) ;
+	  ok |= demazureEven (sa, r, &dim, show) ;
     }
   if (dimp) *dimp = dim ; 
-  if (sdimp) *sdimp = sdim ;
 
   if (show)
     wwsShow (sa, "Demazure", 0, sa->wws) ;
@@ -757,12 +752,14 @@ static void getOddRoots (SA *sa, BOOL show)
 {
   int dim = 0 ;
 
-  if (show)
+   sa->dict = dictHandleCreate (32, sa->h) ;
+
+   if (show)
     printf ("\n####### Odd roots \n") ;
-  /* use as h.w. the lowering simple root */
+   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -1, show) ;
   /* construct the first layer using Demazure */
-  sa->nOdd = demazure (sa, &dim, 0, show) ;
+  sa->nOdd = demazure (sa, &dim, show) ;
   sa->oddRoots = sa->wws ;
   sa->wws = 0 ;
 
@@ -770,7 +767,7 @@ static void getOddRoots (SA *sa, BOOL show)
     wwsShow (sa, "Odd roots", 1, sa->oddRoots) ;
   printf ("# Constructed %d odd roots\n", dim) ;
 
-   sa->dict = dictHandleCreate (32, sa->h) ;
+
 
   return ;
 } /* getOddRoots */
@@ -782,20 +779,20 @@ static void getAdjoint (SA *sa, BOOL show)
 {
   int dimE = 0 ;
 
+  sa->dict = dictHandleCreate (32, sa->h) ;
   if (show)
     printf ("\n####### Odd roots \n") ;
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, show) ;
   /* construct the first layer using Demazure */
-  sa->nEven = demazure (sa, &dimE, 0, show) ;
+  sa->nEven = demazure (sa, &dimE, show) ;
   sa->evenRoots = sa->wws ;
   sa->wws = 0 ;
 
   if (show)
-    wwsShow (sa, "Odd roots", 1, sa->oddRoots) ;
+    wwsShow (sa, "Even Adjoint ", 1, sa->evenRoots) ;
   printf ("# Constructed %d adjoint even roots\n", dimE) ;
 
-   sa->dict = dictHandleCreate (32, sa->h) ;
   return ;
 } /* getOddRoots */
 
@@ -811,7 +808,8 @@ static void getAtypic (SA *sa, BOOL show)
   sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;  
 
   /* use as h.w. the declared h.w. */
-  hw = sa->hw ;
+   getHighestWeight (sa, -2, TRUE) ;
+   hw = sa->hw ;
   
   /* construct the sum of the even roots rho0 */
   /* construct the sum of the even roots rho1 */
@@ -890,10 +888,9 @@ int main  (int argc, const char **argv)
    if (sa.hasOdd) /* do this first then destroy the dict */
      getOddRoots (&sa, show) ;
 
-   getAdjoint (&sa, show) ;
    /* apply Demazure of the even group */
-   getHighestWeight (&sa, -2, show) ;
-   printf ("## Weights of the representations\n") ;
+   getAdjoint (&sa, show) ;
+ 
    
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
@@ -901,19 +898,27 @@ int main  (int argc, const char **argv)
        getKacCrystal (&sa, show) ; 
      }
    
+   /* construct the top layer even module */
+   sa.dict = dictHandleCreate (32, sa.h) ;
+   getHighestWeight (&sa, -2, TRUE) ;
+   printf ("## Weights of the representations\n") ;
+
    printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
 
-   demazure (&sa, &dim, &sdim, show) ;
+   demazure (&sa, &dim, show) ;
    if (sa.hasOdd)
      { 
-       getTensorProducts (&sa, show) ;
+       getTensorProducts (&sa, &dim, &sdim, show) ;
      }
    
+   printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
    messfree (h) ;
    printf ("A bientot\n") ;
    
-   return 0 ;
+   return 0 ;   getHighestWeight (&sa, -2, TRUE) ;
+   printf ("## Weights of the representations\n") ;
+
 } /* main */
 
 /************************************************************************/
