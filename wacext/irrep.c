@@ -127,8 +127,8 @@ static void getCartan (SA *sa)
 	    sa->odd[o] = TRUE ;
 	    sa->extended[r] = TRUE ;
 	    array (Cartan, r*o + o , int) = 0 ;
-	    if (m > 1) array (Cartan, r*(o-1) + o , int) = 1 ;
-	    if (n > 1) array (Cartan, r*(o+1) + o, int) = 1 ;
+	    if (o > 0) array (Cartan, r*o + o - 1, int) = 1 ;
+	    if (o < r-1) array (Cartan, r*o + o + 1, int) = 1 ;
 	  }
 	
 	if (n > 1)
@@ -639,7 +639,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
+		w->x[r] -= array(sa->Cartan, rank * r + r1, int) * j ;
 	      
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      k2 = locateWeight (sa, w, TRUE)  ;
@@ -658,7 +658,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
+		w->x[r] += array(sa->Cartan, rank * r + r1, int) * j ;
 	    }
 	}
 
@@ -673,7 +673,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] -= array(sa->Cartan, rank * r1 + r, int) * j ;
+		w->x[r] -= array(sa->Cartan, rank * r + r1, int) * j ;
 	      
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      k2 = locateWeight (sa, w, TRUE) ;
@@ -690,7 +690,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 	      
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
-		w->x[r] += array(sa->Cartan, rank * r1 + r, int) * j ;
+		w->x[r] += array(sa->Cartan, rank * r + r1, int) * j ;
 	    }
 	}
       
