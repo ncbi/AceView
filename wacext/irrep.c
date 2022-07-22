@@ -323,8 +323,6 @@ static void getCartan (SA *sa)
       printf ("\n### Cartan Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
       for (i = 0 ; i < r ; i++)
 	{
-	  if (sa->odd[i])
-	    sa->hasOdd = i + 1 ;
 	  for (j = 0 ; j < r ; j++)
 	    printf ("\t%d", arr (Cartan, r*i + j, int)) ;
 	  printf ("\n") ;
