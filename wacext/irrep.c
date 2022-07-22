@@ -477,37 +477,32 @@ static Array getOneTensorProduct (SA *sa, int atypic,   Array old, BOOL show)
   Array Kac = sa->Kac ;
   int kMax = arrayMax (Kac) ;
   int iMax = arrayMax (old) ;
-  WW deltaW ;
 
-  sa->wws = 0 ;
-  memset (&deltaW, 0, sizeof(deltaW)) ;
   /* reinitialize wws and but not the dictionary */
-  getHighestWeight (sa, -2, 0, show) ;
-  if (atypic > 0)
-    deltaW = arr (sa->oddRoots, atypic, WW) ;
-
-  wws = sa->wws ;
-  if (1)
+  wws = sa->wws = arrayHandleCreate (256, WW, sa->h) ;
+  if (0)
     { /* avoid overcounting */
       WW *ww = arrp (wws, 1, WW) ;
+      ww = arrp (wws, 1, WW) ;
       ww->mult = 0 ;
     }
   
   for (ii = 1 ; ii < iMax ; ii++)
     {
       WW *w1 = arrp (old, ii, WW) ;
-      
+      if (! w1->mult) continue ;
       for (kk = 1 ; kk < kMax ; kk++)
 	{
 	  WW *wo = arrp (Kac, kk, WW) ;
 	  WW w, *ww ;
 	  int r, k2 ;
-
+	    
+	  if (! wo->mult) continue ;
 	  /* set the corrds of the next point of the tensor product */
 	  memset (&w, 0, sizeof (w)) ;
 	  w = *w1 ;
 	  for (r = 0 ; r < rank ; r++)
-	    w.x[r] += wo->x[r] - deltaW.x[r] ;
+	    w.x[r] += wo->x[r] ;
 	  
 	  /* locate it to construct the multiplicity */
 	  k2 = locateWeight (sa, &w, TRUE)  ;
@@ -571,7 +566,7 @@ static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
 	if (array (sa->atypic, ii, int))
 	  {
 	    Array top, xxs ;
-	    getHighestWeight (sa, -ii, 0, show) ;
+	    getHighestWeight (sa, ii, TRUE, show) ;
 	    demazure (sa, 0, show) ;
 	    top = sa->wws ;
 	    xxs = getOneTensorProduct (sa, ii, top, show) ;
@@ -828,7 +823,7 @@ static void getAtypic (SA *sa, BOOL show)
 	      array (sa->atypic, r+1, int) = 1 ;
 	      sa->hasAtypic++ ;
 	    }
-	  z += hw.x[r1 - r - 1] + 1 ;
+	  z += hw.x[r1 + r + 1] + 1 ;
 	}
       break ;
     default :

@@ -143,8 +143,8 @@ if ($phase == reportOne) then
 
   if ($kk == 0k) then
     \rm $toto.3
-    foreach cl (CL1-Brain CL10-Testis CL2-Breast CL3-Cervix CL4-Liver CL5-Lipo CL6-Blym CL7-Tlym CL8-Macr CL9-Skin)
-      set ff=RESULTS/Expression/unique/av/CL.AceView.GENE.u.$cl'-B_priv-2sA1.score.genes.profiles.txt'
+    foreach cl (CL1-Brain-B_priv-2sA1 CL10-Testis-B_priv-2sA1 CL2-Breast-B_priv-2sA1 CL3-Cervix-B_priv-2sA1 CL4-Liver-B_priv-2sA1 CL5-Lipo-B_priv-2sA1 CL6-Blym-B_priv-2sA1 CL7-Tlym-B_priv-2sA1 CL8-Macr-B_priv-2sA1 CL9-Skin-B_priv-2sA1 SumOfCL1toCL10-B_priv_20.4sA1  A-UHR-B_priv_4.2sA1)
+      set ff=RESULTS/Expression/unique/av/CL.AceView.GENE.u.$cl.score.genes.profiles.txt
       set n1=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the even columns' | gawk -F : '{print $1}'`
       set n2=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the odd columns' | gawk -F : '{print $1}'`
       cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",cl,$2,$3,$5,$n1,$n2);}' cl=$cl n1=$n1 n2=$n2 >> $toto.3 

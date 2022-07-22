@@ -21,11 +21,17 @@ END {
 
     nclones = 0 ;
     if (CL+0 ==1)
+    {
 	nclones = split ("CL1-Brain,CL10-Testis,CL2-Breast,CL3-Cervix,CL4-Liver,CL5-Lipo,CL6-Blym,CL7-Tlym,CL8-Macr,CL9-Skin", clones,",") ;
-
+	nsums = split ("SumOfCL1toCL10-B_priv_20.4sA1,A-UHR-B_priv_4.2sA1", sums, ",") ;
+    }
     printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ;
     if (CL+0 ==1)
-        printf ("\tSum B>CL AGLR1\tSum CL>A AGLR1") ;
+    {
+	printf ("\tSum B>CL AGLR1\tSum CL>A AGLR1") ;
+	printf ("\t%s B>A\t%s A>B", sums[1], sums[1]) ;
+	printf ("\t%s B>A\t%s A>B", sums[2], sums[2]) ;
+    }
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
@@ -280,6 +286,8 @@ END {
 
 	printf ("\t%.0f\t%d", gc1, gc2) ; 
 	printf ("\t%.0f\t%d", gnc1, gnc2) ; 
+	printf ("\t%s\t%s", z2[sums[1],g], z1[sums[1],g], z2[sums[2],g], z1[sums[2],g]) ;
+
 	if (CL+0 == 1)
 	    printf ("\t%.0f\t%.0f", gCL2, gCL1) ; 
 	for (i = 1 ; i <= nf ; i++)
