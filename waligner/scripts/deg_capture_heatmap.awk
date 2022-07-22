@@ -22,15 +22,15 @@ END {
     nclones = 0 ;
     if (CL+0 ==1)
     {
-	nclones = split ("CL1-Brain,CL10-Testis,CL2-Breast,CL3-Cervix,CL4-Liver,CL5-Lipo,CL6-Blym,CL7-Tlym,CL8-Macr,CL9-Skin", clones,",") ;
-	nsums = split ("SumOfCL1toCL10-B_priv_20.4sA1,A-UHR-B_priv_4.2sA1", sums, ",") ;
+	nclones = split ("CL1-Brain-B_priv-2sA1,CL2-Breast-B_priv-2sA1,CL3-Cervix-B_priv-2sA1,CL4-Liver-B_priv-2sA1,CL5-Lipo-B_priv-2sA1,CL6-Blym-B_priv-2sA1,CL7-Tlym-B_priv-2sA1,CL8-Macr-B_priv-2sA1,CL9-Skin-B_priv-2sA1,CL10-Testis-B_priv-2sA1", clones,",") ;
+	nsums = split ("SumOfCL1toCL10-B_2grps-2_A1,A-UHR-B_priv_4.2sA1", sums, ",") ;
     }
-    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconcistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ;
+    printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconsistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ;
     if (CL+0 ==1)
     {
-	printf ("\tSum B>CL AGLR1\tSum CL>A AGLR1") ;
-	printf ("\t%s B>A\t%s A>B", sums[1], sums[1]) ;
-	printf ("\t%s B>A\t%s A>B", sums[2], sums[2]) ;
+	printf ("\tB>sum CL AGLR1\tSum CL>B AGLR1") ;
+	printf ("\tB>%s\t%s>B", sums[1], sums[1]) ;
+	printf ("\tB>%s\t%s>B", sums[2], sums[2]) ;
     }
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
@@ -75,7 +75,7 @@ END {
 
 	if (0) printf ("\nzzz %s", g) ;
 	trueg = "non-DEG" ; 
-
+	
 	if (nTruth < 1)
 	{
 	    if (g1[g] + g2[g] > 0)
@@ -178,7 +178,27 @@ END {
 	    
 	split (trueg, aa, "_") ;
 	gTrue[g] = aa[1] ;
-
+	if (trueg == "non-DEG")
+	{
+	    ndg1 = z1[sums[1],g] + z1[sums[2],g] 
+	    ndg2 = z2[sums[1],g] + z2[sums[2],g] 
+	    if (ndg1 > 50 && ndg1 > ndg2)
+		trueg = sprintf ("%s_a%03d", trueg,int((ndg1+50)/100)) ; 
+	    else if (ndg2 > 50 && ndg2 > ndg1)
+		trueg = sprintf ("%s_b%03d", trueg,int((ndg2+50)/100)) ; 
+	    if (gCL2 > 50 && gCL2 > gCL1)
+	    {
+		trueg = sprintf ("%s__clb%03d", trueg,int((gCL2+50)/100)) ; 
+		if (gCL1 > 50)
+		    trueg = trueg "__a" int((gCL1+50)/100) ; 
+	    }
+	    else if (gCL1 > 50 && gCL1 > gCL2)
+	    {
+		trueg = sprintf ("%s__cla%03d", trueg,int((gCL1+50)/100)) ; 
+		if (gCL2 > 50)
+		    trueg = trueg "__b" int((gCL2+50)/100) ; 
+	    }
+	}
 
 ######################################################
 ######  stats
@@ -286,10 +306,11 @@ END {
 
 	printf ("\t%.0f\t%d", gc1, gc2) ; 
 	printf ("\t%.0f\t%d", gnc1, gnc2) ; 
-	printf ("\t%s\t%s", z2[sums[1],g], z1[sums[1],g], z2[sums[2],g], z1[sums[2],g]) ;
-
 	if (CL+0 == 1)
+	{
 	    printf ("\t%.0f\t%.0f", gCL2, gCL1) ; 
+	    printf ("\t%.0f\t%.0f\t%.0f\t%.0f", z2[sums[1],g], z1[sums[1],g], z2[sums[2],g], z1[sums[2],g]) ;
+	}
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%.0f",z1[ff[i],g]) ; 
 	for (i = 1 ; i <= nf ; i++)

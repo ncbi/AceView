@@ -177,6 +177,11 @@ MX mxMatMult (MX b, MX c, AC_HANDLE h) ;
 MX mxMatTranspose (MX a, MX b, AC_HANDLE h) ; /* standard transposition of a rank2 matrix */
 MX mxMatTransposeConjugate (MX a, MX b, AC_HANDLE h) ; /* standard hermitian conjugate of a rank2 matrix */
 float complex  mxMatTrace (MX a) ;  /* standard trace of a rank2 square matrix */
+BOOL mxMatDeterminant (MX a, int *ip, float *fp, complex float *cp) ;
+BOOL mxMatCofactor (MX a, int *ip, float *fp, complex float *cp) ; /* cofactor of element i,j */
+MX mxMatInverse (MX a, AC_HANDLE h) ; /* return NULL or the inverse matrix if available */
+int mxIntDeterminant (int *aa, int rank) ;
+
 /***************************************************************************************/
 
 /* single value scalar matrix */

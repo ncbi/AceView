@@ -818,7 +818,7 @@ MX mxDot (MX a, MX b, MX c, AC_HANDLE h)
 } /* mxDot */
 
 /**********************************************************************/
-/* mxMatMult corresponds to the statndard matrix product
+/* mxMatMult corresponds to the standard matrix product
  *   we trace index 1 of b with index 0 of c
 */
 
@@ -954,6 +954,141 @@ float complex  mxMatTrace (MX a)
   return z ;
 } /* mxMatTrace */
 
+/**********************************************************************/
+/**********************************************************************/
+/* numerical cofactor of a buffer of integers */
+static BOOL mxIntCofactor (int *cf, int *aa, int ii, int jj, int rank)
+{
+  int i ;
+  int r = rank -1 ;
+  
+  if (r <= 0)
+    messcrash ("mxIntCofactor received rank=%d < 2", rank) ;
+
+  for (i = 0 ; i < r ; i++)
+    {    /* construct the cofactor */
+      int j, di = (i >= ii ? 1 : 0) ;
+      for (j = 0 ; j < r ; j++)
+	{
+	  int dj = (j >= jj ? 1 : 0) ;
+	  cf [r * i + j] = aa [r * (i+di) + dj + j] ;
+	}
+    }
+  return TRUE ;
+} /* mxIntCofactor */
+
+/**********************************************************************/
+/* numerical determinant or a buffer of integers */
+int mxIntDeterminant (int *aa, int rank)
+{
+  int xx = 0, ii, sign = -1 ; 
+  if (rank == 1)
+    return aa[0] ;
+  for (ii = 0 ; ii < rank ; ii++)
+    {
+      int r = rank -1 ;
+      int r2 = r * r ;
+      int bb[r2] ;
+      sign = -sign ; /* alternate the signs */
+      mxIntCofactor (bb, aa, ii, 0, rank) ;
+      xx += sign * mxIntDeterminant (bb, r) ;
+    }
+  return xx ;
+} /* mxIntDeterminant */
+
+/**********************************************************************/
+/* returns the determinant and the NOT SCALED numerical inverse or a buffer of integers */
+int mxIntInverse (int *ai, int *aa, int rank)
+{
+  int ii, jj ;
+  int r = rank -1 ;
+  int r2 = r * r ;
+  
+  if (rank == 1)
+    {
+      ai[0] = 1 ;
+    }
+  else
+    {
+      for (ii = 0 ; ii < rank ; ii++)
+	for (jj = 0 ; jj < rank ; jj++)
+	  {
+	    int bb[r2] ;
+	    mxIntCofactor (bb, aa, ii, jj, rank) ;
+	    ai [rank*ii + jj] = mxIntDeterminant (bb, r) ;
+	  }
+    }
+  return mxIntDeterminant (aa, rank) ;
+} /* mxIntDeterminant */
+
+/**********************************************************************/
+
+BOOL mxMatDeterminant (MX a, int *ip, float *fp, complex float *cp) 
+{
+  BOOL ok = TRUE ;
+
+  if (!a)
+    messcrash ("NULL matrix in mxMatDeterminant") ;
+  if (a->rank != 2)
+    messcrash ("matrix %s (rank %d) not of rank 2 in mxMatTrace", a->name, a->rank) ;
+  if (a->shapes[0] != a->shapes[1])
+    messcrash ("Non square matrix %s shape=(%d %d)in mxMatTrace"
+	       ,  a->name, a->shapes[0], a->shapes[1]
+	       ) ;
+
+  switch (a->type)
+    {
+    case MX_NULL:
+      ok = FALSE ;
+      break ;
+    case MX_BOOL:
+    case MX_INT:
+      if (! *ip)
+	messcrash ("mxMatDeterminant of Int matrix, ip not provided") ;
+      *ip = mxIntDeterminant (a->zi, a->shapes[0]) ;
+      break ;
+    default:
+      ok = FALSE ;
+      break ;
+    }
+
+  return ok ;
+} /* mxMatDeterminant */
+
+/**********************************************************************/
+/* return NULL or the inverse matrix if available, if INT, the matrix is NOT scaled */
+MX mxMatInverse (MX a, AC_HANDLE h) 
+{
+  MX ai = 0 ;
+  if (!a)
+    messcrash ("NULL matrix in mxMatTrace") ;
+  if (a->rank != 2)
+    messcrash ("matrix %s (rank %d) not of rank 2 in mxMatTrace", a->name, a->rank) ;
+  if (a->shapes[0] != a->shapes[1])
+    messcrash ("Non square matrix %s shape=(%d %d)in mxMatTrace"
+	       ,  a->name, a->shapes[0], a->shapes[1]
+	       ) ;
+  ai = mxCopy (0, a, h) ;
+  switch (a->type)
+    {
+    case MX_NULL:
+      break ;
+    case MX_BOOL:
+    case MX_INT:
+      {
+	int r = a->shapes[0] ;
+	mxIntInverse (ai->zi, a->zi, r) ;
+      }
+      break ;
+    default:
+      messcrash ("Inverse of non Int matrix not yet programmed ") ;
+      break ;
+    }
+  return ai ;
+} /* mxMatInverse */
+
+/**********************************************************************/
+/**********************************************************************/
 /**********************************************************************/
 /* mxD2Dot: corresponds to a frequent 2D matrix product
  *   we trace the zeroth and first (fastest moving) indices of both tensors

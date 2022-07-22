@@ -61,7 +61,6 @@ if ($phase == m3aH) goto phasem3aH
 if ($phase == m3bH) goto phasem3bH
 if ($phase == g4) goto phaseg4
 if ($phase == g4sp) goto phaseg4sp
-if ($phase == g4sp) goto phaseg4sp
 if ($phase == gsnp4) goto phasegsnp4
 if ($phase == m4) goto phasem4
 if ($phase == m4H) goto phasem4H
@@ -941,8 +940,6 @@ echo "phase $phase $mySeaLevel"
 phaseklst4:
 phaser2g4:
 phaseg4:
-phaseg4sp:
-phasegsnp4:
 phasem4:
 phasem4H:
 phasema4:
@@ -1162,6 +1159,11 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
+   if ($MAGIC == CL1) then
+     set CAPT=A1R3
+     set sg="$sg   -captured $CAPT"
+     set CAPT=".$CAPT" 
+   endif
    if (0) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
