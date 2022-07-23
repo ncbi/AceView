@@ -101,46 +101,35 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
 /******************************************************************************************************/
 
 /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-static void getCartanInverse (SA *sa)
+static void getCartanInverse (SA *sa, BOOL show)
 {
   Array Cartan = sa->Cartan ;
-  int i, j, rank = sa->rank ;
-  Array CartanInverse = sa->CartanInverse = arrayHandleCreate (rank*rank, int, sa->h) ;
+  int r = sa->rank ;
+  int r2 = r*r ;
+  Array ci = sa->CartanInverse = arrayHandleCreate (r2, int, sa->h) ;
 
-  for (i = 0 ; i < rank ; i++)
-    for (j = 0 ; j < rank ; j++)
-      {
-	int x = array (Cartan, rank * i + j, int) ;
-	switch (x)
-	  {
-	  case 0:
-	    array (CartanInverse, rank * i + j, int) = 0 ;
-	    break ;
-	  case 2:
-	    array (CartanInverse, rank * i + j, int) = 0 ;
-	    break ;
-	  case 1:
-	    array (CartanInverse, rank * i + j, int) = -1 ;
-	    break ;
-	  case -1:
-	    array (CartanInverse, rank * i + j, int) = 1 ;
-	    break ;
-	  case -2:
-	    array (CartanInverse, rank * i + j, int) = 2 ;
-	    break ;
-	  case -3:
-	    array (CartanInverse, rank * i + j, int) = 3 ;
-	    break ;
-	  default:
-	    array (CartanInverse, rank * i + j, int) = -x ;
-	  }
-      }
+  array (ci, r2 - 1, int) = 0 ; /* make room */
+  mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
+
+
+  if (show)
+    {
+      int i, j ;
+      printf ("\n### Cartan Upper Matrix type %s m=%d n=%d rank = %d\n", sa->type, sa->m, sa->n, r) ;
+      for (i = 0 ; i < r ; i++)
+	{
+	  for (j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (ci, r*i + j, int)) ;
+	  printf ("\n") ;
+	}
+    }
+  exit (0) ;
   return ;
 } /* getCartanInverse */
 
 /******************************************************************************************************/
 
-static void getCartan (SA *sa)
+static void getCartan (SA *sa, BOOL show)
 {
   Array Cartan = 0 ;
   int m = sa->m, n = sa->n, r = 0, rr ;
@@ -318,10 +307,10 @@ static void getCartan (SA *sa)
     default:
       messcrash ("The Cartan matrix of a superalgebra of type %c is not yet programmed, sorry.", sa->type) ;
     }
-  if (1)
+  if (show)
     {
       int i, j ;
-      printf ("\n### Cartan Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+      printf ("\n### Cartan (lower) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
       for (i = 0 ; i < r ; i++)
 	{
 	  for (j = 0 ; j < r ; j++)
@@ -963,8 +952,8 @@ int main  (int argc, const char **argv)
    
    sa.dict = dictHandleCreate (32, sa.h) ;
    
-   getCartan (&sa) ;
-   getCartanInverse (&sa) ;
+   getCartan (&sa, show) ;
+   getCartanInverse (&sa, show) ;
 
    if (sa.hasOdd) /* do this first then destroy the dict */
      getOddRoots (&sa, show) ;
