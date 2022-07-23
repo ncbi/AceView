@@ -27,6 +27,7 @@ typedef struct saStruct
   Array Cartan ;
   Array CartanInverse ;
   int hasAtypic ;
+  int hasOdd ;
   int nEven, nOdd ;
   BOOL odd[RMAX] ;
   BOOL extended[RMAX] ;
@@ -107,7 +108,7 @@ static void getCartanInverse (SA *sa)
   Array CartanInverse = sa->CartanInverse = arrayHandleCreate (rank*rank, int, sa->h) ;
 
   for (i = 0 ; i < rank ; i++)
-    for (i = 0 ; i < rank ; i++)
+    for (j = 0 ; j < rank ; j++)
       {
 	int x = array (Cartan, rank * i + j, int) ;
 	switch (x)
@@ -840,35 +841,37 @@ static void getDoubleRho (SA *sa, BOOL show)
   /* rho0: sum of the positive even roots */
   for (ii = 0 ; ii < arrayMax (sa->evenRoots) ; ii++)
     {
+      int i ;
       BOOL ok = TRUE ;
       ww = arrp (sa->evenRoots, ii, WW) ;
       for (i = 0 ; ok && i < rank ; i++)
 	{   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-	  int x = 0 ;
+	  int j, x = 0 ;
 	  for (j = 0 ; j < rank ; j++)
 	    x += arr (CartanInverse, rank * i + j, int) * ww->x[j] ;
 	  if (x < 0)
 	    ok = FALSE ;
 	}
       for (r = 0 ; r < rank ; r++)
-	sa->rho0.x[r] += ww->x.r ;
+	sa->rho0.x[r] += ww->x[r] ;
     }
   /* rho1: sum of the positive odd roots */
   memset (&sa->rho1, 0, sizeof (WW)) ;
-  for (ii = 0 ; ii < arrayMax (sa-oddRoots) ; ii++)
+  for (ii = 0 ; ii < arrayMax (sa->oddRoots) ; ii++)
     {
+      int i ;
       BOOL ok = TRUE ;
       ww = arrp (sa->oddRoots, ii, WW) ;
       for (i = 0 ; ok && i < rank ; i++)
 	{   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-	  int x = 0 ;
+	  int j, x = 0 ;
 	  for (j = 0 ; j < rank ; j++)
 	    x += arr (CartanInverse, rank * i + j, int) * ww->x[j] ;
 	  if (x < 0)
 	    ok = FALSE ;
 	}
       for (r = 0 ; ok && r < rank ; r++)
-	sa->rho1.x[r] += ww->x.r ;
+	sa->rho1.x[r] += ww->x[r] ;
     }
 } /* getDoubleRho */
 
@@ -881,7 +884,7 @@ static void getAtypic (SA *sa, BOOL show)
   int r, r1 = sa->hasOdd - 1 ;
   int z = 0 ;
 
-  getDoubleRho (sa) ;
+  getDoubleRho (sa, show) ;
   sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;  
 
   /* use as h.w. the declared h.w. */
@@ -1000,266 +1003,3 @@ int main  (int argc, const char **argv)
 /************************************************************************/
 /************************************************************************/
 /************************************************************************/
-    #include<stdio.h>
-
-    #include<math.h>
-
-    float determinant(float [][25], float);
-
-    void cofactor(float [][25], float);
-
-    void transpose(float [][25], float [][25], float);
-
-    int main()
-
-    {
-
-      float a[25][25], k, d;
-
-      int i, j;
-
-      printf("Enter the order of the Matrix : ");
-
-      scanf("%f", &k);
-
-      printf("Enter the elements of %.0fX%.0f Matrix : \n", k, k);
-
-      for (i = 0;i < k; i++)
-
-        {
-
-         for (j = 0;j < k; j++)
-
-           {
-
-            scanf("%f", &a[i][j]);
-
-            }
-
-        }
-
-      d = determinant(a, k);
-
-      if (d == 0)
-
-       printf("\nInverse of Entered Matrix is not possible\n");
-
-      else
-
-       cofactor(a, k);
-
-    }
-
-     
-
-    /*For calculating Determinant of the Matrix */
-
-    float determinant(float a[25][25], float k)
-
-    {
-
-      float s = 1, det = 0, b[25][25];
-
-      int i, j, m, n, c;
-
-      if (k == 1)
-
-        {
-
-         return (a[0][0]);
-
-        }
-
-      else
-
-        {
-
-         det = 0;
-
-         for (c = 0; c < k; c++)
-
-           {
-
-            m = 0;
-
-            n = 0;
-
-            for (i = 0;i < k; i++)
-
-              {
-
-                for (j = 0 ;j < k; j++)
-
-                  {
-
-                    b[i][j] = 0;
-
-                    if (i != 0 && j != c)
-
-                     {
-
-                       b[m][n] = a[i][j];
-
-                       if (n < (k - 2))
-
-                        n++;
-
-                       else
-
-                        {
-
-                         n = 0;
-
-                         m++;
-
-                         }
-
-                       }
-
-                   }
-
-                 }
-
-              det = det + s * (a[0][c] * determinant(b, k - 1));
-
-              s = -1 * s;
-
-              }
-
-        }
-
-     
-
-        return (det);
-
-    }
-
-     
-
-    void cofactor(float num[25][25], float f)
-
-    {
-
-     float b[25][25], fac[25][25];
-
-     int p, q, m, n, i, j;
-
-     for (q = 0;q < f; q++)
-
-     {
-
-       for (p = 0;p < f; p++)
-
-        {
-
-         m = 0;
-
-         n = 0;
-
-         for (i = 0;i < f; i++)
-
-         {
-
-           for (j = 0;j < f; j++)
-
-            {
-
-              if (i != q && j != p)
-
-              {
-
-                b[m][n] = num[i][j];
-
-                if (n < (f - 2))
-
-                 n++;
-
-                else
-
-                 {
-
-                   n = 0;
-
-                   m++;
-
-                   }
-
-                }
-
-            }
-
-          }
-
-          fac[q][p] = pow(-1, q + p) * determinant(b, f - 1);
-
-        }
-
-      }
-
-      transpose(num, fac, f);
-
-    }
-
-    /*Finding transpose of matrix*/ 
-
-    void transpose(float num[25][25], float fac[25][25], float r)
-
-    {
-
-      int i, j;
-
-      float b[25][25], inverse[25][25], d;
-
-     
-
-      for (i = 0;i < r; i++)
-
-        {
-
-         for (j = 0;j < r; j++)
-
-           {
-
-             b[i][j] = fac[j][i];
-
-            }
-
-        }
-
-      d = determinant(num, r);
-
-      for (i = 0;i < r; i++)
-
-        {
-
-         for (j = 0;j < r; j++)
-
-           {
-
-            inverse[i][j] = b[i][j] / d;
-
-            }
-
-        }
-
-       printf("\n\n\nThe inverse of matrix is : \n");
-
-     
-
-       for (i = 0;i < r; i++)
-
-        {
-
-         for (j = 0;j < r; j++)
-
-           {
-
-             printf("\t%f", inverse[i][j]);
-
-            }
-
-        printf("\n");
-
-         }
-
-    }
