@@ -776,10 +776,8 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
 
    sa->dict = dictHandleCreate (32, sa->h) ;
 
-   if (show)
-    printf ("\n####### Odd roots \n") ;
    /* use as h.w. the lowering simple root */
-   getHighestWeight (sa, -1, 1, show) ;
+   getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
   sa->nOdd = demazure (sa, &dim, show) ;
   sa->negativeOddRoots = sa->wws ;
@@ -787,9 +785,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
 
   if (show)
     wwsShow (sa, "Odd roots", 1, sa->negativeOddRoots) ;
-  printf ("# Constructed %d odd roots\n", dim) ;
-
-
+  printf ("## Constructed %d odd roots\n", dim) ;
 
   return ;
 } /* getNegativeOddRoots */
@@ -802,10 +798,9 @@ static void getAdjoint (SA *sa, BOOL show)
   int dimE = 0 ;
 
   sa->dict = dictHandleCreate (32, sa->h) ;
-  if (show)
-    printf ("\n####### Odd roots \n") ;
+
   /* use as h.w. the lowering simple root */
-  getHighestWeight (sa, -3, 1, show) ;
+  getHighestWeight (sa, -3, 1, 0) ;
   /* construct the first layer using Demazure */
   sa->nEven = demazure (sa, &dimE, show) ;
   sa->evenRoots = sa->wws ;
