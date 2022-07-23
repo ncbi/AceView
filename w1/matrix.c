@@ -971,7 +971,7 @@ static BOOL mxIntCofactor (int *cf, int *aa, int ii, int jj, int rank)
       for (j = 0 ; j < r ; j++)
 	{
 	  int dj = (j >= jj ? 1 : 0) ;
-	  cf [r * i + j] = aa [r * (i+di) + dj + j] ;
+	  cf [r * i + j] = aa [rank * (i+di) + dj + j] ;
 	}
     }
   return TRUE ;
@@ -991,7 +991,7 @@ int mxIntDeterminant (int *aa, int rank)
       int bb[r2] ;
       sign = -sign ; /* alternate the signs */
       mxIntCofactor (bb, aa, ii, 0, rank) ;
-      xx += sign * mxIntDeterminant (bb, r) ;
+      xx += sign * aa[rank * ii + 0] * mxIntDeterminant (bb, r) ;
     }
   return xx ;
 } /* mxIntDeterminant */
@@ -1015,7 +1015,7 @@ int mxIntInverse (int *ai, int *aa, int rank)
 	  {
 	    int bb[r2] ;
 	    mxIntCofactor (bb, aa, ii, jj, rank) ;
-	    ai [rank*ii + jj] = mxIntDeterminant (bb, r) ;
+	    ai [rank*ii + jj] = (1 - 2 * ((ii+jj) % 2)) * mxIntDeterminant (bb, r) ;
 	  }
     }
   return mxIntDeterminant (aa, rank) ;
