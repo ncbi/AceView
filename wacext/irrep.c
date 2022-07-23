@@ -25,7 +25,7 @@ typedef struct saStruct
   const char *DynkinWeights ; /* 1:0:2:.... */
   int m, n, rank ;
   Array Cartan ;
-  Array CartanInverse ;
+  Array upperCartan ;
   int hasAtypic ;
   int hasOdd ;
   int nEven, nOdd ;
@@ -34,9 +34,9 @@ typedef struct saStruct
   Array Kac ; /* Kac crystal */
   WW evenHw ;
   Array evenRoots ; /* odd roots */
-  Array oddRoots ; /* odd roots */
+  Array negativeOddRoots ; /* odd roots */
   Array wws ; /* weights */
-  WW hw, rho0, rho1 ;
+  WW hw, rho, rho0, rho1 ;
   DICT *dict ;
   int pass ;
   int D1, D2 ; /* number of even and odd generators of the adjoiunt rep */
@@ -101,12 +101,12 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
 /******************************************************************************************************/
 
 /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-static void getCartanInverse (SA *sa, BOOL show)
+static void getupperCartan (SA *sa, BOOL show)
 {
   Array Cartan = sa->Cartan ;
   int r = sa->rank ;
   int r2 = r*r ;
-  Array ci = sa->CartanInverse = arrayHandleCreate (r2, int, sa->h) ;
+  Array ci = sa->upperCartan = arrayHandleCreate (r2, int, sa->h) ;
 
   array (ci, r2 - 1, int) = 0 ; /* make room */
   mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
@@ -123,9 +123,8 @@ static void getCartanInverse (SA *sa, BOOL show)
 	  printf ("\n") ;
 	}
     }
-  exit (0) ;
   return ;
-} /* getCartanInverse */
+} /* getupperCartan */
 
 /******************************************************************************************************/
 
@@ -154,6 +153,7 @@ static void getCartan (SA *sa, BOOL show)
 	  {
 	    int o = m - 1 ;
 	    sa->odd[o] = TRUE ;
+	    sa->hasOdd = TRUE ;
 	    sa->extended[r] = TRUE ;
 	    array (Cartan, r*o + o , int) = 0 ;
 	    if (o > 0) array (Cartan, r*o + o - 1, int) = 1 ;
@@ -294,6 +294,7 @@ static void getCartan (SA *sa, BOOL show)
       if (m == 3)
 	{
 	  sa->odd[2] = TRUE ;
+	  sa->hasOdd = TRUE ;
 	  array (Cartan, r*2 + 2 , int) = 0 ;
 	  array (Cartan, r*2 + 1, int) = -1 ;
 	  array (Cartan, r*3 + 2 , int) = 1 ;
@@ -391,9 +392,9 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       *hw = sa->evenHw ;
       break ;
     default:
-      if (sa->oddRoots && type <= arrayMax (sa->oddRoots))
+      if (sa->negativeOddRoots && type <= arrayMax (sa->negativeOddRoots))
 	{
-	  WW *wo = arrp (sa->oddRoots, type, WW) ;
+	  WW *wo = arrp (sa->negativeOddRoots, type, WW) ;
 	  for (r = 0 ; r < rank ; r++)
 	    hw->x[r] = sa->hw.x[r] - wo->x[r] ;
 	}
@@ -423,7 +424,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
 static void getKacCrystal (SA *sa, BOOL show)
 {
   Array wws ;
-  Array oddRoots = sa->oddRoots ;
+  Array negativeOddRoots = sa->negativeOddRoots ;
   int r, rank = sa->rank ;
   int k, kMax = sa->nOdd ;
   int ii, iiMax = 1 ;
@@ -435,7 +436,7 @@ static void getKacCrystal (SA *sa, BOOL show)
   wws = sa->wws ;
 
   for (k = 0 ; k < kMax ; k++)
-    iiMax *= 2 ;   /* 2^oddroots = size of the KacCrystal */
+    iiMax *= 2 ;   /* 2^negativeOddRoots = size of the KacCrystal */
   for (ii = 0 ; ii < iiMax ; ii++) /* all points in the Kac Crystal, h.w. already included */
     {
       int layer = 0 ;
@@ -453,7 +454,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  x /= 2 ;
 	  if (yes == 1)
 	    {
-	      WW *wodd = arrayp (oddRoots, k + 1, WW) ;
+	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
 	      
 	      vtxtPrintf (txt, " %d", k) ;
 	      layer++ ;
@@ -769,7 +770,7 @@ static int demazure (SA *sa, int *dimp, BOOL show)
 /******************************************************************************************************/
 
 
-static void getOddRoots (SA *sa, BOOL show)
+static void getNegativeOddRoots (SA *sa, BOOL show)
 {
   int dim = 0 ;
 
@@ -781,17 +782,17 @@ static void getOddRoots (SA *sa, BOOL show)
    getHighestWeight (sa, -1, 1, show) ;
   /* construct the first layer using Demazure */
   sa->nOdd = demazure (sa, &dim, show) ;
-  sa->oddRoots = sa->wws ;
+  sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
 
   if (show)
-    wwsShow (sa, "Odd roots", 1, sa->oddRoots) ;
+    wwsShow (sa, "Odd roots", 1, sa->negativeOddRoots) ;
   printf ("# Constructed %d odd roots\n", dim) ;
 
 
 
   return ;
-} /* getOddRoots */
+} /* getNegativeOddRoots */
 
 /******************************************************************************************************/
 
@@ -815,16 +816,16 @@ static void getAdjoint (SA *sa, BOOL show)
   printf ("# Constructed %d adjoint even roots\n", dimE) ;
 
   return ;
-} /* getOddRoots */
+} /* getNegativeOddRoots */
 
 /******************************************************************************************************/
 
-static void getDoubleRho (SA *sa, BOOL show)
+static void getRho (SA *sa, BOOL show)
 {
   WW *ww ;
   int ii, r ;
   int rank = sa->rank ;
-  Array CartanInverse = sa->CartanInverse ;
+  Array upperCartan = sa->upperCartan ;
 
   memset (&sa->rho0, 0, sizeof (WW)) ;
   /* rho0: sum of the positive even roots */
@@ -837,73 +838,92 @@ static void getDoubleRho (SA *sa, BOOL show)
 	{   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
 	  int j, x = 0 ;
 	  for (j = 0 ; j < rank ; j++)
-	    x += arr (CartanInverse, rank * i + j, int) * ww->x[j] ;
+	    x += arr (upperCartan, rank * i + j, int) * ww->x[j] ;
 	  if (x < 0)
 	    ok = FALSE ;
 	}
-      for (r = 0 ; r < rank ; r++)
-	sa->rho0.x[r] += ww->x[r] ;
+      if (ok)
+	for (r = 0 ; r < rank ; r++)
+	  sa->rho0.x[r] += ww->x[r] ;
     }
   /* rho1: sum of the positive odd roots */
   memset (&sa->rho1, 0, sizeof (WW)) ;
-  for (ii = 0 ; ii < arrayMax (sa->oddRoots) ; ii++)
+  if (sa->hasOdd)
+    {
+      for (ii = 0 ; ii < arrayMax (sa->negativeOddRoots) ; ii++)
+	{
+	  int i ;
+	  BOOL ok = TRUE ;
+	  ww = arrp (sa->negativeOddRoots, ii, WW) ;
+	  for (i = 0 ; ok && i < rank ; i++)
+	    {   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
+	      int j, x = 0 ;
+	      for (j = 0 ; j < rank ; j++)
+		x += arr (upperCartan, rank * i + j, int) * ww->x[j] ;
+	      if (x < 0)
+		ok = FALSE ;
+	    }
+	  if (ok)
+	    for (r = 0 ; r < rank ; r++)
+	      sa->rho1.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
+	}
+    }
+  for (r = 0 ; r < rank ; r++)
+    sa->rho.x[r] = sa->rho0.x[r]  + sa->rho1.x[r] ;
+  
+  if (show)
     {
       int i ;
-      BOOL ok = TRUE ;
-      ww = arrp (sa->oddRoots, ii, WW) ;
-      for (i = 0 ; ok && i < rank ; i++)
-	{   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-	  int j, x = 0 ;
-	  for (j = 0 ; j < rank ; j++)
-	    x += arr (CartanInverse, rank * i + j, int) * ww->x[j] ;
-	  if (x < 0)
-	    ok = FALSE ;
+      printf ("#================================= Sum of the even positive roots : 2 rho_0 = ") ;
+      for (i = 0 ; i < rank ; i++)
+	printf (" %d", sa->rho0.x[i]) ;
+      
+      if (sa->hasOdd)
+	{
+	  printf ("\n#================================= Sum of the odd negative roots : 2 rho_1 = ") ;
+	  for (i = 0 ; i < rank ; i++)
+	    printf (" %d", sa->rho1.x[i]) ;
 	}
-      for (r = 0 ; ok && r < rank ; r++)
-	sa->rho1.x[r] += ww->x[r] ;
-    }
-} /* getDoubleRho */
+      printf ("\n") ;
+    }    
+} /* getRho */
 
 /******************************************************************************************************/
 
 static void getAtypic (SA *sa, BOOL show)
 {
-  WW hw ;
+  WW hwT, hwU ;
   int rank = sa->rank ;
-  int r, r1 = sa->hasOdd - 1 ;
-  int z = 0 ;
-
-  getDoubleRho (sa, show) ;
-  sa->atypic = arrayHandleCreate (arrayMax (sa->oddRoots), int, sa->h) ;  
+  int ii, r ;
+  Array oddRoots = sa->negativeOddRoots ;
+  Array upperCartan = sa->upperCartan ;
+  
+  sa->atypic = arrayHandleCreate (arrayMax (sa->negativeOddRoots), int, sa->h) ;  
 
   /* use as h.w. the declared h.w. */
   getHighestWeight (sa, -2, 1, TRUE) ;
-   hw = sa->hw ;
-  
-  /* construct the sum of the even roots rho0 */
-  /* construct the sum of the even roots rho1 */
-  /* rho = rho0 - rho1 */
-  /* the correct equation uses the half supersum of the roots, but i do not want to divide by 2 my integers */
-  /* for each odd root beta[i] compute   <2 * hw + rho | beta[i]> , so i use 2*hw to compensate the 2*rho */
-  /* if (zero, atypic[i] = TRUE */
-  
-  /* for the moment we do something crude for sl(m/1) ; */
-  switch ((int)sa->type[0])
+  hwT = sa->hw ;    /* the highest weight L */
+  for (r = 0 ; r < rank ; r++)
+    hwT.x[r] += sa->rho.x[r] ;     /* L + rho */
+  for (r = 0 ; r < rank ; r++)
     {
-    case 'A':
-      for (r = z = 0 ; r + r1 < rank ; r++)
-	{
-	  if (hw.x[r1] == z )
-	    {
-	      array (sa->atypic, r+1, int) = 1 ;
-	      sa->hasAtypic++ ;
-	    }
-	  z += hw.x[r1 + r + 1] + 1 ;
-	}
-      break ;
-    default :
-      break ;
+      int j, x = 0 ;
+      for (j = 0 ; j < rank ; j++)
+	x += hwT.x[r] * arr (upperCartan, rank * r + j, int) ;
+      hwU.x[r] = x ;       /* L + rho   upper indices */
     }
+	
+  for (ii = 1 ; ii < arrayMax (oddRoots) ; ii++)
+    {
+      /* x = < L + rho | beta_i > */
+      int x = 0, j ;
+      WW *ww = arrp (oddRoots, ii, WW) ;
+      for (j = 0 ; j < rank ; j++)
+	x += hwU.x[j] * ww->x[j] ;
+      if (x == 0)
+	array (sa->atypic, ii, int) = 1 ;
+    }
+  
   if (1 || show)
     {
       int i ;
@@ -920,6 +940,7 @@ static void getAtypic (SA *sa, BOOL show)
 	printf ("############## Typical\n") ;
     }
   
+  exit (0) ;
   return ;
 } /* getAtypic */
 
@@ -953,15 +974,16 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa, show) ;
-   getCartanInverse (&sa, show) ;
+   getupperCartan (&sa, show) ;
+
 
    if (sa.hasOdd) /* do this first then destroy the dict */
-     getOddRoots (&sa, show) ;
+     getNegativeOddRoots (&sa, show) ;
 
    /* apply Demazure of the even group */
    getAdjoint (&sa, show) ;
- 
-   
+   getRho (&sa, show) ;
+
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
        getAtypic (&sa, show) ;
