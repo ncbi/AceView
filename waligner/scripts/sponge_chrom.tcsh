@@ -49,15 +49,17 @@ endif
 
 set fr=ns
 foreach mainTarget ($Etargets)
-  set geneMask=tmp/METADATA/$mainTarget.$fr.gene.sponge
-  ls -ls $geneMask
-  if (-e $geneMask && $limit == 1) then
-    set toto=tmp/SPONGE/$run/$mainTarget.$chrom.$uu.$fr.$limit
-    if (! -e $toto) then
-      echo "bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
-            bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
+  foreach GM (gene mrna)
+    set geneMask=tmp/METADATA/$mainTarget.$fr.$GM.sponge
+    ls -ls $geneMask
+    if (-e $geneMask && $limit == 1) then
+      set toto=tmp/SPONGE/$run/$mainTarget.$GM.$chrom.$uu.$fr.$limit
+      if (! -e $toto) then
+        echo "bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
+              bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
+      endif
     endif
-  endif
+  end
 end
 
 

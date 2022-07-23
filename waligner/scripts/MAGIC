@@ -9689,7 +9689,7 @@ date
 goto phaseLoop
 
 ###############################################################
-## phase wsig3: finial report
+## phase wsig3: final report
 
 phasewsig3:
  echo -n "Phase wsig3: export the summarized wiggles "

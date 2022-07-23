@@ -6653,7 +6653,7 @@ static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array se
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai = 0 ;
-  int jj = 0, kk, a1, a2, gene, exon, chrom ;
+  int jj = 0, kk, a1, a2, gene, mrna,  exon, chrom ;
   const char *ccp ;
   SPONGE *sxx ;
 
@@ -6668,31 +6668,39 @@ static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array se
       aceInSpecial (ai, "\n\t") ;
       while (aceInCard (ai))
 	{
-	  ccp = aceInWord(ai) ; /* gene */
+	  ccp = aceInWord(ai) ; /* gene or mrna*/
 	  if (!ccp || !*ccp)
 	    continue ;	
-	  dictAdd (dict, ccp, &gene) ;
+	  if (0)    /* we do not cre about the mrna */
+	    dictAdd (dict, ccp, &mrna) ;
 	  
 	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* exon mumber */
 	  if (!ccp || !*ccp)
 	    continue ;	
 	  dictAdd (dict, ccp, &exon) ;
 	  
-	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* target */
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* chromosome */
 	  if (!ccp || !*ccp)
 	    continue ;
 	  if (sx->sxxChromosome && strcmp (ccp, sx->sxxChromosome))	
 	    continue ;
 	  dictAdd (dict, ccp, &chrom) ;
 	  
+	  /* a1,a2 : chromosome coordinates */
 	  aceInStep(ai,'\t') ; if (! aceInInt (ai, &a1) || a1 <1)
 	    continue ; 
 	  aceInStep(ai, '\t') ;
 	  if (! aceInInt (ai, &a2) || a2<1)
 	    continue ; 
-	  
 	  if (sx->strand && a1 > a2) continue ;
 	  if (sx->antistrand && a1 < a2) continue ;
+
+          /* gene, either identical to column 1, or the gene of the mrna */
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* gene */
+	  if (!ccp || !*ccp)
+	    continue ;	
+	  dictAdd (dict, ccp, &gene) ;
+
 	  
 	  sxx = arrayp (segs, jj++, SPONGE) ;
 	  sxx->isDown = a1 < a2 ? TRUE : FALSE ;

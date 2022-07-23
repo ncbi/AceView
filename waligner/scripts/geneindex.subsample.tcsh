@@ -15,8 +15,8 @@ if ($phase == run) then
   if  ($uu == u) set UU=unique
   if  ($uu == nu) set UU=quasi_unique
 
-    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENE.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENE.info.ace  -o  tmp/GENEINDEX/Results/$MAGIC.$kk.AceView.GENE.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
-    touch RESULTS/Expression.$kk/$UU/av/run.done
+    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENESP.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENE.info.ace  -o  tmp/GENEINDEX/Results/$MAGIC.$kk.AceView.GENESP.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
+    touch RESULTS/Expression.$kk/$UU/av/runSP.done
 
   goto done
 
@@ -29,13 +29,13 @@ if ($phase == compute) then
   if  ($uu == nu) set UU=quasi_unique
 
   foreach kk ($kks)
-      if (-e RESULTS/Expression.$kk/$UU/av/run.done) continue
+      if (-e RESULTS/Expression.$kk/$UU/av/runSP.done) continue
       if (! -d RESULTS/Expression.$kk) mkdir  RESULTS/Expression.$kk
       if (! -d RESULTS/Expression.$kk/$UU) mkdir  RESULTS/Expression.$kk/$UU
       if (-d RESULTS/Expression.$kk/$UU/av) \rm -rf  RESULTS/Expression.$kk/$UU/av
       mkdir  RESULTS/Expression.$kk/$UU/av
 
-    scripts/submit tmp/GENEINDEX/Results/EXpresson.$kk/$MAGIC.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
+    scripts/submit tmp/GENEINDEX/Results/ExpressionSP.$kk/$MAGIC.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
   end
 
   goto done
@@ -136,7 +136,7 @@ if ($phase == reportOne) then
   end
 
   foreach comp (RNA_Total_ACB RNA_PolyA_ACB Nanopore.titr_AGLR2_ACB PacBio2.titr.ccs3_AGLR2_ACB Nanopore.titr_ROCR3_ACB PacBio2.titr.ccs3_ROCR3_ACB)
-    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENE.$uu.$comp'_Profile'.score.genes.profiles.txt`)
+    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$uu.$comp'_Profile'.score.genes.profiles.txt`)
       cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENE.$uu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
     end
   end
@@ -144,7 +144,7 @@ if ($phase == reportOne) then
   if ($kk == 0k) then
     \rm $toto.3
     foreach cl (CL1-Brain-B_priv-2sA1 CL10-Testis-B_priv-2sA1 CL2-Breast-B_priv-2sA1 CL3-Cervix-B_priv-2sA1 CL4-Liver-B_priv-2sA1 CL5-Lipo-B_priv-2sA1 CL6-Blym-B_priv-2sA1 CL7-Tlym-B_priv-2sA1 CL8-Macr-B_priv-2sA1 CL9-Skin-B_priv-2sA1 SumOfCL1toCL10-B_2grps-2_A1  A-UHR-B_priv_4.2sA1)
-      set ff=RESULTS/Expression/unique/av/CL.AceView.GENE.u.$cl.score.genes.profiles.txt
+      set ff=RESULTS/Expression/unique/av/CL.AceView.GENESP.u.$cl.score.genes.profiles.txt
       set n1=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the even columns' | gawk -F : '{print $1}'`
       set n2=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the odd columns' | gawk -F : '{print $1}'`
       cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",cl,$2,$3,$5,$n1,$n2);}' cl=$cl n1=$n1 n2=$n2 >> $toto.3 
