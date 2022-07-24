@@ -15,7 +15,6 @@
     z1[f,g] = $5 ; z2[f,g] = $6 ; 
 }
 END {
-    nf = split("RNA_Total,RNA_PolyA,ILMR3,AGLR2,ROCR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,ILMR2,ILMR2_lowQ,AGLR1,ROCR1,ILMR1,BSPR1",ff,",")  ; 
     nf = split("RNA_Total,RNA_PolyA,AGLR1,AGLR2,ROCR1,ROCR2,ILMR1,ILMR2_lowQ,ILMR2,Nanopore.titr_AGLR2,PacBio2.titr.ccs3_AGLR2,Nanopore.titr_ROCR3,PacBio2.titr.ccs3_ROCR3,BSPR1,ILMR3",ff,",")  ; 
     split("Total,PolyA,A1,A2,R1,R2,I1,I2,I2,A2,A2,R3,R3,B1,I3",fCap,",")  ; 
 

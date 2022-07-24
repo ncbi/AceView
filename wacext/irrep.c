@@ -105,6 +105,7 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
 static void getupperCartan (SA *sa, BOOL show)
 {
   Array Cartan = sa->Cartan ;
+  Array metric = 0 ;
   int r = sa->rank ;
   int r2 = r*r ;
   Array ci = sa->upperCartan = arrayHandleCreate (r2, int, sa->h) ;
@@ -112,6 +113,19 @@ static void getupperCartan (SA *sa, BOOL show)
   array (ci, r2 - 1, int) = 0 ; /* make room */
   mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
 
+  sa->metric = metric = arrayHandleCopy (ci, sa->h) ;
+  if (sa->hasOdd)
+    {
+      int i ;
+      int o = sa->hasOdd - 1 ;
+      
+      for (i = 0 ; i < r ; i++)
+	{
+	  int x = array (metric, r * o + i, int) ;
+	  array (metric, r * o + i, int) = -x ;
+	}
+    }
+  
 
   if (show)
     {
@@ -124,6 +138,19 @@ static void getupperCartan (SA *sa, BOOL show)
 	  printf ("\n") ;
 	}
     }
+  if (show)
+    {
+      int i, j ;
+      printf ("\n### Dynkin weights Metric type %s m=%d n=%d rank = %d\n", sa->type, sa->m, sa->n, r) ;
+      for (i = 0 ; i < r ; i++)
+	{
+	  for (j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (metric, r*i + j, int)) ;
+	  printf ("\n") ;
+	}
+    }
+  sa->metric = metric ;
+
   return ;
 } /* getupperCartan */
 
@@ -132,7 +159,6 @@ static void getupperCartan (SA *sa, BOOL show)
 static void getCartan (SA *sa, BOOL show)
 {
   Array Cartan = 0 ;
-  Array metric = 0 ;
   int m = sa->m, n = sa->n, r = 0, rr ;
 
   switch ((int)sa->type[0])
@@ -176,19 +202,6 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->evenHw.x[0] += 1 ;
 	  sa->evenHw.x[m - 2] += 1 ;
 	}
-      metric = arrayHandleCopy (Cartan, sa->h) ;
-      if (m*n > 0)
-	{
-	int i ;
-	int o = m - 1 ;
-
-	for (i = 0 ; i < r ; i++)
-	  {
-	    int x = array (metric, r * o + i, int) ;
-	    array (metric, r * o + i, int) = -x ;
-	  }
-	}
-
       break ;
       
     case 'B':
@@ -336,20 +349,22 @@ static void getCartan (SA *sa, BOOL show)
 	  printf ("\n") ;
 	}
     }
-  if (show)
-    {
-      int i, j ;
-      printf ("\n### Metric (lower) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
-      for (i = 0 ; i < r ; i++)
-	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (metric, r*i + j, int)) ;
-	  printf ("\n") ;
-	}
-    }
-  sa->metric = metric ;
   sa->Cartan = Cartan ;
 }  /* getCartan */
+
+/******************************************************************************************************/  
+
+static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
+{
+  Array metric = sa->metric ;
+  int i, j, x = 0, rank = sa->rank ;
+
+  for (i = 0 ; i < rank ; i++)
+    for (j = 0 ; j < rank ; j++)
+      x += ww1->x[i] * arr (metric, rank*i+j,int) * ww2->x[j] ;
+  
+  return x ;
+} /* wwLengthSquare */
 
 /******************************************************************************************************/  
 
@@ -371,7 +386,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
 	    {
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", ww->x[r]) ;
-	      printf ("\tmult=%d k=%d l=%d %s %s\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "" ) ;
+	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=%d\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "", wwScalarProduct (sa, ww, ww) ) ;
 	      if (ww->odd)
 		dimO += ww->mult ;
 	      else
@@ -921,7 +936,6 @@ static void getAtypic (SA *sa, BOOL show)
   int ii, r ;
   Array oddRoots = sa->negativeOddRoots ;
   Array upperCartan = sa->upperCartan ;
-  Array metric = sa->metric ;
   
   sa->atypic = arrayHandleCreate (arrayMax (sa->negativeOddRoots), int, sa->h) ;  
 
@@ -944,11 +958,10 @@ static void getAtypic (SA *sa, BOOL show)
   for (ii = 1 ; ii < arrayMax (oddRoots) ; ii++)
     {
       /* x = < L + rho | beta_i > */
-      int i, j, x = 0 ;
+      int x = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
-      for (i = 0 ; i < rank ; i++)
-	for (j = 0 ; j < rank ; j++)
-	  x += hwU.x[i] * arr (metric, rank*i+j,int)*ww->x[j] ;
+      
+      x = wwScalarProduct (sa, &hwT, ww) ;
       if (x == 0)
 	{
 	  array (sa->atypic, ii, int) = 1 ;

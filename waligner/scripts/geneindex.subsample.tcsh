@@ -10,12 +10,13 @@ if (x$uu != xu && x$uu != xnu) then
 endif
   
 set kks="10k 20k 50k 100k 200k 500k 1M 2M 5M 10M 20M 50M 100M 0k"
+set kks="10k"
 
 if ($phase == run) then
   if  ($uu == u) set UU=unique
   if  ($uu == nu) set UU=quasi_unique
 
-    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENESP.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENE.info.ace  -o  tmp/GENEINDEX/Results/$MAGIC.$kk.AceView.GENESP.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
+    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENESP.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENESP.info.ace  -o  tmp/GENEINDEX/Results/$MAGIC.$kk.AceView.GENESP.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
     touch RESULTS/Expression.$kk/$UU/av/runSP.done
 
   goto done
@@ -35,7 +36,7 @@ if ($phase == compute) then
       if (-d RESULTS/Expression.$kk/$UU/av) \rm -rf  RESULTS/Expression.$kk/$UU/av
       mkdir  RESULTS/Expression.$kk/$UU/av
 
-    scripts/submit tmp/GENEINDEX/Results/ExpressionSP.$kk/$MAGIC.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
+    scripts/submit tmp/GENEINDEX/Results/Expression.$kk/$MAGIC.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
   end
 
   goto done
@@ -54,7 +55,7 @@ if ($phase == transfer) then
       mkdir  RESULTS/Expression.$kk/$UU/av
       \cp tmp/GENEINDEX/Results/$MAGIC.$kk.AceView.GENESP.$uu.*.profiles.txt RESULTS/Expression.$kk/$UU/av
       touch RESULTS/Expression.$kk/$UU/av/run.done
-      touch RESULTS/Expression.$kk/$UU/av/transferSR.done
+      touch RESULTS/Expression.$kk/$UU/av/transferSP.done
     end
   end
   goto done
