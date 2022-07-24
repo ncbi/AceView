@@ -24,6 +24,7 @@ typedef struct saStruct
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   int m, n, rank ;
+  Array metric ;
   Array Cartan ;
   Array upperCartan ;
   int hasAtypic ;
@@ -131,6 +132,7 @@ static void getupperCartan (SA *sa, BOOL show)
 static void getCartan (SA *sa, BOOL show)
 {
   Array Cartan = 0 ;
+  Array metric = 0 ;
   int m = sa->m, n = sa->n, r = 0, rr ;
 
   switch ((int)sa->type[0])
@@ -141,6 +143,7 @@ static void getCartan (SA *sa, BOOL show)
       r = sa->rank = m + n - 1 ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
+      array (Cartan, rr - 1, int) = 0 ;
       {
 	int i ;
 	for (i = 0 ; i < r ; i++)
@@ -173,6 +176,19 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->evenHw.x[0] += 1 ;
 	  sa->evenHw.x[m - 2] += 1 ;
 	}
+      metric = arrayHandleCopy (Cartan, sa->h) ;
+      if (m*n > 0)
+	{
+	int i ;
+	int o = m - 1 ;
+
+	for (i = 0 ; i < r ; i++)
+	  {
+	    int x = array (metric, r * o + i, int) ;
+	    array (metric, r * o + i, int) = -x ;
+	  }
+	}
+
       break ;
       
     case 'B':
@@ -320,6 +336,18 @@ static void getCartan (SA *sa, BOOL show)
 	  printf ("\n") ;
 	}
     }
+  if (show)
+    {
+      int i, j ;
+      printf ("\n### Metric (lower) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+      for (i = 0 ; i < r ; i++)
+	{
+	  for (j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (metric, r*i + j, int)) ;
+	  printf ("\n") ;
+	}
+    }
+  sa->metric = metric ;
   sa->Cartan = Cartan ;
 }  /* getCartan */
 
@@ -856,7 +884,7 @@ static void getRho (SA *sa, BOOL show)
 	      int j, x = 0 ;
 	      for (j = 0 ; j < rank ; j++)
 		x += arr (upperCartan, rank * i + j, int) * ww->x[j] ;
-	      if (x < 0)
+	      if (x > 0)   /* since we are selecting from the negative odd roots */
 		ok = FALSE ;
 	    }
 	  if (ok)
@@ -893,31 +921,39 @@ static void getAtypic (SA *sa, BOOL show)
   int ii, r ;
   Array oddRoots = sa->negativeOddRoots ;
   Array upperCartan = sa->upperCartan ;
+  Array metric = sa->metric ;
   
   sa->atypic = arrayHandleCreate (arrayMax (sa->negativeOddRoots), int, sa->h) ;  
 
+  memset (&hwT, 0, sizeof (WW)) ;
+  memset (&hwU, 0, sizeof (WW)) ;
   /* use as h.w. the declared h.w. */
   getHighestWeight (sa, -2, 1, TRUE) ;
   hwT = sa->hw ;    /* the highest weight L */
   for (r = 0 ; r < rank ; r++)
-    hwT.x[r] += sa->rho.x[r] ;     /* L + rho */
+    hwT.x[r] = 2 * sa->hw.x[r] + sa->rho.x[r] ;     /* hw.w translated 2(L + rho) */
+      
   for (r = 0 ; r < rank ; r++)
     {
       int j, x = 0 ;
       for (j = 0 ; j < rank ; j++)
-	x += hwT.x[r] * arr (upperCartan, rank * r + j, int) ;
+	x += arr (upperCartan, rank * r + j, int) * hwT.x[j] ;
       hwU.x[r] = x ;       /* L + rho   upper indices */
     }
 	
   for (ii = 1 ; ii < arrayMax (oddRoots) ; ii++)
     {
       /* x = < L + rho | beta_i > */
-      int x = 0, j ;
+      int i, j, x = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
-      for (j = 0 ; j < rank ; j++)
-	x += hwU.x[j] * ww->x[j] ;
+      for (i = 0 ; i < rank ; i++)
+	for (j = 0 ; j < rank ; j++)
+	  x += hwU.x[i] * arr (metric, rank*i+j,int)*ww->x[j] ;
       if (x == 0)
-	array (sa->atypic, ii, int) = 1 ;
+	{
+	  array (sa->atypic, ii, int) = 1 ;
+	  sa->hasAtypic = TRUE ;
+	}
     }
   
   if (1 || show)
