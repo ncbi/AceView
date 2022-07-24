@@ -178,6 +178,16 @@ static void getCartan (SA *sa, BOOL show)
 	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	  }
+	if (m > 1)
+	  {
+	    sa->evenHw.x[0] += 1 ;
+	    sa->evenHw.x[m - 2] += 1 ;
+	  }
+	if (n > 1)
+	  {
+	    sa->evenHw.x[m] += 1 ;
+	    sa->evenHw.x[m + n -2] += 1 ;
+	  }
 	if (m*n > 0)
 	  {
 	    int o = m - 1 ;
@@ -190,18 +200,8 @@ static void getCartan (SA *sa, BOOL show)
 	    if (o < r-1) array (Cartan, r*o + o + 1, int) = 1 ;
 	  }
 	
-	if (n > 1)
-	  {
-	    sa->evenHw.x[m] += 1 ;
-	    sa->evenHw.x[m + n -2] += 1 ;
-	  }
       }
 
-      if (m > 0)
-	{
-	  sa->evenHw.x[0] += 1 ;
-	  sa->evenHw.x[m - 2] += 1 ;
-	}
       break ;
       
     case 'B':
