@@ -6621,9 +6621,9 @@ static int spongeOrder (const void *a, const void *b)
   n = x->level - y->level ; if (n) return n ;
   n = x->chrom - y->chrom  ; if (n) return n ;
   n = x->gene - y->gene ; if (n) return n ;
-  n = x->exon - y->exon ; if (n) return n ;
   n = x->a1 - y->a1 ; if (n) return n ;
   n = x->a2 - y->a2 ; if (n) return n ;
+  n = x->exon - y->exon ; if (n) return n ;
 
   return 0 ;
 } /* spongeOrder */
@@ -6724,6 +6724,47 @@ static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array se
 } /* sxSpongeParseOneFile */
 
 /*************************************************************************************/
+/* remove duplicated areas */
+static void sxPressSponge (Array segs)
+{
+  int ii, jj, iMax = arrayMax (segs) ;
+  SPONGE *up, *vp ;
+
+  for (ii = 0 ; ii < iMax ; ii++)
+    {
+      up = arrp (segs, ii, SPONGE) ;
+      int level = up->level ;
+      int chrom = up->chrom ;
+      int gene = up->gene ;
+
+      if (gene == -1)
+	continue ;
+      for (vp = up +1, jj = ii + 1 ;  jj < iMax && 
+	     vp->gene == gene &&
+	     vp->level == level &&
+	     vp->chrom == chrom &&
+	     vp->a1 <= up->a2 + 1 
+	     ; jj++, vp++)
+	{ 
+	  if (up->a2 < vp->a2)
+	    {
+	      up->a2 = vp->a2 ;
+	      vp->gene = -1 ;
+	    }
+	}
+    }
+  for (ii = jj = 0, up = vp = arrp (segs, ii, SPONGE) ; ii < iMax ; up++, ii++)
+    {
+      if (up->gene == -1)
+	continue ;
+      if (jj < ii)
+	*vp = *up ;
+      jj++ ; vp++ ;
+    }
+  arrayMax (segs) = jj ;
+} /* sxPressSponge */
+
+/*************************************************************************************/
 /* return the true segments
  * report in segsNR the non redundant segments
  * temporarilly store in ks ALL the boundaries 
@@ -6769,6 +6810,7 @@ static int sxSpongeParseFile (SX *sx, DICT *dict, DICT *levelNames, Array segs, 
 
       arraySort (segs, spongeOrder) ;
       arrayCompress (segs) ;
+      sxPressSponge (segs) ;
       keySetSort (ks) ; 
       keySetCompress (ks) ;
     }

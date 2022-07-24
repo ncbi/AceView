@@ -22,15 +22,19 @@ END {
     nclones = 0 ;
     if (CL+0 ==1)
     {
-	nclones = split ("CL1-Brain-B_priv-2sA1,CL2-Breast-B_priv-2sA1,CL3-Cervix-B_priv-2sA1,CL4-Liver-B_priv-2sA1,CL5-Lipo-B_priv-2sA1,CL6-Blym-B_priv-2sA1,CL7-Tlym-B_priv-2sA1,CL8-Macr-B_priv-2sA1,CL9-Skin-B_priv-2sA1,CL10-Testis-B_priv-2sA1", clones,",") ;
-	nsums = split ("SumOfCL1toCL10-B_2grps-2_A1,A-UHR-B_priv_4.2sA1", sums, ",") ;
+	nclonesS = split ("CL1-Brain-B_priv-2sA1,CL2-Breast-B_priv-2sA1,CL3-Cervix-B_priv-2sA1,CL4-Liver-B_priv-2sA1,CL5-Lipo-B_priv-2sA1,CL6-Blym-B_priv-2sA1,CL7-Tlym-B_priv-2sA1,CL8-Macr-B_priv-2sA1,CL9-Skin-B_priv-2sA1,CL10-Testis-B_priv-2sA1",clonesS,",") ;
+	nclonesL = split ("CL1-Brain-B_4lR3,CL2-Breast-B_4lR3,CL3-Cervix-B_4lR3,CL4-Liver-B_4lR3,CL5-Lipo-B_4lR3,CL6-Blym-B_4lR3,CL7-Tlym-B_4lR3,CL8-Macr-B_4lR3,CL9-Skin-B_4lR3,CL10-Testis-B_4lR3",clonesL,",") ;
+	nsums = split ("A-UHR-B_priv_4.2sA1,SumOfCL1toCL10-B_2grps-2_A1,A-UHR-B_4lR3", sums, ",") ;
     }
     printf ("#Gene\tLength\tMax Index in Total\tMin Index in Total\tFold Change\tCapture\tTruth\tInconsistency\tSum B>A capture\tSum A>B capture\tSum B>A no capture\tSum A>B no capture") ;
     if (CL+0 ==1)
     {
-	printf ("\tB>sum CL AGLR1\tSum CL>B AGLR1") ;
+	printf ("\tCell Line B>A\tCell Line A>B") ;
 	printf ("\tB>%s\t%s>B", sums[1], sums[1]) ;
 	printf ("\tB>%s\t%s>B", sums[2], sums[2]) ;
+	printf ("\tB>%s\t%s>B", sums[3], sums[3]) ;
+	printf ("\tB>sum CL AGLR1\tSum CL>B AGLR1") ;
+	printf ("\tB>sum CL ROCR3\tSum CL>B ROCR3") ;
     }
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s B>A",ff[i]) ; 
@@ -38,10 +42,14 @@ END {
 	printf ("\t%s A>B",ff[i]) ; 
     for (i = 1 ; i <= nf ; i++)
 	printf ("\t%s problem",ff[i]) ; 
-    for (i = 1 ; i <= nclones ; i++)
-	printf ("\tB > %s ", clones[i]) ; 
-    for (i = 1 ; i <= nclones ; i++)
-	printf ("\t%s > B ", clones[i]) ; 
+    for (i = 1 ; i <= nclonesS ; i++)
+	printf ("\tB > %s ", clonesS[i]) ; 
+    for (i = 1 ; i <= nclonesS ; i++)
+	printf ("\t%s > B ", clonesS[i]) ; 
+    for (i = 1 ; i <= nclonesL ; i++)
+	printf ("\tB > %s ", clonesL[i]) ; 
+    for (i = 1 ; i <= nclonesL ; i++)
+	printf ("\t%s > B ", clonesL[i]) ; 
     
 
     for (g in gg)
@@ -66,12 +74,22 @@ END {
 	gc2 = g2[g] - gnc2 ; 
 
 
-	gCL1 = 0 ;
-	for (i = 1 ; i <= nclones ; i++)
-	    gCL1 = gCL1 + 0 + z1[clones[i],g] ; 
-	gCL2 = 0 ;
-	for (i = 1 ; i <= nclones ; i++)
-	    gCL2 = gCL2 + 0 + z2[clones[i],g] ; 
+	gCL1S = 0 ;
+	for (i = 1 ; i <= nclonesS ; i++)
+	    gCL1S = gCL1S + 0 + z1[clonesS[i],g] ; 
+	gCL2S = 0 ;
+	for (i = 1 ; i <= nclonesS ; i++)
+	    gCL2S = gCL2S + 0 + z2[clonesS[i],g] ; 
+
+	gCL1L = 0 ;
+	for (i = 1 ; i <= nclonesL ; i++)
+	    gCL1L = gCL1L + 0 + z1[clonesL[i],g] ; 
+	gCL2L = 0 ;
+	for (i = 1 ; i <= nclonesL ; i++)
+	    gCL2L = gCL2L + 0 + z2[clonesL[i],g] ; 
+
+	gCX1 = z1[sums[1],g] + z1[sums[2],g] + z1[sums[3],g] + gCL1S + gCL1L 
+	gCX2 = z2[sums[1],g] + z2[sums[2],g] + z2[sums[3],g] + gCL2S + gCL2L 
 
 	if (0) printf ("\nzzz %s", g) ;
 	trueg = "non-DEG" ; 
@@ -180,23 +198,19 @@ END {
 	gTrue[g] = aa[1] ;
 	if (trueg == "non-DEG")
 	{
-	    ndg1 = z1[sums[1],g] + z1[sums[2],g] 
-	    ndg2 = z2[sums[1],g] + z2[sums[2],g] 
+	    ndg1 = gCX1 ;
+	    ndg2 = gCX2 ;
 	    if (ndg1 > 50 && ndg1 > ndg2)
+	    {
 		trueg = sprintf ("%s_a%03d", trueg,int((ndg1+50)/100)) ; 
+		if (ndg2 > 50)
+		    trueg = sprintf ("%s_b%03d", trueg,int((ndg2+50)/100)) ; 
+	    }   
 	    else if (ndg2 > 50 && ndg2 > ndg1)
+	    {
 		trueg = sprintf ("%s_b%03d", trueg,int((ndg2+50)/100)) ; 
-	    if (gCL2 > 50 && gCL2 > gCL1)
-	    {
-		trueg = sprintf ("%s__clb%03d", trueg,int((gCL2+50)/100)) ; 
-		if (gCL1 > 50)
-		    trueg = trueg "__a" int((gCL1+50)/100) ; 
-	    }
-	    else if (gCL1 > 50 && gCL1 > gCL2)
-	    {
-		trueg = sprintf ("%s__cla%03d", trueg,int((gCL1+50)/100)) ; 
-		if (gCL2 > 50)
-		    trueg = trueg "__b" int((gCL2+50)/100) ; 
+		if (ndg1 > 50)
+		    trueg = sprintf ("%s_a%03d", trueg,int((ndg1+50)/100)) ; 
 	    }
 	}
 
@@ -308,8 +322,12 @@ END {
 	printf ("\t%.0f\t%d", gnc1, gnc2) ; 
 	if (CL+0 == 1)
 	{
-	    printf ("\t%.0f\t%.0f", gCL2, gCL1) ; 
-	    printf ("\t%.0f\t%.0f\t%.0f\t%.0f", z2[sums[1],g], z1[sums[1],g], z2[sums[2],g], z1[sums[2],g]) ;
+	    printf ("\t%.0f\t%.0f", gCX2, gCX1) ;
+	    printf ("\t%.0f\t%.0f", z2[sums[1],g], z1[sums[1],g]) ;
+	    printf ("\t%.0f\t%.0f", z2[sums[2],g], z1[sums[2],g]) ;
+	    printf ("\t%.0f\t%.0f", z2[sums[3],g], z1[sums[3],g]) ;
+	    printf ("\t%.0f\t%.0f", gCL2S, gCL1S) ; 
+	    printf ("\t%.0f\t%.0f", gCL2L, gCL1L) ; 
 	}
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%.0f",z1[ff[i],g]) ; 
@@ -317,10 +335,14 @@ END {
 	    printf ("\t%.0f",z2[ff[i],g]) ; 
 	for (i = 1 ; i <= nf ; i++)
 	    printf ("\t%s", bads[i]) ; 
-	for (i = 1 ; i <= nclones ; i++)
-	    printf ("\t%.0f",z2[clones[i],g]) ; 
-	for (i = 1 ; i <= nclones ; i++)
-	    printf ("\t%.0f",z1[clones[i],g]) ; 
+	for (i = 1 ; i <= nclonesS ; i++)
+	    printf ("\t%.0f",z2[clonesS[i],g]) ; 
+	for (i = 1 ; i <= nclonesS ; i++)
+	    printf ("\t%.0f",z1[clonesS[i],g]) ; 
+	for (i = 1 ; i <= nclonesL ; i++)
+	    printf ("\t%.0f",z2[clonesL[i],g]) ; 
+	for (i = 1 ; i <= nclonesL ; i++)
+	    printf ("\t%.0f",z1[clonesL[i],g]) ; 
     }
     printf ("\n") ;
 

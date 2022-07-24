@@ -153,7 +153,8 @@ static void getCartan (SA *sa, BOOL show)
 	  {
 	    int o = m - 1 ;
 	    sa->odd[o] = TRUE ;
-	    sa->hasOdd = TRUE ;
+	    sa->hasOdd = o + 1 ;
+	    sa->evenHw.x[o] = 1 ;
 	    sa->extended[r] = TRUE ;
 	    array (Cartan, r*o + o , int) = 0 ;
 	    if (o > 0) array (Cartan, r*o + o - 1, int) = 1 ;
@@ -970,7 +971,6 @@ int main  (int argc, const char **argv)
    
    getCartan (&sa, show) ;
    getupperCartan (&sa, show) ;
-
 
    if (sa.hasOdd) /* do this first then destroy the dict */
      getNegativeOddRoots (&sa, show) ;
