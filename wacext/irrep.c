@@ -29,11 +29,14 @@ typedef struct saStruct
   Array upperCartan ;
   int hasAtypic ;
   int hasOdd ;
+  int hasExtended ;
   int nEven, nOdd ;
   BOOL odd[RMAX] ;
   BOOL extended[RMAX] ;
   Array Kac ; /* Kac crystal */
   WW evenHw ;
+  WW oddHw ;
+  WW extendedHw ;
   Array evenRoots ; /* odd roots */
   Array negativeOddRoots ; /* odd roots */
   Array wws ; /* weights */
@@ -384,8 +387,6 @@ static void getCartan (SA *sa, BOOL show)
     case 'G':
       if (m != 2 && m != 3)
 	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
-      if (m == 3)
-	n = 1 ;
       sa->rank = r = m + n ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
@@ -399,15 +400,17 @@ static void getCartan (SA *sa, BOOL show)
       }
       if (m == 3)
 	{
-	  sa->odd[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
-	  array (Cartan, r*2 + 2 , int) = 0 ;
-	  array (Cartan, r*2 + 1, int) = -1 ;
-	  array (Cartan, r*3 + 2 , int) = 1 ;
-	  array (Cartan, r*3 + 1, int) = 2 ;
+	  sa->hasExtended = TRUE ;
+	  sa->extended[2] = TRUE ;
+	  
+	  array (Cartan, r*2 + 2, int) = 2 ;
 
-	  sa->evenHw.x[3] = 1 ;
-	  sa->extended[3] = 1 ;
+	  sa->evenHw.x[0] = 1 ;
+	  sa->extendedHw.x[2] = 2 ;
+
+	  sa->oddHw.x[1] = 1 ;
+	  sa->oddHw.x[2] = 1 ;
 	}
       break ;
       
@@ -491,6 +494,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
   wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
   hw = arrayp (wws, 1, WW) ;
   hw[-1].layer = -1000 ;
+  
   switch (type)
     {
     case 0: /* trivial h.w. */
@@ -510,6 +514,14 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       break ;
     case -3:
       *hw = sa->evenHw ;
+      if (sa->hasExtended)
+	{
+	  WW *ew = arrayp (wws, 2, WW) ;
+	  *ew = sa->extendedHw ;  
+	  ew->mult = create ? 1 : 0 ;
+	  ew->hw = TRUE ;
+	  ew->k = locateWeight (sa, ew, TRUE) ;
+	}
       break ;
     default:
       if (sa->negativeOddRoots && type <= arrayMax (sa->negativeOddRoots))
@@ -526,7 +538,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
   hw->hw = TRUE ;
   hw->k = locateWeight (sa, hw, TRUE) ;
 
-  if (1 || type == -2)
+  if (1 || type == -2 || type == -4)
     {
       sa->hw = *hw ;
       if (show)
@@ -870,15 +882,35 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 static int demazure (SA *sa, int *dimp, BOOL show)
 {
   BOOL ok = TRUE ;
+  BOOL debug = FALSE ;
   int r, dim = 0 ;
+
+  if (debug)
+    wwsShow (sa, "Before Demazure", 0, sa->wws) ;
 
   while (ok)
     {
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
-	if (! sa->odd[r])
-	  ok |= demazureEven (sa, r, &dim, show) ;
+	{
+	  if (! sa->odd[r])
+	    ok |= demazureEven (sa, r, &dim, show) ;
+	  if (ok && debug)
+	    wwsShow (sa, "Inside Demazure", 0, sa->wws) ;
+	}
     }
+  if (0 && sa->hasExtended)
+    {
+      ok = TRUE ;
+      while (ok)
+	{
+	  ok = FALSE ;
+	  for (r = 0 ; r < sa->rank ; r++)
+	    if (sa->extended[r])
+	      ok |= demazureEven (sa, r, &dim, show) ;
+	}
+    }
+  
   if (dimp) *dimp = dim ; 
 
   if (show)
@@ -921,8 +953,9 @@ static void getAdjoint (SA *sa, BOOL show)
 
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
-  /* construct the first layer using Demazure */
+  /* construct the adjoint layer using Demazure */
   sa->nEven = demazure (sa, &dimE, show) ;
+
   sa->evenRoots = sa->wws ;
   sa->wws = 0 ;
 
