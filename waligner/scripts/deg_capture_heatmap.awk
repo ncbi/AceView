@@ -119,14 +119,14 @@ END {
 				    k2++ ;
 			    }
 			}
-			if (k >= 1)
+			if (k >= 1 || k2 >= 3)
 			{
 			    trueg = sprintf ("NewTrueA_%03d",  int((g2[g]+50)/100)) ;
 			    if (g1[g] > 50)
 				trueg = trueg "_b" int((g1[g]+50)/100) ; 
 			    ok2 = 1 ;
 			}
-			if (k2 >= 3)
+			if (0 && k2 >= 3)
 			{
 			    trueg = sprintf ("TrueA_%03d",  int((g2[g]+50)/100)) ;
 			    if (g1[g] > 50)
@@ -159,14 +159,14 @@ END {
 			    if (0 && 1 + z1[ff[i],g] +  z2[ff[i],g] > 0)
 				printf ("######## %s %s %f %f k=%d k2=%d\n" , g, ff[i], z1[ff[i],g], z2[ff[i],g], k, k2) ;
 			}
-			if (k >= 1)
+			if (k >= 1 || k2 >= 3)
 			{
 			    trueg = sprintf ("NewTrueB_%03d", int((g1[g]+50)/100)) ;
 			    if (g2[g] > 50)
 				trueg = trueg "_a" int((g2[g]+50)/100) ; 
 			    ok1 = 1 ;
 			}
-			if (k2 >= 3)
+			if (0 && k2 >= 3)
 			{
 			    trueg = sprintf ("TrueB_%03d",  int((g1[g]+50)/100)) ;
 			    if (g2[g] > 50)

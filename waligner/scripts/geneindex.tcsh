@@ -1266,7 +1266,8 @@ if ($ok == 0) continue
      foreach run (`cat MetaDB/$MAGIC/RunsList `)
          set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
          if ($long == 1) then
-           if (-e  tmp/SPONGE/$run/$target.1.$uu.ns.1) then
+           set n=`ls  tmp/SPONGE/$run/$target.mrna.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
+           if ($n  > 0) then
              cat tmp/SPONGE/$run/$target.mrna.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",$3,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
            endif
          else
@@ -1329,7 +1330,7 @@ if ($target == introns) then
     endif
 endif 
 
-echo "geneindex.tcsh7: phase=$phase GM=$GM target=$target"
+echo "geneindex.tcsh: phase=$phase GM=$GM target=$target"
 #cat tmp/GENEINDEX/Results/testA2.introns.INTRON.u.testA2.score.genes.profiles.txt  | grep 9__33988970_33986836
 
 

@@ -963,6 +963,7 @@ static void getAdjoint (SA *sa, BOOL show)
     wwsShow (sa, "Even Adjoint ", 1, sa->evenRoots) ;
   printf ("# Constructed %d adjoint even roots\n", dimE) ;
 
+  exit (0) ;
   return ;
 } /* getNegativeOddRoots */
 
