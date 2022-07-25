@@ -1089,6 +1089,23 @@ MX mxMatInverse (MX a, AC_HANDLE h)
 } /* mxMatInverse */
 
 /**********************************************************************/
+/* no verif A = B*C  where A,B,C are rank*rank size square int buffers */
+void  mxIntMult (int *a, int *b, int *c, int rank)
+{
+  int i, j, k ;
+  if (! a || ! b || !c || a==b || a==c)
+    messcrash ("bad call to low level mxIntMult") ;
+  for (i = 0 ; i < rank ; i++)
+    for (j = 0 ; j < rank ; j++)
+      {
+	int x = 0 ;
+	for (k = 0 ; k < rank ; k++)
+	  x += b[rank * i + k] * c[rank*k + j] ;
+	a[rank*i+j] = x ;
+      }
+}
+
+/**********************************************************************/
 /**********************************************************************/
 /**********************************************************************/
 /* mxD2Dot: corresponds to a frequent 2D matrix product

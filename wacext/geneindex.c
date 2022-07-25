@@ -596,11 +596,15 @@ static int gxSplitMrnaParse (GX *gx)
       ccp = aceInWord (ai) ;
       if (! ccp)
 	continue ;
-      aceInStep (ai, '\t') ;
-      ccp = aceInWord (ai) ;
-      if (! ccp)
-	continue ;
-      dictAdd (gx->geneDict, ccp, &gNewOld) ; /* name(oldNam) */
+      gNewOld = gene ;
+      if (strcmp (ccp, dictName (dict, gene)))
+	{
+	  aceInStep (ai, '\t') ;
+	  ccp = aceInWord (ai) ;
+	  if (! ccp)
+	    continue ;
+	  dictAdd (gx->geneDict, ccp, &gNewOld) ; /* name(oldNam) */
+	}
       
       assMultipleInsert (ass, assVoid(mrna), assVoid (nn)) ;
       up = arrayp (aa, nn++, SPLITMRNA) ;
@@ -622,10 +626,19 @@ static int gxSplitMrnaParse (GX *gx)
 } /* gxSplitMrnaParse */
 
 /*************************************************************************************/
-
-static const char *gxSplitMrnaAlias (GX *gx, const char *mrnaName)
+/* cleanup gene(gene) into gene */
+static char *gxSplitMrnaAlias (GX *gx, char *nam)
 {
-  return mrnaName ; /* we cannot handle this, we do not have the read coords */
+  char *cp = strchr (nam, '(') ;
+  char *cq = strchr (nam, ')') ;
+  if (cp && cq)
+    {
+      *cp = *cq = 0 ;
+      if (strcasecmp (nam, cp+1))
+	{ *cp = '(' ; *cq = ')' ; } /* restore */
+      /* else we are happy to remove the redundant gene(gene) */
+    }
+  return nam ;
 } /* gxSplitMrnaAlias */
 
 /*************************************************************************************/
@@ -1030,8 +1043,8 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	{
 	  if (!strcasecmp (ccp, "Gene"))
 	    {
-	      ccp = aceInWord (ai) ;
-	      ccp = gxSplitMrnaAlias (gx, ccp) ;
+	      char *cp = aceInWord (ai) ;
+	      ccp = gxSplitMrnaAlias (gx, cp) ;
 	    }
 	  else
 	      ccp = aceInWord (ai) ;
@@ -3756,8 +3769,8 @@ static int gxParseGeneGroup (GX *gx, const char* fileName)
 	  }
 	else if (! strcasecmp (ccp, "Genes"))
 	  {
-	    ccp = aceInWord (ai) ;
-	    ccp = gxSplitMrnaAlias (gx, ccp) ;
+	    char *cp = aceInWord (ai) ;
+	    ccp = gxSplitMrnaAlias (gx, cp) ;
 	    if (ccp) 
 	      {
 		GGG *ggg ;
@@ -3969,9 +3982,9 @@ static float gxFineTuneMaxVariance (GX *gx)
       gx->lowVarianceGenes = keySetHandleCreate (gx->h) ;
       while (aceInCard (ai))
 	{
-	  ccp = aceInWord (ai) ;
+	  char *cp = aceInWord (ai) ;
 	  if (! ccp || *ccp == '#') continue ;
-	  ccp = gxSplitMrnaAlias (gx, ccp) ;
+	  ccp = gxSplitMrnaAlias (gx, cp) ;
 	  dictAdd (gx->geneDict, ccp, &gene) ;
 	  keySet (gx->lowVarianceGenes, nn++) = gene ;
 	}
@@ -4809,11 +4822,12 @@ static KEYSET gxParsePlusMinusFile (GX *gx, BOOL pm)
 
   while (aceInCard (ai))
     {
-      while ((ccp = aceInWord (ai)))
+      char *cp ;
+      while ((cp = aceInWord (ai)))
 	{
-	  if (strcmp(ccp, "Minus") && strcmp(ccp, "Plus") && strcmp(ccp, "genes:"))
+	  if (strcmp(cp, "Minus") && strcmp(cp, "Plus") && strcmp(cp, "genes:"))
 	    {
-	      ccp = gxSplitMrnaAlias (gx, ccp) ;
+	      ccp = gxSplitMrnaAlias (gx, cp) ;
 	      dictAdd (gx->geneDict, ccp, &k) ;
 	      keySet (ks, n++) = k ;
 	      dictAdd (gx->userGivenGenePlusMinusDict, ccp, 0) ;

@@ -182,6 +182,7 @@ BOOL mxMatCofactor (MX a, int *ip, float *fp, complex float *cp) ; /* cofactor o
 MX mxMatInverse (MX a, AC_HANDLE h) ; /* return NULL or the inverse matrix if available */
 int mxIntDeterminant (int *aa, int rank) ;
 int mxIntInverse (int *ai, int *aa, int rank) ;   /* inverse a matrix given as an int buffer */
+void  mxIntMult (int *a, int *b, int *c, int rank) ; /* A=B*C, no-verif integer matrix product */
 
 /***************************************************************************************/
 

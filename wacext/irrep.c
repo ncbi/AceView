@@ -106,26 +106,101 @@ static void getupperCartan (SA *sa, BOOL show)
 {
   Array Cartan = sa->Cartan ;
   Array metric = 0 ;
+  Array lowerMetric = 0 ;
   int r = sa->rank ;
   int r2 = r*r ;
   Array ci = sa->upperCartan = arrayHandleCreate (r2, int, sa->h) ;
 
   array (ci, r2 - 1, int) = 0 ; /* make room */
-  mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
 
-  sa->metric = metric = arrayHandleCopy (ci, sa->h) ;
-  if (sa->hasOdd)
-    {
-      int i ;
-      int o = sa->hasOdd - 1 ;
-      
-      for (i = 0 ; i < r ; i++)
-	{
-	  int x = array (metric, r * o + i, int) ;
-	  array (metric, r * o + i, int) = -x ;
-	}
-    }
+  ci = arrayHandleCopy (ci, sa->h) ;
+  mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
   
+  sa->metric = metric = arrayHandleCopy (ci, sa->h) ;
+
+  lowerMetric = arrayHandleCopy (Cartan, sa->h) ;
+  switch ((int)sa->type[0])
+    {
+    case 'A':
+      if (sa->hasOdd)
+	{
+	  int i ;
+	  int o = sa->hasOdd - 1 ;
+	  
+	  for (i = 0 ; i < r ; i++)
+	    {
+	      int x = array (lowerMetric, r * o + i, int) ;
+	      array (lowerMetric, r * o + i, int) = -x ;
+	    }
+	  if (sa->m == 1 && sa->n > 1)
+	    {
+	      int ii ;
+	      for (ii = 0 ; ii < r ; ii++)
+		for (i = 0 ; i < r ; i++)
+		  {
+		    int x = array (lowerMetric, r * ii + i, int) ;
+		    array (lowerMetric, r * ii + i, int) = -x ;
+		  }
+	    }
+	  if (sa->m > 1 && sa->n > 1)
+	    {
+	      int ii ;
+	      for (ii = o + 1 ; ii < r ; ii++)
+		for (i = 0 ; i < r ; i++)
+		  {
+		    int x = array (lowerMetric, r * ii + i, int) ;
+		    array (lowerMetric, r * ii + i, int) = -x ;
+		  }
+	    }
+	}
+      if (0) mxIntInverse (arrp (metric, 0, int), arrp (lowerMetric, 0, int), r) ;
+      if (0)   metric = arrayCopy (lowerMetric) ;
+
+      break ;
+    case 'B':
+      if (sa->m >= 2)
+	{  	 /* long roots first: double them */
+	  int i, j ;
+	  for (i = 0 ; i < r-1 ; i++)
+	    for (j = 0 ; j < r ; j++)
+	      array (metric, r * i + j, int) *= 2 ;
+	}
+      break ;
+    case 'C':
+      if (sa->m >= 2)
+	{  	 /* long root first: double it */
+	  int i, j ;
+	  for (i = 0 ; i < 1 ; i++)
+	    for (j = 0 ; j < r ; j++)
+	      array (metric, r * i + j, int) *= 2 ;
+	}
+      break ;
+    case 'D':
+      break ;
+    case 'E':
+      break ;
+    case 'F':
+      if (sa->m >= 2)
+	{  	 /* long roots first: double them */
+	  int i, j ;
+	  for (i = 0 ; i < 2 ; i++)
+	    for (j = 0 ; j < r ; j++)
+	      array (metric, r * i + j, int) *= 2 ;
+	}
+      break ;
+    case 'G':
+      if (sa->m >= 2)
+	{               /* long root first: triple it */
+	  int i, j ;
+	  for (i = 0 ; i < 1 ; i++)
+	    for (j = 0 ; j < r ; j++)
+	      array (metric, r * i + j, int) *= 3 ;
+	}
+      if (sa->m == 3)
+	{
+	}
+      break ;
+    }
 
   if (show)
     {
@@ -198,6 +273,7 @@ static void getCartan (SA *sa, BOOL show)
 	    array (Cartan, r*o + o , int) = 0 ;
 	    if (o > 0) array (Cartan, r*o + o - 1, int) = 1 ;
 	    if (o < r-1) array (Cartan, r*o + o + 1, int) = 1 ;
+	    if (1 && m>1 && n>1) array (Cartan, r*o + o + 1, int) = -1 ;
 	  }
 	
       }
@@ -221,13 +297,13 @@ static void getCartan (SA *sa, BOOL show)
       }
       array (Cartan, r*1 + 0, int) = -2 ;
 
-      sa->evenHw.x[0] = 1 ;
+      sa->evenHw.x[m-1] = 2 ;
       break ;
       
     case 'C':
       if (m < 2)
-	messcrash ("Type C(m)): m should be at least 2:  m=%d n=%d", m,n) ;
-      r = m ;
+	messcrash ("Type B(m)): m should be at least 2:  m=%d n=%d", m,n) ;
+      sa->rank = r = m ;
       rr = r*r ;
       Cartan = arrayCreate (rr, int) ;
       {
@@ -239,9 +315,9 @@ static void getCartan (SA *sa, BOOL show)
 	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	  }
       }
-      array (Cartan, r*0 + 1, int) = -2 ;
+      array (Cartan, r*1 + 0, int) = -2 ;
 
-      sa->evenHw.x[0] = 1 ;
+      sa->evenHw.x[m-1] = 2 ;
       break ;
       
     case 'D':
@@ -299,7 +375,7 @@ static void getCartan (SA *sa, BOOL show)
 	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	  }
-	array (Cartan, r*1 + 2, int) = -2 ;
+	array (Cartan, r*2 + 1, int) = -2 ;
 
 	sa->evenHw.x[0] = 1 ;
       }

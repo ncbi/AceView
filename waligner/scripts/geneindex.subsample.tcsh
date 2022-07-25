@@ -36,7 +36,7 @@ if ($phase == compute) then
       if (-d RESULTS/Expression.$kk/$UU/av) \rm -rf  RESULTS/Expression.$kk/$UU/av
       mkdir  RESULTS/Expression.$kk/$UU/av
 
-    scripts/submit tmp/GENEINDEX/Results/Expression.$kk/$MAGIC.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
+    scripts/submit RESULTS/Expression.$kk/$UU/av/$MAGIC.compute.$myUU  "scripts/geneindex.subsample.tcsh run $uu $kk"
   end
 
   goto done
@@ -45,6 +45,7 @@ endif
 #############################################################################
 
 if ($phase == transfer) then
+  goto done
   foreach uu (u nu)
     if  ($uu == u) set UU=unique
     if  ($uu == nu) set UU=quasi_unique
@@ -67,7 +68,7 @@ if ($phase == report) then
     if  ($uu == nu) set UU=quasi_unique
   echo "report uu=$uu UU=$UU"
   foreach kk ($kks)
-    if (! -e RESULTS/Expression.$kk/$UU/av/transferSP.done) continue
+    if (! -e RESULTS/Expression.$kk/$UU/av/runSP.done) continue
     if (-e RESULTS/Expression.$kk/$UU/av/reportSP.done) continue
     scripts/geneindex.subsample.tcsh reportOne $uu $kk 
   end

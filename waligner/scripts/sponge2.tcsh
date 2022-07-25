@@ -9,7 +9,7 @@ set uu=u
       foreach chrom (mito $chromSetAll)
         if ($chrom == Un) continue
         foreach fr1 (frns)
-          if (! -e tmp/SPONGE/$run/Total.$chrom.$uu.$fr1.$limit.txt) then
+          if (! -e tmp/SPONGE/$run/Total.$chrom.$uu.$fr1.$limit.txt ||  ! -e tmp/SPONGE/$run/$mainTarget.gene.$chrom.$uu.ns.1) then
             echo "scripts/sponge_chrom.tcsh $run $chrom $uu $fr1 $limit $mask $mainTarget"
                   scripts/sponge_chrom.tcsh $run $chrom $uu $fr1 $limit $mask $mainTarget
           endif

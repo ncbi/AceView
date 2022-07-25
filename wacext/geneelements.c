@@ -6747,10 +6747,8 @@ static void sxPressSponge (Array segs)
 	     ; jj++, vp++)
 	{ 
 	  if (up->a2 < vp->a2)
-	    {
-	      up->a2 = vp->a2 ;
+	    up->a2 = vp->a2 ;
 	      vp->gene = -1 ;
-	    }
 	}
     }
   for (ii = jj = 0, up = vp = arrp (segs, ii, SPONGE) ; ii < iMax ; up++, ii++)

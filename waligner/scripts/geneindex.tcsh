@@ -1267,7 +1267,7 @@ if ($ok == 0) continue
          set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
          if ($long == 1) then
            if (-e  tmp/SPONGE/$run/$target.1.$uu.ns.1) then
-             cat tmp/SPONGE/$run/$target.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",$3,run,$11/100,$11/100,$11/1000);}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+             cat tmp/SPONGE/$run/$target.mrna.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",$3,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
            endif
          else
            if (-e  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then
