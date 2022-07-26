@@ -61,6 +61,7 @@ if ($phase == m3aH) goto phasem3aH
 if ($phase == m3bH) goto phasem3bH
 if ($phase == g4) goto phaseg4
 if ($phase == g4sp) goto phaseg4sp
+if ($phase == g4spx) goto phaseg4spx
 if ($phase == gsnp4) goto phasegsnp4
 if ($phase == m4) goto phasem4
 if ($phase == m4H) goto phasem4H
@@ -108,7 +109,8 @@ echo "g3c:   Not used : Gene consolidate per library in .u. and .nu.ace.gz"
 echo "m3c:   Not used : mRNA Consolidate per library in .u. and  .nu.ace.gz"
 echo "m3cH:  Not used : Hierarchic  mRNA Consolidate per library in .u. and  .nu.ace.gz"
 echo "g4:    Export gene expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
-echo "g4sp:    Export gene expression tables based on the sponge file"
+echo "g4sp:    Export gene expression tables based on the genebox sponge file"
+echo "g4spx:    Export gene expression tables based on the exon/mrna sponge file"
 echo "m4:    Export mRNA expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "m4H:   Export hierarchic mRNA expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "ma4:    Analyse the micro-array data declared in OTHER_PIPELINES as another RESULTS/Expression"
@@ -934,6 +936,7 @@ if ($ok == 0) goto phaseLoop
 
 # g4sp expression based on sponge file is not yet written as of 2019_10_14
 phaseg4sp:
+phaseg4spx:
  phasesnp4:
 if ($SNPCHROM == 000) set mySeaLevel=""
 echo "phase $phase $mySeaLevel"
@@ -1028,6 +1031,8 @@ if (1) then
   if ($phase == r2g4 ) set GM=r2g
   if ($phase == snp4) set GM=SNP
   if ($phase == g4sp) set GM=GENESP
+  if ($phase == g4spx) set GM=GENESPX
+  if ($phase == g4spx) set phase=g4sp
   if ($phase == gsnp4) set GM=PROTEIN_CHANGING_SNP_PER_GENE
   if ($phase == m4)   set GM=MRNA
   if ($phase == m4H)  set GM=MRNAH
@@ -1055,7 +1060,7 @@ echo LALALA1====================++99
 echo LALALA1====================
 
 # export the general METADATA.ace
-  if (($GM == GENE || $GM == GENESP || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if (($GM == GENE || $GM == GENESP || $GM == GENESPX || $GM =~ SF* ) && -e tmp/METADATA/$target.GENE.info.ace) cat  tmp/METADATA/$target.GENE.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
   if (($phase == m4 || $phase == m4H) && -e tmp/METADATA/$target.MRNA.info.ace) cat tmp/METADATA/$target.MRNA.info.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
   if ( -e TARGET/GENES/$target.gene.ace) cat  TARGET/GENES/$target.gene.ace >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
@@ -1260,19 +1265,22 @@ if ($ok == 0) continue
      end
    endif
 
-   if ($phase == g4sp && ! -e tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace) then 
-     if (-e tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace) \rm tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+   if ($phase == g4sp && ! -e tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace) then 
+     if (-e tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace) \rm tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
              # if case 2 exist do not retry by using the OTHER_RUNS symbolic link below
      foreach run (`cat MetaDB/$MAGIC/RunsList `)
          set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
          if ($long == 1) then
-           set n=`ls  tmp/SPONGE/$run/$target.mrna.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
+           ls -ls tmp/SPONGE/$run/$target.mrna.3.$uu.ns.1
+           set myGM=gene
+           if ($GM == GENESPX) set myGM=mrna
+           set n=`ls  tmp/SPONGE/$run/$target.$myGM.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
            if ($n  > 0) then
-             cat tmp/SPONGE/$run/$target.mrna.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",$3,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+             cat tmp/SPONGE/$run/$target.$myGM.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",g,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
            endif
          else
            if (-e  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then
-             gunzip -c  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.GENESP.$uu.ace
+             gunzip -c  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
            endif
          endif
      end

@@ -1143,6 +1143,7 @@ if ($phase == m3b) goto phasem3b
 if ($phase == m3bH) goto phasem3bH
 if ($phase == g4) goto phaseg4
 if ($phase == g4sp) goto phaseg4sp
+if ($phase == g4spx) goto phaseg4spx
 if ($phase == ma4) goto phasema4
 if ($phase == m4) goto phasem4
 if ($phase == 8kb_histo) goto phase8kb_histo
@@ -1493,7 +1494,8 @@ echo "m3b:   mRNA Consolidate per run in .nu.ace.gz"
 echo "m3bH:    Hierarchic mRNA Consolidate per run in .nu.ace.gz"
 
 echo "g4:    Export gene expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
-echo "g4sp:  Export gene_sponge expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
+echo "g4sp:  Export gene_sponge genebox expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
+echo "g4spx:  Export gene_sponge exon/mrna expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "m4:    Export mRNA expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "m4H:   Export hierarchic mRNA expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "ma4:    Analyse the micro-array data declared in OTHER_PIPELINES as another RESULTS/Expression"
@@ -4108,8 +4110,9 @@ goto phaseLoop
 ###################################################################################
 
 phaseg4sp:
+phaseg4spx:
   echo "phase g4: Export gene_sponge expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
-  scripts/geneindex.tcsh g4sp
+  scripts/geneindex.tcsh $phase
 
 goto phaseLoop
 
