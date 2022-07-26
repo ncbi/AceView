@@ -247,7 +247,7 @@ static BOOL gxMakeComparativeHistos (GX *gx, int gene
 /*************************************************************************************/
 
 typedef struct splitMrnaStruct { 
-  int gene, mrna, gXX, gNewOld
+  int gene, mrna, gXX, gMix, gNewOld
     , x1, x2
     ;
 } SPLITMRNA ;
@@ -543,7 +543,7 @@ static int gxSplitMrnaParse (GX *gx)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
-  int gene, mrna, x1, x2, gXX, gNewOld ;
+  int gene, mrna, x1, x2, gXX, gNewOld, gMix ;
   const char *ccp ;
   DICT *dict = 0 ;
   Array aa  = 0 ;
@@ -597,6 +597,7 @@ static int gxSplitMrnaParse (GX *gx)
       if (! ccp)
 	continue ;
       gNewOld = gene ;
+      gMix = gene ;
       if (strcmp (ccp, dictName (dict, gene)))
 	{
 	  aceInStep (ai, '\t') ;
@@ -604,12 +605,14 @@ static int gxSplitMrnaParse (GX *gx)
 	  if (! ccp)
 	    continue ;
 	  dictAdd (gx->geneDict, ccp, &gNewOld) ; /* name(oldNam) */
+	  dictAdd (gx->geneDict, messprintf ("%s(%s)", dictName (dict, gene), ccp), &gMix) ;
 	}
       
       assMultipleInsert (ass, assVoid(mrna), assVoid (nn)) ;
       up = arrayp (aa, nn++, SPLITMRNA) ;
       up->gene = gene ;
       up->gNewOld = gNewOld ;
+      up->gMix = gMix ;
       dictAdd (gx->geneDict, dictName (dict, gNewOld), 0) ;
       if (x1) 
 	{
@@ -627,7 +630,7 @@ static int gxSplitMrnaParse (GX *gx)
 
 /*************************************************************************************/
 /* cleanup gene(gene) into gene */
-static char *gxSplitMrnaAlias (GX *gx, char *nam)
+static const char *gxSplitMrnaAlias (GX *gx, char *nam)
 {
   char *cp = strchr (nam, '(') ;
   char *cq = strchr (nam, ')') ;
@@ -637,6 +640,23 @@ static char *gxSplitMrnaAlias (GX *gx, char *nam)
       if (strcasecmp (nam, cp+1))
 	{ *cp = '(' ; *cq = ')' ; } /* restore */
       /* else we are happy to remove the redundant gene(gene) */
+
+      return nam ;
+    }
+  else  /* there was no (), may be there should be one */
+    {
+      SPLITMRNA *up ;
+      int gene = 0 ;
+      if (dictFind (gx->geneDict, nam, &gene) 
+	  && gx->splitMrnaArray 
+	  && gene > 0
+	  && gene < arrayMax (gx->splitMrnaArray)
+	  &&  (up = arrp (gx->splitMrnaArray, gene, SPLITMRNA))
+	  && up->gene == gene
+	  && up->gMix > 0
+	  )
+	return 
+	  dictName (gx->geneDict, up->gMix) ;
     }
   return nam ;
 } /* gxSplitMrnaAlias */

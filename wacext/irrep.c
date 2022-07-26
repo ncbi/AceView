@@ -23,7 +23,8 @@ typedef struct saStruct
   BOOL table ;
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
-  int m, n, rank ;
+  BOOL hasY ;
+  int m, n, rank, rank1, rank2 ;
   Array metric, metric1, metric2 ;
   Array Cartan, Cartan1, Cartan2 ;
   Array upperCartan, upperCartan1, upperCartan2 ;
@@ -129,8 +130,15 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
   sa->Cartan = arrayHandleCreate (rr, int , sa->h) ;
   sa->upperCartan = arrayHandleCreate (rr, int , sa->h) ;
   sa->metric = arrayHandleCreate (rr, int , sa->h) ;
-  
+
+  array (sa->Cartan, rr-1, int) = 0 ;  
+  array (sa->upperCartan, rr-1, int) = 0 ;  
+  array (sa->metric, rr-1, int) = 0 ;  
+
   sa->rank = r ;
+  sa->hasY = hasY ;
+  sa->rank1 = r1 ;
+  sa->rank2 = r2 ;
   if (r1 > 0)
     {
       for (i = 0 ; i < r1 ; i++)
@@ -161,7 +169,12 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	  }
       dx = r1 ;
     }
-
+  if (hasY)
+    {
+      sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
+      mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
+      sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
+    }
 } /* mergeCartan */
 
 /******************************************************************************************************/
@@ -337,276 +350,85 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 } /* getOneCartan */
 
 /******************************************************************************************************/
-/* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-static void getupperCartan (SA *sa, BOOL show)
-{
-  Array Cartan = sa->Cartan ;
-  Array metric = 0 ;
-  Array lowerMetric = 0 ;
-  int r = sa->rank ;
-  int r2 = r*r ;
-  Array ci = sa->upperCartan = arrayHandleCreate (r2, int, sa->h) ;
-
-  array (ci, r2 - 1, int) = 0 ; /* make room */
-
-  ci = arrayHandleCopy (ci, sa->h) ;
-  mxIntInverse (arrp (ci, 0, int), arrp (Cartan, 0, int), r) ;
-  
-  sa->metric = metric = arrayHandleCopy (ci, sa->h) ;
-
-  lowerMetric = arrayHandleCopy (Cartan, sa->h) ;
-  switch ((int)sa->type[0])
-    {
-    case 'A':
-      if (sa->hasOdd)
-	{
-	  int i ;
-	  int o = sa->hasOdd - 1 ;
-	  
-	  for (i = 0 ; i < r ; i++)
-	    {
-	      int x = array (lowerMetric, r * o + i, int) ;
-	      array (lowerMetric, r * o + i, int) = -x ;
-	    }
-	  if (sa->m == 1 && sa->n > 1)
-	    {
-	      int ii ;
-	      for (ii = 0 ; ii < r ; ii++)
-		for (i = 0 ; i < r ; i++)
-		  {
-		    int x = array (lowerMetric, r * ii + i, int) ;
-		    array (lowerMetric, r * ii + i, int) = -x ;
-		  }
-	    }
-	  if (sa->m > 1 && sa->n > 1)
-	    {
-	      int ii ;
-	      for (ii = o + 1 ; ii < r ; ii++)
-		for (i = 0 ; i < r ; i++)
-		  {
-		    int x = array (lowerMetric, r * ii + i, int) ;
-		    array (lowerMetric, r * ii + i, int) = -x ;
-		  }
-	    }
-	}
-      if (0) mxIntInverse (arrp (metric, 0, int), arrp (lowerMetric, 0, int), r) ;
-      if (0)   metric = arrayCopy (lowerMetric) ;
-
-      break ;
-    case 'B':
-      if (sa->m >= 2)
-	{  	 /* long roots first: double them */
-	  int i, j ;
-	  for (i = 0 ; i < r-1 ; i++)
-	    for (j = 0 ; j < r ; j++)
-	      array (metric, r * i + j, int) *= 2 ;
-	}
-      break ;
-    case 'C':
-      if (sa->m >= 2)
-	{  	 /* long root first: double it */
-	  int i, j ;
-	  for (i = 0 ; i < 1 ; i++)
-	    for (j = 0 ; j < r ; j++)
-	      array (metric, r * i + j, int) *= 2 ;
-	}
-      break ;
-    case 'D':
-      break ;
-    case 'E':
-      break ;
-    case 'F':
-      if (sa->m >= 2)
-	{  	 /* long roots first: double them */
-	  int i, j ;
-	  for (i = 0 ; i < 2 ; i++)
-	    for (j = 0 ; j < r ; j++)
-	      array (metric, r * i + j, int) *= 2 ;
-	}
-      break ;
-    case 'G':
-      if (sa->m >= 2)
-	{               /* long root first: triple it */
-	  int i, j ;
-	  for (i = 0 ; i < 1 ; i++)
-	    for (j = 0 ; j < r ; j++)
-	      array (metric, r * i + j, int) *= 3 ;
-	}
-      if (sa->m == 3)
-	{
-	}
-      break ;
-    }
-
-  if (show)
-    {
-      int i, j ;
-      printf ("\n### Cartan Upper Matrix type %s m=%d n=%d rank = %d\n", sa->type, sa->m, sa->n, r) ;
-      for (i = 0 ; i < r ; i++)
-	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (ci, r*i + j, int)) ;
-	  printf ("\n") ;
-	}
-    }
-  if (show)
-    {
-      int i, j ;
-      printf ("\n### Dynkin weights Metric type %s m=%d n=%d rank = %d\n", sa->type, sa->m, sa->n, r) ;
-      for (i = 0 ; i < r ; i++)
-	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (metric, r*i + j, int)) ;
-	  printf ("\n") ;
-	}
-    }
-  sa->metric = metric ;
-
-  return ;
-} /* getupperCartan */
-
-/******************************************************************************************************/
 
 static void getCartan (SA *sa, BOOL show)
 {
-  Array Cartan = 0 ;
-  int m = sa->m, n = sa->n, r = 0, rr ;
+  int m = sa->m, n = sa->n, r = 0 ;
 
   switch ((int)sa->type[0])
     {
     case 'A':
-      if (m<0 || n<0 || m+n<2)
-	messcrash ("Type A(m/n): m+n should be >=2 m=%d n=%d", m,n) ;
-      r = sa->rank = m + n - 1 ;
-      if (m > 1)
-	getOneCartan (sa, "A", m-1, TRUE, TRUE) ;
-      if (n > 1)
-	getOneCartan (sa, "A", n-1, FALSE, TRUE) ;
-
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      array (Cartan, rr - 1, int) = 0 ;
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-	if (m > 1)
-	  {
-	    sa->evenHw.x[0] += 1 ;
-	    sa->evenHw.x[m - 2] += 1 ;
-	  }
-	if (n > 1)
-	  {
-	    sa->evenHw.x[m] += 1 ;
-	    sa->evenHw.x[m + n -2] += 1 ;
-	  }
-	if (m*n > 0)
-	  {
-	    int o = m - 1 ;
-	    sa->odd[o] = TRUE ;
-	    sa->hasOdd = o + 1 ;
-	    sa->evenHw.x[o] = 1 ;
-	    sa->extended[r] = TRUE ;
-	    array (Cartan, r*o + o , int) = 0 ;
-	    if (o > 0) array (Cartan, r*o + o - 1, int) = 1 ;
-	    if (o < r-1) array (Cartan, r*o + o + 1, int) = 1 ;
-	    if (1 && m>1 && n>1) array (Cartan, r*o + o + 1, int) = -1 ;
-	  }
-	
-      }
-
+      sa->rank = r = m + n - 1 ;
+      if (m <= 0 || n < 0 || m+n == 0)
+	messcrash ("Type Lie A(m,n) bad m=%d n=%d", m,n) ;
+      if (n == 0)
+	  getOneCartan (sa, "A", r, 0, TRUE) ;
+      else
+	{
+	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
+	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
+	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
+	}
       break ;
       
     case 'B':
-      if (m < 2)
-	messcrash ("Type B(m)): m should be at least 2:  m=%d n=%d", m,n) ;
       sa->rank = r = m ;
-      getOneCartan (sa, "B", m, TRUE, TRUE) ;
-
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-      }
-      array (Cartan, r*1 + 0, int) = -2 ;
-
-      sa->evenHw.x[m-1] = 2 ;
+      switch (m)
+	{
+	default:
+	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
+	  break ;
+	case 6:     /* Lie algebra E6 */
+	case 7:     /* Lie algebra E7 */
+	case 8:     /* Lie algebra E8 */
+	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  break ;
+	}
       break ;
       
     case 'C':
-      if (m < 2)
-	messcrash ("Type B(m)): m should be at least 2:  m=%d n=%d", m,n) ;
-      getOneCartan (sa, "C", m, TRUE, TRUE) ;
-
       sa->rank = r = m ;
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-      }
-      array (Cartan, r*1 + 0, int) = -2 ;
-
-      sa->evenHw.x[m-1] = 2 ;
+      switch (m)
+	{
+	default:
+	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
+	  break ;
+	case 6:     /* Lie algebra E6 */
+	case 7:     /* Lie algebra E7 */
+	case 8:     /* Lie algebra E8 */
+	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  break ;
+	}
       break ;
       
     case 'D':
-      if (m<3)
-	messcrash ("Type D(m): m should be >=3 and even m=%d n=%d", m,n) ;
-      getOneCartan (sa, "D", m, TRUE, TRUE) ;
-
-      r = sa->rank = m ;
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i> 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-	array (Cartan, r*0 + 2, int) = -1 ;
-	array (Cartan, r*2 + 0, int) = -1 ;
-      }
+      sa->rank = r = m ;
+      switch (m)
+	{
+	default:
+	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
+	  break ;
+	case 6:     /* Lie algebra E6 */
+	case 7:     /* Lie algebra E7 */
+	case 8:     /* Lie algebra E8 */
+	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  break ;
+	}
       break ;
       
     case 'E':
-      if (m < 6 || m > 8)
-	messcrash ("Type E(m): m should be 6, 7 or 8 : m=%d n=%d", m,n) ;
-      getOneCartan (sa, "E", m, TRUE, TRUE) ;
-
-      r = sa->rank = m ;
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i > 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-	array (Cartan, r*0 + 3, int) = -1 ;
-	array (Cartan, r*3 + 0, int) = -1 ;
-
-	sa->evenHw.x[m-1] = 1 ;
-      }
+      sa->rank = r = m ;
+      switch (m)
+	{
+	default:
+	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
+	  break ;
+	case 6:     /* Lie algebra E6 */
+	case 7:     /* Lie algebra E7 */
+	case 8:     /* Lie algebra E8 */
+	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  break ;
+	}
       break ;
       
     case 'F':
@@ -691,7 +513,6 @@ static void getCartan (SA *sa, BOOL show)
 	  printf ("\n") ;
 	}
     }
-  exit (0) ;
 }  /* getCartan */
 
 /******************************************************************************************************/  
@@ -1392,7 +1213,6 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa, show) ;
-   getupperCartan (&sa, show) ;
 
    if (sa.hasOdd) /* do this first then destroy the dict */
      getNegativeOddRoots (&sa, show) ;
