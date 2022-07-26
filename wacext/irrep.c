@@ -103,13 +103,76 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
 } /* locateWeight */
 
 /******************************************************************************************************/
+
+static void metricRescale (Array metric, int r, int ii, int jj, int scale)
+{
+  int i, k ;
+  for (i = ii ; i <= jj ; i++)
+  for (k = 0 ; k < r ; k++)
+    {
+      int x = arr (metric, r * i + k, int) ;
+      arr (metric, r * i + k, int) = scale * x ;
+    }
+  return ;
+} /* metricRescale */
+
+
+/******************************************************************************************************/
 /* prepare the Cartan Matrix, its inverse and the metric, for a simple Lie algebra block */
-static void getOneCartan (SA *sa, char *type, int r, BOOL isFirst, BOOL show)
+static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
+{
+  int i, j ;
+  int r = r1 + r2 + (hasY ? 1 : 0) ;
+  int rr = r * r ;
+  int dx = 0 ;
+  
+  sa->Cartan = arrayHandleCreate (rr, int , sa->h) ;
+  sa->upperCartan = arrayHandleCreate (rr, int , sa->h) ;
+  sa->metric = arrayHandleCreate (rr, int , sa->h) ;
+  
+  sa->rank = r ;
+  if (r1 > 0)
+    {
+      for (i = 0 ; i < r1 ; i++)
+	for (j = 0 ; j < r1 ; j++)
+	  {
+	    array (sa->Cartan, r * i + j, int) = arr (sa->Cartan1, r1 * i + j, int) ;
+	    array (sa->upperCartan, r * i + j, int) = arr (sa->upperCartan1, r1 * i + j, int) ;
+	    array (sa->metric, r * i + j, int) = arr (sa->metric1, r1 * i + j, int) ;
+	  }
+      dx = r1 ;
+    }
+  if (hasY)
+    {
+      if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
+      if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
+      if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
+      if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
+      dx++ ;
+    }
+  if (r2 > 0)
+    {
+      for (i = 0 ; i < r2 ; i++)
+	for (j = 0 ; j < r2 ; j++)
+	  {
+	    array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
+	    array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
+	    array (sa->metric, r * (i+dx) + j + dx, int) = arr (sa->metric2, r2 * i + j, int) ;
+	  }
+      dx = r1 ;
+    }
+
+} /* mergeCartan */
+
+/******************************************************************************************************/
+/* prepare the Cartan Matrix, its inverse and the metric, for a simple Lie algebra block */
+static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 {
   int i, r2 = r * r ;
   WW hw ;
   Array Cartan = arrayHandleCreate (r2, int, sa->h) ;
   Array upperCartan = 0 ;
+  Array metric = 0 ;
 
   array (Cartan, r2 - 1, int) = 0 ;
   
@@ -204,18 +267,47 @@ static void getOneCartan (SA *sa, char *type, int r, BOOL isFirst, BOOL show)
 
   upperCartan = arrayHandleCopy (Cartan, sa->h) ; 
   mxIntInverse (arrp (upperCartan, 0, int), arrp (Cartan, 0, int), r) ;
-
-  if (isFirst)
+  metric = arrayHandleCopy (upperCartan, sa->h) ;
+  
+  switch ((int)type[0])
     {
-      sa->Cartan1 = Cartan ;
-      sa->upperCartan1 = upperCartan ;
-      sa->evenHw1 = hw ;
+    case 'B':
+      metricRescale (metric, r, 0, r-1, 2) ;
+      break ;
+    case 'C':
+      metricRescale (metric, r, 0, 0, 2) ;
+      break ;
+    case 'F':
+      metricRescale (metric, r, 0, 1, 2) ;
+      break ;
+    case 'G':
+      metricRescale (metric, r, 0, 0, 3) ;
+      break ;
+    default:
+      break ;
     }
-  else
+  
+
+  switch (Lie)
     {
-      sa->Cartan2 = Cartan ;
-      sa->upperCartan1 = upperCartan ;
-      sa->evenHw2 = hw ;
+      case 0:
+	sa->Cartan = Cartan ;
+	sa->upperCartan = upperCartan ;
+	sa->metric = metric ;
+	sa->evenHw = hw ;
+	break ;
+      case 1:
+	sa->Cartan1 = Cartan ;
+	sa->upperCartan1 = upperCartan ;
+	sa->metric1 = metric ;
+	sa->evenHw1 = hw ;
+	break ;
+      case 2:
+	sa->Cartan2 = Cartan ;
+	sa->upperCartan2 = upperCartan ;
+	sa->metric2 = metric ;
+	sa->evenHw2 = hw ;
+	break ;
     }
 
   if (show)
@@ -518,59 +610,48 @@ static void getCartan (SA *sa, BOOL show)
       break ;
       
     case 'F':
-      if (m != 4)
-	messcrash ("Type F(4): m should be 4 : m=%d n=%d", m,n) ;
-      sa->rank = r = 4 ;
- 
-      getOneCartan (sa, "F", r, TRUE, TRUE) ;
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-
-      {
-	int i ;
-	for (i = 0 ; i < r ; i++)
-	  {
-	    array (Cartan, r*i + i, int) = 2 ;
-	    if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
-	  }
-	array (Cartan, r*2 + 1, int) = -2 ;
-
-	sa->evenHw.x[0] = 1 ;
-      }
+      sa->rank = r = m ;
+      switch (m)
+	{
+	default:
+	  messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
+	  break ;
+	case 4:     /* Lie algebra G2 */
+	  getOneCartan (sa, "F", 4, 0, TRUE) ;
+	  break ;
+	case 5:     /* Lie superalgebra G(3) */
+	  getOneCartan (sa, "G", 2, 1, TRUE) ;
+	  getOneCartan (sa, "A", 1, 2, TRUE) ;
+	  mergeCartan  (sa, 2, 1, FALSE, show) ;
+	  metricRescale (sa->metric, r, 2, 2, 2) ;
+	  
+	  sa->hasOdd = TRUE ;
+	  sa->oddHw.x[1] = 1 ;
+	  sa->oddHw.x[2] = 1 ;
+	  break ;
+	}
       break ;
       
     case 'G':
-      if (m != 2 && m != 3)
-	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
-      getOneCartan (sa, "G", 2, TRUE, TRUE) ;
-      if (m == 3)
-	getOneCartan (sa, "A", 1, FALSE, TRUE) ;
-      sa->rank = r = m + n ;
-      rr = r*r ;
-      Cartan = arrayCreate (rr, int) ;
-      {
-	array (Cartan, r*0 + 0, int) = 2 ;
-	array (Cartan, r*0 + 1, int) = -1 ;
-	array (Cartan, r*1 + 1, int) = 2 ;
-	array (Cartan, r*1 + 0, int) = -3 ;
-
-	sa->evenHw.x[0] = 1 ;
-      }
-
-      if (m == 3)
+      sa->rank = r = m ;
+      switch (m)
 	{
-	  sa->hasOdd = TRUE ;
-	  sa->hasExtended = TRUE ;
-	  sa->extended[2] = TRUE ;
+	default:
+	  messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
+	  break ;
+	case 2:     /* Lie algebra G2 */
+	  getOneCartan (sa, "G", 2, 0, TRUE) ;
+	  break ;
+	case 3:     /* Lie superalgebra G(3) */
+	  getOneCartan (sa, "G", 2, 1, TRUE) ;
+	  getOneCartan (sa, "A", 1, 2, TRUE) ;
+	  mergeCartan  (sa, 2, 1, FALSE, show) ;
+	  metricRescale (sa->metric, r, 2, 2, 2) ;
 	  
-	  array (Cartan, r*2 + 2, int) = 2 ;
-
-	  sa->evenHw.x[0] = 1 ;
-	  sa->extendedHw.x[2] = 2 ;
-
+	  sa->hasOdd = TRUE ;
 	  sa->oddHw.x[1] = 1 ;
 	  sa->oddHw.x[2] = 1 ;
+	  break ;
 	}
       break ;
       
@@ -584,11 +665,33 @@ static void getCartan (SA *sa, BOOL show)
       for (i = 0 ; i < r ; i++)
 	{
 	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (Cartan, r*i + j, int)) ;
+	    printf ("\t%d", arr (sa->Cartan, r*i + j, int)) ;
 	  printf ("\n") ;
 	}
     }
-  sa->Cartan = Cartan ;
+  if (show && sa->upperCartan)
+    {
+      int i, j ;
+      printf ("\n### Cartan (upper) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+      for (i = 0 ; i < r ; i++)
+	{
+	  for (j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (sa->upperCartan, r*i + j, int)) ;
+	  printf ("\n") ;
+	}
+    }
+  if (show && sa->metric)
+    {
+      int i, j ;
+      printf ("\n### Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+      for (i = 0 ; i < r ; i++)
+	{
+	  for (j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (sa->metric, r*i + j, int)) ;
+	  printf ("\n") ;
+	}
+    }
+  exit (0) ;
 }  /* getCartan */
 
 /******************************************************************************************************/  
