@@ -156,18 +156,25 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
+      sa->odd[r1] = 1 ;
+      sa->hasOdd = r1 + 1 ;
       dx++ ;
     }
   if (r2 > 0)
     {
+      WW hw2 = sa->evenHw2 ;
+      for (i = 0 ; i < r ; i++)
+	sa->evenHw2.x[j] = 0 ;
       for (i = 0 ; i < r2 ; i++)
-	for (j = 0 ; j < r2 ; j++)
-	  {
-	    array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
-	    array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
-	    array (sa->metric, r * (i+dx) + j + dx, int) = arr (sa->metric2, r2 * i + j, int) ;
-	  }
-      dx = r1 ;
+	{	
+	  for (j = 0 ; j < r2 ; j++)
+	    {
+	      array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
+	      array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
+	      array (sa->metric, r * (i+dx) + j + dx, int) = arr (sa->metric2, r2 * i + j, int) ;
+	    }
+	  sa->evenHw2.x[dx+i] = hw2.x[i] ;
+	}
     }
   if (hasY)
     {
@@ -200,7 +207,8 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
       
-      hw.x[0] = hw.x[r-1] = 1 ;
+      hw.x[0] = 1 ;
+      hw.x[r-1] += 1 ;
       break ;
       
     case 'B':
@@ -598,10 +606,12 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       break ;
     case -3:
       *hw = sa->evenHw ;
-      if (sa->hasExtended)
+      if (sa->rank1)
+	*hw = sa->evenHw1 ;
+      if (sa->rank2)
 	{
 	  WW *ew = arrayp (wws, 2, WW) ;
-	  *ew = sa->extendedHw ;  
+	  *ew = sa->evenHw2 ;
 	  ew->mult = create ? 1 : 0 ;
 	  ew->hw = TRUE ;
 	  ew->k = locateWeight (sa, ew, TRUE) ;
@@ -1047,7 +1057,6 @@ static void getAdjoint (SA *sa, BOOL show)
     wwsShow (sa, "Even Adjoint ", 1, sa->evenRoots) ;
   printf ("# Constructed %d adjoint even roots\n", dimE) ;
 
-  exit (0) ;
   return ;
 } /* getNegativeOddRoots */
 
