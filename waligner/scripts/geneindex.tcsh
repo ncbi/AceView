@@ -1145,6 +1145,10 @@ if ($ok == 0) continue
 
   set chromAlias=""
   if (-e TARGET/Targets/$species.chromAlias.txt) set chromAlias="-chromAlias TARGET/Targets/$species.chromAlias.txt"
+  if (-e tmp/METADATA/$target.split_mrnas.gz) set chromAlias="$chromAlias -split_mRNAs tmp/METADATA/$target.split_mrnas.gz"
+
+
+
 # -export abti $correl 
   set seedGene=""
   if ($target == av && $MAGIC == NB) set seedGene="-seedGene KDM5D"
@@ -1271,12 +1275,12 @@ if ($ok == 0) continue
      foreach run (`cat MetaDB/$MAGIC/RunsList `)
          set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
          if ($long == 1) then
-           ls -ls tmp/SPONGE/$run/$target.mrna.3.$uu.ns.1
+           ls -ls tmp/SPONGE/$run/$target.mrna.v2.3.$uu.ns.1
            set myGM=gene
            if ($GM == GENESPX) set myGM=mrna
-           set n=`ls  tmp/SPONGE/$run/$target.$myGM.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
+           set n=`ls  tmp/SPONGE/$run/$target.$myGM.v2.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
            if ($n  > 0) then
-             cat tmp/SPONGE/$run/$target.$myGM.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",g,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
+             cat tmp/SPONGE/$run/$target.$myGM.v2.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",g,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
            endif
          else
            if (-e  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then

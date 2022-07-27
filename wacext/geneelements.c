@@ -34,9 +34,11 @@ typedef struct zoneStruct {
   int non_gt_ag, width ;
   int maxChromNameLength ;
   KEYSET mrna2intron ;
+  KEYSET splitMrnas ;
   DICT *ignoredProbeDict, *mapDict, *remapDict ;
   Array chromDnaD, chromDnaR, introns ;
   const char *outFileName ;
+  const char *splitMrnasFileName ;
   const char *strategy ;
   BOOL RNA_seq ;
   BOOL plot, wordProfile, venn, intron, count, exp, cmp, nPlatform, hammer, stranded, mrnaWiggle, hits2composite
@@ -6649,11 +6651,68 @@ static void showSponge (Array aa)
 
 /*************************************************************************************/
 
+static void sxSpongeParseSplitMrnas (SX *sx, DICT *dict)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEIN ai = 0 ;
+  const char *ccp ;
+  KEYSET ks = sx->splitMrnas = keySetHandleCreate (sx->h) ;
+  const char *fNam = sx->splitMrnasFileName ;
+
+  ai = aceInCreate (fNam, 0, h) ;
+  if (! ai)
+    messcrash ("Cannot find the split_mrnas File %s, sorry", fNam ? fNam : "NULL") ;
+  else
+    {
+      char buf [1024] ;
+      int a1 = 0, a2 = 0 ;
+
+      aceInSpecial (ai, "\n\t") ;
+      while (aceInCard (ai))
+	{
+	  int mrna = 0, gene = 0 ;
+
+	  ccp = aceInWord(ai) ; /* old gene */
+	  if (!ccp || !*ccp)
+	    continue ;
+	  strncpy (buf, ccp, 1023) ;
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* mrna */
+	  if (!ccp || !*ccp)
+	    continue ;	
+	  dictAdd (dict, ccp, &mrna) ;
+
+	  aceInStep(ai,'\t') ; 
+	  if (!aceInInt (ai, &a1)) /* a1 */
+	    continue ;	
+	  aceInStep(ai,'\t') ; 
+	  if (!aceInInt (ai, &a2)) /* a2 */
+	    continue ;	
+
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* gene */
+	  if (!ccp || !*ccp)
+	    continue ;	
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* gene */
+	  if (!ccp || !*ccp || !strcasecmp (ccp, buf))
+	    continue ;	
+	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* gene(gene) */
+	  if (!ccp || !*ccp)
+	    continue ;	
+	  
+	  dictAdd (dict, ccp, &gene) ;
+	  keySet (ks, mrna) = a1 > 0 ? (1<<30) : gene ; /* remove the split mrnas from the mapping game */
+	}
+    }
+  ac_free (h) ;
+  return ;
+} /* sxSpongeParseSplitMrnas */
+
+/*************************************************************************************/
+
 static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array segs, KEYSET ks, int level, AC_HANDLE h0)
 {
   AC_HANDLE h = ac_new_handle () ;
   ACEIN ai = 0 ;
-  int jj = 0, kk, a1, a2, gene, mrna,  exon, chrom ;
+  int jj = 0, kk, a1, a2, gene, exon, chrom ;
   const char *ccp ;
   SPONGE *sxx ;
 
@@ -6668,12 +6727,18 @@ static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array se
       aceInSpecial (ai, "\n\t") ;
       while (aceInCard (ai))
 	{
+	  int mrna, geneSplit = 0 ;
+
 	  ccp = aceInWord(ai) ; /* gene or mrna*/
 	  if (!ccp || !*ccp)
 	    continue ;	
-	  if (0)    /* we do not cre about the mrna */
-	    dictAdd (dict, ccp, &mrna) ;
-	  
+	  if (sx->splitMrnas)    /* else we do not care about the mrna */
+	    {
+	      dictAdd (dict, ccp, &mrna) ;
+	      geneSplit = keySet (sx->splitMrnas, mrna) ;
+	      if (geneSplit == (1 << 30))
+		continue ;
+	    }
 	  aceInStep(ai,'\t') ; ccp = aceInWord(ai) ; /* exon mumber */
 	  if (!ccp || !*ccp)
 	    continue ;	
@@ -6700,7 +6765,8 @@ static void sxSpongeParseOneFile (SX *sx, const char *fNam, DICT *dict, Array se
 	  if (!ccp || !*ccp)
 	    continue ;	
 	  dictAdd (dict, ccp, &gene) ;
-
+	  if (geneSplit)
+	    gene = geneSplit ;
 	  
 	  sxx = arrayp (segs, jj++, SPONGE) ;
 	  sxx->isDown = a1 < a2 ? TRUE : FALSE ;
@@ -6850,6 +6916,8 @@ static long int sxSponge (SX *sx)
   Array nss, nbps, nextent ;
   long int Nbp = 0 , Ns = 0 ;
 
+  if (sx->splitMrnasFileName)
+    sxSpongeParseSplitMrnas (sx, dict) ; 
   levelMax = sxSpongeParseFile (sx, dict, levelNames, segs, segsNR, h) ;
   jjMax = arrayMax (segsNR) ; 
   if (jjMax)
@@ -9029,6 +9097,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-genomeMask", &sx.genomeMaskFileName) ;
   sx.spongeWindow = getCmdLineOption (&argc, argv, "-spongeWindow", 0) ;
   getCmdLineOption (&argc, argv, "-spongeWindowExclude", &sx.spongeWindowExcludeFileName) ;
+  getCmdLineOption (&argc, argv, "-split_mRNAs", &sx.splitMrnasFileName) ;
 
   fprintf (stderr, "// start: %s\n", timeShowNow()) ;
 

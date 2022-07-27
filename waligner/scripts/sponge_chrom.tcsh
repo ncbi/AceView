@@ -53,7 +53,11 @@ foreach mainTarget ($Etargets)
     set geneMask=tmp/METADATA/$mainTarget.$fr.$GM.sponge
     ls -ls $geneMask
     if (-e $geneMask && $limit == 1) then
+      set toto=tmp/SPONGE/$run/$mainTarget.$chrom.$uu.$fr.$limit
+      if (-e $toto)  \rm $toto
       set toto=tmp/SPONGE/$run/$mainTarget.$GM.$chrom.$uu.$fr.$limit
+      if (-e $toto)  \rm $toto
+      set toto=tmp/SPONGE/$run/$mainTarget.$GM.v2.$chrom.$uu.$fr.$limit
       if (! -e $toto) then
         echo "bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
               bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto

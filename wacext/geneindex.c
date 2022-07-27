@@ -84,6 +84,7 @@ typedef struct gcStruct {
   Array geneGroup ;
   KEYSET captures, capturesTouch ;
   int Group_level ;
+  int gMix ;
   BOOL hasWeights ; /* group has weight, we may use it as a predictor (not yet done) compute a log proba log(exp( w X) / (  1 + exp (w X))) */
   int HGNC_family ;
   int intronAv, intronRefSeq, hasKnownDonorAcceptor ;
@@ -247,7 +248,7 @@ static BOOL gxMakeComparativeHistos (GX *gx, int gene
 /*************************************************************************************/
 
 typedef struct splitMrnaStruct { 
-  int gene, mrna, gXX, gMix, gNewOld
+  int gene, mrna, gMix
     , x1, x2
     ;
 } SPLITMRNA ;
@@ -543,13 +544,14 @@ static int gxSplitMrnaParse (GX *gx)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
-  int gene, mrna, x1, x2, gXX, gNewOld, gMix ;
+  int gene, mrna, x1, x2, gMix ;
   const char *ccp ;
   DICT *dict = 0 ;
   Array aa  = 0 ;
   ACEIN ai = aceInCreate (gx->splitMrnaFileName, 0, h) ;
   SPLITMRNA *up ;
   Associator ass ;
+  GC* gc ;
 
   if (! ai)
     messcrash ("Sorry, i cannot find the -split_mRNAs file : %s", gx->splitMrnaFileName) ;
@@ -562,7 +564,7 @@ static int gxSplitMrnaParse (GX *gx)
       ccp = aceInWord (ai) ;
       if (! ccp || *ccp == '#')
 	continue ;
-      dictAdd (dict, ccp, &gene) ;
+      dictAdd (gx->geneDict, ccp, &gene) ;
 
       aceInStep (ai, '\t') ;
       ccp = aceInWord (ai) ;
@@ -589,39 +591,34 @@ static int gxSplitMrnaParse (GX *gx)
 	continue ;
 
       x1 = x2 = 0 ; /* the coordinates where taken care of in bestali */
-      if (x1)
-	dictAdd (gx->geneDict, hprintf (h, "%s(%s)", ccp, dictName (dict, gene)), &gXX) ; /* a new name for that fraction of the read */
 
       aceInStep (ai, '\t') ; /* jump col 5 */
       ccp = aceInWord (ai) ;
       if (! ccp)
 	continue ;
-      gNewOld = gene ;
       gMix = gene ;
-      if (strcmp (ccp, dictName (dict, gene)))
+      if (strcmp (ccp, dictName (gx->geneDict, gene)))
 	{
 	  aceInStep (ai, '\t') ;
 	  ccp = aceInWord (ai) ;
 	  if (! ccp)
 	    continue ;
-	  dictAdd (gx->geneDict, ccp, &gNewOld) ; /* name(oldNam) */
-	  dictAdd (gx->geneDict, messprintf ("%s(%s)", dictName (dict, gene), ccp), &gMix) ;
+	  dictAdd (gx->geneDict, ccp, &gMix) ; /* name(oldNam) */
+	  if (0) 
+	    dictAdd (gx->geneDict, messprintf ("%s(%s)", dictName (gx->geneDict, gene), ccp), &gMix) ;
 	}
       
       assMultipleInsert (ass, assVoid(mrna), assVoid (nn)) ;
       up = arrayp (aa, nn++, SPLITMRNA) ;
       up->gene = gene ;
-      up->gNewOld = gNewOld ;
       up->gMix = gMix ;
-      dictAdd (gx->geneDict, dictName (dict, gNewOld), 0) ;
       if (x1) 
 	{
-	  up->gXX = gXX ;
 	  up->x1 = x1 ;
 	  up->x2 = x2 ;
-
-	  dictAdd (gx->geneDict, dictName (dict, up->gXX), 0) ;
 	}
+      gc = arrayp (gx->genes, gene, GC) ; /* make room */
+      gc->gMix = gMix ;
     }
 
   ac_free (h) ;
@@ -634,6 +631,9 @@ static const char *gxSplitMrnaAlias (GX *gx, char *nam)
 {
   char *cp = strchr (nam, '(') ;
   char *cq = strchr (nam, ')') ;
+
+  if (strstr (nam, "AKT3_test"))
+    return 0 ;
   if (cp && cq)
     {
       *cp = *cq = 0 ;
@@ -643,20 +643,17 @@ static const char *gxSplitMrnaAlias (GX *gx, char *nam)
 
       return nam ;
     }
-  else  /* there was no (), may be there should be one */
+  else
     {
-      SPLITMRNA *up ;
+      GC *gc = 0 ;
       int gene = 0 ;
-      if (dictFind (gx->geneDict, nam, &gene) 
-	  && gx->splitMrnaArray 
-	  && gene > 0
-	  && gene < arrayMax (gx->splitMrnaArray)
-	  &&  (up = arrp (gx->splitMrnaArray, gene, SPLITMRNA))
-	  && up->gene == gene
-	  && up->gMix > 0
+
+      if (dictFind (gx->geneDict , nam, &gene)
+	  && gene < arrayMax (gx->genes)
+	  && (gc = arrp (gx->genes, gene, GC))
+	  && gc->gMix
 	  )
-	return 
-	  dictName (gx->geneDict, up->gMix) ;
+	return dictName (gx->geneDict, gc->gMix) ;
     }
   return nam ;
 } /* gxSplitMrnaAlias */
@@ -1061,13 +1058,13 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    )
 	   )
 	{
-	  if (!strcasecmp (ccp, "Gene"))
+	  if (!strcasecmp (ccp, "Gene")) 
 	    {
 	      char *cp = aceInWord (ai) ;
 	      ccp = gxSplitMrnaAlias (gx, cp) ;
 	    }
 	  else
-	      ccp = aceInWord (ai) ;
+	    ccp = aceInWord (ai) ;
 	  if (ccp && strncmp (ccp, "G_Any_", 6))
 	    {
 	      char *cr ;
@@ -1086,8 +1083,15 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	     if (dictFind (gx->affyDict, ccp, &affy))
 		gene = keySet (gx->affy2gene, affy) ;
 	      if (! gene)
-		dictAdd (gx->geneDict, ccp, &gene) ;
+		{
+		  dictAdd (gx->geneDict, ccp, &gene) ;
+		}
 	      gc = arrayp (gx->genes, gene, GC) ; /* make room */
+	      if (gc->gMix && gc->gMix != gene)
+		{
+		  gene = gc->gMix ;
+		  gc = arrayp (gx->genes, gene, GC) ; /* make room */
+		}
 	      isGene = TRUE ; isOut = FALSE ;
 
 	      if (gx->isMRNAH && gx->isTranscript && ! strstr(ccp, ".a"))
@@ -8932,6 +8936,8 @@ static int gxExportTable (GX *gx, int type)
       if (! gene)
 	continue ;
       gc = arrp (gx->genes, gene, GC) ;
+      if (gc->gMix && gc->gMix != gene)
+	continue ;
       if (gx->targeted && ! gc->targeted)
 	continue ;
       if (gx->captured && ! gc->captured)
@@ -14904,12 +14910,12 @@ int main (int argx, const char **argv)
 
   if (gx.runListFileName)     /* impose the order in which they will be reported */
     gxParseRunList (&gx, gx.runListFileName) ;
+  if (gx.splitMrnaFileName)
+      gxSplitMrnaParse (&gx) ;
   if (gx.maskFileName)
     gxParseMask (&gx, gx.maskFileName) ;
   if (gx.chromAliasFileName)
     gxParseChromAlias (&gx, gx.chromAliasFileName) ;
-  if (gx.splitMrnaFileName)
-      gxSplitMrnaParse (&gx) ;
   if (gx.runAceFileName)
     gxAceParse (&gx, gx.runAceFileName,TRUE) ;
 

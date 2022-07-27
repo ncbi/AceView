@@ -171,16 +171,27 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    {
 	      array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
 	      array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
-	      array (sa->metric, r * (i+dx) + j + dx, int) = arr (sa->metric2, r2 * i + j, int) ;
+	      array (sa->metric, r * (i+dx) + j + dx, int) = - arr (sa->metric2, r2 * i + j, int) ;
 	    }
 	  sa->evenHw2.x[dx+i] = hw2.x[i] ;
 	}
     }
   if (hasY)
     {
+      int ro = r1 ;
       sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
       mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
       sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
+      if (1) metricRescale (sa->metric, r, ro, ro, -1) ;
+      if (r1) sa->evenHw1.x[ro] = 1 ;
+      if (r2) sa->evenHw2.x[ro] = 1 ;
+      if (r1) sa->oddHw.x[ro - 1] = 1 ;
+      if (r2) sa->oddHw.x[ro + 1] = 1 ;
+    }
+  else
+    {
+      if (r1) sa->oddHw.x[r1 - 1] = 1 ;
+      if (r2) sa->oddHw.x[r1] = 1 ;
     }
 } /* mergeCartan */
 
@@ -220,7 +231,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	}
       array (Cartan, r*1 + 0, int) = -2 ;
 
-      hw.x[0] = 1 ;
+      hw.x[r-1] = 2 ;
       break ;
       
     case 'C':
@@ -232,7 +243,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	}
     
       array (Cartan, r*1 + 0, int) = -2 ;
-      hw.x[0] = 1 ;
+      hw.x[r-1] = 2 ;
       break ;
       
     case 'D':
@@ -258,7 +269,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
       array (Cartan, r*0 + 3, int) = -1 ;
       array (Cartan, r*3 + 0, int) = -1 ;
 
-      hw.x[0] = 1 ;
+      hw.x[r-1] = 1 ;
       break ;
       
     case 'F':
@@ -384,12 +395,7 @@ static void getCartan (SA *sa, BOOL show)
       switch (m)
 	{
 	default:
-	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
-	  break ;
-	case 6:     /* Lie algebra E6 */
-	case 7:     /* Lie algebra E7 */
-	case 8:     /* Lie algebra E8 */
-	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  getOneCartan (sa, "B", r, 0, TRUE) ;
 	  break ;
 	}
       break ;
@@ -399,12 +405,7 @@ static void getCartan (SA *sa, BOOL show)
       switch (m)
 	{
 	default:
-	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
-	  break ;
-	case 6:     /* Lie algebra E6 */
-	case 7:     /* Lie algebra E7 */
-	case 8:     /* Lie algebra E8 */
-	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  getOneCartan (sa, "C", r, 0, TRUE) ;
 	  break ;
 	}
       break ;
@@ -455,9 +456,7 @@ static void getCartan (SA *sa, BOOL show)
 	  mergeCartan  (sa, 2, 1, FALSE, show) ;
 	  metricRescale (sa->metric, r, 2, 2, 2) ;
 	  
-	  sa->hasOdd = TRUE ;
-	  sa->oddHw.x[1] = 1 ;
-	  sa->oddHw.x[2] = 1 ;
+	  sa->hasOdd = 4 ;
 	  break ;
 	}
       break ;
@@ -479,8 +478,6 @@ static void getCartan (SA *sa, BOOL show)
 	  metricRescale (sa->metric, r, 2, 2, 2) ;
 	  
 	  sa->hasOdd = TRUE ;
-	  sa->oddHw.x[1] = 1 ;
-	  sa->oddHw.x[2] = 1 ;
 	  break ;
 	}
       break ;
@@ -1187,8 +1184,7 @@ static void getAtypic (SA *sa, BOOL show)
       else
 	printf ("############## Typical\n") ;
     }
-  
-  exit (0) ;
+
   return ;
 } /* getAtypic */
 
