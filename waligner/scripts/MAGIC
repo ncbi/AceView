@@ -9500,7 +9500,8 @@ if (-e tmp/METADATA/genome.ns.sponge)       set mask=$mask",Genome:tmp/METADATA/
     if (! -d  tmp/SPONGE/$run) $mkDir SPONGE $run 
 
     if (! -d  tmp/WIGGLEGROUP/$run && ! -d  tmp/WIGGLERUN/$run) continue
-    if (-e tmp/SPONGE/$run/sponge2.gene.done2) continue
+    ls -ls tmp/SPONGE/$run/sponge2.gene.done4
+    if (-e tmp/SPONGE/$run/sponge2.gene.done4) continue
     foreach limit (1 2 5 10 20 50 100 1000 10000)
       echo "scripts/sponge2.tcsh $run $limit $mask $mainTarget"
       scripts/submit  "tmp/SPONGE/$run/sponge2" "scripts/sponge2.tcsh $run $limit $mask $mainTarget"

@@ -179,7 +179,10 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
     }
   if (hasY)
     {
-      int i, ro = r1 ;
+      int i, j, ro = r1 ;
+      int YY[RMAX] ;
+      
+      memset (YY, 0, sizeof (YY)) ;
       sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
       mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
       sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
@@ -194,11 +197,30 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	  messcrash ("Only A and C have a U(1) Y hypercharge") ;
 	  break ;
 	case 'A':
-	  for (i = 0 ; i < r1 ; i++)
-	    sa->YY[i] =  (r2+1)*(i+1) ;
+	  for (i = 0 ; i < ro ; i++)
+	    YY[i] =  -(r2+1)*(i+1) ;
 	  for (i = r-1 ; i > ro ; i--)
-	    sa->YY[i] =  (r1+1)*(r-i) ;
-	  sa->YYd = -(r1+1)*(r2+1) ;
+	    YY[i] =  (r1+1)*(r-i) ;
+	  YY[ro]  = (r1+1)*(r2+1) * (r1 <= r2 ? -1 : 1) ;
+	  sa->YYd = (r1 == r2 ? 1 : r1 - r2) ;
+	  if (0)
+	    {
+	      for (i = 0 ; i < r ; i++)
+		for (j = 0 ; j < r ; j++)
+		  sa->YY[i] += array (sa->upperCartan, r*i + j, int) * YY[j] ;
+	    }
+	  else
+	    {
+	      for (i = 0 ; i < r ; i++)
+		sa->YY[i] = YY[i] ;
+	    }
+	  if (show)
+	    {
+	      printf ("............................................. YYd=%d  YY[]=", sa->YYd) ;
+	      for (i = 0 ; i < r ; i++)
+		printf (" %d", sa->YY[i]) ;
+	      printf ("\n") ;
+	    }
 	  break ;
 	case 'C':
 	  break ;
@@ -568,7 +590,7 @@ static void wwY (SA *sa, WW *ww, int *y1p, int *y2p)
     y1 = y2 = 1 ;
   if (y1 == -y2)
     { y1 = -1 ; y2 = 1 ; }
-  for (i = 2 ; i <= y1 && i<= y2 ; i++)
+  for (i = 2 ; i<= y2 ; i++)
     {
       int z1= y1/i, z2 = y2/i ;
       if (i*z1 == y1 && i*z2 == y2)
@@ -589,7 +611,6 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
       int ii, iMax = arrayMax (wws) ;
       int r, rank = sa->rank ;
 
-      if (0)arraySort (wws, wwLayerOrder) ;
       printf ("\n##################### %s: t=%d : \n", title, type) ;
 
       for (ii = 1 ; ii < iMax ; ii++)
@@ -615,7 +636,6 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
 	    }
 	}
       printf ("## %s dimE=%d dimO=%d dim=%d sdim=%d\n", title, dimE, dimO, dimE+dimO, dimE - dimO) ;
-      if (0) arraySort (wws, wwCreationOrder) ;
     }
   return ;
 } /* wwsShow */
@@ -652,7 +672,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
 	messcrash ("Missing argument --s, expectirn -wws 1:0:2;...    giving the Dynkin lables of the highest weight ") ;
 
       if (k != sa->rank)
-	messcrash ("HW: r5ank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
+	messcrash ("HW: rank = %d but you provided %d Dynkin weights\n", sa->rank, k) ;
       break ;
     case -3:
       *hw = sa->evenHw ;
@@ -772,8 +792,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 
 /******************************************************************************************************/
 
-
-static Array getOneTensorProduct (SA *sa, int atypic,   Array old, BOOL show)
+static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
 {
   int rank = sa->rank ;
   int ii, kk ;
@@ -829,16 +848,25 @@ static Array getOneTensorProduct (SA *sa, int atypic,   Array old, BOOL show)
 	    }
 	}
     }
-
+  /* remove the negative even weights */
+  iMax = arrayMax (wws) ;
+  for (ii = 1 ; ii < iMax ; ii++)
+    {
+      int r ;
+      WW *ww = arrp (wws, ii, WW) ;
+      if (! ww->mult) continue ;
+      for (r = 0 ; r < rank ; r++)
+	if (! sa->odd[r] && ww->x[r] < 0)
+	  ww->mult = 0 ;
+    }
   if (show)
     wwsShow (sa, "Tensor Product", atypic, wws) ;
   return wws ;
-} /* getOneTensorProduct */
-
+} /* getShiftedCrystal */
 
 /******************************************************************************************************/
 
-static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
+static void intersectCrystals (SA *sa, Array wws, Array xxs)
 {
   WW *ww, *xx ;
   int j ;
@@ -854,14 +882,14 @@ static void intersectTensorProducts (SA *sa, Array wws, Array xxs)
     }
   wwsShow (sa, "SUBTRACTED wws", 0, wws) ;
   return ;
-} /* intersectTensorProducts */
+} /* intersectCrystals */
 
 /******************************************************************************************************/
 
-static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
+static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 {
   Array old = sa->wws ;
-  Array wws = getOneTensorProduct (sa, -2, old, show) ;
+  Array wws = getShiftedCrystal (sa, -2, old, show) ;
   if (sa->hasAtypic)
     {
       int ii ;
@@ -871,10 +899,9 @@ static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
 	  {
 	    Array top, xxs ;
 	    getHighestWeight (sa, ii, TRUE, show) ;
-	    demazure (sa, 0, show) ;
 	    top = sa->wws ;
-	    xxs = getOneTensorProduct (sa, ii, top, show) ;
-	    intersectTensorProducts (sa, wws, xxs) ;
+	    xxs = getShiftedCrystal (sa, ii, top, show) ;
+	    intersectCrystals (sa, wws, xxs) ;
 	    ac_free (xxs) ;
 	    ac_free (top) ;
 	    
@@ -903,11 +930,32 @@ static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
       *sdimp = dimE - dimO ;
     }
   arraySort (wws, wwLayerOrder) ;
+  if (1)
+    {
+      Array old = wws ;
+      WW *ww, *ww1 ;
+      int ii ;
+
+      wws = sa->wws = arrayHandleCreate (64, WW, sa->h) ;
+      /* clean up the dict and redeclare the locators */
+      sa->dict = dictHandleCreate (32, sa->h) ;
+      for (ii = 0 ; ii < arrayMax (old) ; ii++)
+	{
+	  ww = arrp (old, ii, WW) ;
+	  if (ww->mult > 0)
+	    {
+	      int k = locateWeight (sa, ww, TRUE) ;
+	      ww1 = arrayp (wws, k, WW) ;
+	      *ww1 = *ww ;
+	      ww1->k = k ;
+	    }
+	}
+    }
   if (show)
     wwsShow (sa, "Final Atypical Tensor Product", 999, wws) ;
 
   return ;
-} /* getTensorProducts */
+} /* getHwCrystal */
 
 /******************************************************************************************************/
 
@@ -928,7 +976,8 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
       int dn = 0 ;
       int jMax = w->x[r1] ; /* default even values */
 
-	  
+      if (n1 == 0)
+	continue ;
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
 	  int j, r, k2 ;
@@ -1081,7 +1130,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
   sa->wws = 0 ;
 
   if (show)
-    wwsShow (sa, "Odd roots", 1, sa->negativeOddRoots) ;
+    wwsShow (sa, "Negative Odd roots", 1, sa->negativeOddRoots) ;
   printf ("## Constructed %d odd roots\n", dim) ;
 
   return ;
@@ -1229,14 +1278,14 @@ static void getAtypic (SA *sa, BOOL show)
       
       if (sa->hasAtypic)
 	{
-	printf ("##############  Aypical") ;
+	  printf ("\n#=================================   Atypical") ;
 	  for (i = 0 ; i < arrayMax (sa->atypic) ; i++)
 	    if (array (sa->atypic, i, int))
 	      printf (" %d", i) ;
 	  printf ("\n") ;
 	}
       else
-	printf ("############## Typical\n") ;
+	printf ("\n#=================================  Typical\n") ;
     }
 
   return ;
@@ -1286,21 +1335,20 @@ int main  (int argc, const char **argv)
        getKacCrystal (&sa, show) ; 
      }
    
-   /* construct the top layer even module */
+   /* construct the h.w of the top layer even module */
    sa.dict = dictHandleCreate (32, sa.h) ;
    getHighestWeight (&sa, -2, TRUE, TRUE) ;
-   printf ("## Weights of the representations\n") ;
-
    printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
 
-   demazure (&sa, &dim, show) ;
    if (sa.hasOdd)
-     { 
-       getTensorProducts (&sa, &dim, &sdim, show) ;
-     }
+     getHwCrystal (&sa, &dim, &sdim, show) ;
    
+   /* complete the Hhw Crystal to a full module */
+   if (1) demazure (&sa, &dim, FALSE) ;
    printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
+   arraySort (sa.wws, wwLayerOrder) ;
+   wwsShow (&sa, "Final representation", 1, sa.wws) ;
    messfree (h) ;
    printf ("A bientot\n") ;
    

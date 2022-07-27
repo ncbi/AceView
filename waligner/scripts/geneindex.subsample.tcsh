@@ -16,7 +16,7 @@ if ($phase == run) then
   if  ($uu == u) set UU=unique
   if  ($uu == nu) set UU=quasi_unique
 
-    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENESP.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENESP.info.ace  -o RESULTS/Expression.$kk/$UU/av/$MAGIC.$kk.AceView.GENESP.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
+    bin/geneindex -deepGene tmp/GENEINDEX/$MAGIC.av.GENESPX.$uu.ace -$uu -mask tmp/GENEINDEX/$MAGIC.av.$uu.mask  -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.av.GENESPX.info.ace  -o RESULTS/Expression.$kk/$UU/av/$MAGIC.$kk.AceView.GENESPX.$uu -gzo  -pA -method Gene_AceView     -stableGenes TARGET/Targets/hs.av.stable_genes.txt -referenceGenome GRCh37.p10__NCBI_37_5__ANNOTATION_RELEASE.104__2013_02_01  -target_class ET_av -geneGroup TARGET/GENES/Gene_groups.ace  -exportDiffGenes  -compare -correlation    -htmlSpecies hs   -export abitvz -subsample $kk
     touch RESULTS/Expression.$kk/$UU/av/runSP.done
 
   goto done
@@ -89,23 +89,23 @@ if ($phase == reportOne) then
 
   set ln=geneBox_length
   set ln=mRNA_length
-  set toto=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESP.$ln.DEG.$uu.stats.txt
+  set toto=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESPX.$ln.DEG.$uu.stats.txt
   echo -n "### $toto : subsampling $kk " > $toto
   date >> $toto
 
   set cap=A1A2I2I3R1R2
-  set totocap=RESULTS/$Expression/$UU/av/AECDB_diff.GENESP.$cap.$ln.DEG.$uu.profile.stats.txt
+  set totocap=RESULTS/$Expression/$UU/av/AECDB_diff.GENESPX.$cap.$ln.DEG.$uu.profile.stats.txt
   echo -n "### $toto$cap : subsampling $kk $cap " > $totocap
   date >> $totocap
 
   foreach comp (RNA_Total_ACB RNA_PolyA_ACB AGLR1_AECDB AGLR2_AECDB ROCR1_AECDB ROCR2_AECDB ILMR1_AECDB ILMR2_AECDB ILMR2_lowQ_AECDB ILMR3_AECDB Nanopore.titr_AGLR2_ACB PacBio2.titr.ccs3_AGLR2_ACB Nanopore.titr_ROCR3_ACB PacBio2.titr.ccs3_ROCR3_ACB BSPR1_AECDB )
-    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$uu.$comp'_Profile'.score.genes.profiles.txt`)
+    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESPX.$uu.$comp'_Profile'.score.genes.profiles.txt`)
       cat $ff | head -1 >> $toto
       cat $ff | tail -6 >> $toto
     end
 
-    if (-e RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$cap.$uu.AGLR1_AECDB_Profile.score.genes.profiles.txt) then 
-      foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$cap.$uu.$comp'_Profile'.score.genes.profiles.txt`)
+    if (-e RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESPX.$cap.$uu.AGLR1_AECDB_Profile.score.genes.profiles.txt) then 
+      foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESPX.$cap.$uu.$comp'_Profile'.score.genes.profiles.txt`)
         cat $ff | head -1 >> $toto$cap
         cat $ff | tail -6 >> $toto$cap
       end
@@ -113,39 +113,39 @@ if ($phase == reportOne) then
   end
 
   set ln=mRNA_length
-  set toto=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESP.$ln.DEG.$uu.heatmap.txt
+  set toto=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESPX.$ln.DEG.$uu.heatmap.txt
   echo -n "### $toto :" > $toto
   date >> $toto
 
-  set totoCL=RESULTS/Expression/$UU/av/AECDB_diff.CL.GENESP.DEG.$uu.heatmap.txt
+  set totoCL=RESULTS/Expression/$UU/av/AECDB_diff.CL.GENESPX.DEG.$uu.heatmap.txt
   echo -n "### $totoCL :" > $totoCL
   date >> $totoCL
 
 
 
 # grep index min/max et fold change
-  cat RESULTS/Expression.0k/$UU/av/AECDB_diff.0k.AceView.GENESP.$uu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("LnMiMxFc\t%s\t%s\t%s\t%s\t%s\n",$2,$3,$41,$42,$40);}' > $toto.0
+  cat RESULTS/Expression.0k/$UU/av/AECDB_diff.0k.AceView.GENESPX.$uu.RNA_Total_ACB_Profile.score.genes.profiles.txt | gawk -F '\t' '/^#/{next;}{printf("LnMiMxFc\t%s\t%s\t%s\t%s\t%s\n",$2,$3,$41,$42,$40);}' > $toto.0
 
   date > $toto.1
   date > $toto.2
   date > $toto.3
 
   foreach comp (AGLR1_AECDB AGLR2_AECDB BSPR1_AECDB ROCR1_AECDB ROCR2_AECDB ILMR1_AECDB ILMR2_AECDB ILMR2_lowQ_AECDB ILMR3_AECDB)
-    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$uu.$comp'_Profile'.score.genes.profiles.txt`)
-      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENESP.$uu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
+    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESPX.$uu.$comp'_Profile'.score.genes.profiles.txt`)
+      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$45,$46);}' ff=$ff | grep AECDB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENESPX.$uu.//" -e 's/_AECDB_Profile.score.genes.profiles.txt//' >> $toto.1
     end
   end
 
   foreach comp (RNA_Total_ACB RNA_PolyA_ACB Nanopore.titr_AGLR2_ACB PacBio2.titr.ccs3_AGLR2_ACB Nanopore.titr_ROCR3_ACB PacBio2.titr.ccs3_ROCR3_ACB)
-    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESP.$uu.$comp'_Profile'.score.genes.profiles.txt`)
-      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENESP.$uu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
+    foreach ff (`ls  RESULTS/$Expression/$UU/av/AECDB_diff.$kk.AceView.GENESPX.$uu.$comp'_Profile'.score.genes.profiles.txt`)
+      cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",ff,$2,$3,$5,$29,$30);}' ff=$ff | grep ACB_Profile | sed -e "s/RESULTS\/$Expression\/$UU\/av\/AECDB_diff.$kk.AceView.GENESPX.$uu.//" -e 's/_ACB_Profile.score.genes.profiles.txt//' >> $toto.2
     end
   end
 
   if ($kk == 0k) then
     \rm $toto.3
     foreach cl (CL1-Brain-B_priv-2sA1 CL10-Testis-B_priv-2sA1 CL2-Breast-B_priv-2sA1 CL3-Cervix-B_priv-2sA1 CL4-Liver-B_priv-2sA1 CL5-Lipo-B_priv-2sA1 CL6-Blym-B_priv-2sA1 CL7-Tlym-B_priv-2sA1 CL8-Macr-B_priv-2sA1 CL9-Skin-B_priv-2sA1 SumOfCL1toCL10-B_2grps-2_A1  A-UHR-B_priv_4.2sA1 A-UHR-B_4lR3 CL1-Brain-B_4lR3 CL2-Breast-B_4lR3 CL3-Cervix-B_4lR3 CL4-Liver-B_4lR3 CL5-Lipo-B_4lR3 CL6-Blym-B_4lR3 CL7-Tlym-B_4lR3 CL8-Macr-B_4lR3 CL9-Skin-B_4lR3 CL10-Testis-B_4lR3 )
-      set ff=RESULTS/Expression/unique/av/CL.AceView.GENESP.u.$cl.score.genes.profiles.txt
+      set ff=RESULTS/Expression/unique/av/CL.AceView.GENESPX.u.$cl.score.genes.profiles.txt
       set n1=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the even columns' | gawk -F : '{print $1}'`
       set n2=`cat $ff | head -12 | transpose | grep -n 'Sum of the differential scores of the odd columns' | gawk -F : '{print $1}'`
       cat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\t%s\t%s\t%s\t%s\n",cl,$2,$3,$5,$n1,$n2);}' cl=$cl n1=$n1 n2=$n2 >> $toto.3 
@@ -164,14 +164,14 @@ if ($phase == reportOne) then
   # \rm $toto.[012345]
   ls -ls $toto.[012345]
 
-  set toto2=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESP.$ln.DEG.$uu.heatmap.A2R2I3.txt
+  set toto2=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESPX.$ln.DEG.$uu.heatmap.A2R2I3.txt
   echo -n "### $toto2 :" > $toto2
   date >> $toto2
 
   cat $toto | gawk '/^###/{next;}/^#/{print;next;}{c=$3;if(index(c,"A2")*index(c,"R2")*index(c,"I3")>0)print;}' >> $toto2
 
 
-  set toto2=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESP.$ln.DEG.$uu.heatmap.A1A2I2I3R1R2.txt
+  set toto2=RESULTS/$Expression/$UU/av/AECDB_diff.$kk.GENESPX.$ln.DEG.$uu.heatmap.A1A2I2I3R1R2.txt
   echo -n "### $toto2 :" > $toto2
   date >> $toto2
 
@@ -196,7 +196,7 @@ if ($phase == cumul) then
   # establish the truth list
   set totog=RESULTS/Expression.0k/unique/av/gene_truth.list
     if (! -e $totog.ZZ) then
-      cat RESULTS/Expression.0k/unique/av/AECDB_diff.0k.GENESP.mRNA_length.DEG.u.heatmap.txt | gawk -F '\t' '{printf("Truth\t%s\t%s\n",$1,$7);}' > $totog.0k
+      cat RESULTS/Expression.0k/unique/av/AECDB_diff.0k.GENESPX.mRNA_length.DEG.u.heatmap.txt | gawk -F '\t' '{printf("Truth\t%s\t%s\n",$1,$7);}' > $totog.0k
     endif
 
     set toto=RESULTS/Expression.0k/deg_truth_per_depth.txt

@@ -9,8 +9,7 @@ set mask="$6"
 set mainTarget=$7
 
 # genome gene_and_new_exon new_and_known_exon known_exon RefSeq
-echo "sponge_chom.tcsh $run $chrom $uu $fr $limit $mask"
-
+echo "sponge_chrom.tcsh $run $chrom $uu $fr $limit $mask"
 
 # prepare the frns wiggles if not available, now always done in wg2a for runs and wg2b for groups 
 set ww1=toto
@@ -35,18 +34,22 @@ else
   set ww="$ww1,$ww2"
 endif
 
-if ($mainTarget != introns) then        
+echo "##Phase 4444444444444444444"
+if (1 && $mainTarget != introns) then        
   set toto=tmp/SPONGE/$run/Total.$chrom.$uu.$fr.$limit
-  if (! -e $toto) then
-    echo Total > $toto
-    echo "... bin/geneelements -sponge $limit -spongeFile $mask  -sxxChromosome $chrom -wiggle $ww >  $toto"
-              bin/geneelements -sponge $limit -spongeFile $mask  -sxxChromosome $chrom -wiggle $ww >  $toto
-  endif
+  if (! -e $toto.txt) then
+    if (! -e $toto) then
+      echo Total > $toto
+      echo "... bin/geneelements -sponge $limit -spongeFile $mask  -sxxChromosome $chrom -wiggle $ww >  $toto"
+                bin/geneelements -sponge $limit -spongeFile $mask  -sxxChromosome $chrom -wiggle $ww >  $toto
+    endif
 
-  grep Total $toto |   sed -e "s/^Total/$chrom\t$fr/" | gawk -F '\t' '{r=run;}/^#/{r="#Run\tChrom"}{printf("%s\t",r);print;}' run=$run > $toto.txt
-  \rm $toto
+    grep Total $toto |   sed -e "s/^Total/$chrom\t$fr/" | gawk -F '\t' '{r=run;}/^#/{r="#Run\tChrom"}{printf("%s\t",r);print;}' run=$run > $toto.txt
+    \rm $toto
+  endif
 endif
 
+echo "##Phase v4   limit=$limit"
 set fr=ns
 foreach mainTarget ($Etargets)
   foreach GM (gene mrna)
@@ -57,10 +60,15 @@ foreach mainTarget ($Etargets)
       if (-e $toto)  \rm $toto
       set toto=tmp/SPONGE/$run/$mainTarget.$GM.$chrom.$uu.$fr.$limit
       if (-e $toto)  \rm $toto
-      set toto=tmp/SPONGE/$run/$mainTarget.$GM.v2.$chrom.$uu.$fr.$limit
-      if (! -e $toto) then
-        echo "bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
-              bin/geneelements -sponge $limit -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
+      set toto=tmp/SPONGE/$run/$mainTarget.$GM.v4.$chrom.$uu.$fr.$limit
+      set split=""
+      if (-e tmp/METADATA/$mainTarget.split_mrnas.gz)  then
+        set split="-split_mRNAs  tmp/METADATA/$mainTarget.split_mrnas.gz"
+      endif
+      ls -ls tmp/METADATA/$mainTarget.split_mrnas.gz
+      if (! -e $toto.ZZZ) then
+        echo "bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
+              bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
       endif
     endif
   end
