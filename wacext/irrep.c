@@ -24,6 +24,7 @@ typedef struct saStruct
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
+  int YY[RMAX], YYd ;
   int m, n, rank, rank1, rank2 ;
   Array metric, metric1, metric2 ;
   Array Cartan, Cartan1, Cartan2 ;
@@ -178,7 +179,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
     }
   if (hasY)
     {
-      int ro = r1 ;
+      int i, ro = r1 ;
       sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
       mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
       sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
@@ -187,6 +188,21 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       if (r2) sa->evenHw2.x[ro] = 1 ;
       if (r1) sa->oddHw.x[ro - 1] = 1 ;
       if (r2) sa->oddHw.x[ro + 1] = 1 ;
+      switch ((int)sa->type[0])
+	{
+	default:
+	  messcrash ("Only A and C have a U(1) Y hypercharge") ;
+	  break ;
+	case 'A':
+	  for (i = 0 ; i < r1 ; i++)
+	    sa->YY[i] =  (r2+1)*(i+1) ;
+	  for (i = r-1 ; i > ro ; i--)
+	    sa->YY[i] =  (r1+1)*(r-i) ;
+	  sa->YYd = -(r1+1)*(r2+1) ;
+	  break ;
+	case 'C':
+	  break ;
+	}
     }
   else
     {
@@ -536,6 +552,35 @@ static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
 
 /******************************************************************************************************/  
 
+static void wwY (SA *sa, WW *ww, int *y1p, int *y2p)
+{
+  int *YY = sa->YY ;
+  int i, y1 = 0, y2 = 0 ;
+  
+  for (i = 0 ; i < sa->rank ; i++)
+    y1 += YY[i] * ww->x[i] ;
+  
+  y2 = sa->YYd ;
+  if (y2 < 0) {y2 = -y2 ; y1 = -y1 ;}
+  if (y1 == 0)
+    y2 = 1 ;
+  if (y1 == y2)
+    y1 = y2 = 1 ;
+  if (y1 == -y2)
+    { y1 = -1 ; y2 = 1 ; }
+  for (i = 2 ; i <= y1 && i<= y2 ; i++)
+    {
+      int z1= y1/i, z2 = y2/i ;
+      if (i*z1 == y1 && i*z2 == y2)
+	{ y1 = z1 ; y2 = z2 ; i = 1 ; }
+    }
+  *y1p = y1 ;
+  *y2p = y2 ;
+  return  ;
+} /* wwY */
+
+/******************************************************************************************************/  
+
 static void wwsShow (SA *sa, char *title, int type, Array wws)
 {
   if (wws)  
@@ -554,7 +599,15 @@ static void wwsShow (SA *sa, char *title, int type, Array wws)
 	    {
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", ww->x[r]) ;
-	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=%d\n", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "", wwScalarProduct (sa, ww, ww) ) ;
+	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=%d", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "", wwScalarProduct (sa, ww, ww) ) ;
+	      if (sa->YYd)
+		{
+		  int y1, y2 ;
+		  wwY (sa, ww, &y1, &y2) ;
+		  if (y2 <= 1) printf ("\tY=%d",y1) ;
+		  else printf ("\tY=%d/%d",y1,y2) ;
+		}
+	      printf ("\n") ;
 	      if (ww->odd)
 		dimO += ww->mult ;
 	      else
@@ -849,6 +902,7 @@ static void getTensorProducts (SA *sa, int *dimp, int *sdimp,  BOOL show)
       *dimp = dimE + dimO ;
       *sdimp = dimE - dimO ;
     }
+  arraySort (wws, wwLayerOrder) ;
   if (show)
     wwsShow (sa, "Final Atypical Tensor Product", 999, wws) ;
 
