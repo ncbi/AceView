@@ -1115,7 +1115,6 @@ static int demazure (SA *sa, int *dimp, BOOL show)
 
 /******************************************************************************************************/
 
-
 static void getNegativeOddRoots (SA *sa, BOOL show)
 {
   int dim = 0 ;
@@ -1345,7 +1344,7 @@ int main  (int argc, const char **argv)
      getHwCrystal (&sa, &dim, &sdim, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dim, FALSE) ;
+   if (0) demazure (&sa, &dim, FALSE) ;
    printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
    arraySort (sa.wws, wwLayerOrder) ;
    wwsShow (&sa, "Final representation", 1, sa.wws) ;

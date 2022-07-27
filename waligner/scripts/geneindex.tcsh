@@ -1173,6 +1173,16 @@ if ($ok == 0) continue
      set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
    endif
+   if ($MAGIC == CL2) then
+     set CAPT=A1
+     set sg="$sg   -captured $CAPT"
+     set CAPT=".$CAPT" 
+   endif
+   if ($MAGIC == CL3) then
+     set CAPT=A1
+     set sg="$sg   -captured $CAPT"
+     set CAPT=".$CAPT" 
+   endif
    if (0) then
      set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
      set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
