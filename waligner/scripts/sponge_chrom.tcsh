@@ -51,28 +51,33 @@ endif
 
 echo "##Phase v4   limit=$limit"
 set fr=ns
-foreach mainTarget ($Etargets)
-  foreach GM (gene mrna)
-    set geneMask=tmp/METADATA/$mainTarget.$fr.$GM.sponge
-    ls -ls $geneMask
-    if (-e $geneMask && $limit == 1) then
-      set toto=tmp/SPONGE/$run/$mainTarget.$chrom.$uu.$fr.$limit
-      if (-e $toto)  \rm $toto
-      set toto=tmp/SPONGE/$run/$mainTarget.$GM.$chrom.$uu.$fr.$limit
-      if (-e $toto)  \rm $toto
-      set toto=tmp/SPONGE/$run/$mainTarget.$GM.v4.$chrom.$uu.$fr.$limit
-      set split=""
-      if (-e tmp/METADATA/$mainTarget.split_mrnas.gz)  then
-        set split="-split_mRNAs  tmp/METADATA/$mainTarget.split_mrnas.gz"
+set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
+
+if ($long == 1) then
+  foreach mainTarget ($Etargets)
+    foreach GM (gene mrna)
+      set geneMask=tmp/METADATA/$mainTarget.$fr.$GM.sponge
+      ls -ls $geneMask
+      if (-e $geneMask && $limit == 1) then
+        set toto=tmp/SPONGE/$run/$mainTarget.$chrom.$uu.$fr.$limit
+        if (-e $toto)  \rm $toto
+        set toto=tmp/SPONGE/$run/$mainTarget.$GM.$chrom.$uu.$fr.$limit
+        if (-e $toto)  \rm $toto
+        set toto=tmp/SPONGE/$run/$mainTarget.$GM.v4.$chrom.$uu.$fr.$limit
+        set split=""
+        if (-e tmp/METADATA/$mainTarget.split_mrnas.gz)  then
+          set split="-split_mRNAs  tmp/METADATA/$mainTarget.split_mrnas.gz"
+        endif
+        ls -ls tmp/METADATA/$mainTarget.split_mrnas.gz
+        if (! -e $toto.ZZZ) then
+          echo "bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
+                bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
+        endif
       endif
-      ls -ls tmp/METADATA/$mainTarget.split_mrnas.gz
-      if (! -e $toto.ZZZ) then
-        echo "bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
-              bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
-      endif
-    endif
+    end
   end
-end
+endif
+
 
 
 

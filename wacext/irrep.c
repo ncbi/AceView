@@ -1265,6 +1265,11 @@ static void getAtypic (SA *sa, BOOL show)
       int x = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
       
+      if (0)
+	{ /* debug G(3) adjoint */
+	  array (sa->atypic, 3, int) = 1 ;
+	  break ;
+	}
       x = wwScalarProduct (sa, &hwT, ww) ;
       if (x == 0)
 	{
@@ -1346,7 +1351,7 @@ int main  (int argc, const char **argv)
      getHwCrystal (&sa, &dim, &sdim, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dim, TRUE, FALSE) ;
+   if (1) demazure (&sa, &dim, FALSE, FALSE) ;
    printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
    arraySort (sa.wws, wwLayerOrder) ;
    wwsShow (&sa, "Final representation", 1, sa.wws) ;

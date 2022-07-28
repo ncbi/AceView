@@ -937,7 +937,10 @@ if ($ok == 0) goto phaseLoop
 # g4sp expression based on sponge file is not yet written as of 2019_10_14
 phaseg4sp:
 phaseg4spx:
- phasesnp4:
+phasesnp4:
+touch tmp/GENEINDEX/toto.ace
+\rm tmp/GENEINDEX/$MAGIC.*.ace
+
 if ($SNPCHROM == 000) set mySeaLevel=""
 echo "phase $phase $mySeaLevel"
 phaseklst4:
@@ -1168,7 +1171,7 @@ if ($ok == 0) continue
   if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
 
    set CAPT=""
-   if ($MAGIC == CL1) then
+   if (1 && $MAGIC == CL1) then
      set CAPT=A1R3
      set sg="$sg   -captured $CAPT"
      set CAPT=".$CAPT" 
@@ -1285,7 +1288,7 @@ if ($ok == 0) continue
      foreach run (`cat MetaDB/$MAGIC/RunsList `)
          set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
          if ($long == 1) then
-           ls -ls tmp/SPONGE/$run/$target.mrna.v2.3.$uu.ns.1
+           ls -ls tmp/SPONGE/$run/$target.mrna.v4.3.$uu.ns.1
            set myGM=gene
            if ($GM == GENESPX) set myGM=mrna
            set n=`ls  tmp/SPONGE/$run/$target.$myGM.v4.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`

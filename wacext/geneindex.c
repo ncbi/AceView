@@ -2724,8 +2724,9 @@ static void gxGeneGroupCount (GX *gx)
 	    BOOL hasLength = gc->length ? TRUE : FALSE ; /* may have been provided as .ace data */
 	    if (gx->targeted && ! gc->targeted)
 	      continue ;
-	    if (gx->captured && ! gc->captured)
-	      continue ;
+	    if (0)
+	      if (gx->captured && ! gc->captured)
+		continue ;
 	    if (! hasLength)
 	      gc->length =  0 ;
 	    gc->tags = 0 ;
@@ -2736,8 +2737,9 @@ static void gxGeneGroupCount (GX *gx)
 		if (gene1 && gene1 < keySetMax (gx->genes))
 		  {
 		    gc1 = arrp (gx->genes, gene1, GC) ;
-		    if (gx->captured && ! gc1->captured)
-		      continue ;
+		    if (0)
+		      if (gx->captured && ! gc1->captured)
+			continue ;
 		    if (gx->targeted && ! gc1->targeted)
 		      continue ;
 		    if (! hasLength) gc->length += gc1->length ;  
@@ -2867,8 +2869,9 @@ static void gxGroupCumul (GX *gx, RC *rc, int myGene)
 		continue ;
 	      if (gx->targeted && (! gc || ! gc->targeted))
 		continue ;
-	      if (gx->captured && (! gc || ! gc->captured))
-		continue ;
+	      if (0)
+		if (gx->captured && (! gc || ! gc->captured))
+		  continue ;
 	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 		continue ;
 
@@ -2990,8 +2993,9 @@ static void gxGroupCumul (GX *gx, RC *rc, int myGene)
 	      GC *gc = gene < arrayMax (gx->genes) ? arrp (gx->genes, gene, GC) : 0 ;
 	      if (gx->targeted && (! gc || ! gc->targeted))
 		continue ;
-	      if (gx->captured && (! gc || ! gc->captured))
-		continue ;
+	      if (0)
+		if (gx->captured && (! gc || ! gc->captured))
+		  continue ;
 	      ddc = daa ? arrayp (daa, gene, DDC) : 0 ;
 	      if (gx->isSNP)
 		{
@@ -3399,8 +3403,9 @@ static int gxComputeAllIndex (GX *gx)
 		continue ;
 	      if (gx->targeted && ! gc->targeted)
 		continue ;
-	      if (gx->captured && (! gc->captured))
-		continue ;
+	      if (0)
+		if (gx->captured && (! gc->captured))
+		  continue ;
 	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 		continue ;
 	      /* compute and register the index */
@@ -4456,8 +4461,9 @@ static void gxAllGeneCorrelations (GX *gx)
   for (i = 1 ; i < gMax ; i++)
     {
       GC *gc1 = arrp (gx->genes, i, GC) ;
-      if (gx->captured && gc1->captured)
-	continue ;
+      if (1)
+	if (gx->captured && gc1->captured)
+	  continue ;
       if (gx->targeted && ! gc1->targeted)
 	continue ;
 		  
@@ -4472,8 +4478,9 @@ static void gxAllGeneCorrelations (GX *gx)
 	    continue ;
 	  if (gx->targeted && ! gc2->targeted)
 	    continue ;
-	  if (gx->captured && ! gc2->captured)
-	    continue ;
+	  if (1)
+	    if (gx->captured && ! gc2->captured)
+	      continue ;
 	  if (0 && strcmp (dictName(dict, j), "X__ACTR3BP2"))
 	    continue ;
 	  ok = N = 0 ; X = X2 = Y =Y2 = XY = 0 ;
@@ -4582,9 +4589,10 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	    */
 	    if (gx->targeted && ! gc->targeted)
 	      continue ;
-	    if (gx->captured && ! gc->captured)
-	      continue ;
-		  
+	    if (0)
+	      if (gx->captured && ! gc->captured)
+		continue ;
+	    
 	    n = dc->index + .001 - 1000 ;
 	    if (! dc->tags || n<0) n = 0 ;
 	    if (gx->isSNP || n > 0)
@@ -5019,8 +5027,9 @@ static void gxTitration (GX *gx)
 	  GC *gc = arrayp (gx->genes, gene, GC) ;
 	  if (gx->targeted && ! gc->targeted)
 	    continue ;
-	  if (gx->captured && ! gc->captured)
-	    continue ;
+	  if (1)
+	    if (gx->captured && ! gc->captured)
+	      continue ;
 
 	  for (i = 0 ; i < tp->rMax ; i++)
 	    {
@@ -6782,8 +6791,9 @@ static Array gxDoCompare_to (GX *gx, int pass, COMPARE *compare
 
 	      if (gx->targeted && ! gc->targeted)
 		continue ;
-	      if (gx->captured && ! gc->captured)
-		continue ;
+	      if (0)
+		if (gx->captured && ! gc->captured)
+		  continue ;
 	      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 		continue ;
 
@@ -8896,8 +8906,9 @@ static int gxExportTable (GX *gx, int type)
 	{
 	  if ( (gx->targeted && !gc->targeted && ! gx->isINTRON) || ( gx->skipEmptyGenes && gc->tags < 1 && ! gc->geneId)) /* force exportation of a gene by setting geneid */
 	    continue ;	 
-	  if (gx->captured && ! gc->captured)
-	    continue ;
+	  if (1)
+	    if (gx->captured && ! gc->captured)
+	      continue ;
  
 	  if (gx->lowVarianceGenes && ! keySetFind (gx->lowVarianceGenes, gene, 0))
 	    continue ;
@@ -8940,8 +8951,9 @@ static int gxExportTable (GX *gx, int type)
 	continue ;
       if (gx->targeted && ! gc->targeted)
 	continue ;
-      if (gx->captured && ! gc->captured)
-	continue ;
+      if (1)
+	if (gx->captured && ! gc->captured)
+	  continue ;
 
       if (! gc->isGood)
 	continue ;
@@ -9449,8 +9461,9 @@ static int gxExportGeneAceFile (GX *gx)
     {
       if (gx->targeted && ! gc->targeted)
 	continue ;
-      if (gx->captured && ! gc->captured)
-	continue ;
+      if (0)
+	if (gx->captured && ! gc->captured)
+	  continue ;
       
       if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
@@ -10726,8 +10739,9 @@ static int gxExportDiffGenes (GX *gx, COMPARE *compare, Array pp, int run1, int 
       gc = arrp (gx->genes, gene, GC) ;  
       if (gx->targeted && ! gc->targeted)
 	continue ;
-      if (gx->captured && ! gc->captured)
-	continue ;
+      if (1)
+	if (gx->captured && ! gc->captured)
+	  continue ;
 		  
       if (! gene) 
 	continue ;
@@ -11012,8 +11026,9 @@ static BOOL gxRunsCosineUsingGenes (GX *gx, KEYSET genes, Associator assPlus, As
       ok = FALSE ;
       if (gx->targeted && ! gc->targeted)
 	continue ;
-      if (gx->captured && ! gc->captured)
-	continue ;
+      if (1)
+	if (gx->captured && ! gc->captured)
+	  continue ;
       if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
 
@@ -12570,10 +12585,11 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
       gc = arrayp (gx->genes, gt->gene, GC) ;
       if (!gx->isINTRON && (gx->targeted && !gc->targeted))
 	continue ;
-	  if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
+      if (gx->isINTRON && !gc->tags && ! gc->intronRefSeq && ! gc->intronAv)
 	continue ;
-      if (gx->captured && ! gc->captured)
-	continue ;
+      if (1)
+	if (gx->captured && ! gc->captured)
+	  continue ;
 
       if (1 && ! strcmp (dictName (gx->geneDict, gt->gene), "22__36651046_36653128"))
 	invokeDebugger () ;
