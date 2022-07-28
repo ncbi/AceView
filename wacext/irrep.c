@@ -53,7 +53,7 @@ typedef struct saStruct
 } SA ; /* SuperAlgebra struct */
 
 
-static int demazure (SA *sa, int *dimp, BOOL show) ;
+static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show) ;
 
 /******************************************************************************************************/
 
@@ -163,9 +163,10 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
     }
   if (r2 > 0)
     {
-      WW hw2 = sa->evenHw2 ;
+      WW oldhw2 = sa->evenHw2 ;
+
       for (i = 0 ; i < r ; i++)
-	sa->evenHw2.x[j] = 0 ;
+	sa->evenHw2.x[i] = 0 ;
       for (i = 0 ; i < r2 ; i++)
 	{	
 	  for (j = 0 ; j < r2 ; j++)
@@ -174,7 +175,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	      array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
 	      array (sa->metric, r * (i+dx) + j + dx, int) = - arr (sa->metric2, r2 * i + j, int) ;
 	    }
-	  sa->evenHw2.x[dx+i] = hw2.x[i] ;
+	  sa->evenHw2.x[dx+i] = oldhw2.x[i] ;
 	}
     }
   if (hasY)
@@ -514,8 +515,9 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
 	  mergeCartan  (sa, 2, 1, FALSE, show) ;
 	  metricRescale (sa->metric, r, 2, 2, 2) ;
-	  
+	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
+	  sa->oddHw.x[2] = -1 ;
 	  break ;
 	}
       break ;
@@ -648,7 +650,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
   Array wws ;
   int k = 0 ;
   int rank = sa->rank ;
-  int r, r1 = sa->hasOdd - 1 ;
+  int r ;
 
   /* reinitialize a single hw.w */
   sa->pass = 0 ;
@@ -663,7 +665,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       break ;
     case -1: /* use as h.w. the lowering simple root */
       for (r = 0 ; r < rank ; r++)
-	hw->x[r] = - array(sa->Cartan, rank * r + r1, int) ;
+	hw->x[r] = sa->oddHw.x[r] ;
       break ;
     case -2: /* construct from the parameters */
       if (sa->wws)
@@ -1073,7 +1075,7 @@ static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
 
 /******************************************************************************************************/
 
-static int demazure (SA *sa, int *dimp, BOOL show)
+static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show)
 {
   BOOL ok = TRUE ;
   BOOL debug = FALSE ;
@@ -1087,7 +1089,7 @@ static int demazure (SA *sa, int *dimp, BOOL show)
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	{
-	  if (! sa->odd[r])
+	  if (! sa->odd[r] && ! (nonExtended && sa->extended[r]))
 	    ok |= demazureEven (sa, r, &dim, show) ;
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws) ;
@@ -1124,7 +1126,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
    /* use as h.w. the lowering simple root */
    getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
-  sa->nOdd = demazure (sa, &dim, show) ;
+   sa->nOdd = demazure (sa, &dim, TRUE, show) ;
   sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
 
@@ -1147,7 +1149,7 @@ static void getAdjoint (SA *sa, BOOL show)
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
   /* construct the adjoint layer using Demazure */
-  sa->nEven = demazure (sa, &dimE, show) ;
+  sa->nEven = demazure (sa, &dimE, FALSE, show) ;
 
   sa->evenRoots = sa->wws ;
   sa->wws = 0 ;
@@ -1344,7 +1346,7 @@ int main  (int argc, const char **argv)
      getHwCrystal (&sa, &dim, &sdim, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (0) demazure (&sa, &dim, FALSE) ;
+   if (1) demazure (&sa, &dim, TRUE, FALSE) ;
    printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
    arraySort (sa.wws, wwLayerOrder) ;
    wwsShow (&sa, "Final representation", 1, sa.wws) ;
