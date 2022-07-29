@@ -760,7 +760,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  if (yes == 1)
 	    {
 	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
-	      if (wodd->l2 == 0)
+	      if (!arr(sa->atypic,k,int) && wodd->l2 == 0)
 		{
 		  vtxtPrintf (txt, " %d", k) ;
 		  layer++ ;
@@ -934,7 +934,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
     {
       int ii ;
       
-      for (ii = 0 ; ii < arrayMax (sa->atypic) ; ii++)
+      for (ii = 0 ; 0 && ii < arrayMax (sa->atypic) ; ii++)
 	if (array (sa->atypic, ii, int))
 	  {
 	    Array top, xxs ;
@@ -1391,8 +1391,8 @@ int main  (int argc, const char **argv)
 
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
-       getKacCrystal (&sa, show) ; 
        getAtypic (&sa, show) ;
+       getKacCrystal (&sa, show) ; 
      }
    
    /* construct the h.w of the top layer even module */
