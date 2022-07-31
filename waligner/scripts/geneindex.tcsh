@@ -1291,9 +1291,9 @@ if ($ok == 0) continue
            ls -ls tmp/SPONGE/$run/$target.mrna.v4.3.$uu.ns.1
            set myGM=gene
            if ($GM == GENESPX) set myGM=mrna
-           set n=`ls  tmp/SPONGE/$run/$target.$myGM.v4.*.$uu.ns.1 | gawk '{n++;}END{print n+0;}'`
+           set n=`ls  tmp/SPONGE/$run/$target.$myGM.v4.*.$uu.[fr].1 | gawk '{n++;}END{print n+0;}'`
            if ($n  > 0) then
-             cat tmp/SPONGE/$run/$target.$myGM.v4.*.$uu.ns.1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",g,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
+             cat tmp/SPONGE/$run/$target.$myGM.v4.*.$uu.[fr].1 | gawk -F '\t' '/^#/{next;}{g=$3;nn[g]+=$11;}END{for(g in nn){z=nn[g]/100;printf("Gene \"%s\"\nRun_U %s 0.00 %.2f seqs %.2f tags %.2f kb\n\n",g,run,z,z,z/10);}}' run=$run >> tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
            endif
          else
            if (-e  tmp/GENERUNS/$run/$run.$target.GENE.$uu.geneSupport.ace.gz) then

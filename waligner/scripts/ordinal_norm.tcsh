@@ -17,7 +17,7 @@ echo "ordinal_norm.tcsh $phase $type"
 cat MetaDB/$MAGIC/runs.ace | gawk 'BEGIN{c="NULL";}{gsub(/\"/,"",$0);}/^Run /{ok=0;run=$2;next;}/^Capture/{printf("RUN\t%s\t%s\n",run,$2);}' > $toto.rc
 cat tmp/METADATA/$MAGIC.av.captured_genes.ace | gawk 'gsub(/\"/,"",$0);/^Gene/{g=$2;}/^Capture_touch/{next;}/^Capture/{printf("GENE\t%s\t%s\n",g,$2);}' > $toto.gc
 
-set ff=RESULTS/Expression/AceFiles/$MAGIC.AceView.$type.A1R3.u.ace.gz
+set ff=RESULTS/Expression/AceFiles/$MAGIC.AceView.$type.A1.u.ace.gz
 ls -ls $ff
 if (-e $ff) then
   zcat $ff | gawk '/^$/{g=0;next;}{gsub(/\"/,"",$0);}/^Gene /{g=$2;next;}{r=0;}/^Run_U/{r=$2;}/^Group_U/{r=$2;}{if(g!=0 && r!=0)printf("%s\t%.2f\t%s\n",r,$3,g);next;}' > $toto.1

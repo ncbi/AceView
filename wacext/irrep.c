@@ -37,7 +37,7 @@ typedef struct saStruct
   BOOL odd[RMAX] ;
   BOOL extended[RMAX] ;
   Array Kac ; /* Kac crystal */
-  WW evenHw, evenHw1, evenHw2 ;
+  WW evenHw, evenHw1, evenHwD2, evenHw2 ;
   WW oddHw ;
   WW extendedHw ;
   Array evenRoots ; /* odd roots */
@@ -474,14 +474,25 @@ static void getCartan (SA *sa, BOOL show)
 	getOneCartan (sa, "C", n, 0, TRUE) ;
       else
 	{
-	sa->extended[m] = TRUE ;
-	sa->hasOdd = TRUE ;
-	sa->oddHw.x[m-1] = -1 ;
-	sa->oddHw.x[m] = -1 ;
-	getOneCartan (sa, "D", m, 1, TRUE) ;
-	getOneCartan (sa, "C", n, 2, TRUE) ;
-	mergeCartan  (sa, m, n, FALSE, show) ;
-	metricRescale (sa->metric, r, m, m+n, 1);
+	  if (m == 2)
+	    {
+	      getOneCartan (sa, "D", 1, 1, TRUE) ;
+	      getOneCartan (sa, "D", 1, 2, TRUE) ;
+	      mergeCartan  (sa, 1, 1, FALSE, show) ;
+	      sa->Cartan1 = sa->Cartan ;
+	      sa->upperCartan1 = sa->Cartan ;
+	      sa->metric1 = sa->metric ;
+	      getOneCartan (sa, "C", n, 2, TRUE) ;
+	      mergeCartan  (sa, 2, n, FALSE, show) ;
+	      sa->extended[2] = TRUE ;
+	      sa->hasOdd = TRUE ;
+	      sa->evenHw1.x[0] = 2 ;
+	      sa->evenHwD2.x[1] = 2 ;
+	      sa->oddHw.x[1] = 1 ;
+	      sa->oddHw.x[2] = -1 ;
+	      metricRescale (sa->metric,sa->rank,0,1,1) ;
+	      metricRescale (sa->metric,sa->rank,2,2,-1) ;
+	    }
 	}
       break ;
       
@@ -707,6 +718,15 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       if (sa->rank2)
 	{
 	  WW *ew = arrayp (wws, 2, WW) ;
+	  if (sa->type[0]=='D' && sa->m == 2)
+	    {
+	      *ew = sa->evenHwD2 ;
+	      ew->mult = create ? 1 : 0 ;
+	      ew->hw = TRUE ;
+	      ew->k = locateWeight (sa, ew, TRUE) ;
+
+	      ew = arrayp (wws, 3, WW) ;
+	    }
 	  *ew = sa->evenHw2 ;
 	  ew->mult = create ? 1 : 0 ;
 	  ew->hw = TRUE ;
@@ -778,9 +798,9 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  if (yes == 1)
 	    {
 	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
-	      if (arr(sa->atypic,k,int) == 0 && wodd->l2 == 0)
+	      if (arr(sa->atypic,k+1,int) == 0 && wodd->l2 == 0)
 		{
-		  vtxtPrintf (txt, " %d", k) ;
+		  vtxtPrintf (txt, " %d", k+1) ;
 		  layer++ ;
 		  for (r = 0 ; r < rank ; r++)
 		    w0.x[r] += wodd->x[r] ;
@@ -790,6 +810,9 @@ static void getKacCrystal (SA *sa, BOOL show)
 	    }
 	}
 
+      for (r = 0 ; ok && r < rank ; r++)
+	if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] < 0)
+	  ok = FALSE ;
       if (ok)
 	{
 	  int k2 = locateWeight (sa, &w0, TRUE) ;

@@ -1,20 +1,29 @@
 #!bin/tcsh -ef
 
-set run=$1
-set chrom=$2
-set uu=$3
-set fr=$4
-set limit=$5
-set mask="$6"
-set mainTarget=$7
+set phase=$1
+set run=$2
+set chrom=$3
+set uu=$4
+set fr=$5
+set limit=$6
+set mask="$7"
+set mainTarget=$8
 
 # genome gene_and_new_exon new_and_known_exon known_exon RefSeq
-echo "sponge_chrom.tcsh $run $chrom $uu $fr $limit $mask"
+echo "sponge_chrom.tcsh $phase $run $chrom $uu $fr $limit $mask"
+
+if ($phase == stats) goto phaseStats
+if ($phase == pressGene) goto phasePressGene
+
+goto phaseLoop
+
+phaseStats:
 
 # prepare the frns wiggles if not available, now always done in wg2a for runs and wg2b for groups 
 set ww1=toto
 set ww2=toto
-if (-e  tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz || -e  tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.pp.BF.gz) then
+if $fr ==
+
   set ww1=tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz 
   set ww2=tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.pp.BF.gz
 else if (-e  tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.$uu.BF.gz || -e  tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.pp.BF.gz) then
@@ -35,7 +44,7 @@ else
 endif
 
 echo "##Phase 4444444444444444444"
-if (1 && $mainTarget != introns) then        
+if ($fr == ns && $mainTarget != introns) then        
   set toto=tmp/SPONGE/$run/Total.$chrom.$uu.$fr.$limit
   if (! -e $toto.txt) then
     if (! -e $toto) then
@@ -49,10 +58,33 @@ if (1 && $mainTarget != introns) then
   endif
 endif
 
-echo "##Phase v4   limit=$limit"
-set fr=ns
-set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
 
+goto phaseLoop
+
+phasePressGene:
+
+echo "##Phase pressGene v4   limit=$limit fr=$fr"
+
+set ww=NULL
+#case f,r
+if ($fr == f || $fr == r) then
+  echo tt
+if (-e tmp/WIGGLERUN/$run/$chrom/R.chrom.$uu.$fr.BF.gz) set ww=tmp/WIGGLERUN/$run/$chrom/R.chrom.$uu.$fr.BF.gz
+  if (-e tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$uu.$fr.BF.gz) set ww=tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$uu.$fr.BF.gz
+endif
+#case frns
+if ($fr == frns) then
+  if (-e tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.$uu.BF.gz) set tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.$uu.BF.gz 
+  if (-e tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz) set tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz 
+  set fr=ns
+endif
+echo $ww
+if (! -e $ww) goto phaseLoop
+
+
+
+set long=`cat MetaDB/$MAGIC/RunNanoporeList  MetaDB/$MAGIC/RunPacBioList |gawk '{if($1==run)ok=1;}END{print ok+0;}' run=$run`
+set long=1
 if ($long == 1) then
   foreach mainTarget ($Etargets)
     foreach GM (gene mrna)
@@ -69,7 +101,7 @@ if ($long == 1) then
           set split="-split_mRNAs  tmp/METADATA/$mainTarget.split_mrnas.gz"
         endif
         ls -ls tmp/METADATA/$mainTarget.split_mrnas.gz
-        if (! -e $toto.ZZZ) then
+        if (! -e $toto) then
           echo "bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto"
                 bin/geneelements -sponge $limit $split -spongeFile $geneMask  -sxxChromosome $chrom -wiggle $ww >  $toto
         endif
@@ -77,7 +109,9 @@ if ($long == 1) then
     end
   end
 endif
+goto phaseLoop
 
-
+phaseLoop:
+ echo done
 
 
