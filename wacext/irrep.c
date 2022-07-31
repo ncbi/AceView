@@ -1348,47 +1348,34 @@ static void getRho (SA *sa, BOOL show)
 
 static void getAtypic (SA *sa, BOOL show)
 {
-  WW hwT, hwU ;
+  WW hwT ;
   int rank = sa->rank ;
   int ii, r ;
   Array oddRoots = sa->negativeOddRoots ;
-  Array upperCartan = sa->upperCartan ;
   
   sa->atypic = arrayHandleCreate (arrayMax (sa->negativeOddRoots), int, sa->h) ;  
 
-  memset (&hwT, 0, sizeof (WW)) ;
-  memset (&hwU, 0, sizeof (WW)) ;
   /* use as h.w. the declared h.w. */
   getHighestWeight (sa, -2, 1, TRUE) ;
-  hwT = sa->hw ;    /* the highest weight L */
+  hwT = sa->hw ;  /* the highest weight L */ 
   for (r = 0 ; r < rank ; r++)
     hwT.x[r] = 2 * sa->hw.x[r] + sa->rho.x[r] ;     /* hw.w translated 2(L + rho) */
       
-  for (r = 0 ; r < rank ; r++)
-    {
-      int j, x = 0 ;
-      for (j = 0 ; j < rank ; j++)
-	x += arr (upperCartan, rank * r + j, int) * hwT.x[j] ;
-      hwU.x[r] = x ;       /* L + rho   upper indices */
-    }
-	
   for (ii = 1 ; ii < arrayMax (oddRoots) ; ii++)
     {
       /* x = < L + rho | beta_i > */
-      int x = 0 ;
+      int x = 0, z = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
-      
-      if (0)
-	{ /* debug G(3) adjoint */
-	  array (sa->atypic, 3, int) = 1 ;
-	  break ;
-	}
+
       x = wwScalarProduct (sa, &hwT, ww) ;
+      z = wwScalarProduct (sa, &sa->rho   , ww) ;
       if (x == 0)
 	{
 	  array (sa->atypic, ii, int) = 1 ;
 	  sa->hasAtypic = TRUE ;
 	}
+      if (ii == 1 && z != 0)
+	messcrash ("The trivial representaion is not atypic 1") ;
     }
   
   if (1 || show)
