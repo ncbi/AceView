@@ -533,12 +533,11 @@ static void getCartan (SA *sa, BOOL show)
       break ;
       
     case 'G':
-      sa->rank = r = m ;
-      switch (m)
+      sa->rank = r = m + n ;
+      if (m != 2 || n*(n-1) != 0)
+	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
+      switch (m+n)
 	{
-	default:
-	  messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
-	  break ;
 	case 2:     /* Lie algebra G2 */
 	  getOneCartan (sa, "G", 2, 0, TRUE) ;
 	  break ;
@@ -810,6 +809,13 @@ static void getKacCrystal (SA *sa, BOOL show)
 	    }
 	}
 
+      if (ok && ii && sa->rank2)
+	{
+	  ok = FALSE ;
+	  for (r = 0 ; r < rank ; r++)
+	    if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] > 0)
+	      ok = TRUE ;
+	}
       for (r = 0 ; ok && r < rank ; r++)
 	if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] < 0)
 	  ok = FALSE ;
@@ -919,7 +925,7 @@ static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
 
   /* symmetrize the extended  even weights */
   iMax = arrayMax (wws) ;
-  for (ii = 1 ; ii < iMax ; ii++)
+  for (ii = 1 ; 0 && ii < iMax ; ii++)
     {
       int r ;
       WW *ww = arrp (wws, ii, WW) ;
@@ -941,7 +947,7 @@ static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
 
 
   if (show)
-    wwsShow (sa, "Tensor Product", atypic, wws, &hw) ;
+    wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hw) ;
   return wws ;
 } /* getShiftedCrystal */
 
@@ -1277,7 +1283,7 @@ static void getRho (SA *sa, BOOL show)
 	for (r = 0 ; r < rank ; r++)
 	  sa->rho0.x[r] += ww->x[r] ;
     }
-  /* rho1: sum of the positive odd roots */
+  /* rho1: sum of the null positive odd roots */
   memset (&sa->rho1, 0, sizeof (WW)) ;
   if (sa->hasOdd)
     {
@@ -1286,6 +1292,8 @@ static void getRho (SA *sa, BOOL show)
 	  int i ;
 	  BOOL ok = TRUE ;
 	  ww = arrp (sa->negativeOddRoots, ii, WW) ;
+	  if (ww->l2)
+	    continue ;
 	  for (i = 0 ; ok && i < rank ; i++)
 	    {   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
 	      int j, x = 0 ;
