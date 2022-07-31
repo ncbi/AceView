@@ -26,7 +26,7 @@ typedef struct saStruct
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
   int YY[RMAX], YYd ;
-  int m, n, rank, rank1, rank2 ;
+  int m, n, alpha, rank, rank1, rank2 ;
   Array metric, metric1, metric2 ;
   Array Cartan, Cartan1, Cartan2 ;
   Array upperCartan, upperCartan1, upperCartan2 ;
@@ -176,7 +176,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    {
 	      array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
 	      array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
-	      array (sa->metric, r * (i+dx) + j + dx, int) = (sa->hasOdd ? -1 : 1) *  arr (sa->metric2, r2 * i + j, int) ;
+	      array (sa->metric, r * (i+dx) + j + dx, int) = (sa->hasOdd ? -1 : 1) *  arr (sa->upperCartan2, r2 * i + j, int) ;
 	    }
 	  sa->evenHw2.x[dx+i] = oldhw2.x[i] ;
 	}
@@ -232,8 +232,11 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
     }
   else
     {
-      if (r1) sa->oddHw.x[r1 - 1] = 1 ;
-      if (r2) sa->oddHw.x[r1] = 1 ;
+      if (0)
+	{
+	  if (r1) sa->oddHw.x[r1 - 1] = 1 ;
+	  if (r2) sa->oddHw.x[r1] = 1 ;
+	}
     }
 } /* mergeCartan */
 
@@ -488,10 +491,13 @@ static void getCartan (SA *sa, BOOL show)
 	      sa->hasOdd = TRUE ;
 	      sa->evenHw1.x[0] = 2 ;
 	      sa->evenHwD2.x[1] = 2 ;
+	      sa->oddHw.x[0] = 1 ;
 	      sa->oddHw.x[1] = 1 ;
 	      sa->oddHw.x[2] = -1 ;
 	      metricRescale (sa->metric,sa->rank,0,1,1) ;
-	      metricRescale (sa->metric,sa->rank,2,2,-1) ;
+	      metricRescale (sa->metric,sa->rank,1,1,sa->alpha) ;
+	      if (0)  metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
+	      metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
 	    }
 	}
       break ;
@@ -521,13 +527,16 @@ static void getCartan (SA *sa, BOOL show)
 	case 4:     /* Lie algebra G2 */
 	  getOneCartan (sa, "F", 4, 0, TRUE) ;
 	  break ;
-	case 5:     /* Lie superalgebra G(3) */
+	case 5:     /* Lie F(4) */
+	  sa->rank = 4 ;
+	  sa->extended[3] = TRUE ;
+	  sa->hasOdd = TRUE ;
+	  sa->oddHw.x[1] = 1 ;
+	  sa->oddHw.x[2] = -1 ;
 	  getOneCartan (sa, "G", 2, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
 	  mergeCartan  (sa, 2, 1, FALSE, show) ;
 	  metricRescale (sa->metric, r, 2, 2, 2) ;
-	  
-	  sa->hasOdd = 4 ;
 	  break ;
 	}
       break ;
@@ -544,6 +553,7 @@ static void getCartan (SA *sa, BOOL show)
 	case 3:     /* Lie superalgebra G(3) */
 	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
+	  sa->oddHw.x[1] = 1 ;
 	  sa->oddHw.x[2] = -1 ;
 	  getOneCartan (sa, "G", 2, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
@@ -809,7 +819,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	    }
 	}
 
-      if (ok && ii && sa->rank2)
+      if (1 && ok && ii && sa->rank2)
 	{
 	  ok = FALSE ;
 	  for (r = 0 ; r < rank ; r++)
@@ -1292,7 +1302,7 @@ static void getRho (SA *sa, BOOL show)
 	  int i ;
 	  BOOL ok = TRUE ;
 	  ww = arrp (sa->negativeOddRoots, ii, WW) ;
-	  if (ww->l2)
+	  if (0 && ww->l2)
 	    continue ;
 	  for (i = 0 ; ok && i < rank ; i++)
 	    {   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
@@ -1420,6 +1430,8 @@ int main  (int argc, const char **argv)
    sa.DynkinWeights = "0" ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
    getCmdLineInt (&argc, argv, "-n", &sa.n) ;
+   sa.alpha = 1 ;
+   getCmdLineInt (&argc, argv, "-alpha", &sa.alpha) ;
    show = getCmdLineBool (&argc, argv, "-show") ;
    sa.table = getCmdLineBool (&argc, argv, "-table") ;
    getCmdLineOption (&argc, argv, "-type", &sa.type) ;
