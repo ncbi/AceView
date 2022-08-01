@@ -1453,10 +1453,10 @@ int main  (int argc, const char **argv)
      getHwCrystal (&sa, &dim, &sdim, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dim, FALSE, FALSE) ;
-   printf  ("Final Representation dim=%d sdim=%d\n",  dim, sdim) ;
+   if (1) demazure (&sa, &dim, TRUE, FALSE) ;
+   printf  ("Final Representation dim=%d sdim=%d dimE=%d dimOdd=%d\n",  dim, sdim, (dim+sdim)/2 , (dim-sdim)/2) ;
    arraySort (sa.wws, wwLayerOrder) ;
-   wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
+   if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
    messfree (h) ;
    printf ("A bientot\n") ;
    
