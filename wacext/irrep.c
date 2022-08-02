@@ -1062,7 +1062,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
-  int i, dim, sdim, rank = sa->rank ;
+  int i, dimEven, dimOdd, rank = sa->rank ;
   
   if (sa->pass++ == 0) new = TRUE ;
     
@@ -1143,16 +1143,19 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
       
     }
 
-  for (dim = sdim = 0, i = 1 ; i < arrayMax (wws) ; i++)
+  for (dimEven = dimOdd = 0, i = 1 ; i < arrayMax (wws) ; i++)
     {
       WW *w = arrp (wws, i, WW) ;
-      dim += w->mult ;
+      if (ww->odd)
+	dimOdd += w->mult ;
+      else 
+	dimEven += w->mult ;
     }
 
   if (1)   arraySort (wws, wwLayerOrder) ;
   if (0 && new)
     {
-      printf ("................Demazure, pass %d, r=%d dim = %d sdim = %d\n", sa->pass, r1, dim + sdim, dim - sdim) ;
+      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, r1, dimEven, dimOdd) ;
       for (i = 1 ; i < arrayMax (wws) ; i++)
 	{
 	  int j ;
@@ -1165,18 +1168,19 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
     }
   if (1)   arraySort (wws, wwCreationOrder) ;
   
-  *dimp = dim + sdim ;
+  *dimEvenp = dimEven ;
+  *dimOddp = dimOdd ; 
   
   return new ;
 } /* demazureEven */
 
 /******************************************************************************************************/
 
-static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show)
+static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show)
 {
   BOOL ok = TRUE ;
   BOOL debug = FALSE ;
-  int r, dim = 0 ;
+  int r, dimEven = 0, dimOdd = 0 ;
 
   if (debug)
     wwsShow (sa, "Before Demazure", 0, sa->wws, 0) ;
@@ -1187,7 +1191,7 @@ static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show)
       for (r = 0 ; r < sa->rank ; r++)
 	{
 	  if (! sa->odd[r] && ! (nonExtended && sa->extended[r]))
-	    ok |= demazureEven (sa, r, &dim, show) ;
+	    ok |= demazureEven (sa, r, &dimEven, &dimOdd, show) ;
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
 	}
@@ -1200,11 +1204,12 @@ static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show)
 	  ok = FALSE ;
 	  for (r = 0 ; r < sa->rank ; r++)
 	    if (sa->extended[r])
-	      ok |= demazureEven (sa, r, &dim, show) ;
+	      ok |= demazureEven (sa, r, &dimEven, &dimOdd, show) ;
 	}
     }
   
-  if (dimp) *dimp = dim ; 
+  if (dimEvenp) *dimEvenp = dimEven ;  
+  if (dimOddp) *dimOddp = dimOdd ; 
 
   if (show)
     wwsShow (sa, "Demazure", 0, sa->wws, 0) ;
@@ -1216,20 +1221,21 @@ static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show)
 
 static void getNegativeOddRoots (SA *sa, BOOL show)
 {
-  int dim = 0 ;
+  int dimEven = 0 ;
+  int dimOdd = 0 ;
 
    sa->dict = dictHandleCreate (32, sa->h) ;
 
    /* use as h.w. the lowering simple root */
    getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
-   sa->nOdd = demazure (sa, &dim, TRUE, show) ;
+   sa->nOdd = demazure (sa, &dimEven, &dimOdd, TRUE, show) ;
   sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
 
   if (show)
     wwsShow (sa, "Negative Odd roots", 1, sa->negativeOddRoots, arrp (sa->negativeOddRoots, 1, WW)) ;
-  printf ("## Constructed %d odd roots\n", dim) ;
+  printf ("## Constructed %d odd roots\n", dimOdd) ;
 
   return ;
 } /* getNegativeOddRoots */
@@ -1240,13 +1246,14 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
 static void getAdjoint (SA *sa, BOOL show)
 {
   int dimE = 0 ;
+  int dimOdd = 0 ;
 
   sa->dict = dictHandleCreate (32, sa->h) ;
 
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
   /* construct the adjoint layer using Demazure */
-  sa->nEven = demazure (sa, &dimE, FALSE, show) ;
+  sa->nEven = demazure (sa, &dimE, &dimOdd, FALSE, show) ;
 
   sa->evenRoots = sa->wws ;
   sa->wws = 0 ;
