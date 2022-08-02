@@ -55,7 +55,7 @@ typedef struct saStruct
 
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
-static int demazure (SA *sa, int *dimp, BOOL nonExtended, BOOL show) ;
+static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
 
 /******************************************************************************************************/
 
@@ -1058,7 +1058,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 
 /******************************************************************************************************/
 
-static BOOL demazureEven (SA *sa, int r1, int *dimp, BOOL show)
+static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) 
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
@@ -1406,7 +1406,7 @@ int main  (int argc, const char **argv)
    AC_HANDLE h = handleCreate () ;
    SA sa ;
    BOOL show = FALSE ;
-   int dim = 0, sdim = 0 ;
+   int dimEven = 0, dimOdd = 0 ;
    
    freeinit () ;
 
@@ -1446,15 +1446,15 @@ int main  (int argc, const char **argv)
    /* construct the h.w of the top layer even module */
    sa.dict = dictHandleCreate (32, sa.h) ;
    getHighestWeight (&sa, -2, TRUE, TRUE) ;
-   printf ("*************************** %s m=%d n=%d %s dim=%d sdim = %d\n "
-	   , sa.type, sa.m, sa.n, sa.DynkinWeights, dim, sdim) ;
+   printf ("*************************** %s m=%d n=%d %s \n "
+	   , sa.type, sa.m, sa.n, sa.DynkinWeights) ;
 
    if (sa.hasOdd)
      getHwCrystal (&sa, &dim, &sdim, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dim, TRUE, FALSE) ;
-   printf  ("Final Representation dim=%d sdim=%d dimE=%d dimOdd=%d\n",  dim, sdim, (dim+sdim)/2 , (dim-sdim)/2) ;
+   if (1) demazure (&sa, &dimE, &dimOdd, FALSE, FALSE) ;
+   printf  ("Final Representation dimEven=%d dimOdd=%d\n",  dimEven, dimOdd) ;
    arraySort (sa.wws, wwLayerOrder) ;
    if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
    messfree (h) ;
