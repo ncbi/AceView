@@ -22,7 +22,7 @@ typedef struct saStruct
   AC_HANDLE h ;
   
   BOOL table ;
-  const char *type ; /* A,B.C,D,F,G */
+  char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
   int YY[RMAX], YYd ;
@@ -422,6 +422,9 @@ static void getCartan (SA *sa, BOOL show)
 {
   int m = sa->m, n = sa->n, r = 0 ;
 
+  if (m == 1 && n > 0 && sa->type == 'D')
+    sa->type[0] = 'C' ; /* D(1/n)=OSp(2/2n)=super-C(n)*/
+
   switch ((int)sa->type[0])
     {
     case 'A':
@@ -478,7 +481,9 @@ static void getCartan (SA *sa, BOOL show)
 
     case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
       sa->rank = r = m + n ;
-      if (n == 0)
+      if (m < 0 || n < 0 || m+n < 1)
+	messcrash ("Type Lie D(m) and Kac D(m/n)=OSp(2m/2n) cannot have m+n=%d+%d < 1\n", m,n) ;
+      else if (n == 0)
 	{
 	  if (m == 1)
 	    getOneCartan (sa, "A", m, 0, TRUE) ;
@@ -493,7 +498,7 @@ static void getCartan (SA *sa, BOOL show)
 	}
       else if (m == 0)
 	getOneCartan (sa, "C", n, 0, TRUE) ;
-      else
+      else if (m > 1 && n > 0)  /* D(m/n) excluding D(1/m0== C(m) */
 	{
 	  if (m == 2)
 	    {
@@ -519,7 +524,7 @@ static void getCartan (SA *sa, BOOL show)
 	    }
 	}
       break ;
-      
+
     case 'E':
       sa->rank = r = m ;
       switch (m)
