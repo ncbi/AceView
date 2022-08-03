@@ -469,7 +469,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->n = 0 ;
 	  sa->hasOdd = TRUE ;
 	  sa->hasY = TRUE ;
-	  if (m >= 2) getOneCartan (sa, "C", m, 1, TRUE) ;
+	  getOneCartan (sa, "C", m, 1, TRUE) ;
 	  mergeCartan (sa, m, 0, TRUE, show) ;
 	  sa->oddHw.x[m-1] = 1 ;
 	  metricRescale (sa->metric, m, 0, 0, 1) ;
