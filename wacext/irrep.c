@@ -274,9 +274,9 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-      array (Cartan, r*1 + 0, int) = -2 ;
+      if (r>=2) array (Cartan, r*(r-1) + r-2, int) = -2 ;
 
-      hw.x[r-1] = 2 ;
+      if (r>1) hw.x[r-2] = 1 ;
       break ;
       
     case 'C':
@@ -286,8 +286,8 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-    
       array (Cartan, r*1 + 0, int) = -2 ;
+
       hw.x[r-1] = 2 ;
       break ;
       
@@ -519,7 +519,7 @@ static void getCartan (SA *sa, BOOL show)
       
     case 'F':
       sa->rank = r = m ;
-      switch (m)
+      switch (m + n)
 	{
 	default:
 	  messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
@@ -528,15 +528,16 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "F", 4, 0, TRUE) ;
 	  break ;
 	case 5:     /* Lie F(4) */
-	  sa->rank = 4 ;
+	  sa->rank = sa->m = r = 4 ; sa->n = 0 ;
 	  sa->extended[3] = TRUE ;
 	  sa->hasOdd = TRUE ;
-	  sa->oddHw.x[1] = 1 ;
-	  sa->oddHw.x[2] = -1 ;
-	  getOneCartan (sa, "G", 2, 1, TRUE) ;
+	  sa->oddHw.x[2] = 1 ;
+	  sa->oddHw.x[3] = -1 ;
+	  getOneCartan (sa, "B", 3, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
-	  mergeCartan  (sa, 2, 1, FALSE, show) ;
-	  metricRescale (sa->metric, r, 2, 2, 2) ;
+	  mergeCartan  (sa, 3, 1, FALSE, show) ;
+	  metricRescale (sa->metric, 4, 0, 1, 2) ;
+	  metricRescale (sa->metric, 4, 3, 3, 6) ;
 	  break ;
 	}
       break ;
