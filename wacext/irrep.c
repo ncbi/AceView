@@ -32,6 +32,7 @@ typedef struct saStruct
   Array upperCartan, upperCartan1, upperCartan2 ;
   int hasAtypic ;
   int hasOdd ;
+  BOOL isBlack ;
   int hasExtended ;
   int nEven, nOdd ;
   BOOL odd[RMAX] ;
@@ -431,8 +432,8 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "A", r, 0, TRUE) ;
       else
 	{
-	sa->hasOdd = TRUE ;
-	if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
+	  sa->hasOdd = TRUE ;
+	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
 	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
 	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
 	}
@@ -440,24 +441,41 @@ static void getCartan (SA *sa, BOOL show)
       
     case 'B':
       sa->rank = r = m ;
-      switch (m)
+      if (m <= 1)
+	messcrash ("Type Lie B(m) and Kac OSp(1/2m) cannot have m=%d < 2\n", m) ;
+      if (n == 0)
+	getOneCartan (sa, "B", r, 0, TRUE) ;
+      else
 	{
-	default:
-	  getOneCartan (sa, "B", r, 0, TRUE) ;
-	  break ;
+	  sa->n = 0 ;
+	  sa->extended[0] = TRUE ;
+	  sa->hasOdd = TRUE ;
+	  sa->isBlack = TRUE ;
+	  sa->oddHw.x[m-1] = 1 ;
+	  sa->oddHw.x[0] = -1 ;
+	  getOneCartan (sa, "B", m, 0, TRUE) ;
+	  metricRescale (sa->metric, m, 0, 0, 2) ;
 	}
       break ;
       
     case 'C':
       sa->rank = r = m ;
-      switch (m)
+      if (m < 1)
+	messcrash ("Type Lie C(m) and Kac OSp(2/2m) cannot have m=%d < 1\n", m) ;
+      if (n == 0)
+	getOneCartan (sa, "C", r, 0, TRUE) ;
+      else
 	{
-	default:
-	  getOneCartan (sa, "C", r, 0, TRUE) ;
-	  break ;
+	  sa->n = 0 ;
+	  sa->hasOdd = TRUE ;
+	  sa->hasY = TRUE ;
+	  if (m >= 2) getOneCartan (sa, "C", m, 1, TRUE) ;
+	  mergeCartan (sa, m, 0, TRUE, show) ;
+	  sa->oddHw.x[m-1] = 1 ;
+	  metricRescale (sa->metric, m, 0, 0, 1) ;
 	}
       break ;
-      
+
     case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
       sa->rank = r = m + n ;
       if (n == 0)
@@ -1382,7 +1400,7 @@ static void getAtypic (SA *sa, BOOL show)
 	  array (sa->atypic, ii, int) = 1 ;
 	  sa->hasAtypic = TRUE ;
 	}
-      if (ii == 1 && z != 0)
+      if (ii == 1 && z != 0 && ! sa->isBlack)
 	messcrash ("The trivial representaion is not atypic 1") ;
     }
   
