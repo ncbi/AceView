@@ -1058,7 +1058,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 
 /******************************************************************************************************/
 
-static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) 
+static BOOL demazureEven (SA *sa, int r1, int *dimEvenp, int *dimOddp, BOOL show) 
 {
   BOOL new = FALSE ;
   Array wws = sa->wws ;
@@ -1145,11 +1145,11 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
 
   for (dimEven = dimOdd = 0, i = 1 ; i < arrayMax (wws) ; i++)
     {
-      WW *w = arrp (wws, i, WW) ;
+      WW *ww = arrp (wws, i, WW) ;
       if (ww->odd)
-	dimOdd += w->mult ;
+	dimOdd += ww->mult ;
       else 
-	dimEven += w->mult ;
+	dimEven += ww->mult ;
     }
 
   if (1)   arraySort (wws, wwLayerOrder) ;
@@ -1214,7 +1214,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
   if (show)
     wwsShow (sa, "Demazure", 0, sa->wws, 0) ;
   
-  return dim ;
+  return dimEven ;
 } /* demazure */
 
 /******************************************************************************************************/
@@ -1457,10 +1457,10 @@ int main  (int argc, const char **argv)
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights) ;
 
    if (sa.hasOdd)
-     getHwCrystal (&sa, &dim, &sdim, show) ;
+     getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dimE, &dimOdd, FALSE, FALSE) ;
+   if (1) demazure (&sa, &dimEven, &dimOdd, FALSE, FALSE) ;
    printf  ("Final Representation dimEven=%d dimOdd=%d\n",  dimEven, dimOdd) ;
    arraySort (sa.wws, wwLayerOrder) ;
    if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
