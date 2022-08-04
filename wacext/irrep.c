@@ -22,7 +22,7 @@ typedef struct saStruct
   AC_HANDLE h ;
   
   BOOL table ;
-  char *type ; /* A,B.C,D,F,G */
+  const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
   int YY[RMAX], YYd ;
@@ -422,9 +422,6 @@ static void getCartan (SA *sa, BOOL show)
 {
   int m = sa->m, n = sa->n, r = 0 ;
 
-  if (m == 1 && n > 0 && sa->type == 'D')
-    sa->type[0] = 'C' ; /* D(1/n)=OSp(2/2n)=super-C(n)*/
-
   switch ((int)sa->type[0])
     {
     case 'A':
@@ -465,18 +462,10 @@ static void getCartan (SA *sa, BOOL show)
       sa->rank = r = m ;
       if (m < 1)
 	messcrash ("Type Lie C(m) and Kac OSp(2/2m) cannot have m=%d < 1\n", m) ;
+      if (n > 0)
+	messcrash ("Type Kac C(n) = OSp(2/2n) is called in this program D(1/n)\n") ;
       if (n == 0)
 	getOneCartan (sa, "C", r, 0, TRUE) ;
-      else
-	{
-	  sa->n = 0 ;
-	  sa->hasOdd = TRUE ;
-	  sa->hasY = TRUE ;
-	  getOneCartan (sa, "C", m, 1, TRUE) ;
-	  mergeCartan (sa, m, 0, TRUE, show) ;
-	  sa->oddHw.x[m-1] = 1 ;
-	  metricRescale (sa->metric, m, 0, 0, 1) ;
-	}
       break ;
 
     case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
@@ -522,6 +511,16 @@ static void getCartan (SA *sa, BOOL show)
 	      if (0)  metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
 	      metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
 	    }
+	}
+      else if (m == 1 && n > 0) /* super-C (n) = OSp(2/2n) */
+	{
+	  sa->n = 0 ;
+	  sa->hasOdd = TRUE ;
+	  sa->hasY = TRUE ;
+	  getOneCartan (sa, "C", m, 1, TRUE) ;
+	  mergeCartan (sa, m, 0, TRUE, show) ;
+	  sa->oddHw.x[m-1] = 1 ;
+	  metricRescale (sa->metric, m, 0, 0, 1) ;
 	}
       break ;
 
@@ -831,7 +830,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  if (yes == 1)
 	    {
 	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
-	      if (arr(sa->atypic,k+1,int) == 0 && wodd->l2 == 0)
+	      if (arr(sa->atypic,k+1,int) >= 0 && (sa->isBlack || wodd->l2 == 0))
 		{
 		  vtxtPrintf (txt, " %d", k+1) ;
 		  layer++ ;
@@ -851,7 +850,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	      ok = TRUE ;
 	}
       for (r = 0 ; ok && r < rank ; r++)
-	if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] < 0)
+	if (0 && !sa->odd[r] && ! sa->extended[r] && w0.x[r] < 0)
 	  ok = FALSE ;
       if (ok)
 	{
@@ -1015,7 +1014,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
     {
       int ii ;
       
-      for (ii = 0 ; 0 && ii < arrayMax (sa->atypic) ; ii++)
+      for (ii = 0 ; 1 && ii < arrayMax (sa->atypic) ; ii++)
 	if (array (sa->atypic, ii, int))
 	  {
 	    Array top, xxs ;
@@ -1486,6 +1485,7 @@ int main  (int argc, const char **argv)
    /* complete the Hhw Crystal to a full module */
    if (1) demazure (&sa, &dimEven, &dimOdd, FALSE, FALSE) ;
    printf  ("Final Representation dimEven=%d dimOdd=%d\n",  dimEven, dimOdd) ;
+   if (sa.hasOdd) getAtypic (&sa, show) ;
    arraySort (sa.wws, wwLayerOrder) ;
    if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
    messfree (h) ;
@@ -1497,3 +1497,12 @@ int main  (int argc, const char **argv)
 /************************************************************************/
 /************************************************************************/
 /************************************************************************/
+/*
+Variation:
+  i again compute the shifted crystal and set w->mult = 0 is w->mult>x->mult
+  this is favorable for F(4) adjoint because it kill the 1:0:0:0 dim 7 at level 0
+  but this could be computed by hand, in the exact way
+ 
+   BUG: the h.w. is not recovered by the shifted crystal which is absurd 
+run -type D -m 2 -n 1 -alpha 3  -w 0:0:2 -show
+*/

@@ -7357,7 +7357,7 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		nGenePlus -= nGenePlusU ;
 		for (px1 = px , jj = ii ; jj < ii2 ; px1++, jj++)
 		  if (px1->score && px1->mm == mm &&
-		      px->a1 <  px->a2 &&
+		      mm->pair * (px->a2 -  px->a1) > 0 &&
 		      ! bit(pp->isSplicedTarget, px1->targetGene)
 		      )
 		    px1->score = px1->pairScore = 0 ;
@@ -7367,7 +7367,7 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		nGeneMinus -= nGeneMinusU ;
 		for (px1 = px , jj = ii ; jj < ii2 ; px1++, jj++)
 		  if (px1->score && px1->mm == mm &&
-		      px->a1 > px->a2  &&
+		      mm->pair * (px->a2 -  px->a1) < 0 &&
 		      ! bit(pp->isSplicedTarget, px1->targetGene)
 		      )
 		    px1->score = px1->pairScore = 0 ;
