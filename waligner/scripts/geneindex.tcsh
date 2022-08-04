@@ -689,8 +689,8 @@ foreach target ($Etargets)
     set ok=1
 
     if (-e  tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list) mv  tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list   tmp/GENERUNS/$lib/$lib.$target.$GM.$uu.list.old
-    if (-e   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list) mv   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list
-
+    if (-e   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list) mv   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list   tmp/GENERUNS/$lib/$lib.$target.$GM.3pHisto.list.old
+                                                                  
     foreach run (`cat MetaDB/$MAGIC/r2sublib | gawk -F '\t' '{if($1 == lib)print $2;}END{print lib}' lib=$lib | cut -f 1 | sort -u`)
       if (! -d Fastc/$run) continue
         foreach lane (`cat Fastc/$run/LaneList`)

@@ -5436,7 +5436,10 @@ static int baElementSupport2ace (BA *ba, BOOL isGene, BOOL isMrna, BOOL isIntron
   DICT *geneDict ;
   DICT *runDict = dictHandleCreate (100, h) ;
   Array aa = arrayHandleCreate (1000000, GS2I, h) ;
+  char *antiRun ;
 
+  if (ba->run)
+    antiRun = hprintf (h, "Anti_%s", ba->run) ;
   geneDict = ba->geneDict ;
   if (! geneDict)
     geneDict = ba->geneDict = dictHandleCreate (100000, ba->h) ;
@@ -5493,7 +5496,13 @@ static int baElementSupport2ace (BA *ba, BOOL isGene, BOOL isMrna, BOOL isIntron
 	    aceInStep (ai, '\t') ;
 	    if (! (ccp = aceInWord (ai)))
 	      continue ;
-	    if (ba->run) ccp = ba->run ; /* force the support to count for that run */
+	    if (ba->run) 
+	      {
+		if (! strncasecmp (ccp, "Anti_", 5))
+		  ccp = antiRun ; /* force the support to count for that run */
+		else
+		  ccp = ba->run ; /* force the support to count for that run */
+	      }
 	    dictAdd (runDict, ccp, &(up->run)) ;
 	    aceInStep (ai, '\t') ;
 	    if (! aceInFloat (ai, &zf))
@@ -5640,48 +5649,49 @@ static int baElementSupport2ace (BA *ba, BOOL isGene, BOOL isMrna, BOOL isIntron
 	
 
   /* export */
-  for (ii = 0, up = arrp (aa, ii, GS2I), nn = arrayMax (aa) ; ii < nn ; up++, ii++)
-    {
-      ACEOUT myao = ao ;
-      
-      if (! up->seq)
-	continue ;
-
-      if (isGene)
-	{
-	  if (up->gene > 100)
-	    aceOutf (ao, "Gene %s\n", dictName (geneDict, up->gene)) ;
-	  else
-	    aceOutf (ao, "Transcript G_Any_%s_gene // %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
-	  ccp = strstr (dictName (target_classDict, up->target_class), "_") ;
-	  if (ccp)
-	    aceOutf (ao, "%s\n", ccp + 1) ;
-	}
-      else if (isMrna)
-	{
-	  if (up->gene > 100)
-	    aceOutf (ao, "Transcript %s\n", dictName (geneDict, up->gene)) ;
-	  else
-	    aceOutf (ao, "Transcript G_Any_%s_transcript // %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
-	  ccp = strstr (dictName (target_classDict, up->target_class), "_") ;
-	  if (ccp)
-	    aceOutf (ao, "%s\n", ccp + 1) ;
-	}
-      else if (isIntron)
-	{
-	  if (! strcasecmp (dictName (target_classDict, up->target_class), "DoubleIntron"))
-	    myao = ao2 ;
-	  
-	  if (up->gene < 100)
-	    aceOutf (myao, "%s G_Any_%s // %s\n", dictName (target_classDict, up->target_class)
-		     , dictName (target_classDict, up->target_class)
-		     , dictName (geneDict, up->gene)) ;
-	  else
-	    aceOutf (myao, "%s %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
-	}
-      for (jj = ii, vp = up ; 
-	   jj < nn && up->gene == vp->gene && up->target_class == vp->target_class ; 
-	   vp++, jj++)
+  if (arrayMax(aa))
+    for (ii = 0, up = arrp (aa, ii, GS2I), nn = arrayMax (aa) ; ii < nn ; up++, ii++)
+      {
+	ACEOUT myao = ao ;
+	
+	if (! up->seq)
+	  continue ;
+	
+	if (isGene)
+	  {
+	    if (up->gene > 100)
+	      aceOutf (ao, "Gene %s\n", dictName (geneDict, up->gene)) ;
+	    else
+	      aceOutf (ao, "Transcript G_Any_%s_gene // %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
+	    ccp = strstr (dictName (target_classDict, up->target_class), "_") ;
+	    if (ccp)
+	      aceOutf (ao, "%s\n", ccp + 1) ;
+	  }
+	else if (isMrna)
+	  {
+	    if (up->gene > 100)
+	      aceOutf (ao, "Transcript %s\n", dictName (geneDict, up->gene)) ;
+	    else
+	      aceOutf (ao, "Transcript G_Any_%s_transcript // %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
+	    ccp = strstr (dictName (target_classDict, up->target_class), "_") ;
+	    if (ccp)
+	      aceOutf (ao, "%s\n", ccp + 1) ;
+	  }
+	else if (isIntron)
+	  {
+	    if (! strcasecmp (dictName (target_classDict, up->target_class), "DoubleIntron"))
+	      myao = ao2 ;
+	    
+	    if (up->gene < 100)
+	      aceOutf (myao, "%s G_Any_%s // %s\n", dictName (target_classDict, up->target_class)
+		       , dictName (target_classDict, up->target_class)
+		       , dictName (geneDict, up->gene)) ;
+	    else
+	      aceOutf (myao, "%s %s\n", dictName (target_classDict, up->target_class), dictName (geneDict, up->gene)) ;
+	  }
+	for (jj = ii, vp = up ; 
+	     jj < nn && up->gene == vp->gene && up->target_class == vp->target_class ; 
+	     vp++, jj++)
 	  if (vp->seq)
 	    {
 	      const char *ccp, *ccq ;
@@ -5699,7 +5709,7 @@ static int baElementSupport2ace (BA *ba, BOOL isGene, BOOL isMrna, BOOL isIntron
 		{
 		  ccq = vp->isU ? "Run_U" : "Run_nU" ;
 		}
-
+	      
 	      aceOutf (myao, "%s \"%s\" %.2f %.2f seqs %.2f tags %.2f kb %.2f reads %.2f compRead  %.2f err  %.2f a2g %.2f partial %.2f orphan %.2f badTopo %.2f Multi %.2f AmbStrand"
 		       , ccq, ccp
 		       , vp->index, vp->seq, vp->tag, vp->bp/1000.0
@@ -5724,10 +5734,10 @@ static int baElementSupport2ace (BA *ba, BOOL isGene, BOOL isMrna, BOOL isIntron
 		}
 	      aceOutf (myao, "\n") ;
 	    }
-
-      aceOutf (myao, "\n") ;
-    }   
-
+	
+	aceOutf (myao, "\n") ;
+      }   
+  
   ac_free (h) ;
 
   return 0 ;
