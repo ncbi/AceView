@@ -202,6 +202,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	  messcrash ("Only A and C have a U(1) Y hypercharge") ;
 	  break ;
 	case 'A':
+	case 'D':
 	  for (i = 0 ; i < ro ; i++)
 	    YY[i] =  -(r2+1)*(i+1) ;
 	  for (i = r-1 ; i > ro ; i--)
