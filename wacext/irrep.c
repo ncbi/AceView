@@ -31,7 +31,7 @@ typedef struct saStruct
   Array Cartan, Cartan1, Cartan2 ;
   Array upperCartan, upperCartan1, upperCartan2 ;
   int hasAtypic ;
-  int hasOdd ;
+  BOOL hasOdd ;
   BOOL isBlack ;
   int hasExtended ;
   int nEven, nOdd ;
@@ -161,8 +161,6 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
-      sa->odd[r1] = 1 ;
-      sa->hasOdd = r1 + 1 ;
       dx++ ;
     }
   if (r2 > 0)
@@ -191,11 +189,6 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
       mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
       sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
-      if (1) metricRescale (sa->metric, r, ro, ro, -1) ;
-      if (r1) sa->evenHw1.x[ro] = 1 ;
-      if (r2) sa->evenHw2.x[ro] = 1 ;
-      if (r1) sa->oddHw.x[ro - 1] = 1 ;
-      if (r2) sa->oddHw.x[ro + 1] = 1 ;
       switch ((int)sa->type[0])
 	{
 	default:
@@ -421,12 +414,13 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 
 static void getCartan (SA *sa, BOOL show)
 {
-  int m = sa->m, n = sa->n, r = 0 ;
+  int m = sa->m, n = sa->n, r = 0, r1 = 0, r2 = 0, ro = 0 ;
 
   switch ((int)sa->type[0])
     {
     case 'A':
       sa->rank = r = m + n - 1 ;
+      r1 = m - 1 ; r2 = n - 1 ;
       if (m <= 0 || n < 0 || m+n == 0)
 	messcrash ("Type Lie A(m,n) bad m=%d n=%d", m,n) ;
       if (n == 0)
@@ -434,14 +428,23 @@ static void getCartan (SA *sa, BOOL show)
       else
 	{
 	  sa->hasOdd = TRUE ;
+	  sa->odd[m-1] = 1 ;
+	  ro = r1 = m - 1 ;
 	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
 	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
 	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
+	  metricRescale (sa->metric, r, ro, ro, -1) ;
+
+	  if (r1) sa->evenHw1.x[ro] = 1 ;
+	  if (r2) sa->evenHw2.x[ro] = 1 ;
+	  if (r1) sa->oddHw.x[ro - 1] = 1 ;
+	  if (r2) sa->oddHw.x[ro + 1] = 1 ;
 	}
       break ;
       
     case 'B':
       sa->rank = r = m ;
+      r1 = r2 = 0 ;
       if (m <= 1)
 	messcrash ("Type Lie B(m) and Kac OSp(1/2m) cannot have m=%d < 2\n", m) ;
       if (n == 0)
@@ -452,10 +455,12 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->extended[0] = TRUE ;
 	  sa->hasOdd = TRUE ;
 	  sa->isBlack = TRUE ;
+	  getOneCartan (sa, "C", m, 0, TRUE) ;
+	  metricRescale (sa->metric, m, 0, 0, 2) ;
+
+	  sa->odd[0] = 1 ;
 	  sa->oddHw.x[m-1] = 1 ;
 	  sa->oddHw.x[0] = -1 ;
-	  getOneCartan (sa, "B", m, 0, TRUE) ;
-	  metricRescale (sa->metric, m, 0, 0, 2) ;
 	}
       break ;
       
@@ -471,6 +476,7 @@ static void getCartan (SA *sa, BOOL show)
 
     case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
       sa->rank = r = m + n ;
+      r1 = m ; r2 = n ;
       if (m < 0 || n < 0 || m+n < 1)
 	messcrash ("Type Lie D(m) and Kac D(m/n)=OSp(2m/2n) cannot have m+n=%d+%d < 1\n", m,n) ;
       else if (n == 0)
@@ -479,6 +485,7 @@ static void getCartan (SA *sa, BOOL show)
 	    getOneCartan (sa, "A", m, 0, TRUE) ;
 	  else if (m == 2)
 	    {
+	      sa->hasOdd = TRUE ;
 	      getOneCartan (sa, "D", 1, 1, TRUE) ;
 	      getOneCartan (sa, "D", 1, 2, TRUE) ;
 	      mergeCartan  (sa, 1, 1, FALSE, show) ;
@@ -513,13 +520,13 @@ static void getCartan (SA *sa, BOOL show)
 	      metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
 	    }
 	}
-      else if (m == 1 && n > 0) /* super-C (n) = OSp(2/2n) */
+      else if (m == 1 && n > 0) /* D(1/n) = super-C (n) = OSp(2/2n) */
 	{
 	  sa->n = 0 ;
 	  sa->hasOdd = TRUE ;
 	  sa->hasY = TRUE ;
-	  getOneCartan (sa, "C", m, 1, TRUE) ;
-	  mergeCartan (sa, m, 0, TRUE, show) ;
+	  getOneCartan (sa, "C", m, 2, TRUE) ;
+	  mergeCartan (sa, 0, m, TRUE, show) ;
 	  sa->oddHw.x[m-1] = 1 ;
 	  metricRescale (sa->metric, m, 0, 0, 1) ;
 	}
@@ -552,13 +559,14 @@ static void getCartan (SA *sa, BOOL show)
 	  break ;
 	case 5:     /* Lie F(4) */
 	  sa->rank = sa->m = r = 4 ; sa->n = 0 ;
+	  r1 = 3 ; r2 = 1 ;
 	  sa->extended[3] = TRUE ;
 	  sa->hasOdd = TRUE ;
 	  sa->oddHw.x[2] = 1 ;
 	  sa->oddHw.x[3] = -1 ;
 	  getOneCartan (sa, "B", 3, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
-	  mergeCartan  (sa, 3, 1, FALSE, show) ;
+	  mergeCartan  (sa, r1, r2, FALSE, show) ;
 	  metricRescale (sa->metric, 4, 0, 1, 2) ;
 	  metricRescale (sa->metric, 4, 3, 3, 6) ;
 	  break ;
@@ -575,13 +583,14 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "G", 2, 0, TRUE) ;
 	  break ;
 	case 3:     /* Lie superalgebra G(3) */
+	  r1 = 2 ; r2 = 1 ;
 	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
 	  sa->oddHw.x[1] = 1 ;
 	  sa->oddHw.x[2] = -1 ;
 	  getOneCartan (sa, "G", 2, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
-	  mergeCartan  (sa, 2, 1, FALSE, show) ;
+	  mergeCartan  (sa, r1, r2, FALSE, show) ;
 	  metricRescale (sa->metric, r, 2, 2, 2) ;
 	  break ;
 	}
@@ -843,7 +852,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	    }
 	}
 
-      if (1 && ok && ii && sa->rank2)
+      if (!sa->hasY && ok && ii && sa->rank2)
 	{
 	  ok = FALSE ;
 	  for (r = 0 ; r < rank ; r++)
@@ -946,6 +955,7 @@ static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
     }
   /* remove the non-extended  negative even weights */
   iMax = arrayMax (wws) ;
+  wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hw) ;
   for (ii = 1 ; ii < iMax ; ii++)
     {
       int r ;
