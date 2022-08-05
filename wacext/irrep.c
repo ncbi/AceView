@@ -56,6 +56,7 @@ typedef struct saStruct
 
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
+static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2) ;
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
 
 /******************************************************************************************************/
@@ -636,6 +637,18 @@ static void getCartan (SA *sa, BOOL show)
 
 /******************************************************************************************************/  
 
+static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
+{
+  int i, x = 0, rank = sa->rank ;
+
+  for (i = 0 ; i < rank ; i++)
+    x += ww1->x[i] * ww2->x[i] ;
+  
+  return x ;
+} /* wwNaturalProduct */
+
+/******************************************************************************************************/  
+
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
 {
   Array metric = sa->metric ;
@@ -646,7 +659,7 @@ static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
       x += ww1->x[i] * arr (metric, rank*i+j,int) * ww2->x[j] ;
   
   return x ;
-} /* wwLengthSquare */
+} /* wwScalarProduct */
 
 /******************************************************************************************************/  
 
@@ -1408,6 +1421,7 @@ static void getAtypic (SA *sa, BOOL show)
       int x = 0, z = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
 
+      x = wwNaturalProduct (sa, &hwT, ww) ;
       x = wwScalarProduct (sa, &hwT, ww) ;
       z = wwScalarProduct (sa, &sa->rho   , ww) ;
       if (x == 0)
