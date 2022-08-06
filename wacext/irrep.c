@@ -524,13 +524,15 @@ static void getCartan (SA *sa, BOOL show)
 	}
       else if (m == 1 && n > 0) /* D(1/n) = super-C (n) = OSp(2/2n) */
 	{
+	  sa->rank = n + 1 ;
 	  sa->n = 0 ;
 	  sa->hasOdd = TRUE ;
 	  sa->hasY = TRUE ;
-	  getOneCartan (sa, "C", m, 2, TRUE) ;
-	  mergeCartan (sa, 0, m, TRUE, show) ;
-	  sa->oddHw.x[m-1] = 1 ;
-	  metricRescale (sa->metric, m, 0, 0, 1) ;
+	  getOneCartan (sa, "C", n, 1, TRUE) ;
+	  mergeCartan (sa, n, 0, TRUE, show) ;
+	  sa->oddHw.x[n-1] = 1 ;
+	  metricRescale (sa->metric, n+1, 0, 0, 2) ;
+	  metricRescale (sa->metric, n+1, n, n, -1) ;
 	}
       break ;
 
