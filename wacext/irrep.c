@@ -9,7 +9,7 @@
 typedef struct wStruct
 {
   int x[RMAX] ;
-  BOOL ok[RMAX] ;
+  BOOL isBlack ;
   int mult ;
   int k ;
   int layer ;
@@ -57,6 +57,7 @@ typedef struct saStruct
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
 static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2) ;
+static BOOL demazureEven (SA *sa, Array wws, int r1, int *dimEvenp, int *dimOddp, BOOL show) ;
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
 
 /******************************************************************************************************/
@@ -700,7 +701,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
       int ii, iMax = arrayMax (wws) ;
       int r, rank = sa->rank ;
 
-      printf ("\n##################### %s: t=%d : hw+", title, type) ;
+      printf ("\n##################### %s: t=%d : hw", title, type) ;
       for (r = 0 ; hw && r < rank ; r++)
 	printf (" %d", hw->x[r]) ;
       printf ("\n") ;
@@ -734,7 +735,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 
 /******************************************************************************************************/
 
-static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
+static WW getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
 {
   WW *hw ;
   Array wws ;
@@ -803,7 +804,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
   hw->hw = TRUE ;
   hw->k = locateWeight (sa, hw, TRUE) ;
 
-  if (1 || type == -2 || type == -4)
+  if (type == -2)
     {
       sa->hw = *hw ;
       if (show)
@@ -814,6 +815,7 @@ static void getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
 	  printf ("\n") ;
 	}
     }
+  return *hw ;
 } /* getHighestWeight */
 
 /******************************************************************************************************/
@@ -865,12 +867,17 @@ static void getKacCrystal (SA *sa, BOOL show)
 	    }
 	}
 
-      if (!sa->hasY && ok && ii && sa->rank2)
+      if (0 && !sa->hasY && ok && ii && sa->rank2)
 	{
 	  ok = FALSE ;
 	  for (r = 0 ; r < rank ; r++)
-	    if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] > 0)
+	    if (!sa->odd[r] && ! sa->extended[r] && w0.x[r] != 0)
 	      ok = TRUE ;
+	  /*
+	    if (! ok)
+	    w0.isBlack = TRUE ;
+	    ok = TRUE ;
+	  */
 	}
       for (r = 0 ; ok && r < rank ; r++)
 	if (0 && !sa->odd[r] && ! sa->extended[r] && w0.x[r] < 0)
@@ -898,6 +905,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	}
       ac_free (txt) ;
     }
+  arraySort (sa->wws, wwLayerOrder) ;
   sa->Kac = sa->wws ;
   sa->wws = 0 ;
   if (show)
@@ -908,67 +916,46 @@ static void getKacCrystal (SA *sa, BOOL show)
 
 /******************************************************************************************************/
 
-static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
+static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 {
   int rank = sa->rank ;
-  int ii, kk ;
+  int ii, kk, iMax ;
   Array wws ;
   Array Kac = sa->Kac ;
   int kMax = arrayMax (Kac) ;
-  int iMax = arrayMax (old) ;
-  WW hw ;
+  WW hwA ;
 
-  hw = arr (old, 1, WW) ;
+  hwA = getHighestWeight (sa, atypic, TRUE, 0) ;
+  *hwAp = hwA ;
   /* reinitialize wws and but not the dictionary */
   wws = sa->wws = arrayHandleCreate (256, WW, sa->h) ;
-  if (0)
-    { /* avoid overcounting */
-      WW *ww = arrp (wws, 1, WW) ;
-      ww = arrp (wws, 1, WW) ;
-      ww->mult = 0 ;
-    }
   
-  for (ii = 1 ; ii < iMax ; ii++)
+  for (kk = 1 ; kk < kMax ; kk++)
     {
-      WW *w1 = arrp (old, ii, WW) ;
-      if (! w1->mult) continue ;
-      for (kk = 1 ; kk < kMax ; kk++)
-	{
-	  WW *wo = arrp (Kac, kk, WW) ;
-	  WW w, *ww ;
-	  int r, k2 ;
+      WW *wo = arrp (Kac, kk, WW) ;
+      WW w, *ww ;
+      int r, k2 ;
 	    
-	  if (! wo->mult) continue ;
-	  /* set the corrds of the next point of the tensor product */
-	  memset (&w, 0, sizeof (w)) ;
-	  w = *w1 ;
-	  for (r = 0 ; r < rank ; r++)
-	    w.x[r] += wo->x[r] ;
-	  
-	  /* locate it to construct the multiplicity */
-	  k2 = locateWeight (sa, &w, TRUE)  ;
-	  ww = arrayp (wws, k2, WW) ; /* new node */
-	  ww->k = k2 ;
-	  ww->layer = wo->layer ;
-	  ww->odd = wo->odd ;
-	  ww->mult += w1->mult * wo->mult ;
-	  for (r = 0 ; r < rank ; r++)
-	    ww->x[r] = w.x[r] ;
-	  if (0)
-	    {
-	      printf ("\n---------------------- ii=%d kk=%d k2 = %d m=%d\n", ii, kk, k2, ww->mult) ;
-	      for (r = 0 ; r < rank ; r++)
-		printf (" %d", w1->x[r]) ;
-	      for (r = 0 ; r < rank ; r++)
-		printf (" %d", wo->x[r]) ;
-	      for (r = 0 ; r < rank ; r++)
-		printf (" %d", ww->x[r]) ;
-	    }
-	}
+      if (! wo->mult) continue ;
+      /* set the corrds of the next point of the tensor product */
+      memset (&w, 0, sizeof (w)) ;
+      w = hwA ;
+      for (r = 0 ; r < rank ; r++)
+	w.x[r] += wo->x[r] ;
+      
+      /* locate it to construct the multiplicity */
+      k2 = locateWeight (sa, &w, TRUE)  ;
+      ww = arrayp (wws, k2, WW) ; /* new node */
+      ww->k = k2 ;
+      ww->layer = wo->layer ;
+      ww->odd = wo->odd ;
+      ww->mult += hwA.mult * wo->mult ;
+      for (r = 0 ; r < rank ; r++)
+	ww->x[r] = w.x[r] ;
     }
   /* remove the non-extended  negative even weights */
   iMax = arrayMax (wws) ;
-  wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hw) ;
+  if (0) wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hwA) ;
   for (ii = 1 ; ii < iMax ; ii++)
     {
       int r ;
@@ -979,32 +966,63 @@ static Array getShiftedCrystal (SA *sa, int atypic,   Array old, BOOL show)
 	  ww->mult = 0 ;
     }
 
-
   /* symmetrize the extended  even weights */
   iMax = arrayMax (wws) ;
-  for (ii = 1 ; 0 && ii < iMax ; ii++)
+  if (0)
     {
       int r ;
-      WW *ww = arrp (wws, ii, WW) ;
-      if (! ww->mult) continue ;
       for (r = 0 ; r < rank ; r++)
-	if (sa->extended[r] && ww->x[r])
-	  {
-	    WW w2 ;
-	    int k2, mult2 = 0 ;
-	    w2 = *ww ;
-	    w2.x[r] *= -1 ;
-	    k2 = locateWeight (sa, &w2, FALSE) ;
-	    if (k2)
-	      mult2 = arrp (sa->wws, k2,WW)->mult ;
-	    if (mult2 < ww->mult)
-	      ww->mult = mult2 ;
-	  }
+	if (sa->extended[r])
+	  demazureEven (sa, wws, r, 0, 0, 0) ; 
     }
 
+  if (show)
+    wwsShow (sa, "Shifted Kac Crystal before extended Demazure", atypic, wws, &hwA) ;
+
+  if (1)
+    for (ii = 1 ; ii < iMax ; ii++)
+      {
+	int r, rank = sa->rank ;
+	WW *ww = arrp (wws, ii, WW) ;
+	if (! ww->mult) continue ;
+	for (r = 0 ; r < rank ; r++)
+	  if (sa->extended[r] && ww->x[r] > 0)
+	    {
+	      int r2, k, dk = ww->x[r] ;
+	      WW w2 ;
+	      int k2, mult2 = 0, dm = 0 ;
+
+	      memset (&w2, 0, sizeof (w2)) ;
+	      for (r2 = 0 ; r2 < rank ; r2++)
+		w2.x[r2] = ww->x[r2] ;
+	      w2.x[r] -= 2 * dk ;
+	      k2 = locateWeight (sa, &w2, TRUE) ;
+	      mult2 = w2.mult ;
+	      dm = ww->mult - mult2 ;
+	      if (dm > 0)
+		for (k = 1 ; k <= dk ; k++)
+		  {
+		    WW *ww2 ;
+
+		    memset (&w2, 0, sizeof (w2)) ;
+		    for (r2 = 0 ; r2 < rank ; r2++)
+		      w2.x[r2] = ww->x[r2] ;
+
+		    w2.odd = ww->odd ;
+		    w2.x[r] -= 2 * k ;
+		    k2 = locateWeight (sa, &w2, TRUE) ;
+		    w2.k = k2 ;
+		    ww2  = arrayp (wws, k2, WW) ;
+		    if (!ww2->k)
+		      *ww2 = w2 ;
+		    if (ww2->x[r] < 0)
+		      ww2->mult += dm ;
+		  }
+	    }
+      }
 
   if (show)
-    wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hw) ;
+    wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hwA) ;
   return wws ;
 } /* getShiftedCrystal */
 
@@ -1024,7 +1042,7 @@ static void intersectCrystals (SA *sa, Array wws, Array xxs)
       if (xx->mult < ww->mult)
 	ww->mult = xx->mult ;
     }
-  wwsShow (sa, "SUBTRACTED wws", 0, wws, 0) ;
+  wwsShow (sa, "INTERSECT SUBTRACTED wws", 0, wws, 0) ;
   return ;
 } /* intersectCrystals */
 
@@ -1032,8 +1050,10 @@ static void intersectCrystals (SA *sa, Array wws, Array xxs)
 
 static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 {
+  WW hwA ;
+  Array wws = getShiftedCrystal (sa, -2, &hwA, TRUE) ;
   Array old = sa->wws ;
-  Array wws = getShiftedCrystal (sa, -2, old, show) ;
+
   if (sa->hasAtypic)
     {
       int ii ;
@@ -1041,19 +1061,14 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
       for (ii = 0 ; 1 && ii < arrayMax (sa->atypic) ; ii++)
 	if (array (sa->atypic, ii, int))
 	  {
-	    Array top, xxs ;
-	    getHighestWeight (sa, ii, TRUE, show) ;
-	    if (show)
-	      wwsShow (sa, "Atypical   hw of  Tensor Product", ii, wws, 0) ;
-	    top = sa->wws ;
-	    xxs = getShiftedCrystal (sa, ii, top, show) ;
-	    intersectCrystals (sa, wws, xxs) ;
+	    Array xxs = getShiftedCrystal (sa, ii, &hwA, show) ;
+	    intersectCrystals (sa, old, xxs) ;
 	    ac_free (xxs) ;
-	    ac_free (top) ;
 	    
 	    if (show)
-	      wwsShow (sa, "Subtracted Atypical Tensor Product", ii, wws, 0) ;
+	      wwsShow (sa, "Get Subtracted Atypical Tensor Product", ii, old, &hwA) ;
 	  }
+      wws = old ;
     }
   sa->wws = wws ;
   if (dimp)
@@ -1105,10 +1120,9 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 
 /******************************************************************************************************/
 
-static BOOL demazureEven (SA *sa, int r1, int *dimEvenp, int *dimOddp, BOOL show) 
+ static BOOL demazureEven (SA *sa, Array wws, int r1, int *dimEvenp, int *dimOddp, BOOL show) 
 {
   BOOL new = FALSE ;
-  Array wws = sa->wws ;
   int i, dimEven, dimOdd, rank = sa->rank ;
   
   if (sa->pass++ == 0) new = TRUE ;
@@ -1215,8 +1229,8 @@ static BOOL demazureEven (SA *sa, int r1, int *dimEvenp, int *dimOddp, BOOL show
     }
   if (1)   arraySort (wws, wwCreationOrder) ;
   
-  *dimEvenp = dimEven ;
-  *dimOddp = dimOdd ; 
+  if (dimEvenp) *dimEvenp = dimEven ;
+  if (dimOddp) *dimOddp = dimOdd ; 
   
   return new ;
 } /* demazureEven */
@@ -1238,7 +1252,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
       for (r = 0 ; r < sa->rank ; r++)
 	{
 	  if (! sa->odd[r] && ! (nonExtended && sa->extended[r]))
-	    ok |= demazureEven (sa, r, &dimEven, &dimOdd, show) ;
+	    ok |= demazureEven (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
 	}
@@ -1251,7 +1265,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
 	  ok = FALSE ;
 	  for (r = 0 ; r < sa->rank ; r++)
 	    if (sa->extended[r])
-	      ok |= demazureEven (sa, r, &dimEven, &dimOdd, show) ;
+	      ok |= demazureEven (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 	}
     }
   
@@ -1508,8 +1522,8 @@ int main  (int argc, const char **argv)
      getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
    
    /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dimEven, &dimOdd, FALSE, FALSE) ;
-   printf  ("Final Representation dimEven=%d dimOdd=%d\n",  dimEven, dimOdd) ;
+   if (1) demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+   printf  ("################################################## Final Representation dimEven/dimOdd %d / %d\n",  dimEven, dimOdd) ;
    if (sa.hasOdd) getAtypic (&sa, show) ;
    arraySort (sa.wws, wwLayerOrder) ;
    if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
