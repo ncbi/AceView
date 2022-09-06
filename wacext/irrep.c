@@ -1454,7 +1454,7 @@ int main  (int argc, const char **argv)
    
    getCartan (&sa, show) ;
    getMetric (&sa, show) ;
-   exit (0) ;   
+   
    hasOdd = sa.hasOdd ;
    sa.hasOdd = FALSE ;
    if (hasOdd) /* do this first then destroy the dict */
