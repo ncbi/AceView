@@ -1,6 +1,9 @@
 #include "ac.h"
 #include "matrix.h"
 
+#define MALLOC_CHECK
+#define ARRAY_CHECK
+
 /* construct the table of representations of the basic classical Lie superalgebras 
  */
 
@@ -14,6 +17,7 @@ typedef struct wStruct
   int k ;
   int layer ;
   int l2 ;
+  int oddPair ;
   BOOL odd, hw ;
 } WW ; /* representation weigth vector */
 
@@ -21,15 +25,15 @@ typedef struct saStruct
 {
   AC_HANDLE h ;
   
+  int method ;
   BOOL table ;
   const char *type ; /* A,B.C,D,F,G */
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
   int YY[RMAX], YYd ;
   int m, n, alpha, rank, rank1, rank2 ;
-  Array metric, metric1, metric2 ;
+  Array lowerMetric, upperMetric ;
   Array Cartan, Cartan1, Cartan2 ;
-  Array upperCartan, upperCartan1, upperCartan2 ;
   int hasAtypic ;
   BOOL hasOdd ;
   BOOL isBlack ;
@@ -57,7 +61,7 @@ typedef struct saStruct
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
 static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2) ;
-static BOOL demazureEven (SA *sa, Array wws, int r1, int *dimEvenp, int *dimOddp, BOOL show) ;
+static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) ;
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
 
 /******************************************************************************************************/
@@ -115,7 +119,7 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
 static void metricRescale (Array metric, int r, int ii, int jj, int scale)
 {
   int i, k ;
-  for (i = ii ; i <= jj ; i++)
+    for (i = ii ; i <= jj ; i++)
   for (k = 0 ; k < r ; k++)
     {
       int x = arr (metric, r * i + k, int) ;
@@ -126,7 +130,7 @@ static void metricRescale (Array metric, int r, int ii, int jj, int scale)
 
 
 /******************************************************************************************************/
-/* prepare the Cartan Matrix, its inverse and the metric, for a simple Lie algebra block */
+/* merge and complete the Cartan Matrix for a superalgebra */
 static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 {
   int i, j ;
@@ -135,12 +139,8 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
   int dx = 0 ;
   
   sa->Cartan = arrayHandleCreate (rr, int , sa->h) ;
-  sa->upperCartan = arrayHandleCreate (rr, int , sa->h) ;
-  sa->metric = arrayHandleCreate (rr, int , sa->h) ;
 
   array (sa->Cartan, rr-1, int) = 0 ;  
-  array (sa->upperCartan, rr-1, int) = 0 ;  
-  array (sa->metric, rr-1, int) = 0 ;  
 
   sa->rank = r ;
   sa->hasY = hasY ;
@@ -152,8 +152,6 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	for (j = 0 ; j < r1 ; j++)
 	  {
 	    array (sa->Cartan, r * i + j, int) = arr (sa->Cartan1, r1 * i + j, int) ;
-	    array (sa->upperCartan, r * i + j, int) = arr (sa->upperCartan1, r1 * i + j, int) ;
-	    array (sa->metric, r * i + j, int) = arr (sa->metric1, r1 * i + j, int) ;
 	  }
       dx = r1 ;
     }
@@ -162,6 +160,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
       if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
+      if (r1 && r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = -1 ;
       if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
       dx++ ;
     }
@@ -176,21 +175,17 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	  for (j = 0 ; j < r2 ; j++)
 	    {
 	      array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan2, r2 * i + j, int) ;
-	      array (sa->upperCartan, r * (i+dx) + j + dx, int) = arr (sa->upperCartan2, r2 * i + j, int) ;
-	      array (sa->metric, r * (i+dx) + j + dx, int) = (sa->hasOdd ? -1 : 1) *  arr (sa->upperCartan2, r2 * i + j, int) ;
 	    }
 	  sa->evenHw2.x[dx+i] = oldhw2.x[i] ;
 	}
     }
   if (hasY)
     {
-      int i, j, ro = r1 ;
+      int i, ro = r1 ;
       int YY[RMAX] ;
       
       memset (YY, 0, sizeof (YY)) ;
-      sa->upperCartan = arrayHandleCopy (sa->Cartan, sa->h) ; 
-      mxIntInverse (arrp (sa->upperCartan, 0, int), arrp (sa->Cartan, 0, int), r) ;
-      sa->metric = arrayHandleCopy (sa->upperCartan, sa->h) ; 
+
       switch ((int)sa->type[0])
 	{
 	default:
@@ -204,17 +199,9 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    YY[i] =  (r1+1)*(r-i) ;
 	  YY[ro]  = (r1+1)*(r2+1) * (r1 <= r2 ? -1 : 1) ;
 	  sa->YYd = (r1 == r2 ? 1 : r1 - r2) ;
-	  if (0)
-	    {
-	      for (i = 0 ; i < r ; i++)
-		for (j = 0 ; j < r ; j++)
-		  sa->YY[i] += array (sa->upperCartan, r*i + j, int) * YY[j] ;
-	    }
-	  else
-	    {
-	      for (i = 0 ; i < r ; i++)
-		sa->YY[i] = YY[i] ;
-	    }
+	  for (i = 0 ; i < r ; i++)
+	    sa->YY[i] = YY[i] ;
+
 	  if (show)
 	    {
 	      printf ("............................................. YYd=%d  YY[]=", sa->YYd) ;
@@ -238,16 +225,14 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 } /* mergeCartan */
 
 /******************************************************************************************************/
-/* prepare the Cartan Matrix, its inverse and the metric, for a simple Lie algebra block */
+/* prepare the Cartan Matrix for a simple Lie algebra block */
 static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 {
   int i, r2 = r * r ;
   WW hw ;
   Array Cartan = arrayHandleCreate (r2, int, sa->h) ;
-  Array upperCartan = 0 ;
-  Array metric = 0 ;
 
-  array (Cartan, r2 - 1, int) = 0 ;
+    array (Cartan, r2 - 1, int) = 0 ;
   
   memset (&hw, 0, sizeof (hw)) ;
   switch ((int)type[0])
@@ -339,53 +324,23 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
       messcrash ("The Cartan matrix of a Lie algebra of type %c is not yet programmed, sorry.", type) ;
     }
 
-  upperCartan = arrayHandleCopy (Cartan, sa->h) ; 
-  mxIntInverse (arrp (upperCartan, 0, int), arrp (Cartan, 0, int), r) ;
-  metric = arrayHandleCopy (upperCartan, sa->h) ;
-  
-  switch ((int)type[0])
-    {
-    case 'B':
-      metricRescale (metric, r, 0, r-1, 2) ;
-      break ;
-    case 'C':
-      metricRescale (metric, r, 0, 0, 2) ;
-      break ;
-    case 'D':
-      break ;
-    case 'F':
-      metricRescale (metric, r, 0, 1, 2) ;
-      break ;
-    case 'G':
-      metricRescale (metric, r, 0, 0, 3) ;
-      break ;
-    default:
-      break ;
-    }
-  
 
   switch (Lie)
     {
-      case 0:
-	sa->Cartan = Cartan ;
-	sa->upperCartan = upperCartan ;
-	sa->metric = metric ;
-	sa->evenHw = hw ;
-	break ;
-      case 1:
-	sa->Cartan1 = Cartan ;
-	sa->upperCartan1 = upperCartan ;
-	sa->metric1 = metric ;
-	sa->evenHw1 = hw ;
-	break ;
-      case 2:
-	sa->Cartan2 = Cartan ;
-	sa->upperCartan2 = upperCartan ;
-	sa->metric2 = metric ;
+    case 0:
+      sa->Cartan = Cartan ;
+      sa->evenHw = hw ;
+      break ;
+    case 1:
+      sa->Cartan1 = Cartan ;
+      sa->evenHw1 = hw ;
+      break ;
+    case 2:
+      sa->Cartan2 = Cartan ;
 	sa->evenHw2 = hw ;
 	break ;
     }
-
+  
   if (show)
     {
       int i, j ;
@@ -397,19 +352,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  printf ("\n") ;
 	}
     }
-
-  if (show)
-    {
-      int i, j ;
-      printf ("\n### getOneCartan (upper) Matrix type %s rank = %d\n", type, r) ;
-      for (i = 0 ; i < r ; i++)
-	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (upperCartan, r*i + j, int)) ;
-	  printf ("\n") ;
-	}
-    }
-
+  
 } /* getOneCartan */
 
 /******************************************************************************************************/
@@ -417,7 +360,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 static void getCartan (SA *sa, BOOL show)
 {
   int m = sa->m, n = sa->n, r = 0, r1 = 0, r2 = 0, ro = 0 ;
-
+  
   switch ((int)sa->type[0])
     {
     case 'A':
@@ -426,7 +369,7 @@ static void getCartan (SA *sa, BOOL show)
       if (m <= 0 || n < 0 || m+n == 0)
 	messcrash ("Type Lie A(m,n) bad m=%d n=%d", m,n) ;
       if (n == 0)
-	  getOneCartan (sa, "A", r, 0, TRUE) ;
+	getOneCartan (sa, "A", r, 0, TRUE) ;
       else
 	{
 	  sa->hasOdd = TRUE ;
@@ -435,8 +378,7 @@ static void getCartan (SA *sa, BOOL show)
 	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
 	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
 	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
-	  metricRescale (sa->metric, r, ro, ro, -1) ;
-
+	  
 	  if (r1) sa->evenHw1.x[ro] = 1 ;
 	  if (r2) sa->evenHw2.x[ro] = 1 ;
 	  if (r1) sa->oddHw.x[ro - 1] = 1 ;
@@ -456,10 +398,9 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->n = 0 ;
 	  sa->extended[0] = TRUE ;
 	  sa->hasOdd = TRUE ;
-	  sa->isBlack = TRUE ;
+	    sa->isBlack = TRUE ;
 	  getOneCartan (sa, "C", m, 0, TRUE) ;
-	  metricRescale (sa->metric, m, 0, 0, 2) ;
-
+	  
 	  sa->odd[0] = 1 ;
 	  sa->oddHw.x[m-1] = 1 ;
 	  sa->oddHw.x[0] = -1 ;
@@ -505,8 +446,6 @@ static void getCartan (SA *sa, BOOL show)
 	      getOneCartan (sa, "D", 1, 2, TRUE) ;
 	      mergeCartan  (sa, 1, 1, FALSE, show) ;
 	      sa->Cartan1 = sa->Cartan ;
-	      sa->upperCartan1 = sa->Cartan ;
-	      sa->metric1 = sa->metric ;
 	      getOneCartan (sa, "C", n, 2, TRUE) ;
 	      mergeCartan  (sa, 2, n, FALSE, show) ;
 	      sa->extended[2] = TRUE ;
@@ -516,10 +455,6 @@ static void getCartan (SA *sa, BOOL show)
 	      sa->oddHw.x[0] = 1 ;
 	      sa->oddHw.x[1] = 1 ;
 	      sa->oddHw.x[2] = -1 ;
-	      metricRescale (sa->metric,sa->rank,0,1,1) ;
-	      metricRescale (sa->metric,sa->rank,1,1,sa->alpha) ;
-	      if (0)  metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
-	      metricRescale (sa->metric,sa->rank,2,2,-(sa->alpha+1)) ;
 	    }
 	}
       else if (m == 1 && n > 0) /* D(1/n) = super-C (n) = OSp(2/2n) */
@@ -528,30 +463,29 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->n = 0 ;
 	  sa->hasOdd = TRUE ;
 	  sa->hasY = TRUE ;
-	  getOneCartan (sa, "C", n, 1, TRUE) ;
+	  getOneCartan (sa, "C", n, 1, TRUE) ; 
 	  mergeCartan (sa, n, 0, TRUE, show) ;
 	  sa->oddHw.x[n-1] = 1 ;
-	  metricRescale (sa->metric, n+1, 0, 0, 2) ;
-	  metricRescale (sa->metric, n+1, n, n, -1) ;
 	}
+      
       break ;
-
+      
     case 'E':
       sa->rank = r = m ;
       switch (m)
 	{
-	default:
-	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
-	  break ;
-	case 6:     /* Lie algebra E6 */
-	case 7:     /* Lie algebra E7 */
+    case 6:  /* Lie algebra E6 */
+	   case 7:     /* Lie algebra E7 */
 	case 8:     /* Lie algebra E8 */
 	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  break ;
+	default:
+	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
 	  break ;
 	}
       break ;
       
-    case 'F':
+     case 'F':
       sa->rank = r = m ;
       switch (m + n)
 	{
@@ -571,13 +505,11 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "B", 3, 1, TRUE) ;
 	  getOneCartan (sa, "A", 1, 2, TRUE) ;
 	  mergeCartan  (sa, r1, r2, FALSE, show) ;
-	  metricRescale (sa->metric, 4, 0, 1, 2) ;
-	  metricRescale (sa->metric, 4, 3, 3, 6) ;
 	  break ;
 	}
       break ;
       
-    case 'G':
+     case 'G':
       sa->rank = r = m + n ;
       if (m != 2 || n*(n-1) != 0)
 	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
@@ -593,15 +525,14 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->oddHw.x[1] = 1 ;
 	  sa->oddHw.x[2] = -1 ;
 	  getOneCartan (sa, "G", 2, 1, TRUE) ;
-	  getOneCartan (sa, "A", 1, 2, TRUE) ;
+	    getOneCartan (sa, "A", 1, 2, TRUE) ;
 	  mergeCartan  (sa, r1, r2, FALSE, show) ;
-	  metricRescale (sa->metric, r, 2, 2, 2) ;
 	  break ;
 	}
       break ;
       
     default:
-      messcrash ("The Cartan matrix of a superalgebra of type %c is not yet programmed, sorry.", sa->type) ;
+        messcrash ("The Cartan matrix of a superalgebra of type %c is not yet programmed, sorry.", sa->type) ;
     }
   if (show)
     {
@@ -609,41 +540,76 @@ static void getCartan (SA *sa, BOOL show)
       printf ("\n### Cartan (lower) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
       for (i = 0 ; i < r ; i++)
 	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (sa->Cartan, r*i + j, int)) ;
-	  printf ("\n") ;
+	    for (j = 0 ; j < r ; j++)
+	      printf ("\t%d", arr (sa->Cartan, r*i + j, int)) ;
+	    printf ("\n") ;
 	}
     }
-  if (show && sa->upperCartan)
+}   /* KK */
+ /* getCartan */
+
+  /******************************************************************************************************/
+/* the lower Cartan metric is the symmetrized form of the Cartan matrix
+*  the upper metric is the inverse of the lower metric
+*/
+static void getMetric (SA *sa, BOOL show)
+{
+  Array aa ;
+  int i, j ;
+  int m = sa->m, n = sa->n, r = sa->rank ;
+
+  aa = sa->lowerMetric = arrayHandleCopy (sa->Cartan, sa->h) ;
+  sa->upperMetric = arrayHandleCreate (r*r, int , sa->h) ;
+  
+
+  for (i = 1 ; i < r ; i++)
     {
-      int i, j ;
-      printf ("\n### Cartan (upper) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
-      for (i = 0 ; i < r ; i++)
+      int x = - arr (aa, r * (i-1) + i , int) ;
+      int y = - arr (aa, r * (i+0) + i - 1, int) ;
+
+      if (x * y < 0 )
+	{
+	  y = -y ;
+	  metricRescale (aa, r, i, r - 1, -1) ;
+	}
+      if (x > y)
+	  metricRescale (aa, r, i, r - 1, x/y) ;
+      else if (x < y)
+	metricRescale (aa, r, 0, i - 1, y/x) ;
+      }
+    
+    if (show && sa->lowerMetric)
+      {
+
+	printf ("\n### Lower Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    for (j = 0 ; j < r ; j++)
+	      printf ("\t%d", arr (sa->lowerMetric, r*i + j, int)) ;
+	    printf ("\n") ;
+	  }
+      }
+    
+    mxIntInverse (arrp (sa->upperMetric, 0, int),  arrp(sa->lowerMetric, 0, int), sa->rank) ;
+    if (show && sa->upperMetric)
+      {
+
+	printf ("\n### Upper Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+	for (i = 0 ; i < r ; i++)
 	{
 	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (sa->upperCartan, r*i + j, int)) ;
+	    printf ("\t%d", arr (sa->upperMetric, r*i + j, int)) ;
 	  printf ("\n") ;
 	}
-    }
-  if (show && sa->metric)
-    {
-      int i, j ;
-      printf ("\n### Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
-      for (i = 0 ; i < r ; i++)
-	{
-	  for (j = 0 ; j < r ; j++)
-	    printf ("\t%d", arr (sa->metric, r*i + j, int)) ;
-	  printf ("\n") ;
-	}
-    }
-}  /* getCartan */
+      }
+}  /* getMetric */
 
 /******************************************************************************************************/  
 
 static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
 {
   int i, x = 0, rank = sa->rank ;
-
+  
   for (i = 0 ; i < rank ; i++)
     x += ww1->x[i] * ww2->x[i] ;
   
@@ -654,7 +620,7 @@ static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
 {
-  Array metric = sa->metric ;
+  Array metric = sa->upperMetric ;
   int i, j, x = 0, rank = sa->rank ;
 
   for (i = 0 ; i < rank ; i++)
@@ -757,6 +723,7 @@ static WW getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
     case 0: /* trivial h.w. */
       break ;
     case -1: /* use as h.w. the lowering simple root */
+      hw->odd = TRUE ;
       for (r = 0 ; r < rank ; r++)
 	hw->x[r] = sa->oddHw.x[r] ;
       break ;
@@ -975,7 +942,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
       int r ;
       for (r = 0 ; r < rank ; r++)
 	if (sa->extended[r])
-	  demazureEven (sa, wws, r, 0, 0, 0) ; 
+	  demazureEvenOdd (sa, wws, r, TRUE, TRUE, 0, 0, 0) ; 
     }
 
   if (show)
@@ -1122,9 +1089,10 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 
 /******************************************************************************************************/
 
- static BOOL demazureEven (SA *sa, Array wws, int r1, int *dimEvenp, int *dimOddp, BOOL show) 
+static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) 
 {
   BOOL new = FALSE ;
+  BOOL odd = ! even ;
   int i, dimEven, dimOdd, rank = sa->rank ;
   
   if (sa->pass++ == 0) new = TRUE ;
@@ -1137,15 +1105,19 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
       int na = 0 ;
       int dn = 0 ;
       int jMax = w->x[r1] ; /* default even values */
-
-      if (n1 == 0)
+      if (! even)
+	jMax = 1 ;
+      if (! even)
+	n1 -= w->oddPair ;
+      if (n1 <= 0)
 	continue ;
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
 	  int j, r, k2 ;
+	  int dj = snailTrail ? 1 : jMax - 1 ;
 	  WW *w2 ;
 	  
-	  for (j = 1 ; j <= jMax ; j++)
+	  for (j = 1 ; j <= jMax ; j += dj)
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
@@ -1156,12 +1128,13 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 	      
 	      /* create w2(k2) it if needed */
 	      w2 = arrayp (wws, k2, WW) ;
-	      w = arrayp (wws, i, WW) ;  /* needed because the wws aray may be relocated in RAM upon extension */ 
+	      w = arrayp (wws, i, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
 	      if (! w2->k)
 		{
 		  *w2 = *w ;
 		  w2->k = k2 ;
 		  w2->mult = 0 ;
+		  w2->oddPair = 0 ;
 		  w2->hw = FALSE ;
 		}
 	      n2 = na + w2->mult ;
@@ -1173,13 +1146,14 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 	}
 
       dn = n1 - n2 ; /* defect multiplicity */
-      if (jMax > 0 && dn > 0)   /* populate the new multiplate */
+      if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
 	  int j, r, k2 ;
+	  int dj = snailTrail ? 1 : jMax - 1 ;
 	  WW *w2 ;
 	  
 	  new = TRUE ;
-	  for (j = 1 ; j <= jMax ; j++)
+	  for (j = 1 ; j <= jMax ; j += dj)
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
@@ -1197,7 +1171,14 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 		}
 	      else /* classic demazure , correct for Lie algebras */
 		w2->mult += dn ;
-	      
+
+	      if (odd)
+		{
+		  w->oddPair += dn ;
+		  w2->oddPair += dn ;
+		  w2->odd = ! w->odd;
+		  w2->layer = w->layer + 1 ;
+		}
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += array(sa->Cartan, rank * r + r1, int) * j ;
@@ -1235,7 +1216,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
   if (dimOddp) *dimOddp = dimOdd ; 
   
   return new ;
-} /* demazureEven */
+} /* demazureEvenOdd */
 
 /******************************************************************************************************/
 
@@ -1254,20 +1235,35 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
       for (r = 0 ; r < sa->rank ; r++)
 	{
 	  if (! sa->odd[r] && ! (nonExtended && sa->extended[r]))
-	    ok |= demazureEven (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
+	    ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
 	}
-    }
-  if (0 && sa->hasExtended)
-    {
-      ok = TRUE ;
-      while (ok)
+      if (sa->hasOdd)
 	{
-	  ok = FALSE ;
-	  for (r = 0 ; r < sa->rank ; r++)
-	    if (sa->extended[r])
-	      ok |= demazureEven (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
+	  switch (sa->method)
+	    {
+	    case 2:
+	      for (r = 0 ; r < sa->rank ; r++)
+		{
+		  if (sa->odd[r])
+		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, sa->hasY, &dimEven, &dimOdd, show) ;
+		  if (ok && debug)
+		    wwsShow (sa, "Inside Demazure Odd", 0, sa->wws, 0) ;
+		}
+	      break ;
+	    }
+	}
+      if (0 && sa->hasExtended)
+	{
+	  ok = TRUE ;
+	  while (ok)
+	    {
+	      ok = FALSE ;
+	      for (r = 0 ; r < sa->rank ; r++)
+		if (sa->extended[r])
+		  ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	    }
 	}
     }
   
@@ -1286,16 +1282,17 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
 {
   int dimEven = 0 ;
   int dimOdd = 0 ;
-
-   sa->dict = dictHandleCreate (32, sa->h) ;
-
-   /* use as h.w. the lowering simple root */
-   getHighestWeight (sa, -1, 1, 0) ;
+  
+  sa->dict = dictHandleCreate (32, sa->h) ;
+  
+  /* use as h.w. the lowering simple root */
+  getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
-   sa->nOdd = demazure (sa, &dimEven, &dimOdd, TRUE, show) ;
+  demazure (sa, &dimEven, &dimOdd, TRUE, show) ;
+  sa->nOdd = dimOdd ; 
   sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
-
+  
   if (show)
     wwsShow (sa, "Negative Odd roots", 1, sa->negativeOddRoots, arrp (sa->negativeOddRoots, 1, WW)) ;
   printf ("## Constructed %d odd roots\n", dimOdd) ;
@@ -1311,7 +1308,7 @@ static void getAdjoint (SA *sa, BOOL show)
   int dimE = 0 ;
   int dimOdd = 0 ;
 
-  sa->dict = dictHandleCreate (32, sa->h) ;
+    sa->dict = dictHandleCreate (32, sa->h) ;
 
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
@@ -1335,65 +1332,20 @@ static void getRho (SA *sa, BOOL show)
   WW *ww ;
   int ii, r ;
   int rank = sa->rank ;
-  Array upperCartan = sa->upperCartan ;
 
   memset (&sa->rho0, 0, sizeof (WW)) ;
   /* rho0: sum of the positive even roots */
-  for (ii = 0 ; ii < arrayMax (sa->evenRoots) ; ii++)
-    {
-      int i ;
-      BOOL ok = TRUE ;
-      ww = arrp (sa->evenRoots, ii, WW) ;
-      for (i = 0 ; ok && i < rank ; i++)
-	{   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-	  int j, x = 0 ;
-	      if (1)
-		{
-		  for (j = 0 ; j < rank ; j++)
-		    x += arr (upperCartan, rank * i + j, int) * ww->x[j] ;
-		}
-	      else
-		{
-		  x = ww->x[i] ;
-		}
-	  if (x < 0)
-	    ok = FALSE ;
-	}
-      if (ok)
-	for (r = 0 ; r < rank ; r++)
-	  sa->rho0.x[r] += ww->x[r] ;
-    }
+  for (r = 0 ; r < rank ; r++)
+    sa->rho0.x[r] = 1 ;
   /* rho1: sum of the null positive odd roots */
   memset (&sa->rho1, 0, sizeof (WW)) ;
-  if (sa->hasOdd)
-    {
-      for (ii = 0 ; ii < arrayMax (sa->negativeOddRoots) ; ii++)
-	{
-	  int i ;
-	  BOOL ok = TRUE ;
-	  ww = arrp (sa->negativeOddRoots, ii, WW) ;
-	  if (0 && ww->l2)
-	    continue ;
-	  for (i = 0 ; ok && i < rank ; i++)
-	    {   /* Cartan inverse is not normalized by the determinant, ok if we only need the sign */
-	      int j, x = 0 ;
-	      if (1)
-		{
-		  for (j = 0 ; j < rank ; j++)
-		    x += arr (upperCartan, rank * i + j, int) * ww->x[j] ;
-		}
-	      else
-		{
-		  x = ww->x[i] ;
-		}
-	      if (0 && x > 0)   /* since we are selecting from the negative odd roots */
-		ok = FALSE ;
-	    }
-	  if (ok)
-	    for (r = 0 ; r < rank ; r++)
-	      sa->rho1.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
-	}
-    }
+  if (sa->negativeOddRoots)
+    for (ii = 0 ; ii < arrayMax (sa->negativeOddRoots) ; ii++)
+      {
+	ww = arrp (sa->negativeOddRoots, ii, WW) ;
+	for (r = 0 ; r < rank ; r++)
+	  sa->rho1.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
+      }
   for (r = 0 ; r < rank ; r++)
     sa->rho.x[r] = sa->rho0.x[r]  + sa->rho1.x[r] ;
   
@@ -1404,7 +1356,7 @@ static void getRho (SA *sa, BOOL show)
       for (i = 0 ; i < rank ; i++)
 	printf (" %d", sa->rho0.x[i]) ;
       
-      if (sa->hasOdd)
+      if (sa->negativeOddRoots)
 	{
 	  printf ("\n#================================= Sum of the odd negative roots : 2 rho_1 = ") ;
 	  for (i = 0 ; i < rank ; i++)
@@ -1477,13 +1429,14 @@ int main  (int argc, const char **argv)
    AC_HANDLE h = handleCreate () ;
    SA sa ;
    BOOL show = FALSE ;
+   BOOL hasOdd ;
    int dimEven = 0, dimOdd = 0 ;
-   
    freeinit () ;
 
 
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
+   sa.method = 2 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
@@ -1500,14 +1453,17 @@ int main  (int argc, const char **argv)
    sa.dict = dictHandleCreate (32, sa.h) ;
    
    getCartan (&sa, show) ;
-
-   if (sa.hasOdd) /* do this first then destroy the dict */
+   getMetric (&sa, show) ;
+   exit (0) ;   
+   hasOdd = sa.hasOdd ;
+   sa.hasOdd = FALSE ;
+   if (hasOdd) /* do this first then destroy the dict */
      getNegativeOddRoots (&sa, show) ;
-
    /* apply Demazure of the even group */
    getAdjoint (&sa, show) ;
    getRho (&sa, show) ;
-
+   sa.hasOdd = hasOdd ;
+   
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
        getAtypic (&sa, show) ;
@@ -1520,15 +1476,27 @@ int main  (int argc, const char **argv)
    printf ("*************************** %s m=%d n=%d %s \n "
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights) ;
 
-   if (sa.hasOdd)
-     getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
-   
-   /* complete the Hhw Crystal to a full module */
-   if (1) demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+   if (!sa.hasOdd)
+     demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+   else
+     {
+       switch (sa.method)
+	 {
+	 case 1:
+	   getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
+	   /* complete the hw Crystal to a full module */
+	   if (1) demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+	   break ;
+	 case 2:
+	   demazure (&sa, &dimEven, &dimOdd, TRUE, show) ;
+	   break ;
+	 }
+     }
+	   
    printf  ("################################################## Final Representation dimEven/dimOdd %d / %d\n",  dimEven, dimOdd) ;
-   if (sa.hasOdd) getAtypic (&sa, show) ;
    arraySort (sa.wws, wwLayerOrder) ;
-   if (0) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
+   if (show) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
+   if (sa.hasOdd) getAtypic (&sa, show) ;
    messfree (h) ;
    printf ("A bientot\n") ;
    
