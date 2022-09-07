@@ -32,8 +32,10 @@ typedef struct saStruct
   BOOL hasY ;
   int YY[RMAX], YYd ;
   int m, n, alpha, rank, rank1, rank2 ;
-  Array lowerMetric, upperMetric ;
+  Array scale, lowerMetric, upperMetric ;
   Array Cartan, Cartan1, Cartan2 ;
+  int detgg ;
+  int detGG ;
   int hasAtypic ;
   BOOL hasOdd ;
   BOOL isBlack ;
@@ -551,6 +553,7 @@ static void getCartan (SA *sa, BOOL show)
   /******************************************************************************************************/
 /* the lower Cartan metric is the symmetrized form of the Cartan matrix
 *  the upper metric is the inverse of the lower metric
+* the scale is the metric relative to cartan
 */
 static void getMetric (SA *sa, BOOL show)
 {
@@ -560,7 +563,8 @@ static void getMetric (SA *sa, BOOL show)
 
   aa = sa->lowerMetric = arrayHandleCopy (sa->Cartan, sa->h) ;
   sa->upperMetric = arrayHandleCreate (r*r, int , sa->h) ;
-  
+  sa->scale = arrayHandleCreate (r, int , sa->h) ;
+  array (sa->scale, r - 1 , int) = 1 ;
 
   for (i = 1 ; i < r ; i++)
     {
@@ -577,11 +581,27 @@ static void getMetric (SA *sa, BOOL show)
       else if (x < y)
 	metricRescale (aa, r, 0, i - 1, y/x) ;
       }
-    
-    if (show && sa->lowerMetric)
-      {
 
-	printf ("\n### Lower Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+  for (i = 0 ; i < r ; i++)
+    {
+      for (j = 0 ; j < r ; j++)
+	{
+	   int x = - arr (aa, r * i + j , int) ;
+	   int y = - arr (sa->Cartan, r * i + j, int) ;
+	   if (x * y != 0)
+	     {
+	       arr (sa->scale, i , int) = x / y ;
+	       break ;
+	     }
+	}
+    }
+
+    
+  sa->detgg = mxIntDeterminant (arrp(sa->lowerMetric, 0, int), r) ;
+  if (show && sa->lowerMetric)
+      {
+	
+	printf ("\n### Lower Metric type %s m=%d n=%d rank = %d det=%d\n", sa->type, m, n, r, sa->detgg) ;
 	for (i = 0 ; i < r ; i++)
 	  {
 	    for (j = 0 ; j < r ; j++)
@@ -589,18 +609,26 @@ static void getMetric (SA *sa, BOOL show)
 	    printf ("\n") ;
 	  }
       }
-    
-    mxIntInverse (arrp (sa->upperMetric, 0, int),  arrp(sa->lowerMetric, 0, int), sa->rank) ;
+    sa->detGG = mxIntInverse (arrp (sa->upperMetric, 0, int),  arrp(sa->lowerMetric, 0, int), sa->rank) ;
     if (show && sa->upperMetric)
       {
 
-	printf ("\n### Upper Metric type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
+	printf ("\n### Upper Metric type %s m=%d n=%d rank = %d, det=%d\n", sa->type, m, n, r, sa->detGG) ;
 	for (i = 0 ; i < r ; i++)
 	{
 	  for (j = 0 ; j < r ; j++)
 	    printf ("\t%d", arr (sa->upperMetric, r*i + j, int)) ;
 	  printf ("\n") ;
 	}
+      }
+
+    if (show && sa->scale)
+      {
+
+	printf ("\n### Scale = metric/Cartan\n") ;
+	for (i = 0 ; i < r ; i++)
+	  printf ("\t%d", arr (sa->scale, i, int)) ;
+	printf ("\n") ;
       }
 }  /* getMetric */
 
@@ -620,12 +648,13 @@ static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
 {
-  Array metric = sa->upperMetric ;
+  Array scale = sa->scale ;
+  Array upperMetric = sa->upperMetric ;
   int i, j, x = 0, rank = sa->rank ;
 
   for (i = 0 ; i < rank ; i++)
     for (j = 0 ; j < rank ; j++)
-      x += ww1->x[i] * arr (metric, rank*i+j,int) * ww2->x[j] ;
+      x += ww1->x[i] * arr (upperMetric, rank*i+j,int) * ww2->x[j] * arr (scale, i, int) * arr (scale, j, int) ;
   
   return x ;
 } /* wwScalarProduct */
@@ -681,7 +710,12 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 	    {
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", ww->x[r]) ;
-	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=%d", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "", ww->l2) ;
+	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "") ;
+	      ww->l2 = wwScalarProduct (sa, ww, ww) ;
+	      if (sa->detGG && ww->l2 % sa->detGG == 0)
+		printf ("%d", ww->l2/sa->detGG) ;
+	      else
+		printf ("%d/%d", ww->l2, sa->detGG) ;
 	      if (sa->YYd)
 		{
 		  int y1, y2 ;
@@ -824,6 +858,8 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  if (yes == 1)
 	    {
 	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
+	      wodd->l2 = wwScalarProduct (sa, wodd, wodd) ;
+
 	      if (arr(sa->atypic,k+1,int) >= 0 && (sa->isBlack || wodd->l2 == 0))
 		{
 		  vtxtPrintf (txt, " %d", k+1) ;
@@ -1136,6 +1172,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
 		  w2->mult = 0 ;
 		  w2->oddPair = 0 ;
 		  w2->hw = FALSE ;
+		  w2->l2 = wwScalarProduct (sa, w2, w2) ;
 		}
 	      n2 = na + w2->mult ;
 
