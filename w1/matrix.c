@@ -1015,14 +1015,14 @@ int mxIntInverse (int *ai, int *aa, int rank)
       for (ii = 0 ; ii < rank ; ii++)
 	for (jj = 0 ; jj < rank ; jj++)
 	  {
-	    /* inverse = transposed determinat of cofactors with alterbated signs */
+	    /* inverse = transposed determinant of cofactors with alterbated signs */
 	    int bb[r2] ;
 	    mxIntCofactor (bb, aa, ii, jj, rank) ;
 	    ai [rank*jj + ii] = s * (1 - 2 * ((ii+jj) % 2)) * mxIntDeterminant (bb, r) ;
 	  }
     }
   return s * det ;
-} /* mxIntDeterminant */
+} /* mxIntInverse */
 
 /**********************************************************************/
 

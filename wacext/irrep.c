@@ -160,18 +160,17 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
   if (hasY)
     {
       if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
-      if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
+      if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
       if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
       if (1 && r1 && r2) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
       if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
       dx++ ;
     }
+
   if (r2 > 0)
     {
       WW oldhw2 = sa->evenHw2 ;
 
-      if (0 && r1)
-	sa->evenHw1.x[r1] = -1 ;
       for (i = 0 ; i < r ; i++)
 	sa->evenHw2.x[i] = 0 ;
       for (i = 0 ; i < r2 ; i++)
@@ -382,7 +381,7 @@ static void getCartan (SA *sa, BOOL show)
 	  if (sa->method == 3)
 	    {
 	      if (n >= 2) sa->odd1[m] = TRUE ;
-	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = 1 ;
+	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = TRUE ;
 	    }
 	  ro = r1 = m - 1 ;
 	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
@@ -390,7 +389,7 @@ static void getCartan (SA *sa, BOOL show)
 	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
 	  
 	  if (r1) sa->evenHw1.x[ro] = 1 ;
-	  if (r1 && r2) sa->evenHw1.x[ro] = -1 ;
+	  if (r1) sa->evenHw1.x[ro] = -1 ;
 	  if (r2) sa->evenHw2.x[ro] = 1 ;
 	  if (r1) sa->oddHw.x[ro - 1] = 1 ;
 	  if (r2) sa->oddHw.x[ro + 1] = 1 ;
@@ -1422,7 +1421,7 @@ static void getRho (SA *sa, BOOL show)
   memset (&sa->rho0, 0, sizeof (WW)) ;
   /* rho0: sum of the positive even roots */
   if (sa->evenRoots)
-    for (ii = 0 ; ii < arrayMax (sa->evenRoots) ; ii++)
+    for (ii = 1 ; ii < arrayMax (sa->evenRoots) ; ii++)
       {
 	int x, i, j ;
 	BOOL isPositive = TRUE ;
