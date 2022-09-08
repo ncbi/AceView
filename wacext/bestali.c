@@ -27,8 +27,10 @@
  *  mieg@ncbi.nlm.nih.gov
  */
 
+/*
 #define MALLOC_CHECK   
 #define ARRAY_CHECK   
+*/
 
 #include "ac.h"
 #include "acedb.h"
@@ -141,6 +143,7 @@ typedef struct hitStruct3 {
     , targetPrefix, targetSuffix  /* 30bp, up and downstream, read on the target in the orientation of the tag */
     , nN, nErr
     , c1, c2 /* chain start/stop in x coordinates */
+    , gt_ag, ct_ac /* justified introns */
     ;
 } HIT3 ;
 
@@ -395,7 +398,11 @@ static void baExportOneHit (ACEOUT ao, BA *ba, HIT *up)
   aceOutf (ao, "\t-\t-\t-") ;
 
   if (up->chain)
-    aceOutf (ao, "\tchain %d\t%d\t%d", up->chain, up3->c1, up3->c2) ;
+    aceOutf (ao, "\tchain %d\t%d\t%d\t%d\t%d"
+	     , up->chain
+	     , up3->c1, up3->c2
+	     , up3->gt_ag, up3->ct_ac
+	     ) ;
   else
     aceOut (ao, "\t") ;
   aceOut (ao, "\n") ;
@@ -565,8 +572,8 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
 
   up3->nN = dummy ;
   up3->nErr = dummy2 ;	   
-  aceInStep (ai, '\t') ; ccp = aceInWordCut (ai, "\t", &cutter) ;
-  if (! ccp || ! *ccp)
+  aceInStep (ai, '\t') ; ccp = aceInWordCut (ai, "\t", &cutter) ;  /* col 16: errTag */
+  if (! ccp || ! *ccp) 
     {
        fprintf(stderr, "cannot read errTag %s\n", dictName (ba->tagDict,up->tag)) ;
        return FALSE ;
@@ -578,7 +585,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
 	ba->solid = TRUE ;
     }
   
-  ccp = aceInWordCut (ai, "\t", &cutter) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ;  /* col 17: errTarget*/
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read errTarget\n") ;
@@ -587,7 +594,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->errDict,ccp, &(up3->errTarget)) ;
   
-  ccp = aceInWordCut (ai, "\t", &cutter) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ; /* col 18: prefix */
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read prefix\n") ;
@@ -596,7 +603,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->dnaDict,ccp, &(up3->prefix)) ;
   
-  ccp = aceInWordCut (ai, "\t", &cutter) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ; /* col 19: suffix */
   if (! ccp || ! *ccp)
     {
       fprintf(stderr, "cannot read suffix\n") ;
@@ -607,7 +614,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
       dictAdd (ba->dnaDict,ccp, &(up3->suffix)) ;
     }
   
-  ccp = aceInWordCut (ai, "\t", &cutter) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ; /* col 20: targetPrefix */
   if (! ccp || ! *ccp)
     {
       if (! nTP++) fprintf(stderr, "cannot read targetPrefix\n") ;
@@ -616,7 +623,7 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   if (strcmp (ccp, "-"))
     dictAdd (ba->dnaDict,ccp, &(up3->targetPrefix)) ;
   
-  ccp = aceInWordCut (ai, "\t", &cutter) ;
+  ccp = aceInWordCut (ai, "\t", &cutter) ; /* col 21: targetSuffix */
   if (! ccp || ! *ccp)
     {
        if (! nTS++) fprintf(stderr, "cannot read targetSuffix\n") ;
@@ -627,8 +634,8 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
   
   /* if pair == false, do not compute dPair, but if known reexport it */
    deltaPair = 0 ;
-   if (0) aceInStep (ai, '-') ; /* 2022__06_11 why kill the sign */
-   aceInInt (ai, & deltaPair)  ; aceInStep (ai, '\t') ;
+   /* if no int, the file says -\t, we must step over the minus to see the t */ 
+   aceInInt (ai, & deltaPair)  ; aceInStep (ai, '-') ; aceInStep (ai, '\t') ; /* col 22: pairLength */
    if (deltaPair == -14) deltaPair = 0 ;
    if (deltaPair)
     {
@@ -646,12 +653,14 @@ static BOOL baParseOneHit (ACEIN ai, BA *ba, HIT *up, int nn)
    aceInWordCut (ai, "\t", &cutter) ; /* col 24 */
    aceInWordCut (ai, "\t", &cutter) ; /* col 25 */
    ccp = aceInWord (ai) ; /* col 26 chain */
-   if (ccp && ! strcasecmp (ccp, "chain") &&
-       aceInInt (ai, &chain))
+   if (ccp && ! strcasecmp (ccp, "chain"))
      {
+       aceInInt (ai, &chain) ;
        up->chain = chain ;  
        aceInStep (ai, '\t') ; aceInInt (ai, &(up3->c1)) ;
        aceInStep (ai, '\t') ; aceInInt (ai, &(up3->c2)) ;
+       aceInStep (ai, '\t') ; aceInInt (ai, &(up3->gt_ag)) ;
+       aceInStep (ai, '\t') ; aceInInt (ai, &(up3->ct_ac)) ;
      }
      
   return TRUE ;
@@ -1923,7 +1932,8 @@ static int baPairFilter (BA *ba)
 	}
     }
   arrayMax (aa) = jj ;
-  
+
+  if (0)   goto done ;
   /* export histogram of pair lengths */
   keySet (histo, 10000) = 0 ;
   for (n = ii = j1 = 0, up = arrp (aa, 0, HIT), tag = 0 ; ii < arrayMax (aa) ; up++, ii++)
@@ -1935,13 +1945,16 @@ static int baPairFilter (BA *ba)
       keySet (histo, jj)++ ;
       if (keySet (histo, jj) > n) { n = keySet (histo, jj) ; j1 = jj ; }
     }
+  if (0) goto done ;
   /* cut off the histo at a position long enough to include 99.9% of all pairs */
   for (ii = keySetMax (histo) - 1 , j2 = 0 ; ii > j1 ; ii--)
     if (keySet (histo, ii) > n/1000) break ;
     else j2 += keySet (histo, ii) ;
-  keySetMax (histo) = ii + 2 ;
   keySet (histo, ii+1) = j2 ;
-    
+  keySetMax (histo) = ii + 2 ;
+
+  if (0)   goto done ;
+
   aceOutf (ao, "\nAligned_fragments\t%d", nPairs) ;
   if (0) aceOutf (ao, "\t//Good+Bad+Orphans\t%d", nGoodPairs + nBadPairs +  nOrphans) ;
   aceOutf (ao, "\nCompatible_pairs\t%d", nGoodPairs) ;
@@ -1953,6 +1966,8 @@ static int baPairFilter (BA *ba)
   aceOutf (ao, "\nOrphans\tAny\t%d", nOrphans) ;
   for (ii = 1 ; ii < keySetMax (histoOrphan) ; ii++)
     aceOutf (ao, "\nOrphans\t%d\t%d", ii, keySet (histoOrphan, ii)) ;
+
+  if (0)   goto done ;
 
   aceOutf (ao, "\nCompatible_pairs_inside_gene\t%d", nGeneGene) ;
   aceOutf (ao, "\nCompatible_gene_extension\t%d", nGeneGenome + nTwoCloseGenes) ;
@@ -2005,6 +2020,7 @@ static int baPairFilter (BA *ba)
       ac_free (ao2) ;
     }
 
+ done:
   /* report */
   fprintf (stderr, "Kept %d/%d hits = %.2f%%, found %d pairs, %d reads, %d (%.2f%%) compatible pairs, %d (%.2f%%) incompatible pairs, %d (%.2f%%) orphans\n"
 	   , arrayMax (aa), aMax1, 100.0 * arrayMax (aa)/ (aMax1 > 0 ? aMax1 : 1)

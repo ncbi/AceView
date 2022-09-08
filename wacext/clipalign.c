@@ -184,6 +184,7 @@ typedef struct mmStruct {
   short same ;          /* number of letters in common with (mm+1) */ 
   short stranded ;      /* 0, 1 or -1, depends on run and if paired run on probeName prefix */
   unsigned char wordCount[16] ; /* count how many time sequence section modulo 8 got a word hit */
+  int gt_ag, ct_ac ;
 } MM ;
 
 
@@ -3608,6 +3609,7 @@ static void clipAlignDoExportPx (CLIPALIGN *pp, PEXPORT *px, int type)
 	       , ct
 	       ) ;  
       aceOutf (pp->ao, "\t-\t-\t-\t-\tchain %d\t%d\t%d", px->chain,px->s1, px->s2) ; /* first column: distance to mate (later added by bestali */
+      aceOutf (pp->ao, "\t%d\t%d", px->mm->gt_ag, px->mm->ct_ac) ;
       if (pp->showProbeSequence)
 	{
 	  char *cp, *cq, buf[mm->probeLength + 2] ;
@@ -4761,8 +4763,8 @@ static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarg
 		  {
 		    BOOL r = reverse ;
 		    if (mm->pair < 0) r = (r ? FALSE : TRUE) ;
-		    if (r == FALSE) pp->nIntronPlus += mm->mult ;
-		    else pp->nIntronMinus += mm->mult ;
+		    if (r == FALSE) { pp->nIntronPlus += mm->mult ;  }
+		    else { pp->nIntronMinus += mm->mult ;  }
 		  }
 		if (bestk < 8 && overlap < 2)
 		  continue ;
@@ -4838,6 +4840,13 @@ static int clipAlignConstructIntrons (CLIPALIGN *pp, int isDown, BOOL singleTarg
 		    bestda >=  pp->intronMinLength
 		    )
 		  {
+                    if (bestk >= 8)
+		      {
+			if (px->a1 < px->a2)
+			  mm->gt_ag++ ;
+			else
+			  mm->ct_ac++ ;
+		      }
 		    if (bestda > pp->intronMaxLength) px->nN |= 0x4 ;  /* big intron */
 		    if (bestda > 200000) px->nN |= 0x8 ;              /* huge intron */
 		  }

@@ -5,6 +5,9 @@ set lane=$2
 set minInsertLength=$3
 set useMagicBlastTag=$4
 
+date
+echo "alignAndSelectBest.tcsh $1 $2 $3 $4"
+
 set mIL=""
 if ( $minInsertLength > 0) set mIL="-Remove_inserts_shorter_than $minInsertLength"
 set COUNT=COUNT
@@ -430,6 +433,7 @@ endif
   echo "gunzip -c $hitfiles | bin/bestali  -filter $filter  $mIL $geneRemap -maxHit $maxHit -countBest -seqc -strategy $Strategy -exportBest  -exportSuffix -exportVenn -errorProfile $pair -aliProfile -exportMito $sig -gzo -o $mytmp/COUNT/$lane"
   (bin/time -p gunzip -c $hitfiles | sort -k 1,1 -k 2,2nr | bin/bestali  -filter  $filter   $mIL $geneRemap -maxHit $maxHit -countBest -seqc -strategy $Strategy -exportBest  -exportVenn -exportSuffix -errorProfile $pair -aliProfile -exportMito $sig -gzo -o $mytmp/COUNT/$lane) >&  $mytmp/COUNT/$lane.err
   touch $mytmp/COUNT/$lane.mrnaOrder.done
+  ls -ls $mytmp/COUNT/$lane.hits.gz
   echo -n "bestali done : "
   date
   if ($cleanUp == 1 && -e tmp/COUNT/$lane.hits.1.gz) \rm  tmp/COUNT/$lane.hits.1.gz

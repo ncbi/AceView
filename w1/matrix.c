@@ -1003,10 +1003,12 @@ int mxIntInverse (int *ai, int *aa, int rank)
   int ii, jj ;
   int r = rank -1 ;
   int r2 = r * r ;
-  
+  int det = mxIntDeterminant (aa, rank) ;
+  int s = det >= 0 ? 1 : -1 ;
+
   if (rank == 1)
     {
-      ai[0] = 1 ;
+      ai[0] = s ;
     }
   else
     {
@@ -1016,10 +1018,10 @@ int mxIntInverse (int *ai, int *aa, int rank)
 	    /* inverse = transposed determinat of cofactors with alterbated signs */
 	    int bb[r2] ;
 	    mxIntCofactor (bb, aa, ii, jj, rank) ;
-	    ai [rank*jj + ii] = (1 - 2 * ((ii+jj) % 2)) * mxIntDeterminant (bb, r) ;
+	    ai [rank*jj + ii] = s * (1 - 2 * ((ii+jj) % 2)) * mxIntDeterminant (bb, r) ;
 	  }
     }
-  return mxIntDeterminant (aa, rank) ;
+  return s * det ;
 } /* mxIntDeterminant */
 
 /**********************************************************************/

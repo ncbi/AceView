@@ -65,7 +65,7 @@ typedef struct saStruct
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
 static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) ;
-static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
+static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show) ;
 
 /******************************************************************************************************/
 
@@ -1282,7 +1282,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
 
 /******************************************************************************************************/
 
-static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show)
+static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
   BOOL debug = FALSE ;
@@ -1296,8 +1296,23 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	{
-	  if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! (nonExtended && sa->extended[r]))
-	    ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	  switch (method)
+	    {
+	    case 0:  /* negative odd roots */
+	      if (! sa->odd[r] && ! sa->extended[r])
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	      break ;
+
+	    case 1:
+	      if (! sa->odd[r])  /* adjoint: extended root is accepted */
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	      break ;
+
+	    case 3:  /* generic case */
+	      if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! sa->extended[r])
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	      break ;
+	    }
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
 	}
@@ -1359,7 +1374,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
-  demazure (sa, &dimEven, &dimOdd, TRUE, show) ;
+  demazure (sa, &dimEven, &dimOdd, 0, show) ;
   sa->nOdd = dimOdd ; 
   sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
@@ -1384,7 +1399,7 @@ static void getAdjoint (SA *sa, BOOL show)
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
   /* construct the adjoint layer using Demazure */
-  sa->nEven = demazure (sa, &dimE, &dimOdd, FALSE, show) ;
+  sa->nEven = demazure (sa, &dimE, &dimOdd, 1, show) ;
 
   sa->evenRoots = sa->wws ;
   sa->wws = 0 ;
@@ -1412,15 +1427,20 @@ static void getRho (SA *sa, BOOL show)
 	int x, i, j ;
 	BOOL isPositive = TRUE ;
 	ww = arrp (sa->evenRoots, ii, WW) ;
+	printf (".... even root %d :: ", ii) ;
 	for (i = 0 ; i < r ; i++)
+	  printf ("%d ", ww->x[i]) ;
+	printf ("  :: ") ;
+	for (i = 0 ; i < rank ; i++)
 	  {
 	    x = 0 ;
-	    if (! sa->odd[i])
-	      for (j = 0 ; j < r ; j++)
-		x +=  arr (sa->upperMetric, rank * i + j, int) * arr (sa->scale, 0, int) * ww->x[j] ;
-	    if (x * arr (sa->scale, i, int) < 0)
+	    for (j = 0 ; j < rank ; j++)
+	      x +=  arr (sa->upperMetric, rank * i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	    if (x < 0)
 	      isPositive = FALSE ;
+	    printf ("%d ", x) ;
 	  }
+	printf ("\n") ;
 	if (isPositive)
 	  for (r = 0 ; r < rank ; r++)
 	    sa->rho0.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
@@ -1566,7 +1586,7 @@ int main  (int argc, const char **argv)
 	   , sa.type, sa.m, sa.n, sa.DynkinWeights) ;
 
    if (!sa.hasOdd)
-     demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+     demazure (&sa, &dimEven, &dimOdd, 0, FALSE) ;
    else
      {
        switch (sa.method)
@@ -1574,11 +1594,11 @@ int main  (int argc, const char **argv)
 	 case 1:
 	   getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
 	   /* complete the hw Crystal to a full module */
-	   if (1) demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
+	   if (1) demazure (&sa, &dimEven, &dimOdd, 1, FALSE) ;
 	   break ;
 	 case 2:
 	 case 3:
-	   demazure (&sa, &dimEven, &dimOdd, TRUE, show) ;
+	   demazure (&sa, &dimEven, &dimOdd, 3, show) ;
 	   break ;
 	 }
      }
