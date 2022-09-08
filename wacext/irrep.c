@@ -42,6 +42,8 @@ typedef struct saStruct
   int hasExtended ;
   int nEven, nOdd ;
   BOOL odd[RMAX] ;
+  BOOL odd1[RMAX] ;
+  BOOL odd2[RMAX] ;
   BOOL extended[RMAX] ;
   Array Kac ; /* Kac crystal */
   WW evenHw, evenHw1, evenHwD2, evenHw2 ;
@@ -62,7 +64,6 @@ typedef struct saStruct
 
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
-static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2) ;
 static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) ;
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL show) ;
 
@@ -130,7 +131,6 @@ static void metricRescale (Array metric, int r, int ii, int jj, int scale)
   return ;
 } /* metricRescale */
 
-
 /******************************************************************************************************/
 /* merge and complete the Cartan Matrix for a superalgebra */
 static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
@@ -162,7 +162,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
       if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
       if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = 1 ;
       if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
-      if (r1 && r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = -1 ;
+      if (1 && r1 && r2) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
       if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
       dx++ ;
     }
@@ -170,6 +170,8 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
     {
       WW oldhw2 = sa->evenHw2 ;
 
+      if (0 && r1)
+	sa->evenHw1.x[r1] = -1 ;
       for (i = 0 ; i < r ; i++)
 	sa->evenHw2.x[i] = 0 ;
       for (i = 0 ; i < r2 ; i++)
@@ -199,7 +201,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    YY[i] =  -(r2+1)*(i+1) ;
 	  for (i = r-1 ; i > ro ; i--)
 	    YY[i] =  (r1+1)*(r-i) ;
-	  YY[ro]  = (r1+1)*(r2+1) * (r1 <= r2 ? -1 : 1) ;
+	  YY[ro]  = (r1+1)*(r2+1) * (r1 <= r2 ? -1 : -1) ;
 	  sa->YYd = (r1 == r2 ? 1 : r1 - r2) ;
 	  for (i = 0 ; i < r ; i++)
 	    sa->YY[i] = YY[i] ;
@@ -339,8 +341,8 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
       break ;
     case 2:
       sa->Cartan2 = Cartan ;
-	sa->evenHw2 = hw ;
-	break ;
+      sa->evenHw2 = hw ;
+      break ;
     }
   
   if (show)
@@ -376,12 +378,19 @@ static void getCartan (SA *sa, BOOL show)
 	{
 	  sa->hasOdd = TRUE ;
 	  sa->odd[m-1] = 1 ;
+	  sa->odd1[m-1] = TRUE ;
+	  if (sa->method == 3)
+	    {
+	      if (n >= 2) sa->odd1[m] = TRUE ;
+	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = 1 ;
+	    }
 	  ro = r1 = m - 1 ;
 	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
 	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
 	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
 	  
 	  if (r1) sa->evenHw1.x[ro] = 1 ;
+	  if (r1 && r2) sa->evenHw1.x[ro] = -1 ;
 	  if (r2) sa->evenHw2.x[ro] = 1 ;
 	  if (r1) sa->oddHw.x[ro - 1] = 1 ;
 	  if (r2) sa->oddHw.x[ro + 1] = 1 ;
@@ -451,6 +460,11 @@ static void getCartan (SA *sa, BOOL show)
 	      getOneCartan (sa, "C", n, 2, TRUE) ;
 	      mergeCartan  (sa, 2, n, FALSE, show) ;
 	      sa->extended[2] = TRUE ;
+	      if (sa->method == 3)
+		{
+		  sa->odd1[2] = TRUE ;
+		  sa->odd2[3] = TRUE ;
+		}
 	      sa->hasOdd = TRUE ;
 	      sa->evenHw1.x[0] = 2 ;
 	      sa->evenHwD2.x[1] = 2 ;
@@ -468,6 +482,11 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "C", n, 1, TRUE) ; 
 	  mergeCartan (sa, n, 0, TRUE, show) ;
 	  sa->oddHw.x[n-1] = 1 ;
+	  if (sa->method == 3)
+	    {
+	      sa->odd1[0] = TRUE ;
+	      sa->odd2[1] = TRUE ;
+	    }
 	}
       
       break ;
@@ -524,10 +543,16 @@ static void getCartan (SA *sa, BOOL show)
 	  r1 = 2 ; r2 = 1 ;
 	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
+	  sa->odd[1] = 1 ;
+	  if (sa->method == 3)
+	    {
+	      sa->odd1[1] = TRUE ;
+	      sa->odd2[2] = TRUE ;
+	    }
 	  sa->oddHw.x[1] = 1 ;
 	  sa->oddHw.x[2] = -1 ;
 	  getOneCartan (sa, "G", 2, 1, TRUE) ;
-	    getOneCartan (sa, "A", 1, 2, TRUE) ;
+	  getOneCartan (sa, "A", 1, 2, TRUE) ;
 	  mergeCartan  (sa, r1, r2, FALSE, show) ;
 	  break ;
 	}
@@ -633,7 +658,7 @@ static void getMetric (SA *sa, BOOL show)
 }  /* getMetric */
 
 /******************************************************************************************************/  
-
+#ifdef JUNK
 static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
 {
   int i, x = 0, rank = sa->rank ;
@@ -643,7 +668,7 @@ static int wwNaturalProduct (SA *sa, WW *ww1, WW *ww2)
   
   return x ;
 } /* wwNaturalProduct */
-
+#endif
 /******************************************************************************************************/  
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
@@ -1271,7 +1296,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	{
-	  if (! sa->odd[r] && ! (nonExtended && sa->extended[r]))
+	  if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! (nonExtended && sa->extended[r]))
 	    ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
 	  if (ok && debug)
 	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
@@ -1281,6 +1306,15 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, BOOL nonExtended, BOOL
 	  switch (sa->method)
 	    {
 	    case 2:
+	      for (r = 0 ; r < sa->rank ; r++)
+		{
+		  if (sa->odd[r])
+		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, sa->hasY, &dimEven, &dimOdd, show) ;
+		  if (ok && debug)
+		    wwsShow (sa, "Inside Demazure Odd", 0, sa->wws, 0) ;
+		}
+	      break ;
+	    case 3:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  if (sa->odd[r])
@@ -1372,8 +1406,25 @@ static void getRho (SA *sa, BOOL show)
 
   memset (&sa->rho0, 0, sizeof (WW)) ;
   /* rho0: sum of the positive even roots */
-  for (r = 0 ; r < rank ; r++)
-    sa->rho0.x[r] = 1 ;
+  if (sa->evenRoots)
+    for (ii = 0 ; ii < arrayMax (sa->evenRoots) ; ii++)
+      {
+	int x, i, j ;
+	BOOL isPositive = TRUE ;
+	ww = arrp (sa->evenRoots, ii, WW) ;
+	for (i = 0 ; i < r ; i++)
+	  {
+	    x = 0 ;
+	    if (! sa->odd[i])
+	      for (j = 0 ; j < r ; j++)
+		x +=  arr (sa->upperMetric, rank * i + j, int) * arr (sa->scale, 0, int) * ww->x[j] ;
+	    if (x * arr (sa->scale, i, int) < 0)
+	      isPositive = FALSE ;
+	  }
+	if (isPositive)
+	  for (r = 0 ; r < rank ; r++)
+	    sa->rho0.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
+      }
   /* rho1: sum of the null positive odd roots */
   memset (&sa->rho1, 0, sizeof (WW)) ;
   if (sa->negativeOddRoots)
@@ -1423,18 +1474,18 @@ static void getAtypic (SA *sa, BOOL show)
   for (ii = 1 ; ii < arrayMax (oddRoots) ; ii++)
     {
       /* x = < L + rho | beta_i > */
-      int x = 0, z = 0 ;
+      int i, j, x = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
 
-      x = wwNaturalProduct (sa, &hwT, ww) ;
-      x = wwScalarProduct (sa, &hwT, ww) ;
-      z = wwScalarProduct (sa, &sa->rho   , ww) ;
+      for (i = 0 ; i < rank ; i++)
+	for (j = 0 ; j < rank ; j++)
+	  x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
       if (x == 0)
 	{
 	  array (sa->atypic, ii, int) = 1 ;
 	  sa->hasAtypic = TRUE ;
 	}
-      if (ii == 1 && z != 0 && ! sa->isBlack)
+      if (ii == 1 && x != 0 && ! sa->isBlack)
 	messcrash ("The trivial representaion is not atypic 1") ;
     }
   
@@ -1473,7 +1524,7 @@ int main  (int argc, const char **argv)
 
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
-   sa.method = 2 ;   
+   sa.method = 3 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
@@ -1504,7 +1555,8 @@ int main  (int argc, const char **argv)
    if (sa.hasOdd)
      {                        /* contruct the kasCrystal */
        getAtypic (&sa, show) ;
-       getKacCrystal (&sa, show) ; 
+       if (sa.method <= 2)
+	 getKacCrystal (&sa, show) ; 
      }
    
    /* construct the h.w of the top layer even module */
@@ -1525,6 +1577,7 @@ int main  (int argc, const char **argv)
 	   if (1) demazure (&sa, &dimEven, &dimOdd, TRUE, FALSE) ;
 	   break ;
 	 case 2:
+	 case 3:
 	   demazure (&sa, &dimEven, &dimOdd, TRUE, show) ;
 	   break ;
 	 }
