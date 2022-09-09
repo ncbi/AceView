@@ -1287,12 +1287,25 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 
 /******************************************************************************************************/
 
+static Array getSU21Crystal (SA *sa, WW *w0, int ra, int rb, AC_HANDLE h)
+{
+  int jMax = w0->x[ra] + 1 ;
+
+  Array aa = arrayHandleCreate (4 * jMax + 1, WW, h) ;
+
+  
+  return aa ;
+} /* getSU21Crystal */
+
+/******************************************************************************************************/
+
 static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp, BOOL show) 
 {
+  AC_HANDLE h = ac_new_handle () ;
   BOOL new = FALSE ;
   int i, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
   BOOL odd = TRUE ;
-  BOOL even = FALSE ;
+  Array wwc ;
   
   for (r = 0 ; r < sa->rank ; r++)
     {
@@ -1307,14 +1320,14 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
   for (i = 1 ; i < arrayMax (wws) ; i++) 
     {
       WW *w = arrayp (wws, i, WW) ;
+      Array crystal ;
       int n1 = w->mult ;
       int n2 = 0 ;
       int na = 0 ;
       int dn = 0 ;
       int n21 = w->n21 ;
-      int jMax = w->x[ra] ; /* default even values */
-      if (! even)
-	jMax = 1 ;
+      int jMax ;
+
       if (n1 <= 0)
 	continue ;
       if (n1 == n21)
@@ -1323,6 +1336,9 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	messcrash ("mult < n21") ;
       n1 -= n21 ;  /* number of su21 multiplets to create */
 
+      crystal = getSU21Crystal (sa, w, ra, rb, h) ;
+      jMax = arrayMax (crystal) ;
+      
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
 	  int j, r, k2 ;
@@ -1331,6 +1347,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	  
 	  for (j = 1 ; j <= jMax ; j += dj)
 	    {
+	      w2 = arrp (crystal, j, WW) ;
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] -= array(sa->Cartan, rank * r + ra, int) * j ;
