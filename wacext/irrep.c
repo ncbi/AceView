@@ -14,6 +14,7 @@ typedef struct wStruct
   int x[RMAX] ;
   BOOL isBlack ;
   int mult ;
+  int n21 ;
   int k ;
   int layer ;
   int l2 ;
@@ -64,7 +65,7 @@ typedef struct saStruct
 
 
 static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2) ;
-static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) ;
+static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp, int *dimOddp, BOOL show) ;
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show) ;
 
 /******************************************************************************************************/
@@ -378,7 +379,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->hasOdd = TRUE ;
 	  sa->odd[m-1] = 1 ;
 	  sa->odd1[m-1] = TRUE ;
-	  if (sa->method == 3)
+	  if (sa->method == 2)
 	    {
 	      if (n >= 2) sa->odd1[m] = TRUE ;
 	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = TRUE ;
@@ -459,7 +460,7 @@ static void getCartan (SA *sa, BOOL show)
 	      getOneCartan (sa, "C", n, 2, TRUE) ;
 	      mergeCartan  (sa, 2, n, FALSE, show) ;
 	      sa->extended[2] = TRUE ;
-	      if (sa->method == 3)
+	      if (sa->method == 2)
 		{
 		  sa->odd1[2] = TRUE ;
 		  sa->odd2[3] = TRUE ;
@@ -481,7 +482,7 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "C", n, 1, TRUE) ; 
 	  mergeCartan (sa, n, 0, TRUE, show) ;
 	  sa->oddHw.x[n-1] = 1 ;
-	  if (sa->method == 3)
+	  if (sa->method == 2)
 	    {
 	      sa->odd1[0] = TRUE ;
 	      sa->odd2[1] = TRUE ;
@@ -543,7 +544,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
 	  sa->odd[1] = 1 ;
-	  if (sa->method == 3)
+	  if (sa->method == 2)
 	    {
 	      sa->odd1[1] = TRUE ;
 	      sa->odd2[2] = TRUE ;
@@ -1011,7 +1012,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
       int r ;
       for (r = 0 ; r < rank ; r++)
 	if (sa->extended[r])
-	  demazureEvenOdd (sa, wws, r, TRUE, TRUE, 0, 0, 0) ; 
+	  demazureEvenOdd (sa, wws, r, TRUE, 0, 0, 0) ; 
     }
 
   if (show)
@@ -1158,7 +1159,7 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
 
 /******************************************************************************************************/
 
-static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTrail, int *dimEvenp, int *dimOddp, BOOL show) 
+static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp, int *dimOddp, BOOL show) 
 {
   BOOL new = FALSE ;
   BOOL odd = ! even ;
@@ -1183,7 +1184,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
 	  int j, r, k2 ;
-	  int dj = snailTrail ? 1 : jMax - 1 ;
+	  int dj = 1 ;
 	  WW *w2 ;
 	  
 	  for (j = 1 ; j <= jMax ; j += dj)
@@ -1203,6 +1204,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
 		  *w2 = *w ;
 		  w2->k = k2 ;
 		  w2->mult = 0 ;
+		  w2->n21 = 0 ;
 		  w2->oddPair = 0 ;
 		  w2->hw = FALSE ;
 		  w2->l2 = wwScalarProduct (sa, w2, w2) ;
@@ -1219,7 +1221,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
       if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
 	  int j, r, k2 ;
-	  int dj = snailTrail ? 1 : jMax - 1 ;
+	  int dj = 1 ;
 	  WW *w2 ;
 	  
 	  new = TRUE ;
@@ -1234,12 +1236,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
 	      w2 = arrayp (wws, k2, WW) ;
 	      
 	      /* increase multiplicity of the new multiplet */
-	      if (1)
-		{
-		  if (! w2->hw)
-		    w2->mult += dn ;
-		}
-	      else /* classic demazure , correct for Lie algebras */
+	      if (! w2->hw)
 		w2->mult += dn ;
 
 	      if (odd)
@@ -1290,6 +1287,152 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, BOOL snailTra
 
 /******************************************************************************************************/
 
+static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp, BOOL show) 
+{
+  BOOL new = FALSE ;
+  int i, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
+  BOOL odd = TRUE ;
+  BOOL even = FALSE ;
+  
+  for (r = 0 ; r < sa->rank ; r++)
+    {
+      if (sa->odd2[r])  /* distinguished even root */
+	rb = r ;
+    }
+  if (rb == -1)
+    messcrash ("demazureSU21, odd2 root not defined") ;
+  
+  if (sa->pass++ == 0) new = TRUE ;
+    
+  for (i = 1 ; i < arrayMax (wws) ; i++) 
+    {
+      WW *w = arrayp (wws, i, WW) ;
+      int n1 = w->mult ;
+      int n2 = 0 ;
+      int na = 0 ;
+      int dn = 0 ;
+      int n21 = w->n21 ;
+      int jMax = w->x[ra] ; /* default even values */
+      if (! even)
+	jMax = 1 ;
+      if (n1 <= 0)
+	continue ;
+      if (n1 == n21)
+	continue ;
+      if (n1 < n21)
+	messcrash ("mult < n21") ;
+      n1 -= n21 ;  /* number of su21 multiplets to create */
+
+      if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
+	{
+	  int j, r, k2 ;
+	  int dj = 1 ;
+	  WW *w2 ;
+	  
+	  for (j = 1 ; j <= jMax ; j += dj)
+	    {
+	      /* position to the new weight */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] -= array(sa->Cartan, rank * r + ra, int) * j ;
+	      
+	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
+	      k2 = locateWeight (sa, w, TRUE)  ;
+	      
+	      /* create w2(k2) it if needed */
+	      w2 = arrayp (wws, k2, WW) ;
+	      w = arrayp (wws, i, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
+	      if (! w2->k)
+		{
+		  *w2 = *w ;
+		  w2->k = k2 ;
+		  w2->mult = 0 ;
+		  w2->oddPair = 0 ;
+		  w2->hw = FALSE ;
+		  w2->l2 = wwScalarProduct (sa, w2, w2) ;
+		}
+	      n2 = na + w2->mult ;
+
+	      /* reposition w to its original location */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] += array(sa->Cartan, rank * r + ra, int) * j ;
+	    }
+	}
+
+      dn = n1 - n2 ; /* defect multiplicity */
+      if (jMax > 0 && dn > 0)   /* populate the new multiplet */
+	{
+	  int j, r, k2 ;
+	  int dj = 1 ;
+	  WW *w2 ;
+	  
+	  new = TRUE ;
+	  for (j = 1 ; j <= jMax ; j += dj)
+	    {
+	      /* position to the new weight */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] -= array(sa->Cartan, rank * r + ra, int) * j ;
+	      
+	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
+	      k2 = locateWeight (sa, w, TRUE) ;
+	      w2 = arrayp (wws, k2, WW) ;
+	      
+	      /* increase multiplicity of the new multiplet */
+	      if (1)
+		{
+		  if (! w2->hw)
+		    w2->mult += dn ;
+		}
+	      else /* classic demazure , correct for Lie algebras */
+		w2->mult += dn ;
+
+	      if (odd)
+		{
+		  w->oddPair += dn ;
+		  w2->oddPair += dn ;
+		  w2->odd = ! w->odd;
+		  w2->layer = w->layer + 1 ;
+		}
+	      /* reposition w to its original location */
+	      for (r = 0 ; r < rank ; r++)
+		w->x[r] += array(sa->Cartan, rank * r + ra, int) * j ;
+	    }
+	}
+      
+    }
+
+  for (dimEven = dimOdd = 0, i = 1 ; i < arrayMax (wws) ; i++)
+    {
+      WW *ww = arrp (wws, i, WW) ;
+      if (ww->odd)
+	dimOdd += ww->mult ;
+      else 
+	dimEven += ww->mult ;
+    }
+
+  if (1)   arraySort (wws, wwLayerOrder) ;
+  if (0 && new)
+    {
+      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, ra, dimEven, dimOdd) ;
+      for (i = 1 ; i < arrayMax (wws) ; i++)
+	{
+	  int j ;
+	  WW *w = arrp (wws, i, WW) ;
+	  for (j = 0 ; j < rank ; j++)
+	    printf (" %d", w->x[j]) ;
+	  printf ("\tmult=%d k=%d l=%d %s\n", w->mult, w->k, w->layer, w->hw ? "*" : "" ) ;
+	}
+      printf ("\n") ;
+    }
+  if (1)   arraySort (wws, wwCreationOrder) ;
+  
+  if (dimEvenp) *dimEvenp = dimEven ;
+  if (dimOddp) *dimOddp = dimOdd ; 
+  
+  return new ;
+} /* demazureSU21 */
+
+/******************************************************************************************************/
+
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
@@ -1306,19 +1449,19 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	{
 	  switch (method)
 	    {
-	    case 0:  /* negative odd roots */
+	    case 0:  /* negative odd roots, apply the non extended even subalgebra */
 	      if (! sa->odd[r] && ! sa->extended[r])
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
 
 	    case 1:
-	      if (! sa->odd[r])  /* adjoint: extended root is accepted */
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+	      if (! sa->odd[r])  /* even adjoint: extended root is accepted */
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
 
-	    case 3:  /* generic case */
+	    case 2:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
 	      if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! sa->extended[r])
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
+		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
 	    }
 	  if (ok && debug)
@@ -1328,35 +1471,24 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	{
 	  switch (sa->method)
 	    {
+	    case 1:
+	      for (r = 0 ; r < sa->rank ; r++)
+		{
+		  if (sa->odd[r])  /* construct the odd pairs, wrong for G(3) */
+		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
+		  if (ok && debug)
+		    wwsShow (sa, "Inside Demazure Odd pairs", 0, sa->wws, 0) ;
+		}
+	      break ;
 	    case 2:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
-		  if (sa->odd[r])
-		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, sa->hasY, &dimEven, &dimOdd, show) ;
+		  if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
+		    ok |= demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 		  if (ok && debug)
-		    wwsShow (sa, "Inside Demazure Odd", 0, sa->wws, 0) ;
+		    wwsShow (sa, "Inside Demazure su(2/1) multiplets", 0, sa->wws, 0) ;
 		}
 	      break ;
-	    case 3:
-	      for (r = 0 ; r < sa->rank ; r++)
-		{
-		  if (sa->odd[r])
-		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, sa->hasY, &dimEven, &dimOdd, show) ;
-		  if (ok && debug)
-		    wwsShow (sa, "Inside Demazure Odd", 0, sa->wws, 0) ;
-		}
-	      break ;
-	    }
-	}
-      if (0 && sa->hasExtended)
-	{
-	  ok = TRUE ;
-	  while (ok)
-	    {
-	      ok = FALSE ;
-	      for (r = 0 ; r < sa->rank ; r++)
-		if (sa->extended[r])
-		  ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, TRUE, &dimEven, &dimOdd, show) ;
 	    }
 	}
     }
@@ -1504,7 +1636,7 @@ static void getAtypic (SA *sa, BOOL show)
       /* x = < L + rho | beta_i > */
       int i, j, x = 0 ;
       WW *ww = arrp (oddRoots, ii, WW) ;
-
+      
       for (i = 0 ; i < rank ; i++)
 	for (j = 0 ; j < rank ; j++)
 	  x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
@@ -1513,8 +1645,15 @@ static void getAtypic (SA *sa, BOOL show)
 	  array (sa->atypic, ii, int) = 1 ;
 	  sa->hasAtypic = TRUE ;
 	}
-      if (ii == 1 && x != 0 && ! sa->isBlack)
-	messcrash ("The trivial representaion is not atypic 1") ;
+      x = 0 ;
+      if (ii == 1 && ! sa->isBlack)
+	{
+	  for (i = 0 ; i < rank ; i++)
+	    for (j = 0 ; j < rank ; j++)
+	      x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	  if (x != 0)
+	    messcrash ("The trivial representaion is not atypic 1") ;
+	}
     }
   
   if (1 || show)
@@ -1552,7 +1691,7 @@ int main  (int argc, const char **argv)
 
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
-   sa.method = 3 ;   
+   sa.method = 2 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
@@ -1581,7 +1720,7 @@ int main  (int argc, const char **argv)
    sa.hasOdd = hasOdd ;
    
    if (sa.hasOdd)
-     {                        /* contruct the kasCrystal */
+     {                        /* contruct the kacCrystal */
        getAtypic (&sa, show) ;
        if (sa.method <= 2)
 	 getKacCrystal (&sa, show) ; 
@@ -1602,10 +1741,9 @@ int main  (int argc, const char **argv)
 	 case 1:
 	   getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
 	   /* complete the hw Crystal to a full module */
-	   if (1) demazure (&sa, &dimEven, &dimOdd, 1, FALSE) ;
+	   demazure (&sa, &dimEven, &dimOdd, 1, FALSE) ;
 	   break ;
 	 case 2:
-	 case 3:
 	   demazure (&sa, &dimEven, &dimOdd, 3, show) ;
 	   break ;
 	 }
