@@ -381,7 +381,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->odd1[m-1] = TRUE ;
 	  if (sa->method == 2)
 	    {
-	      if (n >= 2) sa->odd1[m] = TRUE ;
+	      if (n >= 2) sa->odd2[m] = TRUE ;
 	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = TRUE ;
 	    }
 	  ro = r1 = m - 1 ;
@@ -1263,21 +1263,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	dimEven += ww->mult ;
     }
 
-  if (1)   arraySort (wws, wwLayerOrder) ;
-  if (0 && new)
-    {
-      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, r1, dimEven, dimOdd) ;
-      for (i = 1 ; i < arrayMax (wws) ; i++)
-	{
-	  int j ;
-	  WW *w = arrp (wws, i, WW) ;
-	  for (j = 0 ; j < rank ; j++)
-	    printf (" %d", w->x[j]) ;
-	  printf ("\tmult=%d k=%d l=%d %s\n", w->mult, w->k, w->layer, w->hw ? "*" : "" ) ;
-	}
-      printf ("\n") ;
-    }
-  if (1)   arraySort (wws, wwCreationOrder) ;
+  arraySort (wws, wwCreationOrder) ;
   
   if (dimEvenp) *dimEvenp = dimEven ;
   if (dimOddp) *dimOddp = dimOdd ; 
@@ -1290,11 +1276,69 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 static Array getSU21Crystal (SA *sa, WW *w0, int ra, int rb, AC_HANDLE h)
 {
   int jMax = w0->x[ra] + 1 ;
-
-  Array aa = arrayHandleCreate (4 * jMax + 1, WW, h) ;
-
+  int rank = sa->rank ;
+  Array aa21 = arrayHandleCreate (4 * jMax + 1, WW, h) ;
+  int a = w0->x[ra] ;
+  int b = w0->x[rb] ;
+  int jj = 0 ;
+  int j, r ;
+  WW *w21 ;
+      
+  if (a >= 0)
+    for (j = 0 ; j <= a ; j++)
+      {
+	w21 = arrayp (aa21, jj++, WW) ;
+	/* position to the new weight */
+	for (r = 0 ; r < rank ; r++)
+	  w21->x[r] = w0->x[r] - array(sa->Cartan, rank * r + ra, int) * j ;
+	w21->k = locateWeight (sa, w21, TRUE)  ;
+	w21->odd = FALSE ;
+	w21->layer = 0 ;
+      }
+  if (b != 0)
+    for (j = 0 ; j <= a + 1 ; j++)
+      {
+	w21 = arrayp (aa21, jj++, WW) ;
+	/* position to the new weight */
+	for (r = 0 ; r < rank ; r++)
+	  w21->x[r] = w0->x[r] 
+	    - array(sa->Cartan, rank * r + ra, int) * j 
+	    - array(sa->Cartan, rank * r + rb, int) 
+	    ;
+	w21->k = locateWeight (sa, w21, TRUE)  ;
+	w21->odd = TRUE ;
+	w21->layer = 1 ;
+      }
+  if (b - a - 1 != 0)
+    for (j = 0 ; j <= a - 1 ; j++)
+      {
+	w21 = arrayp (aa21, jj++, WW) ;
+	/* position to the new weight */
+	for (r = 0 ; r < rank ; r++)
+	  w21->x[r] = w0->x[r] 
+	    - array(sa->Cartan, rank * r + ra, int) * (j+1)
+	    - array(sa->Cartan, rank * r + rb, int) 
+	    ;
+	w21->k = locateWeight (sa, w21, TRUE)  ;
+	w21->odd = TRUE ;
+	w21->layer = 1 ;
+      }
+  if (b*(b-a-1) != 0)
+    for (j = 0 ; j <= a ; j++)
+      {
+	w21 = arrayp (aa21, jj++, WW) ;
+	/* position to the new weight */
+	for (r = 0 ; r < rank ; r++)
+	  w21->x[r] = w0->x[r] 
+	    - array(sa->Cartan, rank * r + ra, int) * (j+1) 
+	    - array(sa->Cartan, rank * r + rb, int) * 2
+	    ;
+	w21->k = locateWeight (sa, w21, TRUE)  ;
+	w21->odd = FALSE ;
+	w21->layer = 2 ;
+      }
   
-  return aa ;
+  return aa21 ;
 } /* getSU21Crystal */
 
 /******************************************************************************************************/
@@ -1303,29 +1347,26 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 {
   AC_HANDLE h = ac_new_handle () ;
   BOOL new = FALSE ;
-  int i, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
-  BOOL odd = TRUE ;
-  Array wwc ;
+  int ii, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
   
   for (r = 0 ; r < sa->rank ; r++)
     {
       if (sa->odd2[r])  /* distinguished even root */
-	rb = r ;
+	ra = r ;
     }
-  if (rb == -1)
+  if (ra == -1)
     messcrash ("demazureSU21, odd2 root not defined") ;
   
   if (sa->pass++ == 0) new = TRUE ;
     
-  for (i = 1 ; i < arrayMax (wws) ; i++) 
+  for (ii = 1 ; ii < arrayMax (wws) ; ii++) 
     {
-      WW *w = arrayp (wws, i, WW) ;
-      Array crystal ;
-      int n1 = w->mult ;
+      WW *w0 = arrayp (wws, ii, WW) ;
+      Array aa21 ;
+      int n1 = w0->mult ;
       int n2 = 0 ;
-      int na = 0 ;
       int dn = 0 ;
-      int n21 = w->n21 ;
+      int n21 = w0->n21 ;
       int jMax ;
 
       if (n1 <= 0)
@@ -1335,112 +1376,63 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
       if (n1 < n21)
 	messcrash ("mult < n21") ;
       n1 -= n21 ;  /* number of su21 multiplets to create */
-
-      crystal = getSU21Crystal (sa, w, ra, rb, h) ;
-      jMax = arrayMax (crystal) ;
-      
-      if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
-	{
-	  int j, r, k2 ;
-	  int dj = 1 ;
-	  WW *w2 ;
-	  
-	  for (j = 1 ; j <= jMax ; j += dj)
-	    {
-	      w2 = arrp (crystal, j, WW) ;
-	      /* position to the new weight */
-	      for (r = 0 ; r < rank ; r++)
-		w->x[r] -= array(sa->Cartan, rank * r + ra, int) * j ;
-	      
-	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
-	      k2 = locateWeight (sa, w, TRUE)  ;
-	      
-	      /* create w2(k2) it if needed */
-	      w2 = arrayp (wws, k2, WW) ;
-	      w = arrayp (wws, i, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
-	      if (! w2->k)
-		{
-		  *w2 = *w ;
-		  w2->k = k2 ;
-		  w2->mult = 0 ;
-		  w2->oddPair = 0 ;
-		  w2->hw = FALSE ;
-		  w2->l2 = wwScalarProduct (sa, w2, w2) ;
-		}
-	      n2 = na + w2->mult ;
-
-	      /* reposition w to its original location */
-	      for (r = 0 ; r < rank ; r++)
-		w->x[r] += array(sa->Cartan, rank * r + ra, int) * j ;
-	    }
-	}
-
+      aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
+      jMax = arrayMax (aa21) ;
       dn = n1 - n2 ; /* defect multiplicity */
       if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
-	  int j, r, k2 ;
-	  int dj = 1 ;
-	  WW *w2 ;
-	  
+	  int j ;
 	  new = TRUE ;
-	  for (j = 1 ; j <= jMax ; j += dj)
+	  for (j = 0 ; j <= jMax ; j++)
 	    {
-	      /* position to the new weight */
-	      for (r = 0 ; r < rank ; r++)
-		w->x[r] -= array(sa->Cartan, rank * r + ra, int) * j ;
+	      WW *w21 = arrayp (aa21, j, WW) ;	  
+	      WW *w1 = arrayp (wws, w21->k, WW) ;	  
 	      
-	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
-	      k2 = locateWeight (sa, w, TRUE) ;
-	      w2 = arrayp (wws, k2, WW) ;
-	      
+	      if (! w1->k)
+		{
+		  w0 = arrayp (wws, ii, WW) ; /* may be relocates */
+		  w1->k = w21->k ;
+		  for (r = 0 ; r < rank ; r++)
+		    w1->x[r] = w21->x[r] ; /* coords */
+		  w1->l2 = wwScalarProduct (sa, w1, w1) ;
+		}
 	      /* increase multiplicity of the new multiplet */
-	      if (1)
-		{
-		  if (! w2->hw)
-		    w2->mult += dn ;
-		}
-	      else /* classic demazure , correct for Lie algebras */
-		w2->mult += dn ;
-
-	      if (odd)
-		{
-		  w->oddPair += dn ;
-		  w2->oddPair += dn ;
-		  w2->odd = ! w->odd;
-		  w2->layer = w->layer + 1 ;
-		}
-	      /* reposition w to its original location */
-	      for (r = 0 ; r < rank ; r++)
-		w->x[r] += array(sa->Cartan, rank * r + ra, int) * j ;
+	      if (j) w1->mult += dn ;
+	      w1->n21 += dn ;
+	      w1->layer = w0->layer + w21->layer ;
+	      w1->odd = w21->odd ^ w0->odd ; 
+	      if (j == 0)
+		w1->hw = w0->hw ;
 	    }
 	}
-      
     }
 
-  for (dimEven = dimOdd = 0, i = 1 ; i < arrayMax (wws) ; i++)
+  for (dimEven = dimOdd = 0, ii = 1 ; ii < arrayMax (wws) ; ii++)
     {
-      WW *ww = arrp (wws, i, WW) ;
+      WW *ww = arrp (wws, ii, WW) ;
       if (ww->odd)
 	dimOdd += ww->mult ;
       else 
 	dimEven += ww->mult ;
     }
 
-  if (1)   arraySort (wws, wwLayerOrder) ;
-  if (0 && new)
+  if (1 && new)
     {
+      arraySort (wws, wwLayerOrder) ;
+
       printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, ra, dimEven, dimOdd) ;
-      for (i = 1 ; i < arrayMax (wws) ; i++)
+      for (ii = 1 ; ii < arrayMax (wws) ; ii++)
 	{
 	  int j ;
-	  WW *w = arrp (wws, i, WW) ;
+	  WW *w = arrp (wws, ii, WW) ;
 	  for (j = 0 ; j < rank ; j++)
 	    printf (" %d", w->x[j]) ;
 	  printf ("\tmult=%d k=%d l=%d %s\n", w->mult, w->k, w->layer, w->hw ? "*" : "" ) ;
 	}
       printf ("\n") ;
+  
+      arraySort (wws, wwCreationOrder) ;
     }
-  if (1)   arraySort (wws, wwCreationOrder) ;
   
   if (dimEvenp) *dimEvenp = dimEven ;
   if (dimOddp) *dimOddp = dimOdd ; 
