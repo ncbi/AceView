@@ -606,6 +606,15 @@ static void getMetric (SA *sa, BOOL show)
 	metricRescale (aa, r, 0, i - 1, y/x) ;
       }
 
+  if (sa->hasOdd)
+    switch ((int)sa->type[0])
+      {
+      case 'D':
+	for (i = m ; i < r ; i++)
+	  metricRescale (aa, r, r - 1, r - 1, -2) ;
+	break ;
+      }
+
   for (i = 0 ; i < r ; i++)
     {
       for (j = 0 ; j < r ; j++)
