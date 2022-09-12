@@ -12,6 +12,7 @@
 typedef struct wStruct
 {
   int x[RMAX] ;
+  int yRaw, y, yDenominator ;
   BOOL isBlack ;
   int mult ;
   int n21 ;
@@ -100,6 +101,36 @@ static int wwLayerOrder (const void *a, const void *b)
   return n ;  
 } /* wwLayerOrder */
 
+/******************************************************************************************************/  
+
+static void wwY (SA *sa, WW *ww)
+{
+  int *YY = sa->YY ;
+  int i, y1 = 0, y2 = 0 ;
+  
+  for (i = 0 ; i < sa->rank ; i++)
+    y1 += YY[i] * ww->x[i] ;
+
+  y2 = sa->YYd ;
+  if (y2 < 0) {y2 = -y2 ; y1 = -y1 ;}
+  ww->yRaw = y1 ;
+  if (y1 == 0)
+    y2 = 1 ;
+  if (y1 == y2)
+    y1 = y2 = 1 ;
+  if (y1 == -y2)
+    { y1 = -1 ; y2 = 1 ; }
+  for (i = 2 ; i<= y2 ; i++)
+    {
+      int z1= y1/i, z2 = y2/i ;
+      if (i*z1 == y1 && i*z2 == y2)
+	{ y1 = z1 ; y2 = z2 ; i = 1 ; }
+    }
+  ww->y = y1 ;
+  ww->yDenominator = y2 ;
+  return  ;
+} /* wwY */
+
 /******************************************************************************************************/
 
 static int locateWeight (SA *sa, WW *w, BOOL create)
@@ -115,6 +146,7 @@ static int locateWeight (SA *sa, WW *w, BOOL create)
   else
     dictFind (sa->dict, buf, &kk) ;
   w->l2 = wwScalarProduct (sa, w, w) ;
+  wwY (sa, w) ;
   return kk ;
 } /* locateWeight */
 
@@ -695,35 +727,6 @@ static int wwScalarProduct (SA *sa, WW *ww1, WW *ww2)
 
 /******************************************************************************************************/  
 
-static void wwY (SA *sa, WW *ww, int *y1p, int *y2p)
-{
-  int *YY = sa->YY ;
-  int i, y1 = 0, y2 = 0 ;
-  
-  for (i = 0 ; i < sa->rank ; i++)
-    y1 += YY[i] * ww->x[i] ;
-  
-  y2 = sa->YYd ;
-  if (y2 < 0) {y2 = -y2 ; y1 = -y1 ;}
-  if (y1 == 0)
-    y2 = 1 ;
-  if (y1 == y2)
-    y1 = y2 = 1 ;
-  if (y1 == -y2)
-    { y1 = -1 ; y2 = 1 ; }
-  for (i = 2 ; i<= y2 ; i++)
-    {
-      int z1= y1/i, z2 = y2/i ;
-      if (i*z1 == y1 && i*z2 == y2)
-	{ y1 = z1 ; y2 = z2 ; i = 1 ; }
-    }
-  *y1p = y1 ;
-  *y2p = y2 ;
-  return  ;
-} /* wwY */
-
-/******************************************************************************************************/  
-
 static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 {
   if (wws)  
@@ -734,17 +737,19 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 
       printf ("\n##################### %s: t=%d : hw", title, type) ;
       for (r = 0 ; hw && r < rank ; r++)
-	printf (" %d", hw->x[r]) ;
+	printf (" %3d", hw->x[r]) ;
       printf ("\n") ;
 
-      for (ii = 1 ; ii < iMax ; ii++)
+      for (ii = 0 ; ii < iMax ; ii++)
 	{
 	  WW *ww = arrp (wws, ii, WW) ;
 	  if (ww->mult)
 	    {
 	      for (r = 0 ; r < rank ; r++)
-		printf (" %d", ww->x[r]) ;
-	      printf ("\tmult=%d k=%d l=%d %s %s Lsquare=", ww->mult, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "") ;
+		printf (" %3d", ww->x[r]) ;
+	      printf ("\tmult=%2d n21=%2d k=%2d l=%3d %5s %s Lsquare=", ww->mult, ww->n21, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "") ;
+	      if (ww->layer < 0)
+		messcrash ("Negative layer") ; 
 	      ww->l2 = wwScalarProduct (sa, ww, ww) ;
 	      if (sa->detGG && ww->l2 % sa->detGG == 0)
 		printf ("%d", ww->l2/sa->detGG) ;
@@ -752,10 +757,9 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 		printf ("%d/%d", ww->l2, sa->detGG) ;
 	      if (sa->YYd)
 		{
-		  int y1, y2 ;
-		  wwY (sa, ww, &y1, &y2) ;
-		  if (y2 <= 1) printf ("\tY=%d",y1) ;
-		  else printf ("\tY=%d/%d",y1,y2) ;
+		  printf ("\tYraw=%d",ww->yRaw) ;
+		  if (ww->yDenominator <= 1) printf ("\tY=%d", ww->y) ;
+		  else printf ("\tY=%d/%d", ww->y, ww->yDenominator) ;
 		}
 	      printf ("\n") ;
 	      if (ww->odd)
@@ -939,7 +943,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %d", w->x[r]) ;
 	      printf ("  :: ii=%d  yes:%s :: ", ii, vtxtPtr (txt)) ; 
-	      printf ("\tmult=%d k=%d l=%d %s %s\n", w->mult, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
+	      printf ("\tmult=%d n21=%d k=%d l=%d %s %s\n", w->mult, w->n21, w->k, w->layer, w->odd ? "Odd" : "", w->hw ? "*" : "" ) ;
 	    }
 	}
       ac_free (txt) ;
@@ -1167,7 +1171,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
   
   if (sa->pass++ == 0) new = TRUE ;
     
-  for (i = 1 ; i < arrayMax (wws) ; i++) 
+  for (i = 0 ; i < arrayMax (wws) ; i++) 
     {
       WW *w = arrayp (wws, i, WW) ;
       int n1 = w->mult ;
@@ -1175,6 +1179,9 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
       int na = 0 ;
       int dn = 0 ;
       int jMax = w->x[r1] ; /* default even values */
+
+      if (i == 0)
+	{ w->mult = 0 ; continue ; }
       if (! even)
 	jMax = 1 ;
       if (! even)
@@ -1214,6 +1221,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += array(sa->Cartan, rank * r + r1, int) * j ;
+	      locateWeight (sa, w, TRUE)  ;
 	    }
 	}
 
@@ -1234,7 +1242,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      k2 = locateWeight (sa, w, TRUE) ;
 	      w2 = arrayp (wws, k2, WW) ;
-	      
+	      w = arrayp (wws, i, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
 	      /* increase multiplicity of the new multiplet */
 	      if (! w2->hw)
 		w2->mult += dn ;
@@ -1249,6 +1257,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      /* reposition w to its original location */
 	      for (r = 0 ; r < rank ; r++)
 		w->x[r] += array(sa->Cartan, rank * r + r1, int) * j ;
+	      locateWeight (sa, w, TRUE)  ;
 	    }
 	}
       
@@ -1280,6 +1289,7 @@ static Array getSU21Crystal (SA *sa, WW *w0, int ra, int rb, AC_HANDLE h)
   Array aa21 = arrayHandleCreate (4 * jMax + 1, WW, h) ;
   int a = w0->x[ra] ;
   int b = w0->x[rb] ;
+  int s = - array (sa->Cartan, sa->rank * rb + ra, int) ;
   int jj = 0 ;
   int j, r ;
   WW *w21 ;
@@ -1309,7 +1319,7 @@ static Array getSU21Crystal (SA *sa, WW *w0, int ra, int rb, AC_HANDLE h)
 	w21->odd = TRUE ;
 	w21->layer = 1 ;
       }
-  if (b - a - 1 != 0)
+  if (s*b + a + 1 != 0)
     for (j = 0 ; j <= a - 1 ; j++)
       {
 	w21 = arrayp (aa21, jj++, WW) ;
@@ -1323,7 +1333,7 @@ static Array getSU21Crystal (SA *sa, WW *w0, int ra, int rb, AC_HANDLE h)
 	w21->odd = TRUE ;
 	w21->layer = 1 ;
       }
-  if (b*(b-a-1) != 0)
+  if (b*(s*b + a + 1) != 0)
     for (j = 0 ; j <= a ; j++)
       {
 	w21 = arrayp (aa21, jj++, WW) ;
@@ -1358,48 +1368,63 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
     messcrash ("demazureSU21, odd2 root not defined") ;
   
   if (sa->pass++ == 0) new = TRUE ;
-    
-  for (ii = 1 ; ii < arrayMax (wws) ; ii++) 
+
+  
+  for (ii = 0 ; ii < arrayMax (wws) ; ii++) 
     {
       WW *w0 = arrayp (wws, ii, WW) ;
       Array aa21 ;
       int n1 = w0->mult ;
-      int n2 = 0 ;
       int dn = 0 ;
       int n21 = w0->n21 ;
       int jMax ;
 
+      if (ii == 0)
+	{ w0->mult = 0 ; continue ; }
       if (n1 <= 0)
 	continue ;
       if (n1 == n21)
 	continue ;
       if (n1 < n21)
 	messcrash ("mult < n21") ;
-      n1 -= n21 ;  /* number of su21 multiplets to create */
+      dn = n1 - n21 ;  /* number of su21 multiplets to create */
+      if (w0->x[ra] < 0)
+	messcrash ("SU21 incomplete negative root w0.x[ra=%d]=%d", ra, w0->x[ra]) ;
       aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
       jMax = arrayMax (aa21) ;
-      dn = n1 - n2 ; /* defect multiplicity */
+
       if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
 	  int j ;
+	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* lowest weight of the Crystal */	  
+	  WW *w1 = arrayp (wws, w21->k, WW) ;	  
+	  int dn = w0->mult - w0->n21 - w1->mult + w1->n21 ;
+	  int dn21 = w0->mult - w0->n21 ;
+
+	  if (jMax == 1)
+	    { dn = 0 ; dn21 = w0->mult - w0->n21 ; }
+	    
 	  new = TRUE ;
 	  for (j = 0 ; j <= jMax ; j++)
 	    {
-	      WW *w21 = arrayp (aa21, j, WW) ;	  
-	      WW *w1 = arrayp (wws, w21->k, WW) ;	  
+	      w21 = arrayp (aa21, j, WW) ;	  
+	      w1 = arrayp (wws, w21->k, WW) ;	  
+	      w0 = arrayp (wws, ii, WW) ; /* may be relocates */
 	      
 	      if (! w1->k)
 		{
-		  w0 = arrayp (wws, ii, WW) ; /* may be relocates */
 		  w1->k = w21->k ;
 		  for (r = 0 ; r < rank ; r++)
 		    w1->x[r] = w21->x[r] ; /* coords */
 		  w1->l2 = wwScalarProduct (sa, w1, w1) ;
 		}
 	      /* increase multiplicity of the new multiplet */
-	      if (j) w1->mult += dn ;
-	      w1->n21 += dn ;
+	      if (0 && j) w1->mult += dn ;
+	      w1->n21 += dn21 ;
+	      if (w1->mult < w1->n21) w1->mult = w1->n21 ;
 	      w1->layer = w0->layer + w21->layer ;
+	      if (w1->layer < 0)
+		messcrash ("Negative layer") ;
 	      w1->odd = w21->odd ^ w0->odd ; 
 	      if (j == 0)
 		w1->hw = w0->hw ;
@@ -1427,7 +1452,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	  WW *w = arrp (wws, ii, WW) ;
 	  for (j = 0 ; j < rank ; j++)
 	    printf (" %d", w->x[j]) ;
-	  printf ("\tmult=%d k=%d l=%d %s\n", w->mult, w->k, w->layer, w->hw ? "*" : "" ) ;
+	  printf ("\tmult=%d n21=%d k=%d l=%d %s\n", w->mult, w->n21, w->k, w->layer, w->hw ? "*" : "" ) ;
 	}
       printf ("\n") ;
   
@@ -1445,7 +1470,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
-  BOOL debug = FALSE ;
+  BOOL debug = TRUE ;
   int r, dimEven = 0, dimOdd = 0 ;
 
   if (debug)
@@ -1478,27 +1503,28 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	}
       if (sa->hasOdd)
 	{
+	  BOOL ok2 = FALSE ;
+	  
 	  switch (sa->method)
 	    {
-	    case 1:
+	    case 10: /* obsolete */
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  if (sa->odd[r])  /* construct the odd pairs, wrong for G(3) */
-		    ok |= demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
-		  if (ok && debug)
-		    wwsShow (sa, "Inside Demazure Odd pairs", 0, sa->wws, 0) ;
+		    ok2 |= demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
 		}
 	      break ;
 	    case 2:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
-		    ok |= demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
-		  if (ok && debug)
-		    wwsShow (sa, "Inside Demazure su(2/1) multiplets", 0, sa->wws, 0) ;
+		    ok2 |= demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 		}
 	      break ;
 	    }
+	  if (ok2 && debug)
+	    wwsShow (sa, "Inside Demazure su(2/1) multiplets", 0, sa->wws, 0) ;
+	  ok |= ok2 ;
 	}
     }
   
@@ -1577,7 +1603,7 @@ static void getRho (SA *sa, BOOL show)
 	BOOL isPositive = TRUE ;
 	ww = arrp (sa->evenRoots, ii, WW) ;
 	printf (".... even root %d :: ", ii) ;
-	for (i = 0 ; i < r ; i++)
+	for (i = 0 ; i < rank ; i++)
 	  printf ("%d ", ww->x[i]) ;
 	printf ("  :: ") ;
 	for (i = 0 ; i < rank ; i++)
@@ -1648,7 +1674,10 @@ static void getAtypic (SA *sa, BOOL show)
       
       for (i = 0 ; i < rank ; i++)
 	for (j = 0 ; j < rank ; j++)
-	  x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	  if (1)
+	    x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	  else
+	    x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * ww->x[j] ;
       if (x == 0)
 	{
 	  array (sa->atypic, ii, int) = 1 ;
@@ -1659,7 +1688,10 @@ static void getAtypic (SA *sa, BOOL show)
 	{
 	  for (i = 0 ; i < rank ; i++)
 	    for (j = 0 ; j < rank ; j++)
-	      x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	      if (1)
+		x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
+	      else
+		x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * ww->x[j] ;
 	  if (x != 0)
 	    messcrash ("The trivial representaion is not atypic 1") ;
 	}
@@ -1675,10 +1707,13 @@ static void getAtypic (SA *sa, BOOL show)
 	  for (i = 0 ; i < arrayMax (sa->atypic) ; i++)
 	    if (array (sa->atypic, i, int))
 	      printf (" %d", i) ;
-	  printf ("\n") ;
+	  printf ("  2(hw+rho)=") ;
 	}
       else
-	printf ("\n#=================================  Typical\n") ;
+	printf ("\n#=================================  Typical   2(hw+rho)=") ;
+      for (i = 0 ; i < rank ; i++)
+	printf ("%3d", hwT.x[i]) ;
+      printf ("\n") ;
     }
 
   return ;
@@ -1700,6 +1735,7 @@ int main  (int argc, const char **argv)
 
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
+   
    sa.method = 2 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
@@ -1728,10 +1764,10 @@ int main  (int argc, const char **argv)
    getRho (&sa, show) ;
    sa.hasOdd = hasOdd ;
    
-   if (sa.hasOdd)
+   if (sa.method != 2 && sa.hasOdd)
      {                        /* contruct the kacCrystal */
        getAtypic (&sa, show) ;
-       if (sa.method <= 2)
+       if (sa.method != 2)
 	 getKacCrystal (&sa, show) ; 
      }
    
@@ -1753,13 +1789,13 @@ int main  (int argc, const char **argv)
 	   demazure (&sa, &dimEven, &dimOdd, 1, FALSE) ;
 	   break ;
 	 case 2:
-	   demazure (&sa, &dimEven, &dimOdd, 3, show) ;
+	   demazure (&sa, &dimEven, &dimOdd, 2, show) ;
 	   break ;
 	 }
      }
 	   
    printf  ("################################################## Final Representation dimEven/dimOdd %d / %d\n",  dimEven, dimOdd) ;
-   arraySort (sa.wws, wwLayerOrder) ;
+   if (1) arraySort (sa.wws, wwLayerOrder) ;
    if (show) wwsShow (&sa, "Final representation", 1, sa.wws, &sa.hw) ;
    if (sa.hasOdd) getAtypic (&sa, show) ;
    messfree (h) ;
