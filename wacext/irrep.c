@@ -1674,10 +1674,7 @@ static void getAtypic (SA *sa, BOOL show)
       
       for (i = 0 ; i < rank ; i++)
 	for (j = 0 ; j < rank ; j++)
-	  if (1)
-	    x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
-	  else
-	    x += hwT.x[i] * arr (sa->upperMetric, rank*i + j, int) * ww->x[j] ;
+	  x += arr (sa->scale, i, int) * ww->x[i] * arr (sa->upperMetric, rank*i + j, int) *  arr (sa->scale, j, int) * hwT.x[j] ;
       if (x == 0)
 	{
 	  array (sa->atypic, ii, int) = 1 ;
@@ -1688,10 +1685,7 @@ static void getAtypic (SA *sa, BOOL show)
 	{
 	  for (i = 0 ; i < rank ; i++)
 	    for (j = 0 ; j < rank ; j++)
-	      if (1)
-		x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
-	      else
-		x += sa->rho.x[i] * arr (sa->upperMetric, rank*i + j, int) * ww->x[j] ;
+	      x += arr (sa->scale, i, int) * ww->x[i] * arr (sa->upperMetric, rank*i + j, int) *  arr (sa->scale, j, int) * sa->rho.x[j] ;
 	  if (x != 0)
 	    messcrash ("The trivial representaion is not atypic 1") ;
 	}
@@ -1707,10 +1701,10 @@ static void getAtypic (SA *sa, BOOL show)
 	  for (i = 0 ; i < arrayMax (sa->atypic) ; i++)
 	    if (array (sa->atypic, i, int))
 	      printf (" %d", i) ;
-	  printf ("  2(hw+rho)=") ;
+	  printf ("  ::  2(hw+rho)=") ;
 	}
       else
-	printf ("\n#=================================  Typical   2(hw+rho)=") ;
+	printf ("\n#=================================  Typical ::   2(hw+rho)=") ;
       for (i = 0 ; i < rank ; i++)
 	printf ("%3d", hwT.x[i]) ;
       printf ("\n") ;
