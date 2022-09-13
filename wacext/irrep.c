@@ -745,6 +745,7 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 	  WW *ww = arrp (wws, ii, WW) ;
 	  if (ww->mult)
 	    {
+	      locateWeight (sa, ww, FALSE) ;
 	      for (r = 0 ; r < rank ; r++)
 		printf (" %3d", ww->x[r]) ;
 	      printf ("\tmult=%2d n21=%2d k=%2d l=%3d %5s %s Lsquare=", ww->mult, ww->n21, ww->k, ww->layer, ww->odd ? "Odd" : "", ww->hw ? "*" : "") ;
@@ -1245,8 +1246,11 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      w = arrayp (wws, i, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
 	      /* increase multiplicity of the new multiplet */
 	      if (! w2->hw)
-		w2->mult += dn ;
-
+		{
+		  int dn2 = dn - w2->n21 ;
+		  if (dn2 > 0)
+		    w2->mult += dn ;
+		}
 	      if (odd)
 		{
 		  w->oddPair += dn ;
@@ -1405,7 +1409,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	    { dn = 0 ; dn21 = w0->mult - w0->n21 ; }
 	    
 	  new = TRUE ;
-	  for (j = 0 ; j <= jMax ; j++)
+	  for (j = 0 ; j < jMax ; j++)
 	    {
 	      w21 = arrayp (aa21, j, WW) ;	  
 	      w1 = arrayp (wws, w21->k, WW) ;	  
@@ -1429,6 +1433,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	      if (j == 0)
 		w1->hw = w0->hw ;
 	    }
+	  wwsShow (sa, "...after su21 multiplet", -99, wws, &sa->hw) ;
 	}
     }
 
