@@ -764,6 +764,18 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 		  if (ww->yDenominator <= 1) printf ("\tY=%d", ww->y) ;
 		  else printf ("\tY=%d/%d", ww->y, ww->yDenominator) ;
 		}
+	      if (sa->hasOdd && ww->oddParts)
+		{
+		  int i ;
+		  char *sep = "\todd=" ;
+		  
+		  for (i = 0 ; i < arrayMax (ww->oddParts) ; i++)
+		    if (array (ww->oddParts , i, int) > 0)
+		      {
+			printf ("%s%d", sep, i) ;
+			sep = "," ;
+		      }
+		}
 	      printf ("\n") ;
 	      if (ww->odd)
 		dimO += ww->mult ;
@@ -1041,10 +1053,14 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 	{
 	  int i ;
 	  WW *ww = arrp (wws, ii, WW) ;
+	  BOOL ok = ii == 1 ? TRUE : FALSE ;
+	  
 	  if (! ww->mult) continue ;
 	  for (i = 0 ; i < arrayMax (ww->oddParts) ; i++)
-	    if (array (ww->oddParts, i, int) > 0 && array (oddParts, i, int) == 0)
-	      ww->mult = 0 ;
+	    if (array (ww->oddParts, i, int) > 0 && array (oddParts, i, int) == 1)
+	      ok = TRUE ;
+	  if (! ok)
+	    ww->mult = 0 ;
     }
       break ;
     }
