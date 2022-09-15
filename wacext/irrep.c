@@ -21,6 +21,8 @@ typedef struct wStruct
   int l2 ;
   int oddPair ;
   BOOL odd, hw ;
+  int myOddPart ;
+  Array oddParts ;
 } WW ; /* representation weigth vector */
 
 typedef struct saStruct
@@ -411,7 +413,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->hasOdd = TRUE ;
 	  sa->odd[m-1] = 1 ;
 	  sa->odd1[m-1] = TRUE ;
-	  if (sa->method == 2)
+	  if (sa->method == 10)
 	    {
 	      if (n >= 2) sa->odd2[m] = TRUE ;
 	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = TRUE ;
@@ -492,7 +494,7 @@ static void getCartan (SA *sa, BOOL show)
 	      getOneCartan (sa, "C", n, 2, TRUE) ;
 	      mergeCartan  (sa, 2, n, FALSE, show) ;
 	      sa->extended[2] = TRUE ;
-	      if (sa->method == 2)
+	      if (sa->method == 10)
 		{
 		  sa->odd1[2] = TRUE ;
 		  sa->odd2[3] = TRUE ;
@@ -514,7 +516,7 @@ static void getCartan (SA *sa, BOOL show)
 	  getOneCartan (sa, "C", n, 1, TRUE) ; 
 	  mergeCartan (sa, n, 0, TRUE, show) ;
 	  sa->oddHw.x[n-1] = 1 ;
-	  if (sa->method == 2)
+	  if (sa->method == 10)
 	    {
 	      sa->odd1[0] = TRUE ;
 	      sa->odd2[1] = TRUE ;
@@ -576,7 +578,7 @@ static void getCartan (SA *sa, BOOL show)
 	  sa->extended[2] = TRUE ;
 	  sa->hasOdd = TRUE ;
 	  sa->odd[1] = 1 ;
-	  if (sa->method == 2)
+	  if (sa->method == 10)
 	    {
 	      sa->odd1[1] = TRUE ;
 	      sa->odd2[2] = TRUE ;
@@ -865,12 +867,16 @@ static WW getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
 static void getKacCrystal (SA *sa, BOOL show)
 {
   Array wws ;
+  AC_HANDLE h = ac_new_handle () ;
   Array negativeOddRoots = sa->negativeOddRoots ;
   int r, rank = sa->rank ;
   int k, kMax = sa->nOdd ;
   int ii, iiMax = 1 ;
   WW *w, hw ;
-
+  int method = sa->method ;
+  int myOddPart ;
+  Array oddParts ;
+  
   /* reinitialize on the trivial h.w */
   sa->dict = dictHandleCreate (32, sa->h) ;
   getHighestWeight (sa, 0, 0, show) ;
@@ -879,6 +885,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 
   for (k = 0 ; k < kMax ; k++)
     iiMax *= 2 ;   /* 2^negativeOddRoots = size of the KacCrystal */
+  oddParts = arrayHandleCreate (kMax, int, h) ;
   for (ii = 0 ; ii < iiMax ; ii++) /* all points in the Kac Crystal, h.w. already included */
     {
       int layer = 0 ;
@@ -889,7 +896,8 @@ static void getKacCrystal (SA *sa, BOOL show)
 
       memset (&w0, 0, sizeof (w0)) ;
       w0.hw = 1 ;
-
+      myOddPart = 0 ;
+      oddParts = arrayReCreate (oddParts, kMax, int) ;
       for (k = 0 ; k < kMax ; k++)
 	{
 	  int yes  = x % 2 ; /* odd root k is used in ii */
@@ -899,10 +907,15 @@ static void getKacCrystal (SA *sa, BOOL show)
 	      WW *wodd = arrayp (negativeOddRoots, k + 1, WW) ;
 	      wodd->l2 = wwScalarProduct (sa, wodd, wodd) ;
 
-	      if (arr(sa->atypic,k+1,int) >= 0 && (sa->isBlack || wodd->l2 == 0))
+	      if (method == 2 && arr(sa->atypic,k+1,int) > 0)
+		ok = FALSE ;
+	      else if (arr(sa->atypic,k+1,int) >= 0 && (sa->isBlack || wodd->l2 == 0))
 		{
+		  array (oddParts, k, int) = 1 ;
 		  vtxtPrintf (txt, " %d", k+1) ;
 		  layer++ ;
+		  if (layer == 1)
+		    myOddPart = k + 1 ;
 		  for (r = 0 ; r < rank ; r++)
 		    w0.x[r] += wodd->x[r] ;
 		}
@@ -910,6 +923,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 		ok = FALSE ;
 	    }
 	}
+
 
       if (0 && !sa->hasY && ok && ii && sa->rank2)
 	{
@@ -936,6 +950,9 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  w->layer = layer ;
 	  w->odd = layer %2 ;
 	  w->mult++ ;
+	  if (layer == 1)
+	    w->myOddPart = myOddPart ;
+	  w->oddParts = arrayHandleCopy (oddParts, sa->h) ;
 	  for (r = 0 ; ok && r < rank ; r++)
 	    w->x[r] = w0.x[r] ;
 	  if (show)
@@ -952,6 +969,7 @@ static void getKacCrystal (SA *sa, BOOL show)
   arraySort (sa->wws, wwLayerOrder) ;
   sa->Kac = sa->wws ;
   sa->wws = 0 ;
+  ac_free (h) ;
   if (show)
     wwsShow (sa, "Kac crystal dim =", 1+arrayMax(sa->Kac), sa->Kac, &hw) ;
   if (0)
@@ -962,13 +980,15 @@ static void getKacCrystal (SA *sa, BOOL show)
 
 static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 {
+  AC_HANDLE h = ac_new_handle () ;
   int rank = sa->rank ;
   int ii, kk, iMax ;
   Array wws ;
   Array Kac = sa->Kac ;
   int kMax = arrayMax (Kac) ;
   WW hwA ;
-
+  Array oddParts = arrayHandleCreate (kMax, int, h) ;
+  
   hwA = getHighestWeight (sa, atypic, TRUE, 0) ;
   *hwAp = hwA ;
   /* reinitialize wws and but not the dictionary */
@@ -993,6 +1013,8 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
       ww->k = k2 ;
       ww->layer = wo->layer ;
       ww->odd = wo->odd ;
+      ww->oddParts = wo->oddParts ;
+      ww->myOddPart = wo->myOddPart ;
       ww->mult += hwA.mult * wo->mult ;
       for (r = 0 ; r < rank ; r++)
 	ww->x[r] = w.x[r] ;
@@ -1008,8 +1030,24 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
       for (r = 0 ; r < rank ; r++)
 	if (! sa->odd[r] && /* ! sa->extended[r] && */ ww->x[r] < 0)
 	  ww->mult = 0 ;
+      if (ww->mult > 0 && ww->layer == 1)
+	array (oddParts, ww->myOddPart - 1, int) = 1 ;
     }
-
+  /* trim the branches not connected to the root */
+  switch (sa->method)
+    {
+    case 2:
+      for (ii = 1 ; ii < iMax ; ii++)
+	{
+	  int i ;
+	  WW *ww = arrp (wws, ii, WW) ;
+	  if (! ww->mult) continue ;
+	  for (i = 0 ; i < arrayMax (ww->oddParts) ; i++)
+	    if (array (ww->oddParts, i, int) > 0 && array (oddParts, i, int) == 0)
+	      ww->mult = 0 ;
+    }
+      break ;
+    }
   /* symmetrize the extended  even weights */
   iMax = arrayMax (wws) ;
   if (0)
@@ -1067,6 +1105,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 
   if (show)
     wwsShow (sa, "Shifted Kac Crystal", atypic, wws, &hwA) ;
+  ac_free (h) ;
   return wws ;
 } /* getShiftedCrystal */
 
@@ -1097,8 +1136,9 @@ static void getHwCrystal (SA *sa, int *dimp, int *sdimp,  BOOL show)
   WW hwA ;
   Array wws = getShiftedCrystal (sa, -2, &hwA, TRUE) ;
   Array old = sa->wws ;
-
-  if (sa->hasAtypic)
+  int method = sa->method ;
+  
+  if (method == 1 && sa->hasAtypic)
     {
       int ii ;
       
@@ -1247,7 +1287,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      /* increase multiplicity of the new multiplet */
 	      if (! w2->hw)
 		{
-		  int dn2 = dn - w2->n21 ;
+		  int dn2 = dn - 0*w2->n21 ; /* soustraction  su(1/3) faux pour adjoint et 5;0,1 typique */
 		  if (dn2 > 0)
 		    w2->mult += dn ;
 		}
@@ -1391,15 +1431,16 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	continue ;
       if (n1 < n21)
 	messcrash ("mult < n21") ;
-      dn = n1 - n21 ;  /* number of su21 multiplets to create */
-      if (w0->x[ra] < 0)
+
+ dn = n1 - n21 ;  /* number of su21 multiplets to create */
+        if (w0->x[ra] < 0)
 	messcrash ("SU21 incomplete negative root w0.x[ra=%d]=%d", ra, w0->x[ra]) ;
       aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
       jMax = arrayMax (aa21) ;
 
-      if (jMax > 0 && dn > 0)   /* populate the new multiplet */
+        if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
-	  int j ;
+	    int j ;
 	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* lowest weight of the Crystal */	  
 	  WW *w1 = arrayp (wws, w21->k, WW) ;	  
 	  int dn = w0->mult - w0->n21 - w1->mult + w1->n21 ;
@@ -1436,11 +1477,11 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	  wwsShow (sa, "...after su21 multiplet", -99, wws, &sa->hw) ;
 	}
     }
-
+  
   for (dimEven = dimOdd = 0, ii = 1 ; ii < arrayMax (wws) ; ii++)
     {
       WW *ww = arrp (wws, ii, WW) ;
-      if (ww->odd)
+        if (ww->odd)
 	dimOdd += ww->mult ;
       else 
 	dimEven += ww->mult ;
@@ -1475,12 +1516,12 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
-  BOOL debug = TRUE ;
+    BOOL debug = FALSE ;
   int r, dimEven = 0, dimOdd = 0 ;
 
   if (debug)
     wwsShow (sa, "Before Demazure", 0, sa->wws, 0) ;
-
+  
   while (ok)
     {
       ok = FALSE ;
@@ -1492,13 +1533,14 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	      if (! sa->odd[r] && ! sa->extended[r])
 		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
-
+	      
 	    case 1:
-	      if (! sa->odd[r])  /* even adjoint: extended root is accepted */
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
-	      break ;
-
-	    case 2:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
+	    case 2:
+	         if (! sa->odd[r])  /* even adjoint: extended root is accepted */
+		   ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
+		 break ;
+		 
+	    case 10:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
 	      if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! sa->extended[r])
 		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
@@ -1512,14 +1554,14 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	  
 	  switch (sa->method)
 	    {
-	    case 10: /* obsolete */
+	    case 99: /* obsolete */
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  if (sa->odd[r])  /* construct the odd pairs, wrong for G(3) */
 		    ok2 |= demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
 		}
 	      break ;
-	    case 2:
+	    case 10:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
@@ -1735,7 +1777,7 @@ int main  (int argc, const char **argv)
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
    
-   sa.method = 2 ;   
+   sa.method = 1 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
@@ -1744,8 +1786,21 @@ int main  (int argc, const char **argv)
    getCmdLineInt (&argc, argv, "-alpha", &sa.alpha) ;
    show = getCmdLineBool (&argc, argv, "-show") ;
    sa.table = getCmdLineBool (&argc, argv, "-table") ;
+   getCmdLineInt (&argc, argv, "-method", &(sa.method)) ;
    getCmdLineOption (&argc, argv, "-type", &sa.type) ;
    getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
+   
+   switch (sa.method)
+     {
+     case 1:
+     case 2 :
+     case 10:
+       break ;
+     default:
+       messcrash ("argument -method should be 1,2 10 [default 1]") ;
+       break ;
+     }
+   
    if (sa.m < 0) messcrash ("argument -m m of SU(m/n) must be positive or null") ;
    if (sa.n < 0) messcrash ("argument -n n of SU(m/n) must be positive or null") ;
    
@@ -1763,10 +1818,11 @@ int main  (int argc, const char **argv)
    getRho (&sa, show) ;
    sa.hasOdd = hasOdd ;
    
-   if (sa.method != 2 && sa.hasOdd)
-     {                        /* contruct the kacCrystal */
+   if (sa.hasOdd)
+     {
        getAtypic (&sa, show) ;
-       if (sa.method != 2)
+
+       if (sa.method < 10) /* contruct the kacCrystal */
 	 getKacCrystal (&sa, show) ; 
      }
    
@@ -1783,14 +1839,14 @@ int main  (int argc, const char **argv)
        switch (sa.method)
 	 {
 	 case 1:
+	 case 2:
 	   getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
 	   /* complete the hw Crystal to a full module */
-	   demazure (&sa, &dimEven, &dimOdd, 1, FALSE) ;
 	   break ;
-	 case 2:
-	   demazure (&sa, &dimEven, &dimOdd, 2, show) ;
+	 case 10:
 	   break ;
 	 }
+       demazure (&sa, &dimEven, &dimOdd, sa.method, FALSE) ;
      }
 	   
    printf  ("################################################## Final Representation dimEven/dimOdd %d / %d\n",  dimEven, dimOdd) ;
