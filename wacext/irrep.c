@@ -1,5 +1,6 @@
 #include "ac.h"
 #include "matrix.h"
+#include "bitset.h"
 
 #define MALLOC_CHECK
 #define ARRAY_CHECK
@@ -22,7 +23,7 @@ typedef struct wStruct
   int oddPair ;
   BOOL odd, hw ;
   int myOddPart ;
-  Array oddParts ;
+  BitSet oddB ;
 } WW ; /* representation weigth vector */
 
 typedef struct saStruct
@@ -764,13 +765,13 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 		  if (ww->yDenominator <= 1) printf ("\tY=%d", ww->y) ;
 		  else printf ("\tY=%d/%d", ww->y, ww->yDenominator) ;
 		}
-	      if (sa->hasOdd && ww->oddParts)
+	      if (sa->hasOdd && ww->oddB)
 		{
 		  int i ;
 		  char *sep = "\todd=" ;
 		  
-		  for (i = 0 ; i < arrayMax (ww->oddParts) ; i++)
-		    if (array (ww->oddParts , i, int) > 0)
+		  for (i = 0 ; i < bitSetMax (ww->oddB) ; i++)
+		    if (bit (ww->oddB, i) > 0)
 		      {
 			printf ("%s%d", sep, i) ;
 			sep = "," ;
@@ -887,7 +888,7 @@ static void getKacCrystal (SA *sa, BOOL show)
   WW *w, hw ;
   int method = sa->method ;
   int myOddPart ;
-  Array oddParts ;
+  BitSet oddB ;
   
   /* reinitialize on the trivial h.w */
   sa->dict = dictHandleCreate (32, sa->h) ;
@@ -897,7 +898,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 
   for (k = 0 ; k < kMax ; k++)
     iiMax *= 2 ;   /* 2^negativeOddRoots = size of the KacCrystal */
-  oddParts = arrayHandleCreate (kMax, int, h) ;
+  oddB = bitSetCreate (kMax, h) ;
   for (ii = 0 ; ii < iiMax ; ii++) /* all points in the Kac Crystal, h.w. already included */
     {
       int layer = 0 ;
@@ -909,7 +910,7 @@ static void getKacCrystal (SA *sa, BOOL show)
       memset (&w0, 0, sizeof (w0)) ;
       w0.hw = 1 ;
       myOddPart = 0 ;
-      oddParts = arrayReCreate (oddParts, kMax, int) ;
+      oddB = bitSetReCreate (oddB, kMax) ;
       for (k = 0 ; k < kMax ; k++)
 	{
 	  int yes  = x % 2 ; /* odd root k is used in ii */
@@ -923,7 +924,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 		ok = FALSE ;
 	      else if (arr(sa->atypic,k+1,int) >= 0 && (sa->isBlack || wodd->l2 == 0))
 		{
-		  array (oddParts, k, int) = 1 ;
+		  bitSet (oddB, k) ;
 		  vtxtPrintf (txt, " %d", k+1) ;
 		  layer++ ;
 		  if (layer == 1)
@@ -964,7 +965,7 @@ static void getKacCrystal (SA *sa, BOOL show)
 	  w->mult++ ;
 	  if (layer == 1)
 	    w->myOddPart = myOddPart ;
-	  w->oddParts = arrayHandleCopy (oddParts, sa->h) ;
+	  w->oddB = bitSetCopy (oddB, sa->h) ;
 	  for (r = 0 ; ok && r < rank ; r++)
 	    w->x[r] = w0.x[r] ;
 	  if (show)
@@ -999,7 +1000,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
   Array Kac = sa->Kac ;
   int kMax = arrayMax (Kac) ;
   WW hwA ;
-  Array oddParts = arrayHandleCreate (kMax, int, h) ;
+  BitSet oddB = bitSetCreate (kMax, h) ;
   
   hwA = getHighestWeight (sa, atypic, TRUE, 0) ;
   *hwAp = hwA ;
@@ -1025,7 +1026,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
       ww->k = k2 ;
       ww->layer = wo->layer ;
       ww->odd = wo->odd ;
-      ww->oddParts = wo->oddParts ;
+      ww->oddB = wo->oddB ;
       ww->myOddPart = wo->myOddPart ;
       ww->mult += hwA.mult * wo->mult ;
       for (r = 0 ; r < rank ; r++)
@@ -1043,7 +1044,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 	if (! sa->odd[r] && /* ! sa->extended[r] && */ ww->x[r] < 0)
 	  ww->mult = 0 ;
       if (ww->mult > 0 && ww->layer == 1)
-	array (oddParts, ww->myOddPart - 1, int) = 1 ;
+	bitSet (oddB, ww->myOddPart - 1) ;
     }
   /* trim the branches not connected to the root */
   switch (sa->method)
@@ -1051,14 +1052,25 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
     case 2:
       for (ii = 1 ; ii < iMax ; ii++)
 	{
-	  int i ;
+	  int i, n1 ;
 	  WW *ww = arrp (wws, ii, WW) ;
 	  BOOL ok = ii == 1 ? TRUE : FALSE ;
 	  
 	  if (! ww->mult) continue ;
-	  for (i = 0 ; i < arrayMax (ww->oddParts) ; i++)
-	    if (array (ww->oddParts, i, int) > 0 && array (oddParts, i, int) == 1)
-	      ok = TRUE ;
+	  n1 = bitSetCount (ww->oddB) ;
+	  for (i = 1 ; !ok && i < iMax ; i++)
+	    {
+	      WW *w2 = arrp (wws, i, WW) ;
+	      if (w2->layer == ww->layer - 1)
+		{
+		  int k, nk = 0 ;
+		  for (k = 0 ; k < kMax ; k++)
+		    if (bit (ww->oddB, k) && bit (w2->oddB, k))
+		      nk++ ;
+		  if (nk == n1 - 1)
+		    ok = TRUE ;
+		}
+	    }
 	  if (! ok)
 	    ww->mult = 0 ;
     }
