@@ -771,9 +771,9 @@ static void wwsShow (SA *sa, char *title, int type, Array wws, WW *hw)
 		  char *sep = "\todd=" ;
 		  
 		  for (i = 0 ; i < bitSetMax (ww->oddB) ; i++)
-		    if (bit (ww->oddB, i) > 0)
+		    if (bit (ww->oddB, i))
 		      {
-			printf ("%s%d", sep, i) ;
+			printf ("%s%d", sep, i+1) ;
 			sep = "," ;
 		      }
 		}
@@ -1065,7 +1065,7 @@ static Array getShiftedCrystal (SA *sa, int atypic, WW *hwAp, BOOL show)
 		{
 		  int k, nk = 0 ;
 		  for (k = 0 ; k < kMax ; k++)
-		    if (bit (ww->oddB, k) && bit (w2->oddB, k))
+		    if (w2->mult > 0 && bit (ww->oddB, k) && bit (w2->oddB, k))
 		      nk++ ;
 		  if (nk == n1 - 1)
 		    ok = TRUE ;
