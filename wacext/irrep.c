@@ -1236,10 +1236,17 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 {
   BOOL new = FALSE ;
   BOOL odd = ! even ;
-  int i, dimEven, dimOdd, rank = sa->rank ;
+  int i, dimEven, dimOdd, r, rank = sa->rank, ra = -1 ;
   
   if (sa->pass++ == 0) new = TRUE ;
     
+  if (sa->hasOdd)
+    for (r = 0 ; r < sa->rank ; r++)
+      {
+	if (sa->odd2[r])  /* distinguished even root */
+	  ra = r ;
+      }
+
   for (i = 0 ; i < arrayMax (wws) ; i++) 
     {
       WW *w = arrayp (wws, i, WW) ;
@@ -1316,8 +1323,11 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      if (! w2->hw)
 		{
 		  int dn2 = dn - 0*w2->n21 ; /* soustraction  su(1/3) faux pour adjoint et 5;0,1 typique */
+		  
+		  if (ra >= 0 && w2->x[ra] < 0)
+		    dn2 = dn - w2->n21 ; /* do not create a su21 h.w. with negative x[rb] */
 		  if (dn2 > 0)
-		    w2->mult += dn ;
+		    w2->mult += dn2 ;
 		}
 	      if (odd)
 		{
@@ -1460,7 +1470,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
       if (n1 < n21)
 	messcrash ("mult < n21") ;
 
- dn = n1 - n21 ;  /* number of su21 multiplets to create */
+      dn = n1 - n21 ;  /* number of su21 multiplets to create */
         if (w0->x[ra] < 0)
 	messcrash ("SU21 incomplete negative root w0.x[ra=%d]=%d", ra, w0->x[ra]) ;
       aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
@@ -1502,7 +1512,8 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 	      if (j == 0)
 		w1->hw = w0->hw ;
 	    }
-	  wwsShow (sa, "...after su21 multiplet", -99, wws, &sa->hw) ;
+	  printf ("++++ added %d su(2/1) states ", jMax) ;
+	  wwsShow (sa, "+++ giving", -99, wws, &sa->hw) ;
 	}
     }
   
@@ -1544,7 +1555,7 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
-    BOOL debug = FALSE ;
+  BOOL debug = TRUE ;
   int r, dimEven = 0, dimOdd = 0 ;
 
   if (debug)
@@ -1552,54 +1563,64 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
   
   while (ok)
     {
+      BOOL ok2 = FALSE ;
       ok = FALSE ;
       for (r = 0 ; r < sa->rank ; r++)
 	{
+	  ok2 = FALSE ;
 	  switch (method)
 	    {
 	    case 0:  /* negative odd roots, apply the non extended even subalgebra */
 	      if (! sa->odd[r] && ! sa->extended[r])
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
+		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
 	      
 	    case 1:
 	    case 2:
 	         if (! sa->odd[r])  /* even adjoint: extended root is accepted */
-		   ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
+		   ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 		 break ;
 		 
 	    case 10:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
 	      if (! sa->odd[r] && ! sa->odd1[r] && ! sa->odd2[r] && ! sa->extended[r])
-		ok |= demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
+		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
 	    }
-	  if (ok && debug)
-	    wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
+	  if (ok2 && debug)
+	    {
+	      printf ("... weyl %d\t", r) ;
+	      wwsShow (sa, "Inside Demazure", 0, sa->wws, 0) ;
+	    }
+	  ok |= ok2 ;
 	}
       if (sa->hasOdd)
 	{
-	  BOOL ok2 = FALSE ;
-	  
 	  switch (sa->method)
 	    {
 	    case 99: /* obsolete */
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
+		  ok2 = FALSE ;
 		  if (sa->odd[r])  /* construct the odd pairs, wrong for G(3) */
-		    ok2 |= demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
+		    ok2 = demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
+		  ok |= ok2 ;
 		}
 	      break ;
 	    case 10:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
+		  ok2 = FALSE ;
 		  if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
-		    ok2 |= demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
+		    ok2 = demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
+		  if (ok2 && debug)
+		    {
+		      printf ("... weyl %d\t", r) ;
+		      wwsShow (sa, "Inside Demazure su(2/1) multiplets", 0, sa->wws, 0) ;
+		    }
+		  ok |= ok2 ;
 		}
 	      break ;
 	    }
-	  if (ok2 && debug)
-	    wwsShow (sa, "Inside Demazure su(2/1) multiplets", 0, sa->wws, 0) ;
-	  ok |= ok2 ;
 	}
     }
   
@@ -1870,11 +1891,12 @@ int main  (int argc, const char **argv)
 	 case 2:
 	   getHwCrystal (&sa, &dimEven, &dimOdd, show) ;
 	   /* complete the hw Crystal to a full module */
+	   demazure (&sa, &dimEven, &dimOdd, sa.method, FALSE) ;
 	   break ;
 	 case 10:
+	   demazure (&sa, &dimEven, &dimOdd, sa.method, TRUE) ;
 	   break ;
 	 }
-       demazure (&sa, &dimEven, &dimOdd, sa.method, FALSE) ;
      }
 	   
    printf  ("################################################## Final Representation dimEven/dimOdd %d / %d\n",  dimEven, dimOdd) ;
