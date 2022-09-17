@@ -22,8 +22,7 @@ phaseStats:
 # prepare the frns wiggles if not available, now always done in wg2a for runs and wg2b for groups 
 set ww1=toto
 set ww2=toto
-if $fr ==
-
+if (-e  tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz || -e  tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.pp.BF.gz) then
   set ww1=tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.$uu.BF.gz 
   set ww2=tmp/WIGGLEGROUP/$run/$chrom/R.chrom.$fr.pp.BF.gz
 else if (-e  tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.$uu.BF.gz || -e  tmp/WIGGLERUN/$run/$chrom/R.chrom.$fr.pp.BF.gz) then
@@ -44,7 +43,7 @@ else
 endif
 
 echo "##Phase 4444444444444444444"
-if ($fr == ns && $mainTarget != introns) then        
+if ($fr == frns && $mainTarget != introns) then        
   set toto=tmp/SPONGE/$run/Total.$chrom.$uu.$fr.$limit
   if (! -e $toto.txt) then
     if (! -e $toto) then

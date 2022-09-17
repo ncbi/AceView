@@ -21,6 +21,6 @@ set uu=u
           end
         endif
       end
-touch  tmp/SPONGE/$run/sponge2.gene.$limit.done4
+touch  tmp/SPONGE/$run/sponge2.gene.$limit.done5
 exit 0
    
