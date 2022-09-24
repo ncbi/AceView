@@ -84,7 +84,6 @@ if ($phase == ii3b) goto phaseii3b
 if ($phase == ii4) goto phaseii4
 if ($phase == ii5) goto phaseii5
 if ($phase == ii6) goto phaseii6
-if ($phase == d5) goto phased5
 if ($phase == ii99) goto phaseii99
 
 if ($phase =~ SF*) goto phase$phase
@@ -129,7 +128,6 @@ echo "ii2c:   Known_intron counts per run with sublibraries"
 echo "ii2d:   Histogram of the Cumulated support of annotated exon junctions"
 echo "ii3a:   Known_intron counts per lane in non unique alignments"
 echo "ii3b:   Known_intron counts per run in non unique alignments"
-echo "d5:     Importation of intron support in GeneIndexDB" 
 echo "ii4:    Export introns expression tables  in RESULTS/Expression and analyse differential expression according to the Compare class"
 echo "ii5 :   Centralization des elements mrna/gene + gene origin"
 echo "ii99 :  Special export to feed the public aceview server"
@@ -874,37 +872,6 @@ end
 goto phaseLoop
 
 #######################################################################################
-# centralization des support d'inyrons dans GeneIndexDB
-
-phased5:
-
-goto phaseLoop
-
-if (! -e  tmp/introns/d5.$MAGIC._r) then
-  bin/tacembly MetaDB <<EOF
-    query find project IS $MAGIC ; >run ; Intron
-    select -o tmp/introns/d5.$MAGIC.intron_groups.txt select g,x from g in @,a in g->ali, x in a->Candidate_introns[18] where x > 0
-EOF
-
-  echo "read-models" > tmp/introns/d5.$MAGIC._r
-  set ok=1
-  foreach group (`cat  tmp/introns/d5.$MAGIC.intron_groups.txt`)
-    set minS=`cat tmp/introns/d5.$MAGIC.intron_groups.txt | gawk -F '\t' '{if($1 == group)print $2;}' group=$group`
-    echo "$group $minS" 
-    if (! -e tmp/OR/$group/d4.de_uno.txt.gz) then
-      set ok=0
-    else
-      gunzip -c tmp/OR/$group/d4.de_uno.txt.gz | gawk -F '\t' '{s = $4; if (s>=minS){c=$1;a1=$2;a2=$3;t=$5;ln=$6;if(t!="-" && t!="gt_ag" && t!="gc_ag" && t!="ct_ac" && t!="at_ac")t="Other " t;if(t=="-")t=""; printf("Intron %s__%d_%d\nIntMap %s %d %d\nLength %d\nGroup_U %s 0 %d\n%s\n\n",c,a1,a2,c,a1,a2,ln,group,s,t1)}}' group=$group minS=$minS | gzip > tmp/OR/$group/d5.de_uno.ace.gz
-      echo "parse tmp/OR/$group/d5.de_uno.ace.gz" >> tmp/introns/d5.$MAGIC._r
-    endif
-  end
-  echo "save\nquit" >>  tmp/introns/d5.$MAGIC._r
-  bin/tacembly GeneIndexDB <  tmp/introns/d5.$MAGIC._r
-  if ($ok == 0) \rm   tmp/introns/d5.$MAGIC._r
-endif
-
-goto phaseLoop
-
 #######################################################################################
 # centralization des elements mrna/gene + gene origin
 
@@ -912,25 +879,12 @@ goto phaseLoop
 
 phaseii4:
 
-set ok=1
 
   set chrom=$SNPCHROM
   if ($chrom == "") then
     echo "Missing parameter chrom in call to : genetindex.tcsh ii4 chrom"
     exit 1
   endif
-  # if (! -e tmp/INTRON_DB/$chrom/d5.introns.final.ace) echo xxx
-  if (! -d tmp/INTRON_DB) mkdir tmp/INTRON_DB
-
-  if (! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.done) then
-   echo hello $chrom
-    mkdir tmp/INTRON_DB/$chrom 
-    scripts/submit tmp/INTRON_DB/$chrom/d5 "scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom"
-    set ok=0
-  endif
-
-
-if ($ok == 0) goto phaseLoop
 
 # goto phaseLoop
 
@@ -1042,6 +996,31 @@ if (1) then
   if ($phase == ii4)  set GM=INTRON
   if ($phase =~ SF* )  set GM=$phase
 
+   set CAPT=toto
+   if (1 && $MAGIC == CL1) set CAPT=A1R3
+   if ($MAGIC == CL2) set CAPT=A1
+   if ($MAGIC == CL3) set CAPT=A1
+   if ($phase == ii4) set CAPT=A1
+   if (0) then
+     set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
+     set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
+     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
+       echo "ERROR: missing file TARGET/GENES/$CAPT.capture.$target.gene_list"
+       continue
+     endif
+    endif
+    if ($CAPT == toto) then
+      set CAPT=""
+    else
+      set capt="-captured $CAPT"
+      set CAPT=".$CAPT" 
+    endif
+
+  if ($phase == ii4 && ! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then
+    echo "Missing file tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace"
+    goto phaseLoop
+  endif
+
 echo LALALA0==================+++
   echo  "phase $phase : geneindex export table and correlation analysis: $target GM=$GM"
 
@@ -1057,8 +1036,7 @@ echo LALALA0==================+++
   if ($phase == ii4 && -e MetaDB/$MAGIC/ali.ace) cat MetaDB/$MAGIC/ali.ace | gawk '/^Ali /{print}/h_Ali/{print}/^Candidate_introns any/{print}/^$/{print}' >>  tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 echo LALALA1====================++99
   if ($phase == ii4 && -e tmp/METADATA/$MAGIC.av.captured_genes.ace) cat tmp/METADATA/$MAGIC.av.captured_genes.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
-  if ($phase == ii4) scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom
-  if ($phase == ii4) cat tmp/INTRON_DB/$chrom/d5.info.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
+  if ($phase == ii4) cat tmp/INTRON_DB/$chrom/d5.$MAGIC.info$CAPT.ace >> tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace
 
 echo LALALA1====================
 
@@ -1122,6 +1100,9 @@ endif
 
 echo LALALA2
 
+  set sg=""
+  if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
+
 
 if ($SNPCHROM == 000) exit 0
 if ($ok == 0) continue
@@ -1167,35 +1148,6 @@ if ($ok == 0) continue
   set shA=" "
   if ($MAGIC == Klein) set shA="-showAnyRun"
 
-  set sg=""
-  if (-e TARGET/Targets/$species.$target.stable_genes.txt) set sg="-stableGenes TARGET/Targets/$species.$target.stable_genes.txt"
-
-   set CAPT=""
-   if (1 && $MAGIC == CL1) then
-     set CAPT=A1R3
-     set sg="$sg   -captured $CAPT"
-     set CAPT=".$CAPT" 
-   endif
-   if ($MAGIC == CL2) then
-     set CAPT=A1
-     set sg="$sg   -captured $CAPT"
-     set CAPT=".$CAPT" 
-   endif
-   if ($MAGIC == CL3) then
-     set CAPT=A1
-     set sg="$sg   -captured $CAPT"
-     set CAPT=".$CAPT" 
-   endif
-   if (0) then
-     set CAPT=A1A2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
-     set CAPT=A1A2I2I3R1R2   # A2R2 ... see TARGET/GENES/$capture.av.gene_list  
-     if (! -e TARGET/GENES/$CAPT.capture.$target.gene_list) then
-       echo "ERROR: missing file TARGET/GENES/$CAPT.capture.$target.gene_list"
-       continue
-     endif
-     set sg="$sg   -captured $CAPT"
-     set CAPT=".$CAPT" 
-    endif
    set uu=u 
    if ($?myUU) then
      if ( $myUU != "") set uu=$myUU      
@@ -1327,7 +1279,7 @@ if ($ok == 0) continue
      end
    endif
 
-   if ($phase == ii4 && ! -e  tmp/INTRON_DB/$chrom/d5.de_uno.ace) then 
+   if ($phase == ii4 && ! -e  tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then 
      goto phaseLoop
    endif
 
@@ -1339,14 +1291,14 @@ if (-e RESULTS/baddy_batchies.txt) set rjm="-rejectMarker RESULTS/baddy_batchies
 
 if ($target == introns) then
 
-    set out=$MAGIC$mNam.$target.INTRON.u.$SNPCHROM
-    if (-e tmp/INTRON_DB/$chrom/d5.de_uno.ace) then
-      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_DB/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait  $shA "
+    set out=$MAGIC$mNam.$target.INTRON.u.$SNPCHROM$CAPT
+    if (-e tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then
+      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/RunsList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait  $shA "
 
 # $seedGene  $compare $correl
       \rm tmp/GENEINDEX/$out.*
       if (1) then
-            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.de_uno.ace -u $mask $chromAlias -runList tmp/INTRON_DB/$MAGIC.RunList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $rjm $refG -export ait $shA
+            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/RunsList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait $shA
          if (! -e tmp/GENEINDEX/Results/$out.done) then
            echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
            exit 1
@@ -1432,13 +1384,13 @@ endif
      echo "aaa9 phase $phase  myace = $myace"
      set splitM=""
      if ($phase == snp4) then
-       set params="-$dg $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $selectSNP  $shA $sg $refG  $tgcl  $compare  $rjm -htmlSpecies $species "
+       set params="-$dg $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo $method $selectSNP  $shA $sg $capt $refG  $tgcl  $compare  $rjm -htmlSpecies $species "
      else
        if (0 && $phase == g4 && -e TARGET/GENES/$species.$target.split_mrnas.txt) then  
          # we cannot do this here, it must be done in phase g2a: collect hits per gene in pgm bestali
          set splitM="-split_mRNAs TARGET/GENES/$species.$target.split_mrnas.txt"
        endif
-       set params="-$dg $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo  -pA $method $selectSNP  $shA $sg $refG  $tgcl $GeneGroup $correl $compare  $rjm  -htmlSpecies $species $splitM  -export aitvz "
+       set params="-$dg $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o  tmp/GENEINDEX/Results/$out -gzo  -pA $method $selectSNP  $shA $sg $capt $refG  $tgcl $GeneGroup $correl $compare  $rjm  -htmlSpecies $species $splitM  -export aitvz "
      endif
 
      if (1) then
@@ -1505,8 +1457,8 @@ echo "... $phase $target $myace MAGIC=$MAGIC GeneGroup=$GeneGroup"
      set out=$MAGIC$mNam.$targetBeau.$GM$CAPT.$uu
      \rm tmp/GENEINDEX/Results/$out.*
      \rm RESULTS/Expression/AceFiles/$out.*
-     echo "bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg  $refG $rjm $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare" 
-           bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg  $refG $rjm  $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare
+     echo "bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg $capt  $refG $rjm $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare" 
+           bin/geneindex -deepTranscript $myace -$uu $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -o tmp/GENEINDEX/Results/$out -gzo -pA $method $isMRNAH $tgcl  $shA $sg $capt  $refG $rjm  $GeneGroup -htmlSpecies $species   -export aitvz  $correl $compare
      if (! -e tmp/GENEINDEX/Results/$out.done) then
        echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
        exit 1

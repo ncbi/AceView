@@ -55,6 +55,7 @@ lao:
     \rm toto.$$ 
     echo "$nn running tasks waiting"
     if ($x >= 30) pan_df .
+#    qhost
   endif
 
   if ($nn <= 0) exit

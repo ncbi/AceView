@@ -221,7 +221,7 @@ if ($farm == SGE || $farm == UGE || $farm == UGE4) then
     if (! $?queue) set queue=unified
 # set queue=low
     set xx=""
-    if ($queue == test) set xx=',express=TRUE'
+    if (0 && $queue == test) set xx=',express=TRUE'
 
     set isBlastp=""
     if ("$pgm" =~ "*blastp*") set isBlastp="-l blastp_frosty"

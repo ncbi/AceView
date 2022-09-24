@@ -1,4 +1,5 @@
-#!/bin/env tcsh
+#!bin/tcsh -f
+#######!/bin/env tcsh
 #$ -S /bin/tcsh
 #$ -P $project
 #$ -j y
@@ -28,6 +29,7 @@ if (0 && -e /var/lib/envs/facilities/bin/fac-switch.csh) then
 endif
 # set the UGE (normally already done by .ncbi_hints, option sge
 if (-e  /netmnt/gridengine/current/settings.csh) source /netmnt/gridengine/current/settings.csh
+if (1 && -e  /netmnt/gridengine/test/settings.csh) source /netmnt/gridengine/test/settings.csh
 
 # export current UGE version
 qsub -help | head -1
@@ -79,6 +81,7 @@ if ("$phaseSet" == clean) goto phaseClean
 if ($1 == cleanRunList) goto phaseCleanRunList
 
 if ($1 == wait) scripts/submit wait
+
 
 if (! -e ZZZZZ || ! -e ZZZZZ.gz)  then
    echo 'ZZZZZ' > ZZZZZ
@@ -1454,7 +1457,7 @@ echo "d1:    collect the de_uno introns, detected by genome alignemnt"
 echo "d2:    collect the alignment overhangs"
 echo "d4:    compare new and known introns"
 echo "d4SLs: obsolete parse SL counts in MetaDB"
-echo "d5:    Importation of intron support in GeneIndexDB, same as ii4"
+echo "d5:    Importation of intron support in GeneIndexDB"
 echo "d6:    obsolete align on the intron candidates"
 echo "d7:    obsolete recover the U_introns confirmations"
 echo "d8:    obsolete collate the U_introns confirmations"
@@ -3988,8 +3991,9 @@ phaseii4:
 
   cat MetaDB/$MAGIC/GroupIntronList MetaDB/$MAGIC/RunsIntronList | sort -u >   tmp/INTRON_DB/$MAGIC.RunList
 
-  foreach chrom (21 22)
+  foreach chrom (20 $chromSetAll)
     scripts/geneindex.tcsh ii4 $chrom
+    break
   end
 
 goto phaseLoop
@@ -10926,26 +10930,29 @@ end
 set toto=tmp/introns/d4.$MAGIC.candidate_introns.ace
 echo '//' > $toto
 
+set ok=0
 foreach run (`cat MetaDB/$MAGIC/RunsList`)
-   if (! -e  tmp/OR/$run/d4.candidate_introns.ace) then 
+   if (! -e  tmp/OR/$run/d4.candidate_introns.ace.gz) then 
       if (! -d  tmp/OR/$run)  mkdir tmp/OR/$run
-      scripts/d4.candidate_introns.tcsh $run
+      scripts/submit tmp/OR/$run/d4.candidate_introns "scripts/d4.candidate_introns.tcsh $run"
+      set ok=1
    endif 
-   cat tmp/OR/$run/d4.candidate_introns.ace >> $toto
+   zcat tmp/OR/$run/d4.candidate_introns.ace.gz  >> $toto
 end
+if ($ok == 1) goto phaseLoop
 
 set groupLevelMax=`cat  MetaDB/$MAGIC/g2r | cut -f 3 | sort -k 1n | tail -1`
 foreach level (`seq 1 1 $groupLevelMax`)
 echo level=$level
-  foreach group (`cat MetaDB/$MAGIC/GroupList`)
+  foreach group (`cat MetaDB/$MAGIC/GroupIntronList`)
     set gLevel=`cat MetaDB/$MAGIC/g2r |  gawk -F '\t' '{if($1==g)level=$3}END{print 0+level}' g=$group` 
     if ($gLevel != $level) continue
-    if (! -e  tmp/OR/$group/d4.candidate_introns.ace) then
+    if (! -e  tmp/OR/$group/d4.candidate_introns.ace.gz) then
       if (! -d  tmp/OR/$group)  mkdir  tmp/OR/$group
       echo "scripts/d4.candidate_introns.tcsh $group"
       scripts/d4.candidate_introns.tcsh $group
     endif 
-    cat tmp/OR/$group/d4.candidate_introns.ace >> $toto
+    zcat tmp/OR/$group/d4.candidate_introns.ace.gz >> $toto
   end
 end
 
@@ -11033,15 +11040,13 @@ if (! -e  tmp/OR/d5.$MAGIC.minS) then
 EOF
 endif
 
-if (0 && ! -e tmp/introns/d5.$MAGIC.parse.done) then
+if (! -e tmp/introns/d5.$MAGIC.chromCumul.done) then
   foreach chrom ($chromSetAll)
     if (! -e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then
       scripts/submit INTRON_DB/$chrom/d5.$MAGIC.parse "scripts/d5.intronDB.tcsh chromCumul $MAGIC $chrom"
     endif
   end
-  scripts/submit wait
-
-  scripts/d5.intronDB.tcsh parseCumul $MAGIC 
+  touch tmp/introns/d5.$MAGIC.chromCumul.done
 
 endif
 
@@ -11050,11 +11055,19 @@ if (0 && ! -e  tmp/introns/d5.$MAGIC.donorAcceptor.done) then
 endif
 
 foreach chrom ($chromSetAll)
-  if (! -e  tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done) then
-    scripts/submit tmpINTRON_DB/$chrom/d5.$MAGIC.capture "scripts/d5.intronDB.tcsh capture $MAGIC $chrom"
+  if (0 && ! -e  tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done) then
+    scripts/submit tmp/INTRON_DB/$chrom/d5.$MAGIC.capture "scripts/d5.intronDB.tcsh capture $MAGIC $chrom"
   endif 
 end
 scripts/submit wait
+
+if (! -d tmp/INTRON_DB) mkdir tmp/INTRON_DB
+foreach chrom ($chromSetAll)
+  if (! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.done) then
+    if (! -d tmp/INTRON_DB/$chrom) mkdir tmp/INTRON_DB/$chrom
+    scripts/submit  tmp/INTRON_DB/$chrom/d5 "scripts/d5.intronDB.tcsh chromDB $MAGIC $chrom"
+  endif
+end
 
 goto phaseLoop
 

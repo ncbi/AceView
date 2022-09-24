@@ -92,7 +92,9 @@ if (-e  tmp/OR/$group/d4.de_uno.txt) then
   end
   cat  tmp/OR/$MAGIC.any.introns ZZZZZ tmp/OR/$group/d4.de_uno.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){a1=$2+0;a2=$3+0;av[$1,a1+0,a2+0] =1 ; nAv++; next; }}{if($2+0==0)next;if(av[$1,0+$2,0+$3]==1){inAv++;n4in+=$4;}else {if($4<minS)next; if($5 == "gt_ag" || $5 == "gt_ag") { outGtAg++; outAv++;n4Out+=$4;}}nn++;}END{if(nn==0)nn=1;if(nAv==0)nAv=1;sp=inAv/nn;sn=inAv/nAv;printf("Ali %s\n-D Candidate_introns uno\n-D Candidate_introns %s\nCandidate_introns %s %d In_%s %d Not_in_%s %d  new_gt_ag %d Specificity %.2f Sensitivity %.2f Known_Support %d New_support %d New_minS %d\n\n", group, target,  target, nn, target, inAv, target, outAv, outGtAg, 100*sp, 100*sn, n4in, n4Out, minS) ;}' target=Any group=$group minS=$minS >> tmp/OR/$group/d4.candidate_introns.ace
 
+  gzip tmp/OR/$group/d4.candidate_introns.ace
 endif
+
 
 if (-e tmp/OR/$group/d4.de_uno.txt && ! -e tmp/OR/$group/d4.de_uno.txt.gz) then
   gzip tmp/OR/$group/d4.de_uno.txt

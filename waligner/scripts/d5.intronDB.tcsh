@@ -6,12 +6,18 @@ set chrom=$3
 
 echo "phase=$phase  project=$project"
 
+if ($chrom != 20) exit 0
+if ($phase == chromCumul) goto chromCumul
+if ($phase == donorAcceptor) goto donorAcceptor
+if ($phase == capture) goto capture
+if ($phase == intronComfirmation) goto  intronComfirmation
 if ($phase == chromDB) goto chromDB
- 
+goto phaseLoop
+
 ###############################################################
 ## chromCumul
 
-if ($phase == chromCumul) then
+chromCumul:
   set toto = tmp/introns/d5.$MAGIC.de_uno.$chrom
   echo ' ' > $toto.1
   echo ' ' > $toto.txt
@@ -24,7 +30,7 @@ if ($phase == chromCumul) then
     endif
   end
   cat $toto.1 | cut -f 1 | sort -u | gzip > $toto.2.gz
-  foreach run (`cat MetaDB/$MAGIC/GroupIntronList`)
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
     set ff=tmp/OR/$run/d4.de_uno.txt.gz
     if (! -e $ff) set ff=tmp/OR/$run/d5.de_uno.txt.gz
     if (-e  $ff) then
@@ -35,46 +41,16 @@ if ($phase == chromCumul) then
   cat $toto.txt | sort -V | gzip > $toto.txt.gz
   \rm  $toto.txt  $toto.1 $toto.2.gz
   zcat $toto.txt.gz  | gawk -F '\t' '{ii=$1; if($5+0<1)next;if(ii!=old){if (n>0)printf("RNA_seq %d\n",n);n=0;printf("\nIntron \"%s\"\n",ii);}old=ii;printf("de_uno %s %d\n",$4,$5);n+=$5;}END{if (n>0)printf("RNA_seq %d\n",n);printf("\n");}' | gzip > $toto.ace.gz
-  
-  goto phaseLoop
-endif
 
-###############################################################
-## parseCumul
+goto phaseLoop
 
-if ($phase == parseCumul) then
-  if (-e  tmp/introns/_r.d5) \rm  tmp/introns/_r.d5
-  foreach chrom ($chromSetAll)
-    echo "pparse tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz" >> tmp/introns/_r.d5
-  end
-  echo 'save' >> tmp/introns/_r.d5
-  echo 'quit' >> tmp/introns/_r.d5
-  
-  cat  tmp/introns/_r.d5 | bin/tacembly GeneIndexDB -noprompt
-
-  bin/tacembly GeneIndexDB << EOF
-    bql -o tmp/introns/d5.all_introns select ii from ii in ?Intron where (!ii#length || ! ii#IntMap)
-    quit
-EOF
-
-  cat  tmp/introns/d5.all_introns | gawk '{split($1,aa,"__");chrom=aa[1];split(aa[2],bb, "_");a1=bb[1];a2=bb[2];if(a1<a2){b1=a1;b2=a2;}else{b1=a2;b2=a1;}printf("Intron %s\nIntMap %s %d %d\nLength %d\n\n",$1,chrom,a1,a2,b2-b1+1);}' | gzip >  tmp/introns/d5.all_introns.intmap.ace.gz
-
-  echo "pparse tmp/introns/d5.all_introns.intmap.ace.gz" | bin/tacembly GeneIndexDB -no_prompt
-
-  touch  tmp/introns/d5.$MAGIC.parse.done
-
-  if (! -e GeneIndexDB/d5.parseGenome.done) then
-    echo "pparse TARGET/Targets/$species.genome.fasta.gz" | bin/tacembly GeneIndexDB -no_prompt
-    echo "pparse TARGET/Targets/$species.mito.fasta.gz" | bin/tacembly GeneIndexDB -no_prompt
-    touch GeneIndexDB/d5.parseGenome.done
-  endif
-  goto phaseLoop
-endif
 
 ###############################################################
 ## donorAcceptor
 
-if (0 && $phase == donorAcceptor) then
+donorAcceptor:
+goto phaseLoop
+
 # donor acceptor
   bin/tacembly GeneIndexDB << EOF
     find intron
@@ -114,76 +90,36 @@ EOF
     quit
 EOF
   touch tmp/introns/d5.$MAGIC.donorAcceptor.done
-  goto phaseLoop
-endif
 
-###############################################################
-### CAPTURE
+goto phaseLoop
 
-if ($phase == capture) then
-  if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then 
-    bin/tacembly tmp/INTRON_DB/$chrom << EOF
-      read-models
-      find gene
-      spush
-      parse  tmp/METADATA/$MAGIC.av.captured_genes.ace
-      find gene
-      sxor
-      spop
-      kill
-      save
-      bql -o  tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.txt select ii,c from g in ?Gene, c in g->capture where c, ii in g->Intron  
-      quit
-EOF
 
-    cat tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.txt  | gawk -F '\t' '{if($1 != old)printf ("\nIntron %s\n",$1);old=$1;printf("Capture %s\n",$2);}END{printf("\n");}' > tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.ace
-    bin/tacembly GeneIndexDB << EOF
-      read-models
-      parse tmp/INTRON_DB/$chrom/d5.$MAGIC.captured_introns.ace
-      save
-      quit
-EOF
-  endif
-
-  touch tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done
-  goto phaseLoop
-endif
 
 
 ###############################################################
-## ?
+## intronComfirmation probably obsolete
 
+intronComfirmation:
 if (-e  RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz2) then
   set toto=GeneIndexDB/$project.intron_confirmation.ace
   echo $toto
   if (! -e $toto) then
     if (-e  RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz2) then
       zcat RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz | gawk '/^Intron/{z=$0}/_SumOfAllReadsInProject/{if ($4 >0) printf("%s\nRun_U %s %s %s %s %s %s\n\n",z,magic,$3,$4,$5,$6,$7);}' magic=$project > $toto
-      echo "pparse $toto" | bin/tacembly GeneIndexDB -no_prompt
+     echo "pparse $toto" | bin/tacembly GeneIndexDB -no_prompt
     else
       echo "Missing file  RESULTS/Expression/AceFiles/$project.introns.INTRON.u.ace.gz"
     endif
   endif
-  goto phaseLoop
-endif
-
-touch GeneIndexDB/d5.cumul.done
-
-###############################################################
-## phaseLoop
-
-phaseLoop:
-  echo d5.intronDB phase $phase  done
-  exit 0
-
+  
+goto phaseLoop
 
 #############################################################################
 chromDB:
-
 if (! -d tmp/INTRON_DB) mkdir tmp/INTRON_DB
 if (! -d tmp/INTRON_DB/$chrom/database) then
   if (! -d tmp/INTRON_DB/$chrom)   mkdir tmp/INTRON_DB/$chrom
-  pushd tmp/INTRON_DB/$chrom
+    pushd tmp/INTRON_DB/$chrom
     mkdir database
     ln -s ../../../metaData/wspec.aceview_web_site wspec
     tace . <<EOF
@@ -194,104 +130,114 @@ endif
 
 set chrom2=$chrom'__'
 
-# parse in INTRON_DB/$chrom the introns/genes/mRNA/chromosomes
-if (! -e tmp/INTRON_DB/$chrom/parse.done) then
-  pushd tmp/INTRON_DB/$chrom
-  tace ../../../GeneIndexDB <<EOF
-    query find intron IS $chrom2*
-    show -a -f introns.$chrom.ace
-    find map $chrom
-    spush
-    follow Gene_i
-    sor
-    follow mRNA
-    sor
-    spop
-    show -a -f genes.$chrom.ace
-    find sequence $chrom
-    show -a -f chrom.$chrom.ace
-    dna chrom.$chrom.fasta
-    quit
-EOF
 
-  tace . <<EOF
-    parse introns.$chrom.ace
-    parse genes.$chrom.ace
-    parse chrom.$chrom.ace
-    parse chrom.$chrom.fasta
-    save
-    quit
-EOF
-  touch parse.done
-  popd
+# check for intron support 
+if (! -e tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.done) then
+  \rm *.done
+  if (-e tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz) then
+    echo "pparse tmp/introns/d5.$MAGIC.de_uno.$chrom.ace.gz" | bin/tace tmp/INTRON_DB/$chrom -no_prompt
+    touch tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.done
+  else
+    goto phaseLoop
+  endif
 endif
 
-# check we have all mrnas
-if (! -e tmp/INTRON_DB/$chrom/d5.rrna.done) then
+
+echo   d5.collate.done
+
+# parse in INTRON_DB/$chrom the introns/genes/mRNA/chromosomes
+if (! -e tmp/INTRON_DB/$chrom/parse.37.done && -d ~/37lm5/database) then
   pushd tmp/INTRON_DB/$chrom
-    ../../../bin/tace . <<EOF
-      find mrna
-      list -a -f $chrom.mrna.list
-EOF
+
+
     ../../../bin/tace ~/37lm5 <<EOF
+      find map $chrom
+      follow gene
+      show -a -f 37.$chrom.gene.preace 
+      follow transcribed_gene
+      show -a -f 37.$chrom.tg.preace 
+      follow mrna
+      show -a -f 37.$chrom.mrna.preace 
+      follow product
+      show -a -f 37.$chrom.product.preace 
       key $chrom.mrna.list
-      show -a -f $chrom.mrna.geneid.ace GeneId 
-      show -a -f $chrom.mrna.locuslink.ace LocusLink
-      show -a -f $chrom.mrna.splicing.ace Splicing
-      list -a -f chrom.mrna.list
+      query find intron $chrom2*
+      show -a -f 37.$chrom.intron.ace
+      quit
 EOF
+
+    cat 37.$chrom.gene.preace | gawk '/^MicroArray/{next;}/^Run_nU/{next;}/^DEG/{next;}/^NP_id/{next;}{print}' > 37.$chrom.gene.ace
+    cat 37.$chrom.tg.preace | gawk '/^Read/{next;}/^cDNA_clone/{next;}/^Assembled_from/{next;}/^Fully_sequenced_clone/{next;}{print}' > 37.$chrom.tg.ace
+    cat 37.$chrom.product.preace | gawk '/^Covered_by/{next;}/^Complete_CDS_clone/{next;}/^Mass_sp/{next;}{print}' > 37.$chrom.product.ace
+    cat 37.$chrom.mrna.preace | gawk '/^cDNA_clone/{next;}/^Gap_clone/{next;}/^Specific_clone/{next;}/^DEG/{next;}/^Submitted_as/{next;}/^Constructed_from/{next;}/^Tiling/{next;}/^Mrna_covered_by/{next;}/^CDS_covered_by/{next;}/^RefSeqMaker/{next;}/^Tiling/{next;}/PolyA_found/{printf("%s %s\n",$1,$2);next;}{print}' > 37.$chrom.mrna.ace
+
     ../../../bin/tace . <<EOF
-      find mrna
-      edit -D geneid
-      edit -D LocusLink
-      edit -D Splicing
-      parse $chrom.mrna.geneid.ace
-      parse $chrom.mrna.locuslink.ace
-      parse $chrom.mrna.splicing.ace
+      pparse 37.$chrom.gene.ace
+      pparse 37.$chrom.tg.ace
+      pparse 37.$chrom.mrna.ace
+      pparse 37.$chrom.product.ace
+      parse 37.$chrom.intron.ace
       save
       quit
 EOF
 
 
-    touch d5.rrna.done
+  touch parse.37.done
   popd
 endif
 
-
-# check we have all intmap
-if (! -e tmp/INTRON_DB/$chrom/d5.intmap.done) then
+# parse the genome 
+if (! -e tmp/INTRON_DB/$chrom/parse.genome.done) then
   pushd tmp/INTRON_DB/$chrom
     ../../../bin/tace . <<EOF
-      query find intron  ! intmap
-      s -o d5.nomap.txt @
+      parse ../../../TARGET/CHROMS/$species.chrom_$chrom.fasta.gz
+      parse ../../../TARGET/CHROMS/$species.mito.fasta.gz
+      save
       quit
 EOF
-    cat d5.nomap.txt | gawk -F '_' '{printf ("Intron %s\nIntMap %s %s %s\n\n",$0,$1,$3,$4);}' > d5.nomap.ace
-    echo "pparse d5.nomap.ace" | ../../../bin/tace . -no_prompt
-    touch d5.intmap.done
+    if (-e d5.intron_feet.done) \rm d5.intron_feet.done
+    touch parse.genome.done
   popd
 endif
 
-# check we have all intron feet
-if (! -e tmp/INTRON_DB/$chrom/d5.intron_feet.done) then
-  pushd tmp/INTRON_DB/$chrom
 
+# check we have all intron length feet intmap
+if (! -e tmp/INTRON_DB/$chrom/d5.intron_ln_feet.done) then
+  pushd tmp/INTRON_DB/$chrom
     ../../../bin/tace . <<EOF
-      query find intron  ! type
+      query find intron ! length
+      select -o d5.intron.no_length.txt select  @
+      query find intron  ! intmap
+      select -o d5.nomap.txt @
+      query find intron  other
+      edit -D type
+      query find intron  ! type 
       spush
-      bql -o d5.intron_feet.R.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in OBJECT('Sequence',m),x in m[1],y in m[2] where y<x, f1 in DNA(s,x,x-1), f2 in DNA(s,y+1,y)
+      select -o d5.intron_feet.R.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in OBJECT('Sequence',m),x in m[1],y in m[2] where y<x, f1 in DNA(s,x,x-1), f2 in DNA(s,y+1,y)
       sxor
       spop
-      bql -o d5.intron_feet.F.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in  OBJECT('Sequence',m),x in m[1],y in m[2] where x<y, f1 in DNA(s,x,x+1), f2 in DNA(s,y-1,y)
+      select -o d5.intron_feet.F.txt select i,m,s,x,y ,f1,f2 from i in @,m in i->intmap, s in  OBJECT('Sequence',m),x in m[1],y in m[2] where x<y, f1 in DNA(s,x,x+1), f2 in DNA(s,y-1,y)
+      save 
       quit
 EOF
-    cat d5.intron_feet.[FR].txt | gawk -F '\t' '{other="";f=$6"_"$7;if(f!="gt_ag" && f!= "gc_ag" && f!="ct_ac" && f!= "at_ac")other="Other";printf("Intron %s\nType %s %s_%s\n\n", $1,other,$6,$7);}' >  d5.intron_feet.ace
-    echo "pparse d5.intron_feet.ace" | ../../../bin/tace . -no_prompt
-    touch d5.intron_feet.done
+
+    cat d5.intron_feet.[FR].txt | grep -v NULL | gawk -F '\t' '{other="";f=$6"_"$7;if(f!="gt_ag" && f!= "gc_ag" && f!="ct_ac" && f!= "at_ac")other="Other";printf("Intron %s\nType %s %s_%s\n\n", $1,other,$6,$7);}' >  d5.intron_feet.ace
+    cat d5.intron.no_length.txt | gawk -F '__' '{split ($2, aa, "_");a1=aa[1]+0;a2=aa[2]+0;da = a2-a1;if(da<0)da=-da;if(da>0){ln=da+1;printf("Intron \"%s\"\nLength %d\n\n",$0,ln);}}' > d5.intron_ln.ace
+    cat d5.nomap.txt | gawk -F '_' '{printf ("Intron %s\nIntMap %s %s %s\n\n",$0,$1,$3,$4);}' > d5.nomap.ace
+    
+    ../../../bin/tace . <<EOF
+      pparse d5.intron_feet.ace
+      pparse d5.intron_ln.ace
+      pparse d5.nomap.ace
+      save 
+      quit
+EOF
+   touch d5.intron_ln_feet.done
   popd
 endif
 
 echo   d5.intron_feet.done
+
 
 # check donor acceptors
 if (! -e tmp/INTRON_DB/$chrom/d5.DA.done) then
@@ -303,8 +249,8 @@ if (! -e tmp/INTRON_DB/$chrom/d5.DA.done) then
       bql -o d5.donor.r.txt select ii,chrom,a1,a2,d1,d2 from ii in @, chrom in ii->intmap, a1 in chrom[1], a2 in chrom[2] where a1>a2, s in OBJECT("Sequence",chrom), d1 in DNA(s,a1+50,a1-49), d2 in DNA(s,a2+49,a2-50)
       quit
 EOF
-    cat d5.donor.f.txt | gawk -F '\t' '{ii=$1;m=$2;a1=$3;a2=$4;d1=$5;d2=$6;printf("Intron %s\n-D DA\nD %s__%d_f\nA %s__%d_f\nDonor %s\nAcceptor %s\n\n",ii,m,a1-1,m,a2+1,d1,d2);}' > d5.DA.ace
-    cat d5.donor.r.txt | gawk -F '\t' '{ii=$1;m=$2;a1=$3;a2=$4;d1=$5;d2=$6;printf("Intron %s\n-D DA\nD %s__%d_r\nA %s__%d_r\nDonor %s\nAcceptor %s\n\n",ii,m,a1+1,m,a2-1,d1,d2);}' >> d5.DA.ace
+    cat d5.donor.f.txt | gawk -F '\t' '{ii=$1;m=$2;a1=$3;a2=$4;d1=$5;d2=$6;printf("Intron %s\n-D DA\nD %s__%d_f\nA %s__%d_f\nDonor %s\nAcceptor %s\n\n",ii,m,a1-1,m,a2+1,d1,d2);}' | grep -v NULL > d5.DA.ace
+    cat d5.donor.r.txt | gawk -F '\t' '{ii=$1;m=$2;a1=$3;a2=$4;d1=$5;d2=$6;printf("Intron %s\n-D DA\nD %s__%d_r\nA %s__%d_r\nDonor %s\nAcceptor %s\n\n",ii,m,a1+1,m,a2-1,d1,d2);}' | grep -v NULL  >> d5.DA.ace
     echo "pparse d5.DA.ace" | ../../../bin/tace . -no_prompt
 # check for same donor same acceptor
     cat d5.donor.f.txt | cut -f 2,3,4 | sort -k 1,1 -k 2,2n | gawk -F '\t' '{if($1==m && $2==a1){printf("Intron %d__%s_%d\nSame_donor %s__%d_%d\n\n",m,a1,a2,m,$2,$3);}m=$1;a1=$2;a2=$3;}' > d5.sameDA.ace  
@@ -317,36 +263,6 @@ endif
 echo   d5.DA.done
 
 # associate donor acceptor to from_gene, meaning known in AceView
-if (! -e tmp/INTRON_DB/$chrom/d5.DA2G1.done) then
-  pushd tmp/INTRON_DB/$chrom
-  ../../../bin/tace . <<EOF
-    find donor
-    spush
-    find intron
-    sor
-    find acceptor
-    sor
-    spop
-    edit -D gene
-    edit -D from_gene
-    query find mrna from_gene ;> intron
-    spush
-    follow donor
-    sor
-    undo
-    follow acceptor
-    sor
-    spop
-    edit from_gene
-    save
-    quit
-EOF
-  touch d5.DA2G1.done
-  popd
-endif
-
-echo   d5.DA2G1.done
-
 if (! -e tmp/INTRON_DB/$chrom/d5.DA2G2.done) then
   pushd tmp/INTRON_DB/$chrom
   ../../../bin/tace . <<EOF
@@ -362,15 +278,15 @@ EOF
     pparse d5.DAGG2.ace
     query find intron ! gene
     kstore ii
-    select -o d5.DAGG2.txt3c  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g1 && g2 && g1 == g2
+    select -o d5.DAGG2.txt3c  ii,g1 from ii in @, d in ii->D, g1 in d->gene, a in ii->A, g2 in a->gene where g1 && g2 && g1 == g2
     kget ii
-    select -o d5.DAGG2.txt3d  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g1 && !g2
+    select -o d5.DAGG2.txt3d  ii,g1 from ii in @, d in ii->D, g1 in d->gene, a in ii->A, g2 in a->gene where g1 && !g2
     kget ii
-    select -o d5.DAGG2.txt3a  ii,g1 from ii in @,g1 in ii->D->gene,g2 in ii->A->gene where g2 && !g1
+    select -o d5.DAGG2.txt3a  ii,g2 from ii in @, d in ii->D, g1 in d->gene, a in ii->A, g2 in a->gene where g2 && !g1
     save
     quit
 EOF 
-   cat d5.DAGG2.txt3[cda] | gawk -F '\t' '{ii=$1;g=$2;printf("Intron %s\nGene %s\n\n",ii,g);}' >> d5.DAGG2.x.ace
+   cat d5.DAGG2.txt3[cda] | gawk -F '\t' '{ii=$1;g=$2;printf("Intron %s\nGene %s\n\n",ii,g);}' > d5.DAGG2.x.ace
   ../../../bin/tace . <<EOF
     pparse d5.DAGG2.x.ace
     query find intron !gene
@@ -397,14 +313,16 @@ if (! -e tmp/INTRON_DB/$chrom/d5.DA2G.done) then
   pushd tmp/INTRON_DB/$chrom
   foreach pass (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
     ../../../bin/tace . <<EOF
-      query find intron ! gene
+      query find intron ! gene && same_donor
       bql -o d5.d2g.txt select ii,g from ii in @, i2 in ii->same_donor, g in i2->gene where g
-      query find intron ! gene
+      query find intron ! gene && same_acceptor
       bql -o d5.a2g.txt select ii,g from ii in @, i2 in ii->same_acceptor, g in i2->gene where g
       quit
 EOF
     cat d5.d2g.txt d5.a2g.txt | gawk -F '\t' '{ii=$1;g=$2; printf ("Intron %s\nGene %s\n\n", ii,g);}' > d5.DA2G.$pass.ace
     tags d5.DA2G.$pass.ace
+    set n=`wc d5.DA2G.$pass.ace | gawk '{print $1;}'`
+    if ($n == 0) break
     echo "pparse d5.DA2G.$pass.ace" | ../../../bin/tace . -no_prompt
   end
   touch d5.DA2G.done
@@ -428,18 +346,15 @@ EOF
       edit -D known_donor
       query find intron known_acceptor
       edit -D known_acceptor
-      query find intron ; from_gene
+      query find intron ; in_mrna
       edit known_donor
       spush
       edit known_acceptor
-      sor
-      sor
-      query ! from_gene
-      edit from_gene
-      query find intron ! known_donor ; >D ; from_gene ; >intron ; ! known_donor
+      query find intron known_donor ; >D ; >intron ; ! known_donor
       edit Known_donor
-      query find intron ! known_acceptor ; >A ; from_gene ; >intron ; ! known_acceptor
+      query find intron known_acceptor ; >A ;  >intron ; ! known_acceptor
       edit Known_acceptor
+      query find intron !gene && de_uno && (D || A)
       save
       quit
 EOF
@@ -449,30 +364,65 @@ endif
 
 echo   d5.DDA2G.done
 
-# check for intron support 
-if (! -e tmp/INTRON_DB/$chrom/d5.collate.$MAGIC.done) then
+if (! -e tmp/INTRON_DB/$chrom/d5.DA2Gb.done) then
   pushd tmp/INTRON_DB/$chrom
-  ../../../bin/tace . <<EOF
-    select -o iList ?Intron
+
+
+   cat d5.d2ii.txt | gawk -F '\t' '{n=split($2,aa,";");if (n>1){for(i=1;i<n;i++)for(j=i+1;j<=n;j++)printf("Intron %s\nSame_donor %s\n\n",aa[i],aa[j]);}}' > d5.DA2ii.ace
+   cat d5.a2ii.txt | gawk -F '\t' '{n=split($2,aa,";");if (n>1){for(i=1;i<n;i++)for(j=i+1;j<=n;j++)printf("Intron %s\nSame_acceptor %s\n\n",aa[i],aa[j]);}}' >> d5.DA2ii.ace
+   echo "pparse d5.DA2ii.ace" | ../../../bin/tace . -no_prompt
+
+  foreach pass (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+    ../../../bin/tace . <<EOF
+      query find intron ! gene && same_donor
+      bql -o d5.d2g.txt select ii,g from ii in @, i2 in ii->same_donor, g in i2->gene where g
+      query find intron ! gene && same_acceptor
+      bql -o d5.a2g.txt select ii,g from ii in @, i2 in ii->same_acceptor, g in i2->gene where g
+      quit
 EOF
-  gzip -f iList
-  echo > d5.collate.new
-  foreach run (`cat ../../../MetaDB/$MAGIC/RunsList`)
-    if (-e ../../../tmp/OR/$run/d4.de_uno.txt.gz && ! -e ./$run.collate.done) then
-      zcat iList.gz ../../../ZZZZZ.gz ../../../tmp/OR/$run/d4.de_uno.txt.gz | gawk -F '\t' '/^$/{next;}/^ZZZZZ/{zz=1;next;}{if(zz<1){ok[$1]=1;next;}a1=$2+0;a2=$3+0;n=$4;ii=$1"__"a1"_"a2;if(ok[ii]<1)next;printf("%s\t%s\t%d\n",ii,run,n);}' run=$run >> d5.collate.new
-      touch $run.collate.done
-    endif
+
+    cat d5.d2g.txt d5.a2g.txt | gawk -F '\t' '{ii=$1;g=$2; printf ("Intron %s\nGene %s\n\n", ii,g);}' > d5.DA2Gb.$pass.ace
+    tags d5.DA2Gb.$pass.ace
+    set n=`wc d5.DA2Gb.$pass.ace | gawk '{print $1;}'`
+    if ($n == 0) break
+    echo "pparse d5.DA2Gb.$pass.ace" | ../../../bin/tace . -no_prompt
   end
-  cat d5.collate.new | gawk -F '\t' '/^$/{next;}{if($1!=ii)printf("\nIntron %s\n-D de_uno %s\n",$1,$1);ii=$1;printf("de_uno %s %d\n",$2,$3);}' > d5.$MAGIC.collate.ace
-  echo >> d5.$MAGIC.collate.ace
-  echo "pparse d5.$MAGIC.collate.ace" | ../../../bin/tace . -no_prompt
-  touch d5.collate.$MAGIC.done
+  touch d5.DA2Gb.done
   popd
 endif
 
+###############################################################
+### CAPTURE
 
-echo   d5.collate.done
+capture:
+  if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace && ! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done) then 
+    pushd tmp/INTRON_DB/$chrom
+      ../../../bin/tace . << EOF
+        read-models
+        find gene
+        spush
+        parse  ../../../tmp/METADATA/$MAGIC.av.captured_genes.ace
+        find gene
+        sxor
+        spop
+        kill
+        save
+        bql -o  d5.$MAGIC.captured_introns.txt select ii,c from g in ?Gene, c in g->capture where c, ii in g->Intron  
+        quit
+EOF
 
+     cat d5.$MAGIC.captured_introns.txt  | gawk -F '\t' '{if($1 != old)printf ("\nIntron %s\n",$1);old=$1;printf("Capture %s\n",$2);}END{printf("\n");}' > d5.$MAGIC.captured_introns.ace
+     ../../../bin/tace .  << EOF
+       parse d5.$MAGIC.captured_introns.ace
+       save
+       quit
+EOF
+
+      touch tmp/INTRON_DB/$chrom/d5.$MAGIC.capture.done
+    popd  
+   endif
+
+  set capt=A1
   set chrom2=$chrom'__'
   echo "chrom2=$chrom2"
   pushd tmp/INTRON_DB/$chrom
@@ -485,13 +435,35 @@ echo   d5.collate.done
       sminus
       spop
       kill
-      query find intron 
+      query find intron de_uno 
       show -a -f d5.introns.final.preace
+      query find intron de_uno && capture == $capt
+      show -a -f d5.introns.final.$capt.preace
       save
       quit
 EOF
-  cat d5.introns.final.preace | gawk '/^$/{print}/^Intron/{print}/^de_uno/{print}' > d5.de_uno.ace
-  cat d5.introns.final.preace | gawk '/^de_uno/{next}{print}' > d5.info.ace
+    cat d5.introns.final.preace | gawk '/^$/{print}/^Intron/{print}/^de_uno/{print}' > d5.$MAGIC.de_uno.ace
+    cat d5.introns.final.preace | gawk '/^de_uno/{next}{print}' > d5.$MAGIC.info.ace
+    tags  d5.$MAGIC.de_uno.ace
+    tags  d5.$MAGIC.info.ace
+    cat d5.introns.final.$capt.preace | gawk '/^$/{print}/^Intron/{print}/^de_uno/{print}' > d5.$MAGIC.de_uno.$capt.ace
+    cat d5.introns.final.$capt.preace | gawk '/^de_uno/{next}{print}' > d5.$MAGIC.info.$capt.ace
+    tags  d5.$MAGIC.de_uno.$capt.ace
+    tags  d5.$MAGIC.info.$capt.ace
   popd
 
+
+
   touch tmp/INTRON_DB/$chrom/d5.$MAGIC.done
+
+
+###############################################################
+## phaseLoop
+
+phaseLoop:
+  echo d5.intronDB phase $phase  done
+  exit 0
+
+
+###############################################################
+###############################################################

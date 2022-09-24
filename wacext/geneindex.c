@@ -79,7 +79,7 @@ typedef struct rcStruct {
 } RC ;
 
 typedef struct gcStruct { 
-  int title, affy, geneId, geneModel, intronGene, nmid, gene_type, fromGene, fromTranscript, length, boxLength, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
+  int title, affy, geneId, geneModel, intronGene, intronMrna, nmid, gene_type, fromGene, fromTranscript, length, boxLength, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
   BOOL isSNP, notIsTranscriptA, targeted, captured, hasGoodProduct, isGood ;
   Array geneGroup ;
   KEYSET captures, capturesTouch ;
@@ -1126,6 +1126,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    continue ;
 
 	  rc = arrayp (gx->runs, run, RC) ;
+	  rc->cumulDone = TRUE ;
 	  aa = rc->aa ;
 	  daa = rc->daa ;
 	  if (! aa)
@@ -1368,7 +1369,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	    }
 	  continue ;
 	}
-      if (ccp && !strcasecmp (ccp, "Capture_touch"))
+      if (ccp && !gx->isINTRON && !strcasecmp (ccp, "Capture_touch"))
 	{
 	  ccp = aceInWord (ai) ;
 	  if (ccp)
@@ -1454,6 +1455,13 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	      */
 	      gx->hasFromGene = TRUE ;
 	    }
+	  continue ;
+	}
+
+     if (ccp  && isGene && gx->isINTRON && !strcasecmp (ccp, "In_mRNA"))
+	{
+	  gc = arrayp (gx->genes, gene, GC) ;
+	  gc->intronMrna++ ;
 	  continue ;
 	}
 
@@ -8255,7 +8263,7 @@ static void gxExportTableHeaderLegend (GX *gx, ACEOUT ao, const char* title, int
       if (gx->hasKnownDonorAcceptor) aceOut (ao, "\t#Known/New donor acceptor") ;
       if (gx->hasFromGene) aceOut (ao, "\t#From gene") ;
       if (gx->hasIntronType) aceOut (ao, "\t#Type") ;
-      if (gx->hasRefSeqAv) aceOut (ao, "\t#In AceView") ;
+      if (gx->isINTRON) aceOut (ao, "\t#In AceView") ;
       if (gx->hasFromTranscript) aceOut (ao, "\t#From transcript") ;
       if (gx->hasGeneAffy) aceOut (ao, "\t#Microarray") ;
       if (gx->hasCapture) aceOut (ao, "\t#Captured by3") ;
@@ -8877,8 +8885,8 @@ static int gxExportTable (GX *gx, int type)
   double z ;
   double ln2 = log(2.0) ;
   BOOL wantGeneGroup = FALSE ;
-  const char *types[] = { "expression_index", "reads_aligned_per_gene", "kb_aligned_per_gene", "CV", "sFPKM"
-			  , "index_CV", "zebre",  "reads_aligned_per_gene_per_million_raw_reads", "X", "X", "header"    /* 5->10 */
+  const char *types[] = { "expression_index", (! gx->isINTRON ? "reads_aligned_per_gene" : "reads_aligned_per_intron"), "kb_aligned_per_gene", "CV", "sFPKM"
+			  , "index_CV", "zebre",  (! gx->isINTRON ? "reads_aligned_per_gene_per_million_raw_reads" : "reads_aligned_per_intron_per_million_raw_reads"), "X", "X", "header"    /* 5->10 */
 			  , "nReads", "nReadsOk", "nerr", "a2g", "partial", "orphan" /* 11->16 */
 			  , "badtopo", "multi", "multi2"   /* 17->19 */
 			  , "X", "X", "X", "X", "X", "X"    /* 20->25 */
@@ -9040,13 +9048,15 @@ static int gxExportTable (GX *gx, int type)
       if (0) aceOutf (ao, "\thasFromGene=%d isINTRON=%d", gx->hasFromGene, gx->isINTRON) ; 
       if (gx->hasKnownDonorAcceptor)
 	{
-	  switch (gc->hasKnownDonorAcceptor)
-	    {
-	    case 0: aceOutf (ao, "\tNew") ; break ;
-	    case 1:  aceOutf (ao, "\tNew_KnownD") ; break ;
-	    case 2:  aceOutf (ao, "\tNew_KnownA") ; break ;
-	    case 3:  aceOutf (ao, "\tNew_KnownAD") ; break ;
-	    default:  aceOutf (ao, "\tKnown") ; break ;
+	  if (gc->intronMrna)
+	    aceOutf (ao, "\tKnown") ;
+	  else
+	    switch (gc->hasKnownDonorAcceptor)
+	      {
+	      case 0: aceOutf (ao, "\tNew") ; break ;
+	      case 1:  aceOutf (ao, "\tNew_D") ; break ;
+	      case 2:  aceOutf (ao, "\tNew_A") ; break ;
+	      case 3:  aceOutf (ao, "\tNew_AD") ; break ;
 	    }
 	}
       if (gx->hasFromGene)
@@ -9062,11 +9072,8 @@ static int gxExportTable (GX *gx, int type)
 	  if (gx->isINTRON && gc->isIntron && gx->affyDict)
 	    aceOutf (ao, "\t%s", gc->intronType ? dictName (gx->affyDict, gc->intronType) : "") ;
 	}
-      if (gx->hasRefSeqAv)
-	{
-	  if (gx->isINTRON && gc->isIntron)
-	    aceOutf (ao, "\t%d", gc->intronAv) ;
-	}
+      if (gx->isINTRON && gc->isIntron)
+	aceOutf (ao, "\t%d", gc->intronMrna) ;
       if (gx->hasGeneAffy) aceOutf (ao, "\t%s", gc->affy ? stackText (gx->info, gc->affy) : "") ;
       if (gx->hasCapture)
 	{
@@ -9521,6 +9528,8 @@ static int gxExportGeneAceFile (GX *gx)
 		}
 	      else
 		{
+		  if (0 && gx->isINTRON) continue ;
+
 		  aceOutf (ao, "Run_%s %s %.2f %.2f seqs %.2f tags %.2f kb "
 			   , gx->unique ? "U" : "nU"
 			   , dictName (gx->runDict, run)
@@ -12257,7 +12266,6 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
   KEYSET bs = keySetHandleCreate (h) ;
   const char *oldSigShape ;
   double ln2 = log(2.0) ;
-
   int nBADcapt = 0, nGOOD1capt = 0, nGOOD2capt = 0, nUNIQUEcapt = 0, nSCORE1capt = 0, nSCORE2capt = 0 ;
   float sumGoodScore1capt = 0, sumGoodScore2capt = 0, sumUniqueScorecapt = 0  ;
   int nBAD = 0, nGOOD1 = 0, nGOOD2 = 0, nUNIQUE = 0, nSCORE1 = 0, nSCORE2 = 0, nCAPTURED = 0 ;
@@ -12266,25 +12274,25 @@ static void gxOneExpressionProfile (GX *gx, int iCompare, int pass
   switch (pass + 3 * (showPvalue ? 1 : 0))
     {
     case 0: /* all profiles */
-      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), wantGeneGroup ? ".score.gene_groups.profiles.txt" : ".score.genes.profiles.txt", FALSE, h) ; 
+      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), wantGeneGroup ? ".score.gene_groups.profiles.txt" : (! gx->isINTRON ? ".score.genes.profiles.txt" : ".score.introns.profiles.txt"), FALSE, h) ; 
       break ;
     case 1: /* DEG   max > 0 */
-      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), ".score.genes.differential_profiles.txt", FALSE, h) ; 
+      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), (! gx->isINTRON ? ".score.genes.differential_profiles.txt" : ".score.introns.differential_profiles.txt"), FALSE, h) ; 
       break ;
     case 2: /* TOP DEG max >= 185 */
-      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), ".score.genes.top_differential_profiles.txt", FALSE, h) ; 
+			 ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), (! gx->isINTRON ? ".score.genes.top_differential_profiles.txt" : ".score.introns.top_differential_profiles.txt"), FALSE, h) ; 
      break ;
 
     case 3: /* all profiles */
       ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare))
-			 , wantGeneGroup ? ".pValue.gene_groups.profiles.txt" : ".pValue.genes.profiles.txt"
+			 , wantGeneGroup ? ".pValue.gene_groups.profiles.txt" : (! gx->isINTRON ? ".pValue.genes.profiles.txt" : ".pValue.introns.profiles.txt")
 			 , FALSE, h) ; 
       break ;
     case 4: /* DEG   max > 0 */
-      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), ".pValue.genes.differential_profiles.txt", FALSE, h) ; 
+			 ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), (! gx->isINTRON ? ".pValue.genes.differential_profiles.txt" : ".pValue.introns.differential_profiles.txt"), FALSE, h) ; 
       break ;
     case 5: /* TOP DEG max >= 185 */
-      ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), ".pValue.genes.top_differential_profiles.txt", FALSE, h) ; 
+			 ao = aceOutCreate (hprintf (h, "%s.%s", gx->outFileName, dictName (gx->compareDict, iCompare)), (! gx->isINTRON ? ".pValue.genes.top_differential_profiles.txt" : ".pValue.introns.top_differential_profiles.txt"), FALSE, h) ; 
      break ;
     }
 
