@@ -1293,12 +1293,12 @@ if ($target == introns) then
 
     set out=$MAGIC$mNam.$target.INTRON.u.$SNPCHROM$CAPT
     if (-e tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then
-      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/RunsList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait  $shA "
+      echo "bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait  $shA "
 
 # $seedGene  $compare $correl
       \rm tmp/GENEINDEX/$out.*
       if (1) then
-            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/RunsList -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait $shA
+            bin/geneindex -deepIntron tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace -u $mask $chromAlias -runList MetaDB/$MAGIC/GroupsRunsListSorted -runAce tmp/GENEINDEX/$MAGIC.$target.$GM.info.ace  -compare -o  tmp/GENEINDEX/Results/$out -gzo $method $seedGene $sg $capt $rjm $refG -export ait $shA
          if (! -e tmp/GENEINDEX/Results/$out.done) then
            echo "FATAL ERROR inside bin/geneindex : failed to create  tmp/GENEINDEX/Results/$out.done"
            exit 1
@@ -1443,7 +1443,7 @@ if ($phase == m4 || $phase == m4H || $phase == klst4) then
 echo "... $phase $target myace=$myace"
 ls -ls tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
   set myace=JUNK1209983485
-  if (-e   tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace) set myace=tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
+  if ($phase != ii4 && -e   tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace) set myace=tmp/GENEINDEX/$MAGIC.$target.$GM.$uu.ace
 
 # gene_group
 

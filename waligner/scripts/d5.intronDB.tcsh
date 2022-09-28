@@ -452,7 +452,7 @@ EOF
     tags  d5.$MAGIC.info.$capt.ace
   popd
 
-
+  cat MetaDB/$MAGIC/RunsList  MetaDB/$MAGIC/GroupIntronList > tmp/INTRON_DB/$chrom/$MAGIC.RunList 
 
   touch tmp/INTRON_DB/$chrom/d5.$MAGIC.done
 
