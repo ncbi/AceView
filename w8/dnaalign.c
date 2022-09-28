@@ -1469,7 +1469,7 @@ void contigLengthSort (KEYSET ks)
 
 KEYSET dnaAlignMakeSubSequence (KEY link, KEYSET reads, char *cp)
 { Array dna, dna2 ;
-  char buf[128], buf2[128] ;
+  char buf[128], buf2[256] ;
   KEYSET ks ;
   OBJ obj = 0 ;
   KEY *kp, dummy, dnaKey, key, key2, dnaKey2 ;
@@ -1600,7 +1600,7 @@ BOOL dnaAlignCopyContig (KEY key, KEY *kp, char *cp, BOOL left)
   BSunit *u ;
   Array seq = 0, dna ;
   OBJ obj = 0, obj2 = 0 ;
-  char buff[255] ;
+  char buff[512] ;
 
   if (strlen (cp) > 250)
     { messerror ("Char cp too long in dnaAlignCopyContig") ;
@@ -1671,7 +1671,7 @@ static void dnaAlignCopy (DEFCPT look, char *cp, BOOL order)
   mytime_t tim ;
   KEY dummy, key, key2, key3, dnakey1, dnakey2 ;
   int i, j, k, max, x1, x2, ii = 0, jj  = 0, clip ;
-  char buf[255], buff[255] ;
+  char buf[255], buff[512] ;
   BSunit *u, *v ;
 
   strncpy (buf, cp, 128) ;

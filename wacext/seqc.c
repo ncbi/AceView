@@ -1066,7 +1066,6 @@ static int samCount (SAM *sam)
     {
       nn++ ;
       char *ccp ;
-      int tagMult = 1 ;
 
       /* fragment identifier */
       aceInStep (ai, '\t') ;  ccp = aceInWordCut (ai, "\t", &cutter) ; if (! ccp) continue ;
@@ -1087,7 +1086,7 @@ static int samCount (SAM *sam)
 	    }
 	  if (k == 0)
 	    k = 1 ;
-	  tagMult = sam->tagMult = k ;
+	  sam->tagMult = k ;
 	}
       if (isNew)
 	{

@@ -111,7 +111,7 @@ static char * kantorParseBestName (char *nam, char *untreat)
 /* analyses the BLAST results and prepares the Resulting file for FICHE */
 static int kantorParseBLAST (vSTR * blkp, vSTR * hintBlkp, char *blastBuf, char* separ)
 {
-  char    *cp, *cq, myname[vTEXTMAXFILESIZE], info[vTEXTMAXFILESIZE], bfr[vTEXTMAXFILESIZE], untreat[vTEXTMAXFILESIZE];
+  char    *cp, *cq, myname[vTEXTMAXFILESIZE], info[vTEXTMAXFILESIZE], bfr[2*vTEXTMAXFILESIZE], untreat[vTEXTMAXFILESIZE];
   int     ln, lets, iNum = 0, icnt, ih, isSkip, segmentedHit, iIndepHit, absErr, isSameSpecies;
   char *anB, *ptr, *tblPtr, *dscPtr, *nxtDsc ;
   vMEX    ht;
@@ -1010,14 +1010,14 @@ char * blastPieceMakerNamed (char * fileName, char * sectionMarker,int * cnt,cha
 
 static int parseAsn(char * nm,char * content,char * seq, vSTR *blkp)
 {
-	char	cmd[MAXPATHLEN],
+	char	cmd[2*MAXPATHLEN],
 		*resultBufr,flnm[MAXPATHLEN],
-		asnf[MAXPATHLEN];
+		asnf[MAXPATHLEN + 30];
 
 	/*
 	* construct a temp file name - I'm using the local host name
 	* plus the current pid so that we have some expectation as
-	* uniqueness even when running multiple jobs on the compute 
+	* uniqueness even when running multiple jobs on the compute  
 	* farm with the same working directory
 	*
 	* flnm is a thing that is used as part of the temp file name.

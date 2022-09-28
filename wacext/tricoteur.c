@@ -2707,7 +2707,6 @@ static void tctDeUnoExport (TCT *tct)
   AC_HANDLE h = ac_new_handle () ;
   UNO *uno ;
   BigArray deUno = tct->deUno ;
-  DICT *targetDict = tct->targetDict ;
   DICT *geneDict = tct->geneDict ;
   DICT *deUnoDict = tct->deUnoDict ;
   const char *method =  tct->SAM ? "MagicBlast" : "deUno" ;
@@ -2838,6 +2837,7 @@ static void tctDeUnoExport (TCT *tct)
 static void tctExport (TCT *tct)
 {
   AC_HANDLE h = ac_new_handle () ;
+  DICT *targetDict = tct->targetDict ;
   int iSeg ;
   int t1 = tct->t1 ? tct->t1 : tct->offset ;
   ACEOUT ao = aceOutCreate (tct->outFileName, ".bridges.ace", tct->gzo, h) ;
@@ -2987,7 +2987,7 @@ static void tctExport (TCT *tct)
 	  
 	  /* G1103T(ORF2a:L3606F) */
 	  aceOutf (ao, "Variant \"%s:%d:%s\" // seg->a1/a2=%d/%d, b1/b2=%d/%d iSeg=%d\n"
-		   , dictName (tct->targetDict, seg->target)
+		   , dictName (targetDict, seg->target)
 		   , seg->b1 + t1 + ddx 
 		   , vtxtPtr (vNam)
 		   , seg->a1
@@ -3061,13 +3061,13 @@ static void tctExport (TCT *tct)
 	    cp = hprintf (h, "\"Bases %d to %d %s replaced by %d bases\"", seg->b1 + t1 + bb->ddx + 1, seg->b1 + t1 + bb->ddx + ds - 1, ds > 2 ? "are" : "is", dt - 1) ;
 
 	  aceOutf (ao, "IntMap \"%s\" %d %d %s \n"
-		   , dictName (tct->targetDict, seg->target)
+		   , dictName (targetDict, seg->target)
 		   , seg->b1 + t1 + bb->ddx 
 		   , seg->b1 + t1 + bb->ddx + ds
 		   , cp
 		   ) ;
 	  aceOutf (ao, "Found_in_genome\n") ;	  
-	  aceOutf (ao, "Parent_sequence \"%s\"\n", dictName (tct->targetDict, seg->target)) ;
+	  aceOutf (ao, "Parent_sequence \"%s\"\n", dictName (targetDict, seg->target)) ;
 	  if (coverp) 
 	    aceOutf (ao, "fCounts %s %d %d %d Frequency %.2f\n", run, mp, wp, coverp, fp) ; 
 	  if (coverm)
