@@ -108,10 +108,10 @@ static int wordCountOrder (const void *a, const void *b)
 
 /*************************************************************************************/
 
-void dwReportCount (void *vp)
+void dwReportCount (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  PP *pp = (PP*) vp ; 
+  const PP *pp = (PP*) vp ; 
   int i ;
   long int k ;
   int min_count = pp->min_count ;
@@ -341,12 +341,12 @@ void dwReportWalk (void *vp)
 
 /*************************************************************************************/
 
-void dwReportPrefix (void *vp)
+void dwReportPrefix (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  PP *pp = (PP*) vp ; 
-  int **prefix = pp->prefix ;
-  int j, jMax, jj, *jp, nT = 0, nT1 ;
+  const PP *pp = (PP*) vp ; 
+  const int *jp, **prefix = pp->prefix ;
+  int j, jMax, jj, nT = 0, nT1 ;
   char *atgc = "agct" ;
   /*   ACEOUT ao = aceOutCreate (pp->outFileName,".prefix", 0, h) ; */
   jp = prefix[0] ;  /* single letters */
@@ -474,11 +474,11 @@ void dwPrefix (const void *vp)
 
 /*************************************************************************************/
 
-void dwParse (void *vp)
+void dwParse (const void *vp)
 {
   AC_HANDLE h = ac_new_handle () ;
   TP *tp ;
-  PP *pp = vp ;
+  PP *pp = (void*)vp ;
   ACEIN ai = 0 ;
   int ii, state = 0, mult = 1, n ; 
   int nMax = 1000000 ;
