@@ -489,15 +489,13 @@ static void xtWarningHandler (char *msg)
 /* Handle drastic errors in Xt (recursion in Form widgets for instance).     */
 /* This routine must exit, Xt behaviour will be undefined if we try to carry */
 /* on.                                                                       */
-static void * xtErrorHandler(String msg)
+static void xtErrorHandler(String msg)
 {
   fprintf(stderr, "Xt Error: %s\n", msg) ;
   
   invokeDebugger () ;
   
   exit(EXIT_FAILURE) ;
-  
-  return NULL ;
 }
 
 
