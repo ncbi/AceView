@@ -838,8 +838,8 @@ static void pmbParseSam (ACEIN ai, PMB *pmb)
 
       while (aceInStep (ai, '\t') && (ccp = aceInWord (ai)))
 	{
-	  if (ccp && ! strncmp (ccp, "NH:i:", 5))  ; /* unicity */
-	  up->uu = atoi (ccp+5) ;
+	  if (ccp && ! strncmp (ccp, "NH:i:", 5))   /* unicity */
+	    up->uu = atoi (ccp+5) ;
 	  
 	  if (ccp && ! strncmp (ccp, "AS:i:", 5))
 	    up->score = atoi (ccp+5) ;

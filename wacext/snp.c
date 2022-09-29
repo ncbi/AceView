@@ -3563,10 +3563,13 @@ static int snpBRS2snpExport (SNP *snp)
 		    bufS[j] = ace_lower(bufS[j]) ;
 		}
 	    }
-	  aceOutf (ao, "\t%s%s%s\t%s%s%s"
-		   , bufD, delta <= 0 ? Abuf : "---" + 3 - delta , bufS
-		   , bufD, delta >= 0 ? Bbuf : "---" + 3 + delta , bufS
-		   ) ;
+	  {
+	    const char *mmm = "---" ;
+	    aceOutf (ao, "\t%s%s%s\t%s%s%s"
+		     , bufD, delta <= 0 ? Abuf : mmm + 3 - delta , bufS
+		     , bufD, delta >= 0 ? Bbuf : mmm + 3 + delta , bufS
+		     ) ;
+	  }
 	  aceOutf (ao, "\t%s", dictName (snp->runDict, ssm->run)) ;
 	}
       if (1)
@@ -3727,10 +3730,13 @@ static int snpBRS2snpExport (SNP *snp)
 				  bufS[j] = ace_lower(bufS[j]) ;
 			      }
 			  }
-			aceOutf (ao, "\t%s%s%s\t%s%s%s"
-				 , bufD, delta <= 0 ? Abuf : "---" + 3 - delta , bufS
-				 , bufD, delta >= 0 ? Bbuf : "---" + 3 + delta , bufS
-				 ) ;
+			{
+			  const char *mmm = "---" ;
+			  aceOutf (ao, "\t%s%s%s\t%s%s%s"
+				   , bufD, delta <= 0 ? Abuf : mmm + 3 - delta , bufS
+				   , bufD, delta >= 0 ? Bbuf : mmm + 3 + delta , bufS
+				   ) ;
+			}
 			aceOutf (ao, "\t%s", dictName (snp->runDict, ssm->run)) ;
 
 			snpNotLowShow (ao, mutant, calledp + calledm, &z, &z1, &z2, 0) ;
