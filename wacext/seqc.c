@@ -1296,13 +1296,15 @@ static void samExportAce (SAM *sam)
 
 	  else if (!strcmp (buf, "Del"))
 	    { int p = cq ? strlen (cq+1) : 0 ;
+	      const char *mmm = "-----" ;
 	      if (p) 
-		aceOutf (ao, "Error_profile f1 %s%s %ld\n", "-----" + 5 - p, cq+1,  tc->zz[0]) ;
+		aceOutf (ao, "Error_profile f1 %s%s %ld\n", mmm + 5 - p, cq+1,  tc->zz[0]) ;
 	    }
 	  else if (!strcmp (buf, "Ins"))
 	    { int p = cq ? strlen (cq+1) : 0 ;
+	      const char *mmm = "+++++" ;
 	      if (p) 
-		aceOutf (ao, "Error_profile f1 %s%s %ld\n", "+++++" + 5 - p, cq+1,  tc->zz[0]) ;
+		aceOutf (ao, "Error_profile f1 %s%s %ld\n", mmm + 5 - p, cq+1,  tc->zz[0]) ;
 	    }
 	  else if (!strcmp (buf, "Sub"))
 	    { 
