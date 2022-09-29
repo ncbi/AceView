@@ -133,7 +133,7 @@ all: go2gene bly2hosac kscount akg sakg gene_nm_remap sgene_nm_remap gene2gene g
 	omim2ace maqc maqccl UCSCtrackCompare  bestali clipalign \
 	estscan genetiling geneelements magicx UMI variant_caller  \
 	estscan genexml2ace synonyms  nico_worf \
-	david taxtree jumpalign dnamotif mute \
+	david taxtree jumpalign dnamotif \
 	wiggle_smoother  dna2dna dnastitch kmercount  wiggle histo snp tsnp tricoteur \
 	mega3psort2ace  geneindex pg2pg seqc g2x qcsummary dnabloom snpbloom \
 	chanserver chanclient mir cnv sv chantest dnawalk pi_channel_test \
