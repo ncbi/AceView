@@ -911,7 +911,7 @@ static void biblioDoReDraw (BIBLIO biblio)
 	int lineOk, tip, greenLine = 0 ;
   char *cp, *cq, cc ;
   int graph_width, graph_height, length = 0 ;
-	char mot [200], buf [200] ;
+	char mot [400], buf [400] ;
 
   graphFitBounds (&graph_width,&graph_height) ;
 	if (biblio->nbLightBis && !biblio->searchDep) {
