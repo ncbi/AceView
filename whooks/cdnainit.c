@@ -42,7 +42,6 @@ KEY _Alternative_exon
 , _Alternative_intron
 , _Alternative_partial_exon
 , _Anomalous_clone
-, _Assembled_from
 , _Assembled_from_cDNA_clone
 , _At_position_1
 , _Bad_quality
@@ -81,7 +80,6 @@ KEY _Alternative_exon
 , _From_gene
 , _From_prediction
 , _Fuse_to_clone
-, _Fuzzy
 , _Fuzzy_gt_ag
 , _Fuzzy_gc_ag
 , _Gap
@@ -129,8 +127,6 @@ KEY _Alternative_exon
 , _ORF_Gap
 , _Open_length
 , _Other
-, _Overlap_left
-, _Overlap_right
 , _PCR_product_size
 , _Partial_exon
 , _Pfam
@@ -141,7 +137,6 @@ KEY _Alternative_exon
 , _Probe_hit
 , _Probe_exact_hit
 , _Problem
-, _Product
 , _Protein
 , _Psort
 , _RNA_editing
@@ -157,7 +152,6 @@ KEY _Alternative_exon
 , _Resequence
 , _Reverse
 , _Reversed_by
-, _SMAP
 , _Sage
 , _Spliced_sequence
 , _Splicing
@@ -168,13 +162,11 @@ KEY _Alternative_exon
 , _Target
 , _Taxblast
 , _Tiling_error
-, _Title
 , _Total_gap_length
 , _Total_intron_length
 , _Total_length
 , _Transcribed_from
 , _Transcribed_gene
-, _Transcript
 , _Transpliced_to
 , _UTR_3prime
 , _UTR_5prime
@@ -200,7 +192,6 @@ KEY _Alternative_exon
 , _gc_ag
 , _gt_ag
 , _mForward
-, _mRNA
 , _mReverse
 , _r_gap
  ;
@@ -251,8 +242,7 @@ void cDNAAlignInit (void)
  _Alternative_intron = str2tag ("Alternative_intron") ;
  _Alternative_partial_exon = str2tag ("Alternative_partial_exon") ;
  _Anomalous_clone = str2tag ("Anomalous_clone") ;
- _Assembled_from = str2tag ("Assembled_from") ;
- _Assembled_from_cDNA_clone = str2tag ("Assembled_from_cDNA_clone") ;
+  _Assembled_from_cDNA_clone = str2tag ("Assembled_from_cDNA_clone") ;
  _At_position_1 = str2tag ("At_position_1") ;
  _Bad_quality = str2tag ("Bad_quality") ;
  _Begin_not_found = str2tag ("Begin_not_found") ;
@@ -290,7 +280,6 @@ void cDNAAlignInit (void)
  _From_gene = str2tag ("From_gene") ;
  _From_prediction = str2tag ("From_prediction") ;
  _Fuse_to_clone = str2tag ("Fuse_to_clone") ;
- _Fuzzy = str2tag ("Fuzzy") ;
  _Fuzzy_gt_ag = str2tag ("Fuzzy_gt_ag") ;
  _Fuzzy_gc_ag = str2tag ("Fuzzy_gc_ag") ;
  _Gap = str2tag ("Gap") ;
@@ -338,8 +327,6 @@ void cDNAAlignInit (void)
  _ORF_Gap = str2tag ("ORF_Gap") ;
  _Open_length = str2tag ("Open_length") ;
  _Other = str2tag ("Other") ;
- _Overlap_left = str2tag ("Overlap_left") ;
- _Overlap_right = str2tag ("Overlap_right") ;
  _PCR_product_size = str2tag ("PCR_product_size") ;
  _Partial_exon = str2tag ("Partial_exon") ;
  _Pfam = str2tag ("Pfam") ;
@@ -350,7 +337,6 @@ void cDNAAlignInit (void)
  _Probe_exact_hit = str2tag ("Probe_exact_hit") ;
  _Primed_on_polyA = str2tag ("Primed_on_polyA") ;
  _Problem = str2tag ("Problem") ;
- _Product = str2tag ("Product") ;
  _Protein = str2tag ("Protein") ;
  _Psort = str2tag ("Psort") ;
  _RNA_editing = str2tag ("RNA_editing") ;
@@ -367,7 +353,6 @@ void cDNAAlignInit (void)
  _Resequence = str2tag ("Resequence") ;
  _Reverse = str2tag ("Reverse") ;
  _Reversed_by = str2tag ("Reversed_by") ;
- _SMAP = str2tag ("SMAP") ;
  _Sage = str2tag ("Sage") ;
  _Spliced_sequence = str2tag ("Spliced_sequence") ;
  _Splicing = str2tag ("Splicing") ;
@@ -378,13 +363,11 @@ void cDNAAlignInit (void)
  _Target = str2tag ("Target") ;
  _Taxblast = str2tag ("Taxblast") ;
  _Tiling_error = str2tag ("Tiling_error") ;
- _Title = str2tag ("Title") ;
  _Total_gap_length = str2tag ("Total_gap_length") ;
  _Total_intron_length = str2tag ("Total_intron_length") ;
  _Total_length = str2tag ("Total_length") ;
  _Transcribed_from = str2tag ("Transcribed_from") ;
  _Transcribed_gene = str2tag ("Transcribed_gene") ;
- _Transcript = str2tag ("Transcript") ;
  _Transpliced_to = str2tag ("Transpliced_to") ;
  _UTR_3prime = str2tag ("UTR_3prime") ;
  _UTR_5prime = str2tag ("UTR_5prime") ;
@@ -398,7 +381,6 @@ void cDNAAlignInit (void)
  _gc_ag = str2tag ("gc_ag") ;
  _gt_ag = str2tag ("gt_ag") ;
  _mForward = str2tag ("mForward") ;
- _mRNA = str2tag ("mRNA") ;
  _mReverse = str2tag ("mReverse") ;
  _r_gap = str2tag ("r_gap") ;
   /*   _ = str2tag ("") ;  */

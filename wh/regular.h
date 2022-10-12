@@ -182,10 +182,10 @@ char *freepos (void) ;		/* pointer to present position in card */
 char *freeprotect (const char* text) ; /* protect so freeword() reads correctly */
 char* freeunprotect (const char *text) ; /* reverse of protect, removes \ etc */
 
-const char UT_UPPER[128] ;
+extern const char UT_UPPER[128] ;
 #define ace_upper(x)	(UT_UPPER[(x) & 0x7f])  /* table is only 128 long */
 
-const char UT_LOWER[128] ;
+extern const char UT_LOWER[128] ;
 #define ace_lower(x)	(UT_LOWER[(x) & 0x7f])
 
 void utUnlimitResources(BOOL allow_user_abort) ;

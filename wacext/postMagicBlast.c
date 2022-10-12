@@ -52,13 +52,14 @@ typedef struct pmbStruct {
   BOOL gzi, gzo ;
   BOOL sam, tabular, clipali ; /* inpt in SAM format, default:tabular */
   BOOL getIntrons ;
-  BOOL expression ;
+  BOOL getSnp ;
+  BOOL getExpression ;
   BOOL hasPair ;
   BOOL showStats ;
 
-  DICT *cloneDict, *targetDict, *target_classDict, *cigarDict, *intronDict ;
+  DICT *cloneDict, *targetDict, *target_classDict, *cigarDict, *intronDict, *snpDict, *runDict ;
   DICT *dnaDict, *geneDict ;
-  BigArray alis, geneCounts, mrnaCounts ;
+  BigArray alis, geneCounts, mrnaCounts, snps ;
   Array introns, geneInfo, mrnaInfo ;
 
   int bonus ;
@@ -94,9 +95,12 @@ typedef struct countStruct {
 typedef struct geneInfoStruct {
   int target_class, mrna, gene, ln, gc, geneId ;
 } GINFO ;
+typedef struct snpStruct {
+  int name, run, a1, a2, da, c, m, w, mp, wp, mm, wm, method, type, dx, suffix ;
+} SNP ;
 
 
-static int pmbTabularSmoke (PMB *pmb, ALI *up) ;
+static int pmbTabularSmoke (PMB *pmb, ALI *up, vTXT txt) ;
 
 /*************************************************************************************/
 
@@ -284,8 +288,10 @@ static void pmbCount (PMB *pmb)
   long int ii, jj, iMax = bigArrayMax (alis) ;
   ALI *ap0, *ap ;
   GINFO *mp ;
+  vTXT namTxt = vtxtHandleCreate (pmb->h) ;
+  int nr1 = 0, nr2 = 0 ;
 
-  if ((pmb->expression || pmb->introns) && iMax)
+  if ((pmb->getExpression || pmb->introns || pmb->getSnp) && iMax)
     {
         bigArraySort (alis, countOrder) ;
 	fprintf (stderr, "// parseCount sort0 done: %s\n", timeShowNow()) ;
@@ -297,10 +303,19 @@ static void pmbCount (PMB *pmb)
 	      {
 		int mrna = ap->target ;
 		
+		if (ap->isRead1) 
+		  nr1 += ap->mult ;
+		else
+		  nr2 += ap->mult ;
+
+
 		if (! pmb->clipali && ap->cigar)
-		  ap->nErr = pmbTabularSmoke (pmb, ap) ;
+		  {
+		    if (pmb->tabular)
+		      ap->nErr = pmbTabularSmoke (pmb, ap, namTxt) ; /* isRead1 */
+		  }
 		if (ap->score == ap->pairScore || ap->isRead1)
-		  if (pmb->expression && ap->score > 0 && mrna && mrna != mrnaOld && (pmb->clipali || mrna <arrayMax (mrnaInfo)))
+		  if (pmb->getExpression && ap->score > 0 && mrna && mrna != mrnaOld && (pmb->clipali || mrna <arrayMax (mrnaInfo)))
 		    {
 		      int gene ;
 		      CNT *mcp = bigArrayp (mrnaCounts, mrna, CNT) ;
@@ -332,6 +347,7 @@ static void pmbCount (PMB *pmb)
 	fprintf (stderr, "// parseCount sort1 done: %s\n", timeShowNow()) ;
 	bigArraySort (alis, bestAliOrder) ;
 	fprintf (stderr, "// parseCount sort2 done: %s\n", timeShowNow()) ;
+	fprintf (stderr, "// nr1 = %d nr2 = %d \n", nr1, nr2) ;
     }
 } /* pmbCount */
 
@@ -392,6 +408,41 @@ static void pmbIntronsExport (PMB *pmb)
   ac_free (h) ;
   fprintf (stderr, "Exported %d introns\n", iMax) ;
 } /* pmbIntronsExport */
+
+/*************************************************************************************/
+
+static void pmbSnpsExpport (PMB *pmb)
+{
+  long int i, iMax = bigArrayMax (pmb->snps) ;
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (pmb->outFileName, ".snps.tsf", pmb->gzo, h) ;
+  SNP *snp ;
+  DICT *cloneDict = pmb->cloneDict ;
+  DICT *snpDict = pmb->snpDict ;
+  DICT *runDict = pmb->runDict ;
+
+  aceOutDate (ao, "###", "Snps reported by Magic-Blast") ;
+  aceOut (ao, " snp\rrun\tformat\ta1\ta2\tda\tc\tm\tw\tmp\twp\tmm\twm\tmethod\ttype\tdx\tsuffix\n") ;
+
+  if (iMax)
+    for (i = 1, snp = bigArrp (pmb->snps, 1, SNP) ; i <= iMax ; i++, snp++)
+      {
+	if (snp->a1)
+	  {
+	    aceOutf (ao, "%s\t%s\t", dictName (snpDict, snp->name),  dictName (runDict, snp->run)) ;
+	    aceOut (ao, "tttiiiiiiiitttt") ;
+	    aceOutf (ao, "\t%d\t%d\t%d", snp->a1, snp->a2, snp->da) ;   /* non additve, t format */
+	    aceOutf (ao, "\t%d", snp->c) ; /* 7 additive counts */
+	    aceOutf (ao, "\t%d\t%d", snp->m, snp->w) ; 
+	    aceOutf (ao, "\t%d\t%d", snp->mp, snp->wp) ;
+	    aceOutf (ao, "\t%d\t%d", snp->mm, snp->wm) ;
+	    aceOutf (ao, "\t%s\t%s", dictName (cloneDict, snp->method), dictName (cloneDict, snp->type)) ;
+	    aceOutf (ao, "\t%d\t%s\n", snp->dx, snp->suffix ? dictName (cloneDict, snp->suffix) : "-") ;
+	  }
+      }
+  ac_free (h) ;
+  fprintf (stderr, "Exported %ld snps\n", iMax) ;
+} /* pmbSnpsExport */
 
 /*************************************************************************************/
 
@@ -894,14 +945,23 @@ static int cigarMult (char *cp, int *np)
 
 /*************************************************************************************/
 
-static int pmbTabularSmoke (PMB *pmb, ALI *up)
+static int pmbTabularSmoke (PMB *pmb, ALI *up, vTXT txt)
 {
   AC_HANDLE h = ac_new_handle () ;
+  DICT *cloneDict = pmb->cloneDict ;
+  DICT *snpDict = pmb->snpDict ;
+  DICT *runDict = pmb->runDict ;
+  DICT *targetDict = pmb->targetDict ;
   char *cp ;
   char *cigar = strnew (dictName (pmb->cigarDict, up->cigar), h) ;
   int n, nerr = 0 ;
   int a1, a2 ;
   int isDown = (up->a1 < up->a2 ? 1 : -1) ;
+  BOOL isReadF = TRUE ;
+
+  if (isDown != up->isRead1)
+    isReadF = FALSE ;
+
   up->nintron = 0 ;
   a1 = up->a1 ;
   for (cp = cigar ; *cp ; cp++)
@@ -917,6 +977,68 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
 	  cp += cigarMult (cp, &nd) ;
 	  if (*cp != '%') /* deletion end */
 	    messcrash ("Bad deletion sign ^ in %s\n", cigar) ;
+	  if (pmb->getSnp)
+	    {
+	      SNP s, *snp ;
+	      char type[8], suffix[8] ;
+	      const char *nam1 ;
+	      char nam2[8], nam3[8] ;
+	      
+	      memset (&s, 0, sizeof (SNP)) ;
+
+	      type[0] = 'D';
+	      type[1] = 'e' ;
+	      type[2] = 'l' ;
+	      type[3] = cp[0] ;
+	      type[4] = 0 ;
+	      s.da = -nd ; s.dx = nd ;
+	      suffix[0] = cp[0] ;
+	      suffix[1] = 0 ;
+	      
+	      nam1 = "Del" ;
+	      nam2[0] = 'x' ; nam2[1] = cp[0] ; nam2[2] = 0 ;
+	      nam3[0] = 'x' ; nam3[1]= 0 ;
+	    
+
+	      if (! isDown && suffix[0])
+		suffix[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)suffix[0]]]] ; 
+	      if (isDown)
+		{ s.a1 = a1 - 1 ; s.a2 = a1 + nd ;}
+	      else
+		{ s.a1 = a1 + 1 ; s.a2 = a1 - nd ;}
+	      
+	      dictAdd (pmb->cloneDict, type, &s.type) ;
+	      if (s.da) dictAdd (cloneDict, suffix, &s.suffix) ;
+
+	      vtxtClear (txt) ;
+	      vtxtPrintf (txt, "%s:%d:%s:%s:%s", dictName (targetDict, up->target), a1, nam1, nam2, nam3) ;
+
+	      dictAdd (snpDict, vtxtPtr (txt), &s.name) ;
+	      dictAdd (cloneDict, "MB", &s.method) ;
+	      dictAdd (runDict, pmb->run, &s.run) ;
+	      
+	      if (isReadF)
+		s.m = s.mp = up->mult ;
+	      else
+		s.m = s.mm = up->mult ;
+	      s.c = s.m + s.w ;
+	      
+	      snp = bigArrayp (pmb->snps, s.name, SNP) ;
+	      
+	      s.c += snp->c ;
+	      s.m += snp->m ;
+	      s.w += snp->w ;
+	      s.mp += snp->mp ;
+	      s.wp += snp->wp ;
+	      s.mm += snp->mm ;
+	      s.wm += snp->wm ;
+
+
+	      *snp = s ;
+
+
+	    }
+
 	}
       else if (*cp == '_') /* insertion */
 	{
@@ -966,8 +1088,8 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
 	      else 
 		{ b1 = a1 ; b2 = a2 + 1 ; }
 
-	      if (pmb->strand == -1 && up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
-	      if (pmb->strand ==  1 && ! up->isRead1) { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
+	      if (! isReadF)   { int b0 = b1 ; b1 = b2 ; b2 = b0 ; }
+
 	      intronName[1023] = 0 ;
 	      sprintf (intronName, "%d__%d_%d", up->target, b1, b2) ;
 	      if (intronName[1023])
@@ -1001,6 +1123,94 @@ static int pmbTabularSmoke (PMB *pmb, ALI *up)
 	}
       else if (strchr ("ATGCN-", cp[0]) && strchr ("ATGCN-", cp[1]))
 	{ /* substitution or 1 base indel */
+	  if (pmb->getSnp)
+	    {
+	      SNP s, *snp ;
+	      char type[8], suffix[8] ;
+	      const char *nam1 ;
+	      char nam2[8], nam3[8] ;
+	      
+	      memset (&s, 0, sizeof (SNP)) ;
+	      if (cp[0] != '-' && cp[1] != '-')
+		{ 
+		  type[0] = cp[0] ;
+		  type[1] = '2' ;
+		  type[2] = cp[1] ;
+		  type[3] = 0 ;
+		  s.da = s.dx = 0 ;
+		  suffix[0] = 0 ;
+
+		  nam1 = "Sub" ;
+		  nam2[0] = cp[0] ; nam2[1] = 0 ;
+		  nam3[0] = cp[1] ; nam3[1]= 0 ;
+		}
+	      else if (cp[0] == '-' && cp[1] != '-')
+		{ 
+		  type[0] = 'I' ;
+		  type[1] = 'n' ;
+		  type[2] = 's' ;
+		  type[3] = cp[1] ;
+		  type[4] = 0 ;
+		  s.da = s.dx = 1 ;
+		  suffix[0] = cp[1] ;
+		  suffix[1] = 0 ;
+
+		  nam1 = "Ins" ;
+		  nam2[0] = 'x' ; nam2[1] = 0 ;
+		  nam3[0] = 'x' ; nam3[1] = cp[1] ; nam3[2] = 0 ;
+		}
+	      else if (cp[0] != '-' && cp[1] == '-')
+		{ 
+		  type[0] = 'D';
+		  type[1] = 'e' ;
+		  type[2] = 'l' ;
+		  type[3] = cp[0] ;
+		  type[4] = 0 ;
+		  s.da = -1 ; s.dx = 1 ;
+		  suffix[0] = cp[0] ;
+		  suffix[1] = 0 ;
+
+		  nam1 = "Del" ;
+		  nam2[0] = 'x' ; nam2[1] = cp[0] ; nam2[2] = 0 ;
+		  nam3[0] = 'x' ; nam3[1]= 0 ;
+		}
+
+	      if (! isDown && suffix[0])
+		suffix[0] = dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)suffix[0]]]] ; 
+	      if (isDown)
+		{ s.a1 = a1 - 1 ; s.a2 = a1 + 1 ; if (s.da == 1) s.a2-- ; }
+	      else
+		{ s.a1 = a1 + 1 ; s.a2 = a1 - 1 ; if (s.da == 1) s.a2++ ; }
+	      
+	      dictAdd (pmb->cloneDict, type, &s.type) ;
+	      if (s.da) dictAdd (cloneDict, suffix, &s.suffix) ;
+
+	      vtxtClear (txt) ;
+	      vtxtPrintf (txt, "%s:%d:%s:%s:%s", dictName (targetDict, up->target), a1, nam1, nam2, nam3) ;
+
+	      dictAdd (snpDict, vtxtPtr (txt), &s.name) ;
+	      dictAdd (cloneDict, "MB", &s.method) ;
+	      dictAdd (runDict, pmb->run, &s.run) ;
+	      
+	      if (isReadF)
+		s.m = s.mp = up->mult ;
+	      else
+		s.m = s.mm = up->mult ;
+	      s.c = s.m + s.w ;
+	      
+	      snp = bigArrayp (pmb->snps, s.name, SNP) ;
+	      
+	      s.c += snp->c ;
+	      s.m += snp->m ;
+	      s.w += snp->w ;
+	      s.mp += snp->mp ;
+	      s.wp += snp->wp ;
+	      s.mm += snp->mm ;
+	      s.wm += snp->wm ;
+
+
+	      *snp = s ;
+	    }
 	  nerr++ ; cp++ ;
 	  a1 += isDown ;
 	}
@@ -1326,16 +1536,22 @@ static void pmbInit (PMB *pmb)
   pmb->targetDict = dictHandleCreate (1000, h) ;
   pmb->target_classDict = dictHandleCreate (16, h) ;
   pmb->cigarDict = dictHandleCreate (1000, h) ;
-      pmb->dnaDict = dictHandleCreate (100000, h) ;
-      pmb->geneDict = dictHandleCreate (100000, h) ;
+  pmb->runDict = dictHandleCreate (100, h) ;
+  pmb->dnaDict = dictHandleCreate (100000, h) ;
+  pmb->geneDict = dictHandleCreate (100000, h) ;
   pmb->intronDict = dictHandleCreate (1000, h) ;
 
-  if (pmb->expression || pmb->geneInfoFileName)
+  if (pmb->getExpression || pmb->geneInfoFileName)
     {
       pmb->geneInfo = arrayHandleCreate (100000, GINFO, h) ;
       pmb->mrnaInfo = arrayHandleCreate (100000, GINFO, h) ;
       pmb->geneCounts = bigArrayHandleCreate (100000, CNT, h) ; 
       pmb->mrnaCounts = bigArrayHandleCreate (100000, CNT, h) ; 
+    }
+  if (pmb->getSnp)
+    {
+      pmb->snps = bigArrayHandleCreate (100000, SNP, h) ; 
+      pmb->snpDict = dictHandleCreate (100000, h) ;
     }
 
   pmb->alis = bigArrayHandleCreate (100000, ALI, h) ; 
@@ -1483,7 +1699,8 @@ int main (int argc, const char **argv)
       exit (1) ; 
     }
   pmb.getIntrons = getCmdLineBool (&argc, argv, "-introns") ;
-  pmb.expression = getCmdLineBool (&argc, argv, "-expression") ;
+  pmb.getSnp = getCmdLineBool (&argc, argv, "-snp") ;
+  pmb.getExpression = getCmdLineBool (&argc, argv, "-expression") ;
 
 
   pmb.showStats = TRUE ; /* show stats by default */
@@ -1513,7 +1730,7 @@ int main (int argc, const char **argv)
     }
   if (argc > 1) usage (messprintf ("Unknown parameters %s", argv[1])) ;
 
-  if (pmb.expression && ! pmb.clipali && ! pmb.geneInfoFileName)
+  if (pmb.getExpression && ! pmb.clipali && ! pmb.geneInfoFileName)
     { 
       fprintf (stderr, "Missing -geneInfo parameter, please try postMagicBlast -help\n") ;
       exit (1) ;
@@ -1573,11 +1790,14 @@ int main (int argc, const char **argv)
   
   if (pmb.getIntrons)
     pmbIntronsExport (&pmb) ;
-  if (pmb.expression)
+
+  if (pmb.getExpression)
     {
       pmbGeneExpressionExport (&pmb) ;
       pmbMrnaExpressionExport (&pmb) ;
     }
+  if (pmb.getSnp)
+     pmbSnpsExpport (&pmb) ;
 
   {
     int mx ;

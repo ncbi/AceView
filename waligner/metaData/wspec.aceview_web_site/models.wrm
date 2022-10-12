@@ -2552,6 +2552,19 @@
                        Cloud
                        Spliced_gene
                        Single_exon_gene
+           Gene_type UNIQUE Coding_ancient_single_exon
+                            Coding_ancient_spliced_antisense
+                            Coding_ancient_spliced_free
+                            Coding_recent_single_exon
+                            Coding_recent_spliced_antisense
+                            Coding_recent_spliced_free
+                            Marginally_coding_ancient_spliced_antisense
+                            Marginally_coding_ancient_spliced_free
+                            Marginally_coding_recent_spliced_antisense
+                            Marginally_coding_recent_spliced_free
+                            Non_coding_single_exon
+                            Non_coding_spliced_antisense
+                            Non_coding_spliced_free
            Support          av
                             pg
                             RefSeq
@@ -3376,6 +3389,7 @@
              Expression_histogram  // only applies to groups: for each gene, per chromosome, show all histos at once
 	     Shift_expression_index UNIQUE Float // add this value to all expression index (useful in captures where the norm is suboptimal)
              Intron
+             Transloc
              Compare_to ?Run XREF Compare_to ?Run UNIQUE ?Run  ?Run UNIQUE ?Run  // construtc a predictor using r1/r2 interpret pheno r3 r4 then r5 r6n   // obsolete Danielle
              DEG ?Experiment XREF DEG_high_run @DEG // export genes->DEG_high_low ?Exp score fold_change high low_av relative to Run                      // obsolete Danielle
              Compare ?Compare XREF Runs
@@ -3435,7 +3449,9 @@
                            Amount_and_type ?Text                               //  goes to Library
                            Adaptor1      ?Text    //sequence      // should be made more automatic and documented here or in ?Ali by clipalign
                            Adaptor2  ?Text                        // should be made more automatic and documented here or in ?Ali by clipalign
+                           Entry_adaptor ?Text
                            Barcode  ?Text       //sequence and number per lane  
+                           UMI UNIQUE Int UNIQUE Int // barcode lengths in read1 and read 2, the bar code are exported in lieu of traget prefix and suffix col 20 and 21
                            Jump5 UNIQUE Int UNIQUE Int   // if non zero, jump the first n bases of read 1, same for read 2 if second number > 0
                            ForceRightClip UNIQUE Int UNIQUE Int   // if non zero, right clip behind the given base, same for read 2 if second number > 0
                            Library_date UNIQUE DateType   // important for batch effects in clinical studies

@@ -112,6 +112,7 @@ typedef struct variant_callerStruct {
 
   BOOL intron_only ;
   BOOL SAM ;
+  BOOL tabular ;
   BOOL qc ;
   BOOL geneFusion ;
   BOOL wantDeUno ;
@@ -4976,13 +4977,17 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 { 
   AC_HANDLE h = ac_new_handle () ;
-  char *fNam1 =  tct->SAM_file  ? 0 : hprintf (h, "%s/%s.genome.txt%s"
+  const char *tcl = tct->target_class ? tct->target_class :  "genome"  ;
+  const char *tcl2 = tcl ? strchr (tcl, '_') + 1 : 0 ;      /* split av out of ET_av */
+  const char *tcl3 = tcl2 ? tcl2 : tcl ;
+  char *fNam1 =  tct->SAM_file  ? 0 : hprintf (h, "%s/%s.%s.mbhits%s"
 					       , tct->hitDir ? tct->hitDir : ""
 					       , dictName (tct->laneDict, lane->lane)
+					       , tcl3
 					       , tct->runTest ? "" : ".gz"
 					       ) ;
   const char *fNam = tct->SAM_file ? tct->SAM_file : fNam1 ;
-  ACEIN ai = aceInCreate (fNam, 0, h) ;
+  ACEIN ai = aceInCreate (fNam, tct->gzi, h) ;
   ACEOUT ao = 0 ;
   int nn = 0 ;
   static int nnn = 0 ;
@@ -5118,7 +5123,7 @@ static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 		  int k, a1, a2, da = 0 ;
 		  UNO *uno ;
 		  char *cq, buf[DELMAX+64] ;
-		  BKID *b =  arrayp (brkIndels, nBrkIndels++, BKID) ; 
+		  BKID *b =  brkIndels ? arrayp (brkIndels, nBrkIndels++, BKID) : 0 ;
 		  int ddw, dda, dx = cgr->x2 - cgr->x1 ;
 
 		  tagBuf[0] = 0 ;
@@ -5130,14 +5135,18 @@ static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 		  b->mult = mult ;
 		  b->daa = cgr->a2 - cgr->a1 + 1 ;
 		  b->dxx = 0 ;  /* da = 0 dx < 0 represents a duplication */
-		  k = keySet (brks, cgr->a1 -1 - t1) ;
-		  k += mult ; nOverhangs += mult ;
-		  keySet (brks, cgr->a1 -1 - t1) = k ;
-		  
-		  k = keySet (brks, cgr->a2 - t1) ;
-		  k += mult ; nOverhangs += mult ;
-		  keySet (brks, cgr->a2 - t1) = k ;
-		  
+
+		  if (tct->wantBrks)
+		    {
+		      k = keySet (brks, cgr->a1 -1 - t1) ;
+		      k += mult ; nOverhangs += mult ;
+		      keySet (brks, cgr->a1 -1 - t1) = k ;
+		      
+		      k = keySet (brks, cgr->a2 - t1) ;
+		      k += mult ; nOverhangs += mult ;
+		      keySet (brks, cgr->a2 - t1) = k ;
+		    }
+
 		  k = cgr->a2 - t1 ;
 		  a1 = cgr->a1 ; a2 = cgr->a2 ;
 		  da = a1 < a2 ? a2 - a1 + 1 : a1 - a2 + 1 ;
@@ -5314,10 +5323,13 @@ static BOOL tctGetOneSamHit (const TCT *tct, LANE *lane)
 		  if (! (*cp & *cq))
 		    {
 		      UNO *uno ;
-		      int k = keySet (brks, cgr->a1 + x - t1) ;
-		      k += mult ; nBrks += mult ;
-		      keySet (brks, cgr->a1 + x - t1) = k ;
-
+		      int k ;
+		      if (tct->wantBrks)
+			{
+			  int k = keySet (brks, cgr->a1 + x - t1) ;
+			  k += mult ; nBrks += mult ;
+			  keySet (brks, cgr->a1 + x - t1) = k ;
+			}
 		      sprintf(buf, "%d:Sub:%c:%c", cgr->a1 + x, ace_upper(dnaDecodeChar[(int)*cq]), ace_upper(dnaDecodeChar[(int)*cp])) ;
 		      dictAdd (lane->deUnoDict, buf, &k) ;
 		      uno = arrayp (lane->deUno, arrayMax (lane->deUno), UNO) ;
@@ -5367,6 +5379,10 @@ static void tctGetLaneHits (const void *vp)
 	{
 	  if (tct->SAM)
 	    ok = tctGetOneSamHit (tct, lane) ;
+	  /*
+	  else  if (tct->tabular)
+	    pmbGetOneTabularHit (tct, lane) ;
+	  */
 	  else
 	    ok = tctGetOneHit (tct, lane) ;
 	}
@@ -5783,8 +5799,8 @@ static void tctGetLaneList (TCT *tct)
 	      if (tct->wantBrks)
 		{
 		  lane->brks = arrayHandleCreate (10000, KEY, lane->h) ;
-		  lane->brkIndels = arrayHandleCreate (10000, BKID, lane->h) ;
 		}
+	      lane->brkIndels = arrayHandleCreate (10000, BKID, lane->h) ;
 	      lane->covers = arrayHandleCreate (10000, KEY, lane->h) ;
 	      lane->aliLn = arrayHandleCreate (10000, KEY, lane->h) ;
 	      lane->hits = arrayHandleCreate (10000, HIT, lane->h) ;
@@ -7480,7 +7496,8 @@ int main (int argc, const char **argv)
   tct.wantBrks = getCmdLineBool (&argc, argv, "-bridge") ;
   tct.SAM = getCmdLineBool (&argc, argv, "-SAM") ;
   if (getCmdLineOption (&argc, argv, "-SAM_file", &(tct.SAM_file)))
-    tct.SAM = TRUE ;
+  tct.tabular = getCmdLineBool (&argc, argv, "-tabular") ;
+
   if (getCmdLineOption (&argc, argv, "-samFile", &(tct.SAM_file)))
     tct.SAM = TRUE ;
   getCmdLineOption (&argc, argv, "-hitFile", &(tct.hitFile)) ;

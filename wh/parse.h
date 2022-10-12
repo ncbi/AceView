@@ -16,6 +16,9 @@
 
 /* $Id: parse.h,v 1.5 2005/09/12 03:17:37 mieg Exp $ */
 
+#ifndef DEF_PARSE_H
+#define DEF_PARSE_H
+
 #include "acedb.h"
 
 	/* keyset ks is filled with list of parsed objects if non-zero */
@@ -28,11 +31,13 @@ BOOL parseBuffer (char *text, KEYSET ks) ;
 /* convenience call private to AceC */
 BOOL parseAceCBuffer (const char *text, Stack s, void *ace_out, KEYSET ks) ;
 BOOL parseLevel (int level, KEYSET ks) ;
-int parseErrorsLastParse;     /* hack to sneak a number out of deep nested calls in parse code */
+extern int parseErrorsLastParse;     /* hack to sneak a number out of deep nested calls in parse code */
 
 
 extern char parseLineText[64] ;
 extern BOOL overRideParseProtection;
 extern BOOL parseKeepGoing;
+
+#endif /* defined(DEF_PARSE_H) */
 
 /********* end of file ***********/

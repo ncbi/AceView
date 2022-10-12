@@ -2401,11 +2401,11 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
   char buf2[6];
   char idem[4] ;
   int i=0, j, k = 0, m ;
-  m1 /= 3 ; m1++ ;
+  m1 = (m1 - p1) / 3 ; m1++ ;
   
   if (1) /* sub del ins */
     {
-      if (1) vtxtPrintf (txt, "\npName p.%s", name(product)) ;
+      if (1) vtxtPrintf (txt, "\npName p.%s:", name(product)) ;
       cp = pRef ; cq = pVar ;
       while (*cp == '-') { cp++; cq++ ; i++; }
       while (*cp)
@@ -2431,17 +2431,14 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
 		  vtxtPrintf (txt, "%s%s%dTer", sep, buf,m,buf2) ;
 		  break ;
 		}
-	      else if (fs == 0)
-		vtxtPrintf (txt, "%s%s%d%s", sep, buf,m,buf2) ;
-	      else if (fs == -3) /* del in frame */
-		vtxtPrintf (txt, "%s%ddel", sep, buf,m) ;
-	      else if (fs < 0 && fs % 3 == 0)  /* multi_deletion in frame */
+	      if (fs == 0)
 		{
-		  vtxtPrintf (txt, "%s%s%ddel", sep, buf,m) ;
+		  vtxtPrintf (txt, "%s%s%d%s", sep, buf,m,buf2) ;
+		  vtxtPrintf (txt, "\nAA_substitution %s%s%d%s", sep, buf,m,buf2) ;
 		}
-	      if (fs)
+	      else
 		{
-		  if (fs == -3)
+		  if (fs == -3) /* del in frame */
 		    vtxtPrintf (txt, "%ddel%s", m, buf) ;
 		  else if (fs == 3)
 		    vtxtPrintf (txt, "%d_%dins%s", m,m+1, buf) ;
@@ -2452,6 +2449,10 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
 		  else if (fs %3)
 		    vtxtPrintf (txt, "%dfs(%d)", m, fs) ;
 		  
+		  if (fs % 3 == 0)
+		    vtxtPrintf (txt, "\nFrame_preserving_indel %d", fs) ;
+		  else
+		    vtxtPrintf (txt, "\nFrameshift %d", ((fs % 3) + 9) % 3) ;
 		  break ; 
 		}
 
@@ -2480,7 +2481,12 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
 	    }
 	  cp += 3 ; cq += 3 ; i += 3 ;
 	}
-      if (k == 0) vtxtPrintf (txt, "%s%d=", idem,m1) ;
+      if (k == 0) 
+	{
+	  vtxtPrintf (txt, "%s%d=", idem,m1) ;
+	  vtxtPrintf (txt, "\nSynonymous %s%d=", idem, m1) ;
+	}
+	  
       if (0) vtxtPrintf (txt, ")\"") ;
     }
   /* clean up the pR1 pV1 */
@@ -2791,7 +2797,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", name(seq), a2-1-slide, ace_upper(complementLetter(dna[am2+slide]))) ;
 			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddim%c\"\n", name(mrna), socrate (g2m+a1+1), ace_upper(dna[am1])) ;
 			vtxtPrintf (txt, "Typ \"Dim%c\"\n", ace_upper(dna[am1])) ;
-			vtxtPrintf (txt, "Diminution\n") ;
+			vtxtPrintf (txt, "Diminution\nIn_repeat\n") ;
 		      }
 		    else
 		      {
@@ -2838,7 +2844,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	      tbl = ac_tag_table (Snp, "Multi_deletion", h) ;
 	      if (tbl)
 		{
-		  int da = a2 - a1 - 1 ;
+		  int da = (a1 < a2 ? a2 - a1 - 1 : a1 - a2 - 1) ;
 		  int dx = 0, k, kk ;
 		  int slide = 0 ;
 		  int am1 = fromMrna ? m1 : a1 ;
@@ -2855,20 +2861,17 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		  vtxtPrintf (txt, "-D Sliding\n") ;
 		  vtxtPrint (txt, "-D Deletion\n") ; /* cleanup */
 		  
-		  vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Bases %d to %d (%d bases) are deleted\"\n", name (seq), a1, a2, a1+1, a2 - 1, da) ;
+		  vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Bases %d to %d (%d bases) are deleted\"\n", name (seq), a1, a2, a1+(a1<a2?1:-1), a2 - (a1<a2?1:-1), da) ;
 		  ok = TRUE ;
 		  /* temporarily store the deleted bases in bufV */
 		  for (i = am1, j = 0 ; j < 51 && i < am2 - 1 && i < dnaLn ; i++)
 		    bufV[j++] = ace_upper(dna[i]) ;
 		  bufV[j] = 0 ;
-		  if (a1 < a2)
+		  if (a1 > a2)
 		    {
-		      char bufC[52] ;
-		      for (i = am1+slide, j = 0 ; j < 51 && i < am2+slide - 1 && i < dnaLn ; i++)
-			bufC[j++] = ace_upper(complementLetter(dna[i])) ;
-		      bufC[j] = 0 ;
-		      for (i = 0 ; i < j ; i++)
-			bufVG[i] = bufC[j-1-i] ; 
+		      for (i = 0 ; i <  da ; i++)
+			bufVG[i] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)bufV[da - 1 - i]]]]) ;
+		      bufVG[i] = 0 ;
 		    }
 		  vtxtPrintf (txt,"Multi_deletion %d %s\n", da, bufV) ; /* reinstate */ 
 		  if (da <= 20)
@@ -3015,7 +3018,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
 			vtxtPrintf (txt, "Typ \"Dup%c\"\n", inss[0][3]) ;
 			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddup%c\"\n", name(mrna), am1+slide, inss[0][3]) ;
-			vtxtPrintf (txt, "Duplication\n") ;
+			vtxtPrintf (txt, "Duplication\nIn_repeat\n") ;
 		      }
 		    else
 		      {
@@ -3256,6 +3259,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	  if (bufV[0]) vtxtPrintf (txt, "Observed__genomic_sequence %s\n", bufV) ;
 	}
 
+      vtxtPrintf (txt, "-D Exonic\n") ;
       if (RdnaLn)
 	{
 	  AC_OBJ Mrna = ac_tag_obj (Snp, "mRNA", h) ;
@@ -3265,13 +3269,24 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	    {
 	      AC_TABLE pp = ac_tag_table (Mrna, "Product", h) ;
 	      int ir ;
+	      BOOL is5 = FALSE , is3 = FALSE ;
 	      for (ir = 0 ; pp && ir < pp->rows ; ir++)
 		{
 		  p1 = ac_table_int (pp, ir, 1 ,0) ;
 		  p2 = ac_table_int (pp, ir, 2 ,0) ;
 		  if (m1 > p1 && m1 < p2)
 		    { product = ac_table_key (pp, ir, 0, 0) ; break ; }
+		  if (m1 < p1)
+		    is5 = TRUE ;
+		  if (m1 > p2)
+		    is3 = TRUE ;
 		}
+	      if (! product && is5)
+		vtxtPrintf (txt, "UTR_5Prime\n") ;
+	      else if (! product && is3)
+		vtxtPrintf (txt, "UTR_3Prime\n") ;
+	      if (! pp || ! pp->rows)
+		vtxtPrintf (txt, "Non_coding_transcript\n") ;
 	    }
 	  if (product && RbufR[0] && RbufV[0])
 	    {
@@ -3385,12 +3400,17 @@ static void tsnpDbTranslate (TSNP *tsnp)
   AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = tsnp->outFileName ? aceOutCreate (tsnp->outFileName, ".translate.ace", tsnp->gzo, h) : 0 ;
   AC_DB db = tsnp->db ;
-  AC_ITER iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
+  AC_ITER iter ;
   int nn = 0, nm = 0, nt = 0 ;
   AC_OBJ Snp = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
   
   tsnp->varTypeDict = tsnpMakeVarTypeDict (h) ;
+
+  if (1) 
+    iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
+  else
+    iter = ac_query_iter (db, TRUE, "find variant IS  \"PSD3andRPL35P6.aAug10:8286:Del_2:gAA:g\" ", 0, h) ;
 
   /* NOT DONE: split the 729 multi sub and force create the individual pieces */
   while (ac_free (Snp), Snp = ac_iter_obj (iter))
@@ -3595,7 +3615,7 @@ static int tsnpPotential_splice_disruption (TSNP *tsnp, ACEOUT ao)
 } /* tsnpPotential_splice_disruption */
 
 /***************/
-
+/* probably obsolete, to be transferred into setPname */
 static int tsnpCodingModif  (TSNP *tsnp)
 {
   AC_HANDLE  h1 = 0, h = ac_new_handle () ;
@@ -3632,10 +3652,10 @@ static int tsnpCodingModif  (TSNP *tsnp)
     \"TFAP2B.cAug10:99:A2G\" \"SYNGR2.fAug10-unspliced:98:C2G\"
   */
 
-  if (1)
+  if (0)
     iter = ac_query_iter (db, TRUE, "find variant mRNA && IS *  ", 0, h) ;
   else
-    iter = ac_query_iter (db, TRUE, "find variant IS \"RPL6.aAug10:831:A2G\" ", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "find variant IS  \"NACA.aAug10:6048:Sub:T:C\" ", 0, h) ;
 
   while (ac_free (variant), ac_free (h1), vtxtClear (txt), variant = ac_iter_obj (iter))
     {
@@ -5343,8 +5363,8 @@ int main (int argc, const char **argv)
     }
   if (tsnp.dbTranslate)
     {
-      tsnpDbTranslate (&tsnp) ;
-      if (1) tsnpCodingModif (&tsnp) ;
+      if (1) tsnpDbTranslate (&tsnp) ;
+      if (0) tsnpCodingModif (&tsnp) ;
     }
   if (tsnp.remap2genome)
     {

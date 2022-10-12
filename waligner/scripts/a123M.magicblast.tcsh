@@ -106,11 +106,13 @@ foreach target ($RNAtargets $DNAtargets)
      endif
    end
 
-  echo "./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt tabular -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus"
+# sam | tabular
+set samtab=sam   
+  echo "./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits -outfmt $samtab -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus"
        echo -n "$target\tStart\t"
        date
        echo -n "$target\t"  >>  tmp/MAGICBLAST/$lane.err
-       (./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits.gz -outfmt tabular -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus) >>&  tmp/MAGICBLAST/$lane.err
+       (./bin/time bin/magicblast $subject $infile -out tmp/MAGICBLAST/$lane.$target.mbhits.gz -outfmt samtab -gzo -no_unaligned $gt -num_threads 1 -tag $target_class\t$bonus) >>&  tmp/MAGICBLAST/$lane.err
        echo -n "$target\tEnd\t"
        date
        ls -ls tmp/MAGICBLAST/$lane.$target.mbhits.gz       

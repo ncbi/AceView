@@ -1,4 +1,4 @@
-#!bin/tcsh -f
+#!/bin/env tcsh 
 #######!/bin/env tcsh
 #$ -S /bin/tcsh
 #$ -P $project
@@ -29,7 +29,7 @@ if (0 && -e /var/lib/envs/facilities/bin/fac-switch.csh) then
 endif
 # set the UGE (normally already done by .ncbi_hints, option sge
 if (-e  /netmnt/gridengine/current/settings.csh) source /netmnt/gridengine/current/settings.csh
-if (1 && -e  /netmnt/gridengine/test/settings.csh) source /netmnt/gridengine/test/settings.csh
+if (0 && -e  /netmnt/gridengine/test/settings.csh) source /netmnt/gridengine/test/settings.csh
 
 # export current UGE version
 qsub -help | head -1

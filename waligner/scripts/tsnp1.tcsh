@@ -135,16 +135,20 @@ cat r2t.txt ZZZZZ Treagen_TX.TCounts.preace | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1
 
 
 #### Magic and Magic Blast counts if AF  > 95%
-cat tmp/TSNP_DB/zoneG.NC_045512_a/MMM.zoneG.NC_045512_a.snp_counts.tsf | sort -V | gawk -F '\t' '{v=$1;run=$2;m=($4+$5)/2;r=($6+$7)/2;c=($8+$9)/2;f=($12+$13)/2;if(c>0){if (v != oldV) {oldV=v;printf("\nVariant %s\n", v) ;}if(c<10)f=-10;printf("VCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}END{printf("\n");}' > VCounts.ace
+if (-e tmp/TSNP_DB/zoneG.NC_045512_a/MMM.zoneG.NC_045512_a.snp_counts.tsf) then
 
-tace tmp/TSNP_DB/$zone <<EOF
-  query find variant Vcounts
-  edit -D Vcounts
-  parse  VCounts.ace
-  save
-  quit
+  cat tmp/TSNP_DB/zoneG.NC_045512_a/MMM.zoneG.NC_045512_a.snp_counts.tsf | sort -V | gawk -F '\t' '{v=$1;run=$2;m=($4+$5)/2;r=($6+$7)/2;c=($8+$9)/2;f=($12+$13)/2;if(c>0){if (v != oldV) {oldV=v;printf("\nVariant %s\n", v) ;}if(c<10)f=-10;printf("VCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}END{printf("\n");}' > VCounts.ace
+
+  tace tmp/TSNP_DB/$zone <<EOF
+    query find variant Vcounts
+    edit -D Vcounts
+    parse  VCounts.ace
+    save
+    quit
 EOF
  
+endif
+
 tace tmp/TSNP_DB/$zone <<EOF
   query find variant counts 
   show -a -f toto.ace Counts

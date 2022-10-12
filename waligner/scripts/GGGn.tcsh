@@ -58,3 +58,12 @@ cat toto5 | transpose | sort -k 102nr | transpose > RESULTS/SNV/$MAGIC.triplet.h
 cat toto5 | transpose | gawk -F '\t' '{printf("%s",$1);t=0;for(i=2;i<=102;i++)t+=$i;if(t==0)t=1;for(i=2;i<=102;i++)printf("\t%3f",100*$i/t);printf("\n");}' | sort -k 102nr | transpose > RESULTS/SNV/$MAGIC.triplet.normalized.histo.txt
 cat toto5 | transpose | gawk -F '\t' '{printf("%s",$1);t=0;t1=0;t2=0;t3=0;t4=0;for(i=2;i<=12;i++)t1+=$i;for(i=46;i<=56;i++)t2+=$i;for(i=92;i<=102;i++)t3+=$i;for(i=27;i<=77;i++)t4+=$i;for(i=46;i<=56;i++)t+=$i;if(t==0)t=1;for(i=2;i<=102;i++)printf("\t%3f",$i);printf("\t%.2f\t%.2f\t%.2f\n",100*t1/t,100*t2/t,100*t3/t,100*t4/t);}' | sort -k 105nr | transpose > RESULTS/SNV/$MAGIC.triplet.normalized.histo.txt
 
+set toto=RESULTS/SNV/$MAGIC.triplet.histo.txt
+echo -n "### $toto : " > $toto
+date >> $toto
+cat toto5 | transpose > toto5t
+cat toto5t | head -1 | gawk -F '\t' '{for (i=2;i<=102;i++)printf("\t%s",$i);printf("\tVariant\tCumul\t0-10\t20-80\t30-70\t90-100\t1-10%%\t20-80%%\t30-70%%\t90-100%%\n");}' > toto5s
+cat toto5t | tail -n +2 | gawk -F '\t' '{w=substr($1,1,4) substr($1,7,2);printf("%s",w);t=0;t1=0;t2=0;t3=0;t4=0;for(i=2;i<=12;i++)t1+=$i;for(i=22;i<=82;i++)t2+=$i;for(i=32;i<=72;i++)t3+=$i;for(i=92;i<=102;i++)t4+=$i;for(i=2;i<=102;i++)t+=$i;t+=.00001;t=t;for(i=2;i<=102;i++)printf("\t%.3f",$i);printf("\t%s\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n",w,t,t1,t2,t3,t4,100*t1/t,100*t2/t,100*t3/t,100*t4/t);}' | sort -k 112nr >> toto5s
+cat toto5s | transpose >> $toto 
+
+

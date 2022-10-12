@@ -197,7 +197,6 @@ KEY
   _Inherits,
   _Inside,
   _Int_Params,
-  _Internal_priming_on_A_rich,
   _Internet,
   _Interval,
   _Intragenic_revertant_of_dominant,
@@ -791,7 +790,6 @@ void tagInit (void)
   lexaddkey("Inherits", &_Inherits, 0) ; 
   lexaddkey("Inside", &_Inside, 0) ; 
   lexaddkey("Int_Params", &_Int_Params, 0) ; 
-  lexaddkey("Internal_priming_on_A_rich", &_Internal_priming_on_A_rich, 0) ; 
   lexaddkey("Internet", &_Internet, 0) ; 
   lexaddkey("Interval", &_Interval, 0) ; 
   lexaddkey("Intragenic_revertant_of_dominant", &_Intragenic_revertant_of_dominant, 0) ; 

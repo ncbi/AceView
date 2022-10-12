@@ -3,7 +3,6 @@ set chrom=$1
 setenv ici `pwd`
 
 
-
 if (! -d tmp/XH$chrom) mkdir  tmp/XH$chrom
 if (! -d tmp/XH$chrom/database) then
    pushd tmp/XH$chrom
@@ -28,7 +27,7 @@ endif
 
 set target=`echo $Etargets | gawk '{print $1}'`
 
-if (! -e tmp/XH$chrom/f3.genome.done) then
+if (! -e tmp/XH$chrom/f3.genome.done2) then
 
     if ($target == EBI && $species == Dmelanogaster && -e  TARGET/GTF/$species.$target.gtf.gz && -d TARGET/GENES && ! -e TARGET/GENES/f3.gtf.$target.gene2FB_symbol.ace) then
        gunzip -c TARGET/GTF/$species.$target.gtf.gz | gawk -F '\t' '{if($3 == "gene"){z=$9;split(z,aa,";");split(aa[1],bb," ");split(aa[3],cc," ");if(bb[1]=="gene_id" && cc[1]=="gene_name")printf("Sequence X__%s\nFB_symbol %s\n\n",bb[2],cc[2]);}}' > TARGET/GENES/f3.gtf.$target.gene2FB_symbol.ace
@@ -40,6 +39,7 @@ if (! -e tmp/XH$chrom/f3.genome.done) then
 printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
 
     bin/tacembly tmp/XH$chrom <<EOF
+      read-models
       pparse TARGET/CHROMS/$species.chrom_$chrom.fasta.gz
       pparse  tmp/f1.strategy.ace
       // pparse  tmp/pA/$chrom/$MAGIC.pA.$chrom.feature.ace 
@@ -80,7 +80,7 @@ set ffcds=tmp/METADATA/gtf.$target.ns.cds.spongeZZZZZ
 if (! -e $ffcds) then
   set ffcds=tmp/METADATA/$target.ns.cds.sponge
 endif
-
+echo AAA $ffcds
 if (-e $ffcds) then
   cat $ffcds ZZZZZ $ffcds | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (chrom != $3)next;}{a1=$4;a2=$5;ln=a2-a1;if(ln<0)ln = -ln;ln++;}{if(zz<1){t2ln[$1]+=ln;next;}}{nnn=t2ln[$1];if(nnn >= 450)printf("Xcds_%s__%d_%d\t1\t%d\t%s\t%d\t%d\t%d\n",chrom,a1,a2,ln,chrom,a1,a2,nnn);}' chrom=$chrom | sort -u | sort -V >  tmp/XH$chrom/f3.$target.cds.txt2
     bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/XH$chrom/f3.$target.cds.txt2 >  tmp/XH$chrom/f3.$target.cds.fasta
@@ -115,6 +115,7 @@ if (! -e   tmp/XH$chrom/f3.cosmid2map.$chrom.txt) then
 EOF
 endif
 
+echo "XXXXXXX f3.parse"
 if (! -e tmp/XH$chrom/f3.parse.done) then
 
   touch tmp/XH$chrom/f3.genes.ace
@@ -353,15 +354,17 @@ end
 
 
 # grab the pA and the SL
-if (-e tmp/SLpA/$ggNS.SLpA.gz) then
+  echo "XXXXXXXXXXXXXXXXXXXXXX Grab the XA_"
+ls -ls   tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz
+if ((-e tmp/SLpA/$ggNS.SLpA.gz || -e tmp/SLpA/$ggS.SLpA.gz) && ! -e tmp/XH$chrom/XA.fasta)  then
   echo "Grab the XA_"
-  gunzip -c tmp/SLpA/$ggNS.SLpA.gz | gawk -F '\t' '/^pA/{if($2 == chrom && $5 > 10) {a1=$3;if($4=="Forward")a2=a1-30;else a2=a1+30;support=$5;printf("Sequence XA_%s__%s_%d\ncDNA_clone XA_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour LIGHTORANGE\nComposite %d\nReverse\nmReverse\nPolyA_after_base 9\n\n",chrom,a1,a2,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XA.ace
+  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^pA/{if($2 == chrom && $5 > 10) {a1=$3;if($4=="Forward")a2=a1-30;else a2=a1+30;support=$5;printf("Sequence XA_%s__%s_%d\ncDNA_clone XA_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour LIGHTORANGE\nComposite %d\nReverse\nmReverse\nPolyA_after_base 9\n\n",chrom,a1,a2,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XA.ace
   cat tmp/XH$chrom/XA.ace | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/XA.shadow
   bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/XA.shadow | gawk '/^>/{print;next;}{printf("AAAAAAAA%s\n",$1);}' >  tmp/XH$chrom/XA.fasta
 ls -ls  tmp/XH$chrom/XA.ace
 
   echo "Grab the XSL_"
-  gunzip -c tmp/SLpA/$ggNS.SLpA.gz | gawk -F '\t' '/^SL/{if($2 == chrom && $5 > 4) {a1=$3;if($4=="Forward")a2=a1+30;else a2=a1-30;support=$5;printf("Sequence X%s_%s__%s_%d\ncDNA_clone X%s_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour BLACK\nComposite %d\nForward\nmForward\n\n",$1,chrom,a1,a2,$1,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XSL.ace
+  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^SL/{if($2 == chrom && $5 > 4) {a1=$3;if($4=="Forward")a2=a1+30;else a2=a1-30;support=$5;printf("Sequence X%s_%s__%s_%d\ncDNA_clone X%s_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour BLACK\nComposite %d\nForward\nmForward\n\n",$1,chrom,a1,a2,$1,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XSL.ace
   cat tmp/XH$chrom/XSL.ace | gawk '/^Sequence/{split($2,aa,"__");i=index(aa[1],"_");chrom=substr(aa[1],i+1);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/XSL.shadow
   bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/XSL.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/XH$chrom/XSL.fasta
 else

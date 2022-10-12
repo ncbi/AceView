@@ -83,7 +83,7 @@ EOF
       cat tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf |  gawk -F '\t' '/^#/{next;}{print;}'  >> $toto.MB.tsf 
     endif    
     if (-e  tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz) then
-      gunzip -c tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz | gawk -F '\t' -f  scripts/tsnp2a.awk  run=$run  >> $toto.BRS.tsf 
+      gunzip -c tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz | gawk -F '\t' -f  scripts/brs2tsf.awk  run=$run  >> $toto.BRS.tsf 
     endif
 
   end
@@ -98,7 +98,7 @@ foreach gr (`cat MetaDB/$MAGIC/g2r | cut -f 1`)
   cat _x.$$ ZZZZZ $toto.BRS.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]==1;next;}if (ok[$2]==1)print;}' > toto.$gr
 end 
 
-# extract a list of good snps
+# extract a list of good snps:  MB is method MagicBlast
 echo 'toto'  > $toto.list
 cat $toto.M.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
 cat $toto.MB.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
