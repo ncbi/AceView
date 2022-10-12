@@ -38,12 +38,12 @@ unsigned char queryIsA(OBJ obj, KEY key, Array a, BitSet bb) ;
 int qbuild_selected_class ;  /* last entered/used class in a query */
 
 /* in querydisp.c */
-char resbuffer[QBUFF_MULT*BUFFER_SIZE]; /* for forming query commands */
-KEYSET query_undo_set;
+extern char resbuffer[QBUFF_MULT*BUFFER_SIZE]; /* for forming query commands */
+extern KEYSET query_undo_set;
 
-Graph querGraph ;
-Graph qbeGraph ;
-Graph qbuildGraph ;
+extern Graph querGraph ;
+extern Graph qbeGraph ;
+extern Graph qbuildGraph ;
      
 #define ARR2STRING(a, i)  arrayp(array(a, i, Array), 0, char)
 #include "pick.h"       /* for pickClass2Word(t) and pickVocList[] */
