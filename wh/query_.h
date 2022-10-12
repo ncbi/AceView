@@ -35,7 +35,7 @@
 unsigned char queryIsA(OBJ obj, KEY key, Array a, BitSet bb) ;
 
 /* in querybuild.c */
-int qbuild_selected_class ;  /* last entered/used class in a query */
+extern int qbuild_selected_class ;  /* last entered/used class in a query */
 
 /* in querydisp.c */
 extern char resbuffer[QBUFF_MULT*BUFFER_SIZE]; /* for forming query commands */
