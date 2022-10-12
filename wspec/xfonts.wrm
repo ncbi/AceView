@@ -19,8 +19,12 @@
 //		   F8x13B, F5x8B, F6x9B, F6x10B, F6x12B, F9x15B, 
 //                 G13,    G6,    G8,    G10,    G12,    G15 }
 
-// Standard
+// Standard, from 1990
 8x13  5x8 6x9 6x10 6x12 9x15
+// In 2022 the best extened fonts covering all languages are  6x13, 8x13, 9x15, 9x18, and 10x20 
+// so the original choice was correct
+
+
 
 // Italic
 "-schumacher-clean-medium-i-normal--12-120-75-75-c-60-iso8859-1"

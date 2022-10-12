@@ -236,8 +236,11 @@ static void fontInit (Display* display)
     getFontNames() ;
 
     if (!(fns[0] = XLoadQueryFont (display, fontName[0])))
-      messcrash ("Can't load default font %s",fontName[0]) ;
-
+      {
+      strncpy(fontName[0], "6x13",100) ;
+      if (!(fns[0] = XLoadQueryFont (display, fontName[0])))
+	    messcrash ("Can't load default font %s",fontName[0]) ;
+      }
     for (i = 1 ; i < NUM_FONTS ; ++i)
       {
       if (!(fns[i] = XLoadQueryFont (display, fontName[i])))
