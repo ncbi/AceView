@@ -31,7 +31,7 @@ static magic_t Plot2d_MAGIC = "Plot2d";
 typedef struct p2dstuff { 
   magic_t *magic ;
   AC_HANDLE handle ;
-  char title[48], subtitleX[24], subtitleY[24] ;
+  char title[FIL_BUFFER_SIZE], subtitleX[24], subtitleY[24] ;
   int titleBox, subtitleXbox, subtitleYbox ;
   Graph graph ;
   Array xy ;
@@ -47,7 +47,7 @@ typedef struct p2dstuff {
   int retBox, xyBox, regBox ;
   float xStart, yStart ;
   BOOL reticule, regress, isPrinting ;
-  char xBuffer [16], yBuffer [16] ;
+  char xBuffer [24], yBuffer [24] ;
   double a, b, r, w ;
   float axisShift ;
 } *P2D ;
