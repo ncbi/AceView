@@ -40,7 +40,7 @@ struct av_db_desc
 		/*
 		* this is AceView's name for the database: worm, human, 31, etc
 		*/
-	char db_access[100];
+	char db_access[256];
 		/*
 		* this is the name to pass to ac_open to open it
 		*/
