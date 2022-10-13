@@ -35,7 +35,7 @@ typedef struct LOOKstruct
     int s , startS, minX, maxX, startStep, step, oldStep ; 
     float x, y, minY, maxY, shift, xMin, xEnd, xMax, scale, startScale ;
     int xMul, xDiv,facY, mulY ;
-    char sBuffer [8], zoneBuffer [24], xBuffer [16], yBuffer [16], stepBuffer [10] ;
+    char sBuffer [8], zoneBuffer [64], xBuffer [16], yBuffer [16], stepBuffer [10] ;
     int startShift ; /* mhmp 18.09.01 stepping arrondi */
     BOOL reticule, isStepping, isSmoothing, plus1, isPrinting ;
     float oldx, oldy ;
