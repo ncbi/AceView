@@ -40,7 +40,7 @@ typedef struct p2dstuff {
   float xTrip, yTrip ;
   int tripBox ;
   KEY kTrip ;
-  char xTripBuf [16], yTripBuf [16], kTripBuf [400] ;
+  char xTripBuf [72], yTripBuf [72], kTripBuf [400] ;
   float xCentre, yCentre, xMag, yMag, oldXmag, oldYmag, startXmag ;
   int nx, ny ;
   int leftMargin, topMargin, bottomMargin, rightMargin ;
