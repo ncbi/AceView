@@ -174,10 +174,11 @@ int aCacheStatus (int *used, int*known, int *modified,
   i = l = m = 0; v = knownACacheTop;
   while(v) 
     { i++ ;
-    if (v && v->magic != ACACHEMAGIC)
-      messcrash ("wrong achache in aCacheStatus") ;
+      if (v && v->magic != ACACHEMAGIC)
+	messcrash ("wrong achache in aCacheStatus") ;
 
-      if(v->hasBeenModified) m++ ;
+      if(v->hasBeenModified)
+	m++ ;
       v = v->next; 
     }
   *used = nAllocatedACache ;
