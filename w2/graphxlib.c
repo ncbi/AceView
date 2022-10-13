@@ -237,17 +237,18 @@ static void fontInit (Display* display)
 
     if (!(fns[0] = XLoadQueryFont (display, fontName[0])))
       {
-      strncpy(fontName[0], "6x13",100) ;
-      if (!(fns[0] = XLoadQueryFont (display, fontName[0])))
-	    messcrash ("Can't load default font %s",fontName[0]) ;
+	/* 2022_10_10: WSL: windows2linux available on windows11 has 6x13 but not 8x13 among it default fonts */ 
+	strncpy(fontName[0], "6x13",100) ;
+	if (!(fns[0] = XLoadQueryFont (display, fontName[0])))
+	  messcrash ("Can't load default font %s",fontName[0]) ;
       }
     for (i = 1 ; i < NUM_FONTS ; ++i)
       {
-      if (!(fns[i] = XLoadQueryFont (display, fontName[i])))
-	{
-	fprintf(stderr,"Font %s does not exist - using default\n", fontName[i]) ;
-	fns[i] = fns[0] ;
-	}
+	if (!(fns[i] = XLoadQueryFont (display, fontName[i])))
+	  {
+	    fprintf(stderr,"Font %s does not exist - using default\n", fontName[i]) ;
+	    fns[i] = fns[0] ;
+	  }
       }
 
     }
