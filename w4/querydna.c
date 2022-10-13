@@ -47,9 +47,8 @@ int queryRegExpFind (const char *data, QueryRegExp *vRegP, BOOL getPos)
 	{
 	  if (getPos)
 	    nn = regexec (regp, data, 1, &pmatch, 0) ;
-	  else
-	    nn = regexec (regp, data, 1, 0, 0) ;
-	  if (nn) { /* report not found */ ; ok = 0 ; }
+	  if (nn) 
+	    { /* report not found */ ; ok = 0 ; }
 	  else  /* match found */ 
 	    { 	     
 	      if (getPos)
@@ -100,9 +99,9 @@ int queryRegExpMatch2 (const char *data, const char *regExpPattern, BOOL getPos)
 	{
 	  if (getPos)
 	    nn = regexec (&preg, data, 1, &pmatch, 0) ;
-	  else
-	    nn = regexec (&preg, data, 1, 0, 0) ;
-	  if (nn) { /* report not found */ ; ok = 0 ; }
+
+	  if (nn)
+	    { /* report not found */ ; ok = 0 ; }
 	  else  /* match found */ 
 	    { 	     
 	      if (getPos)

@@ -2016,8 +2016,6 @@ int regExpFind (RegExp br, const char *data)
 
       if (br->getPos)
 	nn = regexec (br->regex, data, 1, &pmatch, 0) ;
-      else
-	nn = regexec (br->regex, data, 1, 0, 0) ;
       
       if (nn) 
 	ok = 0 ; /* pattern not found */
