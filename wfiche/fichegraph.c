@@ -165,11 +165,12 @@ static void cFicheDestroy (void)
      the if (0) introduces i think a memory leak
      but without it i crash if i open a fiche go to gb mode and exit immediatly */
 
-  if (0) messfree (fw[iw].ficheBufr) ; fw[iw].ficheBufr = 0 ;
+  if (0)
+    messfree (fw[iw].ficheBufr) ; 
+  fw[iw].ficheBufr = 0 ;
   fw[iw].graph = 0 ;
-  gmlEditorDestroy (fw[iw].ficheEditor) ; fw[iw].ficheEditor = 0 ;
-
-  
+  gmlEditorDestroy (fw[iw].ficheEditor) ; 
+  fw[iw].ficheEditor = 0 ;
   
   /*
     memExclude (&ficheWindows, iw*sizeof (ficheWINDOW) , sizeof (ficheWINDOW)) ;

@@ -4347,7 +4347,7 @@ void ficheProductBlastPTableContent (vTXT blkp, GMP *gmp, int maxCol, const char
   AC_OBJ oBl ; 
   int	ir ; 
   const char *ccp ;
-  char linkBuf[vSTRMAXNAME], buf[vSTRMAXNAME], *ptr, *oldtbl ; 
+  char linkBuf[128+vSTRMAXNAME], buf[vSTRMAXNAME], *ptr, *oldtbl ; 
   AC_HANDLE h = ac_new_handle () ;
 
   oldtbl=ficheMarkupContent[2*_TD] ; 

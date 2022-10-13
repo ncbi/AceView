@@ -757,18 +757,20 @@ static void s2mMakeOneShadow (S2M *s2m, BOOL isUp, int j0, int j1, KEYSET covera
               else if (! class(vp->est) && (vp->type & gFuseToGhost) )           /* ghost */
                 {
                   if (x1 <= x2 - 20  && x1 <= a2 - 100) /* CF rps-10 */
-                    bitSet (ghost, i) ; bitSet (yes, i) ;
+                    { bitSet (ghost, i) ; bitSet (yes, i) ; }
                 }
               else
                 {
                   if (vp->type & (gX | gFuseToGhost)) 
                     { 
-                      if (debug) printf("yes %d ",i) ;
+                      if (debug)
+			printf("yes %d ",i) ;
                       bitSet (yes, i) ; keySet(thisCoverage,i) += x2 - x1 + 1 ;
                      }/* exon */
                   if (vp->type & gI) 
                     {
-                      if (debug) printf("no %d ",i)  ;
+                      if (debug) 
+			printf("no %d ",i)  ;
                       bitSet (no, i) ;  /* intron */
                       if (x2 - x1 > 50)
                         bitSet (nono, i) ;  /* absolute intron */
