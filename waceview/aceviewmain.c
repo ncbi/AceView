@@ -135,8 +135,8 @@ typedef struct pStruct
   char 
     class[64], 
     org[64],
-    query[1000], 
-    callback[1000],	
+    query[1024], 
+    callback[1024],	
     faction[64],
     actionName[64],
     anchor[128],
