@@ -28,7 +28,7 @@ static int PLOT_MAGIC = 237165;	/* also use address as graphAss handle */
 typedef struct LOOKstruct
   { int   magic ;
     Array a, originalArray ;
-    char title[48], subtitle[24] ;
+    char title[FIL_BUFFER_SIZE], subtitle[24] ;
     char fileName[FIL_BUFFER_SIZE] ;
     char dirName[DIR_BUFFER_SIZE] ;
     int  xyBox, retBox, sBox, zoneBox,stepBox, titleBox, subtitleBox ;
