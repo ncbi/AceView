@@ -1743,6 +1743,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--SS", &(tsf.sampleSeparator)) ;
   getCmdLineOption (&argc, argv, "--VS", &(tsf.valueSeparator)) ;
   getCmdLineOption (&argc, argv, "--FS", &(tsf.fieldSeparator)) ;
+  getCmdLineOption (&argc, argv, "-NA", &(tsf.NA)) ;
   getCmdLineOption (&argc, argv, "--NA", &(tsf.NA)) ;
   getCmdLineOption (&argc, argv, "--tagSeparator", &(tsf.tagSeparator)) ;
   getCmdLineOption (&argc, argv, "--sampleSeparator", &(tsf.sampleSeparator)) ;
