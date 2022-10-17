@@ -29,11 +29,11 @@ date
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     if (-e tmp/TSNP/$run/$zone/tsnp1.2.0.deUno.tsf && ! -e tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf) then
-      echo "cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf"
-            cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf
+      echo "cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge --setSample $run > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf"
+            cat  tmp/TSNP/$run/$zone/tsnp1.2.*.deUno.tsf | bin/tsf --merge --setSample $run > tmp/TSNP/$run/$zone/tsnp2.2.deUno.tsf
     endif
     if (-e tmp/TSNP/$run/$zone/tsnp1.MB.0.deUno.tsf && ! -e tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf) then
-      cat  tmp/TSNP/$run/$zone/tsnp1.MB.*.deUno.tsf | bin/tsf --merge > tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf
+      cat  tmp/TSNP/$run/$zone/tsnp1.MB.*.deUno.tsf | bin/tsf --merge --setSample $run > tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf
     endif    
   end
 

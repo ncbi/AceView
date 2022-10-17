@@ -7205,9 +7205,9 @@ if ($USEMAGICBLAST == 1) then
     cat Fastc/$run/LaneList | gawk /^$run/'{n++;}END{printf("Number_of_lanes %d\n",n);}' >> $toto
 
 
-    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep _ALI | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s\t%s",aa[1],aa[2]);if(n==2)printf(" %d seq %d tags %d kb_ali\n",$4,$5,$6);}'  >> $toto
-    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep Stranding | bin/tsf -g $run -t $run --sumAll | sort | gawk -F '\t' '/^#/{next}{p=$5;n=$6;a=$7;split($1,aa,"__");printf("%s  %s %.2f  %d plus %d minus %d ambiguous\n",aa[1],aa[2],100.0*p/(n+p),p,n,a);}' | sort -k 1,1 -k 2,2n   >> $toto
-    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep -v _ALI | grep -v Stranding | grep -v N_intron | bin/tsf -g $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s",aa[1]);if(n==2)printf(" %s ",aa[2]);for(i=4;i<=NF;i++)printf(" %s ",$i);printf("\n");}' | sort -k 1,1 -k 2,2n   >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep _ALI | bin/tsf -s $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s\t%s",aa[1],aa[2]);if(n==2)printf(" %d seq %d tags %d kb_ali\n",$4,$5,$6);}'  >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep Stranding | bin/tsf -s $run -t $run --sumAll | sort | gawk -F '\t' '/^#/{next}{p=$5;n=$6;a=$7;split($1,aa,"__");printf("%s  %s %.2f  %d plus %d minus %d ambiguous\n",aa[1],aa[2],100.0*p/(n+p),p,n,a);}' | sort -k 1,1 -k 2,2n   >> $toto
+    gunzip -c tmp/MAGICBLAST/$run/*.stats.tsf.gz | grep -v _ALI | grep -v Stranding | grep -v N_intron | bin/tsf -s $run -t $run --sumAll | gawk -F '\t' '/^#/{next}{n=split($1,aa,"__");printf("%s",aa[1]);if(n==2)printf(" %s ",aa[2]);for(i=4;i<=NF;i++)printf(" %s ",$i);printf("\n");}' | sort -k 1,1 -k 2,2n   >> $toto
     echo >> $toto
   end
 

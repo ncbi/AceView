@@ -139,7 +139,7 @@ foreach lane (`cat MetaDB/TestM/LaneList `)
    scripts/submit tmp/COUNT/$lane.toto55 "bin/postMagicBlast -run $lane -pair -clipali -i tmp/COUNT/$lane.hits.gz -o tmp/COUNT/$lane -expression"
 end
 qusage 1
-cat tmp/COUNT/RNA_AGLR1_A_1.*/f2.*.stats.tsf | bin/tsf -g RNA_AGLR1_A_1 --sumAll -o tmp/COUNT/RNA_AGLR1_A_1.stats
+cat tmp/COUNT/RNA_AGLR1_A_1.*/f2.*.stats.tsf | bin/tsf -s RNA_AGLR1_A_1 --merge -o tmp/COUNT/RNA_AGLR1_A_1.stats
 
 
 foreach lane (`cat MetaDB/TestMB/LaneList `)

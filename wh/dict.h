@@ -52,10 +52,10 @@ void uDictDestroy (DICT *dict) ;
 BOOL dictFind (DICT *dict, const char *s, int *ip) ;
 BOOL dictAdd (DICT *dict, const char *s, int *ip) ;
 BOOL dictRemove (DICT *dict, const char *s) ;
-const char *dictName (DICT *dict, int i) ;
-int dictCount (DICT *dict) ;		/* number of names */
-int dictMax (DICT *dict) ;		/* max index, to limit looping */
-void dictStatus (DICT *dict) ;
+const char *dictName (const DICT *dict, int i) ;
+int dictCount (const DICT *dict) ;		/* number of names */
+int dictMax (const DICT *dict) ;		/* max index, to limit looping */
+void dictStatus (const DICT *dict) ;
 void dictSetLock (DICT *dict, void *lock, void (*cLock)(void*), void (*cUnlock)(void*)) ;
 /* usage : 
  *   dictName(dict,0) == "(NULL)" and the correct loping is:

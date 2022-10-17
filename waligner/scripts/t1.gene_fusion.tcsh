@@ -428,7 +428,7 @@ echo '#' > _t7
 foreach run (`cat  tmp/GeneFusion/AB_CL.groups`)
   cat tmp/GeneFusion/$run/t1.gene_fusion.av.tsf  >> _t7
 end
-bin/tsf -g CL_AECDB -i _t7 > tmp/GeneFusion/t3.CL_AECDB.av.tsf
+bin/tsf --merge --setSample  CL_AECDB -i _t7 > tmp/GeneFusion/t3.CL_AECDB.av.tsf
 ## get the exact donot acceptors
 cat $toto.a ZZZZZ tmp/GeneFusion/t3.CL_AECDB.av.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){if($2=="DanJean_Magic")ok[$1]=1;next;}}{f=substr($1,1,length($1)-2);if(ok[f]==1)print;}' | head tmp tmp/GeneFusion/t3.CL_AECDB.av.filtered.tsf
 

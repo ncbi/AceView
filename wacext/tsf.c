@@ -1,4 +1,4 @@
- /*  File: tsf.c
+/*  File: tsf.c
  *  Author:  D and J Thierry-Mieg (mieg@ncbi.nlm.nih.gov)
  *  Copyright (C) D and J Thierry-Mieg 2005
  * -------------------------------------------------------------------
@@ -25,7 +25,7 @@
  *
  *  Please direct all question about this code to
  *  mieg@ncbi.nlm.nih.gov
-
+ *
  * 2018_04_01
  * tsf   'tag sample format' 
  * strategic idea
@@ -39,20 +39,20 @@
  * juxtapose (a then b produces a:b), merge (a then a produces a)
  * compute (a then b produces 7*sin(a) + cos(b)), only in case of 
  * parsing 2 files
-
+ *
  * The format has 3 + n fields
  *     1: T tag  (understood as equivalent to the caption of a column table)
  *     2: S sample  (understood as equivalent to the caption of a column lime)
  *     3: F format (descibes the content of a cell or cell group)
  *   ...: v values conforming to the format
-
+ *
  * There is a similarity with the vcf format (variant cll fromat) used in genetics
  * but the objective and the data are manipulated are different.
- 
+ *
  * For a human readble presentation, use tsf -I tsf -O table, to export as table
  */
 
-#define VERSION "1.1"
+#define VERSION "1.2"
 
 /*
 #define ARRAY_CHECK  
@@ -71,6 +71,7 @@ typedef struct tsf_struct {
   const char *inFileOfFileList ;
   const char *separator ;
   const char *title ;
+  const char *sample_title ;
   const char *sample ;
   const char *sortCommand ;
   const char *tagSelectList ;
@@ -82,6 +83,8 @@ typedef struct tsf_struct {
   const char *sampleSeparator ; /* default : */
   const char *valueSeparator ;  /* default , */
   const char *fieldSeparator ;  /* default \t */
+  const char *NA ;              /* default "" */
+
   
   DICT *tagDict ;
   DICT *sampleDict ;
@@ -95,11 +98,12 @@ typedef struct tsf_struct {
   KEYSET tagRenameKs ;
   KEYSET skipKs ;
   KEYSET tagDepth ;
+  KEYSET col2tag ;
   AC_TABLE results ;
 
   BOOL gzi, gzo, transpose, debug ;
   BOOL isTableIn, isTableOut ;
-  BOOL merge ;
+  BOOL merge, noMerge ;
   BOOL sum, min, max, replace, sumAll ; 
   BOOL tagSelectOnly ;
   BOOL sampleSelectOnly ;
@@ -118,9 +122,10 @@ typedef struct tsf_struct {
 
 typedef struct hit_struct {
   int tag, sample, n ;
+  unsigned int flag ;  /* data existence */
   char types[MAXTAGDEPTH] ;
   long int x[MAXTAGDEPTH] ;
-  float z[MAXTAGDEPTH] ;
+  double z[MAXTAGDEPTH] ;
 } HIT ;
 
 
@@ -131,19 +136,21 @@ typedef struct hit_struct {
 #endif
 
 /*************************************************************************************/
-#ifdef JUNK
+static DICT *myDict ;
 static int tsfSampleOrder (const void *va, const void *vb)
 {
   const HIT *up = (const HIT *)va ;
   const HIT *vp = (const HIT *)vb ;
-  int n ;
+  int n, s1, s2 ; ;
 
-  n = up->sample - vp->sample ; if (n) return n ;
+  s1 = up->sample ;
+  s2 = vp->sample ;
+  n = lexstrcmp (dictName (myDict, s1), dictName(myDict,s2)) ; if (n) return n ;
   n = up->tag - vp->tag ; if (n) return n ;
 
   return 0 ;
 } /* tsfSampleOrder */
-#endif
+
 /*************************************************************************************/
 
 static int tsfTagOrder (const void *va, const void *vb)
@@ -193,6 +200,15 @@ static void tsfSampleSelectInit (TSF *tsf)
 } /* tsfSampleSelectInit */
 
 /*************************************************************************************/
+/* create a new tag and associated data */
+static int tagAdd (TSF *tsf, const char *cp)
+{
+  int k ;
+  dictAdd (tsf->tagDict, cp, &k) ;
+  return k ;
+}  /* tagAdd */
+
+/*************************************************************************************/
 
 static void tsfTagSelectInit (TSF *tsf)
 {
@@ -217,7 +233,7 @@ static void tsfTagSelectInit (TSF *tsf)
       else
 	{
 	  dictAdd (tsf->tagSelectDict, cp, 0) ;
-	  dictAdd (tsf->tagDict, cp, 0) ;
+	  tagAdd (tsf, cp) ;
 	}
       cp = cq ;
     }
@@ -267,8 +283,12 @@ static void tsfTagRenameInit (TSF *tsf)
 
 /*************************************************************************************/
 
+static KEYSET tsfMyCols = 0 ;
+
+
 static void tsfInit (TSF *tsf)
 {
+  tsfMyCols = keySetCreate () ;
   tsf->tagDict = dictHandleCreate (256, tsf->h) ;
   tsf->sampleDict = dictHandleCreate (10000, tsf->h) ;
   tsf->hits = bigArrayHandleCreate (100000, HIT, tsf->h) ;
@@ -276,6 +296,7 @@ static void tsfInit (TSF *tsf)
   tsf->columnCaptionDict = dictHandleCreate (256, tsf->h) ;
   tsf->valDict = dictHandleCreate (256, tsf->h) ;
   tsf->tagDepth = keySetHandleCreate (tsf->h) ;
+  tsf->col2tag = keySetHandleCreate (tsf->h) ;
   if (tsf->tagRenameList)
     tsfTagRenameInit (tsf)  ;
   if (tsf->tagSelectList)
@@ -307,6 +328,7 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
   KEYSET nKs = keySetHandleCreate (h) ;
   KEYSET posKs = keySetHandleCreate (h) ;
 
+
   if (tsf->sample)
     {
       ccp = tsf->sample ;
@@ -321,7 +343,7 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
       dictAdd (sampleDict, ccp, &sample) ;
     }
 
-  aceInSpecial (ai, "\n") ;
+
   while (aceInCard (ai))
     {
       ccp = aceInWordCut (ai, "\t", &cutter) ;
@@ -331,10 +353,14 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
 	continue ;
       if (!strncmp (ccp, "##", 3))
 	{
-	  dictAdd (tsf->tableCaptionDict, aceInPos (ai), 0) ;
-	  continue ;
-	}
-      if (!strncmp (ccp, "#", 1)) /* establish tag names */
+	  ccp = aceInPos (ai) ;
+      if (! strncmp (ccp, "## CLEAN", 7))
+	tsf->tableCaptionDict = dictHandleCreate (256, tsf->h) ;
+      else
+	dictAdd (tsf->tableCaptionDict, aceInPos (ai), 0) ;
+      continue ;
+    }
+  if (!strncmp (ccp, "#", 1)) /* establish tag names */
 	{
 
 	  continue ;
@@ -368,7 +394,6 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
 	      if (sscanf (ccp, "%ld%c", &x, &cc) == 1)
 		{
 		  int pos = keySet (posKs, kk) ;
-		  
 		  hit = bigArrayp (hits, iMax++, HIT) ;
 		  hit->tag = keySet (tagsKs, kk) ;
 		  hit->sample = sample ;
@@ -387,13 +412,13 @@ static long int tsfParseTable (TSF *tsf, ACEIN ai)
 static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int i, tag, sample = 0, x, line = 0 ;
-  float z ;
+  int i, tag, sample = 0, line = 0 ;
+  long int x ;
+  double z ;
   const char *ccp, *ccq ;
   HIT *hit ;
   KEYSET tagDepth = tsf->tagDepth ; 
   DICT *valDict = tsf->valDict ;
-  DICT *tagDict = tsf->tagDict ;
   DICT *sampleDict = tsf->sampleDict ;
   BigArray hits = tsf->hits ;
   long int iMax = bigArrayMax (hits) ;
@@ -448,14 +473,14 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 	  && ! dictFind (tsf->tagSelectDict, ccp, 0)
 	  )
 	continue ;
-      if (1)
+      if (0)
 	{
 	  int mx = 0 ;
 	  messAllocMaxStatus (&mx) ; 
 	  if (mx > 50000)
 	    invokeDebugger () ;	    
 	}
-     dictAdd (tagDict, ccp, &tag) ;
+     tag = tagAdd (tsf, ccp) ;
      aceInStep (ai, '\t') ;
      ccp = aceInWord (ai) ;
      if (! ccp || *ccp == '#')
@@ -476,7 +501,12 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 	  if (sampleDepth > tsf->sampleDepth)
 	    tsf->sampleDepth = sampleDepth ;
 	  if (sampleDict)  /* sample_name , ignore in merge case */
-	    dictAdd (sampleDict, ccp, &sample) ;
+	    {
+	      static int nnn = 1 ;
+	      if (tsf->isTableOut && tsf->noMerge)
+		ccp = hprintf (h, "%s#_#_#%d", ccp, nnn++) ;
+	      dictAdd (sampleDict, ccp, &sample) ;
+	    }
        }
      else
        dictAdd (sampleDict, tsf->sample, &sample) ;
@@ -529,24 +559,34 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
      
      for (i = 0 ; i < nTags ; i++)
        {
+	 char cc ;
 	 if (! aceInStep (ai, '\t'))
 	   break ;
 	  hit->n = i + 1 ;
 	  switch (hit->types[i])
 	    {
 	    case 'i':
-	      if (aceInInt (ai, &x))
-		hit->x[i] = x ;
+	    case 'c':
+	      ccp = aceInWord (ai) ;
+	      if (ccp && sscanf (ccp, "%ld%c", &x, &cc) == 1)
+		{
+		  hit->x[i] = x ;
+		  hit->flag |= (1 << i) ;
+		}
 	      else
-		messcrash ("Non integer number in column %d line %d file %s\n"
+		messcrash ("Non integer number %s in column %d line %d file %s\n"
+			   , ccp ?ccp : "NULL"
 			   , 4 + i
 			   , aceInStreamLine (ai)
 			   , aceInFileName (ai)
 			   ) ;
 	      break ;
 	    case 'f':
-	      if (aceInFloat (ai, &z))
-		hit->z[i] = z ;
+	      if (aceInDouble (ai, &z))
+		{
+		  hit->z[i] = z ;
+		  hit->flag |= (1 << i) ;
+		}
 	      else
 		messcrash ("Non float number in column %d line %d file %s\n"
 			   , 4 + i
@@ -561,6 +601,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 		  int k = 0 ;
 		  dictAdd (valDict, ccp, &k) ; 
 		  hit->x[i] = k ; 
+		  hit->flag |= (1 << i) ;
 		}
 	      else
 		messcrash ("Non word in column %d line %d file %s\n"
@@ -573,12 +614,83 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
        }
      if (i > keySet (tagDepth, tag))
        keySet (tagDepth, tag) = i ;
-     
     }
   ac_free (h) ;
 
   return bigArrayMax (hits) ;
 } /*  tsfParseTsf */
+
+/*************************************************************************************/
+
+static void tsfParseMetaData (TSF *tsf, ACEIN ai)
+{
+  char cutter, *ccp ;
+
+  while (aceInCard (ai))
+    {
+      ccp = aceInPos (ai) ;
+      if (ccp[0] != '#')
+	{
+	  aceInCardBack (ai) ;
+	  return ;
+	}
+      ccp = aceInWordCut (ai, "\t", &cutter) ;
+      if (! ccp)
+	continue ;
+
+      if (!strncmp (ccp, "####", 4))    /* continue */
+	continue ;
+
+      if (!strncmp (ccp, "###", 3))    /* get sticky title */
+	{
+	  if (tsf->title)              /* not if already set */
+	    continue ;
+	  ccp += 3 ;
+	  while (*ccp == ' ')          /* gobble spaces */
+	    ccp++ ;
+	  if (! ccp[0])
+	    continue ;
+	  tsf->title = strnew (ccp, tsf->h) ;
+	  continue ;
+	}
+
+      if (!strncmp (ccp, "##", 2))    /* get captions */
+	{
+	  ccp += 2 ;
+	  while (*ccp == ' ')          /* gobble spaces */
+	    ccp++ ;
+	  if (! ccp[0])
+	    continue ;
+	  dictAdd (tsf->tableCaptionDict, ccp, 0) ; /* gobble repeats */ 
+	  continue ;
+	}
+
+      if (!strncmp (ccp, "#", 1)) /* establish tag names */
+	{
+	  int k, col = 1 ;
+
+	  ccp ++ ;
+	  while (*ccp == ' ')          /* gobble spaces */
+	    ccp++ ;
+	  if (! ccp[0])
+	    continue ;
+	  k = tagAdd (tsf, ccp) ; /* get sorted tags */
+	  keySet (tsf->col2tag, col++) = k ;
+	  while (aceInStep (ai, '\t'))
+	    {
+	      ccp = aceInWordCut (ai, " ,\t", &cutter) ;
+	      if (ccp)
+		{
+		  int k = tagAdd (tsf, ccp) ; /* get sorted tags */
+		  keySet (tsf->col2tag, col++) = k ;
+		}
+	    }
+	  keySetMax (tsf->col2tag) = col ;   /* max for this file, if it is a table since all columns must have a tag */
+	  continue ;
+	}
+    }
+
+} /* tsfParseMetaData */
 
 /*************************************************************************************/
 
@@ -626,6 +738,9 @@ static void tsfParse (TSF *tsf)
       /* parse a validated list of files */
       while ((ai = aceInCreateFromList (ai, &nn, tsf->inFileList, tsf->gzi, h)))
 	{
+	  aceInSpecial (ai, "\n") ;
+	  tsfParseMetaData (tsf, ai) ;
+	  
 	  if (tsf->isTableIn)
 	    tsfParseTable (tsf, ai) ;
 	  else
@@ -647,8 +762,10 @@ static void tsfParse (TSF *tsf)
 } /* tsfParse */
 
 /*************************************************************************************/
+
+#ifdef JUNK
+
 static KEYSET tsfMyLines = 0 ;
-static KEYSET tsfMyCols = 0 ;
 
 static int tsfMyOrder (const void *va, const void *vb)
 {
@@ -675,6 +792,9 @@ static void tsfChronoOrder (TSF *tsf)
   KEYSET lines = keySetHandleCreate (h) ;
   Array bb = 0 ;
   BOOL debug = FALSE ;
+
+  if (0) 
+    tsfChronoOrder (tsf) ; /* to please the compiler */
 
   for (i = 0 ; i < tMax ; i++)
     keySet (lines, i) = i ;
@@ -708,12 +828,12 @@ static void tsfChronoOrder (TSF *tsf)
   if (debug)
     for (ii = 0, hit = bigArrp (tsf->hits, 0, HIT) ; ii < iiMax ; hit++, ii++)
       {
-	float z  ;
+	double z  ;
 	
 	i = hit->tag ;
 	j = hit->sample ;
 	z = hit->z[0] + hit->x[0] ;
-	printf("%d\t%d\t%.1f\n",  i, j, z) ; 
+	printf("%d\t%d\t%.1g\n",  i, j, z) ; 
       }
 
   if (tsf->chronoOrder)
@@ -722,12 +842,12 @@ static void tsfChronoOrder (TSF *tsf)
   if (debug)
     for (ii = 0, hit = bigArrp (tsf->hits, 0, HIT) ; ii < iiMax ; hit++, ii++)
       {
-	float z  ;
+	double z  ;
 	
 	i = hit->tag ;
 	j = hit->sample ;
 	z = hit->z[0] + hit->x[0] ;
-	printf("%d\t%d\t%.1f\n",  i, j, z) ; 
+	printf("%d\t%d\t%.1g\n",  i, j, z) ; 
       }
 
 
@@ -735,6 +855,7 @@ static void tsfChronoOrder (TSF *tsf)
   ac_free (h) ;
   return ;
 }
+#endif
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -744,15 +865,15 @@ static long int tsfMerge (TSF *tsf)
   BigArray hits = tsf->hits ;
   long int ii, jj, iMax = bigArrayMax (hits) ;
   HIT *hit, *hit2 ;
-  int all = tsf->sumAll ? MAXTAGDEPTH + 1 : 1 ;
-    
+  int action = 0 ;
+
   /* sort and cumulate the values */
   bigArraySort (hits, tsfTagOrder) ;
   for (ii = 0, hit = bigArrp (hits, 0, HIT) ; ii < iMax ; ii++, hit++)
     {
       if ( !hit->tag)
 	continue ;
-
+      
       for (jj = ii + 1, hit2 = hit+1 ; jj < iMax && (! hit2->tag || hit2->tag == hit->tag) && hit2->sample == hit->sample ; jj++, hit2++)
 	{
 	  int n, n1, n2, i ;
@@ -762,34 +883,81 @@ static long int tsfMerge (TSF *tsf)
 	  n1 = hit->n ;
 	  n2 = hit2->n ;
 	  n = n1 < n2 ? n1 : n2 ;
-	  if (n1 != n2)
-	    continue ;
 	  if (strncmp (hit->types, hit2->types, n))
 	    continue ;
-	  for (i = 0 ; i < n ; i++)
-	    if ( (i > all || hit->types[i] != 'i')  && 
-	        hit->x[i] != hit2->x[i])
-	      break ;
-	  if (i < n)
-	    continue ;
-	  /* ok, all text fileds are equal: merge */	  
-	  if (n1 < n2)
-	    memcpy (hit->types, hit2->types, n2) ;
+
 	  hit2->tag = 0 ;
 	  n = n1 > n2 ? n1 : n2 ;
+	  if (n1 < n2) 
+	    memcpy (hit->types, hit2->types, n2) ;
+	  hit->flag |= hit2->flag ;
+	  
 	  hit->n = n ;
-	  for (i = 0 ; i < all && i < n ; i++)
-	    switch (hit->types[i])
-	      {
-	      case 'i':
-		hit->x[i] += hit2->x[i] ;
+	  for (i = 0 ; i < n ; i++)
+	    if (i < n2)
+	      switch ((int)hit->types[i])
+		{
+		case 'i':   /* add */
+		  switch (action)
+		    {
+		    case 0: 
+		    default: /* add */
+		      hit->x[i] += hit2->x[i] ;
+		      break ;
+		    case 1:  /* min */
+		      if (i > n1 || hit->x[i] > hit2->x[i])
+			hit->x[i] = hit2->x[i] ;
+		      break ;
+		    case 2:  /* max */
+		      if (i > n1 || hit->x[i] < hit2->x[i])
+			hit->x[i] = hit2->x[i] ;
+		      break ;
+		    }
 		break ;
-	      default:
-		if (! hit->x[i])
-		  hit->x[i] = hit2->x[i] ;
-	      }
-	}
-    } 
+		case 'f':   /* add */
+		  switch (action)
+		    {
+		    case 0: 
+		    default: /* add */
+		      hit->z[i] += hit2->z[i] ;
+		      break ;
+		    case 1:  /* min */
+		      if (i > n1 || hit->z[i] > hit2->z[i])
+			hit->z[i] = hit2->z[i] ;
+		      break ;
+		    case 2:  /* max */
+		      if (i > n1 || hit->z[i] < hit2->z[i])
+			hit->z[i] = hit2->z[i] ;
+		      break ;
+		    }
+		  break ;
+		case 'c':
+		case 't':   /* replace */
+		default:
+		  switch ((int)hit->types[i])
+		    {
+		    case 'i':   /* add */
+		      switch (action)
+			{
+			case 0: 
+			default: /* replace */
+			  hit->x[i]  = hit2->x[i] ;
+			  break ;
+			case 1:  /* min */
+			  if (i > n1 || hit->x[i] > hit2->x[i])
+			    hit->x[i] = hit2->x[i] ;
+			  break ;
+			case 2:  /* max */
+			  if (i > n1 || hit->x[i] < hit2->x[i])
+			    hit->x[i] = hit2->x[i] ;
+			  break ;
+			}
+		      break ;
+		  break ;
+		    }
+		}
+	} 
+    }
   /* clean up */
   for (ii = jj = 0, hit2 = hit = bigArrp (hits, ii, HIT) ; ii < iMax ; ii++, hit++)
     {
@@ -808,27 +976,37 @@ static long int tsfMerge (TSF *tsf)
 
 static void tsfExportCaption (TSF *tsf, ACEOUT ao)
 {
-  int i, iMax = dictMax (tsf->tableCaptionDict) ;
+  int i, iMax ;
   
   aceOutDate (ao, "###"
 	      ,  tsf->title ? tsf->title : "No title"
 	      ) ;
   
+  iMax = dictMax (tsf->tableCaptionDict) ;
   for (i = 1 ; i <= iMax ; i++)
     aceOutf (ao, "## %s\n", dictName (tsf->tableCaptionDict, i)) ;
 
-return ;
+  iMax = dictMax (tsf->tagDict) ;
+  if (iMax)
+    {
+      aceOutf (ao, "# %s", dictName (tsf->tagDict, 1)) ;
+      for (i = 2 ; i <= iMax ; i++)
+	aceOutf (ao, "\t%s\n", dictName (tsf->tagDict, i)) ;
+    }
+
+  return ;
 } /* tsfExportCaption */
 
 /*************************************************************************************/
 
 static void tsfExportTsf (TSF *tsf, ACEOUT ao)
 {
-  long int ii, iMax = bigArrayMax (tsf->hits) ;
-  HIT * Restrict hit = iMax ? bigArrp (tsf->hits, 0, HIT) : 0 ;
-  DICT * Restrict valDict = tsf->valDict ;
-  DICT * Restrict tagDict = tsf->tagDict ;
-  DICT * Restrict sampleDict = tsf->sampleDict ;
+  long int ii ;
+  const long iMax = bigArrayMax (tsf->hits) ;
+  const HIT *hit = iMax ? bigArrp (tsf->hits, 0, HIT) : 0 ;
+  const DICT * valDict = tsf->valDict ;
+  const DICT * tagDict = tsf->tagDict ;
+  const DICT * sampleDict = tsf->sampleDict ;
   int k, hasP = 0 ;
 
   for (ii = 0 ; ii < iMax ; ii++)
@@ -842,21 +1020,24 @@ static void tsfExportTsf (TSF *tsf, ACEOUT ao)
       n = hh.n ;
       aceOutf (ao, "\t%s", hh.types) ; 
       for (i = 0 ; i < n ; i++)
-	switch (hit->types[i])
-	  {
-	  case 0:
-	    break ;
-	  case 'i':
-	    aceOutf (ao, "\t%ld", hh.x[i]) ;
-	    break ; 
-	  case 'f':
-	    aceOutf (ao, "\t%f", hh.z[i]) ;
-	    break ; 
-	  default:
-	    k = hh.x[i] ;
-	    aceOutf (ao, "\t%s", dictName (valDict, k)) ;
-	    break ;
-	  }
+	if (hh.flag & (1 << i))
+	  switch (hh.types[i])
+	    {
+	    case 0:
+	      break ;
+	    case 'i':
+	      aceOutf (ao, "\t%ld", hh.x[i]) ;
+	      break ; 
+	    case 'f':
+	      aceOutf (ao, "\t%g", hh.z[i]) ;
+	      break ; 
+	    default:
+	      k = hh.x[i] ;
+	      aceOutf (ao, "\t%s", dictName (valDict, k)) ;
+	      break ;
+	    }
+	else
+	  break ;
       aceOutf (ao, "\n") ;
 
       if (strncmp (tagName, "P_", 2))
@@ -883,23 +1064,26 @@ static void tsfExportTsf (TSF *tsf, ACEOUT ao)
       if (z == 0) z = 100 ;
       z = 100.0/z ;
       for (i = 1 ; i < n ; i++)
-	switch (hit->types[i])
-	  {
-	  case 'i':
-	    aceOut (ao, "\t") ;
-	    aceOutPercent (ao, z * hh.x[i]) ;
-	    aceOut (ao, "%") ;
+	if (hh.flag & (1 << i))
+	  switch (hh.types[i])
+	    {
+	    case 'i':
+	      aceOut (ao, "\t") ;
+	      aceOutPercent (ao, z * hh.x[i]) ;
+	      aceOut (ao, "%") ;
+	      break ; 
+	    case 'f':
+	      aceOut (ao, "\t") ;
+	      aceOutPercent (ao, z * hh.z[i]) ;
+	      aceOut (ao, "%") ;
 	    break ; 
-	  case 'f':
-	    aceOut (ao, "\t") ;
-	    aceOutPercent (ao, z * hh.z[i]) ;
-	    aceOut (ao, "%") ;
-	    break ; 
-	  default:
-	    k = hh.x[i] ;
-	    aceOutf (ao, "\t%s", dictName (valDict, k)) ;
-	    break ;
-	  }
+	    default:
+	      k = hh.x[i] ;
+	      aceOutf (ao, "\t%s", dictName (valDict, k)) ;
+	      break ;
+	    }
+	else
+	  break ;
       aceOutf (ao, "\n") ;	
     }
 
@@ -931,15 +1115,15 @@ static int tsfSame (int same, int kk, vTXT txt, vTXT oldTxt)
 static void tsfExportTable (TSF *tsf, ACEOUT ao)
 {
   AC_HANDLE h = ac_new_handle () ;
-  long int ii, iiMax = bigArrayMax (tsf->hits) ;
-  int i, jj, kk, k1 ;
-  HIT * Restrict hit = iiMax ? bigArrp (tsf->hits, 0, HIT) : 0 ;
-  DICT * Restrict tagDict = tsf->tagDict ;
-  DICT * Restrict valDict = tsf->valDict ;
-  DICT * Restrict sampleDict = tsf->sampleDict ;
-  int oldTag = 0 ;
-  int sampleMax = dictMax (sampleDict) ;
-  int pass ;
+  long int ii, jj ;
+  long jjMax, iiMax = bigArrayMax (tsf->hits) ;
+  HIT *up, *vp ;
+  const DICT * valDict = tsf->valDict ;
+  const DICT * tagDict = tsf->tagDict ;
+  const DICT * sampleDict = tsf->sampleDict ;
+  const char *NA = tsf->NA ;
+  int i, k ;
+  int tagMax = dictMax (tagDict) ;
   KEYSET skip = keySetHandleCreate (h) ;
   
   for (i = 0 ; i < tsf->skip1 ; i++)
@@ -949,68 +1133,92 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
   for (i = 0 ; i < tsf->skip3 ; i++)
     keySet (skip, i) += 3 ;
   
-  aceOutf (ao, "# Tag") ;
-  for (i = 1 ; i <= sampleMax ; i++)
+  for (ii = 0, up = bigArrp (tsf->hits, 0, HIT) ; ii < iiMax ; up++, ii++)
     {
-      int i1 = keySet (tsfMyCols, i-1) + 1 ;
-      aceOutf (ao, "\t%s", dictName (sampleDict, i1)) ;
-    }
-  
-  for (pass = 0 ; pass < 2 ; pass++)
-    for (ii = 0 ; ii < iiMax ; ii++)
-      {
-	int tag = hit[ii].tag ;
-	const char *tagName ;
+      int sample = up->sample ;
+      int n, tag ;
 	
-	if (!tag || tag == oldTag)
-	  continue ;
-	oldTag = tag ;
+      aceOutf (ao, "%d", ii+1) ;  /* line number */
+      if (tsf->noMerge)
+	{
+	  char *cr, *ccp = (char *) dictName (sampleDict, sample) ; /* hack unprotect the dictName */
+	  cr = strstr (ccp, "#_#_#") ;
+	  *cr = 0 ;
+	  aceOutf (ao, "\t%s", ccp) ;
+	  *cr = '#' ;
+	}
+      else
+	aceOutf (ao, "\t%s", dictName (sampleDict, sample)) ;
+
+      /* locate all lines corresponding to this sample */
+      for (jj = ii, vp = up ; jj < iiMax && vp->sample == sample ; vp++, jj++)
+	;
+      jjMax = jj ;
+      jj = ii ; vp = up ;
+
+      for (tag = 1 ; tag <= tagMax ; tag++)
+	{
+	  char *sep = "" ;
+
+	  /* locate the relevant tag, it may be absent */
+	  /* it is probably the next tag */
+	  if (0)
+	    for ( ; jj < jjMax ; vp++, jj++)
+	      if (vp->tag == tag)
+		break ;
+
+	  if (jj >= jjMax || vp->tag != tag) /* tough luck, rescan the group */
+	    for (jj = ii, vp = up ; jj < jjMax ; vp++, jj++)
+	      if (vp->tag == tag)
+		break ;
+
+	  aceOut (ao, "\t") ;    /* always create a cell */
+	  if (vp->tag != tag || ( (vp->flag & 1) == 0))
+	    {
+	      if (NA) 
+		aceOut (ao, NA) ;
+	      continue ;
+	    }
+
+	  /* export the cell */
+	  for (n = 0 ; n < vp->n ; n++)   /* subcell counter */
+	    {
+	      if (vp->flag & (1 << n))  /* available data */
+		{
+		  aceOut (ao, sep) ;
+		  sep = "," ;
+		  switch (vp->types[n])
+		    {
+		    case 'i':
+		    case 'c':
+		    case 'I':
+		    case 'C':
+		      aceOutf (ao, "%ld", vp->x[n]) ;
+		      break ; 
+		    case 'f':
+		      aceOutf (ao, "%g", vp->z[n]) ;
+		      break ; 
+		    default:
+		      k = vp->x[n] ;
+		      aceOutf (ao, "%s", dictName (valDict, k)) ;
+		      break ;
+		    }
+		  /* export only once */
+		  vp->flag ^= (1 << n) ;
+		}
+	    }
+	}
+      aceOut (ao, "\n") ;
+    }
+# ifdef JUNK
+
+
 	tagName = dictName (tagDict, tag) ;
 	if (pass == 0 && ! strncmp (tagName, "P_", 2))
 	  continue ;
 	if (pass == 1 && strncmp (tagName, "P_", 2))
 	  continue ;
-	
-	aceOutf (ao, "\n%s", dictName (tagDict, tag)) ;
-	
-	for (kk = 1 ; kk <= sampleMax ; kk++)
-	  {
-	    BOOL ok = FALSE ;
-	    
-	    k1 = keySet (tsfMyCols, kk-1) + 1 ;
-	    for (jj = ii ; jj < iiMax && hit[jj].tag == tag ; jj++)
-	      if (hit[jj].sample == k1)
-		{
-		  int i, k, n = hit->n ;
-		  char* sep = "\t" ;
-		  for (i = 0 ; i < n ; i++)
-		    {
-		      aceOut (ao, sep) ;
-		      switch (hit->types[i])
-			{
-			case 'i':
-			  aceOutf (ao, "%ld", hit[jj].x[i]) ;
-			  break ; 
-			case 'f':
-			  aceOutf (ao, "%0f", hit[jj].z[i]) ;
-			  break ; 
-			default:
-			  k = hit[jj].x[i] ;
-			  aceOutf (ao, "%s", dictName (valDict, k)) ;
-			  break ;
-			}
-		      sep = "," ;
-		    }
-		  ok = TRUE ;
-		  break ;
-		}
-	    if (! ok)
-	      {
-		aceOut (ao, "\t") ;
-	      }
-	  }
-      }
-# ifdef JUNK
+
   /* to be used for pass == 1 */
   /* export the tag percentages */
   for (i = 1 ; i < hasP ; i++)
@@ -1032,64 +1240,6 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 
   // la suite je sais pas a quoi cela sert (2020-08-07 */
 
-  for (ii = kk = sample = 0 ; ii < iMax ; ii++)
-    {
-      int i ;
-      int same = - keySetMax (skip) ;
-      HIT hh = hit[ii] ;
-      
-      { /* switch */
-	vTXT v = txt ; txt = oldTxt ; oldTxt = v ; 
-      } 
-      vtxtClear (txt) ;
-      if (hh.sample != sample)
-	{
-	  if (sample)  /* complete the previous line */
-	    for ( ; kk < kMax ; kk++)
-	      vtxtPrintf (txt, "\t") ;
-	  kk = 0 ;
-	  sample = hh.sample ;
-	}
-    
-      if (tsf->sampleDepth < 2)
-	{
-	  vtxtPrintf (txt, "\n%s", dictName (sampleDict, sample)) ;
-	  kk++ ;
-	  same = tsfSame (same, kk, txt, oldTxt) ;
-	}
-      else
-	{
-	  char *cq, *cp = strnew (dictName (sampleDict, sample), 0) ;
-	  char *sep = "\n" ;
-	  
-	  for (i = 0 ; i < tsf->sampleDepth ; i++)
-	    {
-	      vtxtPrint(txt, sep) ;
-	      if (cp)
-		{
-		  cq = strstr (cp, "..") ;
-		  if (cq) 
-		    *cq = 0 ;
-		  vtxtPrintf (txt, "%s", cp) ;
-		  kk++ ;
-		  same = tsfSame (same, kk, txt, oldTxt) ;
-		}
-	      sep = "\t" ;
-	      if (cq) cp = cq + 2 ;
-	      else cp = 0 ;
-	    }
-	}
-      
-      
-      for (i = 0 ; i <= tagMax ; i++)
-	{
-	  int k, jMax = keySet (tsf->tagDepth, i) ;
-	  for (j = 0 ; j < jMax ; j++)
-	    switch (hit->types[i])
-	      {
-	      }
-	  same = tsfSame (same, kk, txt, oldTxt) ;
-	}
       
       /* export the percentages */
       for (i = 1 ; i < hasP ; i++)
@@ -1110,7 +1260,7 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 	  
 	  for (j = 1 ; j < jMax ; j++)
 	    {
-	      float zj = (hit->types[i] == 'i' ? hit->x[i] : hit->z[i]) ;
+	      double zj = (hit->types[i] == 'i' ? hit->x[i] : hit->z[i]) ;
 	      kk++ ; 
 	      vtxtPrintf (txt, "\t") ;
 	      vtxtPercent (txt, z * zj) ;
@@ -1126,6 +1276,7 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 	aceOut (ao, vtxtPtr (txt)) ;
     }
 #endif
+
   aceOut (ao, "\n") ;
   ac_free (h) ;
 
@@ -1134,99 +1285,96 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 
 /*************************************************************************************/
 
-static void tsfTransposeTable (TSF *tsf, ACEOUT ao)
+static void tsfExportDo (TSF *tsf, ACEOUT ao)
 {
-  if (! tsf->transpose)
-    return  tsfExportTable (tsf, ao) ;
-  else
-    { 
-      AC_HANDLE h = ac_new_handle () ;
-      Stack s = stackHandleCreate (10000, h) ;
-      Stack s2 = stackHandleCreate (10000, h) ;
-      ACEOUT bo = aceOutCreateToStack (s, h) ;
-      ACEIN bi ;
-      int ii, jj, iMax, jMax ;
-      Array kss = arrayHandleCreate (10000, KEYSET, h) ;
-      KEYSET ks ;
-      char *sep, *word, cutter ;
-
-      /* export to bo the direct table */
-      tsfExportTable (tsf, bo) ;
-      ac_free (bo) ;
-
-      /* parse the formated table*/
-      bi =  aceInCreateFromText (stackText (s, 0), 0, h) ;
-      aceInSpecial (bi, "\n") ;
-      iMax = jMax = 0 ;
-      while (aceInCard (bi))
-	{
-	  ks = array (kss, iMax++, KEYSET) = keySetHandleCreate (h) ; ; 
-	  jj = -1 ;
-
-	  while (1)
-	    {
-	      int k = stackMark (s2) ;
-	      cutter = 0 ;
-	      aceInStep (bi, '\t') ;
-	      word = aceInWordCut (bi, "\t", &cutter) ;
-	      jj++ ;
-	      if (0) fprintf (stderr, "%s :: ii=%d jj=%d k=%d\n", word, iMax,jj,k) ;
-	      keySet (ks, jj) = k ;
-	      if (word)
-		pushText (s2, word) ;
-	      if (jj + 1 > jMax)
-		jMax = jj + 1 ;
-	      if (cutter != '\t')
-		break ;
-	    }
-	}
-      ac_free (bi) ;
-
-      /* export a transposed table */
-      sep = "" ;
-      for (jj = 0 ; jj < jMax ; jj++)
-	{
-	  for (ii = 0 ; ii < iMax ; ii++)
-	    {
-	      ks = array (kss, ii, KEYSET) ; 
-	      if (ks && jj < keySetMax (ks))
-		word = stackText (s2, keySet (ks, jj)) ;
-	      else
-		word = "" ;
-	      aceOutf (ao, "%s%s", sep, word) ;
-	      sep = "\t" ;
-	    }
-	  sep = "\n" ;
-	}
-      aceOutf (ao, "%s", sep) ;
-  
-      ac_free (h) ;
+  if (tsf->isTableOut)
+    {
+myDict = tsf->sampleDict ;
+      bigArraySort (tsf->hits, tsfSampleOrder) ; /* always needed, to sort the tags */
+      tsfExportTable (tsf, ao) ;
     }
-  return ;
-}  /* tsfTransposeTable */
+  else
+    {
+      if (! tsf->sortCommand)
+	bigArraySort (tsf->hits, tsfTagOrder) ;
+      tsfExportTsf (tsf, ao) ;
+    }
+} /* tsfExportDo */
+
+/*************************************************************************************/
+
+static void tsfTranspose (TSF *tsf)
+{
+  DICT *dict ;
+  HIT *hit = bigArrp (tsf->hits, 0, HIT) ; ;
+  long int i, iMax = bigArrayMax (tsf->hits) ;
+
+  dict = tsf->sampleDict ; tsf->sampleDict = tsf->tagDict ; tsf->tagDict = dict ;
+
+  for (i = 0 ; i < iMax ; i++)
+    {
+      HIT h = hit[i] ;
+      int x = h.sample ; h.sample = h.tag ; h.tag = x ;
+    }
+} /* tsfTranspose */
 
 /*************************************************************************************/
 
 static void tsfExport (TSF *tsf)
 {
   AC_HANDLE h = ac_new_handle () ;
-  ACEOUT ao = aceOutCreate (tsf->outFileName, tsf->isTableOut ? ".txt" : ".tsf", tsf->gzo, h) ;
+  ACEOUT ao = 0 ;
+  
+  char *fName = tsf->outFileName 
+    ? hprintf (h, "%s%s"
+	       , tsf->outFileName
+	       , tsf->isTableOut ? ".txt" : ".tsf"
+	       ) 
+    : 0 
+    ;
+  
+  ao = aceOutCreate (fName, 0, tsf->gzo, h) ;
 
-  if (ao)
+  if (tsf->transpose)
+    tsfTranspose (tsf) ;
+
+  tsfExportCaption (tsf, ao) ;
+  
+  if (tsf->sortCommand)
     {
-      tsfExportCaption (tsf, ao) ;
-      if (tsf->isTableOut)
+      const char* command ;
+
+      if (tsf->outFileName)
 	{
-	  bigArraySort (tsf->hits, tsfTagOrder) ;
-	  tsfChronoOrder (tsf) ; /* used to position tsfMyLines/Cols */
-	  tsfTransposeTable (tsf, ao) ;
+	  ac_free (ao) ;
+	  command = hprintf (h, "sort %s %s  >>  %s%s"
+			     , tsf->sortCommand 
+			     , tsf->gzo ? " | gzip " : ""
+			     , fName
+			     , tsf->gzo ? ".gz" : ""
+			     ) ;
+	  ao = aceOutCreateToPipe (command, h) ;
 	}
+      else if (! tsf->gzo)
+	{
+	  command = hprintf (h, "sort %s "
+			     , tsf->sortCommand 
+			     ) ;
+	  ao = aceOutCreateToPipe (command, h) ;
+	}  
       else
 	{
-	  bigArraySort (tsf->hits, tsfTagOrder) ;
-	  tsfExportTsf (tsf, ao) ;
-	}
+	  command = hprintf (h, "sort %s %s "
+			     , tsf->sortCommand 
+			     , tsf->gzo ? " | gzip " : ""
+			     ) ;
+	  ao = aceOutCreateToPipe (command, h) ;
+	}  
+
     }
+  tsfExportDo (tsf, ao) ;
+      
+
   ac_free (h) ;
 } /* tsfExport */
 
@@ -1236,153 +1384,233 @@ static void tsfExport (TSF *tsf)
 /* sample -sample NA12878MOD -laneList tmp/TSNP/NA12878MOD/LaneList -t 20 -target_fasta TARGET/CHROMS/hs.chrom_20.fasta.gz -t1 25000001 -t2 30010000 -minSnpFrequency 18 -minSnpCover 10 -minSnpCount 4 -target_class Z_genome -o tata -maxLanes 4
  */
 
-static void usage (const char commandBuf [], int argc, const char **argv)
+static void usage (FILE *out, const char commandBuf [], int argc, const char **argv)
 {
   int i ;
 
-  fprintf (stderr,
+  fprintf (out,
 	   "// tsf: A generic tool to manipulate numeric data and tables\n"
 	   "//   Contact: Jean  Thierry-Mieg, NCBI  mieg@ncbi.nlm.nih.gov\n"
 	   "//   This code is public and distributed without restrictions or guarantees\n"
 	   "// Usage: tsf [parameters] [-i <file_list>] [-o <output>]\n"
 	   "//      try: -h --help -v --version\n"
 	   "// Examples:\n"
-	   "//     tsf -i f1.tsf,f2.tsf\n"
-	   "//       Merge several .tsf files\n"
-	   "//     tsf -i f1.tsf,f2.tsf --group my_group_of_samples\n"
-	   "//       For each tag, cumul counts of all samples\n"
-	   "//     tsf -i f1.tsf -O table -o my_table\n"
+	   "//     tsf -i f1.tsf,f2.tsf,f3.tsf\n"
+	   "//       Combine three .tsf files, into a single one while\n"
+	   "//       adding up the numerical values with corresponding captions\n"
+	   "//       Many other operations are possible (see below).\n"
+	   "//     tsf -i f1.tsf,f2.tsf --setSample newSampleName\n"
+	   "//       For each tag, combine the counts of all samples\n"
+	   "//     tsf -i f1.tsf -O tabular -o my_table\n"
 	   "//       Import a tsf file, export a table called my_table.txt\n"
-	   "//     tsf -I table -i f1.txt,f2.txt\n"
+	   "//     tsf -I tabular -i f1.txt,f2.txt\n"
 	   "//       Merge several tables into a probably larger table\n"
 	   "//       adding up the values with corresponding captions\n"
-	   "//     tsf -I table --transpose --lineSelect a,b,c --colSelect A,B\n"
+	   "//     tsf -I tabular --transpose --lineSelect a,b,c --colSelect A,B\n"
 	   "//       Manipulate a generic tab delimited table\n"
+	   "//     tsf -i f1.tsf,f2.tsf,f3.tsf  --no_merge\n"
+	   "//       Combine and sort the files, maintain the original lines\n"
+	   "//\n"
 	   "// INPUT:\n"
-	   "//   -i <file_list> : short form of\n"
-	   "//   --in_file_list <file_list>\n"
-	   "//     A comma delimited list of input files, for example\n"
-	   "//       -i f1,f2,f3\n"
-	   "//     otherwise, read the data from stdin\n"
+	   "//   Default: read from stdin.\n"
+	   "//   -i, --in_file_list <file_list>\n"
+	   "//      A comma delimited list of input files, for example\n"
+	   "//       -i f1.tsf,f2.tsf,f3.tsf\n"
 	   "//   -f <file_name> : file of file names\n"
-	   "//      File contains a list of files, coma or space or tab or line separated\n"
+	   "//      File contains a list of files, comma or space or tab or line separated\n"
 	   "//      ATTENTION all file names must be local or fully qualified starting at /\n"
 	   "//   --gzi\n"
-	   "//     gunzip the input\n"
-	   "//       This is automatic for all input files called .gz\n"
-	   "//       The option is useful when reading stdin, or a file not named .gz\n"
+	   "//      gunzip the input\n"
+	   "//      This is automatic for all input files called .gz\n"
+	   "//      The option is useful when reading stdin, or a file not named .gz\n"
 	   "// INPUT FORMAT:\n"
-	   "//   -I [tsf|table]: short form of\n"
-	   "//   --In_format [tsf|table] : default tsf\n"
-	   "//     The input files are provided in tsf or in table format (defined below)\n"
-	   "// OUPUT FORMAT:\n"
-	   "//   -O [tsf|table]: short form of\n"
-	   "//   --Out_format [tsf|table] : default tsf\n"
-	   "//     The output files are exported in tsf or in table format (defined below)\n"
-	   "// OUPUT:\n"
-	   "//   -o <file_name>: short form of\n"
-	   "//   --out <file_name>\n"
-  	   "//   --gzo : the output files will be gzipped\n"
-	   "//     Depending on -O and -gzo, export to file_name[.tsf|.txt][.gz]\n"
-	   "//     If there is no -o paramater, export to stdout\n"
-	   "// TSF FORMAT:  -I tsf -O [tsf|table]\n"
-	   "//     The tsf format is a very simple autocumulative format\n"
-	   "//        tag sample format values\n"
-	   "//     Where the format announces the number/types of values. Example\n"
-	   "//        tag sample 5 x1 x2 x3 ... xn\n"
-	   "//     Where n (n<=24) is the number of xi fields on this line and all\n"
-	   "//     xi are long signed integral numbers: ...,-2,-1,0,1,2,...\n"
-	   "//     The formats are i (integer), f (float), t (text)\n"
-	   "//     using a capital (IFT) allows mutivalued fields\n"
-	   "//     a number can be used to repeat a field: 5t3i == tttttiii\n"
-	   "//     a number with no letter defaults to integer: 3 == 3i == iii\n"
-	   "//   -i file_list -I tsd -O tsf\n"
-	   "//     Merge .tsf files, for example tsf files exported by this program.\n"
-	   "//     For example, if a large experiment is split in data batches and\n"
-	   "//     each batch produces a .tsf file, merging the files will provide\n"
-	   "//     the global counts of the experiment. Example:"
+	   "//   -I, --In_format [tsf|tabular] : default tsf\n"
+	   "//      The input files are provided in tsf or in tabular format (defined below)\n"
+	   "//\n"
+	   "// OUTPUT:\n"
+	   "//   Default: export to stdout\n"
+	   "//   -o, --out <file_name>\n"
+  	   "//   --gzo : the output file will be gzipped\n"
+	   "// OUTPUT FORMAT:\n"
+	   "//   -O [tsf|tabular]: short form of\n"
+	   "//   --Out_format [tsf|tabular] : default tsf\n"
+	   "//     The output files are exported in tsf or in tabular format (defined below)\n"
+	   "//     Examples:\\"
+	   "//       tsf -o foobar                      exports foobar.tsf\n"
+	   "//       tsf -o foobar -gzo                 exports foobar.tsf.gz\n"
+	   "//       tsf -o foobar -gzo -O tabular      exports foobar.txt.gz\n"
+	   "//       tsf -I tsf -O tabular              reformat a tsf file as a table\n"
+	   "//\n"
+	   "// TITLE AND CAPTIONS :   common to tsf and tabular formats\n"
+	   "//    The program exports at the top of each file several lines of metadata\n"
+	   "//      ### Title data file-name\n"
+	   "//      ##  Captions when available\n"
+	   "//      #   Ordered list or tags, which serve as column titles in tabular mode\n"
+	   "//    When reading data,\n"
+	   "//      The title is recovered from the first available ### line\n"
+	   "//      The captions are recovered from the ## lines, dropping the duplicates\n"
+	   "//      The tag list accumulates the tags foung in the # lines, droping doubles\n"
+	   "//    The title can be created or reset via\n"
+	   "//     they are reexported as is, in the same order, ignoring duplicated lines.\n"
+	   "//   -t, --title <title> : set a descriptive title for the table\n"
+	   "//   --sample_title <sample_title> : set the title for the sample column\n"
+	   "//     The captions can be eliminated with the option\n"
+	   "//   --no_caption  : eliminate all caption lines\n"
+	   "//     or cleaned up then reset by including in the input stream a line\n"
+	   "//   ## CLEAN \n"
+	   "//     optionally followed by the desired new ## caption lines\n"
+	   "//\n"
+	   "// TSF FORMAT: (default input and output format)\n"
+	   "//     The tsf files are multivalued, self-descriptive and line oriented.\n"
+	   "//     Each data line of the file (see examples below)  has the structure:\n"
+	   "//       tag sample cell-format values\n"
+	   "//     and can be thought of as a 2 dimensional table with\n"
+	   "//       line and column names given in the first 2 columns\n"
+	   "//       followed by a cell-format (defined below)\n"  
+	   "//       followed by the data for the corresponding cell.\n"
+	   "//   #  tag tag tag : in TSF format, this line is optional.\n"
+	   "//      It is generated automatically and can be manually altered\n"
+	   "//      to optimize the ordering of the tags in the output file\n"
+	   "//      for example before generating a table (-O tabular)\n"
+	   "//      This line is equivalent and overridden by --tagSelect (see below)\n"
+	   "// TABULAR FORMAT: (alternative format specified as -I tabular or -O tabular)\n"
+	   "//   #  tag tag tag : this line, with a single #, must appear before the data\n"
+	   "//     Each tag is equivalent to column one of the tsf format defined above\n"
+	   "//     The most recent line starting with single # is treated as the current\n"
+	   "//     list of tags used to interpret the data lines. This provides an easy \n"
+	   "//     way to merge tables with different sets of columns, into a larger table\n"
+	   "//   # FORMAT format   : optional line defining the cell-format as defined below\n"
+	   "//   --format <format> : force a cell-format  on the table\n"
+	   "//     If neither is provided, data manipulations or tsf exportations are forbidden,\n"
+	   "//     the only allowed operation are: tagSelect, tagRename, transpose, sort\n"
+	   "//\n"
+	   "// CELL FORMAT:  \n"
+	   "//     The cell-format indicates the number of columns and their types.\n"
+	   "//     Types: i (integer), f (float), c (coordinate), t (text).\n"
+	   "//            IFCT upper-case types allow comma separated multivalued fields.\n"
+	   "//             All numbers are treated using 64bits double precision.\n"
+	   "//       A number can be used to repeat a field: 5t3i == tttttiii\n"
+	   "//     Example of a 3 lines tsf file:\n"
 	   "//     Input:\n"
-	   "//        Tag1 sample_1 2  200 124\n"
-	   "//        Tag1 sample_1 2  60  41\n"
-	   "//     Command: tsf \n"
+	   "//        Cars\tToyota\tii\t200\t13\n"
+	   "//        Cars\tNissan\tii\t30\t70\n"
+	   "//        Cars\tToyota\tii\t60\t41\n"
+	   "//     Command: tsf --merge # cumulate corresponding numeric cells\n"
 	   "//     Output:\n"
-	   "//        Counts Tag1 sample_1 2 260 165\n"
+	   "//        Cars\tToyota\tii\t260\t54\n"
+	   "//        Cars\tNissan\tii\t30\t70\n"
+	   "//     Mote that the number of tag sample pairs, i.e. the size of the table, is\n"
+	   "//     not limited, however the maximal number of values in a given cell is 24.\n"
 	   "//\n"     
-	   "// ACTION\n"
-	   "//       When several lines in single file or in separate files refer to\n"
-	   "//     the same tag and same sample, one must decide how to merge the values\n"
-	   "//       t : single valued text, the last value wins.\n"
-	   "//           a  a => a\n"
-	   "//           a  b => b\n"
-	   "//       T : muti valued text: join removing duplicates\n"
-	   "//           a  a => a\n"
-	   "//           a  b => a,b\n"
-	   "//       i : [--sum: default] add corresponding values.\n"
-	   "//           17  17 => 34\n"
-	   "//           17  31 => 48\n"
-	   "//       i : [--replace] last value wins\n"
-	   "//           17  17 => 17\n"
-	   "//           17  31 => 31\n"
-	   "//       I : muti valued integer: join removing duplicates\n"
+	   "// GROUPING SAMPLES:\n"
+	   "//   -s <sample> : short form of\n"
+	   "//   --setSample <sample>\n"
+	   "//     If a \'sample\' is provided, it is forced on each cell, allowing\n"
+	   "//     to cumulate the counts of all samples for each given tag.\n"
+	   "//   Example using the same input as above:\n"
+	   "//     Command: tsf --setSample Japanese_cars\n"
+	   "//     Output:\n"
+	   "//        Cars\tJapanese_cars\tii\t290\t124\n"
+
+	   "//\n"
+	   "// TAG SELECTION and RENAMING:\n"
+	   "//   --tagRename <list>: example  --tagRename 'c1,d1;c2,d2;c3:d3'\n"
+	   "//     Renames tag c1 as d1, tag c2 as d2 and so on. This applies both to\n"
+	   "//     the tsf and the table format.\n"
+	   "//     Tag renaming is always applied before all other operations.\n"
+	   "//   --tagSelect <list> : \n"
+	   "//     example --tagSelect 't1,t2,t3'\n"
+	   "//       export only tags/columns t1,t2,t3 in that order.\n"
+	   "//     example --tagSelect 't1,t2,t3,*'\n"
+	   "//       export tags/columns t1,t2,t3 then all other columns.\n"
+	   "//     Otherwise, the tags/columns are sorted in order of first occurence\n"
+	   "// SAMPLE SELECTION and ORDERING\n"
+	   "//   --sampleSelect <list> : \n"
+	   "//     example --sampleSelect 's1,s2,s3'\n"
+	   "//       export only lines/samples s1,s2,s3 in that order.\n"
+	   "//     Otherwise, all samples are exported in alphanumeric order\n"
+	   "//   --sort \"parameters\" (specific of the table format)\n"
+	   "//     Calls UNIX sort, to sort the lines of a table.\n"
+	   "//     example   --sort \"-k 1,1 -k 2,2 -k 5,5n\"\n"
+	   "//     will sort the lines on column 1 (the sample), then 2 (the tag),\n"
+	   "//     then numerically on column 5, following the convention of the unix sort.\n"
+	   "//     This supersedes the order implied by --tagSelect or --sampleSelect\n"
+	   "//\n"
+	   "// MERGE ACTIONS\n"
+	   "//     --noMerge : sort the input while maintaining the original lines\n"  
+	   "//     --merge [default action] : combines corresponding data cells and subcells\n"
+	   "//       For any given tag, cell-formats in different data-lines nust have compatible formats,\n"
+	   "//       for example: tii and ti are compatible, but ti and tti are not.\n"
+	   "//\n"
+	   "//     When several lines refer to the same tag and same sample,\n"
+	   "//     or to the same type and the --merge parameter forces the same sample name,\n"
+	   "//     one must decide how to merge the values in the corresponding cells.\n"
+	   "//     This is controlled by the parameters\n"
+	   "//     --merge    no_cell_format : perform default actions on all cells and subcells\n"
+	   "//       --sum      tag_list       : default action on (i,f) subcells\n"
+	   "//       --replace  tag_list       : default action on t subcells\n"
+	   "//       // --append   tag_list       : default action on T subcells\n"
+	   "//       // --min      tag_list\n"
+	   "//       // --max      tag_list\n"
+	   "//     The tag_list is a comma deflimited list of tags, or the word 'any', for example\n"
+	   "//       --min tag1 --max tag2,tag3\n"
+	   "//       the min and max will be applied on these tags, the default action on all others\n"
+	   "//     For multivalued tags, the subcells are accessed using a square bracket like tag[3]\n"
+
+	   "//     Results of the different actions:\n"
+	   "//       Sum : add numerical values, default merge action for numerical values (i,f)\n"
+	   "//           7  12 => 19       (missing values default to zero)\n"
+	   "//       Replace: last value wins, default merge action for all other types of data (c,t,I,F,C,T)\n"
+	   "//           John Paul => Paul  (missing values are ignored)\n"
+	   "//       // Min: keep the smallest value (single valued types icft),\n"
+	   "//           John Paul => John  (missing values are ignored)\n"
+	   "//       // Max: keep the largest value (single value types icft)\n"
+	   "//           John Paul => Paul  (missing values are ignored)\n"
+	   "//       // Append: union of the 2 lists, ignoring duplicates (multivalued types IFCT)\n"
 	   "//           4,5  4 => 4,5\n"
 	   "//           4,7  5 => 4,5,7\n"
-	   "//     For single valued {i,f} numbers, one can require a calculation\n"
-	   "//   --sum  [default] (add up single valued integers in multiple lines of one or several files)\n"
-	   "//          4 9 => 13\n"
-	   "//   --sumAll  (add up multi valued integers in multiple lines of one or several files)\n"
-	   "//          4 9 / 7 11 => 11 20\n"
-	   "//   --replace : do not add single valued integers\n"
-	   "//          4 9 => 9\n"
-	   "//   --min : take the minimum of correspomding single valued integers\n"
-	   "//          4 9 => 4\n"
-	   "//   --max : take the maximum of correspomding single valued integers\n"
-	   "//          4 9 => 9\n"
-	   "//   --compute \"a + 3*b - c + 7\"  (only for multiple input files)\n"
-	   "//          4 9 5 => 4 + 3*9 - 5 + 7 = 33\n"
-	   "//   The --compute is only valid when parsing a list of files and the\n"
-	   "//   variables a,b,c ... in the equation apply to file 1,2,3 ...\n"
-	   "//   The calculation is applied to each single valued number of the files.\n"
-	   "//   Absent values default as zero. Multi valued numbers {I,F} are merged\n"
-	   "//   as in the examples above, but not computed\n"
-	   "//   -g group_name] : short form of\n"
-	   "//   --group group_name]\n"
-	   "//     This parameters can be used to merge sets of sample into a group\n"
-	   "//     and cumulate the counts in each tag.  Example:\n"
-	   "//     Input:\n"
-	   "//        Tag1 sample_1 2  10  25\n"
-	   "//        Tag2 sample_1 2  20  41\n"
-	   "//        Tag1 sample_2 2  60  30\n"
-	   "//     Command: tsf --group my_group\n"
-	   "//     Output:\n"
-	   "//        Tag1 my_group 2 70 55\n"
-	   "//        Tag2 my_group 2 20  41\n"
-	   "//     Note that the order of the lines is irrelevant, they can come\n"
-	   "//     from a single file or from differentt files of the -i file list\n"
+	   "//\n"
+	   "// COMPUTE   (not yet programmed)\n"
+	   "//     In addition, one may set missing values or compute certain columns\n"
+	   "//       // --missing  any=value | tag=value,tag=value,...\n"
+	   "//       // --compute  [ignore]  tag=equation,tag=equation\n"
+	   "//       --file_compute  tag=equation,tag=equation\n"
+	   "//     For single valued {i,f} numbers, when merging multiple files,\n"
+	   "//     one can require a calculation combining the files as follows:\n"
+	   "//       // --compute tag=\"tag1 + 3 * tag2 - tag3/100\"\n"
+	   "//            will compute a new value for tag according to the vaules of tag,tag2,tag3\n"
+	   "//       --file_compute tag=\"a + 3*b - c + 7\" \n"
+	   "//     for example, if the same cell in the 3 files has the values:\n"
+	   "//            4 9 5,  the exported value is:  4 + 3*9 - 5 + 7 = 33\n"
+	   "//   The --file_compute is only valid when parsing a list of files and the\n"
+	   "//   variables a,b,c ... in the equation refer to file 1,2,3 ...\n"
+	   "//   The calculation is applied just to the given tag\n"
+	   "//     Missing values must be given a default value before they are used in an equation\n"
+	   "//     unless the [ignore] is specified, and any missing value in the equation returns NULL\n"
+	   "//   All other tags not listed as an equation are merged\n"
+	   "//\n"
+	   "//   It is recommended to run oly one complex operation at a time to avoid side effects\n"
+	   "//\n"
+	   "// PERCENTAGES\n"
 	   "//   P_ and _P_ percentage tags\n"
 	   "//     Tags called P_ have a special meaning\n"
 	   "//     They follow the standard format and are cumulated as usual\n"
-	   "//     But the first field is expected to be the denominator of the other\n"
-	   "//     columns and whenever a tag P_ is encountered, the program also\n"
+	   "//     But the first field is expected to be the denominator of all the other\n"
+	   "//     numerical columns and whenever a tag P_ is encountered, the program also\n"
 	   "//     exports a _P_ line with the corresponding percentages.\n"
 	   "//     Please notice that on input the _P_ tags are ignored,\n"
 	   "//     and recomputed from the final values in the corresponding P_ lines\n"
-	   "//   -O tsf : default, the data are exported in tsf format\n"
-	   "//   -O table : Transforms a tsf file into a table format\n"
-	   "//     When a tag is mutivalued, the columns are called Tag:1, Tag:2, Tag:3\n"
-	   "//     or by subtags, if the tag name contains : characters. For example\n"
-	   "//        A:B:C name 5 110 11 22 33 44\n"
-	   "//     will be exported as a table with column names A B C:1 C:2 C:3\n"
-	   "//     If the input tag is called P_ the percentages are also exported. e.g.\n"
-	   "//        P_A:B:C name 5 110 11 22 33 44\n"
-	   "//     will be exported as columns %%A %%B %%C:1 %%C:2 %%C:3\n"
-	   "//     with values 100%%  10%%  20%% 30%% 40%%\n"
-	   "// SEPARATORS:\n"
+	   "// SEPARATORS: advanced geek options, used only when parsing the input file\n"
+	   "//  this whole section must be revised, it is completely obscure\n"
+	   "//  --FS <sep>: short form of\n"
+	   "//  --fieldSeparator : default \\t (tab character)\n"
+	   "//      separates columns in tables and T,S,F,value fields in TSF format\n"
 	   "//  --TS <sep>: short form of\n"
 	   "//  --tagSeparator : default : (column character)\n"
 	   "//  --SS <sep>: short form of\n"
 	   "//  --sampleSeparator : default : (column character)\n"
-	   "//     allows to name each subfield of a mutivalued tag\n"
-	   "//     and to mname the sample hierarchically. Example\n"
+	   "//     allows to name each subfield of a multivalued tag\n"
+	   "//     and to name the sample hierarchically. Example\n"
 	   "//       Top_speed:Mileage Ford:model_T:1911  fi 43.3  20\n"
 	   "//     The fi format announces 2 value (float, int)\n"
 	   "//     namely the speed and mileage of a Ford, model_T from 1911\n"
@@ -1390,67 +1618,34 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//  --valueSeparator : default , (comma character)\n"
 	   "//     separates multivalued values. Example\n"
 	   "//       Color Ford:Mustang:1980 T red,blue,yellow\n"
-	   "//     The T format announces a possibly mutivalued text\n"
-	   "//  --FS <sep>: short form of\n"
-	   "//  --fieldSeparator : default \\t (tab character)\n"
-	   "//      separates columns in tables and T,S,F,value fields in TSF format\n"
-	   "// TABLE FORMAT: -I table -O [tsf|table]\n"
-	   "//   -t  <title> : short form of\n"
-	   "//   --title <title> : provide a title for the table\n"
-	   "//   ### Automatically set file identifier: filename, title and date.\n"
-	   "//     Lines starting with ### are ignored when reading a file\n"
-	   "//   ##  Table caption. Lines starting with ## are treated as caption lines,\n"
-	   "//     they are reexported as is, in the same order, ignoring duplicated lines.\n"
-	   "//   ## SAMPLE A:B provide the title for the sample column(s)\n"
-	   "//   #   Column caption. The most recent line starting with # is treated as a\n"
-	   "//     list of tags used to interpret the following lines. This provides an easy \n"
-	   "//     way to merge tables with different sets of columns, into a larger table\n"
-	   "//   All other lines start with a \"sample\" name, followed by values\n"
-	   "// TAG SELECTION and RENAMING:\n"
-	   "//   --tagRename <list>: example  --tagRename 'c1,d1;c2,d2;c3:d3'\n"
-	   "//     Renames tag c1 as d1, tag c2 as d2 an so on. This applies to the tag names\n"
-	   "//     in tsf format and to the column names in table format.\n"
-	   "//     Tag renaming is always applied before all other operations.\n"
-	   "//   --tagSelect <list> : \n"
-	   "//     example --tagSelect 't1,t2'\n"
-	   "//       export only tags/columns t1,t2 in that order.\n"
-	   "//     example --tagSelect 't1,t2,t3,*'\n"
-	   "//       export tags/columns t1,t2,t3 then all other columns.\n"
-	   "//     Otherwise, the tags/columns are exported in order of first occurence\n"
-	   "// SAMPLE SELECTION and ORDERING\n"
-	   "//   --sampleSelect <list> : \n"
-	   "//     example --sampleSelect 's1,s2,s3'\n"
-	   "//       export only lines/samples s1,s2,s3 in that order.\n"
-	   "//     example --sampleSelect 's1,s2,s3,*'\n"
-	   "//       export lines/samples s1,s2,s3 then all other samples.\n"
-	   "//     Otherwise, the samples/lines are exported in order of first occurence\n"
-	   "//   --sort \"parameters\"\n"
-	   "//     Calls UNIX sort, to sort the lines of a table.\n"
-	   "//     example   --sort \"-k 1,1 -k 3,3n\"\n"
-	   "//     sort the lines on column 1, then numerically on column 3\n"
-	   "//     This supersedes the order implied by --sampleSelect\n"
+	   "//     The T format announces a possibly multivalued text\n"
+	   "//  --NA --non_available <na> [default empty]\n"
+	   "//     In tabular mode, export <na> in blank cells\n"  
+	   "//\n"
 	   "// PRESENTATION: TRANSPOSITION and  line skipping\n"
 	   "//   --transpose\n"
 	   "//       Transpose a table, exchanging lines and columns, i.e. tags and samples.\n"
-	   "//   --skip[123] <column number> : skip lines\n"
-	   "//         example:  --skip2 4\n"
-	   "//     export 2 blank lines each time there is a new value in columns 1 to 4\n"
+	   "//   --skip[123]  <constant fields>\n"
+	   "//       Skip n=1,2,3 lines when there is a change in a given list of columns\n"
+	   "//         example:  --skip3 4 --skip1 1 6\n"
+	   "//     export three blank lines if the data in a column<=4 vary, one for a column<=6\n"
+	   "//\n"
 	   "// HELP\n"
 	   "//    -h : short form of \n"
-	   "//    --help : this on line help\n"
+	   "//    --help : this online help\n"
 	   ) ;
 
   
   if (argc > 1)
     {
-      fprintf (stderr,
+      fprintf (out,
 	       "//\n// You said: %s\n", commandBuf) ;
-      fprintf (stderr,
+      fprintf (out,
 	       "// ########## ERROR: Sorry, I do not understand the argument%s ", argc > 2 ? "s" : "") ;
       for (i = 1 ; i < argc ; i++)
-	fprintf (stderr, "%s ", argv[i]) ;
-      fprintf (stderr, "// Please try : tsf -h or tsf --help\n") ;
-      fprintf (stderr, "\n") ;
+	fprintf (out, "%s ", argv[i]) ;
+      fprintf (out, "// Please try : tsf -h or tsf --help\n") ;
+      fprintf (out, "\n") ;
     }
   exit (1) ;
 } /* usage */
@@ -1473,12 +1668,12 @@ int main (int argc, const char **argv)
   tsf.h = h ;
  
   if (argc < 2)
-    usage (commandBuf, argc, argv) ;
+    usage (stderr, commandBuf, argc, argv) ;
   if (getCmdLineBool (&argc, argv, "-help") ||
       getCmdLineBool (&argc, argv, "--help")||
       getCmdLineBool (&argc, argv, "-h")
       )
-    usage (commandBuf, 1, argv) ;
+    usage (stdout, commandBuf, 1, argv) ;
   if (getCmdLineBool (&argc, argv, "-v") ||
       getCmdLineBool (&argc, argv, "--version")
       )
@@ -1499,7 +1694,7 @@ int main (int argc, const char **argv)
   if (getCmdLineOption (&argc, argv, "-O", &(ccp)) || getCmdLineOption (&argc, argv, "--Out_format", &(ccp)))
     {
       if (! strcmp (ccp, "tsf")) ;
-      else if (! strcmp (ccp, "table"))
+      else if (! strcmp (ccp, "tabular"))
 	tsf.isTableOut = TRUE ;
       else
 	{
@@ -1510,7 +1705,7 @@ int main (int argc, const char **argv)
   if (getCmdLineOption (&argc, argv, "-I", &(ccp)) || getCmdLineOption (&argc, argv, "--In_format", &(ccp)))
     {
       if (! strcmp (ccp, "tsf")) ;
-      else if (! strcmp (ccp, "table"))
+      else if (! strcmp (ccp, "tabular"))
 	tsf.isTableIn = TRUE ;
       else
 	{
@@ -1525,6 +1720,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--sort", &(tsf.sortCommand)) ;
 
   tsf.merge = getCmdLineBool (&argc, argv, "-m") || getCmdLineBool (&argc, argv, "--merge") ;
+  tsf.noMerge = getCmdLineBool (&argc, argv, "--no_merge") ;
   tsf.replace = getCmdLineBool (&argc, argv, "--replace") ;
   tsf.min = getCmdLineBool (&argc, argv, "--min") ;
   tsf.max = getCmdLineBool (&argc, argv, "--max") ;
@@ -1533,10 +1729,11 @@ int main (int argc, const char **argv)
   tsf.chronoOrder = getCmdLineBool (&argc, argv, "--chronoOrder") ;
   getCmdLineOption (&argc, argv, "--compute", &(tsf.compute)) ;
 
-  getCmdLineOption (&argc, argv, "--group", &(tsf.sample)) ;
-  getCmdLineOption (&argc, argv, "-g", &(tsf.sample)) ;
+  getCmdLineOption (&argc, argv, "--setSampole", &(tsf.sample)) ;
+  getCmdLineOption (&argc, argv, "-s", &(tsf.sample)) ;
   getCmdLineOption (&argc, argv, "-t", &(tsf.title)) ;
   getCmdLineOption (&argc, argv, "--title", &(tsf.title)) ;
+  getCmdLineOption (&argc, argv, "--sample_title", &(tsf.sample_title)) ;
 
   tsf.tagSeparator    = ":" ;
   tsf.sampleSeparator = ":" ;
@@ -1546,14 +1743,23 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--SS", &(tsf.sampleSeparator)) ;
   getCmdLineOption (&argc, argv, "--VS", &(tsf.valueSeparator)) ;
   getCmdLineOption (&argc, argv, "--FS", &(tsf.fieldSeparator)) ;
+  getCmdLineOption (&argc, argv, "--NA", &(tsf.NA)) ;
   getCmdLineOption (&argc, argv, "--tagSeparator", &(tsf.tagSeparator)) ;
   getCmdLineOption (&argc, argv, "--sampleSeparator", &(tsf.sampleSeparator)) ;
   getCmdLineOption (&argc, argv, "--valueSeparator", &(tsf.valueSeparator)) ;
   getCmdLineOption (&argc, argv, "--fieldSeparator", &(tsf.fieldSeparator)) ;
+  getCmdLineOption (&argc, argv, "--non_available", &(tsf.NA)) ;
 
   getCmdLineInt (&argc, argv, "--skip1", &tsf.skip1) ;
   getCmdLineInt (&argc, argv, "--skip2", &tsf.skip2) ;
   getCmdLineInt (&argc, argv, "--skip3", &tsf.skip3) ;
+
+  if (tsf.noMerge && tsf.transpose)
+    {
+      fprintf (stderr, "Sorry, arguments no_merge and transpose are incompatible\n") ;
+      exit (1) ;
+    }
+    
 
   if (argc > 1)
     {
@@ -1566,7 +1772,8 @@ int main (int argc, const char **argv)
   
   tsfInit (&tsf) ;
   tsfParse (&tsf) ;
-  tsfMerge (&tsf) ;
+  if (! tsf.noMerge)
+    tsfMerge (&tsf) ;
   tsfExport (&tsf) ;
 
   if (tsf.tagDict)

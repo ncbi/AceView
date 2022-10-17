@@ -446,7 +446,7 @@ BOOL dictAdd (_DICT *dict, const char *s, int *ip)
 /********************** utilities ***********************/
 /* dictName returns a pointer that never gets reallocated */
 
-const char *dictName (_DICT *dict, int ii)
+const char *dictName (const _DICT *dict, int ii)
 {
   KEY key ;
 
@@ -465,17 +465,17 @@ const char *dictName (_DICT *dict, int ii)
   return dictKey2Name(dict, key) ;
 } /* dictName */
 
-int dictCount (_DICT *dict)
+int dictCount (const _DICT *dict)
 {
   return dict->count ;   /* number of active names */
 }  /* dictMax */
 
-int dictMax (_DICT *dict)   /* max to be used if looping on all entries [1,dictMax] inclusively */
+int dictMax (const _DICT *dict)   /* max to be used if looping on all entries [1,dictMax] inclusively */
 {
   return arrayMax(dict->keys) - 1 ;   /* 0 == reserved pseudo key */
 }  /* dictMax */
 
-void dictStatus (_DICT *dict)
+void dictStatus (const _DICT *dict)
 {
   fprintf(stderr, "DICT status: count = %d max=%d nTables=%d ndVocs=%d nKeys=%d\n"
 	  ,  dict->count, dict->max
