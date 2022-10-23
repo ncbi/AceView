@@ -571,7 +571,7 @@
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  nsCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
                  nuCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
-                 BRS_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency BRS recount
+                 BRS_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int Int  UNIQUE Int Int  UNIQUE Int  #Proba // Coverage Var Ref Var+ Ref+ Var- Ref-  Frequency BRS recount
                  MCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  MBCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery
                  MUCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
@@ -633,9 +633,12 @@
        FQ Not_low  // not 0-10
           Not_mid  // not 10-90
           Not_high // not 90-100
-          Low          //  0_10
-          Mid          //  10_90
-          High         //  90_100
+          Reference    //  0_5
+          Low          //  5_20
+          Mid          //  20_80
+          High         //  80-95
+          Pure         //  95_100
+
 
 #VarStrandRefCount Low  UNIQUE Int UNIQUE Text   UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Text  UNIQUE Float // nb individus measured in this groups, then raw counts Ref+, Ref-, Var+, Var-, chi2
                    Mid  UNIQUE Int UNIQUE Text   UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text  UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text  UNIQUE Text  UNIQUE Float

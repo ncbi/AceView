@@ -118,6 +118,7 @@ typedef struct tsnpCallerTable {
 
   int nAna ; /* default 4, number of analyzers launched in parallel wego */
   DICT *snpDict ;
+  DICT *snpTypeDict ;
   DICT *geneDict ;
   DICT *runDict ;
   DICT *targetDict ;
@@ -1436,7 +1437,7 @@ static void tsnpReportFrequency (ACEOUT ao, ACEOUT ao2, TSNP *tsnp, int line, SN
 	      if (ao2)
 		{ /* tsf export of same data */
 		  aceOutf (ao2, "%s\t%s" , dictName (tsnp->snpDict, up->snp), dictName(tsnp->runDict, ir)) ;
-		  aceOutf (ao2, "\t10\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t%.2f\n", m5,m3,r5,r3,w5,w3, z3,z5,f3, f5) ;
+		  aceOutf (ao2, "\t10i\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t%.2f\n", m5,m3,r5,r3,w5,w3, z3,z5,f3, f5) ;
 		}
 	    }
 	  if (ao)
@@ -2065,7 +2066,7 @@ static int tsnpReport (TSNP *tsnp)
   if (ao2)
     {
       aceOutDate (ao2, "####", "SNPs and variations count variants, reference and wiggle cover at donor and acceptor sites :\n") ;
-      aceOutf (ao2, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
+      aceOutf (ao2, "# SNP\tRun\t10i\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
     }
   tsnp->doubleReport = TRUE ;
 
@@ -2108,7 +2109,7 @@ static int tsnpMergeExport (TSNP *tsnp)
 
   ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_frequency.tsf", tsnp->gzo, h) ;
   aceOutDate (ao, "####", "SNPs counts and frequency table") ;
-  aceOutf (ao, "# SNP\tRun\t10\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
+  aceOutf (ao, "# SNP\tRun\t10i\tVar5\tVar3\tRef5\tRef3\tCover5\tCover3\tWiggle5\tWiggel3\tFreq5\tFreq3\n") ;
 
   for (ii = 1 ; ii < snpMax  ; ii++)
     {
@@ -2641,9 +2642,9 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      int am1 = fromMrna ? m1 : a1 ;
 		      int a3 = a1 < a2 ? a1 + 1 : a1 - 1 ;
 		      char buf[4] ;
-		      buf[0] = ace_lower (sub[0][0]) ;
+		      buf[0] = ace_upper (sub[0][0]) ;
 		      buf[1] = '>' ;
-		      buf[2] = ace_lower(sub[0][2]) ;
+		      buf[2] = ace_upper(sub[0][2]) ;
 		      buf[3] = 0 ;
 		      ok = TRUE ;
 		      vtxtPrint (txt, "-D Substitution\n") ; /* cleanup */
@@ -3382,14 +3383,20 @@ static DICT *tsnpMakeVarTypeDict (AC_HANDLE h)
    /*
    char *Types = "Any,Substitution,Transition,Transversion,Insertion,Deletion,Double insertion,Double deletion,Triple insertion,Triple deletion,Other,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,Ins A,Ins T,Ins G,Ins C,Del A,Del T,Del G,Del C,Ins AA,Ins TT,Ins GG,Ins CC,Ins AG,Ins CT,Ins AC,Ins GT,Ins TG,Ins CA,Ins TC,Ins GA,Ins AT,Ins TA,Ins GC,Ins CG,Del AA,Del TT,Del GG,Del CC,Del AG,Del CT,Del AC,Del GT,Del TG,Del CA,Del TC,Del GA,Del AT,Del TA,Del GC,Del CG,Ins AAA,Ins TTT,Ins GGG,Ins CCC,Ins AAT,Ins ATT,Ins AAG,Ins CTT,Ins AAC,Ins GTT,Ins TTA,Ins TAA,Ins TTG,Ins CAA,Ins TTC,Ins GAA,Ins GGA,Ins TCC,Ins GGT,Ins ACC,Ins GGC,Ins GCC,Ins CCA,Ins TGG,Ins CCT,Ins AGG,Ins CCG,Ins CGG,Ins ATA,Ins TAT,Ins ATG,Ins CAT,Ins ATC,Ins GAT,Ins AGA,Ins TSNP,Ins AGT,Ins ACT,Ins AGC,Ins GCT,Ins ACA,Ins TGT,Ins ACG,Ins CGT,Ins TAG,Ins CTA,Ins TAC,Ins GTA,Ins TGA,Ins TCA,Ins TGC,Ins GCA,Ins TCG,Ins CGA,Ins GAG,Ins CTC,Ins GAC,Ins GTC,Ins GTG,Ins CAC,Ins GCG,Ins CGC,Ins CAG,Ins CTG,Del AAA,Del TTT,Del GGG,Del CCC,Del AAT,Del ATT,Del AAG,Del CTT,Del AAC,Del GTT,Del TTA,Del TAA,Del TTG,Del CAA,Del TTC,Del GAA,Del GGA,Del TCC,Del GGT,Del ACC,Del GGC,Del GCC,Del CCA,Del TGG,Del CCT,Del AGG,Del CCG,Del CGG,Del ATA,Del TAT,Del ATG,Del CAT,Del ATC,Del GAT,Del AGA,Del TSNP,Del AGT,Del ACT,Del AGC,Del GCT,Del ACA,Del TGT,Del ACG,Del CGT,Del TAG,Del CTA,Del TAC,Del GTA,Del TGA,Del TCA,Del TGC,Del GCA,Del TCG,Del CGA,Del GAG,Del CTC,Del GAC,Del GTC,Del GTG,Del CAC,Del GCG,Del CGC,Del CAG,Del CTG,Ambiguous" ; 
    */
-   char *Types = "Substitution,Transition,Transversion,Deletion,Single_deletion,Double_deletion,Triple_deletion,Deletion_4_30,Long_deletion,Insertion,Single_insertion,Double_insertion,Triple_insertion,Insertion_4_30,Long_insertion,a>g,t>c,g>a,c>t,a>t,t>a,g>c,c>g,a>c,t>g,g>t,c>a,+a,*+a,+t,*+t,+g,*+g,+c,*+c,-a,*-a,-t,*-t,-g,*-g,-c,*-c,++aa,++tt,++gg,++cc,++ag,++ct,++ac,++gt,++tg,++ca,++tc,++ga,++at,++ta,++gc,++cg,*++aa,*++tt,*++gg,*++cc,*++ag,*++ct,*++ac,*++gt,*++tg,*++ca,*++tc,*++ga,*++at,*++ta,*++gc,*++cg,--aa,--tt,--gg,--cc,--ag,--ct,--ac,--gt,--tg,--ca,--tc,--ga,--at,--ta,--gc,--cg,*--aa,*--tt,*--gg,*--cc,*--ag,*--ct,*--ac,*--gt,*--tg,*--ca,*--tc,*--ga,*--at,*--ta,*--gc,*--cg,+++aaa,+++ttt,+++ggg,+++ccc,+++aat,+++att,+++aag,+++ctt,+++aac,+++gtt,+++tta,+++taa,+++ttg,+++caa,+++ttc,+++gaa,+++gga,+++tcc,+++ggt,+++acc,+++ggc,+++gcc,+++cca,+++tgg,+++cct,+++agg,+++ccg,+++cgg,+++ata,+++tat,+++atg,+++cat,+++atc,+++gat,+++aga,+++tsnp,+++agt,+++act,+++agc,+++gct,+++aca,+++tgt,+++acg,+++cgt,+++tag,+++cta,+++tac,+++gta,+++tga,+++tca,+++tgc,+++gca,+++tcg,+++cga,+++gag,+++ctc,+++gac,+++gtc,+++gtg,+++cac,+++gcg,+++cgc,+++cag,+++ctg,*+++aaa,*+++ttt,*+++ggg,*+++ccc,*+++aat,*+++att,*+++aag,*+++ctt,*+++aac,*+++gtt,*+++tta,*+++taa,*+++ttg,*+++caa,*+++ttc,*+++gaa,*+++gga,*+++tcc,*+++ggt,*+++acc,*+++ggc,*+++gcc,*+++cca,*+++tgg,*+++cct,*+++agg,*+++ccg,*+++cgg,*+++ata,*+++tat,*+++atg,*+++cat,*+++atc,*+++gat,*+++aga,*+++tsnp,*+++agt,*+++act,*+++agc,*+++gct,*+++aca,*+++tgt,*+++acg,*+++cgt,*+++tag,*+++cta,*+++tac,*+++gta,*+++tga,*+++tca,*+++tgc,*+++gca,*+++tcg,*+++cga,*+++gag,*+++ctc,*+++gac,*+++gtc,*+++gtg,*+++cac,*+++gcg,*+++cgc,*+++cag,*+++ctg,---aaa,---ttt,---ggg,---ccc,---aat,---att,---aag,---ctt,---aac,---gtt,---tta,---taa,---ttg,---caa,---ttc,---gaa,---gga,---tcc,---ggt,---acc,---ggc,---gcc,---cca,---tgg,---cct,---agg,---ccg,---cgg,---ata,---tat,---atg,---cat,---atc,---gat,---aga,---tsnp,---agt,---act,---agc,---gct,---aca,---tgt,---acg,---cgt,---tag,---cta,---tac,---gta,---tga,---tca,---tgc,---gca,---tcg,---cga,---gag,---ctc,---gac,---gtc,---gtg,---cac,---gcg,---cgc,---cag,---ctg,*---aaa,*---ttt,*---ggg,*---ccc,*---aat,*---att,*---aag,*---ctt,*---aac,*---gtt,*---tta,*---taa,*---ttg,*---caa,*---ttc,*---gaa,*---gga,*---tcc,*---ggt,*---acc,*---ggc,*---gcc,*---cca,*---tgg,*---cct,*---agg,*---ccg,*---cgg,*---ata,*---tat,*---atg,*---cat,*---atc,*---gat,*---aga,*---tsnp,*---agt,*---act,*---agc,*---gct,*---aca,*---tgt,*---acg,*---cgt,*---tag,*---cta,*---tac,*---gta,*---tga,*---tca,*---tgc,*---gca,*---tcg,*---cga,*---gag,*---ctc,*---gac,*---gtc,*---gtg,*---cac,*---gcg,*---cgc,*---cag,*---ctg" ; 
+   char *Types = strnew ("Substitution,Transition,Transversion,Deletion,Single_deletion,Double_deletion,Triple_deletion,Deletion_4_30,Long_deletion,Insertion,Single_insertion,Double_insertion,Triple_insertion,Insertion_4_30,Long_insertion,a>g,t>c,g>a,c>t,a>t,t>a,g>c,c>g,a>c,t>g,g>t,c>a,+a,*+a,+t,*+t,+g,*+g,+c,*+c,-a,*-a,-t,*-t,-g,*-g,-c,*-c,++aa,++tt,++gg,++cc,++ag,++ct,++ac,++gt,++tg,++ca,++tc,++ga,++at,++ta,++gc,++cg,*++aa,*++tt,*++gg,*++cc,*++ag,*++ct,*++ac,*++gt,*++tg,*++ca,*++tc,*++ga,*++at,*++ta,*++gc,*++cg,--aa,--tt,--gg,--cc,--ag,--ct,--ac,--gt,--tg,--ca,--tc,--ga,--at,--ta,--gc,--cg,*--aa,*--tt,*--gg,*--cc,*--ag,*--ct,*--ac,*--gt,*--tg,*--ca,*--tc,*--ga,*--at,*--ta,*--gc,*--cg,+++aaa,+++ttt,+++ggg,+++ccc,+++aat,+++att,+++aag,+++ctt,+++aac,+++gtt,+++tta,+++taa,+++ttg,+++caa,+++ttc,+++gaa,+++gga,+++tcc,+++ggt,+++acc,+++ggc,+++gcc,+++cca,+++tgg,+++cct,+++agg,+++ccg,+++cgg,+++ata,+++tat,+++atg,+++cat,+++atc,+++gat,+++aga,+++tsnp,+++agt,+++act,+++agc,+++gct,+++aca,+++tgt,+++acg,+++cgt,+++tag,+++cta,+++tac,+++gta,+++tga,+++tca,+++tgc,+++gca,+++tcg,+++cga,+++gag,+++ctc,+++gac,+++gtc,+++gtg,+++cac,+++gcg,+++cgc,+++cag,+++ctg,*+++aaa,*+++ttt,*+++ggg,*+++ccc,*+++aat,*+++att,*+++aag,*+++ctt,*+++aac,*+++gtt,*+++tta,*+++taa,*+++ttg,*+++caa,*+++ttc,*+++gaa,*+++gga,*+++tcc,*+++ggt,*+++acc,*+++ggc,*+++gcc,*+++cca,*+++tgg,*+++cct,*+++agg,*+++ccg,*+++cgg,*+++ata,*+++tat,*+++atg,*+++cat,*+++atc,*+++gat,*+++aga,*+++tsnp,*+++agt,*+++act,*+++agc,*+++gct,*+++aca,*+++tgt,*+++acg,*+++cgt,*+++tag,*+++cta,*+++tac,*+++gta,*+++tga,*+++tca,*+++tgc,*+++gca,*+++tcg,*+++cga,*+++gag,*+++ctc,*+++gac,*+++gtc,*+++gtg,*+++cac,*+++gcg,*+++cgc,*+++cag,*+++ctg,---aaa,---ttt,---ggg,---ccc,---aat,---att,---aag,---ctt,---aac,---gtt,---tta,---taa,---ttg,---caa,---ttc,---gaa,---gga,---tcc,---ggt,---acc,---ggc,---gcc,---cca,---tgg,---cct,---agg,---ccg,---cgg,---ata,---tat,---atg,---cat,---atc,---gat,---aga,---tsnp,---agt,---act,---agc,---gct,---aca,---tgt,---acg,---cgt,---tag,---cta,---tac,---gta,---tga,---tca,---tgc,---gca,---tcg,---cga,---gag,---ctc,---gac,---gtc,---gtg,---cac,---gcg,---cgc,---cag,---ctg,*---aaa,*---ttt,*---ggg,*---ccc,*---aat,*---att,*---aag,*---ctt,*---aac,*---gtt,*---tta,*---taa,*---ttg,*---caa,*---ttc,*---gaa,*---gga,*---tcc,*---ggt,*---acc,*---ggc,*---gcc,*---cca,*---tgg,*---cct,*---agg,*---ccg,*---cgg,*---ata,*---tat,*---atg,*---cat,*---atc,*---gat,*---aga,*---tsnp,*---agt,*---act,*---agc,*---gct,*---aca,*---tgt,*---acg,*---cgt,*---tag,*---cta,*---tac,*---gta,*---tga,*---tca,*---tgc,*---gca,*---tcg,*---cga,*---gag,*---ctc,*---gac,*---gtc,*---gtg,*---cac,*---gcg,*---cgc,*---cag,*---ctg", 0) ; 
 
-   for (cp = Types, cq = strchr (Types, '.') ; cp ; cp = cq ? cq + 1 : 0, cq = cp ? strchr (cp, ',') : 0) 
+   for (cp = Types, cq = strchr (Types, ',') ; cp ; cp = cq ? cq + 1 : 0, cq = cp ? strchr (cp, ',') : 0) 
      {
-       char cc = cq ? *cq : 0 ;
+       char cc = 0 ;
+       if (cq)
+	 { 
+	   cc = *cq ; 
+	   *cq = 0 ; 
+	 }
        dictAdd (dict, cp, 0) ;
        if (cq) *cq = cc ;
      }
+   ac_free (Types) ;
    return dict ;
  }
 
@@ -4605,6 +4612,165 @@ static int tsnpCodingModif  (TSNP *tsnp)
 
 /*************************************************************************************/
 /*************************************************************************************/
+#define SNPTYPEMAX 1024
+static void tsnpTypeInit (TSNP *tsnp)
+{
+  char *snpTypes = "Genomic,Exonic,Protein_changing,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,InsA,InsT,InsG,InsC,DupA,DupT,DupG,DupC,DelA,DelT,DelG,DelC,DimA,DimT,DimG,DimC,InsAA,InsTT,InsGG,InsCC,InsAG,InsCT,InsAC,InsGT,InsTG,InsCA,InsTC,InsGA,InsAT,InsTA,InsGC,InsCG,DupAA,DupTT,DupGG,DupCC,DupAG,DupCT,DupAC,DupGT,DupTG,DupCA,DupTC,DupGA,DupAT,DupTA,DupGC,DupCG,DelAA,DelTT,DelGG,DelCC,DelAG,DelCT,DelAC,DelGT,DelTG,DelCA,DelTC,DelGA,DelAT,DelTA,DelGC,DelCG,DimAA,DimTT,DimGG,DimCC,DimAG,DimCT,DimAC,DimGT,DimTG,DimCA,DimTC,DimGA,DimAT,DimTA,DimGC,DimCG,InsAAA,InsTTT,InsGGG,InsCCC,InsAAT,InsATT,InsAAG,InsCTT,InsAAC,InsGTT,InsTTA,InsTAA,InsTTG,InsCAA,InsTTC,InsGAA,InsGGA,InsTCC,InsGGT,InsACC,InsGGC,InsGCC,InsCCA,InsTGG,InsCCT,InsAGG,InsCCG,InsCGG,InsATA,InsTAT,InsATG,InsCAT,InsATC,InsGAT,InsAGA,InsTCT,InsAGT,InsACT,InsAGC,InsGCT,InsACA,InsTGT,InsACG,InsCGT,InsTAG,InsCTA,InsTAC,InsGTA,InsTGA,InsTCA,InsTGC,InsGCA,InsTCG,InsCGA,InsGAG,InsCTC,InsGAC,InsGTC,InsGTG,InsCAC,InsGCG,InsCGC,InsCAG,InsCTG,DupAAA,DupTTT,DupGGG,DupCCC,DupAAT,DupATT,DupAAG,DupCTT,DupAAC,DupGTT,DupTTA,DupTAA,DupTTG,DupCAA,DupTTC,DupGAA,DupGGA,DupTCC,DupGGT,DupACC,DupGGC,DupGCC,DupCCA,DupTGG,DupCCT,DupAGG,DupCCG,DupCGG,DupATA,DupTAT,DupATG,DupCAT,DupATC,DupGAT,DupAGA,DupTCT,DupAGT,DupACT,DupAGC,DupGCT,DupACA,DupTGT,DupACG,DupCGT,DupTAG,DupCTA,DupTAC,DupGTA,DupTGA,DupTCA,DupTGC,DupGCA,DupTCG,DupCGA,DupGAG,DupCTC,DupGAC,DupGTC,DupGTG,DupCAC,DupGCG,DupCGC,DupCAG,DupCTG,DelAAA,DelTTT,DelGGG,DelCCC,DelAAT,DelATT,DelAAG,DelCTT,DelAAC,DelGTT,DelTTA,DelTAA,DelTTG,DelCAA,DelTTC,DelGAA,DelGGA,DelTCC,DelGGT,DelACC,DelGGC,DelGCC,DelCCA,DelTGG,DelCCT,DelAGG,DelCCG,DelCGG,DelATA,DelTAT,DelATG,DelCAT,DelATC,DelGAT,DelAGA,DelTCT,DelAGT,DelACT,DelAGC,DelGCT,DelACA,DelTGT,DelACG,DelCGT,DelTAG,DelCTA,DelTAC,DelGTA,DelTGA,DelTCA,DelTGC,DelGCA,DelTCG,DelCGA,DelGAG,DelCTC,DelGAC,DelGTC,DelGTG,DelCAC,DelGCG,DelCGC,DelCAG,DelCTG,DimAAA,DimTTT,DimGGG,DimCCC,DimAAT,DimATT,DimAAG,DimCTT,DimAAC,DimGTT,DimTTA,DimTAA,DimTTG,DimCAA,DimTTC,DimGAA,DimGGA,DimTCC,DimGGT,DimACC,DimGGC,DimGCC,DimCCA,DimTGG,DimCCT,DimAGG,DimCCG,DimCGG,DimATA,DimTAT,DimATG,DimCAT,DimATC,DimGAT,DimAGA,DimTCT,DimAGT,DimACT,DimAGC,DimGCT,DimACA,DimTGT,DimACG,DimCGT,DimTAG,DimCTA,DimTAC,DimGTA,DimTGA,DimTCA,DimTGC,DimGCA,DimTCG,DimCGA,DimGAG,DimCTC,DimGAC,DimGTC,DimGTG,DimCAC,DimGCG,DimCGC,DimCAG,DimCTG" ;  
+
+  if (! tsnp->snpTypeDict)
+    {
+      char *cp, *cq ;
+      DICT *dict ;
+      
+      dict = tsnp->snpTypeDict = dictHandleCreate (SNPTYPEMAX, tsnp->h) ;
+
+      cp = snpTypes ;
+      while (cp)
+	{
+	  cq = strchr (cp, ',') ;
+	  if (cq) *cq = 0 ;
+	  dictAdd (dict, cp, 0) ;
+	  cp = cq ? cq + 1 : 0 ;
+	}
+    }
+  return ;
+} /* tsnpTypesInit */
+
+/*************************************************************************************/
+
+typedef struct snpProfileStruct {
+  int any ;
+  int gRef, gLow, gMid, gHigh, gPure, gAny ;
+  int xRef, xLow, xMid, xHigh, xPure, xAny ;
+  int pcRef, pcLow, pcMid, pcHigh, pcPure, pcAny ;
+  int typeN[SNPTYPEMAX], typeD[SNPTYPEMAX] ;
+} SP ;
+
+/* export tsf file for this section */
+static void tsnpExpotProfile (TSNP *tsnp)
+{
+  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_profile.tsf", tsnp->gzo, h) ;
+  AC_ITER iter = 0 ;
+  AC_OBJ variant ;
+  int run ;
+  int typeMax = 0 ;
+  int runMax = tsnpGetRunList (tsnp) ;
+  DICT *runDict = tsnp->runDict ; 
+  Array aa = arrayHandleCreate (runMax, SP, h) ; 
+
+  tsnpTypeInit (tsnp) ;
+
+  typeMax = dictMax (tsnp->snpTypeDict) ;
+  if (tsnp->db)
+    {
+      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap", 0, h) ;
+      while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
+	{
+	  const char *typ ;
+	  int t ;
+	  SP *sp ;
+	  AC_TABLE tbl ;
+
+	  h1 = ac_new_handle () ;
+	  tbl = ac_tag_table (variant, "BRS_Counts", h1) ;
+	  typ = ac_tag_printable (variant, "Typ", 0) ;
+	  if (tbl && typ && dictFind (tsnp->snpTypeDict, typ, &t))
+	    {
+	      int ir ;
+	      int c = ac_table_int (tbl, ir, 1, 0) ;
+	      int m = ac_table_int (tbl, ir, 2, 0) ;
+	      if (c > tsnp->minSnpCover)
+		{
+		  float f = 100.0 * m / c ;
+		  for (ir = 0 ; ir < tbl->rows ; ir++)
+		    {
+		      dictAdd (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run) ;
+		      sp = arrayp (aa, run, SP) ;
+		      sp->typeN[t]++ ;
+		      sp->any++ ;
+		      if (ac_has_tag (variant, "Coding"))
+			{
+			  sp->pcAny++ ;
+			  if (f <= 5)
+			    sp->pcRef++ ;
+			  else if (f <= 20)
+			    sp->pcLow++ ;
+			  else if (f <= 80)
+			    sp->pcMid++ ;
+			  else if (f <= 95)
+			    sp->pcHigh++ ;
+			  else 
+			    sp->pcPure++ ;
+			}
+		      else if (ac_has_tag (variant, "Exonic"))
+			{
+			  sp->xAny++ ;
+			  if (f <= 5)
+			    sp->xRef++ ;
+			  else if (f <= 20)
+			    sp->xLow++ ;
+			  else if (f <= 80)
+			    sp->xMid++ ;
+			  else if (f <= 95)
+			    sp->xHigh++ ;
+			  else 
+			    sp->xPure++ ;
+			}
+		      else
+			{
+			  sp->gAny++ ;
+			  if (f <= 5)
+			    sp->gRef++ ;
+			  else if (f <= 20)
+			    sp->gLow++ ;
+			  else if (f <= 80)
+			    sp->gMid++ ;
+			  else if (f <= 95)
+			    sp->gHigh++ ;
+			  else 
+			    sp->gPure++ ;
+			}
+		    }
+		}
+	    }
+	}
+    }
+
+  for (run = 1 ; run <= runMax ; run++)
+    {
+      SP *sp = arrayp (aa, run, SP) ;
+      if (sp->any)
+	{
+	  int t ;
+	  const char* runName = dictName (tsnp->runDict, run) ;
+	  /* export the categories */
+	  if (sp->gAny)
+	    aceOutf (ao, "%s\tGenomic\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+		     , runName, sp->gAny, sp->gRef,sp->gLow,sp->gMid,sp->gHigh,sp->gPure) ; 
+	  if (sp->xAny)
+	    aceOutf (ao, "%s\tExonic\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+		     , runName, sp->xAny, sp->xRef,sp->xLow,sp->xMid,sp->xHigh,sp->xPure) ; 
+	  if (sp->pcAny)
+	    aceOutf (ao, "%s\tProtein_changing\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+		     , runName, sp->pcAny, sp->pcRef,sp->pcLow,sp->pcMid,sp->pcHigh,sp->pcPure) ; 
+	  
+	  /* export the profile */
+	  for (t = 1 ; t < typeMax ; t++)
+	    {
+	      if (sp->typeN[t])
+		aceOutf (ao, "%s\t%d__%s\tii\t%d\t%d\n"
+			 , runName, t, dictName(tsnp->snpTypeDict,t), sp->typeN[t], sp->typeD[t]) ;
+	    }
+	}
+    }
+  ac_free (h) ;
+  return;
+
+} /* tsnpExportProfile */
+
+/*************************************************************************************/
+/*************************************************************************************/
 
 typedef struct subsStruct { KEY snp, target ; int a1, a2 ; } SUBS ;
 
@@ -5365,6 +5531,7 @@ int main (int argc, const char **argv)
     {
       if (1) tsnpDbTranslate (&tsnp) ;
       if (0) tsnpCodingModif (&tsnp) ;
+      if (1) tsnpExpotProfile (&tsnp) ; /* export tsf file for this section */
     }
   if (tsnp.remap2genome)
     {

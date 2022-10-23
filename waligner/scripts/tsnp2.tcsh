@@ -47,7 +47,7 @@ EOF
 
   echo "-R Map NC_045512.2  NC_045512\n" >  tmp/TSNP/map.rename.ace
 
-  set toto=tmp/TSNP_DB/$zone/tsnp2._r
+  set toto=tmp/TSNP_DB/$zone/$MAGIC.tsnp2._r
     echo ' ' > $toto.ace
   echo "read-models" > $toto
   echo "query find variant" >> $toto
@@ -104,7 +104,7 @@ cat $toto.M.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(
 cat $toto.MB.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$9;if(m>c)c=m;r=c-m;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
 
 cat $toto.list | sort -u | wc
-cat $toto.BRS.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;m=$7;c=$8;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
+cat $toto.BRS.tsf |  gawk -F '\t' '/^#/{next;}{v=$1;c=$7;m=$8;if(c>minC){f=100*m/c;if(f>=minF) print v;}}' minF=$minSnpFrequency minC=$minSnpCover >> $toto.list
 cat $toto.list | sort -u | wc
 
 cat $toto.list | sort -u > $toto.sorted_list
@@ -117,7 +117,7 @@ cat $toto.BRS.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.BRS_sorted.tsf
 
 cat $toto.list ZZZZZ $toto.M_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn > $toto.ace
 cat $toto.list ZZZZZ $toto.MB_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
-cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}printf("BRS_counts %s %d %d %d Frequency %.2f\n",run,m,w,c,f);}END{printf("\n");}' minF=$minSnpFrequency2 minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
+cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}printf("BRS_counts %s %d %d %d %d %d %d %d Frequency %.2f\n",run,c,m,w,$10,$11,$12,$13,f);}END{printf("\n");}' minF=$minSnpFrequency2 minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
  
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
@@ -190,6 +190,7 @@ date
     bin/tsnp -db_$remap2g  tmp/METADATA/mrnaRemap.gz  -db tmp/TSNP_DB/$zone 
     bin/tsnp -db_translate -db tmp/TSNP_DB/$zone 
   endif
+# phase may be snp2a (BRS) or tsnp2a) tricoteur
 touch tmp/TSNP_DB/$zone/$MAGIC.$phase.done
 echo -n "tsnp2a: done "
 date

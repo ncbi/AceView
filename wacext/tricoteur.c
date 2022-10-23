@@ -2589,7 +2589,7 @@ static void tctQcExport (TCT *tct)
 
   ACEOUT ao = aceOutCreate (tct->outFileName, ".qc.tsf", tct->gzo, h) ;
   aceOutDate (ao, "###", "Magic-BLAST QC") ;
-  aceOutf (ao, "## Run %s %s\n", tct->run, "This .tsf file has repeated entries per data block, please use tsf --merge, then parse it in acedb MetaDB") ;
+  aceOutf (ao, "# Run %s %s\n", tct->run, "This .tsf file has repeated entries per data block, please use tsf --merge, then parse it in acedb MetaDB") ;
 
   for (jj = 1 ; jj < arrayMax (lanes) ; jj++)
     {
@@ -6040,6 +6040,7 @@ static void tctExportGeneFusion2tsf (TCT *tct)
   int ii, iiMax = arrayMax (geneFusions) ;
   GF *gf ;
 
+  aceOutf (ao, "# Gene\tRun\ti3ti3t3i\tSupport\tChrom1\tg1\tm1\ta2\tChrom2\tg2\tm2\tb1\tda\tdx\n") ;
   for (ii = 0, gf = arrp (geneFusions, 0, GF) ; ii < iiMax ; ii++, gf++)
     {
       aceOutf (ao, "%s\t%s\ti3ti3t3i\t%d",  dictName (targetDict, gf->g12), gf->run ? dictName (targetDict, gf->run) : tct->run, gf->n0) ;

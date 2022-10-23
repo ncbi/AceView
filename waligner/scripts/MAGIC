@@ -530,14 +530,15 @@ cat <<EOF > _x.awk
   if (w > 0) ph = ph " wg1 wait wg2a wait wg2ba wait wg2bb wait wg2bb wait wg2bb wait wg2bb wait wg3a wait wg3b  wait wg4 wg4b wait  wg4c wg5 wait wg6 wg4d sponge1 wait sponge2 wait sponge3 wait " ;
 # s2c (extend, must come after s3a (detect) and would influence the BRS, so we would do s1 s2a s2b s3a,  extend which would create a modified BRS file, then s3b:count
   if (cnv > 0)  ph = ph " cnv wait cnv "
-  if (snp > 0) ph = ph " snp0 wait s1 wait s1A2G wait s2a wait s2b wait s2A2G wait s3a wait s3b  wait snp2a wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
+  if (snp > 0) ph = ph " snp0 wait s1 wait s1A2G wait s2a wait s2b wait s2A2G wait s3a wait s3b wait snp2a "
   if (ix > 0) ph = ph " wait d5  "
-  if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a wait tsnp2b wait tsnp2c " ;
+  if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a " ;
+  if (tsnpZZ > 0) ph = ph "wait tsnp2b wait tsnp2c wait  tsnp3" ;  ## make words, count words , collate word counts
+  if (snpZZ > 0) ph = ph " wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
   if (iv > 0) ph = ph " wait d6 wait d7 wait d8 " ;
   if (w > 1000)       ph = ph "  g4sp " ;
   if (gx + mx > 0) ph = ph "  wait  c7 g4 " ;
   if (mx > 1000)       ph = ph "  wait  c7 m4H " ;
-  if (tsnp > 0) ph = ph "wait  tsnp3" ;
   if (gx + mx > 1  )  ph = ph " g10 g11 g12a wait g12b FDR1 wait FDR2 " ;
   if (a + small + qc +gx + mx + ix + snp + w > 0) ph = ph " wait c7 "
 
@@ -5426,39 +5427,24 @@ goto phaseLoop
 
 phases10: 
 
-echo -n "phase s10 : report the per run and type the mismatches and candidate SNPs in RESULTS/SNV "
+echo -n "phase s10 : report the per run and type the candidate SNPs in RESULTS/SNV "
 date
-if (! -d RESULTS/SNV) mkdir RESULTS/SNV
 
-if (-d Bzzzzzzzzzzzz) \rm -rf  Bzzzzzzzzzzzz
 
-# Multi Venn diagram the mismatches of all types in the same format
+# we no longer want to export the candidate SNPs
+goto phaseLoop
+
+
+# Multi Venn diagram of the candidate SNP detected by BRS
 set MAGIC2=$MAGIC
 if (-e tmp/SNP_LIST/GlobalProject) then
   set MAGIC2=`cat tmp/SNP_LIST/GlobalProject`
 endif
 
-set toto=tmp/COUNT/$MAGIC.mismatch_type_in_best_ali.txt
+if (! -d RESULTS/SNV) mkdir RESULTS/SNV
+if (-d Bzzzzzzzzzzzz) \rm -rf  Bzzzzzzzzzzzz
 
-if (! -e $toto) then
-  date > $toto
-  echo "Distribution of the types of mismatches in the best unique alignments, no clustering, no thresholds" >> $toto
-  # foooreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupAdditiveList`)
-  #  cat MetaDB/$MAGIC/Error_type.txt | gawk '{ r=$1;gsub(/\"/,"",r); if(r == run)print;}' run=$run >> $toto.tmp
-  # ennnd
-  cat MetaDB/$MAGIC/RunListSorted  MetaDB/$MAGIC/GroupAdditiveList ZZZZZ  MetaDB/$MAGIC/gtitle.txt ZZZZZ  MetaDB/$MAGIC/Error_type.txt  | gawk -F '\t' -f scripts/snpSupportStat.awk  format=Error_type minMut=1 minCover=1 minF=0 >> $toto
-
-  # \rm $toto.tmp
-  \cp  $toto RESULTS/SNV
-endif
-
-# we no longer want to export the candidate SNPs
-echo "phase s10 done : $toto" 
-goto phaseLoop
-
-
-# Multi Venn diagram of the candidate SNP detected by BRS
-
+# Multi Venn diagram the mismatches of all types in the same format
 foreach minFreq (20 95)
 
   set toto=tmp/SNP/$MAGIC.SNP_types_seen_at_least_once_above_$minFreq'_and_coverage_'$minSnpCover.txt
@@ -8248,6 +8234,26 @@ echo "pparse MetaDB/$MAGIC/stranding.ace" | bin/tacembly MetaDB -no_prompt
   endif
 
   bin/qcsummary -db MetaDB -export Tt  -project $MAGIC > RESULTS/Mapping/$MAGIC.telomere_summary.txt
+
+# export the error_types
+
+
+if (! -d RESULTS/SNV) mkdir RESULTS/SNV
+set toto=tmp/COUNT/$MAGIC.mismatch_type_in_best_ali.txt
+
+if (1 || ! -e $toto) then
+  date > $toto
+  echo "Distribution of the types of mismatches in the best unique alignments, no clustering, no thresholds" >> $toto
+  # foooreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupAdditiveList`)
+  #  cat MetaDB/$MAGIC/Error_type.txt | gawk '{ r=$1;gsub(/\"/,"",r); if(r == run)print;}' run=$run >> $toto.tmp
+  # ennnd
+  cat MetaDB/$MAGIC/RunListSorted  MetaDB/$MAGIC/GroupAdditiveList ZZZZZ  MetaDB/$MAGIC/gtitle.txt ZZZZZ  MetaDB/$MAGIC/Error_type.txt  | gawk -F '\t' -f scripts/snpSupportStat.awk  format=Error_type minMut=1 minCover=1 minF=0 >> $toto
+
+  # \rm $toto.tmp
+  \cp  $toto RESULTS/SNV
+endif
+
+
 
 goto phaseLoop
 
