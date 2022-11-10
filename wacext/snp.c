@@ -9915,12 +9915,12 @@ static void snpDbCount (SNP *snp)
 
 /*************************************************************************************/
 
-static BOOL snpPleaseDropMonomodal (int nww, int nlow, int nwm, int nhigh, int nmm)
+static BOOL snpPleaseDropMonomodal (int nww, int nlow, int nwm, int nhigh, int npure)
 {
-  int nm = nww + nlow + nwm + nhigh + nmm ;
+  int nm = nww + nlow + nwm + nhigh + npure ;
   if (10 * nlow > nm && nlow > 5 &&
-      ! (nww > nlow + 10 && nwm + nmm > nlow + 10) &&
-      ! (nmm > nhigh)
+      ! (nww > nlow + 10 && nwm + npure > nlow + 10) &&
+      ! (npure > nhigh)
       )
     return TRUE ;
   return FALSE ;
@@ -9940,7 +9940,7 @@ static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT aoF, ACEOUT aoC
   int i, ir, jr, pass ;
   float z, zMax ;
   KEY key ;
-  int nm = 0, nww = 0, nwm = 0, nmm = 0, nlow = 0, nhigh = 0, nNA = 0 ;
+  int nm = 0, nww = 0, nwm = 0, npure = 0, nlow = 0, nhigh = 0, nNA = 0 ;
   BOOL isDrop = FALSE ;
   ACEOUT ao = 0 ;
 
@@ -9953,19 +9953,19 @@ static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT aoF, ACEOUT aoC
       else if (z < 20) nlow++ ;
       else if (z < 80) nwm++ ;
       else if (z < 95) nhigh++ ;
-      else nmm++ ;
+      else npure++ ;
     }
-  if (nlow + nwm + nhigh + nmm == 0)
+  if (nlow + nwm + nhigh + npure == 0)
     return TRUE ;
-  if (nwm + nhigh + nmm == 0)
+  if (nwm + nhigh + npure == 0)
     isDrop = TRUE ;
   else if (snp->dropMonomodal)
-    isDrop = snpPleaseDropMonomodal (nww, nlow, nwm, nhigh, nmm) ;
+    isDrop = snpPleaseDropMonomodal (nww, nlow, nwm, nhigh, npure) ;
 
   if (! isDrop)
     { /* evaluate the anyRun statistics */
       snp->anyRunMeasured++ ;
-      if (nmm) snp->anyRunPure++ ;
+      if (npure) snp->anyRunPure++ ;
       else if (nhigh) snp->anyRunHigh++ ;
       else if (nwm) snp->anyRunMid++ ;
       else if (nlow) snp->anyRunLow++ ;
@@ -9984,15 +9984,15 @@ static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT aoF, ACEOUT aoC
       aceOutf (ao, "\t%d\t%d\t%d\t%d", mp, mm, wp, wm) ;
       aceOutf (ao, "\t%s%d", (isDrop ? "+" : ""), chi2 (mp, mm, wp, wm, &z)) ; /* type : isDrop + sign allows sorting but does not affect excell */
       aceOutf (ao, "\t%.1f", z) ;
-      aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d", nm, nNA, nww, nlow, nwm, nhigh, nmm) ;
+      aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d", nm, nNA, nww, nlow, nwm, nhigh, npure) ;
       if (1) /* allelic frequency in the population (before 2020_01_17) */
-	aceOutf (ao, "\t%.2f", nm > 20 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : -10.0) ;
+	aceOutf (ao, "\t%.2f", nm > 20 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * npure )/ (0.02 * nm) : -10.0) ;
       if (1) /* average frequency 2020_01_17 */
 	aceOutf (ao, "\t%.2f", mp + mm + wp + wm >= 20 ? (mp + mm)/ (0.01 * (mp + mm + wp + wm)) : -20.0) ;
       aceOutf (ao, "\t") ;
       for (ir = jr = 0 ; groups && ir < groups->rows ; ir++)
 	{
-	  nm = nNA = nww = nlow = nwm = nhigh = nmm = 0 ;
+	  nm = nNA = nww = nlow = nwm = nhigh = npure = 0 ;
 	  key = ac_table_key (groups, ir, 0, 0) ;
 	  for (jr = 0 ; key && groups2runs && jr < groups2runs->rows ; jr++)
 	    {
@@ -10007,10 +10007,10 @@ static BOOL snpFrequencyTableExportOneLine (SNP *snp, ACEOUT aoF, ACEOUT aoC
 		  else if (z < 20) nlow++ ;
 		  else if (z < 80) nwm++ ;
 		  else if (z < 95) nhigh++ ;
-		  else nmm++ ;
+		  else npure++ ;
 		}
 	    }
-	  aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t", nm, nNA, nww, nlow, nwm, nhigh, nmm, nm > 0 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * nmm )/ (0.02 * nm) : 0) ;
+	  aceOutf (ao, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%.2f\t", nm, nNA, nww, nlow, nwm, nhigh, npure, nm > 0 ? (.2 * nlow + 1.0 * nwm + 1.8 * nhigh + 2 * npure )/ (0.02 * nm) : 0) ;
 	}
       zMax = -10 ;
       for (i = 0 ; i < max ; i++)

@@ -136,6 +136,7 @@ typedef struct tsnpCallerTable {
   BOOL mergeCounts ;
   BOOL dbReport ;
   BOOL dbTranslate ;
+  BOOL dbGGG ;
   BOOL dropMonomodal ;
   const char *dbName ;
   const char *wiggleDir ;
@@ -1194,14 +1195,23 @@ static int tsnpRemap1 (TSNP *tsnp)
 	  mrnaTable = ac_tag_table (variant, "mRNA", h1) ;
 	  if (mrnaTable)
 	    {
+	      int da = 0 ;
 	      a1 = a2 = 0 ;
 	      x1 = ac_table_int (mrnaTable, 0, 1, 0) ;
 	      x2 = ac_table_int (mrnaTable, 0, 2, 0) ;
+
+	      if (ac_has_tag (variant, "Insertion"))
+		{
+		  da = ac_tag_int (variant, "Multi_deletion", 1) ;
+		  x2 = x1 + 1 + da ;
+		}
 	      mm = ac_table_printable (mrnaTable, 0, 0, 0) ;
 	      if (mm && dictFind (tsnp->targetDict, mm, &mrna) && tsnpRemap1Do (tsnp, mrna, x1, x2, &chrom, &a1, &a2, &strand))
 		{
 		  nn2++ ;
 		  vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
+		  if (da) 	      /* fix inconsistent coordinates */
+		    vtxtPrintf (txt, "mRNA %s %d %d\n", ac_protect (dictName (tsnp->targetDict, mrna), h1), x1, x2) ;
 		  vtxtPrintf (txt, "IntMap %s %d %d\n\n", dictName (tsnp->chromDict, chrom), a1, a2) ; 
 		}
 	    }
@@ -1956,7 +1966,7 @@ static void tsnpReportLine (ACEOUT ao, ACEOUT ao2, TSNP *tsnp, int line, SNP *up
 
 /*************************************************************************************/
 /* the rejected sites count as rejected in the run only if they are measurable
- * and never count as non meaurable
+ * and never count as non measurable
  */
 static void tsnpCountRejectedSnps (TSNP *tsnp, SNP *up)
 {
@@ -2363,9 +2373,9 @@ static int myTranslate (char *buf, char tBuf1[], char tBuf3[], int m1, int p1, A
   arrayMax (aa) = i ;
   memset (tbuf, 0, i) ;
   tbuf[0] = 0 ;
-  i = m1 ;
+  i = m1 - p1 ;
   i = i % 3 ;
-  i += 9 ;
+  i = 15 + 2 - i ;
   i = i % 3 ;
   cB1 = tBuf1 ;   cB3 = tBuf3 ; 
   for (j = 0 ; j < i ; j++)
@@ -3333,8 +3343,10 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	      myTranslate (RbufV, pV1, pV3, m1, p1, h) ;
 
 	      for (k = 0, cp = pR1, cq = pV1 ; *cp && *cq ; cp++, cq++)
-		if (*cp != *cq) 
+		if (ace_lower(*cp) != ace_lower (*cq)) 
 		  { *cp = ace_lower (*cp) ; *cq = ace_lower (*cq) ; }
+	      else
+		  { *cp = ace_upper (*cp) ; *cq = ace_upper (*cq) ; }
 	      vtxtPrintf (txt, "Reference_RNAexon_sequence %s\n", RbufR) ;
 	      vtxtPrintf (txt, "Observed__RNAexon_sequence %s\n", RbufV) ;
 
@@ -3417,7 +3429,7 @@ static void tsnpDbTranslate (TSNP *tsnp)
   if (1) 
     iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
   else
-    iter = ac_query_iter (db, TRUE, "find variant IS  \"PSD3andRPL35P6.aAug10:8286:Del_2:gAA:g\" ", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "find variant IS  \"CECR2.aAug10:500:*\" ", 0, h) ;
 
   /* NOT DONE: split the 729 multi sub and force create the individual pieces */
   while (ac_free (Snp), Snp = ac_iter_obj (iter))
@@ -4615,7 +4627,7 @@ static int tsnpCodingModif  (TSNP *tsnp)
 #define SNPTYPEMAX 1024
 static void tsnpTypeInit (TSNP *tsnp)
 {
-  char *snpTypes = "Genomic,Exonic,Protein_changing,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,InsA,InsT,InsG,InsC,DupA,DupT,DupG,DupC,DelA,DelT,DelG,DelC,DimA,DimT,DimG,DimC,InsAA,InsTT,InsGG,InsCC,InsAG,InsCT,InsAC,InsGT,InsTG,InsCA,InsTC,InsGA,InsAT,InsTA,InsGC,InsCG,DupAA,DupTT,DupGG,DupCC,DupAG,DupCT,DupAC,DupGT,DupTG,DupCA,DupTC,DupGA,DupAT,DupTA,DupGC,DupCG,DelAA,DelTT,DelGG,DelCC,DelAG,DelCT,DelAC,DelGT,DelTG,DelCA,DelTC,DelGA,DelAT,DelTA,DelGC,DelCG,DimAA,DimTT,DimGG,DimCC,DimAG,DimCT,DimAC,DimGT,DimTG,DimCA,DimTC,DimGA,DimAT,DimTA,DimGC,DimCG,InsAAA,InsTTT,InsGGG,InsCCC,InsAAT,InsATT,InsAAG,InsCTT,InsAAC,InsGTT,InsTTA,InsTAA,InsTTG,InsCAA,InsTTC,InsGAA,InsGGA,InsTCC,InsGGT,InsACC,InsGGC,InsGCC,InsCCA,InsTGG,InsCCT,InsAGG,InsCCG,InsCGG,InsATA,InsTAT,InsATG,InsCAT,InsATC,InsGAT,InsAGA,InsTCT,InsAGT,InsACT,InsAGC,InsGCT,InsACA,InsTGT,InsACG,InsCGT,InsTAG,InsCTA,InsTAC,InsGTA,InsTGA,InsTCA,InsTGC,InsGCA,InsTCG,InsCGA,InsGAG,InsCTC,InsGAC,InsGTC,InsGTG,InsCAC,InsGCG,InsCGC,InsCAG,InsCTG,DupAAA,DupTTT,DupGGG,DupCCC,DupAAT,DupATT,DupAAG,DupCTT,DupAAC,DupGTT,DupTTA,DupTAA,DupTTG,DupCAA,DupTTC,DupGAA,DupGGA,DupTCC,DupGGT,DupACC,DupGGC,DupGCC,DupCCA,DupTGG,DupCCT,DupAGG,DupCCG,DupCGG,DupATA,DupTAT,DupATG,DupCAT,DupATC,DupGAT,DupAGA,DupTCT,DupAGT,DupACT,DupAGC,DupGCT,DupACA,DupTGT,DupACG,DupCGT,DupTAG,DupCTA,DupTAC,DupGTA,DupTGA,DupTCA,DupTGC,DupGCA,DupTCG,DupCGA,DupGAG,DupCTC,DupGAC,DupGTC,DupGTG,DupCAC,DupGCG,DupCGC,DupCAG,DupCTG,DelAAA,DelTTT,DelGGG,DelCCC,DelAAT,DelATT,DelAAG,DelCTT,DelAAC,DelGTT,DelTTA,DelTAA,DelTTG,DelCAA,DelTTC,DelGAA,DelGGA,DelTCC,DelGGT,DelACC,DelGGC,DelGCC,DelCCA,DelTGG,DelCCT,DelAGG,DelCCG,DelCGG,DelATA,DelTAT,DelATG,DelCAT,DelATC,DelGAT,DelAGA,DelTCT,DelAGT,DelACT,DelAGC,DelGCT,DelACA,DelTGT,DelACG,DelCGT,DelTAG,DelCTA,DelTAC,DelGTA,DelTGA,DelTCA,DelTGC,DelGCA,DelTCG,DelCGA,DelGAG,DelCTC,DelGAC,DelGTC,DelGTG,DelCAC,DelGCG,DelCGC,DelCAG,DelCTG,DimAAA,DimTTT,DimGGG,DimCCC,DimAAT,DimATT,DimAAG,DimCTT,DimAAC,DimGTT,DimTTA,DimTAA,DimTTG,DimCAA,DimTTC,DimGAA,DimGGA,DimTCC,DimGGT,DimACC,DimGGC,DimGCC,DimCCA,DimTGG,DimCCT,DimAGG,DimCCG,DimCGG,DimATA,DimTAT,DimATG,DimCAT,DimATC,DimGAT,DimAGA,DimTCT,DimAGT,DimACT,DimAGC,DimGCT,DimACA,DimTGT,DimACG,DimCGT,DimTAG,DimCTA,DimTAC,DimGTA,DimTGA,DimTCA,DimTGC,DimGCA,DimTCG,DimCGA,DimGAG,DimCTC,DimGAC,DimGTC,DimGTG,DimCAC,DimGCG,DimCGC,DimCAG,DimCTG" ;  
+  char *snpTypes = strnew ("Genomic,Exonic,Protein_changing,A>G,T>C,G>A,C>T,A>T,T>A,G>C,C>G,A>C,T>G,G>T,C>A,InsA,InsT,InsG,InsC,DupA,DupT,DupG,DupC,DelA,DelT,DelG,DelC,DimA,DimT,DimG,DimC,InsAA,InsTT,InsGG,InsCC,InsAG,InsCT,InsAC,InsGT,InsTG,InsCA,InsTC,InsGA,InsAT,InsTA,InsGC,InsCG,DupAA,DupTT,DupGG,DupCC,DupAG,DupCT,DupAC,DupGT,DupTG,DupCA,DupTC,DupGA,DupAT,DupTA,DupGC,DupCG,DelAA,DelTT,DelGG,DelCC,DelAG,DelCT,DelAC,DelGT,DelTG,DelCA,DelTC,DelGA,DelAT,DelTA,DelGC,DelCG,DimAA,DimTT,DimGG,DimCC,DimAG,DimCT,DimAC,DimGT,DimTG,DimCA,DimTC,DimGA,DimAT,DimTA,DimGC,DimCG,InsAAA,InsTTT,InsGGG,InsCCC,InsAAT,InsATT,InsAAG,InsCTT,InsAAC,InsGTT,InsTTA,InsTAA,InsTTG,InsCAA,InsTTC,InsGAA,InsGGA,InsTCC,InsGGT,InsACC,InsGGC,InsGCC,InsCCA,InsTGG,InsCCT,InsAGG,InsCCG,InsCGG,InsATA,InsTAT,InsATG,InsCAT,InsATC,InsGAT,InsAGA,InsTCT,InsAGT,InsACT,InsAGC,InsGCT,InsACA,InsTGT,InsACG,InsCGT,InsTAG,InsCTA,InsTAC,InsGTA,InsTGA,InsTCA,InsTGC,InsGCA,InsTCG,InsCGA,InsGAG,InsCTC,InsGAC,InsGTC,InsGTG,InsCAC,InsGCG,InsCGC,InsCAG,InsCTG,DupAAA,DupTTT,DupGGG,DupCCC,DupAAT,DupATT,DupAAG,DupCTT,DupAAC,DupGTT,DupTTA,DupTAA,DupTTG,DupCAA,DupTTC,DupGAA,DupGGA,DupTCC,DupGGT,DupACC,DupGGC,DupGCC,DupCCA,DupTGG,DupCCT,DupAGG,DupCCG,DupCGG,DupATA,DupTAT,DupATG,DupCAT,DupATC,DupGAT,DupAGA,DupTCT,DupAGT,DupACT,DupAGC,DupGCT,DupACA,DupTGT,DupACG,DupCGT,DupTAG,DupCTA,DupTAC,DupGTA,DupTGA,DupTCA,DupTGC,DupGCA,DupTCG,DupCGA,DupGAG,DupCTC,DupGAC,DupGTC,DupGTG,DupCAC,DupGCG,DupCGC,DupCAG,DupCTG,DelAAA,DelTTT,DelGGG,DelCCC,DelAAT,DelATT,DelAAG,DelCTT,DelAAC,DelGTT,DelTTA,DelTAA,DelTTG,DelCAA,DelTTC,DelGAA,DelGGA,DelTCC,DelGGT,DelACC,DelGGC,DelGCC,DelCCA,DelTGG,DelCCT,DelAGG,DelCCG,DelCGG,DelATA,DelTAT,DelATG,DelCAT,DelATC,DelGAT,DelAGA,DelTCT,DelAGT,DelACT,DelAGC,DelGCT,DelACA,DelTGT,DelACG,DelCGT,DelTAG,DelCTA,DelTAC,DelGTA,DelTGA,DelTCA,DelTGC,DelGCA,DelTCG,DelCGA,DelGAG,DelCTC,DelGAC,DelGTC,DelGTG,DelCAC,DelGCG,DelCGC,DelCAG,DelCTG,DimAAA,DimTTT,DimGGG,DimCCC,DimAAT,DimATT,DimAAG,DimCTT,DimAAC,DimGTT,DimTTA,DimTAA,DimTTG,DimCAA,DimTTC,DimGAA,DimGGA,DimTCC,DimGGT,DimACC,DimGGC,DimGCC,DimCCA,DimTGG,DimCCT,DimAGG,DimCCG,DimCGG,DimATA,DimTAT,DimATG,DimCAT,DimATC,DimGAT,DimAGA,DimTCT,DimAGT,DimACT,DimAGC,DimGCT,DimACA,DimTGT,DimACG,DimCGT,DimTAG,DimCTA,DimTAC,DimGTA,DimTGA,DimTCA,DimTGC,DimGCA,DimTCG,DimCGA,DimGAG,DimCTC,DimGAC,DimGTC,DimGTG,DimCAC,DimGCG,DimCGC,DimCAG,DimCTG", 0) ;  
 
   if (! tsnp->snpTypeDict)
     {
@@ -4633,62 +4645,98 @@ static void tsnpTypeInit (TSNP *tsnp)
 	  cp = cq ? cq + 1 : 0 ;
 	}
     }
+  ac_free (snpTypes) ;
+
   return ;
 } /* tsnpTypesInit */
 
 /*************************************************************************************/
 
 typedef struct snpProfileStruct {
-  int any ;
+  BOOL monomodal ;
+  int ref, low, mid, high, pure, any ;
   int gRef, gLow, gMid, gHigh, gPure, gAny ;
   int xRef, xLow, xMid, xHigh, xPure, xAny ;
   int pcRef, pcLow, pcMid, pcHigh, pcPure, pcAny ;
   int typeN[SNPTYPEMAX], typeD[SNPTYPEMAX] ;
 } SP ;
 
+/*************************************************************************************/
+
+static BOOL snpPleaseDropMonomodal (SP *sp)
+{
+  if (10 * sp->low > sp->any && sp->low > 5 &&
+      ! (sp->ref > sp->low + 10 && sp->mid + sp->pure > sp->low + 10) &&
+      ! (sp->pure > sp->high)
+      )
+    sp->monomodal =  TRUE ;
+  else
+    sp->monomodal = FALSE ;
+  return sp->monomodal  ;
+} /* snpDropMonomodal */
+
+/*************************************************************************************/
 /* export tsf file for this section */
-static void tsnpExpotProfile (TSNP *tsnp)
+static void tsnpExportProfile (TSNP *tsnp)
 {
   AC_HANDLE h1 = 0, h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_profile.tsf", tsnp->gzo, h) ;
   AC_ITER iter = 0 ;
-  AC_OBJ variant ;
+  AC_OBJ variant = 0 ;
+  vTXT txt = vtxtHandleCreate (h) ;
   int run ;
   int typeMax = 0 ;
-  int runMax = tsnpGetRunList (tsnp) ;
+  int runMax ;
   DICT *runDict = tsnp->runDict ; 
-  Array aa = arrayHandleCreate (runMax, SP, h) ; 
+  Array aa = arrayHandleCreate (64, SP, h) ; 
 
   tsnpTypeInit (tsnp) ;
+  if (! runDict)
+    runDict = tsnp->runDict = dictHandleCreate (156, tsnp->h) ;
 
   typeMax = dictMax (tsnp->snpTypeDict) ;
   if (tsnp->db)
     {
-      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap", 0, h) ;
+      iter = ac_query_iter (tsnp->db, TRUE, "find variant Typ && BRS_counts", 0, h) ;
       while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
 	{
 	  const char *typ ;
 	  int t ;
-	  SP *sp ;
-	  AC_TABLE tbl ;
+	  SP *sp, sp0 ;
 
+	  sp = &sp0 ;
+	  memset (sp, 0, sizeof (SP)) ;
 	  h1 = ac_new_handle () ;
-	  tbl = ac_tag_table (variant, "BRS_Counts", h1) ;
 	  typ = ac_tag_printable (variant, "Typ", 0) ;
-	  if (tbl && typ && dictFind (tsnp->snpTypeDict, typ, &t))
+	  if (typ && dictFind (tsnp->snpTypeDict, typ, &t))
 	    {
 	      int ir ;
-	      int c = ac_table_int (tbl, ir, 1, 0) ;
-	      int m = ac_table_int (tbl, ir, 2, 0) ;
-	      if (c > tsnp->minSnpCover)
+	      AC_TABLE tbl = ac_tag_table (variant, "BRS_Counts", h1) ;
+	      
+	      for (ir = 0 ; ir < tbl->rows ; ir++)
 		{
-		  float f = 100.0 * m / c ;
-		  for (ir = 0 ; ir < tbl->rows ; ir++)
+		  int c = ac_table_int (tbl, ir, 1, 0) ;
+		  int m = ac_table_int (tbl, ir, 2, 0) ;
+		  if (c > tsnp->minSnpCover)
 		    {
+		      float f = 100.0 * m / c ;
+
 		      dictAdd (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run) ;
-		      sp = arrayp (aa, run, SP) ;
 		      sp->typeN[t]++ ;
-		      sp->any++ ;
+		      if (1)
+			{
+			  sp->any++ ;
+			  if (f <= 5)
+			    sp->ref++ ;
+			  else if (f <= 20)
+			    sp->low++ ;
+			  else if (f <= 80)
+			    sp->mid++ ;
+			  else if (f <= 95)
+			    sp->high++ ;
+			  else 
+			    sp->pure++ ;
+			}
 		      if (ac_has_tag (variant, "Coding"))
 			{
 			  sp->pcAny++ ;
@@ -4734,9 +4782,28 @@ static void tsnpExpotProfile (TSNP *tsnp)
 		    }
 		}
 	    }
+	  
+	  if (1)
+	    {
+	      BOOL mono = snpPleaseDropMonomodal (sp) ;
+	      {
+		if (
+		    (mono && ! ac_has_tag (variant, "monomodal")) ||
+		    (!mono && ac_has_tag (variant, "monomodal"))
+		    )
+		  {
+		    const char *errors = 0 ;
+		    vtxtClear (txt) ;
+		    vtxtPrintf (txt, "Variant %s\n%s Monomodal\n\n", ac_protect (ac_name(variant), h1), mono ? "" : "-D ") ;
+		    ac_parse (tsnp->db, vtxtPtr (txt), &errors, 0, h1) ; 
+		    if (errors && *errors)
+		      messerror (errors) ;
+		  }
+	      }
+	    }
 	}
     }
-
+  runMax = arrayMax (aa) ;
   for (run = 1 ; run <= runMax ; run++)
     {
       SP *sp = arrayp (aa, run, SP) ;
@@ -4745,14 +4812,19 @@ static void tsnpExpotProfile (TSNP *tsnp)
 	  int t ;
 	  const char* runName = dictName (tsnp->runDict, run) ;
 	  /* export the categories */
+	  if (sp->any)
+	    aceOutf (ao, "%s\tAny\tititititititt\t%d\tAny\t%d\treference\t%d\tlow\t%d\tmid\t%d\thigh\t%d\tpure\tmonomodal\n"
+		     , runName, sp->gAny, sp->gRef,sp->gLow,sp->gMid,sp->gHigh,sp->gPure
+		     , sp->monomodal ? "Monomodal" : ""
+		     ) ; 
 	  if (sp->gAny)
-	    aceOutf (ao, "%s\tGenomic\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+	    aceOutf (ao, "%s\tGenomic\titititititit\t%d\tAny\t%d\treference\t%d\tlow\t%d\tmid\t%d\thigh\t%d\tpure\n"
 		     , runName, sp->gAny, sp->gRef,sp->gLow,sp->gMid,sp->gHigh,sp->gPure) ; 
 	  if (sp->xAny)
-	    aceOutf (ao, "%s\tExonic\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+	    aceOutf (ao, "%s\tExonic\titititititit\t\t%d\tAny\t%d\treference\t%d\tlow\t%d\tmid\t%d\thigh\t%d\tpure\n"
 		     , runName, sp->xAny, sp->xRef,sp->xLow,sp->xMid,sp->xHigh,sp->xPure) ; 
 	  if (sp->pcAny)
-	    aceOutf (ao, "%s\tProtein_changing\titititititit\t%dAny%dreference%dlow%dmid%dhagh%dpure\n"
+	    aceOutf (ao, "%s\tProtein_changing\titititititit\t\t%d\tAny\t%d\treference\t%d\tlow\t%d\tmid\t%d\thigh\t%d\tpure\n"
 		     , runName, sp->pcAny, sp->pcRef,sp->pcLow,sp->pcMid,sp->pcHigh,sp->pcPure) ; 
 	  
 	  /* export the profile */
@@ -4768,6 +4840,298 @@ static void tsnpExpotProfile (TSNP *tsnp)
   return;
 
 } /* tsnpExportProfile */
+
+/*************************************************************************************/
+/* analyse the rejected and non rejected snippets */
+typedef struct gggStruct { int snp ; BOOL mono ; int run, ncounts, cover, mp, mm, wp, wm ; } GGG ;
+
+static void tsnpGGG (TSNP *tsnp)
+{
+  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+  ACEOUT ao = 0 ; 
+  AC_ITER iter = 0 ;
+  AC_OBJ variant = 0 ;
+  int run ;
+  DICT *runDict = tsnp->runDict ; 
+  Array aa = arrayHandleCreate (64, SP, h) ; 
+  DICT *gggDict1 = dictHandleCreate (1024, h) ;
+  Array ggg1 = arrayHandleCreate (100000, GGG, h) ;  
+  DICT *gggDict2 = dictHandleCreate (1024, h) ;
+  Array ggg2 = arrayHandleCreate (100000, GGG, h) ;  
+  DICT *gggDict3 = dictHandleCreate (1024, h) ;
+  Array ggg3 = arrayHandleCreate (100000, GGG, h) ;  
+  KEYSET ks1 = keySetHandleCreate (h) ;
+  KEYSET ks2 = keySetHandleCreate (h) ;
+  KEYSET ks3 = keySetHandleCreate (h) ;
+
+  tsnpTypeInit (tsnp) ;
+  if (! runDict)
+    runDict = tsnp->runDict = dictHandleCreate (156, tsnp->h) ;
+
+
+  if (tsnp->db)
+    {
+      iter = ac_query_iter (tsnp->db, TRUE, "find variant Typ && BRS_counts", 0, h) ;
+      while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
+	{
+	  const char *typ ;
+	  int t ;
+	  const char *dna = 0 ;
+	  SP *sp = 0 ;
+	  BOOL mono = ac_has_tag (variant, "Monomodal") ; 
+
+	  h1 = ac_new_handle () ;
+	  typ = ac_tag_printable (variant, "Typ", 0) ;
+	  if (typ && dictFind (tsnp->snpTypeDict, typ, &t))
+	    {
+	      int ir ;
+	      AC_TABLE tbl = ac_tag_table (variant, "BRS_Counts", h1) ;
+
+	      for (ir = 0 ; ir < tbl->rows ; ir++)
+		{
+		  int c = ac_table_int (tbl, ir, 1, 0) ;
+		  int m = ac_table_int (tbl, ir, 2, 0) ;
+		  if (c > tsnp->minSnpCover)
+		    {
+		      float f = 100.0 * m / c ;
+
+		      dictAdd (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run) ;
+		      sp = arrayp (aa, run, SP) ;
+		      sp->typeN[t]++ ;
+		      if (1)
+			{
+			  sp->any++ ;
+			  if (f <= 5)
+			    sp->ref++ ;
+			  else if (f <= 20)
+			    sp->low++ ;
+			  else if (f <= 80)
+			    sp->mid++ ;
+			  else if (f <= 95)
+			    sp->high++ ;
+			  else 
+			    sp->pure++ ;
+			}
+		      if (ac_has_tag (variant, "Coding"))
+			{
+			  sp->pcAny++ ;
+			  if (f <= 5)
+			    sp->pcRef++ ;
+			  else if (f <= 20)
+			    sp->pcLow++ ;
+			  else if (f <= 80)
+			    sp->pcMid++ ;
+			  else if (f <= 95)
+			    sp->pcHigh++ ;
+			  else 
+			    sp->pcPure++ ;
+			}
+		      else if (ac_has_tag (variant, "Exonic"))
+			{
+			  sp->xAny++ ;
+			  if (f <= 5)
+			    sp->xRef++ ;
+			  else if (f <= 20)
+			    sp->xLow++ ;
+			  else if (f <= 80)
+			    sp->xMid++ ;
+			  else if (f <= 95)
+			    sp->xHigh++ ;
+			  else 
+			    sp->xPure++ ;
+			}
+		      else
+			{
+			  sp->gAny++ ;
+			  if (f <= 5)
+			    sp->gRef++ ;
+			  else if (f <= 20)
+			    sp->gLow++ ;
+			  else if (f <= 80)
+			    sp->gMid++ ;
+			  else if (f <= 95)
+			    sp->gHigh++ ;
+			  else 
+			    sp->gPure++ ;
+			}
+		    }
+		}
+	    
+	      /* knowing if monomodal is TRUE or FALSE, analyze the snippets */
+	      /* get the dna */
+	      if (ac_has_tag (variant, "Found_in_mRNA"))
+		dna = ac_tag_printable (variant, "Reference_RNAexon_sequence", 0) ;
+	      else if (ac_has_tag (variant, "Found_in_genone"))
+		dna = ac_tag_printable (variant, "Reference_genome_sequence", 0) ;
+	      if (dna && typ && strlen(typ) < 200)
+		{
+		  /* locate the Upper case letter */
+		  const char *ccp = dna ;
+		  int pos = 0 ;
+		  char buf[256] ;
+		  while (*ccp)
+		    {
+		      if (*ccp == ace_upper(*ccp))
+			break ;
+		      pos++ ; ccp++ ;
+		    }
+		  if (*ccp) /* we located the SNP */
+		    {
+		      /* grab the 3 letters in front */
+		      if (pos > 3)
+			{
+			  int i, ir, snp ;
+			  for (i = 0 ; i < 3 ; i++)
+			    {
+			      buf[i] = ace_upper(dna[pos-3+i]) ;
+			      if (buf[i] == 'U') buf[i] = 'T' ;
+			    }
+			  buf[i] = ace_lower(dna[pos]) ;
+			  if (buf[i] == 'u') buf[i] = 't' ;
+			  buf[4] = ':' ;
+			  memcpy (buf+5, typ, strlen(typ)+1) ;
+			  dictAdd (gggDict1, buf, &snp) ; 
+			  keySet (ks1, snp)++ ;
+			  for (ir = 0 ; ir < tbl->rows ; ir++)
+			    {
+			      GGG *xp = arrayp (ggg1, arrayMax (ggg1), GGG) ;
+			      xp->snp = snp ;
+			      xp->ncounts++ ;
+			      xp->mono |= mono ;
+			      xp->run = ac_table_key (tbl, ir, 0, 0) ;
+			      xp->cover = ac_table_int (tbl, ir, 1, 0) ;
+			      xp->mp = ac_table_int (tbl, ir, 4, 0) ;
+			      xp->wp = ac_table_int (tbl, ir, 5, 0) ;
+			      xp->mm = ac_table_int (tbl, ir, 6, 0) ;
+			      xp->wm = ac_table_int (tbl, ir, 7, 0) ;
+			    }
+			}
+		      /* grab the 3 letters behind */
+		      if (pos < strlen(dna) - 3)
+			{
+			  int i = 0, ir, snp ;
+			  buf[0] = ace_lower(dna[pos]) ;
+			  if (buf[0] == 'u') buf[0] = 't' ;
+			  for (i = 1 ; i < 4 ; i++)
+			    {
+			      buf[i] = ace_upper(dna[pos+i]) ;
+			      if (buf[i] == 'U') buf[i] = 'T' ;
+			    }
+			  buf[4] = ':' ;
+			  memcpy (buf+4, typ, strlen(typ)+1) ;
+			  dictAdd (gggDict2, buf, &snp) ; 
+			  keySet (ks2, snp)++ ;
+			  for (ir = 0 ; ir < tbl->rows ; ir++)
+			    {
+			      GGG *xp = arrayp (ggg2, arrayMax (ggg2), GGG) ;
+			      xp->snp = snp ;
+			      xp->mono |= mono ;
+			      xp->ncounts++ ;
+			      xp->run = ac_table_key (tbl, ir, 0, 0) ;
+			      xp->cover = ac_table_int (tbl, ir, 1, 0) ;
+			      xp->mp = ac_table_int (tbl, ir, 4, 0) ;
+			      xp->wp = ac_table_int (tbl, ir, 5, 0) ;
+			      xp->mm = ac_table_int (tbl, ir, 6, 0) ;
+			      xp->wm = ac_table_int (tbl, ir, 7, 0) ;
+			    }
+			}
+		      /* grab the 5 letters centered */
+		      if (pos > 2 && pos < strlen(dna) - 3)
+			{
+			  int i, ir, snp ;
+			  for (i = 0 ; i < 5 ; i++)
+			    {
+			      buf[i] = ace_upper(dna[pos+i-2]) ;
+			      if (buf[i] == 'U') buf[i] = 'T' ;
+			    }
+			  buf[2] = ace_lower(dna[pos]) ;
+			  if (buf[2] == 'u') buf[2] = 't' ;
+			  buf[5] = ':' ;
+			  memcpy (buf+6, typ, strlen(typ)+1) ;
+			  dictAdd (gggDict3, buf, &snp) ; 
+			  keySet (ks3, snp)++ ;
+			  for (ir = 0 ; ir < tbl->rows ; ir++)
+			    {
+			      GGG *xp = arrayp (ggg3, arrayMax (ggg3), GGG) ;
+			      xp->snp = snp ;
+			      xp->ncounts++ ;
+			      xp->mono |= mono ;
+			      xp->run = ac_table_key (tbl, ir, 0, 0) ;
+			      xp->cover = ac_table_int (tbl, ir, 1, 0) ;
+			      xp->mp = ac_table_int (tbl, ir, 4, 0) ;
+			      xp->wp = ac_table_int (tbl, ir, 5, 0) ;
+			      xp->mm = ac_table_int (tbl, ir, 6, 0) ;
+			      xp->wm = ac_table_int (tbl, ir, 7, 0) ;
+			    }
+			}
+		    }
+		}
+	    }
+	}
+    }
+
+  if (1)
+    {
+      ao = aceOutCreate (tsnp->outFileName, ".GGG.before.tsf", tsnp->gzo, h) ;
+      aceOutDate (ao, "###", "Triplet before") ;
+      aceOutf (ao, "# Type\tRun\tciiiit\tNsnps\tNcounts\tCover\tmp\twp\tmm\twm\tmonomodal\n") ;
+      for (int i = 0 ; i < arrayMax (ggg1) ; i++)
+	{
+	  GGG *xp = arrayp (ggg1, i, GGG) ;
+	  if (xp->snp)
+	    aceOutf (ao, "%s\t%s\tciiiiiit\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n"
+		     , dictName (gggDict1, xp->snp)
+		     , name (xp->run)
+		     , keySet (ks1, xp->snp)
+		     , xp->ncounts
+		     , xp->cover, xp->mp, xp->wp, xp->mm, xp->wm
+		     , xp->mono ? "monomodal" : "-"
+		     ) ;
+	}
+    }
+  if (1)
+    {
+      ao = aceOutCreate (tsnp->outFileName, ".GGG.after.tsf", tsnp->gzo, h) ;
+      aceOutDate (ao, "###", "Triplet after") ;
+      aceOutf (ao, "# Type\tRun\tciiiit\tNsnps\tNcounts\tCover\tmp\twp\tmm\twm\tmonomodal\n") ;
+      for (int i = 0 ; i < arrayMax (ggg2) ; i++)
+	{
+	  GGG *xp = arrayp (ggg2, i, GGG) ;
+	  if (xp->snp)
+	    aceOutf (ao, "%s\t%s\tciiiiiit\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n"
+		     , dictName (gggDict2, xp->snp)
+		     , name (xp->run)
+		     , keySet (ks2, xp->snp)
+		     , xp->ncounts
+		     , xp->cover, xp->mp, xp->wp, xp->mm, xp->wm
+		     , xp->mono ? "monomodal" : "-"
+		     ) ;
+	}
+    }
+  if (1)
+    {
+      ao = aceOutCreate (tsnp->outFileName, ".GGG.centered.tsf", tsnp->gzo, h) ;
+      aceOutDate (ao, "###", "% letters centered") ;
+      aceOutf (ao, "# Type\tRun\tciiiit\tNsnps\tNcounts\tCover\tmp\twp\tmm\twm\tmonomodal\n") ;
+      for (int i = 0 ; i < arrayMax (ggg3) ; i++)
+	{
+	  GGG *xp = arrayp (ggg3, i, GGG) ;
+	  if (xp->snp)
+	    aceOutf (ao, "%s\t%s\tciiiiiit\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\n"
+		     , dictName (gggDict3, xp->snp)
+		     , name (xp->run)
+		     , keySet (ks3, xp->snp)
+		     , xp->ncounts
+		     , xp->cover, xp->mp, xp->wp, xp->mm, xp->wm
+		     , xp->mono ? "monomodal" : "-"
+		     ) ;
+	}
+    }
+			       
+  ac_free (h) ;
+  return;
+
+} /* tsnpGGG */
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -5465,6 +5829,7 @@ int main (int argc, const char **argv)
   tsnp.mergeCounts = getCmdLineBool (&argc, argv, "-merge") ;
   tsnp.dbReport = getCmdLineBool (&argc, argv, "-db_report") ;
   tsnp.dbTranslate = getCmdLineBool (&argc, argv, "-db_translate") ;
+  tsnp.dbGGG = getCmdLineBool (&argc, argv, "-db_GGG") ;
   tsnp.dropMonomodal = getCmdLineBool (&argc, argv, "-dropMonomodal") ;
   if (tsnp.dbName)
     {
@@ -5503,6 +5868,14 @@ int main (int argc, const char **argv)
 	  exit (1) ;
 	}
     }
+  if (tsnp.dbGGG)
+    {
+      if (! tsnp.db)
+	{
+	  fprintf (stderr, "-db_GGG -db SnpMetaDataDB, sorry, try -help\n") ;
+	  exit (1) ;
+	}
+    }
 
   /* parallelization */
    if (tsnp.max_threads < 4)
@@ -5530,8 +5903,13 @@ int main (int argc, const char **argv)
   if (tsnp.dbTranslate)
     {
       if (1) tsnpDbTranslate (&tsnp) ;
-      if (0) tsnpCodingModif (&tsnp) ;
-      if (1) tsnpExpotProfile (&tsnp) ; /* export tsf file for this section */
+      if (1) tsnpCodingModif (&tsnp) ;
+      if (1) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
+    }
+  if (tsnp.dbGGG)
+    {
+      if (1) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
+      if (1) tsnpGGG (&tsnp) ; /* export tsf file for this section */
     }
   if (tsnp.remap2genome)
     {

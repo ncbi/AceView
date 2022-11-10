@@ -53,11 +53,13 @@ date
              bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo 
 
     endif
-
+    ls -ls $out.gz
 ######
 
     if ($collect == detect) then
+      echo "Creating   tmp/SNP_LIST/$zone/Variant.$run.$uu.list3"
       gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s:%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency2 | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
+     wc  tmp/SNP_LIST/$zone/Variant.$run.$uu.list
     endif
 
 stats:

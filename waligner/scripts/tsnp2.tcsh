@@ -8,6 +8,7 @@ if ($phase == snp2a) goto snp2a
 if ($phase == tsnp2a) goto tsnp2a
 if ($phase == tsnp2b) goto tsnp2b
 if ($phase == tsnp2c) goto tsnp2c
+if ($phase == tsnp2g) goto tsnp2g
 
 echo "bad phase in tsnp2.tcsh $1 $2 $3"
 date
@@ -45,9 +46,9 @@ date
    quit
 EOF
 
-  echo "-R Map NC_045512.2  NC_045512\n" >  tmp/TSNP/map.rename.ace
+  echo "-R Map NC_045512.2  NC_045512\n" >  tmp/TSNP_DB/map.rename.ace
 
-  set toto=tmp/TSNP_DB/$zone/$MAGIC.tsnp2._r
+  set toto=tmp/TSNP_DB/$zone/$MAGIC.tsnp2a._r
     echo ' ' > $toto.ace
   echo "read-models" > $toto
   echo "query find variant" >> $toto
@@ -114,6 +115,7 @@ cat $toto.list | sort -u > $toto.sorted_list
 cat $toto.M.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.M_sorted.tsf 
 cat $toto.MB.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.MB_sorted.tsf 
 cat $toto.BRS.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.BRS_sorted.tsf 
+\rm $toto.M.tsf  $toto.MB.tsf  $toto.BRS.tsf 
 
 cat $toto.list ZZZZZ $toto.M_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn > $toto.ace
 cat $toto.list ZZZZZ $toto.MB_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
@@ -134,7 +136,7 @@ cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{i
   if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then
     echo "pparse tmp/METADATA/$MAGIC.av.captured_genes.ace" >> $toto
   endif
-  echo "pparse tmp/TSNP/map.rename.ace" >> $toto
+  echo "pparse tmp/TSNP_DB/map.rename.ace" >> $toto
   echo 'save' >> $toto
   echo 'quit' >> $toto
 
@@ -213,7 +215,7 @@ date
 goto phaseLoop
 
 ########################################################################################
-## tsnp2b count words in run
+## tsnp2c count words in run
 
 tsnp2c:
 echo -n "tsnp2c: count words in runs start "
@@ -222,6 +224,23 @@ date
   bin/tricoteur -count -wLn 31 -wordFile tmp/TSNP_DB/$zone/tsnp2b.$MAGIC.w31.gz -run $run -gzo -o tmp/TSNP/$run/$zone/tsnp2c.$MAGIC
 
 echo -n "tsnp2c: count words in runs done "
+date
+goto phaseLoop
+
+########################################################################################
+## tsnp2g study the GGG
+
+tsnp2g:
+echo -n "tsnp2g: study the GGG"
+date
+
+    bin/tace tmp/TSNP_DB/$zone <<EOF
+      read-models
+      save
+      quit     
+EOF
+  bin/tsnp -db_GGG -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/tsnp2g
+echo -n "tsnp2g: study the GGGG"
 date
 goto phaseLoop
 

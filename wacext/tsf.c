@@ -80,8 +80,6 @@ typedef struct tsf_struct {
   const char *tagSelectList ;
   const char *compute ;
 
-  const char *sampleSeparator ;    /* default : */
-  const char *tagSeparator ; /* default : */
   const char *valueSeparator ;  /* default , */
   const char *fieldSeparator ;  /* default \t */
   const char *NA ;              /* default "" */
@@ -137,6 +135,7 @@ typedef struct hit_struct {
 #define Restrict 
 #endif
 static void tsfParseMetaData (TSF *tsf, ACEIN ai) ;
+static BOOL tsfMergeOne (HIT *hit, HIT *hit2, int action) ;
 
 /*************************************************************************************/
 static DICT *myDict ;
@@ -418,6 +417,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 {
   AC_HANDLE h = ac_new_handle () ;
   int i, sample, tag = 0, line = 0 ;
+  int action = 0 ;
   long int x ;
   double z ;
   const char *ccp, *ccq ;
@@ -427,7 +427,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
   DICT *tagDict = tsf->tagDict ;
   BigArray hits = tsf->hits ;
   long int iMax = bigArrayMax (hits) ;
-  int tagDepth, nSamples ;
+  int tagDepth, nFields ;
   char typeBuf[MAXSAMPLEDEPTH+1] ;
 
   if (tsf->tag)
@@ -520,7 +520,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
      /* parse the cell-format */
      aceInStep (ai, '\t') ;
      ccp = aceInWord (ai) ;
-     nSamples = 0 ;
+     nFields = 0 ;
      if (ccp)
        {
 	 char *cq = typeBuf ;
@@ -536,10 +536,10 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
 	       {  k = 10*k + (*cp - '0') ; cp++ ; }
 	     if (k == 0) k = 1 ;
 	     kk -= k ;
-	     nSamples += k ;
+	     nFields += k ;
 	     if (kk <=0)
 	       messcrash ("Overflow, number of fields = %d > %d at line %d of file %s.\nWe do not expect more than %d value following a sample, please edit the code or reformat  the data"
-			  , nSamples
+			  , nFields
 			  , MAXSAMPLEDEPTH
 			  , aceInStreamLine (ai)
 			  , aceInFileName (ai)
@@ -564,7 +564,7 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
      hit->tag = tag ;
      strncpy (hit->types, typeBuf, MAXSAMPLEDEPTH) ;
      
-     for (i = 0 ; i < nSamples ; i++)
+     for (i = 0 ; i < nFields ; i++)
        {
 	 char cc ;
 	 if (! aceInStep (ai, '\t'))
@@ -621,6 +621,11 @@ static long int tsfParseTsf (TSF *tsf, ACEIN ai)
        }
      if (i > keySet (sampleDepth, sample))
        keySet (sampleDepth, sample) = i ;
+     if (! tsf->noMerge && iMax > 1 && tsfMergeOne (hit -1 , hit, action))
+       {
+	 iMax-- ;
+	 hit-- ;
+       }
     }
   ac_free (h) ;
 
@@ -907,6 +912,100 @@ static void tsfChronoOrder (TSF *tsf)
 /*************************************************************************************/
 /*************************************************************************************/
 
+static BOOL tsfMergeOne (HIT *hit, HIT *hit2, int action)
+{
+  int n, n1, n2, i ;
+  BOOL ok = FALSE ;
+
+  if ( !hit2->sample)
+    return ok ;
+  if ( hit->sample != hit2->sample)
+    return ok ;
+  if ( hit->tag != hit2->tag)
+    return ok ;
+  n1 = hit->n ;
+  n2 = hit2->n ;
+  n = n1 < n2 ? n1 : n2 ;
+  if (strncmp (hit->types, hit2->types, n))
+    return ok ;
+  
+  hit2->sample = 0 ;
+  ok = TRUE ;
+  n = n1 > n2 ? n1 : n2 ;
+  if (n1 < n2) 
+    memcpy (hit->types, hit2->types, n2) ;
+  hit->flag |= hit2->flag ;
+  
+  hit->n = n ;
+  for (i = 0 ; i < n ; i++)
+    if (i < n2)
+      switch ((int)hit->types[i])
+	{
+	case 'i':   /* add */
+	  switch (action)
+	    {
+	    case 0: 
+	    default: /* add */
+	      hit->x[i] += hit2->x[i] ;
+	      break ;
+	    case 1:  /* min */
+	      if (i > n1 || hit->x[i] > hit2->x[i])
+		hit->x[i] = hit2->x[i] ;
+	      break ;
+	    case 2:  /* max */
+	      if (i > n1 || hit->x[i] < hit2->x[i])
+		hit->x[i] = hit2->x[i] ;
+	      break ;
+	    }
+	  break ;
+	case 'f':   /* add */
+	  switch (action)
+	    {
+	    case 0: 
+	    default: /* add */
+	      hit->z[i] += hit2->z[i] ;
+	      break ;
+	    case 1:  /* min */
+	      if (i > n1 || hit->z[i] > hit2->z[i])
+		hit->z[i] = hit2->z[i] ;
+	      break ;
+	    case 2:  /* max */
+	      if (i > n1 || hit->z[i] < hit2->z[i])
+		hit->z[i] = hit2->z[i] ;
+	      break ;
+	    }
+	  break ;
+	case 'c':
+	case 't':   /* replace */
+	default:
+	  switch ((int)hit->types[i])
+	    {
+	    case 'i':   /* add */
+	      switch (action)
+		{
+		case 0: 
+		default: /* replace */
+		  hit->x[i]  = hit2->x[i] ;
+		  break ;
+		case 1:  /* min */
+		  if (i > n1 || hit->x[i] > hit2->x[i])
+		    hit->x[i] = hit2->x[i] ;
+		  break ;
+		case 2:  /* max */
+		  if (i > n1 || hit->x[i] < hit2->x[i])
+		    hit->x[i] = hit2->x[i] ;
+		  break ;
+		}
+	      break ;
+	      break ;
+	    }
+	}
+
+  return ok ;
+}  /* tsfMergeOne */
+
+/*************************************************************************************/
+
 static long int tsfMerge (TSF *tsf)
 {
   BigArray hits = tsf->hits ;
@@ -922,88 +1021,7 @@ static long int tsfMerge (TSF *tsf)
 	continue ;
       
       for (jj = ii + 1, hit2 = hit+1 ; jj < iMax && (! hit2->sample || hit2->sample == hit->sample) && hit2->tag == hit->tag ; jj++, hit2++)
-	{
-	  int n, n1, n2, i ;
-	  
-	  if ( !hit2->sample)
-	    continue ;
-	  n1 = hit->n ;
-	  n2 = hit2->n ;
-	  n = n1 < n2 ? n1 : n2 ;
-	  if (strncmp (hit->types, hit2->types, n))
-	    continue ;
-
-	  hit2->sample = 0 ;
-	  n = n1 > n2 ? n1 : n2 ;
-	  if (n1 < n2) 
-	    memcpy (hit->types, hit2->types, n2) ;
-	  hit->flag |= hit2->flag ;
-	  
-	  hit->n = n ;
-	  for (i = 0 ; i < n ; i++)
-	    if (i < n2)
-	      switch ((int)hit->types[i])
-		{
-		case 'i':   /* add */
-		  switch (action)
-		    {
-		    case 0: 
-		    default: /* add */
-		      hit->x[i] += hit2->x[i] ;
-		      break ;
-		    case 1:  /* min */
-		      if (i > n1 || hit->x[i] > hit2->x[i])
-			hit->x[i] = hit2->x[i] ;
-		      break ;
-		    case 2:  /* max */
-		      if (i > n1 || hit->x[i] < hit2->x[i])
-			hit->x[i] = hit2->x[i] ;
-		      break ;
-		    }
-		break ;
-		case 'f':   /* add */
-		  switch (action)
-		    {
-		    case 0: 
-		    default: /* add */
-		      hit->z[i] += hit2->z[i] ;
-		      break ;
-		    case 1:  /* min */
-		      if (i > n1 || hit->z[i] > hit2->z[i])
-			hit->z[i] = hit2->z[i] ;
-		      break ;
-		    case 2:  /* max */
-		      if (i > n1 || hit->z[i] < hit2->z[i])
-			hit->z[i] = hit2->z[i] ;
-		      break ;
-		    }
-		  break ;
-		case 'c':
-		case 't':   /* replace */
-		default:
-		  switch ((int)hit->types[i])
-		    {
-		    case 'i':   /* add */
-		      switch (action)
-			{
-			case 0: 
-			default: /* replace */
-			  hit->x[i]  = hit2->x[i] ;
-			  break ;
-			case 1:  /* min */
-			  if (i > n1 || hit->x[i] > hit2->x[i])
-			    hit->x[i] = hit2->x[i] ;
-			  break ;
-			case 2:  /* max */
-			  if (i > n1 || hit->x[i] < hit2->x[i])
-			    hit->x[i] = hit2->x[i] ;
-			  break ;
-			}
-		      break ;
-		  break ;
-		    }
-		}
-	} 
+	tsfMergeOne (hit, hit2, action) ;
     }
   /* clean up */
   for (ii = jj = 0, hit2 = hit = bigArrp (hits, ii, HIT) ; ii < iMax ; ii++, hit++)
@@ -1511,7 +1529,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//   -O [tsf|tabular]: short form of\n"
 	   "//   --Out_format [tsf|tabular] : default tsf\n"
 	   "//     The output files are exported in tsf or in tabular format (defined below)\n"
-	   "//     Examples:\\"
+	   "//     Examples:\n"
 	   "//       tsf -o foobar                      exports foobar.tsf\n"
 	   "//       tsf -o foobar -gzo                 exports foobar.tsf.gz\n"
 	   "//       tsf -o foobar -gzo -O tabular      exports foobar.txt.gz\n"
@@ -1526,8 +1544,8 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//      The title is recovered from the first available ### line\n"
 	   "//      The captions are recovered from the ## lines, dropping the duplicates\n"
 	   "//      The sample list accumulates the samples foung in the # lines, droping doubles\n"
+	   "//      they are reexported as is, in the same order, ignoring duplicated lines.\n"
 	   "//    The title can be created or reset via\n"
-	   "//     they are reexported as is, in the same order, ignoring duplicated lines.\n"
 	   "//   --title <title> : set a descriptive title for the table\n"
 	   "//   --corner_title <corner_title> : set a short title in the left upper corner of the table\n"
 	   "//     The captions can be eliminated with the option\n"
@@ -1548,10 +1566,10 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//      It is generated automatically and can be manually altered\n"
 	   "//      to optimize the ordering of the samples in the output file\n"
 	   "//      for example before generating a table (-O tabular)\n"
-	   "//      This line is equivalent and overridden by --sampleSelect (see below)\n"
+	   "//      This line is overridden by --sampleSelect (see below)\n"
 	   "// TABULAR FORMAT: (alternative format specified as -I tabular or -O tabular)\n"
 	   "//   #  sample sample sample : this line, with a single #, must appear before the data\n"
-	   "//     Each sample is equivalent to column one of the tsf format defined above\n"
+	   "//     Each sample is equivalent to the second column of the tsf format defined above\n"
 	   "//     The most recent line starting with single # is treated as the current\n"
 	   "//     list of samples used to interpret the data lines. This provides an easy \n"
 	   "//     way to merge tables with different sets of columns, into a larger table\n"
@@ -1561,7 +1579,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//     the only allowed operation are: sampleSelect, sampleRename, transpose, sort\n"
 	   "//\n"
 	   "// CELL FORMAT:  \n"
-	   "//     The cell-format indicates the number of columns and their types.\n"
+	   "//     The cell-format indicates the number of data values and their types.\n"
 	   "//     Types: i (integer), f (float), c (coordinate), t (text).\n"
 	   "//            IFCT upper-case types allow comma separated multivalued fields.\n"
 	   "//             All numbers are treated using 64bits double precision.\n"
@@ -1581,7 +1599,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//     not limited, however the maximal number of values in a given cell is 24.\n"
 	   "//\n"     
 	   "// GROUPING TAGS:\n"
-	   "//   -s, --setTag <tag>\n"
+	   "//   -t, --setTag <tag>\n"
 	   "//     If a \'tag\' is provided, it is forced on each cell, allowing\n"
 	   "//     to cumulate the counts of all tags for each given sample.\n"
 	   "//   Example using the same input as above:\n"
@@ -1590,7 +1608,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//        All_brands\tCars\tii\t290\t124\n"
 	   "//        All_brands\tTrucks\tii\t3\t7\n"
 	   "// GROUPING SAMPLES:\n"
-	   "//   -t, --setSample <sample>\n"
+	   "//   -s, --setSample <sample>\n"
 	   "//     If a \'sample\' is provided, it is forced on each cell, allowing\n"
 	   "//     to cumulate the counts of all samples for each given tag.\n"
 	   "//   Example using the same input as above:\n"
@@ -1601,7 +1619,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 
 	   "//\n"
 	   "// SAMPLE SELECTION and RENAMING:\n"
-	   "//   --sampleRename <list>: example  --sampleRename 'c1,d1;c2,d2;c3:d3'\n"
+	   "//   --sampleRename <list>: example  --sampleRename 'c1:d1,c2:d2,c3:d3'\n"
 	   "//     Renames sample c1 as d1, sample c2 as d2 and so on. This applies both to\n"
 	   "//     the tsf and the table format.\n"
 	   "//     Sample renaming is always applied before all other operations.\n"
@@ -1639,7 +1657,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//       // --append   sample_list       : default action on T subcells\n"
 	   "//       // --min      sample_list\n"
 	   "//       // --max      sample_list\n"
-	   "//     The sample_list is a comma deflimited list of samples, or the word 'any', for example\n"
+	   "//     The sample_list is a comma delimited list of samples, or the word 'any', for example\n"
 	   "//       --min sample1 --max sample2,sample3\n"
 	   "//       the min and max will be applied on these samples, the default action on all others\n"
 	   "//     For multivalued samples, the subcells are accessed using a square bracket like sample[3]\n"
@@ -1687,25 +1705,13 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//     exports a _P_ line with the corresponding percensamplees.\n"
 	   "//     Please notice that on input the _P_ samples are ignored,\n"
 	   "//     and recomputed from the final values in the corresponding P_ lines\n"
-	   "// SEPARATORS: advanced geek options, used only when parsing the input file\n"
+	   "// SEPARATORS: used only when parsing externally produced input file\n"
 	   "//  this whole section must be revised, it is completely obscure\n"
-	   "//  --FS <sep>: short form of\n"
-	   "//  --fieldSeparator : default \\t (tab character)\n"
-	   "//      separates columns in tables and T,S,F,value fields in TSF format\n"
-	   "//  --TS <sep>: short form of\n"
-	   "//  --sampleSeparator : default : (column character)\n"
-	   "//  --SS <sep>: short form of\n"
-	   "//  --tagSeparator : default : (column character)\n"
-	   "//     allows to name each subfield of a multivalued sample\n"
-	   "//     and to name the tag hierarchically. Example\n"
-	   "//       Top_speed:Mileage Ford:model_T:1911  fi 43.3  20\n"
-	   "//     The fi format announces 2 value (float, int)\n"
-	   "//     namely the speed and mileage of a Ford, model_T from 1911\n"
-	   "//  --VS <sep>: short form of\n"
-	   "//  --valueSeparator : default , (comma character)\n"
-	   "//     separates multivalued values. Example\n"
-	   "//       Color Ford:Mustang:1980 T red,blue,yellow\n"
-	   "//     The T format announces a possibly multivalued text\n"
+	   "//  --FS <sep>: default \\t (tab character)\n"
+	   "//      Field separator: separates columns in input tables\n"
+	   "//  --VS <sep>: default , (comma)\n"
+	   "//      Value separator: separates values in multivalued cells\n"
+	   "//      Example Ford,Mercedes,Toyota  red,blue,yellow\n"
 	   "//  --NA --non_available <na> [default empty]\n"
 	   "//     In tabular mode, export <na> in blank cells\n"  
 	   "//\n"
@@ -1714,7 +1720,7 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//       Transpose a table, exchanging lines and columns, i.e. samples and tags.\n"
 	   "//   --skip[123]  <constant fields>\n"
 	   "//       Skip n=1,2,3 lines when there is a change in a given list of columns\n"
-	   "//         example:  --skip3 4 --skip1 1 6\n"
+	   "//         example:  --skip3 4 --skip1 6\n"
 	   "//     export three blank lines if the data in a column<=4 vary, one for a column<=6\n"
 	   "//\n"
 	   "// HELP\n"
@@ -1823,20 +1829,11 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--title", &(tsf.title)) ;
   getCmdLineOption (&argc, argv, "--corner_title", &(tsf.corner_title)) ;
 
-  tsf.sampleSeparator    = ":" ;
-  tsf.tagSeparator = ":" ;
   tsf.valueSeparator  = "," ;
   tsf.fieldSeparator  = "\t" ;
-  getCmdLineOption (&argc, argv, "--TS", &(tsf.sampleSeparator)) ;
-  getCmdLineOption (&argc, argv, "--SS", &(tsf.tagSeparator)) ;
   getCmdLineOption (&argc, argv, "--VS", &(tsf.valueSeparator)) ;
   getCmdLineOption (&argc, argv, "--FS", &(tsf.fieldSeparator)) ;
-  getCmdLineOption (&argc, argv, "-NA", &(tsf.NA)) ;
   getCmdLineOption (&argc, argv, "--NA", &(tsf.NA)) ;
-  getCmdLineOption (&argc, argv, "--sampleSeparator", &(tsf.sampleSeparator)) ;
-  getCmdLineOption (&argc, argv, "--tagSeparator", &(tsf.tagSeparator)) ;
-  getCmdLineOption (&argc, argv, "--valueSeparator", &(tsf.valueSeparator)) ;
-  getCmdLineOption (&argc, argv, "--fieldSeparator", &(tsf.fieldSeparator)) ;
   getCmdLineOption (&argc, argv, "--non_available", &(tsf.NA)) ;
 
   getCmdLineInt (&argc, argv, "--skip1", &tsf.skip1) ;

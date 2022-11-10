@@ -567,7 +567,8 @@
                        In_repeat Text // does not apply to LIF
                        Color_repeat  // special for LIF
           Saint_Louis Text UNIQUE Text // project ESP, concurrent du projet CADD
-          Counts fCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
+          Counts Monomodal 
+                 fCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  nsCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
                  nuCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage

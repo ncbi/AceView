@@ -466,7 +466,7 @@ if ($n < 50000) then
   echo "Please edit praragraph 4 of scripts/LIMITS"
   exit 1 
 endif
-echo "..... TMPDIR = $TMPDIR is writable with $n free Mb"
+echo "..... TMPDIR = $TMPDIR is writable with $n free Mb $phaseSet"
 
 ############################################################################################
 ## Interpret the WEBSERVER paramater
@@ -486,6 +486,9 @@ endif
 
 ############################################################################################
 ## Interpret the parameters
+echo iii
+if ("$phaseSet" == tsnp2g2) goto phaseTSnp2g2
+if ("$phaseSet" == tsnp2g3) goto phaseTSnp2g3
 
 
 cat <<EOF > _x.awk
@@ -1197,6 +1200,8 @@ if ($phase == tsnp1a) goto phaseTSnp1a
 if ($phase == tsnp1b) goto phaseTSnp1b
 if ($phase == tsnp1M) goto phaseTSnp1M
 if ($phase == tsnp2a) goto phaseTSnp2a
+if ($phase == tsnp2g) goto phaseTSnp2g
+if ($phase == tsnp2g2) goto phaseTSnp2g2
 if ($phase == tsnp2b) goto phaseTSnp2b
 if ($phase == tsnp2c) goto phaseTSnp2c
 if ($phase == tsnp3) goto phaseTSnp3
@@ -4862,16 +4867,54 @@ goto phaseLoop
 ## create a TSNP_DB database and parse the tsf files and the gene data
 phasesnp2a:
 phaseTSnp2a:
+phaseTSnp2g:
 
 if (! -d tmp/TSNP_DB) mkdir tmp/TSNP_DB
 
 foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
   if (! -d tmp/TSNP_DB/$zone) mkdir tmp/TSNP_DB/$zone
   if (! -e tmp/TSNP_DB/$zone/$MAGIC.$phase.done) then
-    scripts/submit tmp/TSNP_DB/$zone/tsnp2a  "scripts/tsnp2.tcsh $phase $zone"
+    scripts/submit tmp/TSNP_DB/$zone/$phase "scripts/tsnp2.tcsh $phase $zone"
   endif
 end
+
+scripts/submit wait
  
+phaseTSnp2g2:
+# merge in 2 steps, to avoid malloc failure
+foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
+  echo $zone
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.before.tsf   | grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.notRejected.before -s anyRun
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.after.tsf    | grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.notRejected.after -s anyRun
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.centered.tsf | grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.notRejected.centered -s anyRun
+
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.before.tsf   | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.rejected.before -s anyRun
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.after.tsf    | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.rejected.after -s anyRun
+  cat tmp/TSNP_DB/$zone/tsnp2g.GGG.centered.tsf | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/$zone/tsnp2g.any.rejected.centered -s anyRun
+end 
+
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.notRejected.before.tsf   | sed -e 's/ciiiii/iiiiii/' |  grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.notRejected.before -s anyRun
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.notRejected.after.tsf    | sed -e 's/ciiiii/iiiiii/' | grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.notRejected.after -s anyRun
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.notRejected.centered.tsf | sed -e 's/ciiiii/iiiiii/' | grep -v monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.notRejected.centered -s anyRun
+
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.rejected.before.tsf   | sed -e 's/ciiiii/iiiiii/' | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.rejected.before -s anyRun
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.rejected.after.tsf    | sed -e 's/ciiiii/iiiiii/' | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.rejected.after -s anyRun
+cat tmp/TSNP_DB/zoner.*/tsnp2g.any.rejected.centered.tsf | sed -e 's/ciiiii/iiiiii/' | grep monomodal | bin/tsf -I tsf -O tsf -o tmp/TSNP_DB/tsnp2g.GGG.rejected.centered -s anyRun
+
+phaseTSnp2g3:
+set phase=tsnp2g3
+
+foreach rj (rejected notRejected)
+  foreach bac (before after centered)
+    set toto=RESULTS/SNV/$MAGIC.triplet.$rj.$bac.txt
+    echo -n "### $toto : " > $toto
+    date >> $toto
+    echo "# Type\tLocus\tComptages\tSupport\tVariant+\tRefeference+\tVariant-\tReference-\tMonomodal?\tV+/V\tR+/R\t(V+/V)(R/R+)\tV+/(V+ R+)\tV-/(V- R-)" >> $toto
+    cat  tmp/TSNP_DB/tsnp2g.GGG.$rj.$bac.tsf | cut -f 1,4-11 | gawk -F '\t' '/^#/{next;}{mp=$5;wp=$6;mm=$7;wm=$8;m=mp+mm+0.0001;w=wp+wm+.0001;printf("%s",$1);for(i=2;i<=8;i++)printf("\t%s",$i);printf("\t%.2f\t%.2f\tZZ:%.2f\t%.2f\t%.2f\n",100*mp/m,100*wp/w,100*mp*w/(m*wp+.00001),100*mp/(mp+wp+.001),100*mm/(mm+wm+.001)) ;}' | sort >> $toto
+  end
+end
+
+
 goto phaseLoop
 
 ###################################################################################
@@ -5213,6 +5256,7 @@ if (1 || ! -e tmp/SNP_BRS/$MAGIC.minFrequency.txt) then
       select -o tmp/SNP_BRS/$MAGIC.minFrequency.txt a,f,t,z from a in @, f in a->Error_profile, t in f[1] where t == "Any", z in t[3]
       quit
 EOF
+
 
 foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupSnpAdditiveList`) 
   # RunsList avoids runs which are sublibraries
