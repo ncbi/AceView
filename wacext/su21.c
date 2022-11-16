@@ -6485,7 +6485,7 @@ static BOOL feynmanDiagrams (void)
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-typedef struct kasStruct { MX *mu, *QQ, gg, GG, kas2, CHI, ccc, CCC, cccGhost, CCCGhost, c4, c5, C4, C5, kas3 ; int a, b, d, d1, d2, d3, d4, chi, scale, NN ; BOOL isOSp, isSU2, isCycle, show ; float zc4, zC4 ; AC_HANDLE h ; } KAS ;
+typedef struct kasStruct { MX *mu, *Rmu, *QQ, gg, GG, kas2, CHI, ccc, CCC, cccGhost, CCCGhost, c4, c5, C4, C5, kas3, chi16 ; int a, b, d, d1, d2, d3, d4, chi, scale, NN ; BOOL isOSp, isSU2, isCycle, show, xiPrime ; float zc4, zC4 ; AC_HANDLE h ; } KAS ;
 typedef struct comtpStruct { int a, b, c, n, s ; } LC ;
 static MX KasCommut (MX a, MX b, int sign, KAS *kas) ;
   
@@ -7171,6 +7171,8 @@ static MX *KasimirConstructTypicMatrices (KAS *kas, BOOL show)
   mu[8] = muK1 ;
   mu[9] = muK2 ;
 
+
+
   return mu ;
 } /* KasimirConstructTypicMatrices */
 
@@ -7224,7 +7226,7 @@ static MX KasCommut (MX a, MX b, int sign, KAS *kas)
 {
   MX p = mxMatMult (a, b, kas->h) ;
   MX q = mxMatMult (b, a, kas->h) ;
-  MX r = mxCreate (kas->h, "r", MX_INT, kas->d, kas->d, 0) ;
+  MX r = mxCreate (kas->h, "r", a->type, kas->d, kas->d, 0) ;
 
   r = sign == 1 ? mxAdd (r, p, q, kas->h) : mxSubstract (r, p, q, kas->h) ;
   
@@ -7283,6 +7285,43 @@ static MX KasCheck (LC *up, KAS *kas)
 	printf ("{%s,%s} = - %s\n",  a->name, b->name, c->name) ;
       else if (up->s == 1)
 	printf ("{%s,%s} = %d %s\n",  a->name, b->name, up->n, c->name) ;
+    }
+  return r ;
+}
+
+/***********************************************************************************************************************************************/
+
+static MX KasCheckR16 (KAS *kas, MX a, MX b, MX c, int scale, int sign)
+{
+  int d = kas->d ;
+  int dd = kas->d * kas->d ;
+  MX r = mxCreate (kas->h, "r", MX_COMPLEX, d,d,0) ;
+  MX s = mxCreate (kas->h, "s", MX_COMPLEX, d,d,0) ;
+  MX t = mxCreate (kas->h, "t", MX_COMPLEX, d,d,0) ;
+  const float complex  *xx ;
+  float complex yy [dd] ;
+  int i, k ;
+
+  MX ab = KasCommut (a, b, sign, kas) ;
+
+  mxValues (c, 0, 0, &xx) ;
+  for (i = 0 ; i < dd ; i++)
+    yy[i] = scale * xx[i] ;
+  mxSet (s, yy) ;
+  if (kas->xiPrime)
+    s = mxMatMult (kas->chi16, s, kas->h) ;
+  t = mxSubstract (t, ab, s, kas->h) ;
+  mxValues (t, 0, 0, &xx) ;
+  for (i = k = 0 ; i < dd ; i++)
+    {
+      float complex z = xx[i] * xx[i] ;
+      float y = creal(z)*creal(z) + cimag(z)*cimag(z) ;
+      if (y > 1/100.0)
+	{
+	  niceShow (ab) ;
+	  niceShow (s) ;
+	  messcrash ("\nKasCheckR12 Failed [%s,%s] = %d * %s\n", a->name, b->name, scale, c->name) ;
+	}
     }
   return r ;
 }
@@ -8858,6 +8897,9 @@ static void Kasimirs (int a, int b, BOOL show)
   KasimirCheckCommutators (&kas) ;
 
   KasimirLowerMetric (&kas) ;
+  if (show) exit (0) ;
+  
+  
   KasimirUpperMetric (&kas) ;
   KasimirUpperTensor (&kas) ;
   
@@ -8919,6 +8961,328 @@ static void Kasimirs (int a, int b, BOOL show)
 } /* Kasimirs */
 
 /***********************************************************************************************************************************************/
+/***********************************************************************************************************************************************/
+
+
+static void KasimirR16 (void)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  KAS kas0, *kas = &kas0 ;
+  int ii, i ;
+  int d = 16 ;
+  int dd = d * d ;
+  MX *mu, *Rmu, chi, chiP, chiM, xi, xiP, xiM ;
+  MX *Tmu, Tp, Tm ;
+  MX M ;
+  int xx[dd], xxP[dd], xxM[dd] ;
+  float complex zz[dd] ;
+  float complex zzP[dd] ;
+  float complex zzM[dd] ;
+  const float complex *zz1, *zz2 ; 
+  BOOL xiPrime = FALSE     ;
+  
+  memset (kas,0, sizeof (KAS)) ;
+  kas->h = h ;
+  kas->d = d ;
+  kas->xiPrime = xiPrime ;
+  
+  mu = kas->Rmu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
+  for (ii = 0 ; ii < 10 ; ii++)
+    mu[ii] = mxCreate (h,  messprintf ("mu[%d]", ii) , MX_COMPLEX, d, d, 0) ;
+  Rmu = kas->Rmu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
+  for (ii = 0 ; ii < 10 ; ii++)
+    Rmu[ii] = mxCreate (h,  messprintf ("Rmu[%d]", ii) , MX_COMPLEX, d, d, 0) ;
+  Tmu = kas->Rmu = (MX *) halloc (10 * sizeof (MX), kas->h) ;
+  for (ii = 0 ; ii < 10 ; ii++)
+    Tmu[ii] = mxCreate (h,  messprintf ("Tmu[%d]", ii) , MX_COMPLEX, d, d, 0) ;
+  
+  kas->chi16 =  chi = mxCreate (h,  "chi", MX_INT, d, d, 0) ;
+  chiP = mxCreate (h,  "chiP", MX_INT, d, d, 0) ;
+  chiM = mxCreate (h,  "chiM", MX_INT, d, d, 0) ;
+  xi = mxCreate (h,  "xi", MX_COMPLEX, d, d, 0) ;
+  xiP = mxCreate (h,  "xiP", MX_COMPLEX, d, d, 0) ;
+  xiM = mxCreate (h,  "xiM", MX_COMPLEX, d, d, 0) ;
+
+  /* chi and xi matrices */
+  memset (xx, 0, sizeof(xx)) ;
+  memset (xxP, 0, sizeof(xx)) ;
+  memset (xxM, 0, sizeof(xx)) ;
+  memset (zz, 0, sizeof(zz)) ;
+  memset (zzP, 0, sizeof(zz)) ;
+  memset (zzM, 0, sizeof(zz)) ;
+
+  for (ii = 0 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 0)
+	{
+	  xx [d*ii + ii] = -1 ;
+	  xxM [d*ii + ii] = 1 ;
+	  zz [d*ii + ii] = I ;
+	  zzM [d*ii + ii] = I ;
+	}
+      else if (ii % 4 == 3)
+	{
+	  xx [d*ii + ii] = -1 ;
+	  xxM [d*ii + ii] = 1 ;
+	  zz [d*ii + ii] = xiPrime ? -I : I ;
+	  zzM [d*ii + ii] = xiPrime ? -I : I ;
+	}
+      else
+	{
+	  xx [ d*ii + ii] = 1 ;
+	  xxP [d*ii + ii] = 1 ;
+	  zz [ d*ii + ii] = xiPrime ? -1 : 1 ;
+	  zzP [ d*ii + ii] = xiPrime ? -1 : 1 ;
+	}
+    }
+  mxSet (chi, xx) ;
+  mxSet (chiP, xxP) ;
+  mxSet (chiM, xxM) ;
+  mxSet (xi, zz) ;
+  mxSet (xiP, zzP) ;
+  mxSet (xiM, zzM) ;
+
+
+  /* Y matrices L0 */
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[0] = mxCreate (h,  "Y", MX_COMPLEX, d, d, 0) ;
+  for (ii = 0 ; ii < 4 ; ii++)
+    {
+      if (ii == 1)
+	zz[d * ii + ii] = -I ;
+      else if (ii == 2)
+	zz[d * ii + ii] = -I ;
+      else if (ii == 3)
+	zz[d * ii + ii] = -2I ;
+    }
+  for (ii = 4 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 0)
+	zz[d * ii + ii] = 4I/3.0 ;
+      else if (ii % 4 == 1)
+	zz[d * ii + ii] = I/3.0 ;
+      else if (ii % 4 == 2)
+	zz[d * ii + ii] = I/3.0 ;
+      else if (ii % 4 == 3)
+	zz[d * ii + ii] = -2I/3.0 ;
+    }
+  mxSet (Rmu[0], zz) ;
+
+  /* sl(2) matrices L3 */
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[3] = mxCreate (h,  "Rmu[3]", MX_COMPLEX, d, d, 0) ;
+for (ii = 0 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 1)
+	zz[d * ii + ii] = I ;
+      else if (ii % 4 == 2)
+	zz[d * ii + ii] = -I ;
+    }
+ mxSet (Rmu[3], zz) ;
+
+  /* sl(2) matrices L1 */
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[1] = mxCreate (h,  "Rmu[1]", MX_COMPLEX, d, d, 0) ;
+  for (ii = 0 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 1)
+	{
+	  zz[d * ii + ii + 1] = I ;
+	  zz[d * (ii + 1) + ii] = I ;
+	}
+    }
+  mxSet (Rmu[1], zz) ;
+
+  /* sl(2) matrices L2 */
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[2] = mxCreate (h,  "Rmu[2]", MX_COMPLEX, d, d, 0) ;
+  for (ii = 0 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 1)
+	{
+	  zz[d * ii + ii + 1] = 1 ;
+	  zz[d * (ii + 1) + ii] = -1 ;
+	}
+    }
+  mxSet (Rmu[2], zz) ;
+
+  /* matrix L8 = (L0 + L3)/2 */
+  mxValues (Rmu[0], 0, 0, &zz1) ;
+  mxValues (Rmu[3], 0, 0, &zz2) ;
+
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[8] = mxCreate (h,  "Rmu[8]", MX_COMPLEX, d, d, 0) ;
+  for (i = 0 ; i < dd ; i++)
+    zz[i] = (zz1[i] - zz2[i]) ;
+  mxSet (Rmu[8], zz) ;
+
+  memset (zz, 0, sizeof(zz)) ;
+  Rmu[9] = mxCreate (h,  "Rmu[9]", MX_COMPLEX, d, d, 0) ;
+  for (i = 0 ; i < dd ; i++)
+    zz[i] = (zz1[i] + zz2[i]) ;
+  mxSet (Rmu[9], zz) ;
+
+
+  
+  niceShow (chi) ;
+  niceShow (xi) ;
+  niceShow (Rmu[0]) ;
+  for (ii = 1 ; ii < 4 ; ii++)
+    niceShow (Rmu[ii]) ;
+  for (ii = 8 ; ii < 10 ; ii++)
+    niceShow (Rmu[ii]) ;
+    
+  M = KasCommut (Rmu[1], Rmu[2], -1, kas) ;
+  M->name = "[1,2]" ;
+  niceShow (M) ;
+  
+  M = KasCommut (Rmu[3], Rmu[1], -1, kas) ;
+  M->name = "[3,1]" ;
+  niceShow (M) ;
+  
+  M = KasCommut (Rmu[3], Rmu[2], -1, kas) ;
+  M->name = "[3,2]" ;
+  niceShow (M) ;
+
+  KasCheckR16 (kas, Rmu[1], Rmu[2], Rmu[3], 2, -1) ;
+  KasCheckR16 (kas, Rmu[2], Rmu[3], Rmu[1], 2, -1) ;
+  KasCheckR16 (kas, Rmu[3], Rmu[1], Rmu[2], 2, -1) ;
+  
+  KasCheckR16 (kas, Rmu[0], Rmu[1], Rmu[2], 0, -1) ;
+  KasCheckR16 (kas, Rmu[0], Rmu[2], Rmu[2], 0, -1) ;
+  KasCheckR16 (kas, Rmu[0], Rmu[3], Rmu[2], 0, -1) ;
+
+  printf ("Success for all even-even commutators\n") ;
+  
+  /* sl(2/1,R) odd matrix L6 */
+  memset (zz, 0, sizeof(zz)) ;
+  if (0) Rmu[6] = mxCreate (h,  "Rmu[6]", MX_COMPLEX, d, d, 0) ;
+  for (ii = 0 ; ii < 4 ; ii++)
+    {
+      if (ii % 4 == 0)
+	{
+	  zz[d * ii + ii + 1] = 0 ;
+	  zz[d * (ii + 1) + ii] = 0 ;
+	}
+      else if (ii % 4 == 2)
+	{
+	  zz[d * ii + ii + 1] = 1 ;
+	  zz[d * (ii + 1) + ii] = 1 ;
+	}
+    }
+  for (ii = 4 ; ii < 16 ; ii++)
+    {
+      if (ii % 4 == 0)
+	{
+	  zz[d * ii + ii + 1] = -sqrt(2.0/3.0) ;
+	  zz[d * (ii + 1) + ii] = sqrt(2.0/3.0) ; ;
+	}
+      else if (ii % 4 == 2)
+	{
+	  zz[d * ii + ii + 1] = sqrt(1.0/3.0) ;
+	  zz[d * (ii + 1) + ii] = sqrt(1.0/3.0) ; ;
+	}
+    }
+  mxSet (mu[6], zz) ;
+  niceShow (mu[6]) ;
+  Rmu[6] = mxMatMult (xi, mu[6], kas->h) ;
+  Rmu[6]->name = "Rmu[6]" ;
+  niceShow (Rmu[6]) ;
+  niceShow (xi) ;
+  
+  KasCheckR16 (kas, Rmu[6], Rmu[6], Rmu[9], -1, 1) ;
+
+  if (0) exit (0) ;
+  
+  Rmu[7] = KasCommut (Rmu[3], Rmu[6], -1, kas) ;
+  Rmu[7]->name = "Rmu[7]" ;
+  Rmu[4] = KasCommut (Rmu[1], Rmu[6], -1, kas) ;
+  Rmu[4]->name = "Rmu[4]" ;
+  Rmu[5] = KasCommut (Rmu[3], Rmu[4], -1, kas) ;
+  Rmu[5]->name = "Rmu[5]" ;
+  
+  niceShow (Rmu[4]) ;
+  niceShow (Rmu[5]) ;
+  niceShow (Rmu[6]) ;
+  niceShow (Rmu[7]) ;
+  
+  KasCheckR16 (kas, Rmu[3], Rmu[6], Rmu[7], 1, -1) ;
+  KasCheckR16 (kas, Rmu[3], Rmu[7], Rmu[6], -1, -1) ;
+  KasCheckR16 (kas, Rmu[3], Rmu[4], Rmu[5], 1, -1) ;
+  KasCheckR16 (kas, Rmu[3], Rmu[5], Rmu[4], -1, -1) ;
+
+  KasCheckR16 (kas, Rmu[0], Rmu[6], Rmu[7], -1, -1) ;
+  KasCheckR16 (kas, Rmu[0], Rmu[7], Rmu[6], 1, -1) ;
+  KasCheckR16 (kas, Rmu[0], Rmu[4], Rmu[5], 1, -1) ;
+  KasCheckR16 (kas, Rmu[0], Rmu[5], Rmu[4], -1, -1) ;
+
+  KasCheckR16 (kas, Rmu[1], Rmu[6], Rmu[4], 1, -1) ;
+  KasCheckR16 (kas, Rmu[1], Rmu[7], Rmu[5], -1, -1) ;
+  KasCheckR16 (kas, Rmu[1], Rmu[4], Rmu[6], -1, -1) ;
+  KasCheckR16 (kas, Rmu[1], Rmu[5], Rmu[7], 1, -1) ;
+
+  KasCheckR16 (kas, Rmu[2], Rmu[4], Rmu[7], -1, -1) ;
+  KasCheckR16 (kas, Rmu[2], Rmu[5], Rmu[6], -1, -1) ;
+  KasCheckR16 (kas, Rmu[2], Rmu[6], Rmu[5], 1, -1) ;
+  KasCheckR16 (kas, Rmu[2], Rmu[7], Rmu[4], 1, -1) ;
+
+  printf ("Success for all even-odd commutators\n") ;
+
+    
+  KasCheckR16 (kas, Rmu[4], Rmu[4], Rmu[8], -1, 1) ;
+  KasCheckR16 (kas, Rmu[5], Rmu[5], Rmu[8], -1, 1) ;
+  KasCheckR16 (kas, Rmu[6], Rmu[6], Rmu[9], -1, 1) ;
+  KasCheckR16 (kas, Rmu[7], Rmu[7], Rmu[9], -1, 1) ;
+
+  KasCheckR16 (kas, Rmu[4], Rmu[5], Rmu[9], 0, 1) ;
+  KasCheckR16 (kas, Rmu[4], Rmu[6], Rmu[2], 1, 1) ;
+  KasCheckR16 (kas, Rmu[4], Rmu[7], Rmu[1], -1, 1) ;
+  
+  KasCheckR16 (kas, Rmu[5], Rmu[4], Rmu[9], 0, 1) ;
+  KasCheckR16 (kas, Rmu[5], Rmu[6], Rmu[1], -1, 1) ;
+  KasCheckR16 (kas, Rmu[5], Rmu[7], Rmu[2], -1, 1) ;
+  
+  KasCheckR16 (kas, Rmu[6], Rmu[4], Rmu[2], 1, 1) ;
+  KasCheckR16 (kas, Rmu[6], Rmu[5], Rmu[1], -1, 1) ;
+  KasCheckR16 (kas, Rmu[6], Rmu[7], Rmu[1], 0, 1) ;
+  
+  KasCheckR16 (kas, Rmu[7], Rmu[4], Rmu[1], -1, 1) ;
+  KasCheckR16 (kas, Rmu[7], Rmu[5], Rmu[2], -1, 1) ;
+  KasCheckR16 (kas, Rmu[7], Rmu[6], Rmu[1], 0, 1) ;
+  
+  printf ("Success for all odd-odd anti-commutators\n") ;
+
+  if (0)
+    {  /* i do not know how to twist */
+      /* Construct the twisted matrices */
+      Tp = mxMatMult (xiP, Rmu[4], kas->h) ;
+      Tm = mxMatMult (xiM, Rmu[4], kas->h) ;
+      Tmu[4] = mxAdd (Tmu[4], Tp, Tm, kas->h) ;
+      
+      Tp = mxMatMult (xiP, Rmu[5], kas->h) ;
+      Tm = mxMatMult (xiM, Rmu[5], kas->h) ;
+      Tmu[5] = mxSubstract (Tmu[5], Tp, Tm, kas->h) ;
+      
+      Tp = mxMatMult (xiP, Rmu[6], kas->h) ;
+      Tm = mxMatMult (xiM, Rmu[6], kas->h) ;
+      Tmu[6] = mxSubstract (Tmu[6], Tp, Tm, kas->h) ;
+      
+      Tp = mxMatMult (xiP, Rmu[7], kas->h) ;
+      Tm = mxMatMult (xiM, Rmu[7], kas->h) ;
+      Tmu[7] = mxAdd (Tmu[7], Tp, Tm, kas->h) ;
+      
+      niceShow (Tmu[6]) ;
+      
+      KasCheckR16 (kas, Tmu[6], Tmu[6], Rmu[9], -1, 1) ;
+      KasCheckR16 (kas, Rmu[3], Tmu[6], Tmu[7], 1, -1) ;
+      
+      printf ("Success for all Tmu commutators\n") ;
+    }
+
+  
+  ac_free (h) ;
+} /* KasimirR16 */
+
 /***********************************************************************************************************************************************/
 /*****  SU(2/1) representation theory. This is used by, but does not depend on the analysis above of the Feynman diagrams **********************/
 /*****  Scalar anomaly paper , indecomposable representations submited to Arxiv and JHEP in My 20, 2020 ****************************************/
@@ -12133,6 +12497,12 @@ int main (int argc, const char **argv)
   getCmdLineInt (&argc, argv, "-N", &NN) ; /* Number of generations >= 2 */
   getCmdLineInt (&argc, argv, "-NN", &NN) ; /* synonim */
 
+  if (getCmdLineBool (&argc, argv, "-R16"))  /* lpto-quark real rep */
+    {
+      KasimirR16 () ;
+      return 0 ;
+    }
+      
   getCmdLineInt (&argc, argv, "-cycle", &CYCLE) ;
 
   int a = 0, b = 0 ;
