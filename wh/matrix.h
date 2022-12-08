@@ -160,7 +160,7 @@ MX mxMap (MX af, MX a, MX cache, void f(MX, MX, MX), AC_HANDLE h) ;
  *   a, b, c must have same rank and compatible shapes
  */
 MX mxAdd (MX a, MX b, MX c, AC_HANDLE h) ;       /* A = B + C */
-MX mxSubstract (MX a, MX b, MX c, AC_HANDLE h) ; /* A = B - C */
+MX mxSubstract (MX b, MX c, AC_HANDLE h) ;       /* returns  B - C */
 /* general linear combination:   A = beta B + gamma C */
 MX mxLinearCombine (MX a, complex float beta, MX b, complex float gamma, MX c, AC_HANDLE h) ;
 /* Standard Matrix product 

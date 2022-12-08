@@ -7369,7 +7369,8 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		      mm->pair * (px->a2 -  px->a1) > 0 &&
 		      ! bit(pp->isSplicedTarget, px1->targetGene)
 		      )
-		    px1->score = px1->pairScore = 0 ;
+		    if (1 || px1->pairScore < maxDiscardableAli)
+		      px1->score = px1->pairScore = 0 ;
 	      }
 	    if (pp->avoidPseudoGenes && nGeneMinusU && nGeneMinus > nGeneMinusU)
 	      {
@@ -7379,7 +7380,8 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		      mm->pair * (px->a2 -  px->a1) < 0 &&
 		      ! bit(pp->isSplicedTarget, px1->targetGene)
 		      )
-		    px1->score = px1->pairScore = 0 ;
+		    if (1 || px1->pairScore < maxDiscardableAli)
+		      px1->score = px1->pairScore = 0 ;
 	      }
 
 	    /* register */
@@ -7451,7 +7453,7 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		     }
 	       }
 
-	     if (! pp->bestHit && bestScore > maxDiscardableAli) 
+	     if ((1 || ! pp->bestHit) && bestScore > maxDiscardableAli)   /* mieg 2022-12-10   allow muti hits also in transcript to allow fusions */
 	       bestScore = maxDiscardableAli ;
 	     if (bestScore)
 	       for (px1 = px , jj = ii  ; jj < ii2 ; px1++, jj++) 
@@ -7460,8 +7462,8 @@ static void clipAlignOptimizeOnePair (CLIPALIGN *pp, BOOL MRNAH, BOOL singleTarg
 		   if (! px1->score || px1->mm != mm)
 		     continue ;
 		   score = pp->hasPairs ? px1->pairScore : px1->score ;
-		   if (score < bestScore && score < maxDiscardableAli)
-		     px1->score = px1->pairScore = 0 ;
+		   if (score < bestScore)
+		     score = px1->score = px1->pairScore = 0 ;
 		   if (score && score < bestScore)
 		     {
 		       int u1, u2 ;

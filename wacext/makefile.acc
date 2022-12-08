@@ -103,7 +103,7 @@ ALL_ACC_OBJS = go2gene.o bly2hosac.o kscount.o akg.o gene_nm_remap.o \
 	av.o david.o golay.o  taxtree.o jumpalign.o dnamotif.o mute.o mktable.o \
 	split.o wiggle_smoother.o samclustering.o dna2dna.o  wiggle.o histo.o snp.o tsnp.o tricoteur.o \
 	mega3psort2ace.o calireport.o googletable.o  geneindex.o pg2pg.o seqc.o \
-	dnastitch.o kmercount.o g2x.o qcsummary.o dnabloom.o snpbloom.o \
+	dnastitch.o kmercount.o g2x.o qcsummary.o snpsummary.o dnabloom.o snpbloom.o \
 	cnv.o sv.o chanserver.o chanclient.o chanscript.o chantest.o sra_metadata.o \
 	demazure.o dnawalk.o pi_channel_test.o introns.o table_histo.o tsf.o sam2gold.o \
 	tfali.o postMagicBlast.o altintrons.o mir.o
@@ -135,7 +135,7 @@ all: go2gene bly2hosac kscount akg sakg gene_nm_remap sgene_nm_remap gene2gene g
 	estscan genexml2ace synonyms  nico_worf \
 	david taxtree jumpalign dnamotif mute\
 	wiggle_smoother  dna2dna dnastitch kmercount  wiggle histo snp tsnp tricoteur \
-	mega3psort2ace  geneindex pg2pg seqc g2x qcsummary dnabloom snpbloom \
+	mega3psort2ace  geneindex pg2pg seqc g2x qcsummary snpsummary dnabloom snpbloom \
 	chanserver chanclient mir cnv sv chantest dnawalk pi_channel_test \
 	sra_metadata introns table_histo tsf sam2gold tfali postMagicBlast altintrons
 
@@ -273,6 +273,9 @@ altintrons: altintrons.o
 	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS)   -lpthread
 
 qcsummary: qcsummary.o  
+	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) 
+
+snpsummary: snpsummary.o  
 	$(LINKER)  -o $@  $@.o $(LINK_ACS) $(LIBS) 
 
 postMagicBlast: postMagicBlast.o

@@ -290,7 +290,7 @@ echo "----  check done"
 # loop on RNAtargets because it is licit to have an RNA_seq project with no previously known annotations
 foreach target ($allRNAtargets)
   if ($target == rrna) continue
-  if (1 && $Strategy == RNA_seq && ! -e tmp/METADATA/mrnaRemap.gz) then
+  if (0 && $Strategy == RNA_seq && ! -e tmp/METADATA/mrnaRemap.gz) then
     echo "---- FATAL ERROR missing file  tmp/METADATA/mrnaRemap.gz"
     goto done
   endif
@@ -314,10 +314,10 @@ foreach target ($allRNAtargets)
      cat  TARGET/WIGGLEREMAP/mrnaRemap.$target.txt ZZZZZ | gawk -F '\t' '{gsub(/\"/,"",$0);}{m=$2;c[m]=$5;a1=$6;a2=$7;if(a1>a2){a0=a1;a1=a2;a2=a0;isUp[m]=1;}if(m1[m]+0==0){m1[m]=a1;m2[m]=a2;}if(a1<m1[m])m1[m]=a1;if(a2>m2[m])m2[m]=a2;}END{for(m in c){printf("%s\t%s",m,c[m]);if(isUp[m]==1)printf("\t%d\t%d\n",m2[m],m1[m]);else printf("\t%d\t%d\n",m1[m],m2[m]);}}' | sort >  tmp/METADATA/gtf.$target.mrna2intMap.txt 
   endif
 
-  if (-e  tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt && -e tmp/METADATA/gtf.$target.mrna2intMap.txt) then 
+  if (-e  tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt || -e tmp/METADATA/gtf.$target.mrna2intMap.txt) then 
     cat   tmp/METADATA/gtf.$target.mrna2intMap.txt ZZZZZ tmp/METADATA/$target.mrna_ln_gc_gene_geneid.txt | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){m=$1;m2map[m]=$2 ":" $3 "-" $4;next;}printf("%s\t%s",$1,m2map[$1]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' > tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt
 # reformat in .ace format tmp/METADATA/av.mrna_map_ln_gc_gene_geneid.txt
-
+  
     cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt |   gawk -F '\t' '/^#/{next;}{m=$1;chr=$2;ln=$3;gc=$4;g=$5;gid=$6;if(length(m)<1)next;printf("mRNA \"%s\"\nLength %d\n",m,ln);if(gc+0>0)printf("GC_percent %d\n",gc);k1=split(chr,aa,":");k2=split(aa[2],bb,"-");if(k1==2 && k2==2)printf("IntMap %s %s %s\n",aa[1],bb[1],bb[2]);if(length(g)>1)printf("Gene \"%s\"\n",g);if(length(gid)>1)printf("GeneId \"%s\"\n",gid);printf("\n");}' >  tmp/METADATA/$target.MRNA.ln.ace
 
   else
@@ -596,6 +596,9 @@ if ($?CAPTURES) then
     end
     cat   tmp/METADATA/$MAGIC.$target.captured_genes.txt | sort -V | gawk -F '\t' '{if($1 != old)printf ("\nGene %s\n",$1);old=$1;printf("%s %s\n",$3, $2);}END{printf("\n");}' > tmp/METADATA/$MAGIC.$target.captured_genes.ace
     if (-e tmp/METADATA/$MAGIC.$target.captured_genes.txt) \rm tmp/METADATA/$MAGIC.$target.captured_genes.txt
+    if (-e tmp/METADATA/$MAGIC.$target.captured_genes.ace) then
+      cat  tmp/METADATA/$MAGIC.$target.captured_genes.ace | gawk '/^Gene/{g=$2;gsub(/\"/,"",g);split(g,aa,"(");g=aa[1];}/touch/{next;}/^Capture/{c=$2;if(length(c)==2)print("%s\t%s\n",g,c);}' | sort -u | gawk '{g=$1;c[g]=c[g] $2;}END{for (g in c)printf("%s\t%s\n",g,c[g]);}' > tmp/METADATA/$MAGIC.$target.captured_genes.g2c
+    endif
   end
 endif
 

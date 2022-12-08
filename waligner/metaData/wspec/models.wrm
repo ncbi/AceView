@@ -463,6 +463,7 @@
                    HGVS gName UNIQUE Text  // Human Genome Variation society
                         rName UNIQUE Text  // define aprecise nomenclature for
                         pName UNIQUE Text  // genomic, RNA-transcript and protein variants
+                   Dan_Li UNIQUE ?Text 
                    Main_variant
                    Same_site ?Variant XREF Same_site
 		   Phase UNIQUE Int UNIQUE Text  UNIQUE Int 
@@ -574,6 +575,7 @@
                  nuCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
                  BRS_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int Int  UNIQUE Int Int  UNIQUE Int  #Proba // Coverage Var Ref Var+ Ref+ Var- Ref-  Frequency BRS recount
                  MCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
+                 DanLi_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  MBCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery
                  MUCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  MBUCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery

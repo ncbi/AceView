@@ -437,7 +437,7 @@ double nnCost (NN *nn)
   else
     { /*  a1 is continuous value, not a class label, compute sum {(X-Y)^2 } */
       Y1 = mxCreate (h, "Y1", ly->A->type, nn->dimOut, nn->microSize, 0) ;
-      Y1 = mxSubstract (Y1, Y, ly->A, h) ;
+      Y1 = mxLinearCombine (Y1, 1.0, Y, - 1.0, ly->A, h) ;   /*Y1 = Y - ly->A :  substract */
       cost = creal (mxFullContraction (Y1, Y1, 0, 0)) ; /* trace over all classes and all examples */
       cost /= nn->microSize ;
      }
@@ -701,7 +701,7 @@ static void nnLayerPullback (NN *nn, int layer)
        */ 
       MX Y = nn->nn0->test ? nn->Y_test : nn->Y_train ;
       dZ = mxCreate (h, "dZ", ly->A->type, nn->dimOut, nn->microSize, 0) ;
-      dZ = mxSubstract (dZ, ly->A, Y, h) ;
+      dZ = mxLinearCombine (dZ, 1.0, ly->A, -1.0, Y, h) ;  /* dZ = ly->A - Y */
     }
   else
     {  /* Hidden layer, the dA_up gradient is inherited from the layer above */

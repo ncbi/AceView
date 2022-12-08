@@ -529,7 +529,7 @@ cat <<EOF > _x.awk
   if (ix > 0) ph = ph " ii2a wait ii2b wait ii2c wait ii2d" ;
 # d3 is obsolete
 # d4 must run after ii2d twice, once per run in parallel, once to cumulate the results
-  if (ix > 0) ph = ph " wait  SLpA3 d4 wait d4 " ;
+  if (ix > 0) ph = ph " wait tgf3  SLpA3 d4 wait d4 " ;
   if (w > 0) ph = ph " wg1 wait wg2a wait wg2ba wait wg2bb wait wg2bb wait wg2bb wait wg2bb wait wg3a wait wg3b  wait wg4 wg4b wait  wg4c wg5 wait wg6 wg4d sponge1 wait sponge2 wait sponge3 wait " ;
 # s2c (extend, must come after s3a (detect) and would influence the BRS, so we would do s1 s2a s2b s3a,  extend which would create a modified BRS file, then s3b:count
   if (cnv > 0)  ph = ph " cnv wait cnv "
@@ -834,12 +834,12 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
   comment magic_list 16
   query find project IS $MAGIC ; > Run  ; CLASS Runs && sorting_title
   bql -a -o MetaDB/$MAGIC/RunListSorted1 select r,s from r in @, s in r->sorting_title order_by 2
-  query find project IS $MAGIC ; > Run  ; CLASS Runs && NOT sorting_title
-  bql -a -o MetaDB/$MAGIC/RunListSorted2 select r from r in @ 
+  query find project IS $MAGIC ; > Run  ; CLASS Runs && sorting_title_2
+  bql -a -o MetaDB/$MAGIC/RunListSorted2 select r,s from r in @, s in r->sorting_title_2 order_by 2
   query find project IS $MAGIC ; > Run  ; Union_of && sorting_title
   bql -a -o MetaDB/$MAGIC/GroupListSorted1 select r,s from r in @, s in r->sorting_title order_by 2
-  query find project IS $MAGIC ; > Run  ; Union_of && ! sorting_title
-  bql -a -o MetaDB/$MAGIC/GroupListSorted2 select r from r in @
+  query find project IS $MAGIC ; > Run  ; Union_of && sorting_title_2
+  bql -a -o MetaDB/$MAGIC/GroupListSorted2 select r,s from r in @, s in r->sorting_title_2 order_by 2
   query find project IS $MAGIC ; > Run
   bql -a -o MetaDB/$MAGIC/Run2Title.txt select r,s,t from r in @, t in r->title, s in r->sorting_title order_by s
   query find project IS $MAGIC ; > Run  ; file
@@ -850,8 +850,8 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
 EOF
 
 ## clean up the bql output
-cat   MetaDB/$MAGIC/RunListSorted[12] | gawk '{gsub(/\"/,"",$0);print $1;}' > MetaDB/$MAGIC/RunListSorted
-cat   MetaDB/$MAGIC/GroupListSorted[12] | gawk '{gsub(/\"/,"",$0);print $1;}' > MetaDB/$MAGIC/GroupListSorted
+cat   MetaDB/$MAGIC/RunListSorted1 | gawk '{gsub(/\"/,"",$0);print $1;}' > MetaDB/$MAGIC/RunListSorted
+cat   MetaDB/$MAGIC/GroupListSorted1 | gawk '{gsub(/\"/,"",$0);print $1;}' > MetaDB/$MAGIC/GroupListSorted
 
 cat  MetaDB/$MAGIC/gtitle.pretxt | gawk -F '\t' '{printf("%s",$1);for (i=2;i<=NF;i++){j = index($i,"\"");printf("\t%s",substr($i,j));}printf("\n");}' >    MetaDB/$MAGIC/gtitle.txt
 
@@ -1211,6 +1211,7 @@ if ($phase == t2) goto phaset2
 
 if ($phase == tgf1) goto phasetgf1
 if ($phase == tgf2) goto phasetgf2
+if ($phase == tgf3) goto phasetgf3
 
 if ($phase == s1) goto phases1
 if ($phase == s1A2G) goto phases1A2G
@@ -2243,7 +2244,7 @@ end
 
 set ok=0
 foreach run (`cat MetaDB/$MAGIC/RunNoCountList`)
-    # force recount but not one new runs never processed before
+    # force recount but not on new runs never processed before
     if (-e Fastc/$run/fastc_counts.ace && -e Fastc/$run/fastc.count) \rm Fastc/$run/fastc.count
     if (-e Fastc/$run/fastc_counts.ace) \rm  Fastc/$run/fastc_counts.ace
     if (! -e Fastc/$run/fastc.count) then
@@ -2281,7 +2282,6 @@ foreach run (`cat MetaDB/$MAGIC/RunNoCountList`)
   echo "Ali $run" >>  toto.ace
   echo >> toto.ace
   cat Fastc/$run/original_counts.ace >> toto.ace
-  # cat Fastc/$run/fastc_count.ace >> toto.ace
   cat Fastc/$run/fastc.count.ace >> toto.ace
   if (-e Fastc/$run/first_line.txt) then
     cat  Fastc/$run/first_line.txt | gawk '{printf ("Run %s\nFirst_line \"%s\"\n\n",run,$0);}' run=$run >>  toto.ace
@@ -3170,8 +3170,8 @@ EOF
 touch  MetaDB/$MAGIC/Remove_inserts_shorter_than
 
 foreach run (`cat MetaDB/$MAGIC/RunList`)
-  if (! -e Fastc/$run/fastc_count.ace) then
-    echo "Fastc/$run/fastc_count.ace missinng"
+  if (! -e Fastc/$run/fastc.count.ace) then
+    echo "Fastc/$run/fastc.count.ace missinng"
     echo "Please run phase a0C"
     exit 1
   endif
@@ -8246,7 +8246,7 @@ EOF
 touch MetaDB/$MAGIC/stranding.txt
 cat MetaDB/$MAGIC/stranding.txt |                                                                                                                                                                gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' > MetaDB/$MAGIC/stranding.txt2
 cat MetaDB/$MAGIC/stranding.txt | grep -v rrna |  grep -v smallRNA | grep -v mito  | grep -v chloro  | grep -v transposon | grep -v virus | grep -v bacteria  | grep -v Spike | grep -v genome | gawk '/^"/{r=$1;t=$5 "\t" $7 "\t" $8 "\t" $9;s=$10/1000000.0;if(best[r]<200)best[r]=1000;d=s;if(100-s<d)d=100-s;if(s>=50 && s-50<d)d=s-50;if(s<50 && 50-s<d)d=50-s;d+=300;if(d<best[r]){best[r]=d;tt[r]=t;ss[r]=s;}}END{for(r in best)printf("%s\t%s\t%f\n",r,tt[r],ss[r]);}' >> MetaDB/$MAGIC/stranding.txt2
-cat MetaDB/$MAGIC/stranding.txt2 | gawk -F '\t' '{gsub(/NULL/,"0",$0);split($2,aa,"_");split(aa[2],bb,".");printf ("Run %s\nObserved_strandedness_in_ns_mapping %s %f %s plus %s minus %s ambiguous\n\n", $1,bb[1],$6,$3,$4,$5);}' > MetaDB/$MAGIC/stranding.ace
+cat MetaDB/$MAGIC/stranding.txt2 | gawk -F '\t' '{gsub(/NULL/,"0",$0);m=split($2,aa,"_");n=split(aa[2],bb,".");if(n>=1)printf ("Run %s\nObserved_strandedness_in_ns_mapping %s %f %s plus %s minus %s ambiguous\n\n", $1,bb[1],$6,$3,$4,$5);}' > MetaDB/$MAGIC/stranding.ace
 
 echo "pparse MetaDB/$MAGIC/stranding.ace" | bin/tacembly MetaDB -no_prompt
 
@@ -9590,11 +9590,13 @@ if ($Strategy == RNA_seq) then
   echo "## For all stranded runs, we sponged the wiggle and antiwiggle in every transcripts and selected those with > 30% antihits and total cover > 10000" >> $toto
   echo "# Transcript\tChromosome\tGene\tTitle\tNumber of stranded run for which the transcript reaches the thresholds" >> $toto
 
+  set target=toto
   foreach target ($Etargets)
     break
   end
-  cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt ZZZZZ TARGET/GENES/$target.gene2title.ace ZZZZZ $toto.2 | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz<1){t[$1]= "chr" $2 "\t" $5;t2gene[$1]=$5;next;}}/^Gene/{if(zz<2){n=split($1,aa," ");gene=aa[n];next;}}/^Title/{if(zz<2){n=split($1,aa,"\"");title[gene]=aa[2];next;}}{if(zz<2)next;}{printf("%s\t%s\t%s\t%s\n",$1,t[$1],title[t2gene[$1]],$2);}' >> $toto
-
+  if (target != toto) then
+    cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt ZZZZZ TARGET/GENES/$target.gene2title.ace ZZZZZ $toto.2 | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz<1){t[$1]= "chr" $2 "\t" $5;t2gene[$1]=$5;next;}}/^Gene/{if(zz<2){n=split($1,aa," ");gene=aa[n];next;}}/^Title/{if(zz<2){n=split($1,aa,"\"");title[gene]=aa[2];next;}}{if(zz<2)next;}{printf("%s\t%s\t%s\t%s\n",$1,t[$1],title[t2gene[$1]],$2);}' >> $toto
+  endif
 endif #Strategy RNA_seq
 #  (1 2 5 10 20 50 100 200 500 1000)
 if (! -d RESULTS/Coverage_and_exons) mkdir RESULTS/Coverage_and_exons
@@ -10730,7 +10732,7 @@ end
 
 goto phaseLoop
 
-phaset3: 
+phasetgf3: 
    scripts/t1.gene_fusion.tcsh t3 
 goto phaseLoop
 

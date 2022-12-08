@@ -17,7 +17,13 @@ phaseT1:
   if ($target == magic) continue
   # collate the gene fusions
   source scripts/target2target_class.txt
-  if (! -e  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz && -e tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt) then
+        
+  set spm=""
+  if (-e tmp/METADATA/av.split_mrnas.gz) set spm="-splitMrnas tmp/METADATA/av.split_mrnas.gz"
+  set ma="-minAli 100"
+  set ma="-minAli 30"
+
+  if (! -e  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz1 && -e tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt) then
     echo ' ' >  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt
     if (-e tmp/GeneFusion/$run/t1.gene_fusion.LaneList) \rm tmp/GeneFusion/$run/t1.gene_fusion.LaneList
     foreach lib ($run `cat MetaDB/$MAGIC/r2sublib | gawk '{if(r==$1)print " "$2;}' r=$run`)
@@ -26,27 +32,30 @@ phaseT1:
     end
     foreach lane (`cat tmp/GeneFusion/$run/t1.gene_fusion.LaneList`)
         echo "t1 $lane"
-        set spm=""
-        if (-e tmp/METADATA/av.split_mrnas.gz) set spm="-splitMrnas tmp/METADATA/av.split_mrnas.gz"
         if (-e tmp/COUNT/$lane.hits.gz) then
-           echo "bin/tricoteur  -hitFile tmp/COUNT/$lane.hits.gz -run $run -lane $lane -target_class  $target_class -geneFusion -o tmp/GeneFusion/$run/$lane -geneMap tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt -mrnaRemap tmp/METADATA/mrnaRemap.gz $spm"
-                 bin/tricoteur  -hitFile tmp/COUNT/$lane.hits.gz -run $run -lane $lane -target_class  $target_class -geneFusion -o tmp/GeneFusion/$run/$lane -geneMap tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt -mrnaRemap tmp/METADATA/mrnaRemap.gz $spm
-           sleep 1
-           ls -ls tmp/GeneFusion/$run/$lane.geneFusion.txt
-           cat tmp/GeneFusion/$run/$lane.geneFusion.txt >>  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt
-  	  \rm  tmp/GeneFusion/$run/$lane.geneFusion.txt
+          echo "bin/tricoteur  -hitFile tmp/COUNT/$lane.hits.gz -run $run -lane $lane -target_class  $target_class -geneFusion -o tmp/GeneFusion/$run/$lane -geneMap tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt -mrnaRemap tmp/METADATA/mrnaRemap.gz $spm $ma"
+                bin/tricoteur  -hitFile tmp/COUNT/$lane.hits.gz -run $run -lane $lane -target_class  $target_class -geneFusion -o tmp/GeneFusion/$run/$lane -geneMap tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt -mrnaRemap tmp/METADATA/mrnaRemap.gz $spm $ma
+          sleep 1
+          if (-e tmp/GeneFusion/$run/$lane.geneFusion.txt) then
+            ls -ls tmp/GeneFusion/$run/$lane.geneFusion.txt
+            cat tmp/GeneFusion/$run/$lane.geneFusion.txt >>  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt
+            \rm  tmp/GeneFusion/$run/$lane.geneFusion.txt
+          endif
         endif
-     end
-     gzip tmp/GeneFusion/$run/t1.gene_fusion.$target.txt
-   endif
+    end
+    gzip tmp/GeneFusion/$run/t1.gene_fusion.$target.txt
+  endif
 # count
-   zcat  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz | gawk -F '\t' '/^#/{next;}{z = $3 ;} /PAIR/{nn[z]++;np[z]++;next;}/READ/{nn[z]++;nr[z]++;}END{for(k in nn)if(nn[k]>0)printf("%s\t%d\t%d\n",k,nr[k],np[k]);}' | sort -k 2nr > tmp/GeneFusion/$run/t1.gene_fusion.$target.count
-   if (-e tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz) then
+  zcat  tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz | gawk -F '\t' '/^#/{next;}{z = $3 ;} /PAIR/{nn[z]++;np[z]++;next;}/READ/{nn[z]++;nr[z]++;}END{for(k in nn)if(nn[k]>0)printf("%s\t%d\t%d\n",k,nr[k],np[k]);}' | sort -k 2nr > tmp/GeneFusion/$run/t1.gene_fusion.$target.count
+  if (-e tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz) then
+    ls -ls tmp/GeneFusion/$run/t1.gene_fusion.$target.*
+    echo "bin/tricoteur -run $run -t $target -geneFusionFile tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz -o   tmp/GeneFusion/$run/t1.gene_fusion.$target"
           bin/tricoteur -run $run -t $target -geneFusionFile tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz -o   tmp/GeneFusion/$run/t1.gene_fusion.$target
-    endif
+    ls -ls tmp/GeneFusion/$run/t1.gene_fusion.$target.*
+  endif
 
   
-  touch tmp/Gene_Fusion/$run/t1.gene_fusion.$target.done
+  touch tmp/GeneFusion/$run/t1.gene_fusion.$target.done
 
 goto phaseLoop
 
@@ -62,69 +71,134 @@ cat toto.hits | grep n.2346430#1 > toto1.hits
 bin/tricoteur -hitFile toto1.hits -run PacBio.ROCR3.CL2-F1-2_cell9 -lane PacBio.ROCR3.CL2-F1-2_cell9/f2.26 -target_class ET_av -geneFusion  -geneMap tmp/METADATA/av.mrna_map_ln_gc_gene_geneid.txt -mrnaRemap tmp/METADATA/mrnaRemap.gz 
 
 #######################################################################################
-## phase t2:   cumul the gene_fusionations per group
+## phase t2:   cumul the gene_fusions per group
 phaseT2:
-
-set group=$2
-  echo -n "Phase t2 cumul the gene_fusionations in group "
-  date
-  echo "$group"
-
-  if (-e tmp/GeneFusion/$group/_t.$target) \rm tmp/GeneFusion/$group/_t.$target
-  if (-e tmp/GeneFusion/$group/_t2.$target) tmp/GeneFusion/$group/_t2.$target
-  foreach run2 (`cat MetaDB/$MAGIC/g2r | gawk '{if($1==group) print $2;}' group=$group | sort -u`)
-    cat  tmp/GeneFusion/$run2/t1.gene_fusion.$target.count >>  tmp/GeneFusion/$group/_t.$target 
-    zcat tmp/GeneFusion/$run2/t1.gene_fusion.$target.txt.gz >> tmp/GeneFusion/$group/_t2.$target
-  end
-  cat tmp/GeneFusion/$group/_t.$target | gawk -F '\t' '{n1[$1] += $2 ; n2[$1] += $3;}END{for (k in n1) printf("%s\t%d\t%d\n",k,n1[k],n2[k]);}' | sort -k 2nr > tmp/GeneFusion/$group/t1.gene_fusion.$target.count
-  cat tmp/GeneFusion/$group/_t2.$target | head -8 | gawk '/^#/{print}' > tmp/GeneFusion/$group/_t3.$target
-  cat tmp/GeneFusion/$group/_t2.$target | sort >> tmp/GeneFusion/$group/_t3.$target
-  gzip -c tmp/GeneFusion/$group/_t3.$target >  tmp/GeneFusion/$group/t1.gene_fusion.$target.txt.gz 
-  \rm tmp/GeneFusion/$group/_t.$target
-  \rm tmp/GeneFusion/$group/_t2.$target
-  \rm tmp/GeneFusion/$group/_t3.$target
-  if (-e tmp/GeneFusion/$group/t1.gene_fusion.$target.txt.gz && ! -e  tmp/GeneFusion/$group/t1.gene_fusion.$target.tsf) then
-    bin/tricoteur -run $group -t $target -geneFusionFile tmp/GeneFusion/$group/t1.gene_fusion.$target.txt.gz -o   tmp/GeneFusion/$group/t1.gene_fusion.$target
-  endif
 
 goto phaseLoop
 
-## Create a project table: this t3 phase seems obsolete
+## Create a project table au gene pres
 phaseT3:
 
-set minFusion=10
-foreach target (av)
-  if ($target == magic) continue
-  set toto=tmp/GeneFusion/t3.$MAGIC.$target.txt
-  if (-e $toto.5) continue
-  echo $target > tmp/GeneFusion/t3.$MAGIC.a
-  foreach run (`cat MetaDB/$MAGIC/GroupListSorted`)
-    set ff=tmp/GeneFusion/$run/t1.gene_fusion.$target.count
+set minFusion=50
+set target=av
+if (! -e tmp/GeneFusion/t3.$MAGIC.a) then
+  echo " " >  tmp/GeneFusion/t3.$MAGIC.a
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    set ff=tmp/GeneFusion/$run/t1.gene_fusion.$target.txt.gz
     if (! -e $ff) continue
-    cat $ff | gawk -F '\t' '{if($2 >= minF){printf("%s\t",run);print;}}' minF=$minFusion run=$run >> tmp/GeneFusion/t3.$MAGIC.a
+    zcat $ff  | grep BCAS4__BCAS3 >> tmp/GeneFusion/t3.$MAGIC.a
   end
-  echo ZZZZZ >>  tmp/GeneFusion/t3.$MAGIC.a
-  foreach run (`cat MetaDB/$MAGIC/RunsGene_FusionList`)
-    set ff=tmp/GeneFusion/$run/t1.gene_fusion.$target.count
-    if (! -e $ff) continue
-    cat $ff | gawk -F '\t' '{if($2 >= minF){printf("%s\t",run);print;}}' minF=$minFusion run=$run >> tmp/GeneFusion/t3.$MAGIC.a
-  end
-  # cat  tmp/GeneFusion/t3.$MAGIC.a | gawk -F '\t' '/^#/{next;}/^ZZZZZ/{zz++;next;}{if(zz+0<1){if($3>=minC)gg[$1]=1;next;}}' minC=10
+  cat tmp/GeneFusion/t3.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$1"\t"$12"\t"$17;nn[f]+=$2+$3;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 2nr > tmp/GeneFusion/t3.$MAGIC.b
+endif
 
-  cat  tmp/GeneFusion/t3.$MAGIC.a ZZZZZ MetaDB/$MAGIC/Run2Title.txt   | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz==2){gsub(/\"/,"",$0);r=$1;if(r2i[r]>0)title[r]=$3;next;}}{if($3+$4<minC)next;}{r=$1;i=r2i[r]+0;if(i==0){iMax++;i=iMax;r2i[r]=i;i2r[i]=r;}k=$2;if(zz == 1){nn[k]+=$3+$4;nn1[k]+=$3;nn2[k]+=$4;}n1[k,i]+=$3;n2[k,i]+=$4;nnn2+=$4;}END{printf("# Run\tAny\tSupporting reads");for(i=1;i<=iMax;i++)printf("\t%s",i2r[i]);if(nnn2>0){printf("\t\t# Run\tAny\tAny2");for(i=1;i<=iMax;i++)printf("\t%s",i2r[i]);}printf("\n# Title\tAny\tAny1");for(i=1;i<=iMax;i++){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}if(nnn2>0){printf("\t\t# Title\tAny\tSupporting read-pairs");for(i=1;i<=iMax;i++){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}}for (k in nn){ printf("\n%s\t%d\t%d",k,nn[k],nn1[k]);for(i=1;i<=iMax;i++)printf("\t%d",n1[k,i]);if(nnn2>0){printf("\t\t%s\t%d\t%d",k,nn[k],nn2[k],nn2[k]);for(i=1;i<=iMax;i++)printf("\t%d",n2[k,i]);}}}END{printf("\n");}' minC=5 > tmp/GeneFusion/t3.$MAGIC.b
+
+if (! -e tmp/GeneFusion/t3.$MAGIC.c1) then
+  echo $target > tmp/GeneFusion/t3.$MAGIC.c1
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    set ff=tmp/GeneFusion/$run/t1.gene_fusion.$target.count
+    if (! -e $ff) continue
+    cat tmp/GeneFusion/t3.$MAGIC.b ZZZZZ $ff | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz+0<1){ok[$1]=1;next;}}{if(ok[$1]==1){printf("%s\t",run);print;}}' run=$run >> tmp/GeneFusion/t3.$MAGIC.c1
+  end
+endif
+
+if (! -e tmp/GeneFusion/t3.$MAGIC.c2) then
+  echo $target > tmp/GeneFusion/t3.$MAGIC.c2
+  set groupLevelMax=`cat  MetaDB/$MAGIC/g2r | cut -f 3 | sort -k 1n | tail -1`
+  foreach level (`seq 1 1 $groupLevelMax`)
+    echo level=$level
+    set okk=0
+    foreach group (`cat MetaDB/$MAGIC/GroupListSorted`)
+      set gLevel=`cat MetaDB/$MAGIC/g2r |  gawk -F '\t' '{if($1==g)level=$3}END{print 0+level}' g=$group` 
+      if ($gLevel != $level) continue
+      if (! -d tmp/GeneFusion/$group) mkdir tmp/GeneFusion/$group
+      set ff=tmp/GeneFusion/$group/t1.gene_fusion.$target.count
+      ls -ls $ff
+      echo " " >  $ff.1
+      foreach run2 (`cat MetaDB/$MAGIC/g2r | gawk '{if($1==group) print $2;}' group=$group| sort -u`)
+        set ff2=tmp/GeneFusion/$run2/t1.gene_fusion.$target.count
+        if (! -e $ff) continue
+        cat $ff2 >> $ff.1
+      end
+      cat $ff.1 | gawk -F '\t' '{g=$1;n1[g]+=$2;n2[g]+=$3;}END{for (g in n1)printf("%s\t%d\t%d\n",g,n1[g],n2[g]);}' > $ff
+      cat tmp/GeneFusion/t3.$MAGIC.b ZZZZZ $ff | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz+0<1){ok[$1]=1;next;}}{if(ok[$1]==1){printf("%s\t",group);print;}}' group=$group >> tmp/GeneFusion/t3.$MAGIC.c2
+    end
+  end
+endif
+
+phaseT3a:
+  set target=av
+  set toto=tmp/GeneFusion/t3.$MAGIC.$target.txt
+  cat  MetaDB/$MAGIC/GroupListSorted2 ZZZZZ MetaDB/$MAGIC/RunListSorted2  ZZZZZ MetaDB/$MAGIC/Run2Title.txt ZZZZZ tmp/GeneFusion/t3.$MAGIC.c[12]    | gawk -F '\t' '/^ZZZZZ/{zz++;if(zz==1)lastG=iMax;next;}{gsub(/\"/,"",$0);r=$1;i=r2i[r]+0;if(i==0){iMax++;i=iMax;r2i[r]=i;i2r[i]=r;title[r]=r;}  if(zz+0==2)title[r]=$3;if(zz+0<=2)next;k=$2;if(i>lastG){nn[k]+=$3+$4;nn1[k]+=$3;nn2[k]+=$4;nnn1+=$3;nnn2+=$4;}nni[i]+=$3+$4;n1[k,i]+=$3;n2[k,i]+=$4;}END{printf("# Run\tAny\tSupporting reads");for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%s",i2r[i]);if(nnn2>0){printf("\t\t# Run\tAny\tAny2");for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%s",i2r[i]);}printf("\n# Title\tAny\tAny1");for(i=1;i<=iMax;i++)if (nni[i]>0){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}if(nnn2>0){printf("\t\t# Title\tAny\tSupporting read-pairs");for(i=1;i<=iMax;i++)if (nni[i]>0){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}}for (k in nn){ printf("\n%s\t%d\t%d",k,nn[k],nn1[k]);for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%d",n1[k,i]);if(nnn2>0){printf("\t\t%s\t%d\t%d",k,nn[k],nn2[k],nn2[k]);for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%d",n2[k,i]);}}}END{printf("\n");}'  > tmp/GeneFusion/t3.$MAGIC.d
   echo -n "### File $toto : " > $toto
   date >> $toto
   echo "### Table of candidate gene fusions in project $MAGIC. Left table: single read  support, right table: pair support" >> $toto
-  cat tmp/GeneFusion/t3.$MAGIC.b | gawk '/^#/{print}' >> $toto
+  cat tmp/GeneFusion/t3.$MAGIC.b | gawk '/^#/{printf("#\t\t");print}' >> $toto
 
   if (! -e tmp/GeneFusion/$target.gene2intmap.txt) then
     cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt | gawk -F '\t' '{gene=$5;split($2,aa,":");chrom[gene]=aa[1];split(aa[2],bb,"-");a1=bb[1];a2=bb[2];if(a1>a2){a0=a1;a1=a2;a2=a0;}if(0+aa1[gene]==0){aa1[gene]=a1;aa2[gene]=a2;}if(a1<aa1[gene])aa1[gene]=a1;if(a2>aa2[gene])aa2[gene]=a2;}END{for (g in chrom)printf("%s\t%s\t%d\t%d\n",g,chrom[g],aa1[g],aa2[g]);}' | sort > tmp/GeneFusion/$target.gene2intmap.txt
   endif
-  cat  tmp/GeneFusion/$target.gene2intmap.txt ZZZZZ tmp/GeneFusion/t3.$MAGIC.b | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz<1){g=$1;gc[g]=$2;g1[g]=$3;g2[g]=$4;next;}}{if($2<5)next;split($1,aa,"__");ga=aa[1];gb=substr(aa[2],1,length(aa[2])-2);if(gc[ga] == gc[gb]){c1=g1[ga];if(c1<g1[gb])c1=g1[gb];c2=g2[ga];if(c2>g2[gb])c2=g2[gb]; if (c1<c2)next;dc=g1[gb]-g2[ga];if(dc>0 && dc < 100000)next;dc=g1[ga]-g2[gb];if(dc>0 && dc < 100000)next;}printf("%s(%s:%d-%d__%s:%d-%d)",$1,gc[ga],g1[ga],g2[ga],gc[gb],g1[gb],g2[gb]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' | sort -k 2nr >> $toto
+  cat  tmp/GeneFusion/t3.$MAGIC.d | gawk -F '\t' '/^#/{printf("#\t\t");print;}' >> $toto
+  cat  tmp/GeneFusion/$target.gene2intmap.txt ZZZZZ tmp/GeneFusion/t3.$MAGIC.d | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz+0<1){g=$1;gc[g]=$2;g1[g]=$3;g2[g]=$4;next;}}{split($1,aa,"__");ga=aa[1];gb=substr(aa[2],1,length(aa[2])-2);printf("%s(%s:%d-%d__%s:%d-%d)",$1,gc[ga],g1[ga],g2[ga],gc[gb],g1[gb],g2[gb]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' | sort -k 2nr > tmp/GeneFusion/t3.$MAGIC.e
+  cat tmp/METADATA/$MAGIC.$target.captured_genes.g2c  ZZZZZ tmp/GeneFusion/t3.$MAGIC.e | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){cc[$1]=$2;next;}}{split($1,aa,"__");g1=aa[1];split(aa[2],bb,"(");k=length(bb[1]);g2=substr(bb[1],1,k-2);printf("%s\t%s\t",cc[g1],cc[g2]);print;}' >> $toto
+
+  \cp $toto RESULTS/GeneFusion
+
+
+goto phaseLoop
+
+
+
+
+## Create a project table a la base pres: 
+phaseT4:
+
+set minFusion=50
+set target=av
+  echo " " >  tmp/GeneFusion/t3.$MAGIC.a
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    set ff=tmp/GeneFusion/$run/t1.gene_fusion.av.txt.gz 
+    if (! -e $ff) continue
+    zcat  $ff | gawk -F '\t' '/^#/{next;}/++/{if($10 < $11 && $11>= $15-1 && $11 < $15+12)print ;}'  >> tmp/GeneFusion/t4.$MAGIC.a
+  end
+  cat tmp/GeneFusion/t4.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$3"\t"$12"\t"$14"\t"$17"\t"$18;nn[f]++;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 6nr > tmp/GeneFusion/t4.$MAGIC.b
+
+
+  echo $target > tmp/GeneFusion/t4.$MAGIC.c
+  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+    set ff=tmp/GeneFusion/$run/t1.gene_fusion.av.txt.gz 
+    if (! -e $ff) continue
+    zcat tmp/GeneFusion/t4.$MAGIC.b ZZZZZ $ff | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz+0<1){ok[$1]=1;next;}}{if(ok[$1]==1){printf("%s\t",run);print;}}' run=$run >> tmp/GeneFusion/t4.$MAGIC.c
+  end
+  foreach run (`cat MetaDB/$MAGIC/GroupListSorted`)
+    if (! -d tmp/GeneFusion/$run) mkdir tmp/GeneFusion/$run
+    set ff=tmp/GeneFusion/$run/t1.gene_fusion.av.txt.gz 
+    echo " " >  tmp/GeneFusion/$run/t1.gene_fusion.$target.count
+    foreach run2 (`cat MetaDB/$MAGIC/g2r | gawk '{if($1==group) print $2;}' group=$run | sort -u`)
+      set ff2=tmp/GeneFusion/$run2/t1.gene_fusion.av.txt.gz 
+      if (! -e $ff) continue
+      zcat $ff2 >> $ff
+    end
+    cat tmp/GeneFusion/t4.$MAGIC.b ZZZZZ $ff | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz+0<1){ok[$1]=1;next;}}{if(ok[$1]==1)n1[$1]+=$2;n2[$1]+=$3;}END{for (k in n1) {printf("%s\t%s\t%d\t%d\n",run,k,n1[k],n2[k]);}}'  run=$run  >> tmp/GeneFusion/t4.$MAGIC.c
+  end
+
+phaseT4a:
+  set target=av
+  set toto=tmp/GeneFusion/t4.$MAGIC.$target.txt
+  cat  MetaDB/$MAGIC/GroupListSorted2 ZZZZZ MetaDB/$MAGIC/RunListSorted2  ZZZZZ MetaDB/$MAGIC/Run2Title.txt ZZZZZ tmp/GeneFusion/t4.$MAGIC.c    | gawk -F '\t' '/^ZZZZZ/{zz++;if(zz==1)lastG=iMax;next;}{gsub(/\"/,"",$0);r=$1;i=r2i[r]+0;if(i==0){iMax++;i=iMax;r2i[r]=i;i2r[i]=r;title[r]=r;}  if(zz+0==2)title[r]=$3;if(zz+0<=2)next;k=$2;if(i>lastG){nn[k]+=$3+$4;nn1[k]+=$3;nn2[k]+=$4;nnn1+=$3;nnn2+=$4;}nni[i]+=$3+$4;n1[k,i]+=$3;n2[k,i]+=$4;}END{printf("# Run\tAny\tSupporting reads");for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%s",i2r[i]);if(nnn2>0){printf("\t\t# Run\tAny\tAny2");for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%s",i2r[i]);}printf("\n# Title\tAny\tAny1");for(i=1;i<=iMax;i++)if (nni[i]>0){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}if(nnn2>0){printf("\t\t# Title\tAny\tSupporting read-pairs");for(i=1;i<=iMax;i++)if (nni[i]>0){r=i2r[i];t=title[r];if(length(t)==0)t=r;printf("\t%s",t);}}for (k in nn){ printf("\n%s\t%d\t%d",k,nn[k],nn1[k]);for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%d",n1[k,i]);if(nnn2>0){printf("\t\t%s\t%d\t%d",k,nn[k],nn2[k],nn2[k]);for(i=1;i<=iMax;i++)if (nni[i]>0)printf("\t%d",n2[k,i]);}}}END{printf("\n");}'  > tmp/GeneFusion/t4.$MAGIC.d
+  echo -n "### File $toto : " > $toto
+  date >> $toto
+  echo "### Table of candidate gene fusions in project $MAGIC. Left table: single read  support, right table: pair support" >> $toto
+  cat tmp/GeneFusion/t4.$MAGIC.b | gawk '/^#/{print}' >> $toto
+
+  if (! -e tmp/GeneFusion/$target.gene2intmap.txt) then
+    cat tmp/METADATA/$target.mrna_map_ln_gc_gene_geneid.txt | gawk -F '\t' '{gene=$5;split($2,aa,":");chrom[gene]=aa[1];split(aa[2],bb,"-");a1=bb[1];a2=bb[2];if(a1>a2){a0=a1;a1=a2;a2=a0;}if(0+aa1[gene]==0){aa1[gene]=a1;aa2[gene]=a2;}if(a1<aa1[gene])aa1[gene]=a1;if(a2>aa2[gene])aa2[gene]=a2;}END{for (g in chrom)printf("%s\t%s\t%d\t%d\n",g,chrom[g],aa1[g],aa2[g]);}' | sort > tmp/GeneFusion/$target.gene2intmap.txt
+  endif
+  cat  tmp/GeneFusion/t4.$MAGIC.d | gawk -F '\t' '/^#/{print;}' >> $toto
+  cat  tmp/GeneFusion/$target.gene2intmap.txt ZZZZZ tmp/GeneFusion/t4.$MAGIC.d | gawk -F '\t' '/^ZZZZZ/{zz++;next;}/^#/{next;}{if(zz+0<1){g=$1;gc[g]=$2;g1[g]=$3;g2[g]=$4;next;}}{split($1,aa,"__");ga=aa[1];gb=substr(aa[2],1,length(aa[2])-2);printf("%s(%s:%d-%d__%s:%d-%d)",$1,gc[ga],g1[ga],g2[ga],gc[gb],g1[gb],g2[gb]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' | sort -k 2nr >> $toto
 
 
   \cp $toto RESULTS/GeneFusion
-end
+
 
 goto phaseLoop
 

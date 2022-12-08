@@ -165,7 +165,7 @@ typedef struct variant_callerStruct {
   DICT *geneDict ;
   DICT *targetDict ;
   DICT *deUnoDict ;
-
+  DICT *overhangDict ;
   const char *makeTest ;
   const char *runTest ;
 
@@ -218,6 +218,7 @@ typedef struct geneFusionStruct {
   int x1, x2, y1, y2 ; /* read coodrs */
   int a1, a2, b1, b2 ; /* target coords */
   int chromDistance, da, dx ;
+  int overhang1, overhang2 ;
   int n0 ; /* support */
   int gap ;  /* positive if unaliagned gap in the read, negative if overlap (sliding is possible) */ 
   int d2donor ;     /* distance from end of ali in transcript 1 to nearest downstream  donor (or acceptor if anti-mrna) */
@@ -267,6 +268,7 @@ typedef struct hitStruct {
   int target  ; /* offset in tct->targetDict */
   int target_class ; /* offset in tct->targetDict */
   int score, mult, uu, a1, a2, b2, c1,c2, x1, x2 ;  /* absolute chrom coordinates */
+  int overhang5p, overhang3p ;
   BOOL isRead1, isDown ;
   Array dna, cigarettes ;
 } HIT ;
@@ -2507,7 +2509,7 @@ static void tctExportGeneFusions (TCT *tct)
       const char *lane = tct->lane ? tct->lane : tct->run ;
       aoGF = aceOutCreate (tct->outFileName, ".geneFusion.txt", tct->gzo, h) ;
       aceOutDate (aoGF, "####", "Gene fusion candidates") ; 
-      aceOutf (aoGF, "#Run\tRead\tFusion\tGene_A\tGene_B\tChrom_A\tChrom_B\tDistance\tType\tx1 A\tx2 A\tmRNA_A\tfrom\tto\tx1 B\tx2 B\tmRNA_B\tfrom\tto\tDistinct_supports\tSupport\tGene_A supports\tGene_B supports\tscore A\tscore B\tAli A\tAli B\tc1 A\tc2 A\tc1 B\tc2 B\tOverlapOrGap\td2donor\td2acceptor\n") ;
+      aceOutf (aoGF, "#Run\tRead\tFusion\tGene_A\tGene_B\tChrom_A\tChrom_B\tDistance\tType\tx1 A\tx2 A\tmRNA_A\tfrom\tto\tx1 B\tx2 B\tmRNA_B\tfrom\tto\tDistinct_supports\tSupport\tGene_A supports\tGene_B supports\tscore A\tscore B\tAli A\tAli B\tc1 A\tc2 A\tc1 B\tc2 B\tOverlapOrGap\td2donor\td2acceptor\toverhang1\toverhang2\n") ;
 
       for (i = 0, gf = arrayp (tct->geneFusions, 0, GF) ; i < iMax ; gf++, i++)
 	if (gf->g1 > -1)
@@ -2542,11 +2544,13 @@ static void tctExportGeneFusions (TCT *tct)
 		     , keySet (tct->geneSupport, gf->g1)
 		     , keySet (tct->geneSupport, gf->g2)
 		     ) ;
-	    aceOutf (aoGF, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n"
+	    aceOutf (aoGF, "\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%s\t%s\n"
 		     , gf->score1, gf->score2
 		     , gf->c2 - gf->c1 + 1, gf->d2 - gf->d1 + 1
 		     , gf->c1, gf->c2, gf->d1, gf->d2
 		     , gf->gap, gf->d2donor, gf->d2acceptor
+		     , gf->overhang1 ? dictName (tct->overhangDict, gf->overhang1) : "-"
+		     , gf->overhang2 ? dictName (tct->overhangDict, gf->overhang2) : "-"
 		     ) ;
 	  }
     }
@@ -3572,9 +3576,9 @@ static void tctShiftFusionTowardsIntrons (const TCT *tct, LANE *lane, GF *gf)
 
   int dx = (y1 + y2 > x1 + x2 ? y1 - x2 - 1 : x2 - y1 - 1) ; /* number of sliding bases */
   if (y1 + y2 > x1 + x2)
-    dx = (y1 < y2 ? y1 : y2) - (x2 > x1 ? x2 : x1) ;
+    dx = (y1 < y2 ? y1 : y2) - (x2 > x1 ? x2 : x1) + 1 ;
   else
-    dx = (x1 < x2 ? x1 : x2) - (y2 > y1 ? y2 : y1) ;
+    dx = (x1 < x2 ? x1 : x2) - (y2 > y1 ? y2 : y1) + 1 ;
   gf->gap = dx ;
 
   if (tct->mrna2aa)
@@ -3727,19 +3731,21 @@ static void tctGetOneFusions (const TCT *tct, LANE *lane)
   HIT *hit ;
   Array hits = lane->hits ;
   int ii, iMax = arrayMax (hits) ;
-
+  
   arraySort (hits, tctX1Order) ;
   for (ii = 1, hit = arrp (hits, 1, HIT) ; ii < iMax ; ii++, hit++)
     {
       HIT *old = hit - 1 ; /* recognize de-uno discovered gene fusions */
       if (old->clone == hit->clone && old->target != hit->target)
 	{
-	  int dc, dcOld, dcc, cc1, cc2, sens = 0, chromDistance = 0 ;
+	  int dc, dcOld, cc1, cc2, sens = 0, chromDistance = 0 ;
 	  int wab ;
-	  char *wo ;
+	  char * wo ;
 	  int minChromDistance =100001 ; /* 100 k , the +1 at the end is needed in Z_genome case */
 	  int minAli = tct->minAli, myMinAli ;
 	  
+	  if (minAli < 5)
+	    minAli = 35 ;
 	  dc = ii ; old = hit - 1 ;
 	  while (--dc > 0)
 	    {
@@ -3757,149 +3763,175 @@ static void tctGetOneFusions (const TCT *tct, LANE *lane)
 	      hit->isRead1 == old->isRead1     /* same read of the pair */
 	      )
 	    { /* same read */
-	      int a1, a2, b1, b2, x1, x2, y1, y2 ; 
-	      HIT *up = old, *vp = hit ;
+	      int a1, a2, b1, b2 ; 
 
-	      a1 = old->a1 ; a2 = old->a2 ;
-	      x1 = old->x1 ; x2 = old->x2 ;
-	      b1 = hit->a1 ; b2 = hit->a2 ;
-	      y1 = hit->x1 ; y2 = hit->x2 ;
-	      
-	      cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
-	      cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
-	      dc = hit->c2 - hit->c1 ;      /* chain length */
-	      dcOld = old->c2 - old->c1 ;      /* chain length */
-	      
-	      sens = (a2 > a1 ? 1 : -1) * (b2 > b1 ? 1 : -1) * (x2 > x1 ? 1 : -1) * (y2 > y1 ? 1 : -1)  ;
-	      wab = 0 ;
-	      /* are the genes oriented identically relative to the read */
-	      if (sens > 0)
-		{ 
-		  wo =  "++" ;
-		  if ((b2 - b1) * (y2 - y1) * (y1 + y2 - x1 - x2) > 0 )
-		    { wab = 0 ; } /* oldGene ---> ---> gene */
-		  else
-		    { up = hit ; vp = old ; } /* gene  ---> ---> oldGene */
-		}
-	      else
-		{ 
-		  wab = 1 ; /* switchable */
-		  if ((a2 - a1) * (x2 - x1) > 0) /* read in sens in old gene */
-		    { 
-		      if (x1 + x2 < y1 + y2)
-			wo = "+-" ;   /* oldGene ---> <--- gene */
-		      else
-			wo = "-+" ; /* gene  ---> <--> oldGene */
-		    }
-		  else /* read in antisenes in old gene */
-		    {
-		      if (x1 + x2 < y1 + y2)
-			wo = "-+" ;    /* oldGene <--- ---> gene */
-		      else
-			wo = "+-" ; /* gene  --->  <--- oldGene */
-		    }
-		}
-	      
-	      if (wab == 1) /* genes can be switched */
+	      HIT hit1, hit2 ;
+	      int da, dc, gap, dc1, dc2 ;
+	      BOOL sameChrom = FALSE ;
+
+	      hit1 = *old ;
+	      hit2 = *hit ;
+
+	      if (hit1.x1 > hit1.x2)
 		{
-		  wab = 0 ;
-		  if (tct->genes)
-		    {
-		      GENE *ga = arrayp (tct->genes, up->gene, GENE) ;
-		      GENE *gb = arrayp (tct->genes, vp->gene, GENE) ;
-		      ga = arrayp (tct->genes, up->gene, GENE) ;  /* redo in case vp->gene increased the array */
-		      
-		      if (ga && gb && (ga->chrom > gb->chrom || (ga->chrom == gb->chrom && ga->b1 > gb->b1)))
-			wab = 1 ;
-		    }
-		  else
-		    if (old->gene > hit->gene)
-		      wab = 1 ;
+		  int x = hit1.x1 ; hit1.x1 = hit1.x2 ; hit1.x2 = x ;
+		  int a = hit1.a1 ; hit1.a1 = hit1.a2 ; hit1.a2 = a ;
 		}
-	      if (wab == 1) /* switch */
-		{ up = hit ; vp = old ; }
-	      a1 = up->a1 ; a2 = up->a2 ;
-	      x1 = up->x1 ; x2 = up->x2 ;
-	      b1 = vp->a1 ; b2 = vp->a2 ;
-	      y1 = vp->x1 ; y2 = vp->x2 ;
+	      if (hit2.x1 > hit2.x2)
+		{
+		  int x = hit2.x1 ; hit2.x1 = hit2.x2 ; hit2.x2 = x ;
+		  int a = hit2.a1 ; hit2.a1 = hit2.a2 ; hit2.a2 = a ;
+		}
+	      if (hit1.c1 > hit1.c2)
+		{
+		  int c = hit1.c1 ; hit1.c1 = hit1.c2 ; hit1.c2 = c ;
+		}
+	      if (hit2.c1 > hit2.c2)
+		{
+		  int c = hit2.c1 ; hit2.c1 = hit2.c2 ; hit2.c2 = c ;
+		}
+
+	      if (hit1.x1 + hit1.x2 > hit2.x1 + hit2.x2)
+		{ HIT h ; h = hit1 ; hit1 = hit2 ; hit2 = h ; }
+	      /* we are in the read orientation and hit1 < hit2 */ 
+
+	      a1 = hit1.a1 ; a2 = hit1.a2 ;
+	      b1 = hit2.a1 ; b2 = hit2.a2 ;
+	      
+	      cc1 = (hit1.c1 > hit2.c1 ? hit1.c1 : hit2.c1 ) ;   /*  overlap start */
+	      cc2 = (hit1.c2 < hit2.c2 ? hit1.c2 : hit2.c2 ) ;   /*  overlap end */
+
+	      dc1 = hit1.c2 - hit1.c1 + 1 ;      /* chain length */
+	      dc2 = hit2.c2 - hit2.c1 + 1 ;      /* chain length */
+	      gap = hit2.x1 - hit1.x2 - 1 ;      /* gap if > 0   / overlap if < 0 */
+	      dc = hit2.x2 - hit1.x1 + 1 ;           /* total aligned length */
+
+	      if (dc1 + gap < 2 * dc1 / 3 || dc2 + gap < 2 * dc2 / 3)
+		dc = 0 ; /* discard if overlap > 1/3 of shorter ali */
+
+	      sens = (a1<a2 ? 0 : 2) + (b1 < b2 ? 0 : 1) ;  /* ++:0 +-:1  -+:2 --:3 */
 	      
 	      /* check the minimal distance, and relative orientation */
-	      chromDistance = 0 ;
-	      if (tct->genes)
+	      da = 0 ;
+	      if (dc && tct->genes)
 		{
-		  GENE *ga = arrayp (tct->genes, up->gene, GENE) ;
-		  GENE *gb = arrayp (tct->genes, vp->gene, GENE) ;
-		  ga = arrayp (tct->genes, up->gene, GENE) ; /* redo in case vp->gene increased the array */
+		  GENE *ga = arrayp (tct->genes, hit1.gene, GENE) ;
+		  GENE *gb = arrayp (tct->genes, hit2.gene, GENE) ;
+		  ga = arrayp (tct->genes, hit1.gene, GENE) ; /* redo in case hit2.gene increased the array */
+		  
+		  sameChrom = TRUE ;
 		  
 		  if (ga && gb && ga->chrom == gb->chrom)
 		    {
-		      int dc2 = (gb->b1 + gb->b2)/2 - (ga->b1 + ga->b2)/2 ; /* distance of mid position a is left of b */
-		      int ln = (ABS(gb->b2 - gb->b1) + ABS(ga->b2 - ga->b1))/2 ;
-		      if (wab == 0 && gb->a2 < gb->a1) /* genes are on bottom strand */
-			dc2 = - dc2 ;
-		      if (dc2 > 0) /* tandem */
+		      int u2, v1 ;
+		      int aa2 = a2 + (a1 < a2 ?  gap : - gap) ; /* chrom distance of fused bases */
+
+		      u2 = ga->a1 < ga->a2 ? ga->a1 + aa2 : ga->a1 - aa2 ; /* chrom position */
+		      v1 = gb->a1 < gb->a2 ? gb->a1 + b1 : gb->a1 - b1 ; /* chrom position */
+
+
+		      da = v1 - u2 ;
+		      
+		      switch (sens)
 			{
-			  chromDistance = dc2 - ln ;
-			  if (chromDistance < minChromDistance)
-			    dc = 0 ; /* eliminate this case, it should be detected as a new intron */
-			}
-		      else /* duplication */
-			{
-			  chromDistance = -dc2 - ln ;
-			  if (chromDistance < 0)
-			    dc = 0 ; /* eliminate this case */
+			case 0: /* ++ */
+			case 1: /* +- */
+			  if (da > -30 && da < minChromDistance)  /* new intron or short deletion */
+			    dc = 0 ;
+			  break ;
+			case 2: /* -+ */
+			case 3: /* -- */
+			  if (da < 30 && da > - minChromDistance)  /* new intron or short deletion */
+			    dc = 0 ;
+			  break ;
 			}
 		    }
 		}
-	      
-	      dcc = 3 * (cc2 - cc1) ;  /* 3 * length of overlap,  or gap
-					* must be smaller than the 2 chain lengths 
-					*/
-	      if (dcc < 0) dcc = - dcc ;
-	      myMinAli =  (dc + dcOld > 500 && 100 > minAli) ?  100 : minAli ;
-	      if (dc > myMinAli && dcOld > myMinAli && dc > dcc && dcOld > dcc && old->gene > 0 && hit->gene > 0 && old->gene != hit->gene)
+
+	      if (! tct->stranded)
+		{
+		  if (! sameChrom)
+		    {
+		      switch (sens)
+			{
+			case 2: /* -+ */
+			  { HIT hh = hit1 ; hit1 = hit2 ; hit2 = hh ; sens = 1 ;  }
+			  break ;
+			}
+		    }
+		  
+		  if (sens == 3) /* -- */
+		    {
+		      HIT hh = hit1 ; 
+		      int x ;
+		      
+		      hit1 = hit2 ; hit2 = hh ; 
+		      sens = 0 ;
+		      x = hit1.x1 ; hit1.x1 = hit1.x2 ; hit1.x2 = x ;
+		      x = hit1.a1 ; hit1.a1 = hit1.a2 ; hit1.a2 = x ;
+		      x = hit2.x1 ; hit2.x1 = hit2.x2 ; hit2.x2 = x ;
+		      x = hit2.a1 ; hit2.a1 = hit2.a2 ; hit2.a2 = x ;
+		    }
+		}
+
+	      switch (sens)
+		{
+		case 0:
+		  wo = "++" ;
+		  break ;
+		case 1:
+		  wo = "+-" ;
+		  break ;
+		case 2:
+		  wo = "-+" ;
+		  break ;
+		case 3:
+		  wo = "--" ;
+		  break ;
+		}
+
+	      myMinAli =  (dc > 500 && 100 > minAli) ?  100 : minAli ;
+	      if (dc > 0 && dc1 > myMinAli && dc2 > myMinAli && hit1.gene && hit2.gene)
 		{
 		  GF *gf = arrayp (lane->geneFusions, arrayMax (lane->geneFusions), GF) ;
 		  
 		  gf->lane = lane ;
-		  gf->clone = up->clone ;
-		  gf->g1 = up->gene ;
-		  gf->g2 = vp->gene ;
-		  gf->t1 = up->target ;
-		  gf->t2 = vp->target ;
+		  gf->clone = hit1.clone ;
+		  gf->g1 = hit1.gene ;
+		  gf->g2 = hit2.gene ;
+		  gf->t1 = hit1.target ;
+		  gf->t2 = hit2.target ;
 		  gf->wo[0] = wo[0] ;
 		  gf->wo[1] = wo[1] ;
 		  gf->wo[2] = 0 ;
 		  gf->isPair = FALSE ;
-		  gf->score1 = up->score ;
-		  gf->score2 = vp->score ;
+		  gf->score1 = hit1.score ;
+		  gf->score2 = hit2.score ;
 		  
 		  gf->seq = 1 ;
-		  gf->tag = up->mult ;
+		  gf->tag = hit1.mult ;
 		  gf->n0 = gf->tag ;
-		  gf->c1 = up->c1 ;
-		  gf->c2 = up->c2 ;
-		  gf->d1 = vp->c1 ;
-		  gf->d2 = vp->c2 ;
+		  gf->c1 = hit1.c1 ;
+		  gf->c2 = hit1.c2 ;
+		  gf->d1 = hit2.c1 ;
+		  gf->d2 = hit2.c2 ;
 		  
-		  gf->x1 = ABS(up->x1) ;
-		  gf->x2 = ABS(up->x2) ;
-		  gf->y1 = ABS(vp->x1) ;
-		  gf->y2 = ABS(vp->x2) ;
+		  gf->x1 = ABS(hit1.x1) ;
+		  gf->x2 = ABS(hit1.x2) ;
+		  gf->y1 = ABS(hit2.x1) ;
+		  gf->y2 = ABS(hit2.x2) ;
 		  
-		  gf->a1 = up->a1 ;
-		  gf->a2 = up->a2 ;
-		  gf->b1 = vp->a1 ;
-		  gf->b2 = vp->a2 ;
-		  
+		  gf->a1 = hit1.a1 ;
+		  gf->a2 = hit1.a2 ;
+		  gf->b1 = hit2.a1 ;
+		  gf->b2 = hit2.a2 ;
+		
+		  gf->gap = gap ;
 		  gf->chromDistance = chromDistance ;
+		  gf->overhang1 = hit1.x1 < hit1.x2 ? hit1.overhang3p : hit1.overhang5p ;
+		  gf->overhang2 = hit2.x1 < hit2.x2 ? hit2.overhang5p : hit2.overhang5p ;
 
 		  tctShiftFusionTowardsIntrons (tct, lane, gf) ;
-
-		  int overlap = gf->gap ;
-		  if (overlap < 999999 && overlap > 100) overlap = 100 ;
-		  if (overlap < -100) overlap = -100 ;
-		  keySet (lane->fusionHisto, overlap + 100) += 1 ;
 		}
 	    }
 	  
@@ -3924,6 +3956,7 @@ static void tctGetOneFusions (const TCT *tct, LANE *lane)
 	      hit->gene != old->gene &&
 	      /* hit->x1 * old->x1 > 0 &&  same x strand */
 	      hit->isRead1 != old->isRead1     /* opposite reads from same pair */
+
 	      )
 	    { /* opposite reads */
 	      int a1, a2, b1, b2, x1, x2, y1, y2 ; 
@@ -3936,8 +3969,8 @@ static void tctGetOneFusions (const TCT *tct, LANE *lane)
 	      
 	      cc1 = hit->c1 ; if (old->c1 > cc1) cc1 = old->c1 ;   /*  overlap start */
 	      cc2 = hit->c2 ; if (old->c2 < cc2) cc2 = old->c2 ;   /*  overlap end */
-	      dc = hit->c2 - hit->c1 ;      /* chain length */
-	      dcOld = old->c2 - old->c1 ;      /* chain length */
+	      dc = hit->c2 >  hit->c1  ? hit->c2 - hit->c1 : hit->c1 - hit->c2 ;      /* chain length */
+	      dcOld = old->c2 > old->c1 ? old->c2 - old->c1 : old->c1 - old->c2 ;      /* chain length */
 	      
 	      wab = 0 ;
 	      if ((x2 - x1) * (a2 - a1) > 0 &&
@@ -4178,29 +4211,20 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 		      }
 		}
 	      lastGoodGF =  arrayMax (geneFusions) ;
-	      geneFusionKs1 = keySetReCreate (geneFusionKs1) ;
-	      geneFusionKs2 = keySetReCreate (geneFusionKs2) ;
 	      /********* fusions ******************/
 	      if (tct->geneFusion && nHit > 1)
 		tctGetOneFusions (tct, lane) ;
+
+	      geneFusionKs1 = keySetReCreate (geneFusionKs1) ;
+	      geneFusionKs2 = keySetReCreate (geneFusionKs2) ;
+
 	      nHit = 0 ; 
 	      arrayMax(hits) = 0 ; /* we are only interested by single fragments */	      
 	    }
 	  bestTarget_class[0] = 0 ; bestScore = 0 ;
 
 	}
-      
-      if (0 && 
-	  strcmp (buf, "seq.9184011") &&   /* HSG19t1r1 gest3 */
-	  strcmp (buf, "seq.1451819") &&   /* HSG19t1r1 gest3 */
-	  strcmp (buf, "seq.2300998") &&   /* PFALt1r1 gtest9 */
- 	  strcmp (buf, "seq.4763229") &&   /* PFALt1r1 gtest8 */
-	  strcmp (buf, "seq.696365")  &&
-	  strcmp (buf, "seq.1859179") && 
-	  strcmp (buf, "seq.178616")
-	  )
-	continue ;
-      
+
       aceInStep (ai, '\t') ; aceInInt (ai, &score) ;
       if (0 && score < bestScore)
 	continue ;
@@ -4213,7 +4237,7 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	continue ; 
       if (ali < 140 &&                    /* 100 per read translates into 200 for the pair which seems secure */
 	  100 * ali < minAliPerCent * toBeAligned)
-
+	continue ;
       x1 = x2 = x11 = x22 = 0 ;
       aceInStep (ai, '\t') ; aceInInt (ai, &x1) ; x11 = x1 ;
       aceInStep (ai, '\t') ; aceInInt (ai, &x2) ; x22 = x2 ;
@@ -4550,6 +4574,8 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	 } 
        /* register the significant overhangs */
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* 5p overhang */
+       if (cp && *cp && tct->geneFusion && hit)
+	 dictAdd (tct->overhangDict, cp, &(hit->overhang5p)) ;
        uno5p[0] = 0 ; if (cp) memcpy (uno5p, cp, 49) ; uno5p[49] = 0 ;
        if (! tct->geneFusion && tct->wantBrks &&
 	   (
@@ -4573,6 +4599,8 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	     }	   
 	 }
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* 3p overhang */
+       if (cp && *cp && tct->geneFusion && hit)
+	 dictAdd (tct->overhangDict, cp, &(hit->overhang3p)) ;
        strcpy (uno3pOld, uno3p) ;
        uno3p[0] = 0 ; if (cp) memcpy (uno3p, cp, 49) ; uno3p[49] = 0 ;
        if (! tct->geneFusion && tct->wantBrks &&
@@ -4603,8 +4631,11 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* col 24: */
        aceInStep (ai, '\t') ; cp =  aceInWord (ai) ; /* col 25: */
        aceInStep (ai, '\t') ; cp =  aceInWordCut (ai, "\t", 0) ; /* col 26: chain */
-       aceInStep (ai, '\t') ; aceInInt (ai, &(hit->c1)) ; /* col 27: chain1 */
-       aceInStep (ai, '\t') ; aceInInt (ai, &(hit->c2)) ; /* col 28: chain2 */
+       aceInStep (ai, '\t') ; hit->c1 = x1 ; aceInInt (ai, &(hit->c1)) ; /* col 27: chain1 */
+       aceInStep (ai, '\t') ; hit->c2 = x2 ; aceInInt (ai, &(hit->c2)) ; /* col 28: chain2 */
+
+
+
        /* register de-uno discovered deletions */
        if (! tct->geneFusion && nHit > 1)
 	 {
@@ -4906,6 +4937,9 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	     }
 	 }
      }
+  /********* last fusion ******************/
+  if (1 && tct->geneFusion && nHit > 1)
+    tctGetOneFusions (tct, lane) ;
 
   if (needFastc && (tct->fastcFile || tct->fastcDir))
     {
@@ -4959,10 +4993,6 @@ static BOOL tctGetOneHit (const TCT *tct, LANE *lane)
 	  }
     }
 
-
-  /********* fusions ******************/
- if (tct->geneFusion && nHit > 1)
-   tctGetOneFusions (tct, lane) ;
 
   if (! tct->runTest)
     wego_log (hprintf (lane->h, "tctGetOneHit found %d hits, covering %ld bp and %ld brks (max %d) %ld overhangs in %s\n", nHit, nBp, nBrks, brks ? arrayMax(brks) : 0, nOverhangs, fNam)) ;
@@ -5438,6 +5468,7 @@ static void tctFuseLaneHits (TCT *tct)
 	}
       arrayDestroy (lane->hits) ;
     }
+  bigArrayMax (hits) = kk ;
   bigArraySort (hits, tctA1Order) ;
   /* add in the hit a marker of the largest a2 seen so far , allowing later a dicothomy search */
   if (bigArrayMax (hits))
@@ -7221,6 +7252,9 @@ static void tctInit (TCT *tct)
       tct->deUno = bigArrayHandleCreate (1000, UNO, tct->h) ;
       tct->deUnoDict = dictHandleCreate (1000, tct->h) ;
     }
+
+  if (tct->geneFusion)
+    tct->overhangDict = dictHandleCreate (1000, tct->h) ;
   tct->targetDict = dictHandleCreate (1000, tct->h) ;
 
   if (tct->externalSnpListFileName)
@@ -7397,7 +7431,8 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//   -target_class : target class (KT_RefSeq ET_av...) [default ET_av]\n"
 	   "//   -min_GF integer : [default 5]  filter geneFusionFile on min support \n" 
 	   "//   -minOverhang integer : [default 15] minimal number of bases\n"
-	   "//   -geneFusion fileName: file of genefusions to be analysed\n"
+	   "//   -geneFusion : scan th hits, report a geneFusionFile per read\n"
+	   "//   -geneFusionFile fileName: file of genefusions to be analysed\n"
 	   "//      mrna1 a1 a2 mrna2 b1 b2 n (n supports for a jump from mrna1[position a2] to m2[b1]\n"
 	   "//      Scan the hit file(s) report for each donor/acceptor read count that support\n"
 	   "//         the proposed donor and goes to the acceptor\n"

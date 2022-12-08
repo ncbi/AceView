@@ -7228,7 +7228,7 @@ static MX KasCommut (MX a, MX b, int sign, KAS *kas)
   MX q = mxMatMult (b, a, kas->h) ;
   MX r = mxCreate (kas->h, "r", a->type, kas->d, kas->d, 0) ;
 
-  r = sign == 1 ? mxAdd (r, p, q, kas->h) : mxSubstract (r, p, q, kas->h) ;
+  r = sign == 1 ? mxAdd (r, p, q, kas->h) : mxSubstract (p, q, kas->h) ;
   
   return r ;
 }
@@ -7256,7 +7256,7 @@ static MX KasCheck (LC *up, KAS *kas)
   for (i = 0 ; i < dd ; i++)
     yy[i] = up->n * scale * xx[i] ;
   mxSet (s, yy) ;
-  t = mxSubstract (t, ab, s, kas->h) ;
+  t = mxSubstract (ab, s, kas->h) ;
   mxValues (t, &xx, 0, 0) ;
   for (i = k = 0 ; i < dd ; i++)
     k += xx[i] * xx[i] ;
@@ -7310,7 +7310,7 @@ static MX KasCheckR16 (KAS *kas, MX a, MX b, MX c, int scale, int sign)
   mxSet (s, yy) ;
   if (kas->xiPrime)
     s = mxMatMult (kas->chi16, s, kas->h) ;
-  t = mxSubstract (t, ab, s, kas->h) ;
+  t = mxSubstract (ab, s, kas->h) ;
   mxValues (t, 0, 0, &xx) ;
   for (i = k = 0 ; i < dd ; i++)
     {
@@ -7859,7 +7859,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	}
 
   mxSet (XT2, zz) ;
-  if (0 && kas->show && kas->a<4) niceShow (XT2) ;
+  if (1 && kas->show && kas->a<4) niceShow (XT2) ;
   if (0 && kas->show) memset (zz, 0, sizeof (zz)) ;
   
   if (0)   memset (zz, 0, sizeof (zz)) ;
@@ -7902,7 +7902,7 @@ static void GhostKasimirOperatorXtilde2New (KAS *kas)
 	  }
 
   mxSet (XT2, zz) ;
-  if (0 && kas->show && kas->a<4) niceShow (XT2) ;
+  if (1 && kas->show && kas->a<4) niceShow (XT2) ;
   
   /* we already added the 2 terms */
   for (i = 0 ; i < d*d ; i++)
@@ -8248,7 +8248,7 @@ static void KasimirOperatorK4 (KAS *kas)
       MX UWX = mxMatMult (U,WX,h) ;
       MX WXU = mxMatMult (WX,U,h) ;
       MX uwx =  mxCreate (h, "[U,WX]", MX_INT, d, d, 0) ;
-      uwx = mxSubstract (uwx, UWX, WXU, h) ;
+      uwx = mxSubstract (UWX, WXU, h) ;
       MX Vuwx = mxMatMult (V, uwx,h) ;
       MX uwxV = mxMatMult (uwx,V,h) ;
       MX vuwx = mxCreate (h, "{V,[U,WX]}", MX_INT, d, d, 0) ;
@@ -8259,7 +8259,7 @@ static void KasimirOperatorK4 (KAS *kas)
       MX UY2WX = mxMatMult (U,Y2WX,h) ;
       MX Y2WXU = mxMatMult (Y2WX,U,h) ;
       MX uy2wx =  mxCreate (h, "[U,Y2WX]", MX_INT, d, d, 0) ;
-      uy2wx = mxSubstract (uy2wx, UY2WX, Y2WXU, h) ;
+      uy2wx = mxSubstract (UY2WX, Y2WXU, h) ;
       MX Vuy2wx = mxMatMult (V, uy2wx,h) ;
       MX uy2wxV = mxMatMult (uy2wx,V,h) ;
       MX vuy2wx = mxCreate (h, "{V,[U,Y2WX]}", MX_INT, d, d, 0) ;
@@ -8343,7 +8343,7 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
 	if (i > 40)
 	  s = -s ;
 	if (s == -1)
-	  z = mxSubstract (z, v, y, h) ;
+	  z = mxSubstract (v, y, h) ;
 	else
 	  z = mxAdd (z, v, y, h) ;
 	mxValues (z, &xx, 0, 0) ;
@@ -8842,7 +8842,7 @@ static void QFTscalar (KAS *kas)
 	    if ( i >= 40)
 	      continue ;
 	    if (i >= 14)
-	      g = mxSubstract (0,e, f,h) ;
+	      g = mxSubstract (e, f,h) ;
 	    else
 	      g = mxAdd (0,e, f,h) ;
 	    mxValues (g, &yy, 0, 0) ;
@@ -8897,7 +8897,7 @@ static void Kasimirs (int a, int b, BOOL show)
   KasimirCheckCommutators (&kas) ;
 
   KasimirLowerMetric (&kas) ;
-  if (show) exit (0) ;
+  if (0 && show) exit (0) ;
   
   
   KasimirUpperMetric (&kas) ;
@@ -8923,7 +8923,7 @@ static void Kasimirs (int a, int b, BOOL show)
       MX CKX = mxMatMult (kas.kas2, qmuH, h) ;
       MX CXK = mxMatMult (qmuH, kas.kas2, h) ;
       MX Com =  mxCreate (h, "[casimir,H]", MX_COMPLEX,d,d, 0) ;
-      Com = mxSubstract (Com, CKX, CXK, h) ;
+      Com = mxSubstract (CKX, CXK, h) ;
       if (kas.show)
 	niceShow (Com) ;
       
@@ -8931,7 +8931,7 @@ static void Kasimirs (int a, int b, BOOL show)
       MX CKX2 = mxMatMult (kas.kas2, qmuX, h) ;
       MX CXK2 = mxMatMult (qmuX, kas.kas2, h) ;
       MX Com2 =  mxCreate (h, "[casimir,X]", MX_COMPLEX,d,d, 0) ;
-      Com = mxSubstract (Com2, CKX2, CXK2, h) ;
+      Com = mxSubstract (CKX2, CXK2, h) ;
       if (kas.show)
 	niceShow (Com2) ;
       
@@ -8959,6 +8959,74 @@ static void Kasimirs (int a, int b, BOOL show)
   if (show)
     KasimirOperatorK3 (&kas) ;
 } /* Kasimirs */
+
+/***********************************************************************************************************************************************/
+/***********************************************************************************************************************************************/
+
+static void GhostKasimirOperatorR16 (KAS *kas)
+{
+  int i, j, k, l, m1 ;
+  int d = kas->d ;
+  AC_HANDLE h = ac_new_handle () ;
+  const complex float *xx ;
+  const complex float *yy ;
+  complex float zz [d*d] ;
+  MX XT2 = kas->CHI = mxCreate (kas->h,  "Ghost-CasimirR16", MX_COMPLEX, d, d, 0) ;
+
+  memset (zz, 0, sizeof (zz)) ;
+  if (1)
+    {
+      MX a = kas->Rmu[4] ;
+      MX b = kas->Rmu[5] ;
+      MX c = mxMatMult (a, b, h) ;
+      MX d = mxMatMult (b, a, h) ;
+      MX e = mxSubstract (c, d, h) ;
+      a = kas->Rmu[7] ;
+      b = kas->Rmu[6] ;
+      c = mxMatMult (a, b, h) ;
+      d = mxMatMult (b, a, h) ;
+      MX f = mxSubstract (c, d, h) ;
+      XT2 = mxAdd (XT2, e, f, h) ;
+    }
+
+  if (1) niceShow (XT2) ;
+  
+  mxValues (XT2, 0, 0, &xx) ;
+  for (m1 = 0 ; m1 < d*d ; m1++)
+    zz[m1] = -2 * xx[m1] ;
+
+  for (i = 4 ; i < 8 ; i++)
+    for (j = 4 ; j < 8 ; j++)
+      for (k = 4 ; k < 8 ; k++)
+	for (l = 4 ; l < 8 ; l++)
+	  {
+	    int jj = (i-j)*(i-k)*(i-l)*(j-k)*(j-l)*(k-l);
+	    if (jj)
+	      {
+		MX a = kas->Rmu[i] ;
+		MX b = kas->Rmu[j] ;
+		MX c = kas->Rmu[k] ;
+		MX d1 = kas->Rmu[l] ;
+		if (!a || !b || !c || !d1)
+		  continue ;
+		MX e = mxMatMult (a, b, h) ;
+		MX f = mxMatMult (e,c, h) ;
+		MX g = mxMatMult (f,d1, h) ;
+
+		mxValues (g, 0, 0, &yy) ;
+		for (m1 = 0 ; m1 < d*d ; m1++)
+		  zz[m1] += (jj>0  ? yy[m1] : -yy[m1]) ;
+	      }
+	  }
+
+  mxSet (XT2, zz) ;
+  printf ("\nSUCCESS Ghost Casimir operator R16 computed\n") ;
+  if (1) niceShow (XT2) ;
+
+
+  ac_free (h) ;
+  return ;
+} /* GhostKasimirOperatorR16 */
 
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
@@ -9053,32 +9121,32 @@ static void KasimirR16 (void)
       else if (ii == 2)
 	zz[d * ii + ii] = -I ;
       else if (ii == 3)
-	zz[d * ii + ii] = -2I ;
+	zz[d * ii + ii] = -2.0I ;
     }
   for (ii = 4 ; ii < 16 ; ii++)
     {
       if (ii % 4 == 0)
-	zz[d * ii + ii] = 4I/3.0 ;
+	zz[d * ii + ii] = 4.0I/3.0 ;
       else if (ii % 4 == 1)
 	zz[d * ii + ii] = I/3.0 ;
       else if (ii % 4 == 2)
 	zz[d * ii + ii] = I/3.0 ;
       else if (ii % 4 == 3)
-	zz[d * ii + ii] = -2I/3.0 ;
+	zz[d * ii + ii] = -2.0I/3.0 ;
     }
   mxSet (Rmu[0], zz) ;
 
   /* sl(2) matrices L3 */
   memset (zz, 0, sizeof(zz)) ;
   Rmu[3] = mxCreate (h,  "Rmu[3]", MX_COMPLEX, d, d, 0) ;
-for (ii = 0 ; ii < 16 ; ii++)
+  for (ii = 0 ; ii < 16 ; ii++)
     {
       if (ii % 4 == 1)
 	zz[d * ii + ii] = I ;
       else if (ii % 4 == 2)
 	zz[d * ii + ii] = -I ;
     }
- mxSet (Rmu[3], zz) ;
+  mxSet (Rmu[3], zz) ;
 
   /* sl(2) matrices L1 */
   memset (zz, 0, sizeof(zz)) ;
@@ -9261,11 +9329,11 @@ for (ii = 0 ; ii < 16 ; ii++)
       
       Tp = mxMatMult (xiP, Rmu[5], kas->h) ;
       Tm = mxMatMult (xiM, Rmu[5], kas->h) ;
-      Tmu[5] = mxSubstract (Tmu[5], Tp, Tm, kas->h) ;
+      Tmu[5] = mxSubstract (Tp, Tm, kas->h) ;
       
       Tp = mxMatMult (xiP, Rmu[6], kas->h) ;
       Tm = mxMatMult (xiM, Rmu[6], kas->h) ;
-      Tmu[6] = mxSubstract (Tmu[6], Tp, Tm, kas->h) ;
+      Tmu[6] = mxSubstract (Tp, Tm, kas->h) ;
       
       Tp = mxMatMult (xiP, Rmu[7], kas->h) ;
       Tm = mxMatMult (xiM, Rmu[7], kas->h) ;
@@ -9279,6 +9347,9 @@ for (ii = 0 ; ii < 16 ; ii++)
       printf ("Success for all Tmu commutators\n") ;
     }
 
+  for (ii = 0 ; ii < 10 ; ii++)
+    kas->Rmu[ii] = Rmu[ii] ;
+  GhostKasimirOperatorR16 (kas) ;
   
   ac_free (h) ;
 } /* KasimirR16 */
@@ -10740,7 +10811,7 @@ static void muInit2 (AC_HANDLE h)
 	K1 = mxAdd (K1, KEF, KFE, h) ;
 	K2 = mxAdd (K2, KHH, K1, h) ;
 	K3 = mxAdd (K3, K1, K2, h) ;
-	K4 = mxSubstract (K4, KYX, KXY, h) ;
+	K4 = mxSubstract (KYX, KXY, h) ;
 	KK = mxAdd (K5, K3, K4, h) ;
 
 	const complex float *zz4 ;
@@ -10771,7 +10842,7 @@ static void muInit2 (AC_HANDLE h)
 	MX CKX = mxMatMult (KK, OX, h) ;
 	MX CXK = mxMatMult (OX, KK, h) ;
 	MX Com =  mxCreate (h, "[casimir,X]", MX_COMPLEX, 8, 8, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
+	Com = mxSubstract (CKX, CXK, h) ;
 	niceShow (Com) ;
 	
 	printf ("Verify that the S-simir anticommutes with X and Y 2\n") ;
@@ -10844,7 +10915,7 @@ static void muInit2 (AC_HANDLE h)
 	K1 = mxAdd (K1, KEF, KFE, h) ;
 	K2 = mxAdd (K2, KHH, K1, h) ;
 	K3 = mxAdd (K3, K1, K2, h) ;
-	K4 = mxSubstract (K4, KYX, KXY, h) ;
+	K4 = mxSubstract (KYX, KXY, h) ;
 	KK = mxAdd (K5, K3, K4, h) ;
 
 	if (0)
@@ -10880,14 +10951,14 @@ static void muInit2 (AC_HANDLE h)
 	MX CKXH = mxMatMult (KK, OH, h) ;
 	MX CXKH = mxMatMult (OH, KK, h) ;
 	MX ComH =  mxCreate (h, "[casimir,H]", MX_COMPLEX, 8, 8, 0) ;
-	Com = mxSubstract (Com, CKXH, CXKH, h) ;
+	Com = mxSubstract (CKXH, CXKH, h) ;
 	niceShow (Com) ;
 	
 	printf ("Verify that the casimir commutes with XXX\n") ;
 	MX CKX = mxMatMult (KK, OX, h) ;
 	MX CXK = mxMatMult (OX, KK, h) ;
 	MX Com =  mxCreate (h, "[casimir,X]", MX_COMPLEX, 8, 8, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
+	Com = mxSubstract (CKX, CXK, h) ;
 	niceShow (Com) ;
 	
 	printf ("Verify that the S-casimir anticommutes with X and Y 3\n") ;
@@ -11043,14 +11114,14 @@ static void muInitNMarcuOld (int a, int b, int NN)
 	MX CKXH = mxMatMult (kasQ.kas2, qmuH, h) ;
 	MX CXKH = mxMatMult (qmuH, kasQ.kas2, h) ;
 	MX ComH =  mxCreate (h, "[casimir,X]", MX_COMPLEX, d, d, 0) ;
-	ComH = mxSubstract (ComH, CKXH, CXKH, h) ;
+	ComH = mxSubstract (CKXH, CXKH, h) ;
 	niceShow (ComH) ;
 	
 	printf ("Verify that the casimir commutes with X  4\n") ;
 	MX CKX = mxMatMult (kasQ.kas2, qmuX, h) ;
 	MX CXK = mxMatMult (qmuX, kasQ.kas2, h) ;
 	MX Com =  mxCreate (h, "[casimir,X]", MX_COMPLEX, d, d, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
+	Com = mxSubstract (CKX, CXK, h) ;
 	niceShow (Com) ;
 	
 	printf ("Verify that the S-casimir anticommutes with X and Y 5\n") ;
@@ -11238,14 +11309,14 @@ static void muInitNMarcu (int a, int b, int NN)
 	MX CKXH = mxMatMult (kasQ.kas2, qmuH, h) ;
 	MX CXKH = mxMatMult (qmuH, kasQ.kas2, h) ;
 	MX ComH =  mxCreate (h, "[casimir,X]", MX_COMPLEX, d, d, 0) ;
-	ComH = mxSubstract (ComH, CKXH, CXKH, h) ;
+	ComH = mxSubstract (CKXH, CXKH, h) ;
 	niceShow (ComH) ;
 	
 	printf ("Verify that the casimir commutes with X  4\n") ;
 	MX CKX = mxMatMult (kasQ.kas2, qmuX, h) ;
 	MX CXK = mxMatMult (qmuX, kasQ.kas2, h) ;
 	MX Com =  mxCreate (h, "[casimir,X]", MX_COMPLEX, d, d, 0) ;
-	Com = mxSubstract (Com, CKX, CXK, h) ;
+	Com = mxSubstract (CKX, CXK, h) ;
 	niceShow (Com) ;
 	
 	printf ("Verify that the S-casimir anticommutes with X and Y 5\n") ;

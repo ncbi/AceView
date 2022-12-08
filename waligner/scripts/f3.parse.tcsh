@@ -59,7 +59,7 @@ printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
       query find sequence $chrom
       kstore ss
       acem
-        make_subseq -dna c t 600000 10000 // this breaks my 6 contigs into tiles
+        make_subseq -dna c t 1000000 10000 // this breaks my 6 contigs into tiles
         quit                    // oct 15 2001, i changed from 400 kb to 600 kb
       kget ss
       Follow DNA
@@ -212,6 +212,7 @@ if (! -e tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt) then
   \rm  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt1
 endif 
   # export the ace file
+
 
 if (! -e tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace) then
   cat   tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;s=1;if($4>$5)next;s=1;dx1=$4-$3+1;dx2=$6-$5+1;dx3=$8-$7+1;di1=$5-$4-1;di2=$7-$6-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf ("Sequence XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf ("cDNA_clone XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf("COLOUR CERISE\nForward\nComposite %d\nIs_read\n", $9);printf("IntMap %s %d %d\n",$2,$3,$8);printf("Intron %s__%s_%s\nIntron %s__%d_%d\n\n",$2,$4+s,$5-s,$2,$6+s,$7-s);}' >   tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace

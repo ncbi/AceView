@@ -1,9 +1,9 @@
 /*
  * authors: Danielle and Jean Thierry-Mieg, NCBI, 
  * 15 Sept 2014
- * qcsummary.c
+ * snpsummary.c
  *   Input: MetaDB->runs and ali
- *   Output: a wholesale QC table with all kinds of results
+ *   Output: a wholesale SNP table with all kinds of results
  *      all : all columns
  *        r  readFate
  *        p  pairFate
@@ -12,16 +12,20 @@
 
 #include "../wac/ac.h"
 
-typedef struct qcStruct {
+typedef struct snpStruct {
   const char *project ;
   const char *dbName ;
   const char *export ;
-  int runType ; /* 0: any, 1=sublib; 2=runs ; 3=group */
+  int snpType ; /* 0: any, 1=sublib; 2=runs ; 3=group */
+  int minSnpFrequency, minSnpCover ;
   ACEOUT ao ;
   Array runs ;
   DICT *bloomDict ;
   AC_DB db ;
   AC_HANDLE h ;
+  AC_TABLE truns ;
+  AC_TABLE groups ;
+  AC_TABLE snps ;
   const char *Etargets[4] ;
   const char *EtargetsBeau[4] ;
   const char *orderBy ;
@@ -30,20 +34,21 @@ typedef struct qcStruct {
   BOOL hasSL ;
   const char *externalFiles ;
   Array eTitles, eAaa, eCaptions ;
-} QC ;
+} TSNP ;
 
 typedef enum { T_ZERO = 0, T_Raw, T_RawA, T_RawKb,  T_Length, T_Seq, T_Read, T_kb, T_Rejected, T_Unaligned, T_aliFrag, T_cFrag, T_uFrag, T_A, T_T, T_G, T_C, T_MAX } T_TYPE ;
 typedef enum { F_ZERO = 0, F_Hide, F_p10, F_perCentRead, T_FMAX } T_FORMAT ;
 typedef struct rcStruct {
   AC_HANDLE h ;
   const char *nam ;
+  AC_OBJ snp ;
   AC_OBJ run, ali, srr, srx, srp, sample ;
   BOOL Paired_end ;
   float var[T_MAX], geneSigExpressed ;
 } RC ;
 
-typedef void (*QCFunc)(QC *qc, RC *rc) ;
-typedef struct mmStruct { char cc ; QCFunc f ;} MM ;
+typedef void (*TSNPFunc)(TSNP *tsnp, RC *rc) ;
+typedef struct mmStruct { char cc ; TSNPFunc f ;} MM ;
 typedef struct tagtitleStruct { const char *tag, *title ; int col ; T_TYPE setVar ; T_FORMAT format ;} TT ;
 
 #define EMPTY ""
@@ -52,7 +57,7 @@ typedef struct tagtitleStruct { const char *tag, *title ; int col ; T_TYPE setVa
 /*************************** actual work *********************************************/
 /*************************************************************************************/
 
-static void qcChapterCaption (QC *qc, TT *tts, const char *caption) 
+static void snpChapterCaption (TSNP *snp, TT *tts, const char *caption) 
 {
   TT *ti ;
   int n = 0 ;
@@ -61,7 +66,7 @@ static void qcChapterCaption (QC *qc, TT *tts, const char *caption)
   memset (buf, 0, sizeof (buf)) ;
 
   if (caption)
-    aceOutf (qc->ao, "\t\t%s", caption) ;
+    aceOutf (snp->ao, "\t\t%s", caption) ;
 
   if (tts)
     {
@@ -79,14 +84,14 @@ static void qcChapterCaption (QC *qc, TT *tts, const char *caption)
 	}  
       if (n < 2) n = 2 ;
       buf[n-2] = 0 ; /* reserve 2 columns */
-      aceOutf (qc->ao, "%s", buf) ;
+      aceOutf (snp->ao, "%s", buf) ;
     }
   return ;
-} /*  qcChapterCaption */
+} /*  snpChapterCaption */
 
 /*************************************************************************************/
 
-static int qcShowMultiTag (QC *qc, AC_TABLE tt)
+static int snpShowMultiTag (TSNP *snp, AC_TABLE tt)
 {
   AC_HANDLE h = ac_new_handle () ;
   int n, nn = 0, ir, jr ;
@@ -121,18 +126,18 @@ static int qcShowMultiTag (QC *qc, AC_TABLE tt)
     {
       ccp = popText(s) ;
       if (! strcmp (ccp, "polyA")) ccp = "polyA selected" ;
-      aceOutf (qc->ao, "%s%s"
+      aceOutf (snp->ao, "%s%s"
 	       , n == nn - 1 ? "" : ", "
 	       , ccp
 	       ) ;
       ac_free (txt) ;
     }
   return nn ;
-} /* qcShowMultiTag */
+} /* snpShowMultiTag */
 
 /*************************************************************************************/
 
-static int qcShowTable (QC *qc, AC_TABLE tt, int nw)
+static int snpShowTable (TSNP *snp, AC_TABLE tt, int nw)
 {
   int ir, jr ;
   
@@ -148,27 +153,27 @@ static int qcShowTable (QC *qc, AC_TABLE tt, int nw)
 	    if (!strncasecmp (ccp, "sra", 3)) ccp += 3 ;
 	    if (!strcasecmp (ccp, "sraUnspecified_RNA"))
 	      continue ;
-	    aceOutf (qc->ao, "%s%s", nw++ ? ", " : "",  ccp) ;			  
+	    aceOutf (snp->ao, "%s%s", nw++ ? ", " : "",  ccp) ;			  
 	  }
       }
   return nw ;
-} /* qcShowTable */
+} /* snpShowTable */
 
 /*************************************************************************************/
 
-static void qcShowMillions (QC *qc, float z)
+static void snpShowMillions (TSNP *snp, float z)
 {
   if (z == 0)
-    aceOutf (qc->ao, "\t0") ;
+    aceOutf (snp->ao, "\t0") ;
   else if (z > 100000 || z < -100000)
-    aceOutf (qc->ao, "\t%.3f",  z/1000000) ;
+    aceOutf (snp->ao, "\t%.3f",  z/1000000) ;
   else
-    aceOutf (qc->ao, "\t%.6f",  z/1000000) ;
-} /* qcShowMillions */
+    aceOutf (snp->ao, "\t%.6f",  z/1000000) ;
+} /* snpShowMillions */
 
 /*************************************************************************************/
 
-static void qcShowPercent (QC *qc, RC *rc, long int z, BOOL p)
+static void snpShowPercent (TSNP *snp, RC *rc, long int z, BOOL p)
 {
   if (p)
     {
@@ -176,26 +181,26 @@ static void qcShowPercent (QC *qc, RC *rc, long int z, BOOL p)
       
       if (rc->var[T_Read] > 0) 
 	{
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  if (0)
-	    aceOutf (qc->ao, "%f", z1) ;
+	    aceOutf (snp->ao, "%f", z1) ;
 	  else
-	    aceOutPercent (qc->ao, z1) ;
+	    aceOutPercent (snp->ao, z1) ;
 	}
       else 
-	aceOutf (qc->ao, "\t-") ;
+	aceOutf (snp->ao, "\t-") ;
     }
   else
     {
       if (z == 0)
-	aceOutf (qc->ao, "\t0") ;
+	aceOutf (snp->ao, "\t0") ;
       else
-	aceOutf (qc->ao, "\t%ld", z) ;
+	aceOutf (snp->ao, "\t%ld", z) ;
     }
-} /*  qcShowPercent */
+} /*  snpShowPercent */
 
 /*************************************************************************************/
-static void qcShowTag (QC *qc, RC *rc, TT *ti)
+static void snpShowTag (TSNP *snp, RC *rc, TT *ti)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -204,7 +209,7 @@ static void qcShowTag (QC *qc, RC *rc, TT *ti)
 
   if (strcmp (ti->tag, "Spacer"))
     {
-      ccp = EMPTY ; tt = ac_tag_table (rc->ali, ti->tag, h) ;
+      ccp = EMPTY ; tt = ac_tag_table (rc->snp, ti->tag, h) ;
       if (!tt) tt = ac_tag_table (rc->run, ti->tag, h) ;
       if (tt && tt->rows && tt->cols >= ti->col)
 	{
@@ -218,97 +223,24 @@ static void qcShowTag (QC *qc, RC *rc, TT *ti)
   switch (ti->format)
     {
     default:
-      aceOutf (qc->ao, "\t%s", ccp) ;
+      aceOutf (snp->ao, "\t%s", ccp) ;
       break ;
     case F_p10:
-      aceOutf (qc->ao, "\t%.1f", z/10) ;
+      aceOutf (snp->ao, "\t%.1f", z/10) ;
       break ;
     case F_perCentRead:
-      aceOutf (qc->ao, "\t%.4f", rc->var[T_Read] ? 100.0 * z/rc->var[T_Read] : 0) ;
+      aceOutf (snp->ao, "\t%.4f", rc->var[T_Read] ? 100.0 * z/rc->var[T_Read] : 0) ;
       break ;
     case F_Hide:
       break ;
     }
-} /* qcShowTag */
+} /* snpShowTag */
 
 /*************************************************************************************/
 /*************************************************************************************/
-/*************************************************************************************/
-
-static void qcSetAli (QC *qc, RC *rc)
-{
-  TT *ti, tts[] = {
-    { "Raw_data", "Number of raw reads", 2, T_Raw, F_Hide} ,
-    { "Raw_data", "Number of raw reads", 2, T_RawA, F_Hide} ,
-    { "Raw_data", "Number of raw bases", 4, T_RawKb, F_Hide} ,
-    { "Accepted", "Number of distinct sequences", 0, T_Seq, F_Hide} ,
-    { "Accepted", "Number of reads", 2, T_Read, F_Hide} ,
-    { "Accepted", "Total sequenced (kb)", 4, T_kb, F_Hide} , 
-    { "Rejected", "Number of unaligned reads", 2, T_Rejected, F_Hide} , 
-    { "Unaligned", "Number of unaligned reads", 2, T_Unaligned, F_Hide} , 
-    { 0, 0, 0, 0, 0 }
-  } ;
-  rc->ali = ac_tag_obj (rc->run, "Ali", rc->h) ;
-
-  for (ti = tts ; ti->tag ; ti++)
-    qcShowTag (qc, rc, ti) ;
-  rc->Paired_end = ac_has_tag (rc->run, "Paired_end") ;
-  if (rc->Paired_end)
-    {
-      int i, dx = 0 ;
-      i = rc->var[T_Raw] ; if (i > 0 && i%2 == 1 &&  rc->var[T_Raw] > 0)  { rc->var[T_Raw]-- ; dx--; }
-      i = rc->var[T_Read] ; if (i > 0 && i%2 == 1 && rc->var[T_Read] > 0)  { rc->var[T_Read]-- ; dx++ ; }
-      rc->var[T_Rejected] += dx ;
-    }
-  /* the raw length is not precomputed, compute it rounding at  .1 base  */
-  {
-    int ln = 5 + 10 * (1000 *  rc->var[T_kb] / ( rc->var[T_Read] ?  rc->var[T_Read] : 1)) ;
-    rc->var[T_Length] = ln/10.0 ;
-  }
-  if (! rc->var[T_Length]) rc->var[T_Length] = 1 ; /* prevent zero divide */
-  if (rc->var[T_Raw] == 0) rc->var[T_Raw] = rc->var[T_Read] +  rc->var[T_Rejected] ;
-  if (rc->var[T_RawA] == 0) rc->var[T_RawA] = rc->var[T_Read] ;
-  if (rc->var[T_RawKb] == 0) rc->var[T_RawKb] = rc->var[T_kb] ;
-
-
-
-  if (rc && rc->run && ! rc->srr) 
-    rc->srr = ac_tag_obj (rc->run, "SRR", rc->h) ;
-  if (rc && rc->run && ! rc->srx) 
-    rc->srx = ac_tag_obj (rc->run, "SRX", rc->h) ;
-  if (rc && rc->run && ! rc->srp) 
-    rc->srp = ac_tag_obj (rc->run, "SRP", rc->h) ;
-  if (rc && rc->run && ! rc->sample) 
-    rc->sample = ac_tag_obj (rc->run, "Sample", rc->h) ;
-
-  if (rc && !rc->srr  && rc->run && ac_has_tag (rc->run, "Sublibraries"))
-    {
-      AC_OBJ subrun = ac_tag_obj (rc->run, "Sublibraries", rc->h) ;
-      rc->srr = subrun ? ac_tag_obj (subrun, "SRR", rc->h) : 0 ;
-      if (!rc->srp)
-	rc->srp = subrun ? ac_tag_obj (subrun, "SRP", rc->h) : 0 ;
-      if (!rc->sample)
-	rc->sample = subrun ? ac_tag_obj (subrun, "Sample", rc->h) : 0 ;
-      ac_free (subrun) ;
-    }
-  if (rc && rc->srr && ! rc->srx) 
-    rc->srx = ac_tag_obj (rc->srr, "SRX", rc->h) ;
-  if (rc && rc->srr && ! rc->srp) 
-    rc->srp = ac_tag_obj (rc->srr, "SRP", rc->h) ;
-  if (rc && rc->srx && ! rc->srp) 
-    rc->srp = ac_tag_obj (rc->srx, "SRP", rc->h) ;
-  if (rc && rc->srx && ! rc->srr) 
-    rc->srr = ac_tag_obj (rc->srx, "SRR", rc->h) ;
-  if (rc && rc->srr && ! rc->sample) 
-    rc->sample = ac_tag_obj (rc->srr, "Sample", rc->h) ;
-
-
-
-} /* qcSetAli */
-
 /*************************************************************************************/
 /* Data characteristics before alignment */
-static void qcBeforeAli (QC *qc, RC *rc)
+static void snpBeforeAli (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -326,16 +258,16 @@ static void qcBeforeAli (QC *qc, RC *rc)
     "Insert sizes measured in pairs"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
@@ -345,8 +277,8 @@ static void qcBeforeAli (QC *qc, RC *rc)
 	      {
 		double mbp = 0, mr = 0, mbp1 = 0, mr1 = 0 ; ;
 
-		aceOutf (qc->ao, "\t") ;
-		tt = ac_tag_table (rc->ali, "Letter_profile", h) ;
+		aceOutf (snp->ao, "\t") ;
+		tt = ac_tag_table (rc->snp, "Letter_profile", h) ;
 		if (tt)
 		  {
 		    int ir, nf = 0, n1 ; float n2 ;
@@ -365,12 +297,12 @@ static void qcBeforeAli (QC *qc, RC *rc)
 				float uf =  mbp/mr ;
 				int u1 = 100 * uf + 0.5 ;
 				if (100 * uk == u1)
-				  aceOutf (qc->ao, "%s%s:%d", nf ? ", " : EMPTY, buf, uk) ;
+				  aceOutf (snp->ao, "%s%s:%d", nf ? ", " : EMPTY, buf, uk) ;
 				else
-				  aceOutf (qc->ao, "%s%s:%.2f", nf ? ", " : EMPTY, buf, uf) ;
+				  aceOutf (snp->ao, "%s%s:%.2f", nf ? ", " : EMPTY, buf, uf) ;
 			      }
 			    else
-			      aceOutf (qc->ao, "%s%s:0",  nf ? ", " : EMPTY, buf) ;
+			      aceOutf (snp->ao, "%s%s:0",  nf ? ", " : EMPTY, buf) ;
 			    nf++ ; mbp = mr = 0 ;
 			    strncpy (buf, ccp, 64) ;
 			  }
@@ -392,28 +324,28 @@ static void qcBeforeAli (QC *qc, RC *rc)
 			float uf =  mbp/mr ;
 			int u1 = 100 * uf + 0.5 ;
 			if (100 * uk == u1)
-			  aceOutf (qc->ao, "%s%s:%d", nf ? ", " : EMPTY, buf, uk) ;
+			  aceOutf (snp->ao, "%s%s:%d", nf ? ", " : EMPTY, buf, uk) ;
 			else
-			  aceOutf (qc->ao, "%s%s:%.2f", nf ? ", " : EMPTY, buf, uf) ;
+			  aceOutf (snp->ao, "%s%s:%.2f", nf ? ", " : EMPTY, buf, uf) ;
 		      }
 		    else
-		      aceOutf (qc->ao, "%s%s:0",  nf ? ", " : EMPTY, buf) ;
+		      aceOutf (snp->ao, "%s%s:0",  nf ? ", " : EMPTY, buf) ;
 		  }
 		else
-		  aceOutf (qc->ao, "%d", (int)(rc->var[T_Length] + .5)) ;
+		  aceOutf (snp->ao, "%d", (int)(rc->var[T_Length] + .5)) ;
 		break ;
 	      }
 	    case 2:
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
-	      aceOutf (qc->ao, "\t%d", ac_tag_int (rc->ali, "Maximal_read_multiplicity", 0)) ;
-	      qcShowMillions (qc, rc->var[T_Seq]) ; 
-	      qcShowMillions (qc, rc->var[T_Read]) ;
-	      aceOutf (qc->ao, "\t%.3f", rc->var[T_kb]/1000) ;   
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
+	      aceOutf (snp->ao, "\t%d", ac_tag_int (rc->snp, "Maximal_read_multiplicity", 0)) ;
+	      snpShowMillions (snp, rc->var[T_Seq]) ; 
+	      snpShowMillions (snp, rc->var[T_Read]) ;
+	      aceOutf (snp->ao, "\t%.3f", rc->var[T_kb]/1000) ;   
 	      break ;
 	    case 3: /* ATGC */
 	      {
 		float z, za, zt, zg, zc, zn ;
-		tt = ac_tag_table (rc->ali, "ATGC_kb", h) ;
+		tt = ac_tag_table (rc->snp, "ATGC_kb", h) ;
 		z = za = zt = zg = zc = zn = 0 ;
 		for (ir = 0 ; tt && ir < tt->rows && ir < 1 ; ir++)
 		  {
@@ -424,7 +356,7 @@ static void qcBeforeAli (QC *qc, RC *rc)
 		    zn = ac_table_float (tt, ir, 9, 0) ; 
 		  } 
 		z = za + zt + zg + zc + zn ; if (z == 0) z = 1 ;
-		aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
+		aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
 			 , 100 * za/z, 100 *zt/z, 100 *zg/z, 100 * zc/z, 100 *zn/z
 			 , 100 * (zg + zc) /z
 			 ) ;
@@ -432,15 +364,15 @@ static void qcBeforeAli (QC *qc, RC *rc)
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcBeforeAli */
+}  /* snpBeforeAli */
 
 /*************************************************************************************/
 /* Data characteristics before alignment */
-static void qcAli (QC *qc, RC *rc)
+static void snpAli (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -450,7 +382,7 @@ static void qcAli (QC *qc, RC *rc)
   TT *ti, tts[] = { 
     { "Spacer", "", 0, 0, 0} ,
     { "TITLE", "Title", 10, 0, 0} ,
-    { "Compute", "Million raw reads", 20, 0, 0} ,  /* copied from qcBeforeAli */
+    { "Compute", "Million raw reads", 20, 0, 0} ,  /* copied from snpBeforeAli */
     { "Compute", "Million reads aligned on any target by Magic\tAverage length aligned per read (nt)\tMb aligned on any target\t% Mb aligned on any target before clipping\t% length aligned on average before clipping", 1, 0, 0} , 
     { "Compute", "% length aligned after clipping adaptors and barcodes (nt)", 2, 0, 0 } ,
     { "Compute", "% Reads aligned on any target", 3, 0, 0 } ,
@@ -461,16 +393,16 @@ static void qcAli (QC *qc, RC *rc)
     "Global alignment statistics"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -480,13 +412,13 @@ static void qcAli (QC *qc, RC *rc)
 	    case 999:
 	      z =  rc->var[T_G] +rc->var[T_C] ;
 	      if (z > 1000) z = 1000 ;
-	      aceOutf (qc->ao, "\t%.1f", z/10) ;
+	      aceOutf (snp->ao, "\t%.1f", z/10) ;
 	      break ;
 	    case 20: /* Million raw reads */
-	      qcShowMillions (qc, rc->var[T_Read]) ;
+	      snpShowMillions (snp, rc->var[T_Read]) ;
 	      break ;
 	    case 1:
-	      ccp = EMPTY ; tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      ccp = EMPTY ; tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
  		{
@@ -499,16 +431,16 @@ static void qcAli (QC *qc, RC *rc)
  		    }
  		} 
 
-	      aceOutf (qc->ao, "\t%.3f", z/1000000) ;
-	      aceOutf (qc->ao, "\t%.2f", zc) ;  /* average length aligned */
-	      aceOutf (qc->ao, "\t%.3f", zb/1000) ; /* Mb aligned on any target */
+	      aceOutf (snp->ao, "\t%.3f", z/1000000) ;
+	      aceOutf (snp->ao, "\t%.2f", zc) ;  /* average length aligned */
+	      aceOutf (snp->ao, "\t%.3f", zb/1000) ; /* Mb aligned on any target */
 
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_kb] ? 100 *zb / rc->var[T_kb] : 0) ; /* % Mb aligned on any target before clipping */
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_kb] ? 100 *zb / rc->var[T_kb] : 0) ; /* % Mb aligned on any target before clipping */
 	      {
 		float z1 = rc->var[T_kb], z2 = 0 ;
-		AC_TABLE tt2 = ac_tag_table (rc->ali, "Unaligned", h) ;
+		AC_TABLE tt2 = ac_tag_table (rc->snp, "Unaligned", h) ;
 		z2 = tt2 ? ac_table_float (tt2, 0, 4,0) : 0 ; /* kb Unaligned */
-		aceOutf (qc->ao, "\t%.2f ", 100*zb/(z1 - z2)) ;  /* % length aligned on average before clipping */
+		aceOutf (snp->ao, "\t%.2f ", 100*zb/(z1 - z2)) ;  /* % length aligned on average before clipping */
 	      }
 	   
 	 
@@ -517,7 +449,7 @@ static void qcAli (QC *qc, RC *rc)
 	      {
 		int ir ;
 		float z = -1, zClipped = -1 ;
-		AC_TABLE tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+		AC_TABLE tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 		
 		for (ir = 0 ; tt &&  ir < tt->rows; ir++)
 		  {
@@ -528,17 +460,17 @@ static void qcAli (QC *qc, RC *rc)
 			break ;
 		      }
 		  }
-		aceOutf (qc->ao, "\t") ;
+		aceOutf (snp->ao, "\t") ;
 		if (z > -1)
 		  {
-		    aceOutPercent (qc->ao, 100.00 * z/zClipped) ;
+		    aceOutPercent (snp->ao, 100.00 * z/zClipped) ;
 		  } 
 		  
 	      }
 	      break ;
 
 	    case 3:
-	      ccp = EMPTY ; tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      ccp = EMPTY ; tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
  		{
@@ -549,22 +481,22 @@ static void qcAli (QC *qc, RC *rc)
  		    }
  		} 
 
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Read] ? 100 *z / rc->var[T_Read] : 0) ;
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_Read] ? 100 *z / rc->var[T_Read] : 0) ;
 	 
 	      break ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
   ac_free (h) ;
   return;
-}  /* qcAli */
+}  /* snpAli */
 
 /*************************************************************************************/
 
-static void qcAvLengthAli (QC *qc, RC *rc)
+static void snpAvLengthAli (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -632,12 +564,12 @@ static void qcAvLengthAli (QC *qc, RC *rc)
 	     "Ribosomal RNA (rRNA) is encoded in the genome in many copies with slight sequence variations, hence when we align the archetypic rRNA precursor, usually from RefSeq or GenBank, the quality of the alignments is not expected to be perfect."  
 	     "Similarly, the small RNA targets, including tRNA, miRNA and other small RNAs often delineates only the mature product, and the actual genes are larger than the gene models. Hence usually only a fraction of the read lengths align on these targets. This is also true for the imperfect but useful human RNA genes from UCSC."
 	     
-	     , qc->project
+	     , snp->project
 	     ) ;
   if (rc == (void *) 1)
     {
       h = ac_new_handle () ;
-      qcChapterCaption (qc, tts, caption) ;
+      snpChapterCaption (snp, tts, caption) ;
       ac_free (h) ;
       return ;
     }
@@ -654,21 +586,21 @@ static void qcAvLengthAli (QC *qc, RC *rc)
 	    ccp = ti->title ;
 	  else 
 	    ccp++ ;
-	  aceOutf (qc->ao, "\t%s", ccp) ;
+	  aceOutf (snp->ao, "\t%s", ccp) ;
 	  continue ; 
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
  
-      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 
       if (! strcmp (ti->tag, "Compute"))
 	{
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  switch (ti->col)
 	    {
 	    case 1:   /*  Average clipped length */
@@ -684,9 +616,9 @@ static void qcAvLengthAli (QC *qc, RC *rc)
 		{
 		  nw++ ;
 		  if (ti->format == F_p10)
-		    aceOutPercent (qc->ao, 100.00 * z/avClipped) ;
+		    aceOutPercent (snp->ao, 100.00 * z/avClipped) ;
 		  else
-		    aceOutf (qc->ao, "%.2f", z) ;
+		    aceOutf (snp->ao, "%.2f", z) ;
 		}
 	      break ;
 	      
@@ -708,9 +640,9 @@ static void qcAvLengthAli (QC *qc, RC *rc)
 			    {
 			      nw++ ;
 			      if (ti->format == F_p10)
-				aceOutPercent (qc->ao, 100.00 * z/avClipped) ;
+				aceOutPercent (snp->ao, 100.00 * z/avClipped) ;
 			      else
-				aceOutf (qc->ao, "%.2f", z) ;
+				aceOutf (snp->ao, "%.2f", z) ;
 			    }
 			}
 		      break ;
@@ -718,19 +650,19 @@ static void qcAvLengthAli (QC *qc, RC *rc)
 		}
 	      break ;
 	    }
-	  if (! nw) aceOut (qc->ao, EMPTY) ;
+	  if (! nw) aceOut (snp->ao, EMPTY) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-}  /* qcAvLengthAli */
+}  /* snpAvLengthAli */
   
 /*************************************************************************************/
 
-static void  qcStrandedness (QC *qc, RC *rc)
+static void  snpStrandedness (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -804,7 +736,7 @@ static void  qcStrandedness (QC *qc, RC *rc)
     ;
 
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
@@ -819,28 +751,28 @@ static void  qcStrandedness (QC *qc, RC *rc)
 	  cp = strchr (buf, ':') ;
 	  if (ti->col > 100)
 	    {
-	      aceOutf (qc->ao, "\t%s %s", ti->title, qc->Etargets[(((ti->col-1) % 100)%3) & 0x3]) ;
+	      aceOutf (snp->ao, "\t%s %s", ti->title, snp->Etargets[(((ti->col-1) % 100)%3) & 0x3]) ;
 	    }
 	  else if (!cp)
-	    aceOutf (qc->ao, "\t%s", buf) ;
+	    aceOutf (snp->ao, "\t%s", buf) ;
 	  else /* mamipulate the title */
 	    {
 	      *cp++ = 0 ;                      /* now buf == A_rrna */
-	      aceOutf (qc->ao, "\t%s", cp) ;
+	      aceOutf (snp->ao, "\t%s", cp) ;
 	      cp = strchr (buf, '_') ;
 	      if (cp)
-		aceOutf (qc->ao, " %s", cp+1) ;  /* rrna */
+		aceOutf (snp->ao, " %s", cp+1) ;  /* rrna */
 	    }
 	  continue ; 
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
 
-      tt = ac_tag_table (rc->ali, "stranding", h) ;
+      tt = ac_tag_table (rc->snp, "stranding", h) ;
 
       if (! strcmp (ti->tag, "Compute"))
 	{
@@ -848,7 +780,7 @@ static void  qcStrandedness (QC *qc, RC *rc)
 
 	  int col = ti->col ;
 	  if (col > 100) col /= 100 ;
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  switch (col)
 	    {
 	    case 1:   /*  plus strand */
@@ -859,7 +791,7 @@ static void  qcStrandedness (QC *qc, RC *rc)
 		if (cp) *cp = 0 ;
 	      } 
 	      if (ti->col > 100)
-		strncpy (buf, qc->Etargets[(((ti->col-1) % 100) % 3) & 0x3], 255) ;
+		strncpy (buf, snp->Etargets[(((ti->col-1) % 100) % 3) & 0x3], 255) ;
 	      for (ir = 0 ; tt && ir < tt->rows; ir++)
 		{
 		  strncpy (buf2, ac_table_printable (tt, ir, 0, ""), 255) ;
@@ -881,28 +813,28 @@ static void  qcStrandedness (QC *qc, RC *rc)
 		    {
 		      nw++ ;
 		      if (ti->format == F_p10)
-			aceOutPercent (qc->ao, 100.00 * uz/up) ;
+			aceOutPercent (snp->ao, 100.00 * uz/up) ;
 		      else
-			aceOutf (qc->ao, "%.2f", uz) ;
+			aceOutf (snp->ao, "%.2f", uz) ;
 		    }
 		}
 
 	      break ;
 	    }
-	  if (! nw) aceOut (qc->ao, EMPTY) ;
+	  if (! nw) aceOut (snp->ao, EMPTY) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
   ac_free (h) ;
   return;
-} /* qcStrandedness */
+} /* snpStrandedness */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void qcMismatchTypes (QC *qc, RC *rc)
+static void snpMismatchTypes (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -984,7 +916,7 @@ static void qcMismatchTypes (QC *qc, RC *rc)
     "Number of mismatches, per type" ;
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   memset (zSub, 0, sizeof (zSub)) ;
@@ -998,17 +930,17 @@ Distribution of mismatches in best unique alignments, absolute, observed, counts
 
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	  continue ; 
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
 
-      tt = ac_tag_table (rc->ali, "Error_profile", h) ;
+      tt = ac_tag_table (rc->snp, "Error_profile", h) ;
 
       if (! strcmp (ti->tag, "Compute"))
 	{
@@ -1029,7 +961,7 @@ Distribution of mismatches in best unique alignments, absolute, observed, counts
 		      zz +=  ac_table_float (tt, ir, 3, 0) ;
 		    }
 		}
-	      aceOutf (qc->ao, "\t%.0f", zz) ;
+	      aceOutf (snp->ao, "\t%.0f", zz) ;
 	      denominator = zz ;
 	      break ;
 	      
@@ -1128,50 +1060,50 @@ Distribution of mismatches in best unique alignments, absolute, observed, counts
 		}
 
 	      /* report all at once */
-	      aceOutf (qc->ao, "\t%.0f", zAny) ;
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
+	      aceOutf (snp->ao, "\t%.0f", zAny) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
 
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
 
 	      { 
 		int i ; 
 		for (i = 0 ; i < 12 ; i++)
-		  aceOutf (qc->ao, "\t%.0f", zSub[i]) ;
+		  aceOutf (snp->ao, "\t%.0f", zSub[i]) ;
 	      }
 
-	      aceOutf (qc->ao, "\t%.0f", zInsertionA) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionT) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionG) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionC) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionA) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionT) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionG) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionC) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionA) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionT) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionG) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionC) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionA) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionT) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionG) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionC) ;
 
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
 
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? zTransition / (1000 * denominator) : 0) ;
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? zTransversion / (1000 * denominator) : 0) ;
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? (zInsertion + zSlidingInsertion)/ (1000 * denominator) : 0) ;
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? (zDeletion + zSlidingDeletion)/ (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? zTransition / (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? zTransversion / (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? (zInsertion + zSlidingInsertion)/ (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? (zDeletion + zSlidingDeletion)/ (1000 * denominator) : 0) ;
 
 	      if (zAny)
 		{
-		  aceOutf (qc->ao, "\t%.2f", 100 * zTransition / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zTransversion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zTransition / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zTransversion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
 
-		  aceOutf (qc->ao, "\t%.2f", 100 * zInsertion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zDeletion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
+		  aceOutf (snp->ao, "\t%.2f", 100 * zInsertion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zDeletion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t\t\t\t") ;
 	      break ;
 	    default: /* alread  treated in case 2 */
 	      break ;
@@ -1179,16 +1111,16 @@ Distribution of mismatches in best unique alignments, absolute, observed, counts
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /* qcMismatchTypes */
+} /* snpMismatchTypes */
 
 /*************************************************************************************/
 
-static void qcSnpTypesDo (QC *qc, RC *rc, BOOL isRejected)
+static void snpSnpTypesDo (TSNP *snp, RC *rc, BOOL isRejected)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -1208,7 +1140,7 @@ static void qcSnpTypesDo (QC *qc, RC *rc, BOOL isRejected)
     { "TITLE", "Title", 10, 0, 0} ,
 
     { "Compute", "Total number of variant alleles", 2, 0, 0} ,
-    { "Compute", "SNP support per kb aligned", 21, 0, 0} ,
+    { "Compute", "TSNP support per kb aligned", 21, 0, 0} ,
 
     { "Compute", "Transitions", 21, 0, 0} ,
     { "Compute", "Transversions", 21, 0, 0} ,
@@ -1265,7 +1197,7 @@ static void qcSnpTypesDo (QC *qc, RC *rc, BOOL isRejected)
     "Number of rejected variant alleles, per type. Designed for clinical cohorts with sequenced diploid tissues. SNPs which are monomodal across all samples, usually with MAF in the 1-30% range, come most probably from systematic noise and are rejected." ;
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   memset (zSub, 0, sizeof (zSub)) ;
@@ -1279,17 +1211,17 @@ Distribution of mismatches in best unique alignments, abslute, oberved, counts
 
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s %s", isRejected ? "Rejected " : "",  ti->title) ;
+	  aceOutf (snp->ao, "\t%s %s", isRejected ? "Rejected " : "",  ti->title) ;
 	  continue ; 
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
 
-      tt = ac_tag_table (rc->ali, "SNP_profile", h) ;
+      tt = ac_tag_table (rc->snp, "SNP_profile", h) ;
 
       if (! strcmp (ti->tag, "Compute"))
 	{
@@ -1310,7 +1242,7 @@ Distribution of mismatches in best unique alignments, abslute, oberved, counts
 		      zz +=  ac_table_float (tt, ir, 3, 0) ;
 		    }
 		}
-	      aceOutf (qc->ao, "\t%.0f", zz) ;
+	      aceOutf (snp->ao, "\t%.0f", zz) ;
 	      denominator = zz ;
 	      break ;
 	      
@@ -1409,49 +1341,49 @@ Distribution of mismatches in best unique alignments, abslute, oberved, counts
 		}
 
 	      /* report all at once */
-	      aceOutf (qc->ao, "\t%.0f", zAny) ;
-	      aceOutf (qc->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
+	      aceOutf (snp->ao, "\t%.0f", zAny) ;
+	      aceOutf (snp->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
 
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
 
 	      { 
 		int i ; 
 		for (i = 0 ; i < 12 ; i++)
-		  aceOutf (qc->ao, "\t%.0f", zSub[i]) ;
+		  aceOutf (snp->ao, "\t%.0f", zSub[i]) ;
 	      }
 
-	      aceOutf (qc->ao, "\t%.0f", zInsertionA) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionT) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionG) ;
-	      aceOutf (qc->ao, "\t%.0f", zInsertionC) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionA) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionT) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionG) ;
-	      aceOutf (qc->ao, "\t%.0f", zDeletionC) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionA) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionT) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionG) ;
+	      aceOutf (snp->ao, "\t%.0f", zInsertionC) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionA) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionT) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionG) ;
+	      aceOutf (snp->ao, "\t%.0f", zDeletionC) ;
 
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
-	      aceOutf (qc->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
+	      aceOutf (snp->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
 
 
 	      if (zAny)
 		{
-		  aceOutf (qc->ao, "\t%.2f", 100 * zTransition / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zTransversion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zInsertion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zDeletion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
-		  aceOutf (qc->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
+		  aceOutf (snp->ao, "\t%.2f", 100 * zTransition / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zTransversion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zInsertion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zDeletion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
+		  aceOutf (snp->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
 		  if ( zSub[1] > 100)
-		    aceOutf (qc->ao, "\t%.2f", zSub[0]/zSub[1] -1.0) ;
+		    aceOutf (snp->ao, "\t%.2f", zSub[0]/zSub[1] -1.0) ;
 		  else
-		    aceOut (qc->ao, "\t") ;
+		    aceOut (snp->ao, "\t") ;
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t\t\t\t\t") ;
 	      break ;
 	    default: /* alread  treated in case 2 */
 	      break ;
@@ -1459,30 +1391,30 @@ Distribution of mismatches in best unique alignments, abslute, oberved, counts
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /* qcSnpTypesDo */
+} /* snpSnpTypesDo */
 
 /***********/
 
-static void qcSnpTypes (QC *qc, RC *rc)
+static void snpSnpTypes (TSNP *snp, RC *rc)
 { 
-  qcSnpTypesDo (qc, rc, FALSE) ;
-}  /* qcSnpTypes */
+  snpSnpTypesDo (snp, rc, FALSE) ;
+}  /* snpSnpTypes */
 
 /***********/
 
-static void qcSnpRejectedTypes (QC *qc, RC *rc)
+static void snpSnpRejectedTypes (TSNP *snp, RC *rc)
 { 
-  qcSnpTypesDo (qc, rc, TRUE) ;
-}  /* qcSnpRejectedTypes */
+  snpSnpTypesDo (snp, rc, TRUE) ;
+}  /* snpSnpRejectedTypes */
 
 /*************************************************************************************/
 
-static void qcSnpCoding (QC *qc, RC *rc)
+static void snpSnpCoding (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt, ttS, ttG, ttP ;
@@ -1505,25 +1437,25 @@ static void qcSnpCoding (QC *qc, RC *rc)
     "SNV"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   if (rc)
     {
-      ttS = ac_tag_table (rc->ali, "SNP", h) ;
-      ttG = ac_tag_table (rc->ali, "Genomic", h) ;
-      ttP = ac_tag_table (rc->ali, "Protein_changing", h) ;
+      ttS = ac_tag_table (rc->snp, "SNP", h) ;
+      ttG = ac_tag_table (rc->snp, "Genomic", h) ;
+      ttP = ac_tag_table (rc->snp, "Protein_changing", h) ;
     }
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	  continue ; 
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
             
@@ -1536,24 +1468,24 @@ static void qcSnpCoding (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1:
-	      nT = ac_tag_int (rc->ali, "Tested_sites", 0) ;
-	      nnM = ac_tag_int (rc->ali, "Not_measurable_sites", 0) ; 
-	      nR = ac_tag_int (rc->ali, "Rejected_sites", 0) ;
+	      nT = ac_tag_int (rc->snp, "Tested_sites", 0) ;
+	      nnM = ac_tag_int (rc->snp, "Not_measurable_sites", 0) ; 
+	      nR = ac_tag_int (rc->snp, "Rejected_sites", 0) ;
 	      if (nT > 0)
 		{
 		  nC = nT - nnM ;
 		  z1 = nT ; z1 = 100.0 * nC / z1 ;
 		  z2 = nC ; z2 = nC > 0 ? (100.0 * nR / z2) : 0 ;
-		  aceOutf (qc->ao, "\t%d\t%.2f\t%d\t%.2f", nT, z1, nC, z2) ; 
+		  aceOutf (snp->ao, "\t%d\t%.2f\t%d\t%.2f", nT, z1, nC, z2) ; 
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t") ;
 	      break ;
 	    case 2:
 	      tt = ttG ;
 	      if (tt)
 		{
-		  aceOutf (qc->ao, "\t%d\t%d\t%d\t%d\t%d\t%d"
+		  aceOutf (snp->ao, "\t%d\t%d\t%d\t%d\t%d\t%d"
 			   , ac_table_int (tt, 0, 0, 0)
 			   , ac_table_int (tt, 0, 2, 0)
 			   , ac_table_int (tt, 0, 4, 0)
@@ -1563,14 +1495,14 @@ static void qcSnpCoding (QC *qc, RC *rc)
 			   ) ;
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t\t\t") ;
 	     
 	      break ;
 	    case 3: 
 	      tt = ttP ;
 	      if (tt)
 		{
-		  aceOutf (qc->ao, "\t%d\t%d\t%d\t%d"
+		  aceOutf (snp->ao, "\t%d\t%d\t%d\t%d"
 			   , ac_table_int (tt, 0, 0, 0)
 			   , ac_table_int (tt, 0, 2, 0)
 			   , ac_table_int (tt, 0, 4, 0) +  ac_table_int (tt, 0, 6, 0) + ac_table_int (tt, 0, 8, 0)
@@ -1578,22 +1510,22 @@ static void qcSnpCoding (QC *qc, RC *rc)
 			   ) ;
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t") ;
 	      break ;
 
 	    case 4:  
 	      nC = nT = 0 ;
-	      tt = ac_tag_table (rc->ali, "Genomic", h) ;
+	      tt = ac_tag_table (rc->snp, "Genomic", h) ;
 	      if (tt)
 		{
 		  nC = ac_table_int (tt, 0, 6, 0) +  ac_table_int (tt, 0, 8, 0) ;
 		  nT = ac_table_int (tt, 0, 10, 0) ;
 		}
-	      aceOut (qc->ao, "\t") ;  
+	      aceOut (snp->ao, "\t") ;  
 	      if (nC + nT >= 10)
 		{
 		  z1 = (nC < 100 * nT ?  nC/(1.0 * nT) : 1000) ;
-		  aceOutf (qc->ao, "%.2f", z1) ;
+		  aceOutf (snp->ao, "%.2f", z1) ;
 		}
 		
 	      break ;
@@ -1604,7 +1536,7 @@ static void qcSnpCoding (QC *qc, RC *rc)
 	      if (nT > 10)
 		{
 		  float z = 100.0/nT ;
-		  aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
+		  aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
 			   , z * ac_table_int (tt, 0, 2, 0)
 			   , z * ac_table_int (tt, 0, 4, 0)
 			   , z * ac_table_int (tt, 0, 6, 0) 
@@ -1613,7 +1545,7 @@ static void qcSnpCoding (QC *qc, RC *rc)
 			   ) ;
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t\t") ;
 	      break ;
 	    case 6:
 	      tt = ttG ;
@@ -1622,7 +1554,7 @@ static void qcSnpCoding (QC *qc, RC *rc)
 	      if (nT > 10)
 		{
 		  float z = 100.0/nT ;
-		  aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f\t%.2f"
+		  aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f"
 			   , z * ac_table_int (tt, 0, 0, 0)
 			   , z * ac_table_int (tt, 0, 2, 0)
 			   , z * (ac_table_int (tt, 0, 4, 0) +  ac_table_int (tt, 0, 6, 0) + ac_table_int (tt, 0, 8, 0))
@@ -1630,23 +1562,23 @@ static void qcSnpCoding (QC *qc, RC *rc)
 			   ) ;
 		}
 	      else
-		aceOut (qc->ao, "\t\t\t\t") ;
+		aceOut (snp->ao, "\t\t\t\t") ;
 	      break ;
 #endif
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /*  qcSnpCoding */
+} /*  snpSnpCoding */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void qcDoPair (QC *qc, RC *rc, BOOL doPercent)
+static void snpDoPair (TSNP *snp, RC *rc, BOOL doPercent)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -1676,7 +1608,7 @@ static void qcDoPair (QC *qc, RC *rc, BOOL doPercent)
     "maps into an annotated gene and the other in a compatible way on the nearby genome."
   ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
@@ -1684,13 +1616,13 @@ static void qcDoPair (QC *qc, RC *rc, BOOL doPercent)
 	{
 	  const char *ccp ;
 	  ccp = doPercent ? "%" : "Number of" ;
-	  aceOut (qc->ao, "\t") ;
-	  aceOutf (qc->ao, (char *)ti->title, ccp, ccp, ccp, ccp, ccp, ccp, ccp, ccp) ;
+	  aceOut (snp->ao, "\t") ;
+	  aceOutf (snp->ao, (char *)ti->title, ccp, ccp, ccp, ccp, ccp, ccp, ccp, ccp) ;
 	}
      else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
      else if (! strcmp (ti->tag, "Compute"))
@@ -1698,11 +1630,11 @@ static void qcDoPair (QC *qc, RC *rc, BOOL doPercent)
 	  switch (ti->col)
 	    {
 	    case 1:
-	      if (! ac_has_tag (rc->run, "Single_end") && ac_has_tag (rc->ali, "Pair_fate"))
+	      if (! ac_has_tag (rc->run, "Single_end") && ac_has_tag (rc->snp, "Pair_fate"))
 		{
 		  float za, zb, zc, zd, ze ;
 
-		  ccp = EMPTY ; tt = ac_tag_table (rc->ali, "Orphans", h) ;
+		  ccp = EMPTY ; tt = ac_tag_table (rc->snp, "Orphans", h) ;
 		  z = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -1712,63 +1644,63 @@ static void qcDoPair (QC *qc, RC *rc, BOOL doPercent)
 			  z = ac_table_float (tt, ir, 1, 0) ;
 			}
 		    } 
-		  za = ac_tag_float (rc->ali, "Links_gene_to_distant_genome", 0) ;
-		  zb = ac_tag_float (rc->ali, "Links_2_genes", 0) ;
-		  zc = ac_tag_float (rc->ali, "Incompatible_topology", 0) ;
-		  zd = ac_tag_float (rc->ali, "Links_to_rRNA", 0) ;
-		  ze = ac_tag_float (rc->ali, "Links_to_mito", 0) ;
-		  rc->var[T_cFrag] = ac_tag_float (rc->ali, "Compatible_pairs", 0) ;
-		  rc->var[T_uFrag] = ac_tag_float (rc->ali, "Non_compatible_pairs", 0) ;
+		  za = ac_tag_float (rc->snp, "Links_gene_to_distant_genome", 0) ;
+		  zb = ac_tag_float (rc->snp, "Links_2_genes", 0) ;
+		  zc = ac_tag_float (rc->snp, "Incompatible_topology", 0) ;
+		  zd = ac_tag_float (rc->snp, "Links_to_rRNA", 0) ;
+		  ze = ac_tag_float (rc->snp, "Links_to_mito", 0) ;
+		  rc->var[T_cFrag] = ac_tag_float (rc->snp, "Compatible_pairs", 0) ;
+		  rc->var[T_uFrag] = ac_tag_float (rc->snp, "Non_compatible_pairs", 0) ;
 		  if (! doPercent)
 		    {
-		      if ( rc->var[T_cFrag]) aceOutf (qc->ao, "\t%.2f", rc->var[T_cFrag]) ; else aceOutf (qc->ao, "\t0") ;
-		      if ( rc->var[T_uFrag]) aceOutf (qc->ao, "\t%.2f", rc->var[T_uFrag]) ; else aceOutf (qc->ao, "\t0") ;
-		      aceOutf (qc->ao, "\t%.0f", z) ;
-		      aceOutf (qc->ao, "\t%.0f", za) ;
-		      aceOutf (qc->ao, "\t%.0f", zb) ;
-		      aceOutf (qc->ao, "\t%.0f", zc) ;
-		      aceOutf (qc->ao, "\t%.0f", zd) ;
-		      aceOutf (qc->ao, "\t%.0f", ze) ;
+		      if ( rc->var[T_cFrag]) aceOutf (snp->ao, "\t%.2f", rc->var[T_cFrag]) ; else aceOutf (snp->ao, "\t0") ;
+		      if ( rc->var[T_uFrag]) aceOutf (snp->ao, "\t%.2f", rc->var[T_uFrag]) ; else aceOutf (snp->ao, "\t0") ;
+		      aceOutf (snp->ao, "\t%.0f", z) ;
+		      aceOutf (snp->ao, "\t%.0f", za) ;
+		      aceOutf (snp->ao, "\t%.0f", zb) ;
+		      aceOutf (snp->ao, "\t%.0f", zc) ;
+		      aceOutf (snp->ao, "\t%.0f", zd) ;
+		      aceOutf (snp->ao, "\t%.0f", ze) ;
 
 		    }
 		  else
 		    {
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * rc->var[T_cFrag]/ rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * rc->var[T_uFrag] / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * z / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * za / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zb / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zc / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zd / rc->var[T_aliFrag] : 0) ;	  
-		      aceOutf (qc->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * ze / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * rc->var[T_cFrag]/ rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * rc->var[T_uFrag] / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * z / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * za / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zb / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zc / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * zd / rc->var[T_aliFrag] : 0) ;	  
+		      aceOutf (snp->ao, "\t%.2f", rc->var[T_aliFrag] ? 100 * ze / rc->var[T_aliFrag] : 0) ;	  
 		    }
 		  break ;
 		}
 	      else
-		aceOutf (qc->ao, "\t-\t-\t-\t-\t-\t-\t-\t-") ;
+		aceOutf (snp->ao, "\t-\t-\t-\t-\t-\t-\t-\t-") ;
 	    }
 	}
       else
 	{
-	  qcShowTag (qc, rc, ti) ;
+	  snpShowTag (snp, rc, ti) ;
 	}
     }
   ac_free (h) ;
   return;
-}  /* qcDoPair */
+}  /* snpDoPair */
 
-static void qcPairNb  (QC *qc, RC *rc)
+static void snpPairNb  (TSNP *snp, RC *rc)
 {
-  return qcDoPair (qc, rc, FALSE) ;
+  return snpDoPair (snp, rc, FALSE) ;
 }
-static void qcPairPercent  (QC *qc, RC *rc)
+static void snpPairPercent  (TSNP *snp, RC *rc)
 {
-  return qcDoPair (qc, rc, TRUE) ;
+  return snpDoPair (snp, rc, TRUE) ;
 }
 
 /*************************************************************************************/
 /* template for a future chapter */
-static void qcInsertSize (QC *qc, RC *rc)
+static void snpInsertSize (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[] = {
@@ -1788,47 +1720,47 @@ static void qcInsertSize (QC *qc, RC *rc)
     "Insert size distribution measured from paired alignments"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (ti->tag[0] == 'F')
 	{
-	  if (ac_tag_int (rc->ali, "Fragment_length_average", 0))
-	    qcShowTag (qc, rc, ti) ;
-	  else if (ac_has_tag (rc->ali, "Length_distribution_1_5_50_95_99_mode_av"))
+	  if (ac_tag_int (rc->snp, "Fragment_length_average", 0))
+	    snpShowTag (snp, rc, ti) ;
+	  else if (ac_has_tag (rc->snp, "Length_distribution_1_5_50_95_99_mode_av"))
 	    {
-	      AC_TABLE tt = ac_tag_table (rc->ali, "Length_distribution_1_5_50_95_99_mode_av", h) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,0,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,1,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,5,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,2,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,6,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,3,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt, 0,4,0)) ;
+	      AC_TABLE tt = ac_tag_table (rc->snp, "Length_distribution_1_5_50_95_99_mode_av", h) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,0,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,1,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,5,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,2,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,6,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,3,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt, 0,4,0)) ;
 	      break ;
 	    }
 	  else
-	    aceOutf (qc->ao, "\t") ;
+	    aceOutf (snp->ao, "\t") ;
 	}
       else
-	aceOutf (qc->ao, "\t") ;
+	aceOutf (snp->ao, "\t") ;
     }
    ac_free (h) ;
   return;
-}  /* qcInsertSize */
+}  /* snpInsertSize */
 
 /*************************************************************************************/
 /* template for a future chapter */
-static void qcInsertSizeHisto (QC *qc, RC *rc)
+static void snpInsertSizeHisto (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[] = {
@@ -1842,16 +1774,16 @@ static void qcInsertSizeHisto (QC *qc, RC *rc)
     "Histogram of insert length (bp) measured as the distance between the first aligned base of the /1 and /2 reads in  compatible pairs"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
        else  if (! strcmp (ti->tag, "Compute"))
@@ -1863,16 +1795,16 @@ static void qcInsertSizeHisto (QC *qc, RC *rc)
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcInsertSizeHisto */
+}  /* snpInsertSizeHisto */
 
 /*************************************************************************************/
 
-static float qcShowGeneExp (QC *qc, AC_TABLE tt, const char *target, const char *tag)
+static float snpShowGeneExp (TSNP *snp, AC_TABLE tt, const char *target, const char *tag)
 {
   int ir ;
   if (tt)
@@ -1883,18 +1815,18 @@ static float qcShowGeneExp (QC *qc, AC_TABLE tt, const char *target, const char 
 	{
 	  float z = ac_table_float (tt, ir, 2, 0) + ac_table_int (tt, ir, 2, 0) ;
 	  if (z) /* a float */
-	    aceOutf (qc->ao, "\t%.1f", z) ;
+	    aceOutf (snp->ao, "\t%.1f", z) ;
 	  else
-	    aceOutf (qc->ao, "\t%s", ac_table_printable (tt, ir, 2, "")) ;
+	    aceOutf (snp->ao, "\t%s", ac_table_printable (tt, ir, 2, "")) ;
 	  return z ;
 	}
-  aceOut (qc->ao, "\t") ;
+  aceOut (snp->ao, "\t") ;
   return 0 ;
-} /* qcShowGeneExp */
+} /* snpShowGeneExp */
 
 /*************************************************************************************/
 
-static void qcMainResults1 (QC *qc, RC *rc)
+static void snpMainResults1 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -1902,11 +1834,11 @@ static void qcMainResults1 (QC *qc, RC *rc)
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,  
     { "TITLE", "Title", 10, 0, 0} ,
-    { "Compute", "Million raw reads", 20, 0, 0} ,  /* copied from qcBeforeAli */
-    { "Compute", "Million reads aligned on any target by Magic", 30, 0, 0 } , /* copied from qcAvLengthAli */
-    { "Compute", "Average fragment multiplicity, high numbers reflect PCR amplification or very short reads", 40, 0, 0} ,  /* copied from qcBeforeAli */
-    { "Compute", "Average read length after clipping adaptors and barcodes (nt)", 50, 0, 0 } , /* copied from qcAvLengthAli */
-    { "Compute", "Average length aligned per read (nt)", 60, 0, 0 } , /* copied from qcAvLengthAli */
+    { "Compute", "Million raw reads", 20, 0, 0} ,  /* copied from snpBeforeAli */
+    { "Compute", "Million reads aligned on any target by Magic", 30, 0, 0 } , /* copied from snpAvLengthAli */
+    { "Compute", "Average fragment multiplicity, high numbers reflect PCR amplification or very short reads", 40, 0, 0} ,  /* copied from snpBeforeAli */
+    { "Compute", "Average read length after clipping adaptors and barcodes (nt)", 50, 0, 0 } , /* copied from snpAvLengthAli */
+    { "Compute", "Average length aligned per read (nt)", 60, 0, 0 } , /* copied from snpAvLengthAli */
     {  0, 0, 0, 0, 0}
   } ; 
   
@@ -1914,7 +1846,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
     "Reads, multiplicity and length"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   
   for (ti = tts ; ti->tag ; ti++)
@@ -1922,13 +1854,13 @@ static void qcMainResults1 (QC *qc, RC *rc)
       const char *tag ;
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
        else if (! strcmp (ti->tag, "Compute"))
@@ -1939,11 +1871,11 @@ static void qcMainResults1 (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 20: /* Million raw reads */
-	      qcShowMillions (qc, rc->var[T_Read]) ;
+	      snpShowMillions (snp, rc->var[T_Read]) ;
 	      break ;
 	    case 30: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
@@ -1956,25 +1888,25 @@ static void qcMainResults1 (QC *qc, RC *rc)
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.3f", z/1000000) ;
+	      aceOutf (snp->ao, "\t%.3f", z/1000000) ;
 	      ac_free (tt) ;
 	      break ;
 	      
 	    case 40: /* Average fragment multiplicity */
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
 	      break ;
 	    case 50:
 	      tag = "nh_Ali" ; 
-	      tt = ac_tag_table (rc->ali, tag, h) ;
+	      tt = ac_tag_table (rc->snp, tag, h) ;
 	      z = 0 ;
-	      aceOut (qc->ao, "\t") ;
+	      aceOut (snp->ao, "\t") ;
 	      if (tt)
 		for (ir = 0 ; tt &&  ir < tt->rows; ir++)
 		  {
 		    if (! strcasecmp (ac_table_printable (tt, ir, 0, ""), "any"))
 		      {
 			z = ac_table_float (tt, ir, 11, 0) ;
-			aceOutf (qc->ao, "%.2f", z) ;
+			aceOutf (snp->ao, "%.2f", z) ;
 		      }
 		   }
 	      ac_free (tt) ;
@@ -1982,7 +1914,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
 	      
 	    case 60: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
@@ -1995,7 +1927,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.2f", zc) ;  /* average length aligned */
+	      aceOutf (snp->ao, "\t%.2f", zc) ;  /* average length aligned */
 	      ac_free (tt) ;
 	      break ;
 	    }     
@@ -2003,11 +1935,11 @@ static void qcMainResults1 (QC *qc, RC *rc)
     }
   ac_free (h) ;
   return;
-}  /* qcMainResults1 */
+}  /* snpMainResults1 */
 
 /*************************************************************************************/
 
-static void qcMainResults2 (QC *qc, RC *rc)
+static void snpMainResults2 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2017,10 +1949,10 @@ static void qcMainResults2 (QC *qc, RC *rc)
     { "Spacer", "", 0, 0, 0} ,  
     { "TITLE", "Title", 10, 0, 0} ,
     { "Compute", "Megabases sequenced", 57, 0, 0} ,
-    { "Compute", "Mb aligned on any target", 52, 0, 0 } , /* copied from qcAvLengthAli */
+    { "Compute", "Mb aligned on any target", 52, 0, 0 } , /* copied from snpAvLengthAli */
     { "Compute", "Megabases uniquely aligned and used for mismatch counts", 53, 0, 0} ,
     { "Compute", "Mb uniquely and fully aligned in genes", 16, 0, 0 },
-    { "Compute", "Mb uniquely aligned in main protein coding genes minus very highly expressed genes", 80, 0, 0 }, /* copied from qcGeneExpression */
+    { "Compute", "Mb uniquely aligned in main protein coding genes minus very highly expressed genes", 80, 0, 0 }, /* copied from snpGeneExpression */
 
     {  0, 0, 0, 0, 0}
   } ; 
@@ -2029,29 +1961,29 @@ static void qcMainResults2 (QC *qc, RC *rc)
     "Megabases aligned"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   for (ti = tts ; ti->tag ; ti++)
     {
-      const char *tag, *target = qc->Etargets[0] ? qc->Etargets[0] : "xx" ;
+      const char *tag, *target = snp->Etargets[0] ? snp->Etargets[0] : "xx" ;
       if (rc == 0)
 	{
 	  switch (ti->col)
 	     {
 	     case 1:
 	       if (! strcasecmp (target, "av")) target = "AceView" ;
-	       aceOutf (qc->ao, "\t%s %s", target, ti->title) ;
+	       aceOutf (snp->ao, "\t%s %s", target, ti->title) ;
 	       break ;
 	     default:
-	       aceOutf (qc->ao, "\t%s", ti->title) ;
+	       aceOutf (snp->ao, "\t%s", ti->title) ;
 	       break ;
 	     }
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -2063,23 +1995,23 @@ static void qcMainResults2 (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 20: /* Million raw reads */
-	      qcShowMillions (qc, rc->var[T_Read]) ;
+	      snpShowMillions (snp, rc->var[T_Read]) ;
 	      break ;
 	    case 30: /* Average fragment multiplicity */
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
 	      break ;
 	    case 40:
 	       tag = "nh_Ali" ; 
-	       tt = ac_tag_table (rc->ali, tag, h) ;
+	       tt = ac_tag_table (rc->snp, tag, h) ;
 	       z = 0 ;
-	       aceOut (qc->ao, "\t") ;
+	       aceOut (snp->ao, "\t") ;
 	       if (tt)
 		 for (ir = 0 ; tt &&  ir < tt->rows; ir++)
 		   {
 		     if (! strcasecmp (ac_table_printable (tt, ir, 0, ""), "any"))
 		       {
 			 z = ac_table_float (tt, ir, 11, 0) ;
-			 aceOutf (qc->ao, "%.2f", z) ;
+			 aceOutf (snp->ao, "%.2f", z) ;
 		       }
 		   }
 	       ac_free (tt) ;
@@ -2087,9 +2019,9 @@ static void qcMainResults2 (QC *qc, RC *rc)
 
 	    case 16:
 	      { 
-		const char *target = qc->Etargets[0] ? qc->Etargets[0] : "xx" ;
+		const char *target = snp->Etargets[0] ? snp->Etargets[0] : "xx" ;
 		tag = "Mb_in_genes" ;
-		tt = ac_tag_table (rc->ali, tag, h) ;
+		tt = ac_tag_table (rc->snp, tag, h) ;
 		if (tt)
 		  {
 		    int ii, ir ;
@@ -2097,7 +2029,7 @@ static void qcMainResults2 (QC *qc, RC *rc)
 		      {
 			for (ir = 0 ; ir < tt->rows ; ir++)
 			  {
-			    target = qc->Etargets [ii] ;
+			    target = snp->Etargets [ii] ;
 			    if (target && ! strcasecmp (target, ac_table_printable (tt, ir, 0, "x")))
 			      break ;
 			  }
@@ -2107,21 +2039,21 @@ static void qcMainResults2 (QC *qc, RC *rc)
 			      {
 			      case 16:
 				rc->geneSigExpressed = ac_table_float (tt, ir, 1, 0) ;
-				aceOutf (qc->ao, "\t%.3f", ac_table_float (tt, ir, 1, 0)) ;
+				aceOutf (snp->ao, "\t%.3f", ac_table_float (tt, ir, 1, 0)) ;
 				break ;
 			      }
 			  }
 			else
-			  aceOutf (qc->ao, "\t") ;
+			  aceOutf (snp->ao, "\t") ;
 		      }
 		  }
 		else
-		  aceOutf (qc->ao, "\t") ;
+		  aceOutf (snp->ao, "\t") ;
 		break ;
 	      }
 	    case 50: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
@@ -2134,13 +2066,13 @@ static void qcMainResults2 (QC *qc, RC *rc)
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.3f", z/1000000) ;
+	      aceOutf (snp->ao, "\t%.3f", z/1000000) ;
 	      ac_free (tt) ;
 	      break ;
 
 	    case 51: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
@@ -2153,13 +2085,13 @@ static void qcMainResults2 (QC *qc, RC *rc)
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.2f", zc) ;  /* average length aligned */
+	      aceOutf (snp->ao, "\t%.2f", zc) ;  /* average length aligned */
 	      ac_free (tt) ;
 	      break ;
 
 	    case 52: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
@@ -2172,12 +2104,12 @@ static void qcMainResults2 (QC *qc, RC *rc)
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.3f", zb/1000) ; /* Mb aligned on any target */
+	      aceOutf (snp->ao, "\t%.3f", zb/1000) ; /* Mb aligned on any target */
 	      ac_free (tt) ;
 	      break ;
 
 	    case 53:   /* Megabases uniquely aligned and used for mismatch counts */
-	      tt = ac_tag_table (rc->ali, "Error_profile", h) ;
+	      tt = ac_tag_table (rc->snp, "Error_profile", h) ;
 	      for (ir = 0 ; tt &&  ir < tt->rows ; ir++)
 		{
 		  if (ir == 0)
@@ -2191,18 +2123,18 @@ static void qcMainResults2 (QC *qc, RC *rc)
 		      zz +=  ac_table_float (tt, ir, 3, 0) ;
 		    }
 		}
-	      aceOutf (qc->ao, "\t%.0f", zz) ;
+	      aceOutf (snp->ao, "\t%.0f", zz) ;
 	      ac_free (tt) ;
 	      break ;
 
 	    case 57:
-	      aceOutf (qc->ao, "\t%.3f", rc->var[T_kb]/1000) ;   
+	      aceOutf (snp->ao, "\t%.3f", rc->var[T_kb]/1000) ;   
 	      break ;
 
 	    case 80:
 	      tag = "Mb_in_genes_with_GeneId_minus_high_genes" ;
-	      aceOut (qc->ao, "\t") ;
-	      tt = ac_tag_table (rc->ali, tag, h) ;
+	      aceOut (snp->ao, "\t") ;
+	      tt = ac_tag_table (rc->snp, tag, h) ;
 	      if (tt)
 		{
 		  for (ir = 0 ; ir < tt->rows ; ir++)
@@ -2215,7 +2147,7 @@ static void qcMainResults2 (QC *qc, RC *rc)
 		      switch (ti->col)	
 			{
 			case 80:   
-			  aceOutf (qc->ao, "%.03f", ac_table_float (tt, ir, 1, 0)) ;
+			  aceOutf (snp->ao, "%.03f", ac_table_float (tt, ir, 1, 0)) ;
 			  break ;
 			}
 		    }
@@ -2225,15 +2157,15 @@ static void qcMainResults2 (QC *qc, RC *rc)
 	    }
 	}
       else  /* 110: accessible length */
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcMainResults2 */
+}  /* snpMainResults2 */
 
 /*************************************************************************************/
 
-static void qcMainResults_h (QC *qc, RC *rc)
+static void snpMainResults_h (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2252,19 +2184,19 @@ static void qcMainResults_h (QC *qc, RC *rc)
     "Alignment statistics"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -2275,7 +2207,7 @@ static void qcMainResults_h (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 54:
-	      ccp = EMPTY ; tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      ccp = EMPTY ; tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
  		{
@@ -2288,12 +2220,12 @@ static void qcMainResults_h (QC *qc, RC *rc)
  		    }
  		} 
 
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_kb] ? 100 *zb / rc->var[T_kb] : 0) ; /* % Mb aligned on any target before clipping */
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_kb] ? 100 *zb / rc->var[T_kb] : 0) ; /* % Mb aligned on any target before clipping */
 	      {
 		float z1 = rc->var[T_kb], z2 = 0 ;
-		AC_TABLE tt2 = ac_tag_table (rc->ali, "Unaligned", h) ;
+		AC_TABLE tt2 = ac_tag_table (rc->snp, "Unaligned", h) ;
 		z2 = tt2 ? ac_table_float (tt2, 0, 4,0) : 0 ; /* kb Unaligned */
-		aceOutf (qc->ao, "\t%.2f ", 100*zb/(z1 - z2)) ;  /* % length aligned on average before clipping */
+		aceOutf (snp->ao, "\t%.2f ", 100*zb/(z1 - z2)) ;  /* % length aligned on average before clipping */
 	      }
 	   
 	      ac_free (tt) ;
@@ -2303,7 +2235,7 @@ static void qcMainResults_h (QC *qc, RC *rc)
 	      {
 		int ir ;
 		float z = -1, zClipped = -1 ;
-		AC_TABLE tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+		AC_TABLE tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 		
 		for (ir = 0 ; tt &&  ir < tt->rows; ir++)
 		  {
@@ -2314,10 +2246,10 @@ static void qcMainResults_h (QC *qc, RC *rc)
 			break ;
 		      }
 		  }
-		aceOutf (qc->ao, "\t") ;
+		aceOutf (snp->ao, "\t") ;
 		if (z > -1)
 		  {
-		    aceOutPercent (qc->ao, 100.00 * z/zClipped) ;
+		    aceOutPercent (snp->ao, 100.00 * z/zClipped) ;
 		  } 
 		
 		ac_free (tt) ;
@@ -2326,7 +2258,7 @@ static void qcMainResults_h (QC *qc, RC *rc)
 
 	    case 56:
 	      ccp = EMPTY ; 
-	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
  	      z = zb = zc = 0 ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
  		{
@@ -2337,21 +2269,21 @@ static void qcMainResults_h (QC *qc, RC *rc)
  		    }
  		} 
 
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Read] ? 100 *z / rc->var[T_Read] : 0) ;
+	      aceOutf (snp->ao, "\t%.2f", rc->var[T_Read] ? 100 *z / rc->var[T_Read] : 0) ;
 	      ac_free (tt) ;
 	      break ;
 	    }
 	}
       else  /* 110: accessible length */
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcMainResults_h */
+}  /* snpMainResults_h */
 
 /*************************************************************************************/
 
-static void qcMainResults4 (QC *qc, RC *rc)
+static void snpMainResults4 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2359,9 +2291,9 @@ static void qcMainResults4 (QC *qc, RC *rc)
     { "Spacer", "", 0, 0, 0} ,  /* Quality features */
     { "TITLE", "Title", 10, 0, 0} ,
 
-    { "Compute", "% fragments on strand plus of genes", 90, 0, 0} ,  /* copied from qcGeneExpression */
-    { "Compute", "Mismatches per kb aligned", 100, 0, 0} , /* copied from qcMismatchTypes */
-    { "Accessible_length", "Well covered transcript length (nt), max 6kb, measured on transcripts longer than 8kb, limited by the 3' bias in poly-A selected experiments", 0, 0, 0}, /* copied from qc3pBias */
+    { "Compute", "% fragments on strand plus of genes", 90, 0, 0} ,  /* copied from snpGeneExpression */
+    { "Compute", "Mismatches per kb aligned", 100, 0, 0} , /* copied from snpMismatchTypes */
+    { "Accessible_length", "Well covered transcript length (nt), max 6kb, measured on transcripts longer than 8kb, limited by the 3' bias in poly-A selected experiments", 0, 0, 0}, /* copied from snp3pBias */
 
     {  0, 0, 0, 0, 0}
   } ; 
@@ -2370,19 +2302,19 @@ static void qcMainResults4 (QC *qc, RC *rc)
     "Quality features: strandedness, base quality, 3' bias"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -2404,11 +2336,11 @@ static void qcMainResults4 (QC *qc, RC *rc)
 		    if ((z-50)*(z-50) < (z1-50)*(z1-50))
 		      z = z1 ;
 		  }
-	      aceOutf (qc->ao, "\t%.2f", z) ;
+	      aceOutf (snp->ao, "\t%.2f", z) ;
 	      ac_free (tt) ;
 	      break ;
 	    case 100:	
-	      tt = ac_tag_table (rc->ali, "Error_profile", h) ;	
+	      tt = ac_tag_table (rc->snp, "Error_profile", h) ;	
 	      z = z1 = 0 ; buf[0] = 0 ;
 	      for (ir = 0 ; tt &&  ir < tt->rows ; ir++)
 		{
@@ -2425,21 +2357,21 @@ static void qcMainResults4 (QC *qc, RC *rc)
 		  if (!strcasecmp ("Any", ac_table_printable (tt, ir, 1, "xxx")))
 		    z += ac_table_float (tt, ir, 2, 0) ;
 		}
-	      aceOutf (qc->ao, "\t%.5f", z1 > 0 ? z / (1000 * z1) : 0) ;
+	      aceOutf (snp->ao, "\t%.5f", z1 > 0 ? z / (1000 * z1) : 0) ;
 	      ac_free (tt) ;
 	      break ;
 	    }
 	}
       else  /* 110: accessible length */
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcMainResults4 */
+}  /* snpMainResults4 */
 
 /*************************************************************************************/
 
-static void qcMainResults5 (QC *qc, RC *rc)
+static void snpMainResults5 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2462,20 +2394,20 @@ static void qcMainResults5 (QC *qc, RC *rc)
   float zg = -1 ;
 
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
 
   for (ti = tts ; ti->tag ; ti++)
     {
-      const char *tag, *target = qc->Etargets[0] ? qc->Etargets[0] : "xx", *target2 = 0 ;
+      const char *tag, *target = snp->Etargets[0] ? snp->Etargets[0] : "xx", *target2 = 0 ;
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -2489,7 +2421,7 @@ static void qcMainResults5 (QC *qc, RC *rc)
 	    case 20: tag = "Candidate_introns" ;  ic = 5 ; target2 = "Any" ;  break ;
 	    case 30: tag = "Candidate_introns" ;  ic = 13 ; target2 = "Any" ;  break ;
 	    }
-	  tt = ac_tag_table (rc->ali, tag, h) ;
+	  tt = ac_tag_table (rc->snp, tag, h) ;
 	  z = 0 ;
 	  if (tt)
 	    for (ir = 0 ; ir < tt->rows ; ir++)
@@ -2497,7 +2429,7 @@ static void qcMainResults5 (QC *qc, RC *rc)
 		if (!ir || ! strcasecmp (ac_table_printable (tt, ir, 0, "xxx"), target2))
 		  z = ac_table_int (tt, ir, ic, 0) + ac_table_float (tt, ir, ic, 0) ;
 	      }
-	  aceOutf (qc->ao, "\t%.0f", z) ;
+	  aceOutf (snp->ao, "\t%.0f", z) ;
 	  if (ti->col == 10)
 	    z10 = z ;
 	  if (ti->col == 30)
@@ -2509,11 +2441,11 @@ static void qcMainResults5 (QC *qc, RC *rc)
 	  if (zg == -1)
 	    {
 	      const char *tag = "Mb_in_genes_with_GeneId_minus_high_genes" ;
-	      tt = ac_tag_table (rc->ali, tag, h) ;
+	      tt = ac_tag_table (rc->snp, tag, h) ;
 	      if (tt)
 		{
 		  int ir ;
-		  const char *target = qc->Etargets [0] ; 
+		  const char *target = snp->Etargets [0] ; 
 		  for (ir = 0 ; ir < tt->rows ; ir++)
 		    {
 		      if (target && ! strcasecmp (target, ac_table_printable (tt, ir, 0, "x")))
@@ -2532,48 +2464,576 @@ static void qcMainResults5 (QC *qc, RC *rc)
 	    case 50: z = zg > 0 ? rc->geneSigExpressed/zg : 0 ; break ;
 	    case 60: z = 0.001 * (zg > 0 ? z30/zg : 0) ; break ;
 	    }
-	  aceOutf (qc->ao, "\t%.2f", z) ;
+	  aceOutf (snp->ao, "\t%.2f", z) ;
 	}
       else  /* 110: accessible length */
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcMainResults5 */
+}  /* snpMainResults5 */
 
 /*************************************************************************************/
 
-static void qcSortingTitles (QC *qc, RC *rc)
+static void snpIdentifiers (TSNP *tsnp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    {  "Sorting_title", "Sorting_title 1", 0, 0, 0} ,
-    {  "Sorting_Title_2", "Sorting title 2", 0, 0, 0} ,  
+    { "Map", "Chromosome\tlast upstream conserved base\tFirst downstream conserved base", 1, 0, 0} ,
+    { "Coding", "Type\tCoding\tProtein type", 1, 0, 0} ,
+    {  "gName", "genome Name", 0, 0, 0} ,
+    {  "rName", "RNA Name", 0, 0, 0} ,  
+    {  "pName", "Protein Name", 0, 0, 0} ,  
+    {  "Dan_Li", "Dan Li Name", 0, 0, 0} ,  
+    { "Compute", "RNA variation", 10, 0, 0} ,
+    { "Compute", "Protein variation", 20, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
   const char *caption =
-    "Sorting titles"
+    "Variant Identifiers"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (tsnp, tts, caption) ;
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Map"))
+	{
+	  AC_TABLE tt = ac_tag_table (rc->snp, "IntMap", h) ;
+	  if (tt && tt->cols > 2)
+	    aceOutf (tsnp->ao
+		     , "\tchr%s\t%d\t%d"
+		     , ac_table_printable (tt, 0, 0, "-")
+		     , ac_table_int (tt, 0, 1, 0)
+		     , ac_table_int (tt, 0, 2, 0)
+		     ) ;
+	  else
+	    aceOut (tsnp->ao, "\t\t\t") ;
+
+	}
+      else if (! strcmp (ti->tag, "Coding"))
+	{
+	  aceOutf (tsnp->ao, "\t%s", ac_tag_printable (rc->snp, "Typ", "")) ;
+	  
+	  aceOut (tsnp->ao, "\t") ;
+	  if (ac_has_tag (rc->snp, "Intergenic"))
+	    aceOut (tsnp->ao, "Intergenic\t") ;
+	  else if (ac_has_tag (rc->snp, "Intronic"))
+	    aceOut (tsnp->ao, "Intronic\t") ;
+	  else if (ac_has_tag (rc->snp, "Non_coding_transcript"))
+	    aceOut (tsnp->ao, "Non_coding_transcript\t") ;
+	  else if (ac_has_tag (rc->snp, "UTR_5prime"))
+	    aceOut (tsnp->ao, "UTR_5prime\t") ;
+	  else if (ac_has_tag (rc->snp, "UTR_3prime"))
+	    aceOut (tsnp->ao, "UTR_3prime\t") ;
+	  else if (ac_has_tag (rc->snp, "Synonymous"))
+	    aceOutf (tsnp->ao, "Coding Synonymous\t%s", ac_tag_text (rc->snp, "Synonymous", "")) ;
+	  else if (ac_has_tag (rc->snp, "AA_substitution"))
+	    aceOutf (tsnp->ao, "Coding substitution\t%s", ac_tag_text (rc->snp, "AA_substitution", "")) ;
+	  else if (ac_has_tag (rc->snp, "Length_variation"))
+	    {
+	      AC_TABLE tt = ac_tag_table (rc->snp, "Length_variation", h) ;
+	      aceOutf (tsnp->ao, "%s\t%s %s"
+		       , ac_table_printable (tt, 0, 0, "")
+		       , ac_table_printable (tt, 0, 1, "")
+		       , ac_table_printable (tt, 0, 2, "")
+		       ) ;
+	    }
+
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  int ic ;
+	  const char *tag1, *tag2 ;
+	  AC_TABLE tt1 = 0, tt2 = 0 ;
+
+	  switch (ti->col)
+	    {
+	    case 10: 
+	      tag1 = "Reference_RNAexon_sequence" ;
+	      tag2 = "Observed__RNAexon_sequence" ;
+	      ic = 0 ;
+	      break ;
+	    case 20:
+	      tag1 = "Reference_protein_sequence" ;
+	      tag2 = "Observed__protein_sequence" ;
+	      ic = 1 ;
+	    }
+	  tt1 = ac_tag_table (rc->snp, tag1, h) ;
+	  tt2 = ac_tag_table (rc->snp, tag2, h) ;
+	  aceOut (tsnp->ao, "\t") ;
+	  if (tt1 && tt2 && tt1->cols > ic && tt2->cols > ic)
+	    aceOutf (tsnp->ao, "%s > %s"
+		     , ac_table_printable (tt1, 0, ic, "")
+		     , ac_table_printable (tt2, 0, ic, "")
+		     ) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (tsnp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcSortingTitles */
+}  /* snpIdentifiers */
 
 /*************************************************************************************/
 
-static void qcTitles (QC *qc, RC *rc)
+static void snpDanLiCounts (TSNP *tsnp, RC *rc)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Compute", "AGLR1 m:m+w", 10, 0, 0} ,
+    { "Compute", "AGLR2 m:m+w", 11, 0, 0} ,
+    { "Compute", "ROCR1 m:m+w", 12, 0, 0} ,
+    { "Compute", "ROCR2 m:m+w", 13, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "Dan Li counts"
+    ;
+  if (rc == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      if (rc == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  const char *tag ;
+	  char run[6] ;
+	  AC_TABLE tt = 0 ;
+
+	  tag = "DanLi_counts" ;
+	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
+	  tt = ac_tag_table (rc->snp, tag, h) ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
+		  {
+		    int m = ac_table_int (tt, ir, 1, 0) ;
+		    int c = ac_table_int (tt, ir, 3, 0) ;
+		    aceOutf (tsnp->ao, "%d:%d", m, c) ;
+		  }
+	    }
+	}
+      else
+	snpShowTag (tsnp, rc, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpDanLiCounts */
+
+/*************************************************************************************/
+
+static void snpDanLiFrequency (TSNP *tsnp, RC *rc)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Compute", "AGLR1 m/m+w", 1, 0, 0} ,
+    { "Compute", "AGLR2 m/m+w", 2, 0, 0} ,
+    { "Compute", "ROCR1 m/m+w", 3, 0, 0} ,
+    { "Compute", "ROCR2 m/m+w", 4, 0, 0} ,
+    { "Inter", "Conflict", 0, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  float alpha = 1.5 ;
+  float dqq[1024], qq[1024] ;
+  int nqq, iti, qqi[1024], qqc[1024], qqm[1024] ;
+
+  memset (qq, 0, sizeof(qq)) ;
+  memset (dqq, 0, sizeof(dqq)) ;
+  memset (qqi, 0, sizeof(qqi)) ;
+  memset (qqc, 0, sizeof(qqc)) ;
+  memset (qqm, 0, sizeof(qqm)) ;
+
+
+  const char *caption =
+    "Dan Li counts"
+    ;
+  if (rc == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (iti = 0, ti = tts ; ti->tag ; iti++, ti++)
+    {
+      if (rc == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  const char *tag ;
+	  char run[6] ;
+	  AC_TABLE tt = 0 ;
+
+	  tag = "DanLi_counts" ;
+	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
+	  tt = ac_tag_table (rc->snp, tag, h) ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
+		  {
+		    int m = ac_table_int (tt, ir, 1, 0) ;
+		    int c = ac_table_int (tt, ir, 3, 0) ;
+		    if (c > 0)
+		      {
+			qq[ti->col] = 1.0*m/c ;
+			dqq[ti->col] = 1.0/sqrt(c) ;
+			qqi[ti->col] = iti ;
+			qqc[ti->col] = c ;
+			qqm[ti->col] = m ;
+
+			aceOutf (tsnp->ao, "%.2f", 100.0 * m/c) ;
+		      }
+		  }
+	    }
+	}
+      else if (! strcmp (ti->tag, "Inter"))
+	{
+	  int kk = 0 ;
+	  int ii = ti->col ;
+          float ccc = 0, mmm = 0, ppp = 0, dppp ;
+	  aceOut (tsnp->ao, "\t") ;
+	  
+	  for (ii = 1 ; ii < 5 ; ii++)
+	    if (qqi[ii])
+	      {
+		kk++ ;
+		ccc += qqc[ii] ;
+		mmm += qqm[ii] ;
+	      }
+	  if (kk >= 4) /* at least 4 measures */
+	    {
+	      ppp = mmm/ccc ;
+	      dppp = 1.0/sqrt (ccc) ;
+	      for (ii = 1 ; ii < 5 ; ii++)
+		if (qqi[ii])
+		  {
+		    float z = qq[ii] - ppp ;
+		    if (z < 0) z = -z ;
+		    if (z > alpha * (dppp + dqq[ii]))
+		      {
+			char buf[15] ;
+			memcpy (buf, tts[qqi[ii]].title, 5) ;
+			buf[5] = 0 ;
+			aceOutf (tsnp->ao, "YBAD %s:%.1f:%.1f ", buf,100*qq[ii],100*ppp) ;		    
+		      }
+		  }
+	    }
+	}
+      else
+	snpShowTag (tsnp, rc, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpDanLiFrequency */
+
+/*************************************************************************************/
+
+static void snpBrsCounts (TSNP *tsnp, RC *rc)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Compute", "AGLR1 m:m+w", 10, 0, 0} ,
+    { "Compute", "AGLR2 m:m+w", 11, 0, 0} ,
+    { "Compute", "ROCR1 m:m+w", 12, 0, 0} ,
+    { "Compute", "ROCR2 m:m+w", 13, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "BRS counts" ;
+  if (rc == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      if (rc == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  const char *tag ;
+	  char run[20] ;
+	  AC_TABLE tt = 0 ;
+	  int m = 0, c = 0 ;
+	  tag = "BRS_counts" ;
+	  strcpy (run, "RNA_XXXXX_A") ;
+	  strncpy (run+4, ti->title, 5) ; 
+	  tt = ac_tag_table (rc->snp, tag, h) ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strncmp (ac_table_printable (tt, ir, 0, "toto"), run, 11))
+		  {
+		    m += ac_table_int (tt, ir, 2, 0) ;
+		    c += ac_table_int (tt, ir, 1, 0) ;
+		  }
+	    }
+	  aceOutf (tsnp->ao, "%d:%d", m, c) ;
+	}
+      else
+	snpShowTag (tsnp, rc, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpBrsCounts */
+
+/*************************************************************************************/
+
+static void snpBrsFrequency (TSNP *tsnp, RC *rc)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Compute", "AGLR1 m/m+w", 10, 0, 0} ,
+    { "Compute", "AGLR2 m/m+w", 11, 0, 0} ,
+    { "Compute", "ROCR1 m/m+w", 12, 0, 0} ,
+    { "Compute", "ROCR2 m/m+w", 13, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "BRS counts"
+    ;
+  if (rc == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      if (rc == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  const char *tag ;
+	  char run[20] ;
+	  AC_TABLE tt = 0 ;
+	  int m = 0, c = 0 ;
+	  tag = "BRS_counts" ;
+	  strcpy (run, "RNA_XXXXX_A") ;
+	  strncpy (run+4, ti->title, 5) ; 
+	  tt = ac_tag_table (rc->snp, tag, h) ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strncmp (ac_table_printable (tt, ir, 0, "toto"), run, 11))
+		  {
+		    m += ac_table_int (tt, ir, 2, 0) ;
+		    c += ac_table_int (tt, ir, 1, 0) ;
+		  }
+	    }
+	  if (c >= 10)
+	    aceOutf (tsnp->ao, "%.2f", 100.0*m/c) ;
+	  else
+	    aceOutf (tsnp->ao, "%s", c ? "NA" : "NE") ;
+	}
+      else
+	snpShowTag (tsnp, rc, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpBrsFrequency */
+
+/*************************************************************************************/
+
+static void snpIntraNoise (TSNP *tsnp, RC *rc)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Compute", "AGLR1_A internal inconsistency", 1, 0, 0} ,
+    { "Compute", "AGLR2_A internal inconsistency", 2, 0, 0} ,
+    { "Compute", "ROCR1_A internal inconsistency", 3, 0, 0} ,
+    { "Compute", "ROCR2_A internal inconsistency", 4, 0, 0} ,
+    { "Compute", "ILMR3_A internal inconsistency", 5, 0, 0} ,
+    { "Compute", "Total_A internal inconsistency", 6, 0, 0} ,
+    { "Compute", "PolyA_A internal inconsistency", 7, 0, 0} ,
+
+    { "Compute", "AGLR1_B internal inconsistency", 101, 0, 0} ,
+    { "Compute", "AGLR2_B internal inconsistency", 102, 0, 0} ,
+    { "Compute", "ROCR1_B internal inconsistency", 103, 0, 0} ,
+    { "Compute", "ROCR2_B internal inconsistency", 104, 0, 0} ,
+    { "Compute", "ILMR3_B internal inconsistency", 105, 0, 0} ,
+    { "Compute", "Total_B internal inconsistency", 106, 0, 0} ,
+    { "Compute", "PolyA_B internal inconsistency", 107, 0, 0} ,
+
+    { "Compute", "AGLR1_C internal inconsistency", 201, 0, 0} ,
+    { "Compute", "AGLR2_C internal inconsistency", 202, 0, 0} ,
+    { "Compute", "ROCR1_C internal inconsistency", 203, 0, 0} ,
+    { "Compute", "ROCR2_C internal inconsistency", 204, 0, 0} ,
+    { "Compute", "ILMR3_C internal inconsistency", 205, 0, 0} ,
+    { "Compute", "Total_C internal inconsistency", 206, 0, 0} ,
+    { "Compute", "PolyA_C internal inconsistency", 207, 0, 0} ,
+
+    { "Compute", "AGLR1_D internal inconsistency", 301, 0, 0} ,
+    { "Compute", "AGLR2_D internal inconsistency", 302, 0, 0} ,
+    { "Compute", "ROCR1_D internal inconsistency", 303, 0, 0} ,
+    { "Compute", "ROCR2_D internal inconsistency", 304, 0, 0} ,
+    { "Compute", "ILMR3_D internal inconsistency", 305, 0, 0} ,
+    { "Compute", "Total_D internal inconsistency", 306, 0, 0} ,
+    { "Compute", "PolyA_D internal inconsistency", 307, 0, 0} ,
+
+    { "Compute", "AGLR1_E internal inconsistency", 401, 0, 0} ,
+    { "Compute", "AGLR2_E internal inconsistency", 402, 0, 0} ,
+    { "Compute", "ROCR1_E internal inconsistency", 403, 0, 0} ,
+    { "Compute", "ROCR2_E internal inconsistency", 404, 0, 0} ,
+    { "Compute", "ILMR3_E internal inconsistency", 405, 0, 0} ,
+    { "Compute", "Total_E internal inconsistency", 406, 0, 0} ,
+    { "Compute", "PolyA_E internal inconsistency", 407, 0, 0} ,
+
+    { "Inter", "A external inconsistency", 0, 0, 0} ,
+    { "Inter", "B external inconsistency", 1, 0, 0} ,
+    { "Inter", "C external inconsistency", 2, 0, 0} ,
+    { "Inter", "D external inconsistency", 3, 0, 0} ,
+    { "Inter", "E external inconsistency", 4, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "BRS counts"
+    ;
+  float alpha = 2.0 ;
+  float dqq[1024], qq[1024] ;
+  int nqq, iti, qqi[1024], qqc[1024], qqm[1024] ;
+
+  memset (qq, 0, sizeof(qq)) ;
+  memset (dqq, 0, sizeof(dqq)) ;
+  memset (qqi, 0, sizeof(qqi)) ;
+  memset (qqc, 0, sizeof(qqc)) ;
+  memset (qqm, 0, sizeof(qqm)) ;
+
+  if (rc == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts, iti = 0 ; ti->tag ; iti++, ti++)
+    {
+      if (rc == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Compute"))
+	{
+	  const char *tag ;
+	  char run[20] ;
+	  AC_TABLE tt = 0 ;
+	  float m[20], c[20] ;
+	  int  nn = 0, mm = 0, cc = 0 ;
+	  tag = "BRS_counts" ;
+	  strcpy (run, "RNA_XXXXX_X") ;
+	  strncpy (run+4, ti->title, 7) ; 
+	  tt = ac_tag_table (rc->snp, tag, h) ;
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strncmp (ac_table_printable (tt, ir, 0, "toto"), run, 11))
+		  {
+		    m[nn] = ac_table_int (tt, ir, 2, 0) ;
+		    c[nn] = ac_table_int (tt, ir, 1, 0) ;
+		    if (c[nn] > 4)
+		      {
+			mm += m[nn] ;
+			cc += c[nn] ;
+			nn++ ;
+		      }
+		  }
+	    }
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (nn > 3 && cc >= 20)
+	    {
+	      float p[nn], dp[nn], dpp, pp = 1.0 * mm/cc ;
+	      int i ;
+	      int bad = 0 ;
+	      float z ;
+	      
+	      dpp = 1.0/sqrt (cc) ;
+	      qq[ti->col] = pp ;
+	      dqq[ti->col] = dpp ;
+	      qqi[ti->col] = iti ;
+	      qqc[ti->col] = cc ;
+	      qqm[ti->col] = mm ;
+
+	      for (i = 0 ; i < nn ; i++)
+		{
+		  p[i] = m[i]/c[i] ;
+		  dp[i] = 1.0/sqrt (c[i]) ;
+		  z = p[i] - pp ;
+		  if (z < 0) z = -z ;
+		  if (z > alpha * (dp[i] + dpp))
+		    bad = i + 1 ;
+		}
+	      if (bad)
+		aceOutf (tsnp->ao, "BAD %f>%f", p[bad-1]-pp,dp[bad-1]+dpp) ;
+	    }
+	}
+      else if (! strcmp (ti->tag, "Inter"))
+	{
+	  int kk = 0 ;
+	  int ii, jj = 100 * ti->col ;
+          float ccc = 0, mmm = 0, ppp = 0, dppp ;
+	  aceOut (tsnp->ao, "\t") ;
+	  
+	  for (ii = 1 ; ii < 8 ; ii++)
+	    if (qqi[jj + ii])
+	      {
+		kk++ ;
+		ccc += qqc[jj+ii] ;
+		mmm += qqm[jj+ii] ;
+	      }
+	  if (kk >= 4) /* at least 4 measures */
+	    {
+	      ppp = mmm/ccc ;
+	      dppp = 1.0/sqrt (ccc) ;
+	      for (ii = 1 ; ii < 8 ; ii++)
+		if (qqi[jj + ii])
+		  {
+		    float z = qq[jj+ii] - ppp ;
+		    if (z < 0) z = -z ;
+		    if (z > alpha * (dppp + dqq[ii + jj]))
+		      {
+			char buf[15] ;
+			memcpy (buf, tts[qqi[jj+ii]].title, 7) ;
+			buf[7] = 0 ;
+			aceOutf (tsnp->ao, "XBAD %s:%.1f:%.1f ", buf,100*qq[jj+ii],100*ppp) ;		    
+		      }
+		  }
+	    }
+	}
+
+      else
+	snpShowTag (tsnp, rc, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpIntraNoise */
+
+/*************************************************************************************/
+
+static void snpTitles (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2607,26 +3067,26 @@ static void qcTitles (QC *qc, RC *rc)
     "Metadata for sample, project and laboratory"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       int nw = 0 ;
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
 	  DICT *papDict = 0 ;
 
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  switch (ti->col)
 	    {
 	    case 1000:  /* RunId */
@@ -2637,12 +3097,12 @@ static void qcTitles (QC *qc, RC *rc)
 	      if (tt && tt->rows) 
 		{
 		  if (tt->rows > 30)
-		    aceOutf (qc->ao, "%d > 300 runs, list skipped", tt->rows) ;
+		    aceOutf (snp->ao, "%d > 300 runs, list skipped", tt->rows) ;
 		  else
-		    qcShowMultiTag (qc, tt) ; 
+		    snpShowMultiTag (snp, tt) ; 
 		}
 	      else
-		aceOutf (qc->ao, "%s", ac_name (rc->run)) ;
+		aceOutf (snp->ao, "%s", ac_name (rc->run)) ;
 	      break ;
 	    case 1:  /* SRR */
 	      tt = ac_tag_table (rc->run, "SRR", h) ;
@@ -2651,9 +3111,9 @@ static void qcTitles (QC *qc, RC *rc)
 	      if (! tt)
 		tt = ac_tag_table (rc->run, "sublibraries", h) ;
 	      if (! tt)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      else 
-		qcShowMultiTag (qc, tt) ;
+		snpShowMultiTag (snp, tt) ;
 	      break ;
 	    case 2:  /* Author */
 	      if (rc->srr)
@@ -2663,7 +3123,7 @@ static void qcTitles (QC *qc, RC *rc)
 		    ccp = rc->srr ? ac_tag_printable (rc->srr, "Magic_Author2", 0) : 0 ;
 		  if (! ccp) 
 		    ccp = rc->srr ? ac_tag_printable (rc->srr, "Author", EMPTY) : EMPTY ;
-		  aceOutf (qc->ao, "%s", ccp) ;
+		  aceOutf (snp->ao, "%s", ccp) ;
 		}
 	      else
 		{
@@ -2693,7 +3153,7 @@ static void qcTitles (QC *qc, RC *rc)
 				  ) ;
 		    }
 		   if (nAuthor)
-		     aceOutf (qc->ao, "%s", vtxtPtr (txt)) ;
+		     aceOutf (snp->ao, "%s", vtxtPtr (txt)) ;
 
 		   txt = vtxtHandleCreate (h) ;
 		   nAuthor = 0 ;
@@ -2722,18 +3182,18 @@ static void qcTitles (QC *qc, RC *rc)
 				   ) ;
 		     }		    
 		   if (nAuthor)
-		     aceOutf (qc->ao, " [%s]", vtxtPtr (txt)) ;
+		     aceOutf (snp->ao, " [%s]", vtxtPtr (txt)) ;
 	
 		}	      
 	      break ;
 	    case 3:  /* Species */
 	      ccp = rc->run ? ac_tag_printable (rc->run, "Species", EMPTY) : EMPTY ;
-	      aceOutf (qc->ao, "%s", ccp) ;
+	      aceOutf (snp->ao, "%s", ccp) ;
 	      break ;
 	    case 4:  /* SRP-Project */
 	      ccp = rc->srp ? ac_tag_printable (rc->srp, "Title", EMPTY) : EMPTY ;
-	      aceOutf (qc->ao, "%s", ccp) ;
-	      if (rc->srp) aceOutf (qc->ao, "[%s]", ac_name (rc->srp)) ;
+	      aceOutf (snp->ao, "%s", ccp) ;
+	      if (rc->srp) aceOutf (snp->ao, "[%s]", ac_name (rc->srp)) ;
 	      break ;
 	    case 5:  /* SRP-Project description */
 	      {
@@ -2744,7 +3204,7 @@ static void qcTitles (QC *qc, RC *rc)
 		if (! ccp || !strcmp (ccp, "NA"))
 		  ccp = rc->srp ? ac_tag_printable (rc->srp, "Description", EMPTY) : EMPTY ;
 
-		aceOutf (qc->ao, "%s", ccp) ;
+		aceOutf (snp->ao, "%s", ccp) ;
 		ac_free (lt) ;
 	      }
 	      break ;
@@ -2760,18 +3220,18 @@ static void qcTitles (QC *qc, RC *rc)
 			papDict = dictHandleCreate (32, h) ;
 		      if (! dictAdd (papDict, ac_name(pap), 0))
 			continue ;			
-		      aceOutf (qc->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
+		      aceOutf (snp->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
 		      ccp = pap ? ac_tag_printable (pap, "Title", 0) : 0 ; 
 		      if (ccp) 
-			{ aceOutf (qc->ao, " : %s", ccp) ; nw++ ; }
+			{ aceOutf (snp->ao, " : %s", ccp) ; nw++ ; }
 		      ccp = pap ? ac_tag_printable (pap, "Citation", 0) : 0 ;
-		      if (ccp) aceOutf (qc->ao, "%s%s", nw ? ", " : ": ", ccp) ;
+		      if (ccp) aceOutf (snp->ao, "%s%s", nw ? ", " : ": ", ccp) ;
 		      ccp = pap ? ac_tag_printable (pap, "Author", 0) : 0 ;
 		      if (ccp) 
 			{
 			  AC_TABLE tt1 = ac_tag_table (pap, "Author", h) ;
-			  aceOutf (qc->ao, ", %s", ccp) ;
-			  if (tt1 && tt1->rows > 1) aceOutf (qc->ao, " et al.") ;
+			  aceOutf (snp->ao, ", %s", ccp) ;
+			  if (tt1 && tt1->rows > 1) aceOutf (snp->ao, " et al.") ;
 			}
 		    }
 		}
@@ -2786,18 +3246,18 @@ static void qcTitles (QC *qc, RC *rc)
 			papDict = dictHandleCreate (32, h) ;
 		      if (! dictAdd (papDict, ac_name(pap), 0))
 			continue ;			
-		      aceOutf (qc->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
+		      aceOutf (snp->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
 		      ccp = pap ? ac_tag_printable (pap, "Title", 0) : 0 ; 
 		      if (ccp) 
-			{ aceOutf (qc->ao, " : %s", ccp) ; nw++ ; }
+			{ aceOutf (snp->ao, " : %s", ccp) ; nw++ ; }
 		      ccp = pap ? ac_tag_printable (pap, "Citation", 0) : 0 ;
-		      if (ccp) aceOutf (qc->ao, "%s%s", nw ? ", " : ": ", ccp) ;
+		      if (ccp) aceOutf (snp->ao, "%s%s", nw ? ", " : ": ", ccp) ;
 		      ccp = pap ? ac_tag_printable (pap, "Author", 0) : 0 ;
 		      if (ccp) 
 			{
 			  AC_TABLE tt1 = ac_tag_table (pap, "Author", h) ;
-			  aceOutf (qc->ao, ", %s", ccp) ;
-			  if (tt1 && tt1->rows > 1) aceOutf (qc->ao, " et al.") ;
+			  aceOutf (snp->ao, ", %s", ccp) ;
+			  if (tt1 && tt1->rows > 1) aceOutf (snp->ao, " et al.") ;
 			}
 		    }
 		}
@@ -2813,18 +3273,18 @@ static void qcTitles (QC *qc, RC *rc)
 		      if (! dictAdd (papDict, ac_name(pap), 0))
 			continue ;			
 		      
-		      aceOutf (qc->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
+		      aceOutf (snp->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
 		      ccp = pap ? ac_tag_printable (pap, "Title", 0) : 0 ; 
 		      if (ccp) 
-			{ aceOutf (qc->ao, " : %s", ccp) ; nw++ ; }
+			{ aceOutf (snp->ao, " : %s", ccp) ; nw++ ; }
 		      ccp = pap ? ac_tag_printable (pap, "Citation", 0) : 0 ;
-		      if (ccp) aceOutf (qc->ao, "%s%s", nw ? ", " : ": ", ccp) ;
+		      if (ccp) aceOutf (snp->ao, "%s%s", nw ? ", " : ": ", ccp) ;
 		      ccp = pap ? ac_tag_printable (pap, "Author", 0) : 0 ;
 		      if (ccp) 
 			{
 			  AC_TABLE tt1 = ac_tag_table (pap, "Author", h) ;
-			  aceOutf (qc->ao, ", %s", ccp) ;
-			  if (tt1 && tt1->rows > 1) aceOutf (qc->ao, " et al.") ;
+			  aceOutf (snp->ao, ", %s", ccp) ;
+			  if (tt1 && tt1->rows > 1) aceOutf (snp->ao, " et al.") ;
 			}
 		    }
 		}
@@ -2840,23 +3300,23 @@ static void qcTitles (QC *qc, RC *rc)
 		      if (! dictAdd (papDict, ac_name(pap), 0))
 			continue ;			
 		      
-		      aceOutf (qc->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
+		      aceOutf (snp->ao, "%sPMID: %s", nw ? "; " : EMPTY, ac_name(pap)+(!strncmp( ac_name(pap),"pm",2) ? 2 : 0)) ;
 		      ccp = pap ? ac_tag_printable (pap, "Title", 0) : 0 ; 
 		      if (ccp) 
-			{ aceOutf (qc->ao, " : %s", ccp) ; nw++ ; }
+			{ aceOutf (snp->ao, " : %s", ccp) ; nw++ ; }
 		      ccp = pap ? ac_tag_printable (pap, "Citation", 0) : 0 ;
-		      if (ccp) aceOutf (qc->ao, "%s%s", nw ? ", " : ": ", ccp) ;
+		      if (ccp) aceOutf (snp->ao, "%s%s", nw ? ", " : ": ", ccp) ;
 		      ccp = pap ? ac_tag_printable (pap, "Author", 0) : 0 ;
 		      if (ccp) 
 			{
 			  AC_TABLE tt1 = ac_tag_table (pap, "Author", h) ;
-			  aceOutf (qc->ao, ", %s", ccp) ;
-			  if (tt1 && tt1->rows > 1) aceOutf (qc->ao, " et al.") ;
+			  aceOutf (snp->ao, ", %s", ccp) ;
+			  if (tt1 && tt1->rows > 1) aceOutf (snp->ao, " et al.") ;
 			}
 		    }
 		}
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      ac_free (papDict) ;
 	      break ;
 
@@ -2872,55 +3332,55 @@ static void qcTitles (QC *qc, RC *rc)
 		  ccp = ac_tag_printable (rc->run, "Sample", 0) ;
 		}
 	      if (! ccp) ccp = EMPTY ;
-	      aceOutf (qc->ao, "%s", ccp) ;
+	      aceOutf (snp->ao, "%s", ccp) ;
 	      break ;
 	    case 7:   /* first line */
 	      ccp = ac_tag_printable (rc->run, "First_line", 0) ;
 	      if (! ccp) ccp = EMPTY ;
-	      aceOutf (qc->ao, "%s", ccp) ;
+	      aceOutf (snp->ao, "%s", ccp) ;
 	      break ;
 	    case 21:   /* stage */
 	      tt = rc->sample? ac_tag_table (rc->sample, "Stage", h) : 0 ;
-	      nw = qcShowTable (qc, tt, 0) ;
+	      nw = snpShowTable (snp, tt, 0) ;
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	    case 22:   /* system */
 	      tt = rc->sample? ac_tag_table (rc->sample, "Systm", h) : 0 ;
-	      nw = qcShowTable (qc, tt, 0) ;
+	      nw = snpShowTable (snp, tt, 0) ;
 	      tt = rc->sample? ac_tag_table (rc->sample, "Tissue", h) : 0 ;
-	      nw += qcShowTable (qc, tt, nw) ;
+	      nw += snpShowTable (snp, tt, nw) ;
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
               break ;
 	    case 23: /* bio */
 	      tt = rc->sample? ac_tag_table (rc->sample, "Bio", h) : 0 ;
-	      nw = qcShowTable (qc, tt, nw) ;
+	      nw = snpShowTable (snp, tt, nw) ;
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	    case 24: /* sex */
 	      tt = rc->sample? ac_tag_table (rc->sample, "Sex", h) : 0 ;
-	      nw = qcShowTable (qc, tt, nw) ;
+	      nw = snpShowTable (snp, tt, nw) ;
 	      if (! nw)
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcTitles */
+}  /* snpTitles */
 
 /*************************************************************************************/
 
 
-static void qcProtocol (QC *qc, RC *rc)
+static void snpProtocol (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt ;
@@ -2936,7 +3396,7 @@ static void qcProtocol (QC *qc, RC *rc)
     {  "Compute", "Experiment type", 1, 0, 0} ,
     {  "Compute", "Sequencing_date" , 13, 0, 0} ,
     {  "Compute", "Submission_date" , 14, 0, 0} , /* or received date if earlier */
-    {  "Compute", "Library preparation", 2, 0, 0} , /* mv to qcTitle */
+    {  "Compute", "Library preparation", 2, 0, 0} , /* mv to snpTitle */
     {  "RNA_Integrity_Number" , "RNA Integrity Number", 0, 0, 0} ,
     {  "Details", "Details", 0, 0, 0} ,
     {  "MicroArray", "Corresponding microarray", 0, 0, 0} ,
@@ -2952,24 +3412,24 @@ static void qcProtocol (QC *qc, RC *rc)
     "Experimental protocol"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       int nw = 0 ;
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  switch (ti->col)
 	    {
 	    case 1:  /* RNA selection */
@@ -2978,17 +3438,17 @@ static void qcProtocol (QC *qc, RC *rc)
               if (! tt) tt = rc->srr ? ac_tag_table (rc->srr, "sraNucleic_Acid_Extraction", h)  : 0 ;
               if (! tt) tt = rc->run ? ac_tag_table (rc->run, "Nucleic_Acid_Extraction", h) : 0 ;
 	      if (tt) 
-		qcShowMultiTag (qc, tt) ; 
+		snpShowMultiTag (snp, tt) ; 
 	      else
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	      
 	    case 2:  /* Library preparation*/
 	      tt = 0 ; /* was before SRX_DB: ac_tag_table (rc->run, "Origin",h) ; */
 	      if (tt) 
-		qcShowMultiTag (qc, tt) ;
+		snpShowMultiTag (snp, tt) ;
 	      else
-		aceOutf (qc->ao, EMPTY) ;
+		aceOutf (snp->ao, EMPTY) ;
 	      break ;
 
 	    case 1000:  /* RunId */
@@ -2999,12 +3459,12 @@ static void qcProtocol (QC *qc, RC *rc)
 	      if (tt) 
 		{
 		  if (tt->rows > 30)
-		    aceOutf (qc->ao, "%d > 30 runs, list skipped", tt->rows) ;
+		    aceOutf (snp->ao, "%d > 30 runs, list skipped", tt->rows) ;
 		  else
-		    qcShowMultiTag (qc, tt) ; 
+		    snpShowMultiTag (snp, tt) ; 
 		}
 	      else
-		 aceOutf (qc->ao, EMPTY) ;
+		 aceOutf (snp->ao, EMPTY) ;
 	      break ;
 	    case 10:  /* Stranded paired end */
 	      tt = rc->srr ? ac_tag_table (rc->srr, "Nucleic_Acid_Extraction", h) : 0 ;
@@ -3024,49 +3484,49 @@ static void qcProtocol (QC *qc, RC *rc)
 			    if (!strncasecmp (ccp, "sra", 3)) ccp += 3 ;
 			    if (!strcasecmp (ccp, "sraUnspecified_RNA"))
 			      continue ;
-			    aceOutf (qc->ao, "%s%s", nw++ ? ", " : EMPTY, ccp) ;			  
+			    aceOutf (snp->ao, "%s%s", nw++ ? ", " : EMPTY, ccp) ;			  
 			  }
 		      }
 		  ac_free (dict) ;
 		}
 	      ccp = rc->srr ? ac_tag_printable (rc->srr, "Annotated_strandedness", 0) : 0 ;
 	      if (ccp) 
-		aceOutf (qc->ao, ", %s", ccp) ;
+		aceOutf (snp->ao, ", %s", ccp) ;
 
 	      break ;
 
 	    case 11:  /* Design */
 	      ccp = rc->srx ?  ac_tag_printable (rc->srx, "Design", 0) : 0 ;
 	      if (ccp) 
-		{ aceOutf (qc->ao, "%s ", ccp) ; nw++ ; }
+		{ aceOutf (snp->ao, "%s ", ccp) ; nw++ ; }
 	      ccp = rc->srx ?  ac_tag_printable (rc->srx, "Construction_protocol", 0) : 0 ;
 	      if (ccp) 
-		{ aceOut (qc->ao, ccp) ; nw++ ; }
+		{ aceOut (snp->ao, ccp) ; nw++ ; }
 	      if (! nw) 
-		aceOut (qc->ao, EMPTY) ;
+		aceOut (snp->ao, EMPTY) ;
 	      break ;
 	    case 12:  /* Machine */
 	      aks = ac_objquery_keyset (rc->run, "{Machine} SETOR {>sublibraries; Machine}", h) ;
-	      tt = aks ? ac_bql_table (qc->db, "select m1,m2 from r in @, m1 in r->machine, m2 in m1[1]", aks, 0, 0, h) : 0 ;
+	      tt = aks ? ac_bql_table (snp->db, "select m1,m2 from r in @, m1 in r->machine, m2 in m1[1]", aks, 0, 0, h) : 0 ;
 	      if (tt && tt->rows > 1)
-		tt = aks ? ac_bql_table (qc->db, "select m1 from r in @, m1 in r->machine", aks, 0, 0, h) : 0 ;
+		tt = aks ? ac_bql_table (snp->db, "select m1 from r in @, m1 in r->machine", aks, 0, 0, h) : 0 ;
 	      if (tt && tt->rows > 1)
 		tt = 0 ;
 	      if (! tt)
-		aceOutf (qc->ao, "-") ;
+		aceOutf (snp->ao, "-") ;
 	      else 
 		{
-		  aceOutf (qc->ao, "%s", ac_table_printable (tt, 0, 0, EMPTY)) ; 
+		  aceOutf (snp->ao, "%s", ac_table_printable (tt, 0, 0, EMPTY)) ; 
 		  if (tt->cols > 1)
-		    aceOutf (qc->ao, ", %s", ac_table_printable (tt, 0, 1, EMPTY)) ; 
+		    aceOutf (snp->ao, ", %s", ac_table_printable (tt, 0, 1, EMPTY)) ; 
 		}
 	   
 	      if (ac_has_tag (rc->run, "Paired_end") ||
 		  ac_keyset_count (ac_objquery_keyset (rc->run, ">sublibraries; Paired_end", h))
 		  )
-		aceOutf (qc->ao, ", %s", "Paired end") ;
+		aceOutf (snp->ao, ", %s", "Paired end") ;
   	      else if (nw)
-		aceOutf (qc->ao, ", %s", "Single end") ;
+		aceOutf (snp->ao, ", %s", "Single end") ;
 
 	      break ; 
 
@@ -3080,9 +3540,9 @@ static void qcProtocol (QC *qc, RC *rc)
 		      ccp = ac_tag_printable (subrun, "Sequencing_date", 0) ;
 		  }
 		if (ccp)
-		  aceOutf (qc->ao, "%s", ccp) ;
+		  aceOutf (snp->ao, "%s", ccp) ;
 		else
-		  aceOutf (qc->ao, "") ;
+		  aceOutf (snp->ao, "") ;
 		}
 	      break ;
 	    case 14:  /* Submission_date */
@@ -3095,9 +3555,9 @@ static void qcProtocol (QC *qc, RC *rc)
 		      ccp = ac_tag_printable (subrun, "Submission_date", 0) ;
 		  }
 		if (ccp)
-		  aceOutf (qc->ao, "%s", ccp) ;
+		  aceOutf (snp->ao, "%s", ccp) ;
 		else
-		  aceOutf (qc->ao, "") ;
+		  aceOutf (snp->ao, "") ;
 		}
 	      break ;
 	    case 30:  /* Spots */
@@ -3105,25 +3565,25 @@ static void qcProtocol (QC *qc, RC *rc)
 	      if (! tt)
 		tt = rc->srr ? ac_tag_table (rc->srr, "Spots", h) : 0 ;
 	      if (! tt)
-		tt = rc->srx ? ac_tag_table (rc->ali, "Spots", h) : 0 ;
+		tt = rc->srx ? ac_tag_table (rc->snp, "Spots", h) : 0 ;
 	      if (tt)
 		{
 		  ccp = ac_table_printable (tt, 0, 0, 0) ;
 		  if (ccp)
-		    { aceOutf (qc->ao, "%s spots", ccp) ; nw++ ;}
+		    { aceOutf (snp->ao, "%s spots", ccp) ; nw++ ;}
 		  ccp = ac_table_printable (tt, 0, 2, 0) ;
 		  if (ccp)
-		    { aceOutf (qc->ao, ", %s bases", ccp) ; nw++ ;}
+		    { aceOutf (snp->ao, ", %s bases", ccp) ; nw++ ;}
 		  ccp = ac_table_printable (tt, 0, 4, 0) ; 
 		  if (ccp)
-		    { aceOutf (qc->ao, ", average read length %s bases", ccp) ; nw++ ;}
+		    { aceOutf (snp->ao, ", average read length %s bases", ccp) ; nw++ ;}
 		}
 	      else
 		{ 
 		  int row ;
 		  double n1 = 0, n2 = 0, n3 ;
 		  AC_KEYSET aks = ac_objquery_keyset (rc->run, ">sublibraries; spots", h) ;
-		  tt = ac_bql_table (qc->db, "select r, s, b from r in @, s in r->spots, b in s[2]", aks, 0, 0, h) ;
+		  tt = ac_bql_table (snp->db, "select r, s, b from r in @, s in r->spots, b in s[2]", aks, 0, 0, h) ;
 		  if (tt)
 		    {
 		      for (row = 0 ; row < tt->rows ; row++)
@@ -3136,7 +3596,7 @@ static void qcProtocol (QC *qc, RC *rc)
 			  n2 += n3 ;
 			}
 		      if (n1 > 0)
-			aceOutf (qc->ao, "%g spots, %g bases, average read length %.0f bases", n1, n2, n2/n1) ;
+			aceOutf (snp->ao, "%g spots, %g bases, average read length %.0f bases", n1, n2, n2/n1) ;
 		    }		  
 		}
 	      break ;
@@ -3144,41 +3604,41 @@ static void qcProtocol (QC *qc, RC *rc)
 	}
       else if (! strcmp (ti->tag, "Machine"))
 	{  
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  tt = ac_tag_table (rc->run, "Machine", h) ;
 	  if (tt)
-	    qcShowMultiTag (qc, tt) ;
+	    snpShowMultiTag (snp, tt) ;
 	  else
-	    aceOutf (qc->ao, EMPTY) ;
+	    aceOutf (snp->ao, EMPTY) ;
 	}
       else if (! strcmp (ti->tag, "Paired_end"))
 	{ 
-	  aceOutf (qc->ao, "\t") ;
+	  aceOutf (snp->ao, "\t") ;
 	  if (ac_has_tag (rc->run, "Is_run"))
-	    aceOutf (qc->ao, rc->Paired_end ? "Paired_end" : "Single-end") ;
+	    aceOutf (snp->ao, rc->Paired_end ? "Paired_end" : "Single-end") ;
 	  else
 	    {
 	      int n1, n2 ;
 	      n1 = ac_keyset_count (ac_objquery_keyset (rc->run, ">Union_of ;>Runs ;   Paired_end", h)) ;
 	      n2 = ac_keyset_count (ac_objquery_keyset (rc->run, ">Union_of ; ! Paired_end", h)) ;
 	      if (n1 > 0 && n2 > 0)
-		aceOutf (qc->ao, "Mix") ;
+		aceOutf (snp->ao, "Mix") ;
 	      else if (n1 > 0 && n2 == 0)
-		aceOutf (qc->ao, "Paired_end") ;
+		aceOutf (snp->ao, "Paired_end") ;
 	      else if (n1 == 0 && n2 > 0)
-		aceOutf (qc->ao, "Single-end") ;
+		aceOutf (snp->ao, "Single-end") ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcProtocol */
+}  /* snpProtocol */
 
 /*************************************************************************************/
 
-static void qcReadFate1 (QC *qc, RC *rc)
+static void snpReadFate1 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   int ir, i, pass ;
@@ -3215,16 +3675,16 @@ static void qcReadFate1 (QC *qc, RC *rc)
     "Reads mapped, unmapped or rejected, accounting for all reads in the file"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -3236,11 +3696,11 @@ static void qcReadFate1 (QC *qc, RC *rc)
 		{
 		  /* raw reads */					
 		  zdelta = rc->var[T_Read] ;
-		  if (! pass) qcShowPercent (qc, rc, zdelta, pass) ;
+		  if (! pass) snpShowPercent (snp, rc, zdelta, pass) ;
 		  /*   "\t% reads aligned on any target" */
 
 		  z = z31 = 0 ;
-		  tt = ac_tag_table (rc->ali, "Preclipped_length", h) ;
+		  tt = ac_tag_table (rc->snp, "Preclipped_length", h) ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)	
 		    {
 		      int j =  ac_table_int (tt, ir, 0, 0) ;
@@ -3248,7 +3708,7 @@ static void qcReadFate1 (QC *qc, RC *rc)
 		      if (j >= 0 && j <= 31) { z31 += z ; }
 		    }
 
-		  tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+		  tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 		  z = zm = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3263,7 +3723,7 @@ static void qcReadFate1 (QC *qc, RC *rc)
  			}
 		    } 
 
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  
 		  /*
 		   * "\t% reads mapping uniquely  to a single locus (genomic site) and maximum 1 gene"
@@ -3272,7 +3732,7 @@ static void qcReadFate1 (QC *qc, RC *rc)
 		   * "\t% reads mapping to 2 to 9 sites"
 		   */
 		  
-		  tt = ac_tag_table (rc->ali, "Unicity", h) ;
+		  tt = ac_tag_table (rc->snp, "Unicity", h) ;
 		  z = zb = zc = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3293,15 +3753,15 @@ static void qcReadFate1 (QC *qc, RC *rc)
 			}
 		    }  
 		  zd = z + zc ;
-		  qcShowPercent (qc, rc, z, pass) ; /* single locus */
-		  qcShowPercent (qc, rc, zc, pass) ;  /* 2 genes in antisense */
-		  qcShowPercent (qc, rc, zd, pass) ; /* uniquely to single locus */
-		  qcShowPercent (qc, rc, zb, pass) ; /* 2 to 9 sites */
-		  qcShowPercent (qc, rc, z31, pass) ; /* microbiome */
-		  qcShowPercent (qc, rc, zm, pass) ; /* microbiome */
+		  snpShowPercent (snp, rc, z, pass) ; /* single locus */
+		  snpShowPercent (snp, rc, zc, pass) ;  /* 2 genes in antisense */
+		  snpShowPercent (snp, rc, zd, pass) ; /* uniquely to single locus */
+		  snpShowPercent (snp, rc, zb, pass) ; /* 2 to 9 sites */
+		  snpShowPercent (snp, rc, z31, pass) ; /* microbiome */
+		  snpShowPercent (snp, rc, zm, pass) ; /* microbiome */
 		  zdelta -= (z + zb + zc + zm) ;
 		  /* "\t% reads rejected because they map to 10 sites or more" */
-		  tt = ac_tag_table (rc->ali, "At_least_10_sites", h) ;
+		  tt = ac_tag_table (rc->snp, "At_least_10_sites", h) ;
 		  z = zb = zc = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3310,30 +3770,30 @@ static void qcReadFate1 (QC *qc, RC *rc)
 			  z = ac_table_float (tt, ir, 2, 0) ;
 			}
 		    } 
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		  /*    "\t% reads rejected by alignment quality filter" */
-		  tt = ac_tag_table (rc->ali, "Low_quality_mapping", h) ;
+		  tt = ac_tag_table (rc->snp, "Low_quality_mapping", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 		  
 
 		  /*  "\t% reads rejected before alignment because of low entropy (<= 16 bp)" */
-		  tt = ac_tag_table (rc->ali, "Rejected", h) ;
+		  tt = ac_tag_table (rc->snp, "Rejected", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		   /*   "\t% reads with no insert (adaptor only)" */
-		  tt = ac_tag_table (rc->ali, "No_insert", h) ;
+		  tt = ac_tag_table (rc->snp, "No_insert", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		   /*   "\t% reads unaligned from half aligned fragments" */
-		  tt = ac_tag_table (rc->ali, "Orphans", h) ;
+		  tt = ac_tag_table (rc->snp, "Orphans", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3343,33 +3803,33 @@ static void qcReadFate1 (QC *qc, RC *rc)
 			  z = ac_table_float (tt, ir, 1, 0) ;
 			}
 		    }  
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		  /* remainder = Unaligned reads (missing genome or microbiome or mapping problem)" */
-		  qcShowPercent (qc, rc, zdelta, pass) ;
+		  snpShowPercent (snp, rc, zdelta, pass) ;
 
-		  tt = ac_tag_table (rc->ali, "Partial_5p", h) ;
+		  tt = ac_tag_table (rc->snp, "Partial_5p", h) ;
 		  z = tt ? ac_table_float (tt, 0, 0, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 
-		  tt = ac_tag_table (rc->ali, "Partial_3p", h) ;
+		  tt = ac_tag_table (rc->snp, "Partial_3p", h) ;
 		  z = tt ? ac_table_float (tt, 0, 0, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		}
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcReadFate1 */
+}  /* snpReadFate1 */
 
 /*************************************************************************************/
 
-static void qcReadFate2 (QC *qc, RC *rc)
+static void snpReadFate2 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   int ir, i, pass ;
@@ -3407,16 +3867,16 @@ static void qcReadFate2 (QC *qc, RC *rc)
     "Number of reads mapped, unmapped or rejected, accounting for all reads in the file"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -3428,11 +3888,11 @@ static void qcReadFate2 (QC *qc, RC *rc)
 		{
 		  /* raw reads */					
 		  zdelta = rc->var[T_Read] ;
-		  if (! pass) qcShowPercent (qc, rc, zdelta, pass) ;
+		  if (! pass) snpShowPercent (snp, rc, zdelta, pass) ;
 		  /*   "\t% reads aligned on any target" */
 
 		  z = z31 = 0 ;
-		  tt = ac_tag_table (rc->ali, "Preclipped_length", h) ;
+		  tt = ac_tag_table (rc->snp, "Preclipped_length", h) ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)	
 		    {
 		      int j =  ac_table_int (tt, ir, 0, 0) ;
@@ -3440,7 +3900,7 @@ static void qcReadFate2 (QC *qc, RC *rc)
 		      if (j >= 0 && j <= 31) { z31 += z ; }
 		    }
 
-		  tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+		  tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 		  z = zm = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3455,7 +3915,7 @@ static void qcReadFate2 (QC *qc, RC *rc)
  			}
 		    } 
 
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  
 		  /*
 		   * "\t% reads mapping uniquely  to a single locus (genomic site) and maximum 1 gene"
@@ -3464,7 +3924,7 @@ static void qcReadFate2 (QC *qc, RC *rc)
 		   * "\t% reads mapping to 2 to 9 sites"
 		   */
 		  
-		  tt = ac_tag_table (rc->ali, "Unicity", h) ;
+		  tt = ac_tag_table (rc->snp, "Unicity", h) ;
 		  z = zb = zc = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3485,15 +3945,15 @@ static void qcReadFate2 (QC *qc, RC *rc)
 			}
 		    }  
 		  zd = z + zc ;
-		  qcShowPercent (qc, rc, z, pass) ; /* single locus */
-		  qcShowPercent (qc, rc, zc, pass) ;  /* 2 genes in antisense */
-		  qcShowPercent (qc, rc, zd, pass) ; /* uniquely to single locus */
-		  qcShowPercent (qc, rc, zb, pass) ; /* 2 to 9 sites */
-		  qcShowPercent (qc, rc, z31, pass) ; /* microbiome */
-		  qcShowPercent (qc, rc, zm, pass) ; /* microbiome */
+		  snpShowPercent (snp, rc, z, pass) ; /* single locus */
+		  snpShowPercent (snp, rc, zc, pass) ;  /* 2 genes in antisense */
+		  snpShowPercent (snp, rc, zd, pass) ; /* uniquely to single locus */
+		  snpShowPercent (snp, rc, zb, pass) ; /* 2 to 9 sites */
+		  snpShowPercent (snp, rc, z31, pass) ; /* microbiome */
+		  snpShowPercent (snp, rc, zm, pass) ; /* microbiome */
 		  zdelta -= (z + zb + zc + zm) ;
 		  /* "\t% reads rejected because they map to 10 sites or more" */
-		  tt = ac_tag_table (rc->ali, "At_least_10_sites", h) ;
+		  tt = ac_tag_table (rc->snp, "At_least_10_sites", h) ;
 		  z = zb = zc = 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3502,30 +3962,30 @@ static void qcReadFate2 (QC *qc, RC *rc)
 			  z = ac_table_float (tt, ir, 2, 0) ;
 			}
 		    } 
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		  /*    "\t% reads rejected by alignment quality filter" */
-		  tt = ac_tag_table (rc->ali, "Low_quality_mapping", h) ;
+		  tt = ac_tag_table (rc->snp, "Low_quality_mapping", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 		  
 
 		  /*  "\t% reads rejected before alignment because of low entropy (<= 16 bp)" */
-		  tt = ac_tag_table (rc->ali, "Rejected", h) ;
+		  tt = ac_tag_table (rc->snp, "Rejected", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		   /*   "\t% reads with no insert (adaptor only)" */
-		  tt = ac_tag_table (rc->ali, "No_insert", h) ;
+		  tt = ac_tag_table (rc->snp, "No_insert", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		   /*   "\t% reads unaligned from half aligned fragments" */
-		  tt = ac_tag_table (rc->ali, "Orphans", h) ;
+		  tt = ac_tag_table (rc->snp, "Orphans", h) ;
 		  z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
 		  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		    {
@@ -3535,33 +3995,33 @@ static void qcReadFate2 (QC *qc, RC *rc)
 			  z = ac_table_float (tt, ir, 1, 0) ;
 			}
 		    }  
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		  zdelta -= z ;
 
 		  /* remainder = Unaligned reads (missing genome or microbiome or mapping problem)" */
-		  qcShowPercent (qc, rc, zdelta, pass) ;
+		  snpShowPercent (snp, rc, zdelta, pass) ;
 
-		  tt = ac_tag_table (rc->ali, "Partial_5p", h) ;
+		  tt = ac_tag_table (rc->snp, "Partial_5p", h) ;
 		  z = tt ? ac_table_float (tt, 0, 0, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 
-		  tt = ac_tag_table (rc->ali, "Partial_3p", h) ;
+		  tt = ac_tag_table (rc->snp, "Partial_3p", h) ;
 		  z = tt ? ac_table_float (tt, 0, 0, 0) : 0 ;
-		  qcShowPercent (qc, rc, z, pass) ;
+		  snpShowPercent (snp, rc, z, pass) ;
 		}
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcReadFate2 */
+}  /* snpReadFate2 */
 
 /*************************************************************************************/
 /* telomere */
-static void qcBloom (QC *qc, RC *rc)
+static void snpBloom (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   int ir ;
@@ -3582,16 +4042,16 @@ static void qcBloom (QC *qc, RC *rc)
     "Motif search before alignments"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Adaptor"))
@@ -3609,11 +4069,11 @@ static void qcBloom (QC *qc, RC *rc)
 	    } 
 	  ccp = ac_tag_printable (rc->run, tag, 0) ;
 	  if (! ccp)
-	    ccp = ac_tag_printable (rc->ali, tag, 0) ;
+	    ccp = ac_tag_printable (rc->snp, tag, 0) ;
 	  if (ccp)
-	    aceOutf (qc->ao, "\t%s", ccp) ;
+	    aceOutf (snp->ao, "\t%s", ccp) ;
 	  else
-	    aceOutf (qc->ao, "\t%s", EMPTY) ;
+	    aceOutf (snp->ao, "\t%s", EMPTY) ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
@@ -3647,7 +4107,7 @@ static void qcBloom (QC *qc, RC *rc)
 	      tag = "any.imagT_6-per_1_kb_fragment-cumul" ;
 	      break ;
 	    } 
-	  tt = ac_tag_table (rc->ali, "Bloom", h) ;  
+	  tt = ac_tag_table (rc->snp, "Bloom", h) ;  
 	  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 	    {
 	      const char *ccp = ac_table_printable (tt, ir, 0, 0) ;
@@ -3661,20 +4121,20 @@ static void qcBloom (QC *qc, RC *rc)
 		}
 	    }
 	  if (z >= 0)
-	    aceOutf (qc->ao, "\t%.2f", z) ;
+	    aceOutf (snp->ao, "\t%.2f", z) ;
 	  else
-	    aceOutf (qc->ao, "\t%s", EMPTY) ;
+	    aceOutf (snp->ao, "\t%s", EMPTY) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcBloom */
+}  /* snpBloom */
 
 /*************************************************************************************/
 /* Transpliced leader SL1 SL12 */
-static void qcSLsDo (QC *qc, RC *rc, BOOL isSL)
+static void snpSLsDo (TSNP *snp, RC *rc, BOOL isSL)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[3] ;
@@ -3713,16 +4173,16 @@ static void qcSLsDo (QC *qc, RC *rc, BOOL isSL)
     }
   
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else  if (! strcmp (ti->tag, "Compute"))
@@ -3732,7 +4192,7 @@ static void qcSLsDo (QC *qc, RC *rc, BOOL isSL)
 	  switch (ti->col)
 	    {
 	    case 1:
-	      tt = ac_tag_table (rc->ali, "SLs", h) ; 
+	      tt = ac_tag_table (rc->snp, "SLs", h) ; 
 	      for (pass = 0 ; pass < 3 ; pass++)
 		{
 		  for (j = (isSL ? 1 : 0) ; j <= (isSL ? 12 : 0) ; j++)
@@ -3756,18 +4216,18 @@ static void qcSLsDo (QC *qc, RC *rc, BOOL isSL)
 			  switch (pass)
 			    {
 			    case 0:
-			      aceOutf (qc->ao, "\t%d", np) ;
+			      aceOutf (snp->ao, "\t%d", np) ;
 			      break ;
 			    case 1:
-			      aceOutf (qc->ao, "\t%d", ns) ;
+			      aceOutf (snp->ao, "\t%d", ns) ;
 			      break ;
 			    case 2:
-			      aceOutf (qc->ao, "\t%.2f", ns/(float)np) ;
+			      aceOutf (snp->ao, "\t%.2f", ns/(float)np) ;
 			      break ;
 			    }
 			}
 		      else
-			aceOutf (qc->ao, "\t") ;
+			aceOutf (snp->ao, "\t") ;
 		    }
 		}
 	      break ;
@@ -3776,23 +4236,23 @@ static void qcSLsDo (QC *qc, RC *rc, BOOL isSL)
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcSLsDo */
+}  /* snpSLsDo */
 
-static void qcSLs (QC *qc, RC *rc)
+static void snpSLs (TSNP *snp, RC *rc)
 {
-  qcSLsDo (qc, rc, FALSE) ; /* polyA */
-  if (qc->hasSL) 
-    qcSLsDo (qc, rc, TRUE)  ;  /* SLs */
-} /* qcSLs */
+  snpSLsDo (snp, rc, FALSE) ; /* polyA */
+  if (snp->hasSL) 
+    snpSLsDo (snp, rc, TRUE)  ;  /* SLs */
+} /* snpSLs */
 
 /*************************************************************************************/
 /* template for a future chapter */
-static void qcOther (QC *qc, RC *rc)
+static void snpOther (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[] = {
@@ -3804,16 +4264,16 @@ static void qcOther (QC *qc, RC *rc)
     "Statistics before alignment"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else  if (! strcmp (ti->tag, "Compute"))
@@ -3825,16 +4285,16 @@ static void qcOther (QC *qc, RC *rc)
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcOther */
+}  /* snpOther */
 
 /*************************************************************************************/
 /* captured genes */
-static void qcCapture (QC *qc, RC *rc)
+static void snpCapture (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE tt1 = 0, ttAli = 0 ;
@@ -3869,16 +4329,16 @@ static void qcCapture (QC *qc, RC *rc)
   if (! getenv ("CAPTURES"))
     return ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else  if (! strncmp (ti->tag, "Compute", 7))
@@ -3895,7 +4355,7 @@ static void qcCapture (QC *qc, RC *rc)
 
 	  if (! anyAli) 
 	    {
-	      ttAli = ac_tag_table (rc->ali, "h_Ali" , h) ;
+	      ttAli = ac_tag_table (rc->snp, "h_Ali" , h) ;
 	      if (ttAli)
 		for (ir = 0 ; ir < ttAli->rows ; ir++)
 		  {
@@ -3956,12 +4416,12 @@ static void qcCapture (QC *qc, RC *rc)
 	    { capture = "A2I3R2" ; isP = TRUE ; } 
 	  
 	  if (! capture || strlen (capture) >  210)
-	    messcrash ("capture not well defined in qcCapture: capture=#%s#  ti->tag=#%s#", capture ? capture : "NULL", ti->tag) ;
+	    messcrash ("capture not well defined in snpCapture: capture=#%s#  ti->tag=#%s#", capture ? capture : "NULL", ti->tag) ;
 	  sprintf (capAli, "%s_ali", capture) ;
 	  sprintf (capGbx, "%s.genebox.ns", capture) ;
 	  
 	  zba = zbg = 0 ;
-	  if (! tt1) tt1 = ac_tag_table (rc->ali, "Capture" , h) ;
+	  if (! tt1) tt1 = ac_tag_table (rc->snp, "Capture" , h) ;
 	  if (tt1)
 	    for (ir = 0 ; ir < tt1->rows ; ir++)
 	      {
@@ -3972,35 +4432,35 @@ static void qcCapture (QC *qc, RC *rc)
 	      }
 	  if (! isP)
 	    {
-	      aceOutf (qc->ao, "\t%.3f", zba/1000) ; /* Mb aligned on any target */
-	      aceOutf (qc->ao, "\t%.3f", zbg/1000) ; /* Mb aligned on any target */
+	      aceOutf (snp->ao, "\t%.3f", zba/1000) ; /* Mb aligned on any target */
+	      aceOutf (snp->ao, "\t%.3f", zbg/1000) ; /* Mb aligned on any target */
 	    }
 	  else 
 	    {
-	      aceOut (qc->ao, "\t") ; aceOutPercent (qc->ao, 100.0*zba/anyAli) ;
-	      aceOut (qc->ao, "\t") ; aceOutPercent (qc->ao, 100.0*zbg/anyAli) ;
+	      aceOut (snp->ao, "\t") ; aceOutPercent (snp->ao, 100.0*zba/anyAli) ;
+	      aceOut (snp->ao, "\t") ; aceOutPercent (snp->ao, 100.0*zbg/anyAli) ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
   return;
-}  /* qcCapture */
+}  /* snpCapture */
 
 /*************************************************************************************/
 /* template for a future chapter */
-static void qcOneExternalFile (QC *qc, RC *rc, const char *caption, Array titles, Array aaa)
+static void snpOneExternalFile (TSNP *snp, RC *rc, const char *caption, Array titles, Array aaa)
 {
   AC_HANDLE h = ac_new_handle () ;
   int ii ;
 
   if (rc == (void *) 1)
     {
-       aceOutf (qc->ao, "\t\t%s", caption) ;
+       aceOutf (snp->ao, "\t\t%s", caption) ;
        for (ii = 0 ; ii < arrayMax (titles) ; ii++)
-	 aceOut (qc->ao, "\t") ;
+	 aceOut (snp->ao, "\t") ;
        return ;
     }
   
@@ -4010,50 +4470,50 @@ static void qcOneExternalFile (QC *qc, RC *rc, const char *caption, Array titles
 	{
 	  char *title = array (titles, ii, char*) ;
 	  if (title)
-	    aceOutf (qc->ao, "\t%s", title) ;
+	    aceOutf (snp->ao, "\t%s", title) ;
 	  else
-	    aceOut (qc->ao, "\t") ;
+	    aceOut (snp->ao, "\t") ;
 	}
       else if (rc && aaa) 
 	{
-	  int irc = rc - arrp (qc->runs, 0, RC) ;
+	  int irc = rc - arrp (snp->runs, 0, RC) ;
 	  
 	  if (irc >= 0 && irc < arrayMax (aaa))
 	    {
 	      Array aa = arr (aaa, irc, Array) ;
 	      char *cp = array (aa, ii, char*) ;
 	      if (cp)
-		aceOutf (qc->ao, "\t%s", cp) ;
+		aceOutf (snp->ao, "\t%s", cp) ;
 	      else
-		aceOut (qc->ao, "\t") ;
+		aceOut (snp->ao, "\t") ;
 	    }
 	  else
-	    aceOut (qc->ao, "\t") ;
+	    aceOut (snp->ao, "\t") ;
 	}
       else
-	 aceOut (qc->ao, "\t") ;
+	 aceOut (snp->ao, "\t") ;
     }
   
    ac_free (h) ;
   return;
-}  /* qcOneExternalFile */
+}  /* snpOneExternalFile */
 
 /*************************************************************************************/
 
-static void qcExternalFiles (QC *qc, RC *rc)
+static void snpExternalFiles (TSNP *snp, RC *rc)
 {
   int iiMax  = 0, ii ;
   Array aaa, aa ;
   Array eTitles ;
   
-  if (! qc->externalFiles)
+  if (! snp->externalFiles)
     return ;
-  if (! qc->eAaa)
+  if (! snp->eAaa)
     {
-      char cutter,  *cp, *cq, *cr, *buf = strnew (qc->externalFiles, qc->h) ; 
-      aaa = qc->eAaa = arrayHandleCreate (12, Array, qc->h) ;
-      eTitles = qc->eTitles = arrayHandleCreate (12, Array, qc->h) ;
-      qc->eCaptions = arrayHandleCreate (12, char *, qc->h) ;
+      char cutter,  *cp, *cq, *cr, *buf = strnew (snp->externalFiles, snp->h) ; 
+      aaa = snp->eAaa = arrayHandleCreate (12, Array, snp->h) ;
+      eTitles = snp->eTitles = arrayHandleCreate (12, Array, snp->h) ;
+      snp->eCaptions = arrayHandleCreate (12, char *, snp->h) ;
       ii = 0 ;
       cq = buf ;
       while (*cq)
@@ -4069,7 +4529,7 @@ static void qcExternalFiles (QC *qc, RC *rc)
 	  if (cr && cr > cp && cr[1])
 	    {
 	      *cr++ = 0 ;
-	      array (qc->eCaptions, ii, char *) = strnew (cp, qc->h) ;
+	      array (snp->eCaptions, ii, char *) = strnew (cp, snp->h) ;
 	      ai = aceInCreate (cr, FALSE, h) ;
 	      if (ai) 
 		{ 
@@ -4094,7 +4554,7 @@ static void qcExternalFiles (QC *qc, RC *rc)
 			  while (cq)
 			    {
 			      cp = cq ;
-			      array (titles, jj++, char *) = strnew (cp, qc->h) ;
+			      array (titles, jj++, char *) = strnew (cp, snp->h) ;
 			      aceInStep (ai, '\t') ;
 			      cq = cp = aceInWordCut (ai, "\t", &cutter) ;
 			    }
@@ -4104,18 +4564,18 @@ static void qcExternalFiles (QC *qc, RC *rc)
 			continue ;
 		      {
 			int irc ;
-			int nr = arrayMax (qc->runs) ;
-			for (irc = 0, rc = arrp (qc->runs, 0, RC) ; irc < nr ; irc++, rc++)
+			int nr = arrayMax (snp->runs) ;
+			for (irc = 0, rc = arrp (snp->runs, 0, RC) ; irc < nr ; irc++, rc++)
 			  {
 			    if (! strcasecmp (cp, ac_name (rc->run)))
 			      {
 				aa = array (aaa, irc, Array) =
-				  arrayHandleCreate (jMax, char *, qc->h)  ;
+				  arrayHandleCreate (jMax, char *, snp->h)  ;
 				for (jj = 0 ; jj < jMax ; jj++)
 				  {
 				    cp = aceInWordCut (ai, "\t", &cutter) ;
 				    if (cp)
-				      array (aa, jj, char *) = strnew (cp, qc->h) ;
+				      array (aa, jj, char *) = strnew (cp, snp->h) ;
 				  }
 			      }
 			  }
@@ -4129,21 +4589,21 @@ static void qcExternalFiles (QC *qc, RC *rc)
 	  ii++ ;
 	}
     }
-  iiMax = arrayMax (qc->eAaa) ;
+  iiMax = arrayMax (snp->eAaa) ;
   for (ii = 0 ; ii < iiMax ; ii++)
     {
-      char *caption = array (qc->eCaptions, ii, char*) ;
-      Array titles = array (qc->eTitles, ii, Array) ;
-      Array aaa = array (qc->eAaa, ii, Array) ;
+      char *caption = array (snp->eCaptions, ii, char*) ;
+      Array titles = array (snp->eTitles, ii, Array) ;
+      Array aaa = array (snp->eAaa, ii, Array) ;
       if (titles && aaa && arrayMax (aaa))
-	qcOneExternalFile (qc, rc, caption, titles, aaa)  ;
+	snpOneExternalFile (snp, rc, caption, titles, aaa)  ;
     }
-} /* qcExternalFiles */
+} /* snpExternalFiles */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static void qcCPU (QC *qc, RC *rc)
+static void snpCPU (TSNP *snp, RC *rc)
 {
   AC_HANDLE h =  0 ;
   AC_TABLE  tt ;
@@ -4161,18 +4621,18 @@ static void qcCPU (QC *qc, RC *rc)
     "Aligner performance"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
        else if (! strcmp (ti->tag, "Compute"))
@@ -4182,41 +4642,41 @@ static void qcCPU (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1: /* million reads per CPU hour  */
-	      tt = ac_tag_table (rc->ali, "CPU", h) ;
+	      tt = ac_tag_table (rc->snp, "CPU", h) ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)	
 		k += ac_table_int (tt, ir, 1, 0) ;
 	      
-	      tt = ac_tag_table (rc->ali, "Accepted", h) ;
+	      tt = ac_tag_table (rc->snp, "Accepted", h) ;
 	      z = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
 
 	      z = k ? 3600.0 * z / k : 0 ;
-	      aceOutf (qc->ao, "\t%.2f", z/1000000.0) ;
+	      aceOutf (snp->ao, "\t%.2f", z/1000000.0) ;
 	      break ;
 	      
 	    case 2:  /* max RAM */ 
-	      tt = ac_tag_table (rc->ali, "Max_memory", h) ;
+	      tt = ac_tag_table (rc->snp, "Max_memory", h) ;
  	      for (ir = 0 ; tt && ir < tt->rows ; ir++)	
 		{
 		  j = ac_table_int (tt, ir, 1, 0) ;
 		  if (k < j) k = j ;
 		}
-	      aceOutf (qc->ao, "\t%.1f", k/1024.0) ;
+	      aceOutf (snp->ao, "\t%.1f", k/1024.0) ;
 	      break ;
 	      
 	    }
 	  ac_free (tt) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /* qcCPU */
+} /* snpCPU */
 
 /*************************************************************************************/
 
-static void qcMicroRNA (QC *qc, RC *rc)
+static void snpMicroRNA (TSNP *snp, RC *rc)
 {
   AC_HANDLE h =  0 ;
   AC_TABLE  tt ;
@@ -4237,18 +4697,18 @@ static void qcMicroRNA (QC *qc, RC *rc)
     "Small RNA"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
        else if (! strcmp (ti->tag, "Compute"))
@@ -4263,24 +4723,24 @@ static void qcMicroRNA (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1:  /* Most seen length */
-	      tt = ac_tag_table (rc->ali, "Preclipped_length", h) ;
+	      tt = ac_tag_table (rc->snp, "Preclipped_length", h) ;
 	      for (ir = 0 ; tt && ir < tt->rows ; ir++)	
 		{
 		  j =  ac_table_int (tt, ir, 0, 0) ;
 		  z = ac_table_float (tt, ir, 1, 0) ;
 		  if (j >= 0 && j <= 31) { zz[j] = z ; zzz += z ; }
 		}
-	      qcShowPercent (qc, rc, zzz, TRUE) ;
+	      snpShowPercent (snp, rc, zzz, TRUE) ;
 	      for (j = 18 ; j <= 31 ; j++)
 		{ 
 		  if (tt)
-		    qcShowPercent (qc, rc, zz[j], TRUE) ;
+		    snpShowPercent (snp, rc, zz[j], TRUE) ;
 		  else
-		    aceOut (qc->ao, "\t") ;
+		    aceOut (snp->ao, "\t") ;
 		}
 	      break ;
 	    case 2:  /* Clipped multiplicity */
-	      tt = ac_tag_table (rc->ali, "Clipped_multiplicity", h) ;
+	      tt = ac_tag_table (rc->snp, "Clipped_multiplicity", h) ;
 
 	      for (ir = 0 ; tt && ir < tt->cols ; ir+=2)	
 		{
@@ -4290,14 +4750,14 @@ static void qcMicroRNA (QC *qc, RC *rc)
 	      for (j = 0 ; j < 6 ; j++)
 		{
 		  if (tt)
-		    qcShowPercent (qc, rc, zz[j] - zz[j+1], TRUE) ;
+		    snpShowPercent (snp, rc, zz[j] - zz[j+1], TRUE) ;
 		  else
-		    aceOut (qc->ao, "\t") ;
+		    aceOut (snp->ao, "\t") ;
 		}
 	      break ;
 	    case 3:  /* high small */
-	      tt = ac_tag_table (rc->ali, "High_short", h) ;
- 	      aceOut (qc->ao, "\t") ;
+	      tt = ac_tag_table (rc->snp, "High_short", h) ;
+ 	      aceOut (snp->ao, "\t") ;
 	      z = rc->var[T_Read] ;
 	      if (z > 0) z = 100/(double)z ;
 	         for (ir = 0 ; tt && ir < tt->rows && ir <= 5 ; ir++)	
@@ -4306,7 +4766,7 @@ static void qcMicroRNA (QC *qc, RC *rc)
 		  j = ac_table_int (tt, ir, 1, 0) ;
 		  oligo = ac_table_printable (tt, ir, 0, "") ;
 		  if (oligo && j > 0)
-		    aceOutf (qc->ao, "%s%s(%dbp;%d;%.2f%%)"
+		    aceOutf (snp->ao, "%s%s(%dbp;%d;%.2f%%)"
 			     , ir > 0 ? ", " : ""
 			     , oligo, strlen (oligo) 
 			     , j, z*j
@@ -4315,22 +4775,22 @@ static void qcMicroRNA (QC *qc, RC *rc)
 	      break ;
 	    case 4:
 	      ok = FALSE ;
-	      tt = ac_tag_table (rc->ali, "stranding", h) ;
+	      tt = ac_tag_table (rc->snp, "stranding", h) ;
 	      for (ir = 0 ; tt && ir < tt->rows; ir++)
 		if (! strncmp (ac_table_printable (tt, ir, 0, ""), "70k_small", 9))
 		  {		    
 		    ok = TRUE ;
 		    up += ac_table_float (tt, ir, 2, 0) ;  /* Loop because in groups we may have .f and .f2 cases */
 		    um += ac_table_float (tt, ir, 4, 0) ;
-		    aceOutf (qc->ao, "\t%.0f\t%.2f\t", up+um,rc->var[T_Read] ? 100 * (up + um) / rc->var[T_Read] : 0) ;
-		    if (up + um > 0) aceOutPercent (qc->ao, 100.00 * up/(.0001 + up + um) ) ;
+		    aceOutf (snp->ao, "\t%.0f\t%.2f\t", up+um,rc->var[T_Read] ? 100 * (up + um) / rc->var[T_Read] : 0) ;
+		    if (up + um > 0) aceOutPercent (snp->ao, 100.00 * up/(.0001 + up + um) ) ;
 		  }
 	      if (! ok)
-		aceOutf (qc->ao, "\t\t\t") ;
+		aceOutf (snp->ao, "\t\t\t") ;
 	      break ;
 	    case 5:  /* N_18_35\tKnown miR */
 	    case 6:  /* known miR support */
-	      tt = ac_tag_table (rc->ali, ti->col == 5 ? "N_18_35" : "Known_miR", h) ;
+	      tt = ac_tag_table (rc->snp, ti->col == 5 ? "N_18_35" : "Known_miR", h) ;
 	      for (i = -4 ; i >= -10 ; i--)
 		{
 		  int jr = 0 ;
@@ -4342,29 +4802,29 @@ static void qcMicroRNA (QC *qc, RC *rc)
 			s = ac_table_int (tt,jr,1,0) ;
 			t = ac_table_int (tt,jr,2,0) ;
 		      }
-		  aceOutf (qc->ao, "\t%d\t%d", s, t) ;
+		  aceOutf (snp->ao, "\t%d\t%d", s, t) ;
 		  if (ti->col == 6) break ;
 		  if (i == -5) i = -9 ; /* export 10^-4, 10^-5, 10^-10==0 */
 		}
 	      ac_free (tt) ;
-	      tt = ac_tag_table (rc->ali, "Known_miR", h) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt,0,0,0)) ;
-	      aceOutf (qc->ao, "\t%d", ac_table_int (tt,0,2,0)) ;
+	      tt = ac_tag_table (rc->snp, "Known_miR", h) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt,0,0,0)) ;
+	      aceOutf (snp->ao, "\t%d", ac_table_int (tt,0,2,0)) ;
 	      break ;
 	    }
 	  ac_free (tt) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /* qcMicroRNA */
+} /* snpMicroRNA */
 
 /*************************************************************************************/
 
-static void qcHighVirusBacteria (QC *qc, RC *rc)
+static void snpHighVirusBacteria (TSNP *snp, RC *rc)
 {
  AC_HANDLE h = ac_new_handle () ;
  DICT *myDict = 0 ;
@@ -4383,29 +4843,29 @@ static void qcHighVirusBacteria (QC *qc, RC *rc)
     ;
   const char *targets[3] = {"transposon", "microbe" , "virus"} ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
       AC_TABLE tt = 0 ;
 
       if (rc == 0)
-	aceOutf (qc->ao, "\t%s", ti->title) ;
+	aceOutf (snp->ao, "\t%s", ti->title) ;
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (ti->col == 0)
-	aceOutf (qc->ao, "\t") ;
+	aceOutf (snp->ao, "\t") ;
       else if (ti->col > 0 && ti->col < 4)
 	{  
 	  int ir, k = 0 ;
 	 
 	  const char *target = targets[ti->col - 1] ;	  
-	  aceOut (qc->ao, "\t") ;
-	  tt = ac_tag_table (rc->ali, "High_genes", h) ;
+	  aceOut (snp->ao, "\t") ;
+	  tt = ac_tag_table (rc->snp, "High_genes", h) ;
 	  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 	    {
 	      if (! strcasecmp (ac_table_printable (tt, ir, 0, "x"), target))
@@ -4427,7 +4887,7 @@ static void qcHighVirusBacteria (QC *qc, RC *rc)
 		      if (! myDict)
 			myDict = dictHandleCreate (12, h) ;
 		      if (x > 0 && dictAdd (myDict, cp, 0))
-			aceOutf (qc->ao, "%s%.0f %s"
+			aceOutf (snp->ao, "%s%.0f %s"
 				 , (k++ ? ", " : "")
 				 , x, cp
 				 ) ;
@@ -4439,11 +4899,11 @@ static void qcHighVirusBacteria (QC *qc, RC *rc)
 
    ac_free (h) ;
    return;
-} /* qcHighVirusBacteria  */
+} /* snpHighVirusBacteria  */
 
 /*************************************************************************************/
 
-static void qcGeneExpression1 (QC *qc, RC *rc)
+static void snpGeneExpression1 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -4461,7 +4921,7 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
     ;
 
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
@@ -4480,19 +4940,19 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
 	      if (cp) *cp = 0 ;
 	      for (ii = 0 ; ii < 3 ; ii++)
 		{
-		  target = qc->Etargets [ii] ;
-		  aceOutf (qc->ao, "\t") ;
+		  target = snp->Etargets [ii] ;
+		  aceOutf (snp->ao, "\t") ;
 		  if (target && ! strcmp (target, "av")) target = "AceView" ;
-		  aceOutf (qc->ao, buf, target ? target : "NA") ;
+		  aceOutf (snp->ao, buf, target ? target : "NA") ;
 		}		
 	    }
 	  else if (! strcmp (ti->tag, "Compute1"))
 	    {
 	      char *buf = strnew (ti->title, h) ;
-	      target = qc->Etargets [0] ;
+	      target = snp->Etargets [0] ;
 	      if (target && ! strcmp (target, "av")) target = "AceView" ;
-	      aceOut (qc->ao, "\t") ;
-	      aceOutf (qc->ao, buf
+	      aceOut (snp->ao, "\t") ;
+	      aceOutf (snp->ao, buf
 		       , target
 		       , target
 		       , target
@@ -4502,37 +4962,37 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
 		       ) ;
 	    }
 	  else
-	    aceOutf (qc->ao, "\t%s", ti->title) ;
+	    aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute1"))
 	{ 	  
-	  const char *tag, *target = qc->Etargets [0] ;
+	  const char *tag, *target = snp->Etargets [0] ;
 
-	  tt = ac_tag_table (rc->ali, "Gene_expression" , h) ;
-	  tag = "Genes_touched" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_with_index" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_with_index_over_10" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_with_index_over_12" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_with_index_over_15" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_with_index_over_18" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tt = ac_tag_table (rc->snp, "Gene_expression" , h) ;
+	  tag = "Genes_touched" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_with_index" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_with_index_over_10" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_with_index_over_12" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_with_index_over_15" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_with_index_over_18" ; snpShowGeneExp (snp, tt, target, tag) ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
    return;
-} /* qcGeneExpression1 */
+} /* snpGeneExpression1 */
 
 /*************************************************************************************/
 
-static void qcGeneExpression2 (QC *qc, RC *rc)
+static void snpGeneExpression2 (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -4553,7 +5013,7 @@ static void qcGeneExpression2 (QC *qc, RC *rc)
     ;
 
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
@@ -4572,42 +5032,42 @@ static void qcGeneExpression2 (QC *qc, RC *rc)
 	      if (cp) *cp = 0 ;
 	      for (ii = 0 ; ii < 3 ; ii++)
 		{
-		  target = qc->Etargets [ii] ;
-		  aceOutf (qc->ao, "\t") ;
+		  target = snp->Etargets [ii] ;
+		  aceOutf (snp->ao, "\t") ;
 		  if (target && ! strcmp (target, "av")) target = "AceView" ;
-		  aceOutf (qc->ao, buf, target ? target : "NA") ;
+		  aceOutf (snp->ao, buf, target ? target : "NA") ;
 		}		
 	    }
  	  else if (! strcmp (ti->tag, "Compute1"))
 	    {
 	      char *buf = strnew (ti->title, h) ;
-	      target = qc->Etargets [0] ;
+	      target = snp->Etargets [0] ;
 	      if (target && ! strcmp (target, "av")) target = "AceView" ;
-	      aceOut (qc->ao, "\t") ;
-	      aceOutf (qc->ao, buf
+	      aceOut (snp->ao, "\t") ;
+	      aceOutf (snp->ao, buf
 		       , target
 		       , target
 		       , target
 		       ) ;
 	    }
 	  else
-	    aceOutf (qc->ao, "\t%s", ti->title) ;
+	    aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
       else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute1"))
 	{ 	  
-	  const char *tag, *target = qc->Etargets [0] ;
+	  const char *tag, *target = snp->Etargets [0] ;
 
-	  tt = ac_tag_table (rc->ali, "Gene_expression" , h) ;
-	  tag = "Zero_index" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Low_index" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Cross_over_index" ; qcShowGeneExp (qc, tt, target, tag) ;
-	  tag = "Genes_expressed_in_at_least_one_run" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tt = ac_tag_table (rc->snp, "Gene_expression" , h) ;
+	  tag = "Zero_index" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Low_index" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Cross_over_index" ; snpShowGeneExp (snp, tt, target, tag) ;
+	  tag = "Genes_expressed_in_at_least_one_run" ; snpShowGeneExp (snp, tt, target, tag) ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{  
@@ -4620,7 +5080,7 @@ static void qcGeneExpression2 (QC *qc, RC *rc)
 	      tag = "mRNA_with_index" ;
 	      break ;
 	    }
-	  tt = ac_tag_table (rc->ali, tag, h) ;
+	  tt = ac_tag_table (rc->snp, tag, h) ;
 	  if (tt)
 	    {
 	      int ii, ir ;
@@ -4628,7 +5088,7 @@ static void qcGeneExpression2 (QC *qc, RC *rc)
 		{
 		  for (ir = 0 ; ir < tt->rows ; ir++)
 		    {
-		      target = qc->Etargets [ii] ;
+		      target = snp->Etargets [ii] ;
 		      if (target && ! strcasecmp (target, ac_table_printable (tt, ir, 0, "x")))
 			break ;
 		    }
@@ -4638,30 +5098,30 @@ static void qcGeneExpression2 (QC *qc, RC *rc)
 		{
 			case 1: 
 			case 2: 
-			  aceOutf (qc->ao, "\t%d", ac_table_int (tt, ir, 1, 0)) ;
+			  aceOutf (snp->ao, "\t%d", ac_table_int (tt, ir, 1, 0)) ;
 			  break ;
 			}
 		    }
 		  else
-		    aceOutf (qc->ao, "\t") ;
+		    aceOutf (snp->ao, "\t") ;
 		}
 	    }
 	  else
 	    {
-	      aceOut (qc->ao, "\t\t\t") ;
+	      aceOut (snp->ao, "\t\t\t") ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
    return;
-} /* qcGeneExpression2 */
+} /* snpGeneExpression2 */
 
 /*************************************************************************************/
 
-static void qcHighGenes (QC *qc, RC *rc)
+static void snpHighGenes (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -4680,7 +5140,7 @@ static void qcHighGenes (QC *qc, RC *rc)
     ;
   
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {	
@@ -4689,13 +5149,13 @@ static void qcHighGenes (QC *qc, RC *rc)
       
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -4709,7 +5169,7 @@ static void qcHighGenes (QC *qc, RC *rc)
 	      tag = "Mb_in_high_genes" ;
 	      break ;
 	    }
-	  tt = ac_tag_table (rc->ali, tag, h) ;
+	  tt = ac_tag_table (rc->snp, tag, h) ;
 	  if (tt)
 	    {
 	      int ii, ir ;
@@ -4717,7 +5177,7 @@ static void qcHighGenes (QC *qc, RC *rc)
 		{
 		  for (ir = 0 ; ir < tt->rows ; ir++)
 		    {
-		      target = qc->Etargets [ii] ;
+		      target = snp->Etargets [ii] ;
 		      if (target && ! strcasecmp (target, ac_table_printable (tt, ir, 0, "x")))
 			break ;
 		    }
@@ -4727,57 +5187,57 @@ static void qcHighGenes (QC *qc, RC *rc)
 		{
 			case 16:
 			case 18:
-			  aceOutf (qc->ao, "\t%.3f", ac_table_float (tt, ir, 1, 0)) ;
+			  aceOutf (snp->ao, "\t%.3f", ac_table_float (tt, ir, 1, 0)) ;
 			  break ;
 			}
 		    }
 		  else
-		    aceOutf (qc->ao, "\t") ;
+		    aceOutf (snp->ao, "\t") ;
 		}
 	    }
 	  else
 	    {
-	      aceOut (qc->ao, "\t") ;
+	      aceOut (snp->ao, "\t") ;
 	    }
 	}
       else if (! strcmp (ti->tag, "HighGenes"))
 	{  
 	  int ir, k = 0 ;
 	  
-	  aceOut (qc->ao, "\t") ;
-	  tt = ac_tag_table (rc->ali, "High_genes", h) ;
+	  aceOut (snp->ao, "\t") ;
+	  tt = ac_tag_table (rc->snp, "High_genes", h) ;
 	  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 	    {
-	      if (! strcmp (ac_table_printable (tt, ir, 0, "x"), qc->Etargets[0]))
+	      if (! strcmp (ac_table_printable (tt, ir, 0, "x"), snp->Etargets[0]))
 		{
 		  AC_OBJ Gene = ac_table_obj (tt, ir, 1, h) ;
 		  const char *ccp = Gene ? ac_tag_printable (Gene, "Title", ac_name(Gene)) : 0 ;
 		  
 		  if (ccp)
 		    {
-		      aceOutf (qc->ao, "%s%s"
+		      aceOutf (snp->ao, "%s%s"
 			     , (k++ ? ", " : "")
 			     , ccp
 			     ) ;
 		      ccp = ac_table_printable (tt, ir, 2, 0) ;
 		      if (ccp)
-			aceOutf (qc->ao, " (%sMb)", ccp) ;
+			aceOutf (snp->ao, " (%sMb)", ccp) ;
 		    }
 		  ac_free (Gene) ;
 		}
 	    }
 	}		  
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
    return;
-} /* qcHighGenes */
+} /* snpHighGenes */
 
 /*************************************************************************************/
 
-static void qcCandidateIntrons (QC *qc, RC *rc)
+static void snpCandidateIntrons (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -4806,7 +5266,7 @@ static void qcCandidateIntrons (QC *qc, RC *rc)
   AC_TABLE ttCI = 0 ;
 
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
   
   for (ti = tts ; ti->tag ; ti++)
     {	
@@ -4824,30 +5284,30 @@ static void qcCandidateIntrons (QC *qc, RC *rc)
 	      if (cp) *cp = 0 ;
 	      for (ii = 0 ; ii < 3 ; ii++)
 		{
-		  target = qc->Etargets [ii] ;
-		  aceOutf (qc->ao, "\t") ;
+		  target = snp->Etargets [ii] ;
+		  aceOutf (snp->ao, "\t") ;
 		  if (target && ! strcmp (target, "av")) target = "AceView" ;
-		  aceOutf (qc->ao, buf, target ? target : "NA") ;
+		  aceOutf (snp->ao, buf, target ? target : "NA") ;
 		}		
 	    }
 	  else
-	    aceOutf (qc->ao, "\t%s", ti->title) ;
+	    aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Candidate__introns"))
 	{  
 	  int ir ;
 	  if (! ttCI)
-	    ttCI = ac_tag_table (rc->ali, "Candidate_introns", h) ;
+	    ttCI = ac_tag_table (rc->snp, "Candidate_introns", h) ;
 	  for (ii = 0 ; ii < 3 ; ii++)
 	    {
-	      target = qc->Etargets [ii] ;
-	      aceOutf (qc->ao, "\t") ;
+	      target = snp->Etargets [ii] ;
+	      aceOutf (snp->ao, "\t") ;
 	      
 	      if (ttCI && target && *target)
 		{
@@ -4858,10 +5318,10 @@ static void qcCandidateIntrons (QC *qc, RC *rc)
 			  {
 			    float u17 = ac_table_float (ttCI, ir, ti->col - 100, 0) ;
 			    int u05 = ac_table_int (ttCI, ir,  ti->col - 110, 1) ;
-			    aceOutf (qc->ao, "%.1f", u17/u05) ;
+			    aceOutf (snp->ao, "%.1f", u17/u05) ;
 			  }
 			else
-			  aceOut (qc->ao, ac_table_printable (ttCI, ir, ti->col, EMPTY)) ;
+			  aceOut (snp->ao, ac_table_printable (ttCI, ir, ti->col, EMPTY)) ;
 		      }
 		}
 	    }	
@@ -4870,33 +5330,33 @@ static void qcCandidateIntrons (QC *qc, RC *rc)
 	{  
 	  int ir ;
 	  if (! ttCI)
-	    ttCI = ac_tag_table (rc->ali, "Candidate_introns", h) ;
+	    ttCI = ac_tag_table (rc->snp, "Candidate_introns", h) ;
 	  for (ii = 0 ; ii < 1 ; ii++)
 	    {
 	      target = "any" ;
-	      aceOutf (qc->ao, "\t") ;
+	      aceOutf (snp->ao, "\t") ;
 	      
 	      if (ttCI && target && *target)
 		{
 		  for (ir = 0 ; ir < ttCI->rows ; ir++)
 		    if (! strcmp (target, ac_table_printable (ttCI, ir, 0, "xxx"))) 
 		      {
-			aceOut (qc->ao, ac_table_printable (ttCI, ir, ti->col, EMPTY)) ;
+			aceOut (snp->ao, ac_table_printable (ttCI, ir, ti->col, EMPTY)) ;
 		      }
 		}
 	    }	
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   
   ac_free (h) ;
   return;
-} /* qcCandidateIntrons */
+} /* snpCandidateIntrons */
 
 /*************************************************************************************/
 
-static void qcSexTissueSignatures (QC *qc, RC *rc)
+static void snpSexTissueSignatures (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
 
@@ -4913,7 +5373,7 @@ static void qcSexTissueSignatures (QC *qc, RC *rc)
     "Signatures"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {	
@@ -4925,45 +5385,45 @@ static void qcSexTissueSignatures (QC *qc, RC *rc)
 	  if (! strcmp (ti->tag, "Compute1"))
 	    {
 	      char *buf = strnew (ti->title, h) ;
-	      target = qc->Etargets [0] ;
+	      target = snp->Etargets [0] ;
 	      if (target && ! strcmp (target, "av")) target = "AceView" ;
-	      aceOut (qc->ao, "\t") ;
-	      aceOutf (qc->ao, buf
+	      aceOut (snp->ao, "\t") ;
+	      aceOutf (snp->ao, buf
 		       , target
 		       , target
 		       ) ;
 	    }
 	  else
-	    aceOutf (qc->ao, "\t%s", ti->title) ;
+	    aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute1"))
 	{ 	  
 	  float z = 0 ;
-	  target = qc->Etargets [0] ;
+	  target = snp->Etargets [0] ;
 
-	  tt = ac_tag_table (rc->ali, "Gene_expression" , h) ;
-	  tag = "Sex_ratio" ; z = qcShowGeneExp (qc, tt, target, tag) ;
-	  if (z < -1) aceOut (qc->ao, "\tFemale") ;
-	  else if (z > 4) aceOut (qc->ao, "\tMale") ;
-	  else  aceOut (qc->ao, "\t") ;
+	  tt = ac_tag_table (rc->snp, "Gene_expression" , h) ;
+	  tag = "Sex_ratio" ; z = snpShowGeneExp (snp, tt, target, tag) ;
+	  if (z < -1) aceOut (snp->ao, "\tFemale") ;
+	  else if (z > 4) aceOut (snp->ao, "\tMale") ;
+	  else  aceOut (snp->ao, "\t") ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
    return;
-} /* qcSexTissueSignatures */
+} /* snpSexTissueSignatures */
 
 /*************************************************************************************/
 
-static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
+static void snpMappingPerTargetType (TSNP *snp, RC *rc, int type)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt, ttk ;  
@@ -5027,7 +5487,7 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
       break ;
     }   
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
@@ -5037,16 +5497,16 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 	  switch (type)
 	    {
 	    case 1:
-	      aceOutf (qc->ao, tit
+	      aceOutf (snp->ao, tit
 		       , "Reads"
 		       , "Reads"
 		       , "Reads"
 		       , "Reads"
 		       , "Reads"
 		       , "Reads"
-		       , "Reads", qc->EtargetsBeau[0]
-		       , "Reads", qc->EtargetsBeau[1]
-		       , "Reads", qc->EtargetsBeau[2]
+		       , "Reads", snp->EtargetsBeau[0]
+		       , "Reads", snp->EtargetsBeau[1]
+		       , "Reads", snp->EtargetsBeau[2]
 		       , "Reads"
 		       , "Reads"
 		       , "Reads"
@@ -5057,16 +5517,16 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 		       ) ;
 	      break ;
 	    case 2:
-	      aceOutf (qc->ao,tit
+	      aceOutf (snp->ao,tit
 		       , "% Reads"
 		       , "% Reads"
 		       , "% Reads"
 		       , "% Reads"
 		       , "% Reads"
 		       , "% Reads"
-		       , "% Reads", qc->EtargetsBeau[0]
-		       , "% Reads", qc->EtargetsBeau[1]
-		       , "% Reads", qc->EtargetsBeau[2]
+		       , "% Reads", snp->EtargetsBeau[0]
+		       , "% Reads", snp->EtargetsBeau[1]
+		       , "% Reads", snp->EtargetsBeau[2]
 		       , "% Reads"
 		       , "% Reads"
 		       , "% Reads"
@@ -5077,16 +5537,16 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 		       ) ;
 	      break ;
 	    case 3: 
-	      aceOutf (qc->ao, tit
+	      aceOutf (snp->ao, tit
 		       , "Mb"
 		       , "Mb"
 		       , "Mb"
 		       , "Mb"
 		       , "Mb"
 		       , "Mb"
-		       , "Mb", qc->EtargetsBeau[0]
-		       , "Mb", qc->EtargetsBeau[1]
-		       , "Mb", qc->EtargetsBeau[2]
+		       , "Mb", snp->EtargetsBeau[0]
+		       , "Mb", snp->EtargetsBeau[1]
+		       , "Mb", snp->EtargetsBeau[2]
 		       , "Mb"
 		       , "Mb"
 		       , "Mb"
@@ -5101,7 +5561,7 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       
@@ -5113,13 +5573,13 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 	    case 1:
 	      ccp = EMPTY ;
 	      zhe = zhr = zhm = zhA = zhR = zhE = zhG = zhg = zhAny = zhS = zhT = zhPhiX = zSpliced = zhBacteria = zhVirus = zhPrevious = zhTotal = 0 ;
-	      ttk = ac_tag_table (rc->ali, "Known_introns", h) ;
+	      ttk = ac_tag_table (rc->snp, "Known_introns", h) ;
 	      for (ir = 0 ; ttk && ir < ttk->rows ; ir++)
 		{
-		  if (! strcmp ( ac_table_printable (ttk, ir, 0, "x"), qc->Etargets[0]))
+		  if (! strcmp ( ac_table_printable (ttk, ir, 0, "x"), snp->Etargets[0]))
 		    zSpliced = ttk ? ac_table_float (ttk, ir, 3, 0) : 0 ;
 		}
-	      tt = ac_tag_table (rc->ali, "h_Ali", h) ;
+	      tt = ac_tag_table (rc->snp, "h_Ali", h) ;
 	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		{
 		  ccp = ac_table_printable (tt, ir, 0, EMPTY) ;
@@ -5136,11 +5596,11 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 
 		  if (! strcasecmp (ccp, "QT_smallRNA"))
 		    zhS = ac_table_float (tt, ir, col, 0) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[0]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[0]))
 		    zhA = ac_table_float (tt, ir, col, 0) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[1]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[1]))
 		    zhR = ac_table_float (tt, ir, col, 0) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[2]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[2]))
 		    zhE = ac_table_float (tt, ir, col, 0) ;
 		  if (ccp[1] == 'T' && ccp[2] == '_')   /* any xT_ is an annotated transcript */
 		    zhPrevious += ac_table_float (tt, ir, col, 0) ;
@@ -5160,16 +5620,16 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 	      zhTotal = zhPhiX + zhe + zhr + zhm + zhT + zhPrevious + zhVirus + zhBacteria + zhG + zhg ;
 	      zhPrevious += zhe + zhr + zhm + zhT  ; /* previously annotated transcripts */ 
 
-	      ccp = EMPTY ; tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
+	      ccp = EMPTY ; tt = ac_tag_table (rc->snp, "nh_Ali", h) ;
 	      znhA = znhR = znhE = znhG = znhg = 0 ;
 	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		{
 		  ccp = ac_table_printable (tt, ir, 0, EMPTY) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[0]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[0]))
 		    znhA = ac_table_float (tt, ir, col, 0) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[1]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[1]))
 		    znhR = ac_table_float (tt, ir, col, 0) ;
-		  if (! strcasecmp (ccp + 3, qc->Etargets[2]))
+		  if (! strcasecmp (ccp + 3, snp->Etargets[2]))
 		    znhE = ac_table_float (tt, ir, col, 0) ;
 		  if (! strcasecmp (ccp, "Z_genome"))
 		    znhG = ac_table_float (tt, ir, col, 0) ;
@@ -5180,111 +5640,111 @@ static void qcMappingPerTargetType (QC *qc, RC *rc, int type)
 	      switch (type)
 		{
 		case 1:
-		  aceOutf (qc->ao, "\t%ld", zhPhiX) ;	      
-		  aceOutf (qc->ao, "\t%ld", zhe) ;
-		  aceOutf (qc->ao, "\t%ld", zhr) ;
-		  aceOutf (qc->ao, "\t%ld", zhm) ;
-		  aceOutf (qc->ao, "\t%ld", zhS) ;
-		  aceOutf (qc->ao, "\t%ld", zhT) ;
+		  aceOutf (snp->ao, "\t%ld", zhPhiX) ;	      
+		  aceOutf (snp->ao, "\t%ld", zhe) ;
+		  aceOutf (snp->ao, "\t%ld", zhr) ;
+		  aceOutf (snp->ao, "\t%ld", zhm) ;
+		  aceOutf (snp->ao, "\t%ld", zhS) ;
+		  aceOutf (snp->ao, "\t%ld", zhT) ;
 		  
-		  aceOutf (qc->ao, "\t%ld", znhA) ;
-		  aceOutf (qc->ao, "\t%ld", znhR) ;
-		  aceOutf (qc->ao, "\t%ld", znhE) ;
+		  aceOutf (snp->ao, "\t%ld", znhA) ;
+		  aceOutf (snp->ao, "\t%ld", znhR) ;
+		  aceOutf (snp->ao, "\t%ld", znhE) ;
 
-		  aceOutf (qc->ao, "\t%ld", znhG) ;
+		  aceOutf (snp->ao, "\t%ld", znhG) ;
 		  
-		  aceOutf (qc->ao, "\t%ld", zhPrevious) ;
-		  aceOutf (qc->ao, "\t%ld", zhAny - zhPrevious - zhPhiX - zhBacteria -zhVirus - zhg) ; /* intronic, new exon and intergenic */
+		  aceOutf (snp->ao, "\t%ld", zhPrevious) ;
+		  aceOutf (snp->ao, "\t%ld", zhAny - zhPrevious - zhPhiX - zhBacteria -zhVirus - zhg) ; /* intronic, new exon and intergenic */
 		  
 		  
-		  aceOutf (qc->ao, "\t%ld", zhBacteria) ;	 
-		  aceOutf (qc->ao, "\t%ld", zhVirus) ;	 
-		  aceOutf (qc->ao, "\t%ld", znhg) ;	 /* decoy */ 
+		  aceOutf (snp->ao, "\t%ld", zhBacteria) ;	 
+		  aceOutf (snp->ao, "\t%ld", zhVirus) ;	 
+		  aceOutf (snp->ao, "\t%ld", znhg) ;	 /* decoy */ 
 		  
-		  /* aceOutf (qc->ao, "\t%ld", zSpliced) ; */
+		  /* aceOutf (snp->ao, "\t%ld", zSpliced) ; */
 		  break ;
 		case 3:
-		  aceOutf (qc->ao, "\t%.2f", zhPhiX/1000.0) ;	      
-		  aceOutf (qc->ao, "\t%.2f", zhe/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", zhr/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", zhm/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", zhS/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", zhT/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhPhiX/1000.0) ;	      
+		  aceOutf (snp->ao, "\t%.2f", zhe/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhr/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhm/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhS/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhT/1000.0) ;
 		  
-		  aceOutf (qc->ao, "\t%.2f", znhA/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", znhR/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", znhE/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", znhA/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", znhR/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", znhE/1000.0) ;
 
-		  aceOutf (qc->ao, "\t%.2f", znhG/1000.0) ;
-		  aceOutf (qc->ao, "\t%.2f", zhPrevious/1000.0) ; 
+		  aceOutf (snp->ao, "\t%.2f", znhG/1000.0) ;
+		  aceOutf (snp->ao, "\t%.2f", zhPrevious/1000.0) ; 
 		  z = zhAny - zhPrevious - zhPhiX - zhBacteria -zhVirus - zhg  ;
-		  aceOutf (qc->ao, "\t%.2f", z/1000.0) ; /* intronic, new exon and intergenic */
+		  aceOutf (snp->ao, "\t%.2f", z/1000.0) ; /* intronic, new exon and intergenic */
 		  
 		  
-		  aceOutf (qc->ao, "\t%.2f", zhBacteria/1000.0) ;	 
-		  aceOutf (qc->ao, "\t%.2f", zhVirus/1000.0) ;	 
-		  aceOutf (qc->ao, "\t%.2f", znhg/1000.0) ;	 /* decoy */ 
+		  aceOutf (snp->ao, "\t%.2f", zhBacteria/1000.0) ;	 
+		  aceOutf (snp->ao, "\t%.2f", zhVirus/1000.0) ;	 
+		  aceOutf (snp->ao, "\t%.2f", znhg/1000.0) ;	 /* decoy */ 
 		  
-		  /* aceOutf (qc->ao, "\t") ; */
+		  /* aceOutf (snp->ao, "\t") ; */
 		  break ;
 		case 2: 
-		  z = zhPhiX ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhe ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhr ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhm ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhS ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhT ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
+		  z = zhPhiX ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhe ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhr ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhm ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhS ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhT ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
 
-		  z = znhA ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = znhR ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = znhE ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = znhG ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
+		  z = znhA ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = znhR ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = znhE ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = znhG ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
 
-		  z = zhPrevious ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhTotal - zhPrevious - zhPhiX - zhBacteria -zhVirus - zhg  ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ; /* intronic, new exon and intergenic */
+		  z = zhPrevious ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhTotal - zhPrevious - zhPhiX - zhBacteria -zhVirus - zhg  ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ; /* intronic, new exon and intergenic */
 	
-		  z = zhBacteria ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = zhVirus ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ;
-		  z = znhg ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ; /* decoy */
+		  z = zhBacteria ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = zhVirus ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ;
+		  z = znhg ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ; /* decoy */
 
-		  /*   z = zSpliced ; aceOutf (qc->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (qc->ao, z) ; */
+		  /*   z = zSpliced ; aceOutf (snp->ao, "\t") ; z = 100 * z/zhTotal ; aceOutPercent (snp->ao, z) ; */
 		  break ;
 		}
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   ac_free (h) ;
   return;
-}  /* qcMappingPerTargetType */
+}  /* snpMappingPerTargetType */
 
 /******************/
 
-static void qcMappingPerTarget (QC *qc, RC *rc)
+static void snpMappingPerTarget (TSNP *snp, RC *rc)
 {
-  qcMappingPerTargetType (qc, rc, 1) ; /* number of reads */
-  if (0)  qcMappingPerTargetType (qc, rc, 2) ; /* percent number of reads */
-  qcMappingPerTargetType (qc, rc, 3) ; /* number of kb */
+  snpMappingPerTargetType (snp, rc, 1) ; /* number of reads */
+  if (0)  snpMappingPerTargetType (snp, rc, 2) ; /* percent number of reads */
+  snpMappingPerTargetType (snp, rc, 3) ; /* number of kb */
 
   return ;
-} /* qcMappingPerTarget */
+} /* snpMappingPerTarget */
 
 /******************/
 
-static void qcMappingPerCentTarget (QC *qc, RC *rc)
+static void snpMappingPerCentTarget (TSNP *snp, RC *rc)
 {
-  if (0) qcMappingPerTargetType (qc, rc, 1) ; /* number of reads */
-  if (0) qcHighVirusBacteria (qc, rc) ;
-  if (1)  qcMappingPerTargetType (qc, rc, 2) ; /* percent number of reads */
-  if (0) qcMappingPerTargetType (qc, rc, 3) ; /* number of kb */
+  if (0) snpMappingPerTargetType (snp, rc, 1) ; /* number of reads */
+  if (0) snpHighVirusBacteria (snp, rc) ;
+  if (1)  snpMappingPerTargetType (snp, rc, 2) ; /* percent number of reads */
+  if (0) snpMappingPerTargetType (snp, rc, 3) ; /* number of kb */
 
   return ;
-} /* qcMappingPerCentPerTarget */
+} /* snpMappingPerCentPerTarget */
 
 /*************************************************************************************/
 
-static void qc3pBias (QC *qc, RC *rc)
+static void snp3pBias (TSNP *snp, RC *rc)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
@@ -5297,22 +5757,22 @@ static void qc3pBias (QC *qc, RC *rc)
     "3' bias"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title ? ti->title : "") ;
-	  if (0 && rc->ali && ti->title && ! strcmp (ti->title, "Number of well expressed transcripts longer than 8kb"))
+	  aceOutf (snp->ao, "\t%s", ti->title ? ti->title : "") ;
+	  if (0 && rc->snp && ti->title && ! strcmp (ti->title, "Number of well expressed transcripts longer than 8kb"))
 	    {
 	      AC_HANDLE h = ac_new_handle () ;
-	      AC_TABLE tt = ac_tag_table (rc->ali, ti->tag, h) ;
+	      AC_TABLE tt = ac_tag_table (rc->snp, ti->tag, h) ;
 	      if (tt && tt->cols >= 3)
 		{
 		  int n = ac_table_int (tt, 0, 3, 0) ;
 		  if (n > 0)
-		    aceOutf (qc->ao, ", out of %d candidates", n) ;
+		    aceOutf (snp->ao, ", out of %d candidates", n) ;
 		}
 	      ac_free (h) ;
 	    }
@@ -5320,18 +5780,18 @@ static void qc3pBias (QC *qc, RC *rc)
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   return;
-}  /* qc3pBias */
+}  /* snp3pBias */
 
 /*************************************************************************************/
 
-static void qcInterGenic (QC *qc, RC *rc)
+static void snpInterGenic (TSNP *snp, RC *rc)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
@@ -5343,18 +5803,18 @@ static void qcInterGenic (QC *qc, RC *rc)
     "Intergenic, used to estimate background noise"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title ? ti->title : "") ;
+	  aceOutf (snp->ao, "\t%s", ti->title ? ti->title : "") ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -5363,8 +5823,8 @@ static void qcInterGenic (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1:
-	      zd = ac_tag_float (rc->ali, "Intergenic_density", 0) ;
-	      zkb = ac_tag_float (rc->ali, "Intergenic", 0) ;
+	      zd = ac_tag_float (rc->snp, "Intergenic_density", 0) ;
+	      zkb = ac_tag_float (rc->snp, "Intergenic", 0) ;
 	      if (zd > 0) 
 		{
 		  float z1 = zd ;
@@ -5374,22 +5834,22 @@ static void qcInterGenic (QC *qc, RC *rc)
 		  while (z1 < 100) { n++ ; z1 *= 10 ; }
 		  if (n < 2) n = 2 ;
 		  f = messprintf ("\t%%.0f\t%%.%df", n) ;
-		  aceOutf (qc->ao, f, zkb, zd) ;
+		  aceOutf (snp->ao, f, zkb, zd) ;
 		}
 	      else
-		aceOutf (qc->ao, "\t\t") ;
+		aceOutf (snp->ao, "\t\t") ;
 	      break ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   return;
-}  /* qcInterGenic */
+}  /* snpInterGenic */
 
 /*************************************************************************************/
 
-static void qcIntergenic2 (QC *qc, RC *rc)
+static void snpIntergenic2 (TSNP *snp, RC *rc)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
@@ -5401,18 +5861,18 @@ static void qcIntergenic2 (QC *qc, RC *rc)
     "Intergenic/Intronic/UTR or non-coding/Protein coding region"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
   for (ti = tts ; ti->tag ; ti++)
     {
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title ? ti->title : "") ;
+	  aceOutf (snp->ao, "\t%s", ti->title ? ti->title : "") ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -5421,14 +5881,14 @@ static void qcIntergenic2 (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1:
-	      zG = ac_tag_float (rc->ali, "S_1_intergenic", 0) ;
-	      zI = ac_tag_float (rc->ali, "S_1_intronic", 0) ;
-	      zU = ac_tag_float (rc->ali, "S_1_UTR", 0) ;
-	      zC = ac_tag_float (rc->ali, "S_1_CDS", 0) ;
+	      zG = ac_tag_float (rc->snp, "S_1_intergenic", 0) ;
+	      zI = ac_tag_float (rc->snp, "S_1_intronic", 0) ;
+	      zU = ac_tag_float (rc->snp, "S_1_UTR", 0) ;
+	      zC = ac_tag_float (rc->snp, "S_1_CDS", 0) ;
 	      z = zG + zI + zU + zC ;
   	      zRaw = rc->var[T_kb] ? rc->var[T_kb] : z/2 ;
 	      if (z > 0)
-		aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
+		aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
 			 , 100.0 * zG/z
 			 , 100.0 * zI/z
 			 , 100.0 * zU/z
@@ -5436,19 +5896,19 @@ static void qcIntergenic2 (QC *qc, RC *rc)
 			 , 100000.0 * z/zRaw
 			 ) ;
 	      else
-		aceOutf (qc->ao, "\t\t\t\t\t") ;
+		aceOutf (snp->ao, "\t\t\t\t\t") ;
 	      break ;
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
   return;
-}  /* qcIntergenic2 */
+}  /* snpIntergenic2 */
 
 /*************************************************************************************/
 
-static void qcDrosoZhenXia (QC *qc, RC *rc)
+static void snpDrosoZhenXia (TSNP *snp, RC *rc)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE  tt, tta, ttb ;
@@ -5492,13 +5952,13 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
     "Comparison with Zhen Xia"
     ;
   if (rc == (void *) 1)
-    return  qcChapterCaption (qc, tts, caption) ;
+    return  snpChapterCaption (snp, tts, caption) ;
 
-  tta = rc ? ac_tag_table (rc->ali, "nh_Ali", h) : 0 ;
-  ttb = rc ? ac_tag_table (rc->ali, "h_Ali", h) : 0 ;
+  tta = rc ? ac_tag_table (rc->snp, "nh_Ali", h) : 0 ;
+  ttb = rc ? ac_tag_table (rc->snp, "h_Ali", h) : 0 ;
   if (rc)
     {
-      zRaw = ac_tag_float (rc->ali, "raw_data", 0) ;
+      zRaw = ac_tag_float (rc->snp, "raw_data", 0) ;
       if (! zRaw)
 	zRaw = ac_tag_float (rc->run, "Z_Total_reads", 0) ;
     }	      
@@ -5506,12 +5966,12 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
     {	
       if (rc == 0)
 	{
-	  aceOutf (qc->ao, "\t%s", ti->title) ;
+	  aceOutf (snp->ao, "\t%s", ti->title) ;
 	}
        else if (! strcmp (ti->tag, "TITLE"))
 	{
 	  const char *ccp = ac_tag_printable (rc->run, "Title", 0) ;
-	  aceOutf (qc->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
+	  aceOutf (snp->ao, "\t%s", ccp ? ccp : ac_name(rc->run)) ;
 	  continue ;
 	}
       else if (! strcmp (ti->tag, "Compute"))
@@ -5521,7 +5981,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	  switch (ti->col)
 	    {
 	    case 1:  /* Total */ 
-              z1 = ac_tag_float (rc->ali, "raw_data", 0) ;
+              z1 = ac_tag_float (rc->snp, "raw_data", 0) ;
 	      z2 = ac_tag_float (rc->run, "Z_Total_reads", 0) ;	      
 	      break ;
 	    case 2:
@@ -5534,7 +5994,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      z2 += ac_tag_float (rc->run, "Z_non_unique", 0) ;	      
 	      break ;
 	    case 3:
-	      tt = ac_tag_table (rc->ali, "Unicity", h) ;
+	      tt = ac_tag_table (rc->snp, "Unicity", h) ;
  	      for (ir = 0 ; tt ? ir < tt->rows : 0 ; ir++)
 		{
 		  if (! strcmp (ac_table_printable (tt, ir, 0, ""), "any"))
@@ -5548,7 +6008,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 		  if (! strcmp (ac_table_printable (tta, ir, 0, ""), "any"))
 		    z1 = ac_table_float (tta, ir, 3, 0) ;
 		}
-	      tt = ac_tag_table (rc->ali, "Unicity", h) ;
+	      tt = ac_tag_table (rc->snp, "Unicity", h) ;
  	      for (ir = 0 ; tt ? ir < tt->rows : 0 ; ir++)
 		{
 		  if (! strcmp (ac_table_printable (tt, ir, 0, ""), "any"))
@@ -5558,7 +6018,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      z2 = ac_tag_float (rc->run, "Z_non_unique", 0) ;	      
 	      break ;
 	    case 31:
-	      z2 = ac_tag_float (rc->ali, "raw_data", 0) ;
+	      z2 = ac_tag_float (rc->snp, "raw_data", 0) ;
 	      for (ir = 0 ; tta ? ir < tta->rows : 0 ; ir++)
 		{
 		  if (! strcmp (ac_table_printable (tta, ir, 0, ""), "any"))
@@ -5569,7 +6029,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      z2 = ac_tag_float (rc->run, "Z_unmapped_reads", 0) ;	      
 	      break ;
 	    case 4:
-	      tt = ac_tag_table (rc->ali, "Known_introns", h) ;
+	      tt = ac_tag_table (rc->snp, "Known_introns", h) ;
               z1 = tt ? ac_table_float (tt, 0, 2, 0) : 0 ;
 	      z2 = ac_tag_float (rc->run, "Z_spliced", 0) ;	      
 	      break ;
@@ -5590,7 +6050,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 		}
 	      break ;
 	    case 6:
-              z1 = ac_tag_int (rc->ali, "Genes_with_index", 0) ;
+              z1 = ac_tag_int (rc->snp, "Genes_with_index", 0) ;
 	      z2 = ac_tag_int (rc->run, "Z_expressed_genes", 0) ;	      
 	      
 	      break ;
@@ -5598,7 +6058,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      break ;
 
 	    }
-	  aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
+	  aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
 		   , z1, z2
 		   , 100.0 * z1/zRaw, 100.0*z2 / zRaw
 		   , 100.0 * (z2 - z1) / zRaw
@@ -5615,32 +6075,32 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      tt = ac_tag_table (rc->run, "Observed_strandedness_in_ns_mapping", h) ;
               z1 = tt ? ac_table_float (tt, 0, 1, 0) : 0 ;
 	      z2 = ac_tag_float (rc->run, "Z_strand", 0) ;
-	      aceOutf (qc->ao, "\t%.2f\t%.2f\t%.2f", z1, z2, z1 - z2) ;
+	      aceOutf (snp->ao, "\t%.2f\t%.2f\t%.2f", z1, z2, z1 - z2) ;
 	      break ;
 	    case 2:
-              g1 = ac_tag_int (rc->ali, "Genes_with_index", 0) ;
-              gt = ac_tag_int (rc->ali, "Genes_touched", 0) ;
+              g1 = ac_tag_int (rc->snp, "Genes_with_index", 0) ;
+              gt = ac_tag_int (rc->snp, "Genes_touched", 0) ;
 	      g2 = ac_tag_int (rc->run, "Z_expressed_genes", 0) ;
-	      aceOutf (qc->ao, "\t%d\t%d\t%d\t%d", g1, gt, g2, gt - g2) ;
+	      aceOutf (snp->ao, "\t%d\t%d\t%d\t%d", g1, gt, g2, gt - g2) ;
 	      break ;
 	    case 10:  /* Sex */
-	      aceOutf (qc->ao, "\t%s", ac_tag_printable (rc->sample, "Sex", "")) ;
-	      aceOutf (qc->ao, "\t%s", ac_tag_printable (rc->run, "Z_sex", "")) ;
+	      aceOutf (snp->ao, "\t%s", ac_tag_printable (rc->sample, "Sex", "")) ;
+	      aceOutf (snp->ao, "\t%s", ac_tag_printable (rc->run, "Z_sex", "")) ;
 	      break ;
 	    case 20:  /* dev stage */
-	      aceOutf (qc->ao, "\t%s", ac_tag_printable (rc->sample, "Stage", "")) ;
-	      aceOutf (qc->ao, "\t%s", ac_tag_printable (rc->run, "Z_dev_stage", "")) ;
+	      aceOutf (snp->ao, "\t%s", ac_tag_printable (rc->sample, "Stage", "")) ;
+	      aceOutf (snp->ao, "\t%s", ac_tag_printable (rc->run, "Z_dev_stage", "")) ;
 	      break ;
 	    case 30:  /* Tissue */ 
 	      k = 0 ;
-	      aceOutf (qc->ao, "\t") ;
+	      aceOutf (snp->ao, "\t") ;
 	      tt = ac_tag_table (rc->sample, "Tissue", h) ;
 	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		for (jr = 0 ; jr < tt->cols ; jr++)
 		  {
 		    const char *ccp = ac_table_printable (tt, ir, jr, 0) ;
 		    if (ccp)
-		      aceOutf (qc->ao, "%s%s"
+		      aceOutf (snp->ao, "%s%s"
 			       , k++ ? "; " : ""
 			       , ccp
 			       ) ;
@@ -5651,7 +6111,7 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 		  {
 		    const char *ccp = ac_table_printable (tt, ir, jr, 0) ;
 		    if (ccp)
-		      aceOutf (qc->ao, "%s%s"
+		      aceOutf (snp->ao, "%s%s"
 			       , k++ ? "; " : ""
 			       , ccp
 			       ) ;
@@ -5660,14 +6120,14 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	      break ;
 	    case 40:  /* stage summary */
 	      k = 0 ;
-	      aceOutf (qc->ao, "\t") ;
+	      aceOutf (snp->ao, "\t") ;
 	      tt = ac_tag_table (rc->sample, "Stage", h) ;
 	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		for (jr = 1 ; jr < tt->cols ; jr++)
 		  {
 		    const char *ccp = ac_table_printable (tt, ir, jr, 0) ;
 		    if (ccp)
-		      aceOutf (qc->ao, "%s%s"
+		      aceOutf (snp->ao, "%s%s"
 			       , k++ ? "; " : ""
 			       , ccp
 			       ) ;
@@ -5677,82 +6137,73 @@ static void qcDrosoZhenXia (QC *qc, RC *rc)
 	    }
 	}
       else
-	qcShowTag (qc, rc, ti) ;
+	snpShowTag (snp, rc, ti) ;
     }
 
    ac_free (h) ;
    return;
-}  /* qcDrosoZhenXia */
+}  /* snpDrosoZhenXia */
 
 /*************************************************************************************/
 
-static const char *allMethods = "0Nh4RH75UWv9zKt8TPbCifmpAdMsr3DgIXESV" ;
+static BOOL snpFilter (TSNP *tsnp, RC *rc)
+{
+  BOOL ok = TRUE ;
+  int minF = tsnp->minSnpFrequency ;
+  int minC = tsnp->minSnpCover ;
+
+
+  if (minF + minC)
+    {
+      AC_HANDLE h = ac_new_handle () ;
+      AC_TABLE tt = ac_tag_table (rc->snp, "BRS_counts", h) ;
+      int ir ;
+
+      ok = FALSE ;
+      if (tt && tt->rows)
+	for (ir = 0 ; ir < tt->rows && !ok ; ir++)
+	  {
+	    int c = ac_table_int (tt, ir, 1, 0) ;
+	    int m = ac_table_int (tt, ir, 2, 0) ;
+
+	    if (c >= minC && 100 * m >= minF * c)
+	      ok = TRUE ;
+	  }
+
+      ac_free (h) ;
+    }
+  return ok ;
+} /* snpFilter */
+
+/*************************************************************************************/
+
+static const char *allMethods = "IbdBDI" ;
+
 static MM methods [] = {
-  {'0', &qcSortingTitles} ,
-  {'N', &qcMainResults1} ,
-  {'h', &qcMainResults_h} ,
-  {'4', &qcMainResults4} ,
-  {'R', &qcMainResults2} ,
-  {'H', &qcHighGenes} ,
-  {'7', &qcGeneExpression1} ,
-  {'5', &qcMainResults5} ,
-  {'a', &qcAli } ,   /* now included in R */ 
-  {'U', &qcIntergenic2} ,
-  {'W', &qcMappingPerCentTarget} ,
-  {'v', &qcHighVirusBacteria} ,
-  {'9', &qcPairPercent } ,
-  {'z', &qcInsertSize} ,
-  {'K', &qcSnpCoding } ,
-  {'t', &qcBloom} ,  /* adaptors  telomeres polyA */
-  {'8', &qcReadFate1 } ,
-
-  {'T', &qcTitles} ,
-  {'P', &qcProtocol } ,
-  {'b', &qcBeforeAli } ,
-
-
-  {'C', &qcCPU} ,
-  {'i', &qcMicroRNA} ,
-  {'f', &qcReadFate2 } ,
-  {'m', &qcMappingPerTarget } ,
-
-  {'p', &qcPairNb } ,
-  {'Z', &qcInsertSizeHisto} ,
-  {'A', &qcAvLengthAli } ,
-  {'d', &qcStrandedness } ,
-  {'M', &qcMismatchTypes } ,
-
-  {'s', &qcSnpTypes } ,
-  {'r', &qcSnpRejectedTypes } ,
-  {'3', &qc3pBias} ,
-  {'D', &qcInterGenic} ,
-  {'g', &qcGeneExpression2} ,
-  {'I', &qcCandidateIntrons} ,
-  {'X', &qcSexTissueSignatures} ,
-  {'Z', &qcDrosoZhenXia} ,
-  {'E', &qcExternalFiles} ,
-  {'S', &qcSLs} ,
-  {'V', &qcCapture} ,
-  {'o', &qcOther} ,
+  {'I', &snpIdentifiers} ,
+  {'d', &snpDanLiFrequency} ,
+  {'D', &snpDanLiCounts} ,
+  {'b', &snpBrsFrequency} , 
+  {'B', &snpBrsCounts} ,
+  {'I', &snpIntraNoise} ,
 { 0, 0 }
 } ;
 
 /*************************************************************************************/
 
-static BOOL qcExportRun (QC *qc, int irc, int type)
+static BOOL snpExportSnp (TSNP *tsnp, int iSnp, int type)
 {       
-  const char *ccp, *lineName, *sTitle = 0 ;
-  static char oldTitle[64] ; 
+  const char *ccp, *lineName ;
   MM *mm ;
   RC *rc = 0 ;
-  char *cp ;
+  RC rc0 ;
+  
+  memset (&rc0, 0, sizeof(RC)) ;
 
   switch (type)
     {
     case 0: 
-      oldTitle[0] = 0 ;
       lineName =  "### Caption" ; 
-      memset (oldTitle, 0, sizeof (oldTitle)) ;
       rc = (void *) 1 ;
       break ;
     case 1: 
@@ -5760,52 +6211,43 @@ static BOOL qcExportRun (QC *qc, int irc, int type)
       rc = (void *) 0 ;
       break ;
     case 2: 
-      rc = arrp (qc->runs, irc, RC) ;
-      lineName = ac_name (rc->run) ;
-      qcSetAli (qc, rc) ;
+      rc = &rc0 ;
+      rc->h = ac_new_handle () ;
+      rc->snp = ac_table_obj (tsnp->snps, iSnp, 0, rc->h) ;
+      lineName = ac_table_printable (tsnp->snps, iSnp, 0, "-") ;
 
-      sTitle = ac_tag_printable (rc->run, "Sorting_title", 0) ;
-      cp = sTitle ? strstr (sTitle, "__") : 0 ;
-      if (cp)
-	{
-	  char cc = *cp ;
-	  *cp = 0 ;
-	  if (*oldTitle && strcmp(sTitle, oldTitle))
-	    aceOutf (qc->ao, "\n" ) ;
-	  strncpy (oldTitle, sTitle, 64) ;
-	  *cp = cc ;
-	}
       break ; 
     }
    
-  aceOutf (qc->ao, "%s", lineName) ;
-
-  ccp = qc->export - 1 ;
-  while (*++ccp)
+  if (type < 2 || snpFilter (tsnp, rc))
     {
-      mm = methods - 1 ;
-      while (mm++, mm->cc)
-	if (mm->cc == *ccp)
-	  mm->f(qc, rc) ;
+      aceOutf (tsnp->ao, "%s", lineName) ;
+      
+      ccp = tsnp->export - 1 ;
+      while (*++ccp)
+	{
+	  mm = methods - 1 ;
+	  while (mm++, mm->cc)
+	    if (mm->cc == *ccp)
+	      mm->f(tsnp, rc) ;
+	}
+      aceOutf (tsnp->ao, "\n" ) ;
     }
+  ac_free (rc0.h) ;
 
-  if (type == 2)
-    ac_free (rc->h) ;
-
-  aceOutf (qc->ao, "\n" ) ;
   return TRUE ;
-} /* qcExportRun */
+} /* snpExportSnp */
 
 /*************************************************************************************/
 /*************************************************************************************/
 
-static int qcGetEtargets (QC *qc)
+static int snpGetEtargets (TSNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ; 
   const char *ccp, *ccq ;
   int n = 0 ;
 
-  memset (qc->Etargets, 0, sizeof (qc->Etargets)) ;
+  memset (snp->Etargets, 0, sizeof (snp->Etargets)) ;
   ccp = getenv ("Etargets") ;
   fprintf (stderr, "etargets = %s", ccp ? ccp : "NA") ; 
   if (ccp && *ccp)
@@ -5814,112 +6256,87 @@ static int qcGetEtargets (QC *qc)
       if (aceInCard (ai))
 	while ((ccq = aceInWord (ai)) && n < 3)
 	  {
-	    qc->Etargets[n] = strnew (ccq, qc->h) ;
+	    snp->Etargets[n] = strnew (ccq, snp->h) ;
 	    if (! strcmp (ccq, "av"))
 	      ccq = "AceView" ;
 	    if (! strcmp (ccq, "transposon"))
 	      ccq = "Repbase transposon" ;
-	    qc->EtargetsBeau[n] = strnew (ccq, qc->h) ;
+	    snp->EtargetsBeau[n] = strnew (ccq, snp->h) ;
 	    n++ ;
 	  }
-      qc->Etargets[n] = 0 ;
+      snp->Etargets[n] = 0 ;
     }
   for ( ; n < 3 ; n++)
     {
-      qc->Etargets[n] = hprintf (qc->h, "annotation %d", n + 1) ;
-      qc->EtargetsBeau[n] = hprintf (qc->h, "annotation %d", n + 1) ;
+      snp->Etargets[n] = hprintf (snp->h, "annotation %d", n + 1) ;
+      snp->EtargetsBeau[n] = hprintf (snp->h, "annotation %d", n + 1) ;
     }
   ac_free (h) ;
   return n ;
-}  /* qcGetEtargets */
+}  /* snpGetEtargets */
 
 /*************************************************************************************/
 
-static int qcGetRuns (QC *qc)
+static int snpGetSnpsRunsGroups (TSNP *tsnp)
 {
-  AC_OBJ run = 0 ;
-  int nr = 0 ;
+  int ns = 0 ;
+  const char *errors = 0 ;
+  char *qq ;
+  AC_HANDLE h = ac_new_handle () ;
+  tsnp->runs = 0 ;
   
-  qc->runs = arrayHandleCreate (256, RC, qc->h) ;
-  
-  if (qc->project)
+  if (tsnp->project)
     {
-      int pass ;
-
-      for (pass = 1 ; pass < 4 ; pass++)
-	{
-	  char buf[256], *cprj ;
-	  strncpy (buf, qc->project, 255) ;
-	  cprj = buf ;
-	  if (qc->runType && pass != qc->runType)
-	    continue ;
-
-	  while (cprj && cprj[0])
-	    {
-	      const char *errors = 0 ;
-	      int ir ;
-	      AC_TABLE tt = 0 ;
-	      AC_HANDLE h = ac_new_handle () ; 
-	      char *qq, *qq2, *cqrj = strchr (cprj, ',') ;
-	      
-	      switch (pass)
-		{
-		case 1: /* sub lib */
-		  qq2 = "r#Sublibrary_of" ;
-		  break ;
-		case 2: /* Runs */
-		  qq2 = "(NOT r#Union_of AND NOT r#Sublibrary_of)" ;
-		  break ;
-		case 3: /* groups */
-		  qq2 = "r#Union_of" ;
-		  break ;
-		}
-		  
-	      if (cqrj) {*cqrj = 0 ; cqrj++ ; }
-	      qq = hprintf (h," select t,r  from p in class project where p == \"%s\", r in p->run where (NOT r#Private AND (r#Is_group OR r#IS_run OR r#Sublibraries) AND %s), t in r->%s", cprj, qq2, qc->orderBy) ;
-	      
-	      tt = ac_bql_table (qc->db, qq, 0, 0, &errors, h) ;
-	      for (ir = 0 ; tt && ir < (tt->rows) ; ir++)
-		{
-		  AC_HANDLE h1 = ac_new_handle () ;
-		  AC_OBJ run2 = 0 ;
-		  run = ac_table_obj (tt, ir, 1, h1) ;
-		 
-		  if (run)
-		    {
-		      RC *rc = arrayp (qc->runs, nr++, RC) ;
-		      rc->run = run ;
-		      rc->h = h1 ;
-		      run2 = ac_objquery_obj (run, "COUNT {>ali; SLS == SL*} > 0", h1) ;
-		      if (run2 )
-			qc->hasSL = TRUE ;		      
-		    }
-		  else
-		    ac_free (h1) ;
-		}
-	      ac_free (h) ;
-	      cprj = cqrj ;
-	    }
-	}
+      qq = hprintf (h, "select r, t from p in ?project where p == \"%s\" , r in p->run where r ISA runs, t in r->%s", tsnp->project, tsnp->orderBy) ;
+      tsnp->truns = ac_bql_table (tsnp->db
+				  , qq
+				  , 0
+				  , "+2"
+				  , &errors
+				  , tsnp->h
+				  ) ;
+      qq = hprintf (h, "select r, t from p in ?project where p == \"%s\", r in p->run where r ISA Groups, t in r->%s", tsnp->project, tsnp->orderBy) ;
+      tsnp->groups = ac_bql_table (tsnp->db
+				   , qq
+				   , 0
+				   , "+2"
+				   , &errors
+				   , tsnp->h
+				   ) ;
     }
- 
-  fprintf (stderr, " qcGetRuns got %d runs in project %s\n", nr, qc->project) ;
-     
-  return nr ;
-} /* qcGetRuns */
+  tsnp->snps = ac_bql_table (tsnp->db
+			     , tsnp->snpType == 3 ? "select s from s in ?Variant where s#danli_counts " : "select s from s in ?Variant  "
+			     , 0
+			     , 0
+			     , &errors
+			     , tsnp->h
+			     ) ;
+  
+  ns = tsnp->snps ? tsnp->snps->rows : 0  ;
+  
+  fprintf (stderr, " snpGetSnps got %d snps, %d runs , %d groups in project %s\n"
+	   , ns
+	   , tsnp->truns ? tsnp->truns->rows : 0 
+	   , tsnp->groups ? tsnp->groups->rows : 0 
+	   , tsnp->project
+	   ) ;
+  
+  ac_free (h) ;
+  return ns ;
+} /* snpGetSnpsRunsGroups */
 
 /*************************************************************************************/
 
-static void qcExportHeader (QC *qc)
+static void snpExportHeader (TSNP *snp)
 {
-  aceOutf (qc->ao, "## Project %s, quality control report, File %s : %s\n"
-	   , qc->project
-	   , aceOutFileName (qc->ao)
+  aceOutf (snp->ao, "## Project %s, quality control report, File %s : %s\n"
+	   , snp->project
+	   , aceOutFileName (snp->ao)
 	   , timeShowNow () 
 	   ) ;
 
   return ;
-} /* qcExportHeader */
+} /* snpExportHeader */
 
 /*************************************************************************************/
 /***************************** Public interface **************************************/
@@ -5929,69 +6346,45 @@ static void usage (char *message)
 {
   if (! message)
   fprintf  (stderr,
-	    "// qcsummary: complete Quality Control summary for the Magic pipeline\n"
-	    "// Authors: Danielle and Jean Thierry-Mieg, NCBI, October 2014, mieg@ncbi.nlm.nih.gov\n"
+	    "// snpsummary: complete SNP summary for the Magic pipeline\n"
+	    "// Authors: Danielle and Jean Thierry-Mieg, NCBI, October 2022, mieg@ncbi.nlm.nih.gov\n"
 	    "// Purpose\n"
 	    "// Given a project name\n"
-	    "//    import all data from MetaDB, export a single QC table\n"
-	    "//    one line per run, groups of columns for each export option\n"
-	    "//    a smaller table can be obtained using -O and -run options\n"
+	    "//    import all data from TSNP_DB, export a single SNP table\n"
+	    "//    one line per snp, with snp-metadata, then groups or runs counts in comulm chapters\n"
+	    "//    a smaller table can be obtained using different options\n"
 	    "//\n"
 	    "// Syntax:\n"
-	    "// qcsummary -project <project> [options]\n"
-	    "//   projectName MANDATORY export qc for all runs in this project (usually $MAGIC)\n" 
+	    "// snpsummary -db <dir> [options]\n"
+	    "//   -db <dir>: snp-database directory (usually: tmp/TSNP_DB/$zone)\n"
 	    "// All other parameters are optional and may be specified in any order\n"
-	    "//   -db <dir>: MetaDB directory (default MetaDB)\n" 
+	    "//   -project <projectName> export counts to runs and groups belonging to the project (usually $MAGIC)\n" 
+	    "//      default : only export the identifiers\n"
 	    "//   -o output_file_prefix\n"
 	    "//      all exported files will be named output_file_prefix.action\n" 
             "//   -gzo : gzip all output files\n"
 	    "//   -export [TPbafpmg...] : only export some groups of columns, in the requested order\n"
 	    "//      default: if -export is not specified, export all columns in default order\n"
-	    "//            E: main Results1\n"
-	    "//            H:  High genes\n"
-	    "//            R: main Results2\n"
-	    "//            3: main Results3\n"
-	    "//            T:  Titles\n"
-	    "//            P:  Protocol\n"
-	    "//            b:  BeforeAli\n"
-	    "//            t:  Telomeric/poly-A motifs\n"
-	    "//            C: CPU and RAM usage\n"
-	    "//            i: Micro-RNA\n"
-	    "//            a:  Ali\n"
-	    "//            f:  ReadFate\n" 
-	    "//            m:  MappingPerTarget\n"
-	    "//            p:  Pair\n" 
-	    "//            A:  Average aligned length\n"
-	    "//            d : strandedness\n"
-	    "//            M: Mismatch types\n"
-	    "//            K:  SNP coding\n"
-	    "//            s:  SNP types\n"
-	    "//            r:  Rejected SNP types\n"
-	    "//            3: 3p bias\n"
-	    "//            D:  Intergenic\n"
-	    "//            g:  GeneExpression\n"
-	    "//            I:  Candidate introns\n"
-	    "//            S:  SL1-12\n"
-	    "//            X:  Sex and tissue signatures\n"
-	    "//            U:  Intergenic2\n"
-	    "//            Z: Zhenxi\n"
-	    "//            V: capture\n"
-	    "//            o:  Other\n"
-	    "//   -orderBy <tag> : sort the lines by this tag\n"
+	    "//            M: snp identifiers\n"
+	    "//            g: groups counts\n"
+	    "//            G: groups allele frequencies\n"
+	    "//            r: runs counts\n"
+	    "//            R: runs allele frequencies\n"
+	    "//   -orderBy <tag> : sort the runs by this tag\n"
 	    "//      default: sorting_title\n"
 	    "//      Only export in that order the runs belonging to the project, present in this list\n"
 	    "//      Insert a blank line if the sorting value looks like A__B and A changes\n"
-	    "//   -runType [0,1,2,3] : which runs\n"
-	    "//       0 [default]: any run belonging to the project\n"
-	    "//       1 : just the sublibraries\n"
-	    "//       2 : just the runs (excluding type 1 and 3 )\n"
-	    "//       3: just the groups\n"
+	    "//   -snpType [0,1,2,3] : which runs\n"
+	    "//       0 [default]: any_snp\n"
+	    "//       1 : skip the rejected snps\n"
+	    "//       2 : only the rejected snps\n"
+	    "//       3 : only the DanLi snps\n"
 	    "// Caveat:\n"
 	    "//   Caption lines at the top start with a #\n"
 	    ) ;
   if (message)
     {
-      fprintf (stderr, "// %s\nFor more information try:  qcsummary -help\n", message) ;
+      fprintf (stderr, "// %s\nFor more information try:  snpsummary -help\n", message) ;
     }
   exit (1);
   
@@ -6001,76 +6394,75 @@ static void usage (char *message)
 
 int main (int argc, const char **argv)
 {
-  QC qc ;
+  TSNP tsnp ;
   AC_HANDLE h = 0 ;
-  int nr ;
+  int ns = 0 ;
 
   freeinit () ; 
   h = ac_new_handle () ;
-  memset (&qc, 0, sizeof (QC)) ;
-  qc.h = h ;
+  memset (&tsnp, 0, sizeof (TSNP)) ;
+  tsnp.h = h ;
   if (argc == 1 ||
       getCmdLineOption (&argc, argv, "-h", 0) ||
       getCmdLineOption (&argc, argv, "-help", 0) ||
       getCmdLineOption (&argc, argv, "--help", 0)
       )
     usage (0) ;
-  qc.dbName = "MetaDB" ;
-  getCmdLineOption (&argc, argv, "-db", &qc.dbName) ; 
+  tsnp.dbName = "NULL" ;
+  getCmdLineOption (&argc, argv, "-db", &tsnp.dbName) ; 
 
-  qc.export =  allMethods ;
-  getCmdLineOption (&argc, argv, "-export", &qc.export) ;
-  getCmdLineOption (&argc, argv, "-project", &qc.project) ;
-  getCmdLineInt (&argc, argv, "-runType", &qc.runType) ;
-  getCmdLineOption (&argc, argv, "-f", &qc.externalFiles) ;
-  if (! qc.project)
+  tsnp.export =  allMethods ;
+  tsnp.project = "NULL" ;
+  getCmdLineOption (&argc, argv, "-export", &tsnp.export) ;
+  getCmdLineOption (&argc, argv, "-project", &tsnp.project) ;
+  getCmdLineInt (&argc, argv, "-snpType", &tsnp.snpType) ;
+
+  tsnp.minSnpFrequency = 20 ;
+  tsnp.minSnpCover = 20 ;
+  getCmdLineInt (&argc, argv, "-minSnpFrequency", &tsnp.minSnpFrequency) ;
+  getCmdLineInt (&argc, argv, "-minSnpCover", &tsnp.minSnpCover) ;
+  if (! tsnp.dbName)
     {
-      fprintf (stderr, "Sorry, missing parameter -project, please try qcsummary -help\n") ;
+      fprintf (stderr, "Sorry, missing parameter -db, please try snpsummary -help\n") ;
       exit (1) ;
     }
-  if (! qc.dbName)
-    {
-      fprintf (stderr, "Sorry, missing parameter -db, please try qcsummary -help\n") ;
-      exit (1) ;
-    }
-  if (qc.dbName)
+  if (tsnp.dbName)
     {
       const char *errors ;
 
-      qc.db = ac_open_db (qc.dbName, &errors);
-      if (! qc.db)
+      tsnp.db = ac_open_db (tsnp.dbName, &errors);
+      if (! tsnp.db)
 	{
-	  fprintf (stderr, "Failed to open db %s, error %s", qc.dbName, errors) ;
+	  fprintf (stderr, "Failed to open db %s, error %s", tsnp.dbName, errors) ;
 	  exit (1) ;
 	}
     }
-  getCmdLineOption (&argc, argv, "-project", &qc.project) ;
-  qc.orderBy = "Sorting_title" ;
-  getCmdLineOption (&argc, argv, "-orderBy", &qc.orderBy) ;
+  getCmdLineOption (&argc, argv, "-project", &tsnp.project) ;
+  tsnp.orderBy = "Sorting_title" ;
+  getCmdLineOption (&argc, argv, "-orderBy", &tsnp.orderBy) ;
   
-  getCmdLineOption (&argc, argv, "-o", &qc.outFileName) ; 
-  qc.ao = aceOutCreate (qc.outFileName, ".Data_Summary.txt", qc.gzo, h) ;
-  if (! qc.ao)
-    messcrash ("cannot create output file %s\n", qc.outFileName ? qc.outFileName : EMPTY ) ;
+  getCmdLineOption (&argc, argv, "-o", &tsnp.outFileName) ; 
+  tsnp.ao = aceOutCreate (tsnp.outFileName, ".SNP_summary.txt", tsnp.gzo, h) ;
+  if (! tsnp.ao)
+    messcrash ("cannot create output file %s\n", tsnp.outFileName ? tsnp.outFileName : EMPTY ) ;
 
 
   if (argc > 1) usage (messprintf ("Unknown parameters %s", argv[1])) ;
 
-  qcGetEtargets (&qc) ;
+  snpGetEtargets (&tsnp) ; 
 
-  qcExportHeader (&qc) ;
+  snpExportHeader (&tsnp) ;
 
-  nr = qcGetRuns (&qc) ;
-  qcExportRun (&qc, 0, 0) ; /* chapter captions */
-  qcExportRun (&qc, 0, 1) ; /* column titles */
+  ns = snpGetSnpsRunsGroups (&tsnp) ;
+  snpExportSnp (&tsnp, 0, 0) ; /* chapter captions */
+  snpExportSnp (&tsnp, 0, 1) ; /* column titles */
 
-  if (nr)
+  if (ns)
     {
-      int irc ;
-      RC *rc ;
+      int iSnp ;
 
-      for (irc = 0, rc = arrp (qc.runs, 0, RC) ; irc < nr ; irc++, rc++)
-	qcExportRun (&qc, irc, 2) ;
+      for (iSnp = 0 ; iSnp < ns ; iSnp++)
+	snpExportSnp (&tsnp, iSnp, 2) ;
     }
   
   ac_free (h) ;

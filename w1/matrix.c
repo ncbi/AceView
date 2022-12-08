@@ -355,8 +355,9 @@ MX mxAdd (MX a, MX b, MX c, AC_HANDLE h)
 
 /**********************************************************************/
 
-MX mxSubstract (MX a, MX b, MX c, AC_HANDLE h)
+MX mxSubstract (MX b, MX c, AC_HANDLE h)
 {
+  MX a = 0 ;
   return mxLinearCombine (a, 1.0, b, - 1.0, c, h) ;
 }
 
