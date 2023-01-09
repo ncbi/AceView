@@ -558,25 +558,25 @@ static int niceInt (float x)
 
 static double nicePrintFraction (const char *prefix, double x, const char *suffix)
 {
-  int i = 10000 ;
+  int i = 1000000 ;
   int s = x >= 0 ? 1 : -1 ;
   
   x *= s ;
-  if (niceInt (10000*x) == 0)
+  if (niceInt (1000000*x) == 0)
     { x = 0 ; s = 1 ; }
   printf ("%s", prefix) ;
-  if (niceInt (10000*x) == 10000 * niceInt (x))
+  if (niceInt (1000000*x) == 1000000 * niceInt (x))
     printf ("%.0f", s*x) ;
   else
-    for (i = 2 ; i <= 720 ; i++)
-      if (niceInt (1000*i*x) == 1000 * niceInt (i*x))
+    for (i = 2 ; i <= 2048 ; i++)
+      if (niceInt (100000*i*x) == 100000 * niceInt (i*x))
 	{
 	  int y = i * x + .1 ;
 	  printf ("%d/%d", s*y, i) ;
-	  i = 10000 ;
+	  i = 1000000 ;
 	}
-  if (i < 10000)
-    printf ("%.3f", s*x) ;
+  if (i < 1000000)
+    printf ("%.5f", s*x) ;
   if (x != 0)
     printf ("%s", suffix) ;
 
@@ -852,7 +852,7 @@ static POLYNOME newAG (char a, char b, char c, char d, int parity)
       ppp[1]->tt.z /= 2 ;
 
       pp = ppp[2] = newEpsilon (a, b, c, d) ;
-      pp->tt.z = (I * parity ) / 4.0 ;
+      pp->tt.z = (parity ) / 4.0 ;             /* I * parity,  in Minkovski */
       if (parity == 2 || parity == -2)
 	return pp ;
     }
@@ -1178,7 +1178,7 @@ static int indexTtSort (char *cp, int dx, int sign)
 
 /***********************************************************************************************************************************************/
 /* Einstein contraction rules */
-static TT contractTtIndices (POLYNOME pp)
+static POLYNOME contractTtIndices (POLYNOME pp)
 {
   complex float zz = 1 ;
   TT tt = pp->tt ;
@@ -1253,7 +1253,7 @@ static TT contractTtIndices (POLYNOME pp)
 		    { s[j] = g[i] ; for (k = i ; k < GMAX - 2 ; k++) g[k] = g[k+2] ; g[k] = g[k+1] = 0 ; ok = FALSE ; }
 		}
 	  if (! ok) continue ;
-	  
+		  
 	  /* search repeated indices inside an epsilon */
 	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
 	    for (j = 0 ; j <= 2 ; j++)
@@ -1262,9 +1262,255 @@ static TT contractTtIndices (POLYNOME pp)
 		  if (s[i+j] == s[i+k])
 		    {
 		      tt.z = 0 ;
-		      return tt ;
+		      pp->tt = tt ;
+		      return pp ;
 		    }
 		}
+	  
+	  /* sort indices inside an epsilon */
+	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
+	    for (j = 0 ; j < 4 ; j++)
+	      for (k = j+1 ; k < 4 ; k++)
+		if (s[i+j] > s[i+k])
+		    {
+		      char cc = s[i+j] ;
+		      s[i+j] = s[i+k] ;
+		      s[i+k] = cc ;
+		      tt.z *= -1 ;
+		      j = 5 ; k = 5 ; i -= 4 ;
+		    }
+	
+
+	  /* search repeated indices between pairs of epsilon */
+	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
+	    for (j = i + 4 ; ok && s[j] && j < GMAX ; j+= 4)
+	      {
+		int kkk[4], lll[4] ;
+		int n = 0, k, l, kk ;
+		char e = 0, f = 0 ;
+		char e1 = 0, e2 = 0, f1 = 0, f2 = 0 ;
+		for (k = 0 ; k < 4 ; k++)
+		  { kkk[k] = lll[k] = 0 ; }
+		for (k = 0 ; k < 4 ; k++)
+		  {
+		    for (l = 0 ; l < 4 ; l++)
+		      if (s[i+k] == s[j+l])
+			{ n++ ; kkk[k] = l+1 ; lll[l] = k + 1 ; }
+		  }
+		switch (n)
+		  {
+		  case 0:
+		    break ;
+		  case 1:
+		    break ;
+		  case 2:
+		    /* idenify the non repeated indices */
+		    for (k = 0 ; k < 4 ; k++)
+		      if (kkk[k] == 0)
+			{
+			  if (! e1)
+			    e1 = s[i+k] ;
+			  else
+			    e2 = s[i+k] ;
+			}
+		    for (k = 0 ; k < 4 ; k++)
+		      if (lll[k] == 0)
+			{
+			  if (!f1)
+			    f1 = s[j+k] ;
+			  else
+			    f2 = s[j+k] ;
+			}
+		    g = tt.g ; l = 0 ;
+		    while (*g) { l++ ; g++ ;}
+		    *g++ = e1 ;
+		    *g++ = f1 ;
+		    *g++ = e2 ;
+		    *g++ = f2 ;
+		    *g++ = 0 ;
+
+		    tt.z *= 2 ; /* we contracted 2 indices */
+		    /* clean up the epsilons */
+		    for (k = j ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    for (k = i ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    ok = FALSE ;
+
+		    /* duplicate the polynome and anisymmetrize */
+		    POLYNOME p1 = newScalar (1) ;
+		    POLYNOME p2 = newScalar (1) ;
+
+		    p1->tt = tt ;
+		    p2->tt = tt ;
+		    p2->tt.g[l++] = e1 ;
+		    p2->tt.g[l++] = f2 ;
+		    p2->tt.g[l++] = e2 ;
+		    p2->tt.g[l++] = f1 ;
+
+		    p2->tt.z *= -1 ;
+		    POLYNOME p3 = newSum (p1, p2) ;
+		    ok = FALSE ;
+		    *pp = *p3 ;
+		    return pp ;
+
+		    break ;
+		  case 3:
+		    tt.z *= 6 ;
+
+		    /* idenify the non repeated indices */
+		    kk = 0 ;
+		    for (k = 0 ; k < 4 ; k++)
+		      if (kkk[k] == 0)
+			e = s[i+k] ;
+		    for (k = 0 ; k < 4 ; k++)
+		      if (lll[k] == 0)
+			f = s[j+k] ;
+		    g = tt.g ;
+		    while (*g) g++ ;
+		    *g++ = e ;
+		    *g++ = f ;
+		    *g++ = 0 ;
+		    if (kk % 2 == 1)
+		      tt.z *= -1 ;
+		    
+		    /* clean up the epsilons */
+		    for (k = j ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    for (k = i ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    ok = FALSE ;
+		    break ;
+		  case 4:
+		    tt.z *= 24 ;
+		    for (k = j ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    for (k = i ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+		    ok = FALSE ;
+		    break ;
+		  }
+	      }
+	  if (! ok) continue ;
+
+
+	  /* search repeated indices between pairs of pauli matrices and epsilon */
+	  for (i = 0, g = tt.sigma ; ok && g[i] && i < GMAX ; i++)
+	    for (j = 0, s = tt.eps ; ok && s[j] && j < GMAX ; j+= 4)
+	      {
+		int n = 0, k ;
+		for (k = 0 ; k < 4 ; k++)
+		  if (g[i] == s[j+k] || g[i+1] == s[j+k])
+		      n++ ;
+		if (n == 2) /* replace the pauli matrices and eliminate the epsilon */
+		  {
+		    POLYNOME p1, p2, p3 ;
+		    int e = 0, f = 0, kk = 0 ;
+		    tt.z *= 1 ;     /* I in Minkovski */
+		    if (g[i] > g[i+1])
+		      tt.z *= -1 ;
+		    for (k = 0 ; k < 4 ; k++)
+		      if (g[i] != s[j+k] && g[i+1] != s[j+k])
+			{
+			  if (e == 0)
+			    e = s[j+k] ;
+			  else
+			    f = s[j+k] ;
+			  kk += k ;
+			}
+		    if ((i+kk) % 2 == 0)
+		      tt.z *= -1 ;
+		    g[i] = e ;
+		    g[i+1] = f ;
+
+		    for (k = j ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+
+		    /* duplicate the polynome and anisymmetrize */
+		    p1 = newScalar (1) ;
+		    p2 = newScalar (1) ;
+
+		    p1->tt = tt ;
+		    p2->tt = tt ;
+		    p2->tt.sigma[i] = f ;
+		    p2->tt.sigma[i+1] = e;
+		    p2->tt.z *= -1 ;
+		    p3 = newSum (p1, p2) ;
+		    ok = FALSE ;
+		    *pp = *p3 ;
+		    return pp ;
+		    break ;
+		  }
+	      }
+	  if (! ok) continue ;
+
+
+
+	  /* search repeated indices between pairs of pauliBar matrices and epsilon */
+	  for (i = 0, g = tt.sigB ; ok && g[i] && i < GMAX ; i++)
+	    for (j = 0, s = tt.eps ; ok && s[j] && j < GMAX ; j+= 4)
+	      {
+		int n = 0, k ;
+		for (k = 0 ; k < 4 ; k++)
+		  if (g[i] == s[j+k] || g[i+1] == s[j+k])
+		      n++ ;
+		if (n == 2) /* replace the pauli matrices and eliminate the epsilon */
+		  {
+		    POLYNOME p1, p2, p3 ;
+		    int e = 0, f = 0, kk = 0 ;
+		    tt.z *= -1 ;    /* -I in Minkovski */
+		    if (g[i] > g[i+1])
+		      tt.z *= -1 ;
+		    for (k = 0 ; k < 4 ; k++)
+		      if (g[i] != s[j+k] && g[i+1] != s[j+k])
+			{
+			  if (e == 0)
+			    e = s[j+k] ;
+			  else
+			    f = s[j+k] ;
+			  kk += k ;
+			}
+		    if ((i+kk) % 2 == 0)
+		      tt.z *= -1 ;
+		    g[i] = e ;
+		    g[i+1] = f ;
+
+		    for (k = j ; k < GMAX - 4 ; k++)
+		      s[k] = s[k+4] ;
+		    for (; k < GMAX - 4 ; k++)
+		      s[k] = 0 ;
+
+		    p1 = newScalar (1) ;
+		    p2 = newScalar (1) ;
+
+		    p1->tt = tt ;
+		    p2->tt = tt ;
+		    p2->tt.sigB[i] = f ;
+		    p2->tt.sigB[i+1] = e;
+		    p2->tt.z *= -1 ;
+		    p3 = newSum (p1, p2) ;
+		    ok = FALSE ;
+		    *pp = *p3 ;
+		    return pp ;
+		    break ;
+		  }
+	      }
+	  if (! ok) continue ;
+
 
 	  /* search pairs of repeated indices between epsilon and momenta */
 	  for (ii = 0 ; ii < 3 ; ii++)
@@ -1279,7 +1525,8 @@ static TT contractTtIndices (POLYNOME pp)
 			  if (k != l && s[i+m] == u[l])
 			    {
 			      tt.z = 0 ;
-			      return tt ;
+			      pp->tt = tt ;
+			      return pp ;
 			    }
 		}
 	  /* search repeated indices in a pair of metrics, do one modif at a time */
@@ -1367,7 +1614,8 @@ static TT contractTtIndices (POLYNOME pp)
 	}
     }
   tt.z *= zz ;
-  return tt ;
+  pp->tt = tt ;
+  return pp ;
 }
 
 static POLYNOME contractIndices (POLYNOME pp)
@@ -1383,9 +1631,14 @@ static POLYNOME contractIndices (POLYNOME pp)
 
   if (pp->tt.type)
     {
-      pp->tt = contractTtIndices (pp) ;
-      if (pp->tt.z == 0)
-	return 0 ;
+      pp = contractTtIndices (pp) ;
+      if (pp->tt.type)
+	{
+	  if (pp->tt.z == 0)
+	    return 0 ;
+	}
+      else
+	pp = contractIndices (pp) ;
     }
   return pp ;
 }
@@ -2330,7 +2583,7 @@ static POLYNOME pauliTrace (POLYNOME pp)
       if (tt.Id2)
 	{
 	  pp->isFlat = FALSE ;
-	  pp->tt = contractTtIndices (pp) ;
+	  pp = contractTtIndices (pp) ;
 	  pp = pauliTraceTT (pp) ;
 	}
       if (pp && pp->tt.type && cabs (pp->tt.z) < minAbs)
@@ -3371,94 +3624,62 @@ static POLYNOME dimIntegral (POLYNOME p0)
 
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
-/* New vertex A BB H and A H BB */
+/* New vertex A B HB and A H BB */
 static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b, momentum of the incoming photon */
 {
-  POLYNOME pp1, pp2, pp, ppp[6] ; 
+  POLYNOME pp, ppp[6] ; 
   int nn = 0 ; 
+  char c = newDummyIndex () ;
+  char d = newDummyIndex () ;
+  int z = -1 ;
   
   nn = 0 ;
-  if (mm[0]) { pp = newK (b) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
-  if (mm[1]) { pp = newP (b) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
-  if (mm[2]) { pp = newQ (b) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
-  if (mm[3]) { pp = newR (b) ; pp->tt.z = mm[3] ; ppp[nn++] = pp ; }
+  if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
+  if (mm[1]) { pp = newP (c) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
+  if (mm[2]) { pp = newQ (c) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
+  if (mm[3]) { pp = newR (c) ; pp->tt.z = mm[3] ; ppp[nn++] = pp ; }
   ppp[nn++] = 0 ;
 
   pp = newMultiSum (ppp) ;
   nn = 0 ;
   if (0) ppp[nn++] = newScalar (4) ;
   ppp[nn++] = pp ;
-  ppp[nn++] = newG (mu, a) ;
+  ppp[nn++] = newG (mu, d) ;
+  ppp[nn++] = newAG (a,b,c,d,z) ;
   ppp[nn++] = 0 ;
   
   pp = newMultiProduct (ppp) ;
-  pp1 = pp ;
-  
-  nn = 0 ;
-  if (mm[0]) { pp = newK (a) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
-  if (mm[1]) { pp = newP (a) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
-  if (mm[2]) { pp = newQ (a) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
-  if (mm[3]) { pp = newR (a) ; pp->tt.z = mm[3] ; ppp[nn++] = pp ; }
-  ppp[nn++] = 0 ;
-
-  pp = newMultiSum (ppp) ;
-  nn = 0 ;
-  if (0) ppp[nn++] = newScalar (4) ;
-  ppp[nn++] = pp ;
-  ppp[nn++] = newG (mu, b) ;
-  ppp[nn++] = newScalar (-1) ;
-  ppp[nn++] = 0 ;
-  
-  pp = newMultiProduct (ppp) ;
-  pp2 = pp ;
-
-  nn = 0 ;
-  ppp[nn++] = pp1 ;
-  ppp[nn++] = pp2 ;
-  ppp[nn++] = 0 ;
-
-  pp = newMultiSum (ppp) ;
  return pp ;
 } /* vertex_A_B_HB */
 
-/***********************************************************************************************************************************************/
-/* New vertex A BB H and A H BB */
-static POLYNOME vertex_A_H_BB_do (char mu, char a, char b, int mm[4], int z) /* momentum of the incoming mu-photon */
-{
- POLYNOME pp, ppp[6] ; 
-  int nn = 0 ; 
-  
-  char c = newDummyIndex () ;
-  char d = newDummyIndex () ;
-
-  if (mm[0]) { pp = newK (d) ; pp->tt.z = z * mm[0] ; ppp[nn++] = pp ; }
-  if (mm[1]) { pp = newP (d) ; pp->tt.z = z * mm[1] ; ppp[nn++] = pp ; }
-  if (mm[2]) { pp = newQ (d) ; pp->tt.z = z * mm[2] ; ppp[nn++] = pp ; }
-  if (mm[3]) { pp = newR (d) ; pp->tt.z = z * mm[3] ; ppp[nn++] = pp ; }
-  ppp[nn++] = 0 ;
-
-  pp = newMultiSum (ppp) ;
-  return pp ;
-  
-  nn = 0 ;
-  if (0) ppp[nn++] = newScalar (4) ;
-  ppp[nn++] = pp ;
-  ppp[nn++] = newG (mu, c) ;
-  ppp[nn++] = newEpsilon (a,b,c,d) ;
-  ppp[nn++] = 0 ;
-  
-  pp = newMultiProduct (ppp) ;
-  
-
-  return pp ;
-} /* vertex_A_B_HB _do */
+/**************************************************/
 
 static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum of the incoming mu-photon */
 {
-  POLYNOME p1 = vertex_A_H_BB_do (mu, a, b, mm, 1) ;
-  return p1 ;
-  POLYNOME p2 = vertex_A_H_BB_do (mu, b, a, mm, -1) ;
-  return newSum (p1, p2) ;
+  POLYNOME pp, ppp[6] ; 
+  int nn = 0 ; 
+  char c = newDummyIndex () ;
+  char d = newDummyIndex () ;
+  int z = 1 ;
+  
+  nn = 0 ;
+  if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
+  if (mm[1]) { pp = newP (c) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
+  if (mm[2]) { pp = newQ (c) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
+  if (mm[3]) { pp = newR (c) ; pp->tt.z = mm[3] ; ppp[nn++] = pp ; }
+  ppp[nn++] = 0 ;
+
+  pp = newMultiSum (ppp) ;
+  nn = 0 ;
+  if (0) ppp[nn++] = newScalar (4) ;
+  ppp[nn++] = pp ;
+  ppp[nn++] = newG (mu, d) ;
+  ppp[nn++] = newAG (a,b,c,d,z) ;
+  ppp[nn++] = 0 ;
+  
+  pp = newMultiProduct (ppp) ;
+
+  return pp ;
 } /* vertex_A_B_HB  */
 
 /***********************************************************************************************************************************************/
@@ -3689,7 +3910,7 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   char b = newDummyIndex () ;
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
-  int z = 0 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
+  int z = 1 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
 
   POLYNOME p1 = newAG (mu,nu,a,b, z) ;
   if (0) p1 = newEpsilon (mu, nu, a,b) ;
@@ -3764,19 +3985,25 @@ static POLYNOME prop_PsiLB_PsiL (int pqr)
 
 static POLYNOME pauliCleanUp (POLYNOME pp)
 {
-  char w = newDummyIndex () ;
-  POLYNOME p1 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigB (w) : newSigma (w) ;
-  POLYNOME p2 = newProduct (p1, pp) ;
-  POLYNOME p3 = expand (p2) ;
-  POLYNOME p4 = pauliTrace (p3) ;
-  POLYNOME p5 = expand (p4) ;
-  POLYNOME p6 = contractIndices (p5) ;
-  POLYNOME p7 = newProduct (p1, p6) ;
-  POLYNOME p8 = expand (p7) ;
-  POLYNOME p9 = contractIndices (p8) ;
-  POLYNOME p10 = expand (p9) ;
-  if (p10) p10->tt.z /= 2 ;
- return p10 ;
+  if (pp->tt.type)
+    {
+      char w = newDummyIndex () ;
+      POLYNOME p1 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigB (w) : newSigma (w) ;
+      POLYNOME p11 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigma (w) : newSigB (w) ;
+      POLYNOME p2 = newProduct (p1, pp) ;
+      POLYNOME p3 = expand (p2) ;
+      POLYNOME p4 = pauliTrace (p3) ;
+      POLYNOME p5 = expand (p4) ;
+      POLYNOME p6 = contractIndices (p5) ;
+      POLYNOME p7 = newProduct (p11, p6) ;
+      POLYNOME p8 = expand (p7) ;
+      POLYNOME p9 = contractIndices (p8) ;
+      POLYNOME p10 = expand (p9) ;
+      if (p10) p10->tt.z /= 2 ;
+      p10 = reduceIndices (p10) ;
+      return p10 ;
+    }
+  return pp ;
 }
 
 /***********************************************************************************************************************************************/
@@ -3811,6 +4038,9 @@ static POLYNOME Z2_AA_loopH  (const char *title)
   showPol (pp) ;
   printf ("### Z2 AA loop H expect ::  je_sais_pas * p-slash\n") ;
   showPol (pp) ;
+  pp = pauliCleanUp (pp) ;
+  showPol(pp) ;
+
   printf ("DONE %s\n", title) ;
 
   return pp ;
@@ -4298,32 +4528,11 @@ static POLYNOME Z2_PsiL__B_Psi (const char *title)
   showPol (pp) ;
   printf ("### Z2 Psi left avec B_mu_nu under, expect ::  je_sais_pas * p-slash\n") ;
   showPol (pp) ;
-  printf ("Z2_  done\n\n") ;
+  printf ("...... Pauli cleanUp \n") ;
+  pp = pauliCleanUp (pp) ;
+  showPol(pp) ;
 
-  firstDummyIndex = 'a' ;
-  p1 = newSigma (mu) ; 
-  p1->tt.sigma[1] = nu ;
-  p3 = newSigB (nu) ; 
-  p3->tt.sigB[1] = rho ;
-  p1->tt.mm[0][0] = mu ;
-  p1->tt.mm[0][1] = rho ;
-  p1->tt.denom[0] = 2 ;
-  p2 = prop_PsiLB_PsiL (1) ; /* (1/(k+p)^2 */
-  ppp[0] = p1 ;
-  ppp[1] = p2 ;
-  ppp[2] = p3 ;
-  ppp[3] = 0  ;
-  pp = newMultiProduct (ppp) ;
-  showPol(pp) ;
-  pp = expand (pp) ;
-  showPol (pp) ;
-  pp = contractIndices (pp) ;
-  showPol(pp) ;
-  pp = dimIntegral (pp) ;
-  showPol(pp) ;
-  pp = contractIndices (pp) ;
-  printf ("### Z2 Psi left avec B_mu_nu under expect ?  p-slash\n") ; 
-  showPol(pp) ;
+  printf ("Z2_  done\n\n") ;
 
   return pp ;
 }
@@ -5901,6 +6110,7 @@ static POLYNOME Z3_A_H_BB__loopABH (void)
     
 
   POLYNOME p1 = vertex_A_B_HB (a,h,i,mmA1) ;
+  
   POLYNOME p2 = vertex_A_H_BB (d,f,g,mmA2) ;
   POLYNOME p3 = vertex_A_H_BB (e,b,c,mmA3) ;
   POLYNOME p12 = prop_BB_B (f,g,h,i,0) ;   /* (1/(k+p)^2 */ 
@@ -5913,15 +6123,15 @@ static POLYNOME Z3_A_H_BB__loopABH (void)
 
   POLYNOME PP = contractIndices(newMultiProduct (pppP)) ;
 
-  printf ("############# Z3 A A A with psi loop\n") ;
   showPol (PP) ;
 
   PP = dimIntegral (PP) ;
   showPol (PP) ;
-  /*
+  
+  char n = newDummyIndex () ;
   PP = momentaCleanUp (PP, n) ;
   PP = expand (PP) ;
-  */
+
   printf ("### Z3  A_H_BB with psi boson loop, expect g_ac (p)_b + .. + ..\n") ;
   showPol (PP) ;
 
@@ -13234,9 +13444,88 @@ int main (int argc, const char **argv)
       if (0) feynmanDiagrams () ;   /* propagators with Fermion loop */
       
 
+      /* projector tests */
+      if (0)
+	{
+	  firstDummyIndex = 'a' ;
+	  char a = newDummyIndex () ;
+	  char b = newDummyIndex () ;
+	  char c = newDummyIndex () ;
+	  char d = newDummyIndex () ;
+	  char e = newDummyIndex () ;
+	  char f = newDummyIndex () ;
+	  char g = newDummyIndex () ;
+	  char h = newDummyIndex () ;
+	  int z ;
+
+	  for (z = -1 ; z < 3 ; z++)
+	    {
+	      printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
+	      POLYNOME p1 = newAG (a, b, c, d, z) ;
+	      POLYNOME p2 = newAG (c, d, e, f, z) ;
+	      POLYNOME pp = newProduct (p1, p2) ;
+	      showPol (pp) ;
+	      pp = expand (pp) ;
+	      showPol (pp) ;
+	    }
+	  for (z = -1 ; z < 3 ; z++)
+	    {
+	      printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
+	      POLYNOME p1 = newAG (a, b, c, d, z) ;
+	      POLYNOME p2 = newScalar (1) ;
+	      strcpy (p2->tt.sigma, "ecd") ;
+	      POLYNOME pp = newProduct (p1, p2) ;
+	      showPol (pp) ;
+	      pp = expand (pp) ;
+	      showPol (pp) ;
+	    }
+	  for (z = -1 ; z < 3 ; z++)
+	    {
+	      printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
+	      POLYNOME p1 = newAG (a, b, c, d, z) ;
+	      POLYNOME p2 = newScalar (1) ;
+	      strcpy (p2->tt.sigB, "cd") ;
+	      POLYNOME pp = newProduct (p1, p2) ;
+	      showPol (pp) ;
+	      pp = expand (pp) ;
+	      showPol (pp) ;
+	    }
+
+	  
+	  for (z = -1 ; z < 3 ; z++)
+	    {
+	      printf ("\n\n\n@@@@@@@@@ Projector tests A_psiB_psi B under z = %d\n", z) ;
+	      POLYNOME p1 = newAG (a, b, c, d, z) ;
+	      POLYNOME p2 = newScalar (1) ;
+	      strcpy (p2->tt.sigma, "abfefcd") ;
+	      POLYNOME pp = newProduct (p1, p2) ;
+	      showPol (pp) ;
+	      pp = expand (pp) ;
+	      showPol (pp) ;
+	    }
+
+	  for (z = -1 ; z < 3 ; z++)
+	    {
+	      printf ("\n\n\n@@@@@@@@@ Projector tests A_psiB_psi B under z = %d\n", z) ;
+	      POLYNOME p1 = newAG (a, b, e, h, z) ;
+	      POLYNOME p2 = newAG (c, d, g, h, -z) ;
+	      POLYNOME p3 = newScalar (1) ;
+	      strcpy (p3->tt.sigma, "abgfecd") ;
+	      POLYNOME ppp[] = {p1, p2, p3, 0} ;
+	      POLYNOME pp = newMultiProduct (ppp) ;
+	      showPol (pp) ;
+	      pp = expand (pp) ;
+	      showPol (pp) ;
+	    }
+
+	  
+	  printf ("\n\n\n@@@@@@@@@ Projector tests DONE\n") ;
+	  exit (0) ;
+	}
+
       /* pure gauge theory, no fermions, attempt to verify the vector coupling to scalars and tensors */
       
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  if (1) Z2_PsiL__A_Psi ("######### Fermion propagator, Vector under\n") ;
