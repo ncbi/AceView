@@ -3632,8 +3632,10 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   int z = -1 ;
+  BOOL useProjector = TRUE ;
   
   nn = 0 ;
+  if (! useProjector) { c = a ; d = b ; }
   if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
   if (mm[1]) { pp = newP (c) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
   if (mm[2]) { pp = newQ (c) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
@@ -3645,11 +3647,13 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
   if (0) ppp[nn++] = newScalar (4) ;
   ppp[nn++] = pp ;
   ppp[nn++] = newG (mu, d) ;
-  ppp[nn++] = newAG (a,b,c,d,z) ;
+  if (useProjector) ppp[nn++] = newAG (a,b,c,d,z) ;
   ppp[nn++] = 0 ;
+
   
   pp = newMultiProduct (ppp) ;
  return pp ;
+ 
 } /* vertex_A_B_HB */
 
 /**************************************************/
@@ -3661,8 +3665,10 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   int z = 1 ;
+  BOOL useProjector = FALSE ;
   
   nn = 0 ;
+  if (! useProjector) { c = a ; d = b ; }
   if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
   if (mm[1]) { pp = newP (c) ; pp->tt.z = mm[1] ; ppp[nn++] = pp ; }
   if (mm[2]) { pp = newQ (c) ; pp->tt.z = mm[2] ; ppp[nn++] = pp ; }
@@ -3674,7 +3680,7 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
   if (0) ppp[nn++] = newScalar (4) ;
   ppp[nn++] = pp ;
   ppp[nn++] = newG (mu, d) ;
-  ppp[nn++] = newAG (a,b,c,d,z) ;
+  if (useProjector) ppp[nn++] = newAG (a,b,c,d,z) ;
   ppp[nn++] = 0 ;
   
   pp = newMultiProduct (ppp) ;
@@ -4314,14 +4320,15 @@ static POLYNOME Z2_HH_loopAB (const char *title)
   char e = newDummyIndex () ;
   char f = newDummyIndex () ;
   char n = newDummyIndex () ;
-  int m1[4] = {-1,-1,0,0} ; /* -p - k : incoming A momentum */
-  int m2[4] = {1,1,0,0} ; /* p + k : vertex */
+  int m1[4] = {0, -1,0,0} ; /* -p - k : incoming A momentum */
+  int m2[4] = {0,1,0,0} ; /* p + k : vertex */
   
   POLYNOME p1 = vertex_A_H_BB (a,c,d,m1) ; /*(2k + p)_mu */
   POLYNOME p2 = prop_BB_B (c,d,e,f,0) ;   /* (1/(p+k)^2 */
   POLYNOME p3 = vertex_A_B_HB (b,e,f, m2) ; /* (2k + p)_mu */prop_PsiRB_PsiR (1) ; /* (1/(k+p)^2 */
   POLYNOME p4 = prop_AL (b,a,1) ;   /* (1/(k)^2 */
-  POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
+  POLYNOME ppp[] = {p1,p2,p3,p4,0} ; 
+  /* POLYNOME ppp[] = {p2,p3,0} ; */
 
   POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
 
