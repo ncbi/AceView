@@ -78,8 +78,6 @@ static POLYNOME squareMomentaCleanUp (POLYNOME pp, char alpha) ;
 static POLYNOME dimIntegralDo (POLYNOME pp, int pass) ;
 static BOOL freeIndex (POLYNOME pp) ;
 
-static BOOL EPS1 = TRUE ;
-
 /***********************************************************************************************************************************************/
 /* find the polynome equal to the sum n=0 to N of the n^k */
 static void powerSum (void)
@@ -3568,7 +3566,7 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
 
   pp = newMultiSum (ppp) ;
   nn = 0 ;
-  if (0) ppp[nn++] = newScalar (4) ;
+  ppp[nn++] = newScalar (I) ;
   ppp[nn++] = pp ;
   ppp[nn++] = newG (mu, d) ;
   if (useProjector) ppp[nn++] = newAG (a,b,c,d,z) ;
@@ -3576,7 +3574,7 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
 
   
   pp = newMultiProduct (ppp) ;
-  pp->tt.z *= I ;
+
   return pp ; 
 } /* vertex_A_B_HB */
 
@@ -3601,14 +3599,14 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
 
   pp = newMultiSum (ppp) ;
   nn = 0 ;
-  if (0) ppp[nn++] = newScalar (4) ;
+  ppp[nn++] = newScalar (I) ;
   ppp[nn++] = pp ;
   ppp[nn++] = newG (mu, d) ;
   if (useProjector) ppp[nn++] = newAG (a,b,c,d,z) ;
   ppp[nn++] = 0 ;
   
   pp = newMultiProduct (ppp) ;
-  pp->tt.z *= I ;
+  
   return pp ;
 } /* vertex_A_B_HB  */
 
@@ -3687,7 +3685,7 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
 /* This vertex is by itelf self dual */
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
-  int u = 2 ; 
+  int u = 4 ; 
   int X = 0 ; /* 1 */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
@@ -3704,7 +3702,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 /* This vertex is by itelf anti self dual */
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
-  int u = 2 ;
+  int u = 4 ;
   int X = 0 ; /* -1 */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
@@ -3742,7 +3740,7 @@ static POLYNOME vertex_A_PsiL_PsiLB (char mu)
 static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
   POLYNOME p = newScalar (1) ;
-  p->tt.z *= I ;
+  p->tt.z *= 2*I/3 ;
   return p ;
 }
 
@@ -5140,7 +5138,7 @@ static POLYNOME Z3_ABH__loopPsiL (const char *title)
   PP = reduceIndices (PP) ;
   if (0) showPol (PP) ;
   PP = expand(PP) ;
-  printf ("### Z3 A B HB with psi loop L, expect (-p: we deribe the incoming vector\n") ;
+  printf ("### Z3 A B HB with psi loop L, expect (-p: we derive the incoming vector\n") ;
   showPol (PP) ;
 
   return PP ;
@@ -5155,41 +5153,66 @@ static POLYNOME Z3_ABB__loopPsiL (const char *title)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   char e = newDummyIndex () ;
+  
+  char m = newDummyIndex () ;
+  char n = newDummyIndex () ;
+  char o = newDummyIndex () ;
+  char p = newDummyIndex () ;
 
+  int mm1[4] = {0, 1, 0, 0} ;
+  int mm2[4] = {0, 0, 1, 0} ;
+  
   /* set q == 0 */
-  POLYNOME p10 = newScalar (1) ; /* backward Fermion loop */
+  POLYNOME p10 = newScalar (-1) ; /* Fermion loop */
   POLYNOME p11 = prop_PsiLB_PsiL (0) ;   /* (1/(k)^2 */ 
   POLYNOME p12 = vertex_A_PsiL_PsiLB (a) ;
   POLYNOME p13 = prop_PsiLB_PsiL (1) ;   /* (1/(k+p)^2 */
   POLYNOME p14 = vertex_B_PsiR_PsiLB (b,c) ;
-  POLYNOME p15 = prop_PsiRB_PsiR (2) ;   /* (1/(k+p+q)^2 */ 
+  POLYNOME p15 = prop_PsiRB_PsiR (1) ;   /* (1/(k+p+q)^2 */ 
   POLYNOME p16 = vertex_BB_PsiL_PsiRB (d,e) ;
+  POLYNOME p20 = vertex_A_B_BB (a, b,c,d,e, mm1, mm2) ;
   
-  POLYNOME pppP[] = {p10, p11,p12,p13,p14,p15,p16,0} ;
+  POLYNOME ppp[] = {p10, p11,p12,p13,p14,p15,p16,0} ;
 
-  EPS1 = 0 ;
-  POLYNOME PP = contractIndices(newMultiProduct (pppP)) ;
+  POLYNOME PP = newMultiProduct (ppp) ;
 
+  p20 = expand (p20) ;
+  
   printf ("\n\n%s\n", title) ;
-  printf ("############# Z3 A B HB with psi loop L\n") ;
+  printf ("############# Z3 A B BB raw vertex\n") ;
+  showPol (p20) ;
+  printf ("############# Z3 A B BB with psi loop L\n") ;
+  PP = expand(PP) ;
+  PP = expand(PP) ;
   showPol (PP) ;
 
   PP = dimIntegral (PP) ;
   if (0) showPol (PP) ;
   PP = expand(PP) ;
   PP = reduceIndices (PP) ;
-  if (0) showPol (PP) ;
+  if (1) showPol (PP) ;
   printf ("# trace the pauli matrix :\n ") ;
+  exit (0) ;
   PP = pauliTrace (PP) ;
   if (0) showPol (PP) ;
   PP = expand(PP) ;
-  PP = reduceIndices (PP) ;
+  if (0) PP = reduceIndices (PP) ;
   if (0) showPol (PP) ;
-  EPS1 = 1 ;
   PP = expand(PP) ;
-  printf ("### Z3 A B HB with psi loop L, expect (-p: we deribe the incoming vector\n") ;
+  PP = expand(PP) ;
   showPol (PP) ;
-
+  ppp[0] = newSigma (b) ;
+  ppp[0]->tt.sigma[1] = c ;
+  ppp[1] = PP ;
+  ppp[2] = newSigma (d) ;
+  ppp[2]->tt.sigB[1] = e ;
+  ppp[3] = 0 ;
+  
+  printf ("### Z3 A B BB with psi loop L, expect 2p+q\n") ;
+  PP = newMultiProduct (ppp) ;
+  PP = expand(PP) ;
+  showPol (PP) ;
+  
   return PP ;
 } /* Z3_ABB__loopPsiL */
 
@@ -5224,7 +5247,7 @@ static POLYNOME Z3_ABB__loopPsiR (const char *title)
 
   POLYNOME PP = contractIndices(newMultiProduct (pppP)) ;
 
-  printf ("############# Z3 A B HB with psi loop L\n") ;
+  printf ("############# Z3 A B BB with right psi loop L\n") ;
   showPol (PP) ;
 
   PP = expand(PP) ;
@@ -5242,7 +5265,8 @@ static POLYNOME Z3_ABB__loopPsiR (const char *title)
   PP = reduceIndices (PP) ;
   if (0) showPol (PP) ;
   PP = expand(PP) ;
-  printf ("### Z3 A B HB with psi loop L, expect (-p: we deribe the incoming vector\n") ;
+  PP = expand(PP) ;
+  printf ("### Z3 A B BB with psi loop R, expect 2p+q\n") ;
   showPol (PP) ;
 
   return PP ;
@@ -12530,7 +12554,6 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
-	      exit (0) ;
 	    }
 	  for (z = -1 ; z < 3 ; z++)
 	    {
@@ -12666,49 +12689,49 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      
 	    }
-	}
-      exit (0) ;
-    }
-  if (0) /* verify some Pauli contractions */
-    {
-      if (0) /* verify the Pauli trace */
-	{
-	  POLYNOME pp = newSigma('a') ;
-	  strcpy (pp->tt.sigma,"abcd") ;
-	  showPol (pp) ;
-	  pp = pauliTrace(pp) ;
-	  showPol (pp) ;
-	  pp = newSigma('a') ;
-	  strcpy (pp->tt.sigma,"jefghi") ;
-	  showPol (pp) ;
-	  pp = pauliTrace(pp) ;
-	  showPol (pp) ;
+	  exit (0) ;
 	}
 
-      if (0)
+      if (0) /* verify some Pauli contractions */
 	{
+	  if (0) /* verify the Pauli trace */
+	    {
+	      POLYNOME pp = newSigma('a') ;
+	      strcpy (pp->tt.sigma,"abcd") ;
+	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+	      pp = newSigma('a') ;
+	      strcpy (pp->tt.sigma,"jefghi") ;
+	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+	    }
+	  
+	  if (0)
+	    {
+	      POLYNOME pp = newSigB ('e') ;
+	      strcpy (pp->tt.sigB,"jefghi") ;
+	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+	      
+	      pp = newSigB ('e') ;
+	      strcpy (pp->tt.sigB,"jefghi") ;
+	      strcpy(pp->tt.mm[1],"gj") ;
+	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+	    }
 	  POLYNOME pp = newSigB ('e') ;
 	  strcpy (pp->tt.sigB,"jefghi") ;
-	  showPol (pp) ;
-	  pp = pauliTrace(pp) ;
-	  showPol (pp) ;
-	  
-	  pp = newSigB ('e') ;
-	  strcpy (pp->tt.sigB,"jefghi") ;
 	  strcpy(pp->tt.mm[1],"gj") ;
+	  strcpy(pp->tt.eps,"abefcdhi") ;
 	  showPol (pp) ;
 	  pp = pauliTrace(pp) ;
 	  showPol (pp) ;
 	}
-      POLYNOME pp = newSigB ('e') ;
-      strcpy (pp->tt.sigB,"jefghi") ;
-      strcpy(pp->tt.mm[1],"gj") ;
-      strcpy(pp->tt.eps,"abefcdhi") ;
-      showPol (pp) ;
-      pp = pauliTrace(pp) ;
-      showPol (pp) ;
-    }
-
+      
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
       if (0)
@@ -12791,7 +12814,7 @@ int main (int argc, const char **argv)
 	}
 
       /* propagators */
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -12806,7 +12829,8 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-      /* vector interactions with the scalar-vecot-tensor Fermion loop */
+      
+      /* vector interactions with the scalar-vector-tensor Fermion loop */
       if (1)
 	{
 	  firstDummyIndex = 'a' ;
@@ -12827,7 +12851,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
@@ -12970,23 +12994,21 @@ int main (int argc, const char **argv)
 	    }
 	  exit (0) ;
 	}
-
-	exit (0) ;
-      
+    }
 #ifdef JUNK
-
-	/* triangles which only exist in the non-Abelian (non su(1/1) case */
-      if (1) Z3_AHH_loopAAH ("######### Vector-scalar-scalar vertex, Scalar_below-vector-vector loop\n") ;
-      if (1) Z3_AHH_loopAAB ("######### Vector-scalar-scalar vertex, Tensor_below-vector-vector loop\n") ;
-      if (1) Z3_AHH_loopHHA ("######### Vector-scalar-scalar vertex, Vector_below-scalar-scalar loop\n") ;
-      if (1) Z3_AHH_loopBBA ("######### Vector-scalar-scalar vertex, Vector_below-tensor-tensor loop\n") ;
-      if (1) Z3_AHH_loopBHA ("######### Vector-scalar-scalar vertex, Vector_below-tensor-scalar loop\n") ;
-      if (1) Z3_AHH_loopHBA ("######### Vector-scalar-scalar vertex, Vector_below-scalar-tensor loop\n") ;
-
-
-
+  
+  /* triangles which only exist in the non-Abelian (non su(1/1) case */
+  if (1) Z3_AHH_loopAAH ("######### Vector-scalar-scalar vertex, Scalar_below-vector-vector loop\n") ;
+  if (1) Z3_AHH_loopAAB ("######### Vector-scalar-scalar vertex, Tensor_below-vector-vector loop\n") ;
+  if (1) Z3_AHH_loopHHA ("######### Vector-scalar-scalar vertex, Vector_below-scalar-scalar loop\n") ;
+  if (1) Z3_AHH_loopBBA ("######### Vector-scalar-scalar vertex, Vector_below-tensor-tensor loop\n") ;
+  if (1) Z3_AHH_loopBHA ("######### Vector-scalar-scalar vertex, Vector_below-tensor-scalar loop\n") ;
+  if (1) Z3_AHH_loopHBA ("######### Vector-scalar-scalar vertex, Vector_below-scalar-tensor loop\n") ;
+  
+  
+  
 #endif
-
+  
   /* superalgebra Jacobi indentities */
   
   if (0)
@@ -12995,7 +13017,7 @@ int main (int argc, const char **argv)
       if (0) mu3p ("######### Triple Vector Vertex\n# Lie algebra f-abc vertex,\n# compute the trace anti-symmetrized in bc: Tr(a[bc])\n# we hope to find the Lie algebra f-123 = 4i", 0) ;
       
       if (0) mu3p ("######### Adler-Bardeen Anomalous Triple Vector Vertex\n# d-abc anomalous vertex\n# compute the super-trace symmetrized in bc: STr(a{bc})\n# The anomaly should vanish", 1) ;
-      if (0) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
+	  if (0) mu3p ("######### Vector Scalar Vertex\n# since  i and j are oriented, do not symmetrized in i,j but use LTr(aij)-RTr(aji)\n# We hope to find the super-algebra d-aij\n", 2) ;
       if (1) mu3p ("######### Vector Scalar Vertex\n# use Trace (aij - aji), expect zero in f=famille\n", 20) ;
       if (1) mu3p ("######### Vector Scalar Vertex STr measure\n# use SuperTrace (aij - aji), expect zero in f=famille\n", 21) ;
       if (0) mu3p ("######### Vector Scalar Vertex Tr measure\n# use Trace (aij - aji), expect irregularities\n", 22) ;
