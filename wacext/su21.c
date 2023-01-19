@@ -12746,8 +12746,8 @@ int main (int argc, const char **argv)
 	  if (1)
 	    {
 	      printf ("(g_cd s_abcdefgh)\n") ;
-	      POLYNOME p1 = newSigB ('e') ;
-	      strcpy (p1->tt.sigB,"abcdefgh") ;
+	      POLYNOME p1 = newSigma ('a') ;
+	      strcpy (p1->tt.sigma,"abcdefgh") ;
 	      POLYNOME p2 = newG ('a','c') ;
 	      POLYNOME ppp[] = {p1,p2,0} ;
 	      POLYNOME pp = newMultiProduct (ppp) ;
@@ -12761,6 +12761,7 @@ int main (int argc, const char **argv)
 	      printf ("\n\nTr (s_abcdefgh)\n") ;
 	      p1 = pauliTrace(p1) ;
 	      showPol (p1) ;
+	      p2 = newG ('a','c') ;
 	      POLYNOME ppp2[] = {p1,p2,0} ;
 	      pp = newMultiProduct (ppp2) ;
 	      printf ("g_cd Tr(s_abcdefgh)\n") ;
@@ -12769,24 +12770,33 @@ int main (int argc, const char **argv)
 	      pp = pauliTrace(pp) ;
 	      showPol (pp) ;
 
-	      printf ("\n\ng_ac g_abcdefgh\n") ;
-	      p1 = newScalar (1) ;
-	      strcpy (p1->tt.g,"abcdefgh") ;
-	      pp = newProduct (p1, p2) ;
+	      printf ("\n\ng_ac s_abcdef\n") ;
+	      p1 = newSigma ('a') ;
+	      strcpy (p1->tt.sigma,"abcdef") ;
+	      p2 = newG ('a','c') ;
+	      POLYNOME ppp3[] = {p1,p2,0} ;
+	      pp = newMultiProduct (ppp3) ;
+	      pp = expand (pp) ;
 	      showPol (pp) ;
+	      printf ("Tr (g_cd s_abcdefgh)\n") ;
+	      pp = pauliTrace(pp) ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
 
-	      printf ("\n\n-g_ac g_acbdefgh\n") ;
-	      p1 = newScalar (-1) ;
-	      strcpy (p1->tt.g,"acbdefgh") ;
+	      printf ("\n\nTr (s_abcdefgh)\n") ;
+	      p1 = pauliTrace(p1) ;
+	      showPol (p1) ;
+	      p2 = newG ('a','c') ;
 	      pp = newProduct (p1, p2) ;
-	      showPol (pp) ;
+	      printf ("g_cd Tr(s_abcdef)\n") ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+
 	    }
 
-	  if (1)
+	  if (0)
 	    {
 	      printf ("\n\n-g_ac g_ac\n") ;
 	      POLYNOME p1 = newScalar (1) ;
