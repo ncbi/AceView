@@ -2169,7 +2169,7 @@ static POLYNOME contractProducts (POLYNOME pp)
 /* incomplet, this only works for pairs of sigma, we need the cases4,6,8 ...
  * which create polynomes in gg, not monomes 
  */
-static POLYNOME pauliTraceTT (POLYNOME pp)
+static POLYNOME pauliTraceTTold (POLYNOME pp)
 {
   BOOL epsilon = FALSE ;
   TT tt = pp->tt ; 
@@ -2497,6 +2497,187 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
     }
   pp->tt.Id2 = 0 ;
   return pp ;
+} /* pauliTraceTTold */
+
+/*******************************************************************************************/
+
+static POLYNOME pauliTraceOld (POLYNOME pp)
+{
+  POLYNOME p1, p2 ;
+  if (!pp)
+    return 0 ;
+
+  if (pp->isSum)
+    {
+      p1 = pp->p1 ;
+      p2 = pp->p2 ;
+      if (p1) p1 = pp->p1 = pauliTraceOld (p1) ;
+      if (p2) p2 = pp->p2 = pauliTraceOld (p2) ;
+    }
+  if (pp->tt.type)
+    {
+      TT tt = pp->tt ;
+      char *s = tt.sigma ; 
+      char *sb = tt.sigB ; 
+      if (s[0] && sb[0]) messcrash ("Cannot have sigma=%s and sigmaBar=%s in the same monome", s, sb) ;
+      if (tt.Id2)
+	{
+	  pp->isFlat = FALSE ;
+	  pp = contractTtIndices (pp) ;
+	  pp = pauliTraceTTold (pp) ;
+	}
+      if (pp && pp->tt.type && cabs (pp->tt.z) < minAbs)
+	{ pp = 0 ; }
+    }
+  return pp ;
+} /* pauliTraceOld */
+  
+/*******************************************************************************************/
+/*******************************************************************************************/
+/* incomplet, this only works for pairs of sigma, we need the cases4,6,8 ...
+ * which create polynomes in gg, not monomes 
+ */
+static POLYNOME pauliTraceTT (POLYNOME pp)
+{
+  BOOL epsilon = FALSE ;
+  TT tt = pp->tt ; 
+  int iss ;
+  char *s = tt.sigma ; 
+  char *sb = tt.sigB ;
+  complex float parity = 1 ; 
+
+  pp->isFlat = FALSE ;
+
+  if (s[0] && sb[0])
+    messcrash ("FATAL ERROR: Computing the trace of a monome where sigma=%s and sigB=% are both present\n", s, sb) ; 
+  if (sb[0])
+    { s = sb ; parity = -1 ; }
+  iss = strlen (s) ;
+  if (iss % 2)
+    { tt.z = 0 ; return 0 ; }
+  if (iss == 0)
+    {
+      if (tt.Id2)
+	pp->tt.z *= 2 ; /* trace (identity) = 2 */
+    }
+  else if (iss == 2)
+    { 
+      char *g = tt.g ;
+      while (*g) g++ ;
+      while ((*g++ = *s++)) ;
+      memset (tt.sigma , 0, GMAX) ;
+      memset (tt.sigB , 0, GMAX) ;
+      tt.Id2 = 0 ;
+      pp->tt = tt ;
+
+      pp->tt.z *= 2 ; /* trace (identity) = 2 */
+    }
+  else if (iss == 4)
+    { 
+      int i, n, N = 4, NN = 3 ;
+      char S[N] ;
+
+      memcpy (S, s, N) ;
+      pp->tt.z *= 2 ; /* trace (identity) = 2 */
+      pp->tt.Id2 = 0 ;
+      char *gg = tt.g ;
+      int k = strlen (gg) ;
+      int ek = strlen (tt.eps) ;
+      POLYNOME ppp[NN+2] ;
+      char *z[3] = { "abcd", "acbd", "adbc"} ;
+      for (n = 0 ; n < NN ; n++)
+	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
+	  int i ;
+	  ppp[n] = copyPolynome (pp) ;
+	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
+	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
+	  if (n%2) ppp[n]->tt.z *= -1 ;   /* alternate signs */
+	  for (i = 0 ; i < N ; i++)
+	    {
+	      ppp[n]->tt.g[k+i] = S[z[n][i] - 'a'] ;
+	    }
+	}
+      if (epsilon)
+	{
+	  ppp[n] = copyPolynome (pp) ;
+	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
+	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
+	  for (i = 0 ; i < N ; i++)
+	    {
+	      ppp[n]->tt.eps[ek+i] = S[z[0][i] - 'a'] ;
+	    }
+	  ppp[n]->tt.eps[ek+i] = 0 ;
+	  ppp[n]->tt.z *= parity ;
+	  n++ ;
+	}
+      ppp[n++] = 0 ; /* zero terminate the list */	
+      pp = newMultiSum (ppp) ;
+    }
+  else /* iss even and > 4 */
+    { 
+      int i, j, k, N = 0 ;
+      int NN = iss*iss*iss ;   /* max number of terms */
+      POLYNOME ppp[NN] ;
+
+      char *gg = tt.g ;
+      int ng = strlen (gg) ;
+      int neps = strlen (tt.eps) ;
+
+      /* eliminate the zeroth and the ith pauli matrix and create a g term */
+      for (N = 0, i = 1 ; i < iss ; i++)
+	{
+	  int m ;
+	  POLYNOME p1 = newScalar (tt.z) ;
+	  char *s1 ;
+
+	  p1->tt = tt ;
+	  p1->tt.g[ng] = s[0] ;
+	  p1->tt.g[ng] = s[1] ;
+
+	  s1 = (parity == 1 ? p1->tt.sigma : p1->tt.sigB) ;
+	  for (m = 0 ; m < i ; m++)
+	    s1[m] = s[m+1] ;
+	  for (m = i ; m < iss ; m++)
+	    s1[m] = s[m+2] ;
+	  p1 = pauliTraceTT (p1) ;
+	  ppp[N++] = p1 ; 
+	}
+      /* eliminate the zeroth and three other pauli matrix and create an epsilon term */
+      for (N = 0, i = 1 ; i < iss ; i++)
+	for (j = i + 1 ; j < iss ; j++)
+	  for (k = j + 1 ; k < iss ; k++)
+	    {
+	      int m ;
+	      POLYNOME p1 = newScalar (1) ;
+	      char *s1 ;
+	      
+	      p1->tt = tt ;
+	      p1->tt.z *= parity ;
+	      if (k % 2)
+		p1->tt.z *= -1 ;
+	      p1->tt.eps[neps+0] = s[0] ;
+	      p1->tt.eps[neps+1] = s[i] ;
+	      p1->tt.eps[neps+2] = s[j] ;
+	      p1->tt.eps[neps+3] = s[k] ;
+	      
+	      s1 = (parity == 1 ? p1->tt.sigma : p1->tt.sigB) ;
+	      for (m = 0 ; m < i ; m++)
+		s1[m] = s[m+1] ;
+	      for (m = i ; m < j ; m++)
+		s1[m] = s[m+2] ;
+	      for (m = j ; m < k ; m++)
+		s1[m] = s[m+3] ;
+	      for (m = k ; m < iss ; m++)
+		s1[m] = s[m+4] ;
+	      p1 = pauliTraceTT (p1) ;
+	      ppp[N++] = p1 ; 
+	    }
+      /* add up all the contractions, since we always ue index zero, we are not overcounting */
+      if (N >= NN)
+	messcrash ("Too many terms iss=%d NN = %d N=%d", iss, N, NN) ;
+      pp = newMultiSum (ppp) ;
+    }
+  return pp ;
 } /* pauliTraceTT */
 
 /*******************************************************************************************/
@@ -2504,12 +2685,21 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
 static POLYNOME pauliTrace (POLYNOME pp)
 {
   POLYNOME p1, p2 ;
+  static int level = 0 ;
   if (!pp)
     return 0 ;
-  p1 = pp->p1 ;
-  p2 = pp->p2 ;
-  if (p1) p1 = pp->p1 = pauliTrace (p1) ;
-  if (p2) p2 = pp->p2 = pauliTrace (p2) ;
+
+  if (level == 0)
+    pp = expand (pp) ;
+  level++ ;
+
+  if (pp->isSum)
+    {
+      p1 = pp->p1 ;
+      p2 = pp->p2 ;
+      if (p1) p1 = pp->p1 = pauliTrace (p1) ;
+      if (p2) p2 = pp->p2 = pauliTrace (p2) ;
+    }
 
   if (pp->tt.type)
     {
@@ -2523,13 +2713,25 @@ static POLYNOME pauliTrace (POLYNOME pp)
 	  pp = contractTtIndices (pp) ;
 	  pp = pauliTraceTT (pp) ;
 	}
+      else if (pp->tt.sigma[0] || pp->tt.sigB[0])
+	{
+	  messcrash ("FATAL ERROR: Computing the trace of a monome with sigma, but zero Id2  sigma=%s and sigB=% are both present\n"
+		     , pp->tt.sigma, pp->tt.sigB
+		     ) ;
+	}
       if (pp && pp->tt.type && cabs (pp->tt.z) < minAbs)
 	{ pp = 0 ; }
     }
+
+  level-- ;
+  if (pp && level == 0)
+    pp = expand (pp) ;
   return pp ;
 } /* pauliTrace */
   
 /*******************************************************************************************/
+/*******************************************************************************************/
+
 static KEYSET polynomeKs = 0 ;
 static void checkPolynome (POLYNOME pp) 
 {
@@ -3945,10 +4147,8 @@ static POLYNOME pauliCleanUp (POLYNOME pp, char w)
       POLYNOME p1 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigB (w) : newSigma (w) ;
       POLYNOME p11 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigma (w) : newSigB (w) ;
       POLYNOME p2 = newProduct (p1, pp) ;
-      POLYNOME p3 = expand (p2) ;
-      POLYNOME p4 = pauliTrace (p3) ;
-      POLYNOME p5 = expand (p4) ;
-      POLYNOME p6 = contractIndices (p5) ;
+      POLYNOME p4 = pauliTrace (p2) ;
+      POLYNOME p6 = contractIndices (p4) ;
       POLYNOME p7 = newProduct (p11, p6) ;
       POLYNOME p8 = expand (p7) ;
       POLYNOME p9 = contractIndices (p8) ;
@@ -12703,7 +12903,7 @@ int main (int argc, const char **argv)
       if (1) /* verify some Pauli contractions */
 	{
 	  firstDummyIndex = 'a' ;
-	  if (0) /* verify the Pauli trace */
+	  if (1) /* verify the Pauli trace */
 	    {
 	      POLYNOME pp = newSigma('a') ;
 	      strcpy (pp->tt.sigma,"abcd") ;
@@ -12715,6 +12915,7 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      pp = pauliTrace(pp) ;
 	      showPol (pp) ;
+	      exit (0) ;
 	    }
 	  
 	  if (0)
