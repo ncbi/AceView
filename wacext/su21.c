@@ -1021,8 +1021,8 @@ static POLYNOME newSum (POLYNOME p1, POLYNOME p2)
   if (p1 && p2)
     {
       POLYNOME p = newPolynome () ;
-      p->p1 = p1 ;
-      p->p2 = p2 ; 
+      p->p1 = copyPolynome (p1) ;
+      p->p2 = copyPolynome (p2) ; 
       if (p1->tt.type && p2->tt.type && p1->tt.Id2 + p2->tt.Id2 == 1)
 	messcrash ("Cannot add aPauli matrix to a number\n") ;;
       p->isSum = TRUE ;
@@ -1046,8 +1046,8 @@ static POLYNOME newProduct (POLYNOME p1, POLYNOME p2)
   if (p1 && p2)
     {
       POLYNOME p = newPolynome () ;
-      p->p1 = p1 ;
-      p->p2 = p2 ;
+      p->p1 = copyPolynome (p1) ;
+      p->p2 = copyPolynome (p2) ; 
       p->isProduct = TRUE ;
       return p ;
     }
@@ -2169,382 +2169,14 @@ static POLYNOME contractProducts (POLYNOME pp)
 /* incomplet, this only works for pairs of sigma, we need the cases4,6,8 ...
  * which create polynomes in gg, not monomes 
  */
-static POLYNOME pauliTraceTTold (POLYNOME pp)
-{
-  BOOL epsilon = FALSE ;
-  TT tt = pp->tt ; 
-  int i ;
-  char *s = tt.sigma ; 
-  char *sb = tt.sigB ;
-  complex float parity = I ; 
-
-  pp->isFlat = FALSE ;
-
-  if (s[0] && sb[0])
-    messcrash ("Computing the trace of a monome where sigma=%s and sigB=% are both present\n", s, sb) ; 
-  if (sb[0])
-    { s = sb ; parity = -I ; }
-  i = strlen (s) ;
-  if (i % 2)
-    { tt.z = 0 ; return 0 ; }
-  if (i == 0)
-    {
-      if (tt.Id2)
-	pp->tt.z *= 2 ; /* trace (identity) = 2 */
-    }
-  else if (i == 2)
-    { 
-      char *g = tt.g ;
-      int k = strlen (g) ;
-      g += k ;
-      while ((*g++ = *s++)) ;
-      memset (tt.sigma , 0, GMAX) ;
-      memset (tt.sigB , 0, GMAX) ;
-      tt.Id2 = 0 ;
-      pp->tt = tt ;
-
-      pp->tt.z *= 2 ; /* trace (identity) = 2 */
-    }
-  else if (i == 4)
-    { 
-      int n, N = 4, NN = 3 ;
-      char S[N] ;
-      memcpy (S, s, N) ;
-      pp->tt.z *= 2 ; /* trace (identity) = 2 */
-      pp->tt.Id2 = 0 ;
-      char *gg = tt.g ;
-      int k = strlen (gg) ;
-      int ek = strlen (tt.eps) ;
-      POLYNOME ppp[NN+2] ;
-      char *z[3] = { "abcd", "acbd", "adbc"} ;
-      for (n = 0 ; n < NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  ppp[n] = copyPolynome (pp) ;
-	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
-	  if (n%2) ppp[n]->tt.z *= -1 ;   /* alternate signs */
-	  for (i = 0 ; i < N ; i++)
-	    {
-	      ppp[n]->tt.g[k+i] = S[z[n][i] - 'a'] ;
-	    }
-	}
-      if (epsilon)
-	{
-	  ppp[n] = copyPolynome (pp) ;
-	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
-	  for (i = 0 ; i < N ; i++)
-	    {
-	      ppp[n]->tt.eps[ek+i] = S[z[0][i] - 'a'] ;
-	    }
-	  ppp[n]->tt.eps[ek+i] = 0 ;
-	  ppp[n]->tt.z *= parity ;
-	  n++ ;
-	}
-      ppp[n++] = 0 ; /* zero terminate the list */	
-      pp = newMultiSum (ppp) ;
-    }
-  else if (i == 6)
-    { 
-      int n, N = 6, NN = 15 ;
-      char S[N] ;
-      if (0) return 0 ;
-      memcpy (S, s, N) ;
-      pp->tt.z *= 2 ; /* trace (identity) = 2 */
-      pp->tt.Id2 = 0 ;
-      memset (tt.sigma, 0, GMAX) ;
-      memset (tt.sigB, 0, GMAX) ;
-      char *gg = tt.g ;
-      int k = strlen (gg) ;
-      int ek = strlen (tt.eps) ;
-      POLYNOME ppp[2*NN+1] ;
-      char *z[15] = { "abcdef","abcedf","abcfde",
-		      "acbdef","acbedf","acbfde",
-		      "adbcef","adbecf","adbfce",
-		      "aebcdf","aebdcf","aebfcd",
-		      "afbcde","afbdce","afbecd"
-      } ;
-      char *e[15] = { "abcdef","acbdef","adbcef","aebcdf","afbcde",
-		      "bcadef","bdacef","beacdf","bfacde",
-		      "cdabef","ceabdf","cfabde",
-		      "deabcf","dfabce",
-		      "efabcd"
-      } ;
-      int NN1 = 0 ;
-      for (n = 0 ; n < NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  ppp[n] = copyPolynome (pp) ;
-	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
-	  if (n%2) ppp[n]->tt.z *= -1 ;   /* alternate signs */
-	  for (i = 0 ; i < N ; i++)
-	    {
-	      ppp[n]->tt.g[k+i] = S[z[n][i] - 'a'] ;
-	    }
-	}
-      NN1 = n ;
-      ppp[n] = 0 ; /* zero terminate the list */	
-      for (n = 0 ; epsilon && n < 1*NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  ppp[n+NN1] = copyPolynome (pp) ;
-	  switch (n)
-	    {
-	    case 0:
-	    case 2:
-	    case 4:
-	    case 5:
-	    case 7:
-	    case 9:
-	    case 11:
-	    case 12:
-	    case 14:
-	      ppp[n+NN1]->tt.z *= 1 ;   /* alternate signs */
-	      break ;
-	    default:
-	      ppp[n+NN1]->tt.z *= -1 ;   /* alternate signs */
-	      break ;
-	    }
-	  memset (ppp[n+NN1]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n+NN1]->tt.sigB , 0, GMAX) ;
-	  for (i = 0 ; i < 2 ; i++)
-	    {
-	      ppp[n+NN1]->tt.g[k+i] = S[e[n][i] - 'a'] ;
-	    }
-	  ppp[n+NN1]->tt.g[k+i] = 0 ;
-	  for (i = 0 ; i < 4 ; i++)
-	    {
-	      ppp[n+NN1]->tt.eps[ek+i] = S[e[n][i+2] - 'a'] ;
-	    }
-	  ppp[n+NN1]->tt.z *= parity ;
-	  ppp[n+NN1]->tt.eps[ek+i] = 0 ;
-	}
-      ppp[n+NN1] = 0 ; /* zero terminate the list */	
-      pp = newMultiSum (ppp) ;
-    }
-
-  else if (i == 8)
-    { 
-      int n, N = 8, NN = 105 ;
-      char S[N] ;
-      memcpy (S, s, N) ;
-      pp->tt.z *= 2 ; /* trace (identity) = 2 */
-      pp->tt.Id2 = 0 ;
-      memset (tt.sigma, 0, GMAX) ;
-      memset (tt.sigB, 0, GMAX) ;
-      char *gg = tt.g ;
-      int k = strlen (gg) ;
-      int ek = strlen (tt.eps) ;
-      POLYNOME ppp[2*NN+1] ;
-      char *z[105] = {
-	"abcdefgh","abcdegfh","abcdehfg",
-	"abcedfgh","abcedgfh","abcedhfg",
-	"abcfdegh","abcfdgeh","abcfdheg",
-	"abcgdefh","abcgdfeh","abcgdhef",
-	"abchdefg","abchdfeg","abchdgef",
-	
-	"acbdefgh","acbdegfh","acbdehfg",
-	"acbedfgh","acbedgfh","acbedhfg",
-	"acbfdegh","acbfdgeh","acbfdheg",
-	"acbgdefh","acbgdfeh","acbgdhef",
-	"acbhdefg","acbhdfeg","acbhdgef",
-
- 	"adcbefgh","adcbegfh","adcbehfg",
- 	"adcebfgh","adcebgfh","adcebhfg",
- 	"adcfbegh","adcfbgeh","adcfbheg",
- 	"adcgbefh","adcgbfeh","adcgbhef",
- 	"adchbefg","adchbfeg","adchbgef",
-
- 	"aecdbfgh","aecdbgfh","aecdbhfg",
- 	"aecbdfgh","aecbdgfh","aecbdhfg",
- 	"aecfdbgh","aecfdgbh","aecfdhbg",
- 	"aecgdbfh","aecgdfbh","aecgdhbf",
- 	"aechdbfg","aechdfbg","aechdgbf",
-
- 	"afcdebgh","afcdegbh","afcdehbg",
- 	"afcedbgh","afcedgbh","afcedhbg",
- 	"afcbdegh","afcbdgeh","afcbdheg",
- 	"afcgdebh","afcgdbeh","afcgdheb",
- 	"afchdebg","afchdbeg","afchdgeb",
-
- 	"agcdefbh","agcdebfh","agcdehfb",
- 	"agcedfbh","agcedbfh","agcedhfb",
- 	"agcfdebh","agcfdbeh","agcfdheb",
- 	"agcbdefh","agcbdfeh","agcbdhef",
- 	"agchdefb","agchdfeb","agchdbef",
-
- 	"ahcdefgb","ahcdegfb","ahcdebfg",
- 	"ahcedfgb","ahcedgfb","ahcedbfg",
- 	"ahcfdegb","ahcfdgeb","ahcfdbeg",
- 	"ahcgdefb","ahcgdfeb","ahcgdbef",
- 	"ahcbdefg","ahcbdfeg","ahcbdgef"
-       } ;
-      char *e[28] = { "abcdefgh","acbdefgh","adbcefgh","aebcdfgh","afbcdegh","agbcdefh","ahbcdefg",
-		      "bcadefgh","bdacefgh","beacdfgh","bfacdegh","bgacdefh","bhacdefg",
-		      "cdabefgh","ceabdfgh","cfabdegh","cgabdefh","chabdefg",
-		      "deabcfgh","dfabcegh","dgabcefh","dhabcefg",
-		      "efabcdgh","egabcdfh","ehabcdfg",
-		      "fgabcdeh","fhabcdeg",
-		      "ghabcde"
-      } ;
-      char *f[35] = { "abcdefgh","abcedfgh","abcfdegh","abcgdefh", "abchdefg",
-		      "abdecfgh","abdfcegh","abdgcefh","abdhcefg",
-		      "abefcdgh","abegcdfh","abehcdfg",
-                      "abfgcdeh","abfhcdeg",
-		      "abghcdef",
-		      "acdebfgh","acdfbegh","acdgbefh","acdhbefg",
-		      "acefbdgh","acegbdfh","acehbdfg",
-		      "acfgbdeh","acfhbdeg",
-		      "acghbdef",
-		      "adefbcgh","adegbcfh","adehbcfg",
-		      "adfgbceh","adfhbceg",
-		      "adghbcef",
-		      "aefgbcdh"," aefhbcdg",
-		      "aeghacdf",
-		      "afghabde"
-      } ;
-      for (n = 0 ; n < NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  int i1 = n/15, i2 = n%15 ;
-	  ppp[n] = copyPolynome (pp) ;
-	  memset (ppp[n]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n]->tt.sigB , 0, GMAX) ;
-	  if ((i1+i2) % 2) ppp[n]->tt.z *= -1 ;  /* alternate signs */
-	  for (i = 0 ; i < N ; i++)
-	    {
-	      ppp[n]->tt.g[k+i] = S[z[n][i] - 'a'] ;
-	    }
-	}
-
-      ppp[n] = 0 ; /* zero terminate the list */	
-      for (n = 0 ; epsilon && n < 0*NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  ppp[n+NN] = copyPolynome (pp) ;
-	  switch (n)
-	    {
-	    case 0:
-	    case 2:
-	    case 4:
-	    case 5:
-	    case 7:
-	    case 9:
-	    case 11:
-	    case 12:
-	    case 14:
-	      ppp[n+NN]->tt.z *= I ;   /* alternate signs */
-	      break ;
-	    default:
-	      ppp[n+NN]->tt.z *= -I ;   /* alternate signs */
-	      break ;
-	    }
-	  memset (ppp[n+NN]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n+NN]->tt.sigB , 0, GMAX) ;
-	  for (i = 0 ; i < 2 ; i++)
-	    {
-	      ppp[n+NN]->tt.g[k+i] = S[e[n][i] - 'a'] ;
-	    }
-	  ppp[n+NN]->tt.g[k+i] = 0 ;
-	  for (i = 0 ; i < 4 ; i++)
-	    {
-	      ppp[n+NN]->tt.eps[ek+i] = S[e[n][i+2] - 'a'] ;
-	    }
-	  ppp[n+NN]->tt.z *= parity ;
-	  ppp[n+NN]->tt.eps[ek+i] = 0 ;
-	}
-      NN += n ;
-      ppp[NN] = 0 ; /* zero terminate the list */
-      for (n = 0 ; n < 0*35 ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
-	  int i ;
-	  ppp[n+NN] = copyPolynome (pp) ;
-	  switch (n)
-	    {
-	    case 0:
-	    case 2:
-	    case 4:
-	    case 5:
-	    case 7:
-	    case 9:
-	    case 11:
-	    case 12:
-	    case 14:
-	      ppp[n+NN]->tt.z *= 1 ;   /* alternate signs */
-	      break ;
-	    default:
-	      ppp[n+NN]->tt.z *= -1 ;   /* alternate signs */
-	      break ;
-	    }
-	  memset (ppp[n+NN]->tt.sigma , 0, GMAX) ;
-	  memset (ppp[n+NN]->tt.sigB , 0, GMAX) ;
-	  for (i = 0 ; i < 8 ; i++)
-	    {
-	      ppp[n+NN]->tt.eps[ek+i] = S[f[n][i] - 'a'] ;
-	    }
-	  ppp[n+NN]->tt.eps[ek+i] = 0 ;
-	}
-      ppp[n+NN] = 0 ; /* zero terminate the list */
-      
-      pp = newMultiSum (ppp) ;
-    }
-
-  if (i > 8)
-    {
-      messcrash ("Trace of more than 8 matrices is not yet programmed") ;
-    }
-  pp->tt.Id2 = 0 ;
-  return pp ;
-} /* pauliTraceTTold */
-
-/*******************************************************************************************/
-
-static POLYNOME pauliTraceOld (POLYNOME pp)
-{
-  POLYNOME p1, p2 ;
-  if (!pp)
-    return 0 ;
-
-  if (pp->isSum)
-    {
-      p1 = pp->p1 ;
-      p2 = pp->p2 ;
-      if (p1) p1 = pp->p1 = pauliTraceOld (p1) ;
-      if (p2) p2 = pp->p2 = pauliTraceOld (p2) ;
-    }
-  if (pp->tt.type)
-    {
-      TT tt = pp->tt ;
-      char *s = tt.sigma ; 
-      char *sb = tt.sigB ; 
-      if (s[0] && sb[0]) messcrash ("Cannot have sigma=%s and sigmaBar=%s in the same monome", s, sb) ;
-      if (tt.Id2)
-	{
-	  pp->isFlat = FALSE ;
-	  pp = contractTtIndices (pp) ;
-	  pp = pauliTraceTTold (pp) ;
-	}
-      if (pp && pp->tt.type && cabs (pp->tt.z) < minAbs)
-	{ pp = 0 ; }
-    }
-  return pp ;
-} /* pauliTraceOld */
-  
-/*******************************************************************************************/
-/*******************************************************************************************/
-/* incomplet, this only works for pairs of sigma, we need the cases4,6,8 ...
- * which create polynomes in gg, not monomes 
- */
 static POLYNOME pauliTraceTT (POLYNOME pp)
 {
-  BOOL epsilon = FALSE ;
+  BOOL epsilon = TRUE ;
   TT tt = pp->tt ; 
   int iss ;
   char *s = tt.sigma ; 
   char *sb = tt.sigB ;
-  complex float parity = 1 ; 
+  int parity = 1 ; 
 
   pp->isFlat = FALSE ;
 
@@ -2615,7 +2247,7 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
     }
   else /* iss even and > 4 */
     { 
-      int i, j, k, N = 0 ;
+      int ii, i, j, k, N = 0 ;
       int NN = iss*iss*iss ;   /* max number of terms */
       POLYNOME ppp[NN] ;
 
@@ -2624,54 +2256,59 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
       int neps = strlen (tt.eps) ;
 
       /* eliminate the zeroth and the ith pauli matrix and create a g term */
-      for (N = 0, i = 1 ; i < iss ; i++)
+      for (N = 0, ii = 1 ; ii < iss ; ii++)
 	{
 	  int m ;
 	  POLYNOME p1 = newScalar (tt.z) ;
 	  char *s1 ;
-
 	  p1->tt = tt ;
 	  p1->tt.g[ng] = s[0] ;
-	  p1->tt.g[ng] = s[1] ;
+	  p1->tt.g[ng+1] = s[ii] ;
 
+	  if (ii % 2 == 0)
+	    { p1->tt.z *= -1 ; }
+	  p1->tt.sigma[0] = p1->tt.sigB[0] = 0 ;
 	  s1 = (parity == 1 ? p1->tt.sigma : p1->tt.sigB) ;
-	  for (m = 0 ; m < i ; m++)
+	  for (m = 0 ; m < ii-1 ; m++)
 	    s1[m] = s[m+1] ;
-	  for (m = i ; m < iss ; m++)
+	  for (m = ii - 1 ; m < iss ; m++)
 	    s1[m] = s[m+2] ;
 	  p1 = pauliTraceTT (p1) ;
 	  ppp[N++] = p1 ; 
 	}
       /* eliminate the zeroth and three other pauli matrix and create an epsilon term */
-      for (N = 0, i = 1 ; i < iss ; i++)
-	for (j = i + 1 ; j < iss ; j++)
-	  for (k = j + 1 ; k < iss ; k++)
-	    {
-	      int m ;
-	      POLYNOME p1 = newScalar (1) ;
-	      char *s1 ;
-	      
-	      p1->tt = tt ;
-	      p1->tt.z *= parity ;
-	      if (k % 2)
-		p1->tt.z *= -1 ;
-	      p1->tt.eps[neps+0] = s[0] ;
-	      p1->tt.eps[neps+1] = s[i] ;
-	      p1->tt.eps[neps+2] = s[j] ;
-	      p1->tt.eps[neps+3] = s[k] ;
-	      
-	      s1 = (parity == 1 ? p1->tt.sigma : p1->tt.sigB) ;
-	      for (m = 0 ; m < i ; m++)
-		s1[m] = s[m+1] ;
-	      for (m = i ; m < j ; m++)
-		s1[m] = s[m+2] ;
-	      for (m = j ; m < k ; m++)
-		s1[m] = s[m+3] ;
-	      for (m = k ; m < iss ; m++)
-		s1[m] = s[m+4] ;
-	      p1 = pauliTraceTT (p1) ;
-	      ppp[N++] = p1 ; 
-	    }
+      if (epsilon)
+	for (i = 1 ; i < iss ; i++)
+	  for (j = i + 1 ; j < iss ; j++)
+	    for (k = j + 1 ; k < iss ; k++)
+	      {
+		int m ;
+		POLYNOME p1 = newScalar (1) ;
+		char *s1 ;
+		
+		p1->tt = tt ;
+		p1->tt.z *= parity ;
+		if ((i+k+j) % 2 == 1)
+		  p1->tt.z *= -1 ;
+		p1->tt.eps[neps+0] = s[0] ;
+		p1->tt.eps[neps+1] = s[i] ;
+		p1->tt.eps[neps+2] = s[j] ;
+		p1->tt.eps[neps+3] = s[k] ;
+		
+		p1->tt.sigma[0] = p1->tt.sigB[0] = 0 ;
+		s1 = (parity == 1 ? p1->tt.sigma : p1->tt.sigB) ;
+		for (m = 0 ; m < i-1 ; m++)
+		  s1[m] = s[m+1] ;
+		for (m = i - 1 ; m < j - 2 ; m++)
+		  s1[m] = s[m+2] ;
+		for (m = j - 2 ; m < k - 3 ; m++)
+		  s1[m] = s[m+3] ;
+		for (m = k - 3 ; m < iss ; m++)
+		  s1[m] = s[m+4] ;
+		p1 = pauliTraceTT (p1) ;
+		ppp[N++] = p1 ; 
+	      }
+      ppp[N] = 0 ;	
       /* add up all the contractions, since we always ue index zero, we are not overcounting */
       if (N >= NN)
 	messcrash ("Too many terms iss=%d NN = %d N=%d", iss, N, NN) ;
@@ -3761,9 +3398,10 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
   int nn = 0 ; 
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
-  int z = -1 ;
+  int z = 0 ; /* -1 */
   BOOL useProjector = TRUE ;
-  if (1) useProjector = FALSE ;
+  if (1) useProjector = TRUE
+	   ;
   nn = 0 ;
   if (! useProjector) { c = a ; d = b ; }
   if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
@@ -3794,7 +3432,7 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
   int nn = 0 ; 
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
-  int z = 1 ;
+  int z = 0 ;
   BOOL useProjector = TRUE ;
   if (1) useProjector = FALSE ;
   nn = 0 ;
@@ -3893,8 +3531,8 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
 /* This vertex is by itelf self dual */
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
-  int u = 4 ; 
-  int X = 0 ; /* 1 */
+  int u = 2 ; 
+  int X = -1 ; /* -1 */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigB (mu) ;
@@ -3910,8 +3548,8 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 /* This vertex is by itelf anti self dual */
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
-  int u = 4 ;
-  int X = 0 ; /* -1 */ ;
+  int u = 2 ;
+  int X = 1 ; /* 1 */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigma (mu) ;
@@ -4111,9 +3749,9 @@ static POLYNOME prop_PsiRB_PsiR (int pqr)
   char cc = newDummyIndex () ;
   POLYNOME p1 = newSigB (cc) ;
   p1->tt.z *= I ;
+  p1->tt.denom[pqr] = 1 ;
   POLYNOME p2 = newPQR (pqr,cc) ;
   POLYNOME pp = contractIndices(newProduct (p1, p2)) ;
-  p1->tt.denom[pqr] = 1 ;
   return contractProducts (pp) ;
 }
 
@@ -4124,9 +3762,9 @@ static POLYNOME prop_PsiLB_PsiL (int pqr)
   char cc = newDummyIndex () ;
   POLYNOME p1 = newSigma (cc) ;
   p1->tt.z *= I ;
+  p1->tt.denom[pqr] = 1 ;
   POLYNOME p2 = newPQR (pqr,cc) ;
   POLYNOME pp = contractIndices(newProduct (p1, p2)) ;
-  p1->tt.denom[pqr] = 1 ;
   return contractProducts (pp) ;
 }
 
@@ -4136,13 +3774,15 @@ static POLYNOME prop_PsiLB_PsiL (int pqr)
 
 static POLYNOME pauliCleanUp (POLYNOME pp, char w)
 {
+  if (! pp)
+    return 0 ;
   if (pp->isSum)
     {
       pp->p1 = pauliCleanUp (pp->p1, w) ;
       pp->p2 = pauliCleanUp (pp->p2, w) ;
       pp = expand (pp) ;
     }
-  if (pp->tt.type)
+  else if (pp->tt.type)
     {
       POLYNOME p1 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigB (w) : newSigma (w) ;
       POLYNOME p11 = pp->tt.sigma[0] || (pp->p1 && pp->p1->tt.sigma[0]) ? newSigma (w) : newSigB (w) ;
@@ -4208,6 +3848,7 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   char b = newDummyIndex () ;
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
+  char w = newDummyIndex () ;
   
   POLYNOME p1 = vertex_BB_PsiL_PsiRB (a,b) ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k)^2 */
@@ -4230,12 +3871,15 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   showPol (pp) ;
   pp = pauliTrace (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, 'n') ;
+  pp = squareMomentaCleanUp (pp, w) ;
   pp = reduceIndices (pp) ;
   pp = expand (pp) ;
-  pp = squareMomentaKill (pp) ;
+  if (0) pp = squareMomentaKill (pp) ;
   printf ("### Z2 Tensor avec loop PsiB_L Psi_L expect ::  je_sais_pas \n") ;
   showPol (pp) ;
+
+  printf ("### raw propagator \n") ;
+  showPol (p5) ;
   printf ("DONE %s\n", title) ;
 
   return pp ;
@@ -4587,6 +4231,8 @@ static POLYNOME Z2_PsiL__B_Psi (const char *title)
   char rho = newDummyIndex () ;
   char sigma = newDummyIndex () ;
 
+  char w = newDummyIndex () ;
+    
   POLYNOME p4 = vertex_BB_PsiL_PsiRB (mu,nu) ;
   POLYNOME p2 = prop_BB_B (mu,nu,rho,sigma, 0) ;   /* (1/(k)^2 */
   POLYNOME p3 = prop_PsiRB_PsiR (1) ; /* (1/(k+p)^2 */
@@ -4607,9 +4253,8 @@ static POLYNOME Z2_PsiL__B_Psi (const char *title)
   showPol (pp) ;
   printf ("pauli cleanup\n") ;
   printf ("### Z2 Psi left avec B_mu_nu under, expect ::  je_sais_pas * p-slash\n") ;
-  showPol (pp) ;
   printf ("...... Pauli cleanUp \n") ;
-  pp = pauliCleanUp (pp, 'w') ;
+  pp = pauliCleanUp (pp, w) ;
   showPol(pp) ;
 
   printf ("Z2_  done\n\n") ;
@@ -4623,7 +4268,7 @@ static POLYNOME Z2_PsiL__A_Psi (const char *title)
 {
   char mu = newDummyIndex () ;
   char nu = newDummyIndex () ;
-  BOOL debug = FALSE ;
+  char w = newDummyIndex () ;
 
   POLYNOME p1 = vertex_A_PsiL_PsiLB (mu) ;
   POLYNOME p2 = prop_AL (mu,nu, 0) ;   /* (1/(k)^2 */
@@ -4637,12 +4282,12 @@ static POLYNOME Z2_PsiL__A_Psi (const char *title)
   showPol (pp) ;
 
   pp = expand (pp) ;
-  if (debug) showPol (pp) ;
+  if (1) showPol (pp) ;
 
   pp = dimIntegral (pp) ;
   printf ("### Z2 Psi left avec A_mu under expect  p-slash\n") ;
   showPol (pp) ;
-  pp = pauliCleanUp (pp, 'w') ;
+  pp = pauliCleanUp (pp, w) ;
   pp = contractIndices (pp) ;
   showPol (pp) ;
   return pp ;
@@ -4658,7 +4303,8 @@ static POLYNOME Z2_PsiL__H_Psi (const char *title)
   POLYNOME p3 = prop_PsiRB_PsiR (1) ;   /* (1/(k+p)^2 */ 
   POLYNOME p4 = vertex_H_PsiR_PsiLB () ;
   POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
-
+  char w = newDummyIndex () ;
+  
   POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
   
   printf ("%s\n", title) ;
@@ -4670,7 +4316,7 @@ static POLYNOME Z2_PsiL__H_Psi (const char *title)
   pp = dimIntegral (pp) ;
   printf ("### Z2 Psi left avec H under, expect  1/2 p-slash\n") ;  
   showPol (pp) ;
-  pp = pauliCleanUp (pp, 'w') ;
+  pp = pauliCleanUp (pp, w) ;
   showPol (pp) ;
 
   return pp ;
@@ -5803,7 +5449,7 @@ static POLYNOME Z3_H_PsiR_PsiLB__HAB (void)
   POLYNOME p3 = vertex_A_PsiR_PsiRB (f) ;
   POLYNOME p4 = prop_BB_B (a,b,c,d,2) ;   /* (1/(k+p+q)^2 */ 
   POLYNOME p5 = prop_AL (e,f,0) ;   /* (1/(k)^2 */ 
-  POLYNOME p6 = vertex_A_B_HB (e,a,b,kk) ; /* 1/k^2 */
+  POLYNOME p6 = vertex_A_H_BB (e,a,b,kk) ; /* 1/k^2 */
   POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
 
   POLYNOME pp = newMultiProduct (ppp) ;
@@ -6002,7 +5648,7 @@ static POLYNOME Z3B_A_PsiR_PsiLB (void)
   POLYNOME p5 = vertex_BB_PsiL_PsiRB (d,e) ;
   POLYNOME p6 = prop_BB_B (d,e,b,c,0) ; /* 1/k^2 */
   POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
-
+  char w = newDummyIndex () ;
   POLYNOME pp = newMultiProduct (ppp) ;
   printf ("Z3 Classic vertex A psi with B under: expect 0 \n") ;
   showPol (pp) ;
@@ -6020,7 +5666,7 @@ static POLYNOME Z3B_A_PsiR_PsiLB (void)
   showPol(p1) ;
   p1 = contractIndices (p1) ;
   showPol(p1) ;
-  p1 = pauliCleanUp (p1, 'w') ;
+  p1 = pauliCleanUp (p1, w) ;
   showPol (p1) ;
  
   return pp ;
@@ -8749,7 +8395,7 @@ static void QFTscalar (KAS *kas)
     niceShow (w) ;
     
     ac_free (h) ;
-} /* QFTscalr */
+} /* QFTscalar */
 
   /***********************************************************************************************************************************************/
 
@@ -12829,6 +12475,7 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      pp = expand (pp)  ;
 	      showPol (pp) ;
+	      exit (0) ;
 	    }
 	  
 	  if (0) /* verify the eps eps contractions */
@@ -12900,10 +12547,10 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (1) /* verify some Pauli contractions */
+      if (0) /* verify some Pauli contractions */
 	{
 	  firstDummyIndex = 'a' ;
-	  if (1) /* verify the Pauli trace */
+	  if (0) /* verify the Pauli trace */
 	    {
 	      POLYNOME pp = newSigma('a') ;
 	      strcpy (pp->tt.sigma,"abcd") ;
@@ -12911,7 +12558,12 @@ int main (int argc, const char **argv)
 	      pp = pauliTrace(pp) ;
 	      showPol (pp) ;
 	      pp = newSigma('a') ;
-	      strcpy (pp->tt.sigma,"jefghi") ;
+	      strcpy (pp->tt.sigma,"abcdef") ;
+	      showPol (pp) ;
+	      pp = pauliTrace(pp) ;
+	      showPol (pp) ;
+	      pp = newSigma('a') ;
+	      strcpy (pp->tt.sigma,"abcdefgh") ;
 	      showPol (pp) ;
 	      pp = pauliTrace(pp) ;
 	      showPol (pp) ;
@@ -12920,36 +12572,37 @@ int main (int argc, const char **argv)
 	  
 	  if (0)
 	    {
-	      printf ("(g_cd s_abcdef)\n") ;
-	      POLYNOME p1 = newSigB ('e') ;
-	      strcpy (p1->tt.sigB,"abcdef") ;
-	      POLYNOME p2 = newG ('c','d') ;
+	      printf ("g_ab s_abcdef)\n") ;
+	      POLYNOME p1 = newSigma ('e') ;
+	      strcpy (p1->tt.sigma,"abcdef") ;
+	      POLYNOME p2 = newG ('a','b') ;
 	      POLYNOME ppp[] = {p1,p2,0} ;
 	      POLYNOME pp = newMultiProduct (ppp) ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
-	      printf ("Tr (g_cd s_abcdef)\n") ;
+	      printf ("Tr (g_ab s_abcdef)\n") ;
 	      pp = pauliTrace(pp) ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
 
 	      printf ("Tr (s_abcdef)\n") ;
 	      p1 = pauliTrace(p1) ;
+	      showPol (p1) ;
 	      POLYNOME ppp2[] = {p1,p2,0} ;
 	      pp = newMultiProduct (ppp2) ;
 	      printf ("g_cd Tr(s_abcdef)\n") ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
-	      pp = pauliTrace(pp) ;
-	      showPol (pp) ;
+
+	      exit (0) ;
 	    }
 
-	  if (1)
+	  if (0)
 	    {
 	      printf ("(g_cd s_abcdefgh)\n") ;
 	      POLYNOME p1 = newSigma ('a') ;
 	      strcpy (p1->tt.sigma,"abcdefgh") ;
-	      POLYNOME p2 = newG ('a','c') ;
+	      POLYNOME p2 = newG ('a','b') ;
 	      POLYNOME ppp[] = {p1,p2,0} ;
 	      POLYNOME pp = newMultiProduct (ppp) ;
 	      pp = expand (pp) ;
@@ -12962,39 +12615,26 @@ int main (int argc, const char **argv)
 	      printf ("\n\nTr (s_abcdefgh)\n") ;
 	      p1 = pauliTrace(p1) ;
 	      showPol (p1) ;
-	      p2 = newG ('a','c') ;
-	      POLYNOME ppp2[] = {p1,p2,0} ;
-	      pp = newMultiProduct (ppp2) ;
+	      p2 = newG ('a','b') ;
+	      p2->tt.z *= -1 ;
+	      POLYNOME pp2, pp3, ppp2[] = {p1,p2,0} ;
+	      pp2 = newMultiProduct (ppp2) ;
 	      printf ("g_cd Tr(s_abcdefgh)\n") ;
-	      pp = expand (pp) ;
+	      pp2 = expand (pp2) ;
+	      showPol (pp2) ;
+	      pp2 = pauliTrace(pp2) ;
+	      printf ("pp2\n") ;
+	      showPol (pp2) ;
+	      printf ("pp\n") ;
 	      showPol (pp) ;
-	      pp = pauliTrace(pp) ;
+	      pp3 = newSum (pp, pp2) ;
+	      pp3 = expand (pp3) ;
+	      printf ("pp\n") ;
 	      showPol (pp) ;
-
-	      printf ("\n\ng_ac s_abcdef\n") ;
-	      p1 = newSigma ('a') ;
-	      strcpy (p1->tt.sigma,"abcdef") ;
-	      p2 = newG ('a','c') ;
-	      POLYNOME ppp3[] = {p1,p2,0} ;
-	      pp = newMultiProduct (ppp3) ;
-	      pp = expand (pp) ;
-	      showPol (pp) ;
-	      printf ("Tr (g_cd s_abcdefgh)\n") ;
-	      pp = pauliTrace(pp) ;
-	      pp = expand (pp) ;
-	      showPol (pp) ;
-
-	      printf ("\n\nTr (s_abcdefgh)\n") ;
-	      p1 = pauliTrace(p1) ;
-	      showPol (p1) ;
-	      p2 = newG ('a','c') ;
-	      pp = newProduct (p1, p2) ;
-	      printf ("g_cd Tr(s_abcdef)\n") ;
-	      pp = expand (pp) ;
-	      showPol (pp) ;
-	      pp = pauliTrace(pp) ;
-	      showPol (pp) ;
-
+	      printf ("pp2\n") ;
+	      showPol (pp2) ;
+	      printf ("pp3\n") ;
+	      showPol (pp3) ;
 	    }
 
 	  if (0)
@@ -13060,7 +12700,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      /* coupling of the tensor to the Fermions, influenced by the scalar/vector/temnsor */
+      /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
       if (0)
 	{
 	  firstDummyIndex = 'a' ;
@@ -13081,7 +12721,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/temnsor */
+      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
       if (0)
 	{
 	  firstDummyIndex = 'a' ;
@@ -13131,7 +12771,7 @@ int main (int argc, const char **argv)
       
       
       /* vector interactions with the scalar-vector-tensor Fermion loop */
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
@@ -13143,7 +12783,7 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  if (1) Z3_ABB__loopPsiL ("######### Vector-Tensor-Tensor, Left Fermion loop\n") ;
 	  firstDummyIndex = 'a' ;
-	  if (1) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
+	  if (0) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
 	  firstDummyIndex = 'a' ;
 	  if (1) Z3_ABH__loopPsiL ("######### Scalar_Vector-Tensor, Fermion loop\n") ;
 
@@ -13151,7 +12791,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
