@@ -3400,7 +3400,7 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
   char d = newDummyIndex () ;
   int z = 0 ; /* -1 */
   BOOL useProjector = TRUE ;
-  if (1) useProjector = TRUE
+  if (0) useProjector = FALSE ;
 	   ;
   nn = 0 ;
   if (! useProjector) { c = a ; d = b ; }
@@ -3434,7 +3434,7 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
   char d = newDummyIndex () ;
   int z = 0 ;
   BOOL useProjector = TRUE ;
-  if (1) useProjector = FALSE ;
+  if (0) useProjector = FALSE ;
   nn = 0 ;
   if (! useProjector) { c = a ; d = b ; }
   if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
@@ -3532,16 +3532,16 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
   int u = 2 ; 
-  int X = -1 ; /* -1 */
+  int X = -1 ; /* -1 B is anti-self-dual */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigB (mu) ;
-  POLYNOME pPi = newAG(a,b,mu,nu,X) ;
+  POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
   p1->tt.z = 1.0/u ;
   p1->tt.z *= I ;
 
-  return newProduct (pPi, p1) ; ;
+  return newProduct (projector, p1) ; ;
 }
 
 /***********************************************************************************************************************************************/
@@ -3549,16 +3549,16 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
   int u = 2 ;
-  int X = 1 ; /* 1 */ ;
+  int X = 1 ; /* 1 : Bbar is self-dual */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigma (mu) ;
-  POLYNOME pPi = newAG(a,b,mu,nu,X) ;
+  POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
   p1->tt.z = 1.0/u ;
   p1->tt.z *= I ;
 
-  return newProduct (pPi, p1) ; ;
+  return newProduct (projector, p1) ; ;
 }
 
 /***********************************************************************************************************************************************/
@@ -3586,7 +3586,7 @@ static POLYNOME vertex_A_PsiL_PsiLB (char mu)
 static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
   POLYNOME p = newScalar (1) ;
-  p->tt.z *= 2*I/3 ;
+  p->tt.z *= I ;  /* 2*I/3 */
   return p ;
 }
 
@@ -12700,60 +12700,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
-      if (0)
-	{
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BAH vertex\n") ;
-	  if (1) Z3_B_PsiR_PsiLB__BAH () ;  
-	  
-	  firstDummyIndex = 'a' ; 
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BHA vertex\n") ; 
-	  if (1) Z3_B_PsiR_PsiLB__BHA () ; 
-
-	  firstDummyIndex = 'a' ; 
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi Aunder vertex\n") ;
-	  if (1) Z3_B_PsiR_PsiLB__Aunder () ;  
-
-	  printf ("\n\n\n@@@@@@@@@ New B-PsiB-Psi Ward identity  DONE\n") ; 
-
-
-	  exit (0) ;
-	}
-
-      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
-      if (0)
-	{
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
-	  if (1) Z3_H_PsiR_PsiLB__Aunder () ;  
-	  
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HAB vertex\n") ;
-	  if (1) Z3_H_PsiR_PsiLB__HAB () ;  
-	  firstDummyIndex = 'a' ; 
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HBA vertex\n") ; 
-	  if (1) Z3_H_PsiR_PsiLB__HBA () ; 
-
-	  printf ("\n\n\n@@@@@@@@@ New H-PsiB-Psi Ward identity  DONE\n") ; 
-
-
-	  exit (0) ;
-	}
-
-      /* scalar/vector/tensor vertex, Boson loop */
-      if (0)
-	{
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  A_H_BB boson loop\n") ;
-	  if (1) Z3_A_H_BB__loopABH () ;  
-	  printf ("\n\n\n@@@@@@@@@ New A_H_BB Boson loop  DONE\n") ; 
-
-
-	  exit (0) ;
-	}
-
-      /* propagators */
+      /* Boson propagators Fermion loops*/
       if (0)
 	{
 	  firstDummyIndex = 'a' ;
@@ -12769,28 +12716,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-      
-      /* vector interactions with the scalar-vector-tensor Fermion loop */
-      if (0)
-	{
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
-
-	  firstDummyIndex = 'a' ;
-	  if (1) Z3_AHH__loopPsiL ("######### Vector-Scalar-Scalar, Fermion loop\n") ;
-	  firstDummyIndex = 'a' ;
-	  if (1) Z3_AAA__loopPsiL ("######### Vector-Vector-Vector, Fermion loop\n") ;
-	  firstDummyIndex = 'a' ;
-	  if (1) Z3_ABB__loopPsiL ("######### Vector-Tensor-Tensor, Left Fermion loop\n") ;
-	  firstDummyIndex = 'a' ;
-	  if (0) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
-	  firstDummyIndex = 'a' ;
-	  if (1) Z3_ABH__loopPsiL ("######### Scalar_Vector-Tensor, Fermion loop\n") ;
-
-	  printf ("\n\n\n@@@@@@@@@ Boson propagators Fermion loops DONE\n") ;
-	  exit (0) ;
-	}
-      
+      /* Boson propagators Boson loops*/
       if (0)
 	{
 	  firstDummyIndex = 'a' ;
@@ -12816,6 +12742,82 @@ int main (int argc, const char **argv)
 	    }
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators Boson loops DONE\n") ;
 	}
+      
+      /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
+      if (0)
+	{
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BAH vertex\n") ;
+	  if (1) Z3_B_PsiR_PsiLB__BAH () ;  
+	  
+	  firstDummyIndex = 'a' ; 
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BHA vertex\n") ; 
+	  if (1) Z3_B_PsiR_PsiLB__BHA () ; 
+
+	  firstDummyIndex = 'a' ; 
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi Aunder vertex\n") ;
+	  if (1) Z3_B_PsiR_PsiLB__Aunder () ;  
+
+	  printf ("\n\n\n@@@@@@@@@ New B-PsiB-Psi Ward identity  DONE\n") ; 
+
+
+	  exit (0) ;
+	}
+
+      /* scalar/vector/tensor vertex, Boson loop */
+      if (0)
+	{
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  A_H_BB boson loop\n") ;
+	  if (1) Z3_A_H_BB__loopABH () ;  
+	  printf ("\n\n\n@@@@@@@@@ New A_H_BB Boson loop  DONE\n") ; 
+
+
+	  exit (0) ;
+	}
+      /* vector interactions with the scalar-vector-tensor Fermion loop */
+      if (1)
+	{
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
+
+	  firstDummyIndex = 'a' ;
+	  if (1) Z3_AHH__loopPsiL ("######### Vector-Scalar-Scalar, Fermion loop\n") ;
+	  firstDummyIndex = 'a' ;
+	  if (1) Z3_AAA__loopPsiL ("######### Vector-Vector-Vector, Fermion loop\n") ;
+	  firstDummyIndex = 'a' ;
+	  if (0) Z3_ABB__loopPsiL ("######### Vector-Tensor-Tensor, Left Fermion loop\n") ;
+	  firstDummyIndex = 'a' ;
+	  if (1) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
+	  firstDummyIndex = 'a' ;
+	  if (0) Z3_ABH__loopPsiL ("######### Scalar_Vector-Tensor, Fermion loop\n") ;
+
+	  printf ("\n\n\n@@@@@@@@@ Boson propagators Fermion loops DONE\n") ;
+	  exit (0) ;
+	}
+      
+
+      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
+      if (0)
+	{
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
+	  if (1) Z3_H_PsiR_PsiLB__Aunder () ;  
+	  
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HAB vertex\n") ;
+	  if (1) Z3_H_PsiR_PsiLB__HAB () ;  
+	  firstDummyIndex = 'a' ; 
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HBA vertex\n") ; 
+	  if (1) Z3_H_PsiR_PsiLB__HBA () ; 
+
+	  printf ("\n\n\n@@@@@@@@@ New H-PsiB-Psi Ward identity  DONE\n") ; 
+
+
+	  exit (0) ;
+	}
+
+
       if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ epsilon tests \n") ;
