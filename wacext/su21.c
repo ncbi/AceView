@@ -1152,7 +1152,7 @@ static int indexTtSort (char *cp, int dx, int sign)
   int i, j, k, ss = 1, blockS = 1 ;
   BOOL modif = TRUE ;
 
-  for (i = 0 ; i < dx ; i++)
+  for (i = 0 ; i < dx ; i++)  /* a security, will always end up aas blockS=+1 in our framework */
     blockS *= sign ;
   while (modif)
     {   /* sort inside the goups of length dx (i.e. g_ba -> g_ab  eps_acbd -> - eps_abcd */
@@ -1164,7 +1164,7 @@ static int indexTtSort (char *cp, int dx, int sign)
     }
   modif = TRUE ;
   while (modif)
-    {   /* sort inside the blocks */
+    {   /* sort the blocks (i.e. g_cdab -> g_abcd */
       modif = FALSE ;
       for (i = 0 ; i < GMAX - dx && cp[i+dx] ; i += dx)
 	if (cp[i+dx]  && cp[i] > cp[i+dx])
@@ -1261,7 +1261,7 @@ static POLYNOME contractTtIndices (POLYNOME pp)
 		else if (g[i+1] == s[j])
 		  { s[j] = g[i] ; for (k = i ; k < GMAX - 2 ; k++) g[k] = g[k+2] ; g[k] = g[k+1] = 0 ; ok = FALSE ; }
 	      }
-	  if (! ok) continue ;
+	  if (! ok) continue ; /* will sort the modified epsilon symbol */
 		  
 	  /* search repeated indices inside an epsilon */
 	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
@@ -1276,19 +1276,7 @@ static POLYNOME contractTtIndices (POLYNOME pp)
 		    }
 		}
 	  
-	  /* sort indices inside an epsilon */
-	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
-	    for (j = 0 ; j < 4 ; j++)
-	      for (k = j+1 ; k < 4 ; k++)
-		if (s[i+j] > s[i+k])
-		    {
-		      char cc = s[i+j] ;
-		      s[i+j] = s[i+k] ;
-		      s[i+k] = cc ;
-		      tt.z *= -1 ;
-		      j = 5 ; k = 5 ; i -= 4 ;
-		    }
-	
+	  /* sort indices inside an epsilon : guaranteed by the above call to indexTtSort */
 
 	  /* search repeated indices between pairs of epsilon */
 	  for (i = 0, s = tt.eps ; ok && s[i] && i < GMAX ; i+= 4)
@@ -1349,6 +1337,14 @@ static POLYNOME contractTtIndices (POLYNOME pp)
 		    *g++ = 0 ;
 
 		    tt.z *= 1 ; /* we contracted 1 index */
+		    /* adjust the sign */
+		    for (k = 0 ; k < 4 ; k++)
+		      if (lll[k] && (k%2))
+			tt.z *= -1 ;
+		    for (k = 0 ; k < 4 ; k++)
+		      if (kkk[k] && (k%2))
+			tt.z *= -1 ;
+
 		    /* clean up the epsilons */
 		    for (k = j ; k < GMAX - 4 ; k++)
 		      s[k] = s[k+4] ;
@@ -3538,7 +3534,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   POLYNOME p1 = newSigB (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
-  p1->tt.z = 1.0/u ;
+  p1->tt.z = 0.5 ;
   p1->tt.z *= I ;
 
   return newProduct (projector, p1) ; ;
@@ -3555,7 +3551,7 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   POLYNOME p1 = newSigma (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
-  p1->tt.z = 1.0/u ;
+  p1->tt.z = 0.5 ;
   p1->tt.z *= I ;
 
   return newProduct (projector, p1) ; ;
@@ -3849,7 +3845,11 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   char w = newDummyIndex () ;
-  
+  char m = newDummyIndex () ;
+  char n = newDummyIndex () ;
+  char o = newDummyIndex () ;
+  char p = newDummyIndex () ;
+
   POLYNOME p1 = vertex_BB_PsiL_PsiRB (a,b) ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k)^2 */
   POLYNOME p3 = vertex_B_PsiR_PsiLB (c,d) ;
@@ -3879,8 +3879,22 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   showPol (pp) ;
 
   printf ("### raw propagator \n") ;
-  showPol (p5) ;
+  POLYNOME r1 = newAG(m,n,a,b,1) ;
+  POLYNOME r2 = newAG(o,p,c,d,-1) ;
+  POLYNOME rrr[] = { r1, p5, r2, 0} ;
+  POLYNOME r3 = newMultiProduct (rrr) ;
+  showPol (r3) ;
+  printf ("expand\n") ;
+  r3 = expand (r3) ;
+  showPol (r3) ;
+  printf ("reduce indices\n") ;
+  r3 = reduceIndices (r3) ;
+  showPol (r3) ;
+  printf ("expand\n") ;
+  r3 = expand (r3) ;
+  showPol (r3) ;
   printf ("DONE %s\n", title) ;
+  showPol (p5) ;
 
   return pp ;
 } /* Z2_BB__loopPsi */
@@ -5382,6 +5396,7 @@ static POLYNOME Z3_B__AB__PsiR_PsiLB (void)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   char e = newDummyIndex () ;
+  
   char f = newDummyIndex () ;
 
   int mm1[4] = {0,0,0,0} ;
@@ -12372,7 +12387,7 @@ int main (int argc, const char **argv)
 	  if (0) Thooft () ;
 	  
 	  printf ("============Hodge, check some projectors\n") ;
-	  if (0) Hodge () ;
+	  if (1) Hodge () ;
 
 	  printf ("============polynomeTest\n") ;
 	  if (0) polynomeTest () ;
@@ -12462,12 +12477,12 @@ int main (int argc, const char **argv)
 	  
 	  printf ("\n\n\n@@@@@@@@@ Projector tests DONE\n") ;
 
-	  if (0) /* verify the eps eps contractions */
+	  if (1) /* verify the eps eps contractions */
 	    {
 	      POLYNOME pp, ppp[12] ;
 	      
-	      ppp[0] = newEpsilon(a,b,c,h) ;
-	      ppp[1] = newEpsilon(e,f,g,h) ;
+	      ppp[0] = newEpsilon(a,c,f,b) ;
+	      ppp[1] = newEpsilon(a,b,f,e) ;
 	      ppp[2] = 0 ;
 	      pp = newMultiProduct (ppp) ;
 	      showPol (pp) ;
@@ -12485,6 +12500,7 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      pp = expand (pp)  ;
 	      showPol (pp) ;
+	      exit (0) ;
 	      
 	      pp = newEpsilon(a,b,i,f) ;
 	      strcpy(pp->tt.eps,"abhfcdhi") ;
@@ -12701,7 +12717,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -12788,9 +12804,9 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  if (0) Z3_ABB__loopPsiL ("######### Vector-Tensor-Tensor, Left Fermion loop\n") ;
 	  firstDummyIndex = 'a' ;
-	  if (1) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
+	  if (0) Z3_ABB__loopPsiR ("######### Vector-Tensor-Tensor, Right Fermion loop\n") ;
 	  firstDummyIndex = 'a' ;
-	  if (0) Z3_ABH__loopPsiL ("######### Scalar_Vector-Tensor, Fermion loop\n") ;
+	  if (1) Z3_ABH__loopPsiL ("######### Scalar_Vector-Tensor, Fermion loop\n") ;
 
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators Fermion loops DONE\n") ;
 	  exit (0) ;
