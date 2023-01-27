@@ -3699,7 +3699,8 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   POLYNOME p4 = newG  (b, d) ;
   POLYNOME p5 = newAG (c,d,rho,sig, -z) ;
   if (0) p5 = newEpsilon (c,d,rho,sig) ;
-  POLYNOME pp, ppp[] = {p1,p2,p3, p4, p5, 0} ;
+  POLYNOME pp, ppp[] = {p1,p2,p3, p4, p5, 0} ; 
+  /*   POLYNOME pp, ppp[] = {p2,p3, p4, 0} ;  */
 
   p4->tt.denom[pqr] = 2 ;
   p4->tt.z *= I/2.0 ;
@@ -4017,6 +4018,7 @@ static POLYNOME Z2_AA__loopB (const char *title)
 
   if (0)
     {
+      
       printf ("freeIndex\n") ;
       freeIndex (pp) ;
       showPol (pp) ;
@@ -12687,6 +12689,41 @@ int main (int argc, const char **argv)
       
 	  exit (0) ;
 	}
+
+      /* verify the B propagator */
+      if (0)
+	{
+	    char a = newDummyIndex () ;
+	    char b = newDummyIndex () ;
+	    char c = newDummyIndex () ;
+	    char d = newDummyIndex () ;
+	    char e = newDummyIndex () ;
+	    char f = newDummyIndex () ;
+	    char g = newDummyIndex () ;
+	    char h = newDummyIndex () ;
+	    char i = newDummyIndex () ;
+	    char j = newDummyIndex () ;
+	    char k = newDummyIndex () ;
+
+	    printf ("Simplification of the propagator\n") ;
+	    POLYNOME p1 = newAG (a,b,e,f,1) ;
+	    POLYNOME p2 = newEpsilon (e,f,g,h) ;
+	    p2->tt.mm[0][0] = g ;
+	    POLYNOME p3 = newEpsilon (i,h,j,k) ;
+	    p3->tt.mm[0][0] = i ;
+	    POLYNOME p4 = newAG (j,k,c,d, -1) ;
+	    POLYNOME ppp [] =  {p1,p2,p3,p4,0} ;
+	    POLYNOME pp = newMultiProduct (ppp) ;
+	    showPol (pp) ;
+	    pp = expand (pp) ;
+	    showPol (pp) ;
+	    pp = reduceIndices (pp) ;
+	    showPol (pp) ;
+	    pp = expand (pp) ;
+	    showPol (pp) ;
+	    
+	    exit (0) ;
+	}
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
@@ -12717,7 +12754,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -12733,7 +12770,7 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Boson loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
