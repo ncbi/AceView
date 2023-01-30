@@ -3342,7 +3342,6 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
 {
   if (!pp)
     return 0 ;
-  return pp ;
   
   if (pp->tt.type && cabs (pp->tt.z) < minAbs)
     { *okp = FALSE ; return 0 ; }
@@ -3359,25 +3358,66 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
 	{
 	  char *s = tt.eps ;
 	  int n = strlen (s) ;
+	  int pass = 0 ;
 	  int i, j, kk, k1, k2 ;
-	  for (i = 0 ; i < n ; i+= 4)
-	    {
-	      for (j = kk = k1 = k2 = 0 ; j < 4 ; j++)
-		{
-		  if (s[i+j] == a)
-		    { k1 = j + 1 ; kk++ ; }
-		  if (s[i+j] == b)
-		    { k2 = j + 1 ; kk++ ; }
-		}
-	      if (kk == 2) /* i can replace this epsilon by a (gg - gg) */
-		{
-		  POLYNOME p1 = copyPolynome (pp) ;
-		  POLYNOME p2 = copyPolynome (pp) ;
 
-		  *okp = FALSE ;
-		  return pp ;
-		}
-	    }		
+	  for (pass = 0 ; pass < 2 ; pass++)
+	    {
+	      char A = a, B = b ;
+	      if (pass == 1)
+		{ A = c ; B = d ; }
+
+	      for (i = 0 ; i < n ; i+= 4)
+		{
+		  for (j = kk = k1 = k2 = 0 ; j < 4 ; j++)
+		    {
+		      if (s[i+j] == A)
+			{ k1 = j + 1 ; kk++ ; }
+		      if (s[i+j] == B)
+			{ k2 = j + 1 ; kk++ ; }
+		    }
+		  if (kk == 2) /* i can replace this epsilon by a (gg - gg) */
+		    {
+		      POLYNOME p1 = copyPolynome (pp) ;
+		      POLYNOME p2 = copyPolynome (pp) ;
+		      char e = 0, f = 0 ;
+		      
+		      for (j = kk = k1 = k2 = 0 ; j < 4 ; j++)
+			{
+			  if (j != k1 + 1j && j != k2 + 1)
+			    {
+			      if (e == 0)
+				e = s[i+j] ;
+			      else
+				f = s[i+j] ;
+			    }
+			  if (e && f) /* replace eps(a,b,e,f) by 2g (aebf) */
+			    {
+			      char *cp ;
+			      tt.z *= 2 ;
+			      if (pass == 1) /* flip the epsilon sign */
+				tt.z *= -1 ;
+			      if ((k1 + k2) % 2 == 0)  /* non contiguous ab indices inside the epsilon */
+				tt.z *= -1 ;
+			      for (j = 0 ; s[i+j+4] ; j++)
+				s[i+j] = s[i+j+4] ;
+			      for (; i+j < GMAX ; j++)
+				s[i+j] = 0 ;
+			      cp = tt.g ;
+			      while (*cp) cp++ ;
+			      *cp++ = A ;
+			      *cp++ = e ;
+			      *cp++ = B ;	      
+			      *cp++ = f ;
+			      *cp++ = 0 ;
+			      
+			      *okp = FALSE ;
+			      return pp ;
+			    }
+			}
+		    }
+		}		
+	    }
 	}
     }
   
@@ -12524,7 +12564,8 @@ int main (int argc, const char **argv)
 	}
 
       /* projector tests */
-      if (0)
+      if (1
+	  )
 	{
 	  firstDummyIndex = 'a' ;
 	  char a = newDummyIndex () ;
@@ -12535,6 +12576,7 @@ int main (int argc, const char **argv)
 	  char f = newDummyIndex () ;
 	  char g = newDummyIndex () ;
 	  char h = newDummyIndex () ;
+	  
 	  char i = newDummyIndex () ;
 	  char j = newDummyIndex () ;
 	  int z ;
@@ -12551,8 +12593,11 @@ int main (int argc, const char **argv)
 	      showPol (pp) ;
 	      pp = expand (pp) ;
 	      showPol (pp) ;
+	      pp = bbCleanUp (pp, a, b, i, j) ;
+	      showPol (pp) ;
 	    }
-
+	  exit (0) ;
+	  
 	  for (z = -1 ; z < 3 ; z++)
 	    {
 	      printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
