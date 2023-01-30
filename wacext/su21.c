@@ -3756,7 +3756,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   POLYNOME p1 = newSigB (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
-  p1->tt.z = 2 ;
+  p1->tt.z = .5 ;
   p1->tt.z *= I ;
   p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
@@ -3774,7 +3774,7 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   POLYNOME p1 = newSigma (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
-  p1->tt.z = 2 ;
+  p1->tt.z = .5 ;
   p1->tt.z *= I ;
   p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
@@ -12959,7 +12959,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
