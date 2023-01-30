@@ -47,6 +47,7 @@
 typedef struct termStruct {
   int type ;
   double complex z ;/* complex scalar multiplier. If zero, the whole TT is NULL */
+  int sqrt1,sqrt2 ;
   char sigma[GMAX] ; /* sigma     matrices : non-commutative list of index "ab" means sigma_a sigma-bar_b */
   char sigB[GMAX] ;  /* sigma-bar matrices : non-commutative list of index "ab" means sigma-bar_a sigma_b */
   int N ; /* Taylor degree in x  symbol */
@@ -74,7 +75,7 @@ static POLYNOME newMultiSum (POLYNOME ppp[]) ;
 static POLYNOME expand (POLYNOME pp) ;
 static POLYNOME newPolynome (void) ;
 static void showPol (POLYNOME pp) ;
-static POLYNOME squareMomentaCleanUp (POLYNOME pp, char alpha) ;
+static POLYNOME squareMomentaCleanUp (POLYNOME pp) ;
 static POLYNOME dimIntegralDo (POLYNOME pp, int pass) ;
 static BOOL freeIndex (POLYNOME pp) ;
 
@@ -336,8 +337,7 @@ static POLYNOME reduceIndices (POLYNOME pp)
   level++ ;
   if (0 && level == 1)
     {
-      char a = newDummyIndex () ;
-      pp = squareMomentaCleanUp (pp, a) ;
+      pp = squareMomentaCleanUp (pp) ;
     }
   if (pp && pp->isSum)
     {
@@ -657,6 +657,51 @@ static void niceShow (MX a)
 
 /*******************************************************************************************/
 
+static void cleanTtSqrt (TT *ttp)
+{
+  if (ttp->sqrt1 == 0) ttp->sqrt1 = 1 ;
+  if (ttp->sqrt2 == 0) ttp->sqrt2 = 1 ;
+  
+  if (ttp->sqrt1 * ttp->sqrt2 > 1)
+    {
+      int i ;
+      /* reduce to common denominator */
+      for (i = 2 ; i <= ttp->sqrt1 && i <= ttp->sqrt2 ; i++)
+	{
+	  if ((ttp->sqrt1 % i == 0) && (ttp->sqrt2 % i == 0))
+	    {
+	      ttp->sqrt1 /= i ;
+	      ttp->sqrt2 /= i ;
+	      i = 1 ;
+	      continue ;
+	    }
+	}
+      /* remove squares */
+      for (i = 2 ; i*i <= ttp->sqrt1 ; i++)
+	{
+	  if (ttp->sqrt1 % (i*i) == 0)
+	    {
+	      ttp->sqrt1 /= (i*i)  ;
+	      ttp->z *= i ;
+	      i = 1 ;
+	      continue ;
+	    }
+	}
+      for (i = 2 ; i*i <= ttp->sqrt2 ; i++)
+	{
+	  if (ttp->sqrt2 % (i*i) == 0)
+	    {
+	      ttp->sqrt2 /= (i*i)  ;
+	      ttp->z /= i ;
+	      i = 1 ;
+	      continue ;
+	    }
+	}
+    }
+} /* cleanTtSqrt */
+
+/*******************************************************************************************/
+
 static void showTT (POLYNOME pp)
 {
   TT tt ;
@@ -668,6 +713,8 @@ static void showTT (POLYNOME pp)
   if (!tt.type)
     return ;
   
+  cleanTtSqrt (&tt) ;
+
   if (1 && ! ppIsNumber (pp))
     {
       if (cabs (tt.z + 1) < minAbs)
@@ -677,6 +724,14 @@ static void showTT (POLYNOME pp)
     }
   else
     { tt.z = nicePrint ("", tt.z) ; }
+  if (tt.sqrt1 > 1 || tt.sqrt2 > 1)
+    {
+      printf ("sqrt(%d",tt.sqrt1) ;
+      if (tt.sqrt2 > 1) printf ("/%d",tt.sqrt2) ;
+      printf (")") ;
+    }
+
+
 
   if (*tt.x) printf (" %s ", tt.x) ;
   if (*tt.g) printf (" g_%s ", tt.g) ;
@@ -1782,7 +1837,15 @@ static int contractTTProducts (POLYNOME pp, POLYNOME p1, POLYNOME p2)
   TT t2 = p2->tt ;
 
   /* merge numbers */
+
+  cleanTtSqrt (&t1) ;
+  cleanTtSqrt (&t2) ;
   tt.z = t1.z * t2.z ;
+  tt.sqrt1 = t1.sqrt1 * t2.sqrt1 ;
+  tt.sqrt2 = t1.sqrt2 * t2.sqrt2 ;
+  cleanTtSqrt (&tt) ;
+
+  
   if (cabs (tt.z) < minAbs)
     {
       if (0)
@@ -2094,6 +2157,10 @@ static POLYNOME contractProducts (POLYNOME pp)
       float complex z1 = p1->tt.z ;
       float complex z2 = p2->tt.z ;
       int s ;
+
+      cleanTtSqrt (&(p1->tt)) ;
+      cleanTtSqrt (&(p2->tt)) ;
+      
       s = polOrder (&p1, &p2) ;
 
       if (s == 0)
@@ -2114,9 +2181,13 @@ static POLYNOME contractProducts (POLYNOME pp)
 
   if (pp->isSum && p1 && p2 && p1->tt.type && p2->isSum && p2->p1 && p2->p1->tt.type)
     {
+      cleanTtSqrt (&(p1->tt)) ;
+      cleanTtSqrt (&(p2->p1->tt)) ;
+
       float complex z1 = p1->tt.z ;
       float complex z2 = p2->p1->tt.z ;
       int s ;
+
       p1->tt.z = 0 ;       
       p2->p1->tt.z = 0 ;       
       s = memcmp (&(p1->tt), &(p2->p1->tt), sizeof(TT)) ;
@@ -3267,6 +3338,80 @@ static BOOL freeIndexFuse (char *top, char **cpp)
 
 /***********************************************************************************************************************************************/
 
+static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *okp)
+{
+  if (!pp)
+    return 0 ;
+  return pp ;
+  
+  if (pp->tt.type && cabs (pp->tt.z) < minAbs)
+    { *okp = FALSE ; return 0 ; }
+  
+  if (pp->isSum)
+    {
+      pp->p1 = bbCleanUpDo (pp->p1, a, b, c, d, okp) ;
+      pp->p2 = bbCleanUpDo (pp->p2, a, b, c, d, okp) ;
+    }
+  else if (pp->tt.type)
+    {
+      TT tt = pp->tt ;
+      if (tt.eps[0])
+	{
+	  char *s = tt.eps ;
+	  int n = strlen (s) ;
+	  int i, j, kk, k1, k2 ;
+	  for (i = 0 ; i < n ; i+= 4)
+	    {
+	      for (j = kk = k1 = k2 = 0 ; j < 4 ; j++)
+		{
+		  if (s[i+j] == a)
+		    { k1 = j + 1 ; kk++ ; }
+		  if (s[i+j] == b)
+		    { k2 = j + 1 ; kk++ ; }
+		}
+	      if (kk == 2) /* i can replace this epsilon by a (gg - gg) */
+		{
+		  POLYNOME p1 = copyPolynome (pp) ;
+		  POLYNOME p2 = copyPolynome (pp) ;
+
+		  *okp = FALSE ;
+		  return pp ;
+		}
+	    }		
+	}
+    }
+  
+  return pp ;
+} /* bbCleanUpDo */
+
+/*******************************************/
+
+static POLYNOME bbCleanUp (POLYNOME pp, char a, char b, char c, char d)
+{
+  BOOL ok = TRUE ;
+  
+  if (!pp)
+    return 0 ;
+  if (pp->isSum)
+    {
+      pp->p1 = bbCleanUpDo (pp->p1, a, b, c, d, &ok) ;
+      pp->p2 = bbCleanUpDo (pp->p2, a, b, c, d, &ok) ;
+    }
+  else if (pp->tt.type && cabs (pp->tt.z) < minAbs)
+    {
+      pp->p1 = bbCleanUpDo (pp->p1, a, b, c, d, &ok) ;
+    }
+  if (!ok && pp)
+    {
+      pp = expand (pp) ;
+      pp = bbCleanUp (pp->p1, a, b, c, d) ;
+    }
+  
+  return pp ;
+} /* bbCleanUp */
+
+/***********************************************************************************************************************************************/
+
 static BOOL freeIndex (POLYNOME pp)
 {
   POLYNOME p1, p2 ;
@@ -3527,7 +3672,6 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
 /* This vertex is by itelf self dual */
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
-  int u = 2 ; 
   int X = -1 ; /* -1 B is anti-self-dual */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
@@ -3536,6 +3680,8 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   p1->tt.sigB[1] = nu ;
   p1->tt.z = 0.5 ;
   p1->tt.z *= I ;
+  p1->tt.sqrt1 = 1 ;
+  p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
 }
@@ -3544,7 +3690,6 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 /* This vertex is by itelf anti self dual */
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
-  int u = 2 ;
   int X = 1 ; /* 1 : Bbar is self-dual */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
@@ -3553,6 +3698,8 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   p1->tt.sigma[1] = nu ;
   p1->tt.z = 0.5 ;
   p1->tt.z *= I ;
+  p1->tt.sqrt1 = 1 ;
+  p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
 }
@@ -3583,6 +3730,8 @@ static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;  /* 2*I/3 */
+  p->tt.sqrt1 = 1 ;
+  p->tt.sqrt2 = 1 ;
   return p ;
 }
 
@@ -3592,41 +3741,41 @@ static POLYNOME vertex_HB_PsiL_PsiRB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;
+  p->tt.sqrt1 = 1 ;
+  p->tt.sqrt2 = 1 ;
   return p ;
 }
 
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 
-static POLYNOME squareMomentaCleanUp (POLYNOME pp, char alpha) 
+static POLYNOME squareMomentaCleanUpDo (POLYNOME pp, char alpha) 
 {
-  static int level = 0 ;
-
   pp = expand (pp) ;
-  if (level == 0 && ! alpha)
-    {
-      if (0) pp = reduceIndices (pp) ;
-      alpha = newDummyIndex() ;
-    } 
-  level++ ;
 
   if (! pp)
     return 0 ;
 
   if (pp->isSum && pp->p1)
-    pp->p1 = squareMomentaCleanUp (pp->p1, alpha) ;
+    pp->p1 = squareMomentaCleanUpDo (pp->p1, alpha) ;
   if (pp->isSum && pp->p2)
-    pp->p2 = squareMomentaCleanUp (pp->p2, alpha) ;
+    pp->p2 = squareMomentaCleanUpDo (pp->p2, alpha) ;
   if (pp->tt.type == 1)
     {
       if (pp->tt.mm[1][0] && pp->tt.mm[1][0] == pp->tt.mm[1][1])
 	pp->tt.mm[1][0] = pp->tt.mm[1][1] = alpha ;
     }
   pp = expand (pp) ;
-  level-- ;
 
   return pp ;
 }
+
+static POLYNOME squareMomentaCleanUp (POLYNOME pp)
+{
+  char alpha = newDummyIndex() ;
+  return squareMomentaCleanUpDo (pp, alpha) ;
+}
+
 /***********************************************************************************************************************************************/
 
 static POLYNOME squareMomentaKill (POLYNOME pp)
@@ -3845,11 +3994,6 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   char b = newDummyIndex () ;
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
-  char w = newDummyIndex () ;
-  char m = newDummyIndex () ;
-  char n = newDummyIndex () ;
-  char o = newDummyIndex () ;
-  char p = newDummyIndex () ;
 
   POLYNOME p1 = vertex_BB_PsiL_PsiRB (a,b) ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k)^2 */
@@ -3872,7 +4016,7 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   showPol (pp) ;
   pp = pauliTrace (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, w) ;
+  pp = squareMomentaCleanUp (pp) ;
   pp = reduceIndices (pp) ;
   pp = expand (pp) ;
   if (0) pp = squareMomentaKill (pp) ;
@@ -3880,22 +4024,9 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   showPol (pp) ;
 
   printf ("### raw propagator \n") ;
-  POLYNOME r1 = newAG(m,n,a,b,1) ;
-  POLYNOME r2 = newAG(o,p,c,d,-1) ;
-  POLYNOME rrr[] = { r1, p5, r2, 0} ;
-  POLYNOME r3 = newMultiProduct (rrr) ;
-  showPol (r3) ;
-  printf ("expand\n") ;
-  r3 = expand (r3) ;
-  showPol (r3) ;
-  printf ("reduce indices\n") ;
-  r3 = reduceIndices (r3) ;
-  showPol (r3) ;
-  printf ("expand\n") ;
-  r3 = expand (r3) ;
-  showPol (r3) ;
-  printf ("DONE %s\n", title) ;
   showPol (p5) ;
+  p5 = bbCleanUp (p5, a, b, c, d) ;
+  printf ("DONE %s\n", title) ;
 
   return pp ;
 } /* Z2_BB__loopPsi */
@@ -3927,7 +4058,7 @@ static POLYNOME Z2_HH__loopPsi  (const char *title)
   showPol (pp) ;
   pp = pauliTrace (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, 'n') ;
+  pp = squareMomentaCleanUp (pp) ;
   pp = reduceIndices (pp) ;
   pp = expand (pp) ;
   printf ("### Z2 scalar avec loop PsiB_L Psi_L expect ::  je_sais_pas \n") ;
@@ -3969,7 +4100,7 @@ static POLYNOME Z2_AA__loopPsi  (const char *title)
   showPol (pp) ;
   pp = pauliTrace (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, 'n') ;
+  pp = squareMomentaCleanUp (pp) ;
   pp = reduceIndices (pp) ;
   pp = expand (pp) ;
   printf ("### Z2 Photon avec loop PsiB_L Psi_L expect :: 2/3 (p_ab - g_ab p^2 \n") ;
@@ -3995,7 +4126,6 @@ static POLYNOME Z2_AA__loopB (const char *title)
   char h = newDummyIndex () ;
   char i = newDummyIndex () ;
   char j = newDummyIndex () ;
-  char n = newDummyIndex () ;
 
   int mm1[4] = {1,1,0,0} ;    /* k+p */
   int mm2[4] = {1,0,0,0} ;    /* k */
@@ -4026,7 +4156,7 @@ static POLYNOME Z2_AA__loopB (const char *title)
   
   printf ("integrate\n") ;
   pp = dimIntegral (pp) ;
-  pp = squareMomentaCleanUp (pp, n) ;
+  pp = squareMomentaCleanUp (pp) ;
   showPol(pp) ;
   pp = expand (pp) ;
   pp = expand (pp) ;
@@ -4050,7 +4180,7 @@ static POLYNOME Z2_AA__loopHB (const char *title)
   char d = newDummyIndex () ;
   char e = newDummyIndex () ;
   char f = newDummyIndex () ;
-  char n = newDummyIndex () ;
+
   int mm1[4] = {0,1,0,0} ; /*  p  */
   int mm2[4] = {0,-1,0,0} ; /* -p  */
 
@@ -4075,7 +4205,7 @@ static POLYNOME Z2_AA__loopHB (const char *title)
   printf ("integrate\n") ;
   pp = dimIntegral (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, n) ;
+  pp = squareMomentaCleanUp (pp) ;
   showPol(pp) ;
   pp = expand (pp) ;
   printf ("### Z2 Photon avec loop BB_B expect zero (convergent because the derivatives on A  do not affect k)\n") ;
@@ -4093,7 +4223,6 @@ static POLYNOME Z2_HH__Aunder (const char *title)
     
   char a = newDummyIndex () ;
   char b = newDummyIndex () ;
-  char n = newDummyIndex () ;
   int ppv[4] = {1,2,0,0} ; /* 2p + k : vertex */
   
   POLYNOME p1 = vertex_A_H_HB (b, ppv) ; /*(2k + p)_mu */
@@ -4114,7 +4243,7 @@ static POLYNOME Z2_HH__Aunder (const char *title)
   printf ("integrate\n") ;
   pp = dimIntegral (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, n) ;
+  pp = squareMomentaCleanUp (pp) ;
   printf ("### Z2 scalar avec vector under, expect x p^2 ?, ZERO IN SU(1/1)\n") ;
   showPol (pp) ;
   printf ("DONE %s\n", title) ;
@@ -4134,7 +4263,6 @@ static POLYNOME Z2_HH__loopAB (const char *title)
   char d = newDummyIndex () ;
   char e = newDummyIndex () ;
   char f = newDummyIndex () ;
-  char n = newDummyIndex () ;
   int m1[4] = {-1, -1,0,0} ; /* -p - k : incoming A momentum */
   int m2[4] = {1,1,0,0} ; /* p + k : vertex */
   
@@ -4158,7 +4286,7 @@ static POLYNOME Z2_HH__loopAB (const char *title)
   printf ("integrate\n") ;
   pp = dimIntegral (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, n) ;
+  pp = squareMomentaCleanUp (pp) ;
   printf ("### Z2 scalar avec new ABH loop, expect x p^2 ?\n") ;
   showPol (pp) ;
   printf ("DONE %s\n", title) ;
@@ -4182,7 +4310,6 @@ static POLYNOME Z2_BB__loopAH (const char *title)
   char h = newDummyIndex () ;
   char i = newDummyIndex () ;
   char j = newDummyIndex () ;
-  char n = newDummyIndex () ;
   int m1[4] = {1,0,0,0} ; /*  k : vertex */
   int m2[4] = {-1,0,0,0} ; /* -k : vertex */
 
@@ -4207,7 +4334,7 @@ static POLYNOME Z2_BB__loopAH (const char *title)
   printf ("integrate\n") ;
   pp = dimIntegral (pp) ;
   showPol (pp) ;
-  pp = squareMomentaCleanUp (pp, n) ;
+  pp = squareMomentaCleanUp (pp) ;
   showPol (pp) ;
 
   pp = expand (pp) ;
@@ -4920,7 +5047,7 @@ static POLYNOME Z2_BB__Aunder (const char *title)
       pp = dimIntegral (pp) ;
       showPol (pp) ;
       pp = expand (pp) ;
-      pp = squareMomentaCleanUp (pp, mu) ;
+      pp = squareMomentaCleanUp (pp) ;
       showPol(pp) ;
       pp = reduceIndices (pp) ;
       pp = expand (pp) ;
@@ -5856,7 +5983,7 @@ static BOOL polynomeTest (void)
       p2 = contractIndices(p2) ;
       p2 = expand(p2) ;
       showPol(p2) ;
-      p2 = squareMomentaCleanUp (p2, a) ;
+      p2 = squareMomentaCleanUp (p2) ;
       showPol(p2) ;
     }
   
@@ -12733,6 +12860,8 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  if (1) Z2_PsiL__A_Psi ("######### Fermion propagator, Vector under\n") ;
 	  firstDummyIndex = 'a' ;
+	  printf ("Z2 done\n") ;
+	  
 	  if (1) Z3_A_PsiL_PsiLB__Aunder () ;  
 	  
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi H under\n") ;
@@ -12754,7 +12883,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -12790,12 +12919,33 @@ int main (int argc, const char **argv)
 	  
 	  if (1)
 	    {
+
 	      if (0) Z2_BB__Aunder ("######### Tensor propagator, Vector-under, 0 in SU(1/1)\n") ;
 	      if (1) Z2_BB__loopAH ("######### Tensor propagator, NEW Vector-Scalar loop\n") ;
 	    }
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators Boson loops DONE\n") ;
 	}
       
+      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
+      if (0)
+	{
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
+	  if (1) Z3_H_PsiR_PsiLB__Aunder () ;  
+	  
+	  firstDummyIndex = 'a' ;
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HAB vertex\n") ;
+	  if (1) Z3_H_PsiR_PsiLB__HAB () ;  
+	  firstDummyIndex = 'a' ; 
+	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HBA vertex\n") ; 
+	  if (1) Z3_H_PsiR_PsiLB__HBA () ; 
+
+	  printf ("\n\n\n@@@@@@@@@ New H-PsiB-Psi Ward identity  DONE\n") ; 
+
+
+	  exit (0) ;
+	}
+
       /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
       if (0)
 	{
@@ -12828,8 +12978,8 @@ int main (int argc, const char **argv)
 
 	  exit (0) ;
 	}
-      /* vector interactions with the scalar-vector-tensor Fermion loop */
-      if (1)
+      /* vector interactions with the scalar-vector-tensor in the presence of a Fermion loop */
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
@@ -12849,26 +12999,6 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-
-      /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
-      if (0)
-	{
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
-	  if (1) Z3_H_PsiR_PsiLB__Aunder () ;  
-	  
-	  firstDummyIndex = 'a' ;
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HAB vertex\n") ;
-	  if (1) Z3_H_PsiR_PsiLB__HAB () ;  
-	  firstDummyIndex = 'a' ; 
-	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi HBA vertex\n") ; 
-	  if (1) Z3_H_PsiR_PsiLB__HBA () ; 
-
-	  printf ("\n\n\n@@@@@@@@@ New H-PsiB-Psi Ward identity  DONE\n") ; 
-
-
-	  exit (0) ;
-	}
 
 
       if (0)
@@ -12982,7 +13112,7 @@ int main (int argc, const char **argv)
 	      p3 = newMultiProduct (ppp4) ;
 	      showPol (p3) ;
 	      p3 = expand (p3) ;
-	      p3 = squareMomentaCleanUp (p3, 'n') ;
+	      p3 = squareMomentaCleanUp (p3) ;
 	      showPol (p3) ;
 	      
 	      
