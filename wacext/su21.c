@@ -12854,7 +12854,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
@@ -12883,7 +12883,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -12899,7 +12899,7 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Boson loops*/
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
@@ -12924,10 +12924,11 @@ int main (int argc, const char **argv)
 	      if (1) Z2_BB__loopAH ("######### Tensor propagator, NEW Vector-Scalar loop\n") ;
 	    }
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators Boson loops DONE\n") ;
+	  exit (0) ;
 	}
       
       /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
@@ -12947,7 +12948,7 @@ int main (int argc, const char **argv)
 	}
 
       /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BAH vertex\n") ;
