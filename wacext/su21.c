@@ -3344,7 +3344,7 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
     return 0 ;
   
   if (pp->tt.type && cabs (pp->tt.z) < minAbs)
-    { *okp = FALSE ; return 0 ; }
+    { return 0 ; }
   
   if (pp->isSum)
     {
@@ -3378,13 +3378,11 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
 		    }
 		  if (kk == 2) /* i can replace this epsilon by a (gg - gg) */
 		    {
-		      POLYNOME p1 = copyPolynome (pp) ;
-		      POLYNOME p2 = copyPolynome (pp) ;
 		      char e = 0, f = 0 ;
 		      
-		      for (j = kk = k1 = k2 = 0 ; j < 4 ; j++)
+		      for (j = 0 ; j < 4 ; j++)
 			{
-			  if (j != k1 + 1j && j != k2 + 1)
+			  if (j + 1 != k1 && j + 1 != k2)
 			    {
 			      if (e == 0)
 				e = s[i+j] ;
@@ -3412,11 +3410,59 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
 			      *cp++ = 0 ;
 			      
 			      *okp = FALSE ;
+			      pp->tt = tt ;
 			      return pp ;
 			    }
 			}
 		    }
 		}		
+	    }
+	}
+
+      if (tt.g[0])
+	{
+	  char *s = tt.g ;
+	  int n = strlen (s) ;
+	  int pass = 0 ;
+	  int i1, j1, i2, j2 ;
+
+	  for (pass = 0 ; pass < 2 ; pass++)
+	    {
+	      char A = a, B = b ;
+	      char e = 0, f = 0 ;
+	      if (pass == 1)
+		{ A = c ; B = d ; }
+
+	      for (i1 = 0 ; i1 < n ; i1 += 2)
+		{
+		  for (j1 = 0 ; j1 < 2 ; j1++)
+		    if (s[i1+j1] == A)
+		      {
+			e = s [i1+1-j1] ;
+			if (e == B)
+			  return 0 ;
+			for (i2 = 0 ; i2 < n ; i2 += 2)
+			  {
+			    for (j2 = 0 ; j2 < 2 ; j2++)
+			      if (s[i2+j2] == B)
+				{
+				  f = s [i2+1-j2] ;
+				  if (f == A)
+				    return 0 ;
+				  /* bingo if e>f we switch a and b */
+				  if (e > f)
+				    {
+				      tt.z *= -1 ;
+				      s [i1+j1] = B ;
+				      s [i2+j2] = A ;
+				      *okp = FALSE ;
+				      pp->tt = tt ;
+				      return pp ;
+				    }
+				}
+			  }
+		      }
+		}
 	    }
 	}
     }
@@ -3428,23 +3474,15 @@ static POLYNOME bbCleanUpDo (POLYNOME pp, char a, char b, char c, char d, BOOL *
 
 static POLYNOME bbCleanUp (POLYNOME pp, char a, char b, char c, char d)
 {
-  BOOL ok = TRUE ;
+  BOOL ok = FALSE ;
   
   if (!pp)
     return 0 ;
-  if (pp->isSum)
+  while (pp && ! ok)
     {
-      pp->p1 = bbCleanUpDo (pp->p1, a, b, c, d, &ok) ;
-      pp->p2 = bbCleanUpDo (pp->p2, a, b, c, d, &ok) ;
-    }
-  else if (pp->tt.type && cabs (pp->tt.z) < minAbs)
-    {
-      pp->p1 = bbCleanUpDo (pp->p1, a, b, c, d, &ok) ;
-    }
-  if (!ok && pp)
-    {
+      ok = TRUE ;
       pp = expand (pp) ;
-      pp = bbCleanUp (pp->p1, a, b, c, d) ;
+      pp = bbCleanUpDo (pp, a, b, c, d, &ok) ;
     }
   
   return pp ;
@@ -3718,7 +3756,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   POLYNOME p1 = newSigB (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
-  p1->tt.z = 0.5 ;
+  p1->tt.z = 2 ;
   p1->tt.z *= I ;
   p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
@@ -3736,7 +3774,7 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   POLYNOME p1 = newSigma (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
-  p1->tt.z = 0.5 ;
+  p1->tt.z = 2 ;
   p1->tt.z *= I ;
   p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
@@ -3770,8 +3808,8 @@ static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;  /* 2*I/3 */
-  p->tt.sqrt1 = 1 ;
-  p->tt.sqrt2 = 1 ;
+  p->tt.sqrt1 = 4 ;
+  p->tt.sqrt2 = 3 ;
   return p ;
 }
 
@@ -3781,8 +3819,8 @@ static POLYNOME vertex_HB_PsiL_PsiRB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;
-  p->tt.sqrt1 = 1 ;
-  p->tt.sqrt2 = 1 ;
+  p->tt.sqrt1 = 4 ;
+  p->tt.sqrt2 = 3 ;
   return p ;
 }
 
@@ -3880,6 +3918,9 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   int z = 1 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
+  int u = 16 ;
+  if (pqr == 99)   /* contruct the lagrangian */
+    { z = 0 ; pqr = 0 ; u = 1 ; }
 
   POLYNOME p1 = newAG (mu,nu,a,b, z) ;
   if (0) p1 = newEpsilon (mu, nu, a,b) ;
@@ -3892,7 +3933,7 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   /*   POLYNOME pp, ppp[] = {p2,p3, p4, 0} ;  */
 
   p4->tt.denom[pqr] = 2 ;
-  p4->tt.z *= I/2.0 ;
+  p4->tt.z *= u*I ;
   pp = newMultiProduct (ppp) ;
 
   return pp ;
@@ -12564,8 +12605,7 @@ int main (int argc, const char **argv)
 	}
 
       /* projector tests */
-      if (1
-	  )
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  char a = newDummyIndex () ;
@@ -12581,21 +12621,41 @@ int main (int argc, const char **argv)
 	  char j = newDummyIndex () ;
 	  int z ;
 
-	  for (z = -1 ; z < 3 ; z++)
-	    {
-	      printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
-	      POLYNOME p1 = newAG (a, b, c, d, z) ;
-	      POLYNOME p2 = newAG (c, d, e, f, z) ;
-	      POLYNOME p3 = newAG (e, f, g, h, z) ;
-	      POLYNOME p4 = newAG (g, h, i, j, z) ;
-	      POLYNOME ppp[] = {p1, p2, p3, p4, 0} ;
-	      POLYNOME pp = newMultiProduct (ppp) ;
-	      showPol (pp) ;
-	      pp = expand (pp) ;
-	      showPol (pp) ;
-	      pp = bbCleanUp (pp, a, b, i, j) ;
-	      showPol (pp) ;
-	    }
+	  if (0)
+	    for (z = -1 ; z < 3 ; z++)
+	      {
+		printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
+		POLYNOME p1 = newAG (a, b, c, d, z) ;
+		POLYNOME p2 = newAG (c, d, e, f, z) ;
+		POLYNOME p3 = newAG (e, f, g, h, z) ;
+		POLYNOME p4 = newAG (g, h, i, j, z) ;
+		POLYNOME ppp[] = {p1, p2, p3, p4, 0} ;
+		POLYNOME pp = newMultiProduct (ppp) ;
+		showPol (pp) ;
+		pp = expand (pp) ;
+		showPol (pp) ;
+		pp = bbCleanUp (pp, a, b, i, j) ;
+		showPol (pp) ;
+	      }
+	  
+	  if (1)  /* is the propagator the inverse f the lagrangian */
+	      {
+		printf ("\n\n\n@@@@@@@@@ Projector tests z = %d\n", z) ;
+		POLYNOME p1 = prop_BB_B (a, b, c, d, 99) ;
+		POLYNOME p2 = prop_BB_B (c, d, e, f, 0) ;
+		POLYNOME p3 = prop_BB_B (e, f, g, h, 99) ;
+		POLYNOME p4 = newScalar (1) ; /* compensate the values in the current propagators */
+		POLYNOME ppp[] = {p1, p2, p3, p4, 0} ;
+		showPol (p1) ;
+		showPol (p2) ;
+		showPol (p3) ;
+		POLYNOME pp = newMultiProduct (ppp) ;
+		showPol (pp) ;
+		pp = expand (pp) ;
+		showPol (pp) ;
+		pp = bbCleanUp (pp, a, b, g, h) ;
+		showPol (pp) ;
+	      }
 	  exit (0) ;
 	  
 	  for (z = -1 ; z < 3 ; z++)
@@ -12899,7 +12959,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
@@ -12928,7 +12988,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
