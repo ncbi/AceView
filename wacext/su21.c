@@ -3756,9 +3756,9 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   POLYNOME p1 = newSigB (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
-  p1->tt.z = 2 ;
+  p1->tt.z = .5 ;
   p1->tt.z *= I ;
-  p1->tt.sqrt1 = 2 ;
+  p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
@@ -3774,9 +3774,9 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   POLYNOME p1 = newSigma (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
-  p1->tt.z = 2 ;
+  p1->tt.z = .5 ;
   p1->tt.z *= I ;
-  p1->tt.sqrt1 = 2 ;
+  p1->tt.sqrt1 = 1 ;
   p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
@@ -3808,8 +3808,8 @@ static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;  /* 2*I/3 */
-  p->tt.sqrt1 = 4 ;
-  p->tt.sqrt2 = 3 ;
+  p->tt.sqrt1 = 1 ;
+  p->tt.sqrt2 = 1 ;
   return p ;
 }
 
@@ -3819,8 +3819,8 @@ static POLYNOME vertex_HB_PsiL_PsiRB (void)
 {
   POLYNOME p = newScalar (1) ;
   p->tt.z *= I ;
-  p->tt.sqrt1 = 4 ;
-  p->tt.sqrt2 = 3 ;
+  p->tt.sqrt1 = 1 ;
+  p->tt.sqrt2 = 1 ;
   return p ;
 }
 
@@ -12991,7 +12991,7 @@ int main (int argc, const char **argv)
 	}
 
       /* Boson propagators Fermion loops*/
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -13036,7 +13036,7 @@ int main (int argc, const char **argv)
 	}
       
       /* coupling of the scalar to the Fermions, influenced by the scalar/vector/tensor */
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  H_PsiB_Psi Aunder vertex\n") ;
