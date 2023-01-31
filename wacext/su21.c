@@ -3756,9 +3756,9 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
   POLYNOME p1 = newSigB (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigB[1] = nu ;
-  p1->tt.z = .5 ;
+  p1->tt.z = 2 ;
   p1->tt.z *= I ;
-  p1->tt.sqrt1 = 1 ;
+  p1->tt.sqrt1 = 2 ;
   p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
@@ -3774,9 +3774,9 @@ static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
   POLYNOME p1 = newSigma (mu) ;
   POLYNOME projector = newAG(a,b,mu,nu,X) ;
   p1->tt.sigma[1] = nu ;
-  p1->tt.z = .5 ;
+  p1->tt.z = 2 ;
   p1->tt.z *= I ;
-  p1->tt.sqrt1 = 1 ;
+  p1->tt.sqrt1 = 2 ;
   p1->tt.sqrt2 = 1 ;
 
   return newProduct (projector, p1) ; ;
@@ -4085,8 +4085,6 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
 
   POLYNOME pp = newMultiProduct (ppp) ;
   printf ("%s\n", title) ;
-  p5 = expand (p5) ;
-  showPol (p5) ;
   showPol (pp) ;
 
   printf ("Expand\n") ;
@@ -4103,10 +4101,15 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   if (0) pp = squareMomentaKill (pp) ;
   printf ("### Z2 Tensor avec loop PsiB_L Psi_L expect ::  je_sais_pas \n") ;
   showPol (pp) ;
+  pp = bbCleanUp (pp, a, b, c, d) ;
+  showPol (pp) ;
 
-  printf ("### raw propagator \n") ;
+  printf ("\n### raw propagator \n") ;
+  showPol (p5) ;
+  p5 = expand (p5) ;
   showPol (p5) ;
   p5 = bbCleanUp (p5, a, b, c, d) ;
+  showPol (p5) ;
   printf ("DONE %s\n", title) ;
 
   return pp ;
@@ -12959,7 +12962,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
