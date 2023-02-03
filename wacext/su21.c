@@ -3745,6 +3745,26 @@ static POLYNOME vertex_A_H_HB (char mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum of
   return pp ;
 } /* vertex_A_H_HB */
 
+/**********************************************************************************************************************************************/
+/*   A_mu diffusion of c  -> cB ghost */
+static POLYNOME vertex_A_c_cB (char mu, int mm[4])  /* k+p = (1,1,0,0) : momentum of the cB in that direction */
+{
+  POLYNOME pp, ppp[6] ; 
+  int i, nn = 0 ; 
+
+  for (i = 0 ; i < 4 ; i++)
+    if (mm[i])
+      {
+	pp = newScalar (mm[i]) ;
+	pp->tt.mm[i][0] = mu ;
+	ppp[nn++] = pp ;	  
+      }
+  ppp[nn++] = 0 ;	  
+  pp = newMultiSum (ppp) ;
+  pp->tt.z *= I ;
+  return pp ;
+} /* vertex_A_c_cB */
+
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
 /* This vertex is by itelf self dual */
@@ -3803,6 +3823,7 @@ static POLYNOME vertex_A_PsiL_PsiLB (char mu)
 
 /***********************************************************************************************************************************************/
 /***********************************************************************************************************************************************/
+
 
 static POLYNOME vertex_H_PsiR_PsiLB (void)
 {
@@ -3918,7 +3939,7 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
   int z = 1 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
-  int u = 16 ;
+  int u = -4 ;
   if (pqr == 99)   /* contruct the lagrangian */
     { z = 0 ; pqr = 0 ; u = 1 ; }
 
@@ -3962,6 +3983,16 @@ static POLYNOME prop_AR (char mu, char nu, int pqr)
 /***********************************************************************************************************************************************/
 
 static POLYNOME prop_HB_H (int pqr) 
+{
+  POLYNOME pp = newScalar (1.0) ;
+  pp->tt.denom[pqr] = 1 ;
+  pp->tt.z *= I ;
+  return pp ;
+}
+
+/***********************************************************************************************************************************************/
+
+static POLYNOME prop_cB_c (int pqr) 
 {
   POLYNOME pp = newScalar (1.0) ;
   pp->tt.denom[pqr] = 1 ;
@@ -4067,6 +4098,44 @@ static POLYNOME Z2_AA__loopH  (const char *title)
 
 /***********************************************************************************************************************************************/
 
+static POLYNOME Z2_AA__loopGhost  (const char *title) 
+{
+  firstDummyIndex = 'a' ;
+    
+  char mu = newDummyIndex () ;
+  char nu = newDummyIndex () ;
+  int ppv1[4] = {1,0,0,0} ; /* k  : vertex */
+  int ppv2[4] = {1,1,0,0} ; /* k + p : vertex */
+
+  POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
+  POLYNOME p1 = vertex_A_c_cB (mu, ppv2) ; /*(2k + p)_mu */
+  POLYNOME p2 = prop_cB_c (1) ;   /* (1/(k+p)^2 */
+  POLYNOME p3 = vertex_A_c_cB (nu, ppv1) ; /* (2k + p)_mu */prop_PsiRB_PsiR (1) ; /* (1/(k+p)^2 */
+  POLYNOME p4 = prop_cB_c (0) ;   /* (1/(k)^2 */
+  POLYNOME ppp[] = {p10,p1,p2,p3,p4,0} ;
+
+  POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
+
+  printf ("%s\n", title) ;
+  showPol (pp) ;
+
+  printf ("Expand\n") ;
+  pp = expand (pp) ;
+  showPol (pp) ;
+
+  printf ("integrate\n") ;
+  pp = dimIntegral (pp) ;
+  showPol (pp) ;
+  printf ("### Z2 AA loop ghost expect ::  1/3 (p_ab - g_ab p^2)\n") ;
+  showPol (pp) ;
+
+  printf ("DONE %s\n", title) ;
+
+  return pp ;
+} /* Z2_AA__loopGhost */
+
+/***********************************************************************************************************************************************/
+
 static POLYNOME Z2_BB__loopPsi  (const char *title) 
 {
   firstDummyIndex = 'a' ;
@@ -4076,12 +4145,13 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
 
+  POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
   POLYNOME p1 = vertex_BB_PsiL_PsiRB (a,b) ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k)^2 */
   POLYNOME p3 = vertex_B_PsiR_PsiLB (c,d) ;
   POLYNOME p4 = prop_PsiRB_PsiR (0) ;   /* (1/(k)^2 */
   POLYNOME p5 = prop_BB_B (a, b, c, d, 0) ;
-  POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
+  POLYNOME ppp[] = {p10,p1,p2,p3,p4,0} ;
 
   POLYNOME pp = newMultiProduct (ppp) ;
   printf ("%s\n", title) ;
@@ -4120,13 +4190,14 @@ static POLYNOME Z2_BB__loopPsi  (const char *title)
 static POLYNOME Z2_HH__loopPsi  (const char *title) 
 {
   firstDummyIndex = 'a' ;
-    
+
+  POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
   POLYNOME p1 = vertex_HB_PsiL_PsiRB () ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k)^2 */
   POLYNOME p3 = vertex_H_PsiR_PsiLB () ;
   POLYNOME p4 = prop_PsiRB_PsiR (0) ;   /* (1/(k)^2 */
   POLYNOME p5 = prop_HB_H (0) ;
-  POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
+  POLYNOME ppp[] = {p10,p1,p2,p3,p4,0} ;
 
   POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
 
@@ -4160,13 +4231,14 @@ static POLYNOME Z2_AA__loopPsi  (const char *title)
     
   char mu = newDummyIndex () ;
   char nu = newDummyIndex () ;
-  
+
+  POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
   POLYNOME p1 = vertex_A_PsiL_PsiLB (mu) ;
   POLYNOME p2 = prop_PsiLB_PsiL (0) ;   /* (1/(k)^2 */
   POLYNOME p3 = vertex_A_PsiL_PsiLB (nu) ;
   POLYNOME p4 = prop_PsiLB_PsiL (1) ;   /* (1/(k+p)^2 */
   POLYNOME p5 = prop_AL (mu, nu, 0) ;
-  POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
+  POLYNOME ppp[] = {p10,p1,p2,p3,p4,0} ;
 
   POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
 
@@ -5362,6 +5434,7 @@ static POLYNOME Z3_AAA__loopPsiL (const char *title)
   /* calcul plus simple, on calcule successivement q=r=0, r=p=0, p=q=0,  et on additionne */
 
   /* set q == 0 */
+  POLYNOME p10 = newScalar (-1) ; /* Fermion loop */
   POLYNOME p11 = vertex_A_PsiL_PsiLB (a) ;
   POLYNOME p12 = prop_PsiLB_PsiL (0) ;   /* (1/(k)^2 */ 
   POLYNOME p13 = vertex_A_PsiL_PsiLB (c) ;
@@ -5371,7 +5444,7 @@ static POLYNOME Z3_AAA__loopPsiL (const char *title)
 
 
 
-  POLYNOME pppP[] = {p11,p12,p13,p14,p15,p16,0} ;
+  POLYNOME pppP[] = {p10, p11,p12,p13,p14,p15,p16,0} ;
 
   POLYNOME PP = contractIndices(newMultiProduct (pppP)) ;
 
@@ -5392,6 +5465,50 @@ static POLYNOME Z3_AAA__loopPsiL (const char *title)
 
   return PP ;
 } /* Z3_AAA__loopPsiL */
+
+/***********************************************************************************************************************************************/
+
+static POLYNOME Z3_AAA__loopGhost (const char *title)
+{
+  char a = newDummyIndex () ;
+  char b = newDummyIndex () ;
+  char c = newDummyIndex () ;
+  char n = newDummyIndex () ;
+
+  /* calcul plus simple, on calcule successivement q=r=0, r=p=0, p=q=0,  et on additionne */
+
+  /* set q == 0 */
+  POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
+  POLYNOME p11 = vertex_A_PsiL_PsiLB (a) ;
+  POLYNOME p12 = prop_PsiLB_PsiL (0) ;   /* (1/(k)^2 */ 
+  POLYNOME p13 = vertex_A_PsiL_PsiLB (c) ;
+  POLYNOME p14 = prop_PsiLB_PsiL (2) ;   /* (1/(k+p+q)^2 */
+  POLYNOME p15 = vertex_A_PsiL_PsiLB (b) ;
+  POLYNOME p16 = prop_PsiLB_PsiL (1) ;   /* (1/(k+p)^2 */ 
+
+
+
+  POLYNOME pppP[] = {p10, p11,p12,p13,p14,p15,p16,0} ;
+
+  POLYNOME PP = contractIndices(newMultiProduct (pppP)) ;
+
+  printf ("\n\n%s\n", title) ;
+  printf ("############# Z3 A A A with psi loop\n") ;
+  showPol (PP) ;
+
+  PP = dimIntegral (PP) ;
+  showPol (PP) ;
+  printf ("# trace the pauli matrix :\n ") ;
+  PP = pauliTrace (PP) ;
+  showPol (PP) ;
+  PP = momentaCleanUp (PP, n) ;
+  PP = expand (PP) ;
+  printf ("### Z3 A A A with psi loop, expect g_bc (p+2q)_rho + .. + ..\n") ;
+  showPol (PP) ;
+
+
+  return PP ;
+} /* Z3_AAA__loopGhost */
 
 /***********************************************************************************************************************************************/
 
@@ -13007,25 +13124,26 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Boson loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
 
 	  if (1)
 	    {
-	      if (0) Z2_AA__loopH ("######### Vector propagator, Scalar loop, null in su(1/1) \n") ;
+	      if (1) Z2_AA__loopH ("######### Vector propagator, Scalar loop, null in su(1/1) \n") ;
+	      if (1) Z2_AA__loopGhost ("######### Vector propagator, Ghost loop, null in su(1/1) \n") ;
 	      if (0) Z2_AA__loopB ("######### Vector propagator, Tensor loop, null in su(1/1) \n") ;
 	      if (1) Z2_AA__loopHB ("######### Vector propagator, Tensor-Scalar loop, expect 0\n") ;
 	    }
 	  
-	  if (1)
+	  if (0)
 	    {
 	      if (0) Z2_HH__Aunder ("######### Scalar propagator, Vector-under, 0 in SU(1/1)\n") ;
 	      if (1) Z2_HH__loopAB ("######### Scalar propagator, Vector-Tensor loop\n") ;
 	    }
 	  
-	  if (1)
+	  if (0)
 	    {
 
 	      if (0) Z2_BB__Aunder ("######### Tensor propagator, Vector-under, 0 in SU(1/1)\n") ;
@@ -13056,7 +13174,7 @@ int main (int argc, const char **argv)
 	}
 
       /* coupling of the tensor to the Fermions, influenced by the scalar/vector/tensor */
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  B_PsiB_Psi BAH vertex\n") ;
@@ -13077,7 +13195,7 @@ int main (int argc, const char **argv)
 	}
 
       /* scalar/vector/tensor vertex, Boson loop */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  A_H_BB boson loop\n") ;
@@ -13088,7 +13206,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       /* vector interactions with the scalar-vector-tensor in the presence of a Fermion loop */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
