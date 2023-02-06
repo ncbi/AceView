@@ -4155,12 +4155,12 @@ static POLYNOME Z2_AA__loopA  (const char *title)
   int ppv2e[4] = {1,0,0,0} ;  /* k : vertex */
 
 	
-  
+  POLYNOME p10 = newScalar (.5) ; /* real loop, symmetric */
   POLYNOME p1 = vertex_A_A_A (a,c,f,ppv1a,ppv1c,ppv1f) ;
   POLYNOME p2 = prop_AL (c,d,1) ;   /* (1/(pk)^2 */
   POLYNOME p3 = vertex_A_A_A (d,b,e,ppv2d,ppv2b,ppv2e) ;
   POLYNOME p4 = prop_AL (e,f,0) ;   /* (1/(k) */
-  POLYNOME ppp[] = {p1,p2,p3,p4,0} ;
+  POLYNOME ppp[] = {p10,p1,p2,p3,p4,0} ;
 
   POLYNOME pp = contractIndices(newMultiProduct (ppp)) ;
 
@@ -4191,7 +4191,7 @@ static POLYNOME Z2_AA__loopGhost  (const char *title)
     
   char mu = newDummyIndex () ;
   char nu = newDummyIndex () ;
-  int ppv1[4] = {1,0,0,0} ; /* k  : vertex */
+  int ppv1[4] = {-1,0,0,0} ; /* k  : vertex */
   int ppv2[4] = {1,1,0,0} ; /* k + p : vertex */
 
   POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
@@ -13529,7 +13529,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
