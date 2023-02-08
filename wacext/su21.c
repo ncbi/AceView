@@ -3717,7 +3717,7 @@ static POLYNOME vertex_A_B_BB (char mu, char a, char b, char c, char d, int  mm1
 /*   A_mu(p) diffusion of A_nu(q)\, A_rho(r) */
 static POLYNOME vertex_A_A_A (char a, char b, char c, int  p[4], int  q[4], int r[4])   /* all 3 are incoming momenta */
 {
-  POLYNOME p1, ppp[15] ;
+  POLYNOME p1, ppp[20] ;
   int nn = 0 ;
   
   for (int i = 0 ; i < 4 ; i++)
@@ -6285,6 +6285,70 @@ static POLYNOME Z3_A_c_cB__Aover (void)
 
   return pp ;
 } /* Z3_A_c_cB__Aover */
+
+/***********************************************************************************************************************************************/
+
+static POLYNOME Z3_A_H_HB__Aunder (void)
+{
+  char a = newDummyIndex () ;
+  char b = newDummyIndex () ;
+  char c = newDummyIndex () ;
+  int ppva[4] = {-2, -1, -1, 0} ;
+  int ppvb[4] = {-1, 1, 0, 0} ;
+  int ppvc[4] = {-1, -1, -2, 0} ;
+
+  POLYNOME p1 = vertex_A_H_HB (c, ppvc) ;
+  POLYNOME p2 = prop_AL (b, c, 1) ;
+  POLYNOME p3 = vertex_A_H_HB (b, ppvb) ;
+  POLYNOME p4 = prop_HB_H (0) ;   /* (1/(k)^2 */ 
+  POLYNOME p5 = vertex_A_H_HB (a, ppva) ;
+  POLYNOME p6 = prop_HB_H (2) ;; /* 1/(k+p+q)^2 */
+  POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
+
+  POLYNOME pp = newMultiProduct (ppp) ;
+  printf ("Z3 Classic vertex A H HB scalar with A under: expect 1/2 \n") ;
+  showPol (pp) ;
+  pp = dimIntegral (pp) ;
+  showPol(pp) ;
+
+
+  return pp ;
+} /* Z3_A_H_HB__Aunder */
+
+/***********************************************************************************************************************************************/
+
+static POLYNOME Z3_A_H_HB__Aover (void)
+{
+  char a = newDummyIndex () ;
+  char b = newDummyIndex () ;
+  char c = newDummyIndex () ;
+  char d = newDummyIndex () ;
+  char e = newDummyIndex () ;
+
+  int ppva[4] = {-2, -1, -1, 0} ;
+  int ppvb[4] = {1, 2, 2, 0} ;
+  int ppvc[4] = {1, 2, 0, 0} ;
+  int ppvd[4] = {1, 1, -1, 0} ;
+  int ppve[4] = {1, -1, -1, 0} ;
+
+  POLYNOME p1 = vertex_A_H_HB (d, ppvd) ;
+  POLYNOME p2 = prop_HB_H (1) ;   /* (1/(k+p)^2 */ 
+  POLYNOME p3 = vertex_A_H_HB (c, ppvc) ;
+  POLYNOME p4 = prop_AL (b, c, 0) ;
+  POLYNOME p5 = vertex_A_A_A (a,b,e,ppva,ppvb,ppve) ;
+  POLYNOME p6 = prop_AL (d, e, 2) ;
+  
+  POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
+
+  POLYNOME pp = newMultiProduct (ppp) ;
+  printf ("Z3 Classic vertex A H HB scalar with A over: expect 1/2 \n") ;
+  showPol (pp) ;
+  pp = dimIntegral (pp) ;
+  showPol(pp) ;
+
+
+  return pp ;
+} /* Z3_A_H_HB__Aover */
 
 /***********************************************************************************************************************************************/
 
@@ -13529,7 +13593,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13564,9 +13628,9 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (1)
+      if (0)
 	{
-	  printf ("\n\n\n@@@@@@@@@ Classic ghost Ward identity : A_cB_c\n") ;
+	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on ghots : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
 	  if (1) Z2_AA__loopA ("######### Vector propagator, Vector loop, null in su(1/1) \n") ;
 	  firstDummyIndex = 'a' ;
@@ -13578,6 +13642,19 @@ int main (int argc, const char **argv)
 	  if (1) Z3_A_c_cB__Aunder () ;
 	  firstDummyIndex = 'a' ;
 	  if (1) Z3_A_c_cB__Aover () ;
+	  exit (0) ;
+	}
+
+      if (1)
+	{
+	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on scalars : A_cB_c\n") ;
+	  firstDummyIndex = 'a' ;
+	  if (1) Z2_HH__Aunder ("######### Scalar propagator, Vector under\n") ;
+	  firstDummyIndex = 'a' ;
+	  printf ("Z2 done\n") ;
+	  if (1) Z3_A_H_HB__Aunder () ;
+	  firstDummyIndex = 'a' ;
+	  if (1) Z3_A_H_HB__Aover () ;
 	  exit (0) ;
 	}
       
