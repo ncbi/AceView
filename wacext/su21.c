@@ -13645,7 +13645,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on scalars : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13680,7 +13680,7 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
 
-	  if (1)
+	  if (0)
 	    {
 	      if (1) Z2_AA__loopH ("######### Vector propagator, Complex Scalar loop, null in su(1/1) \n") ;
 	      if (1) Z2_AA__loopGhost ("######### Vector propagator, Ghost loop, null in su(1/1) \n") ;
@@ -13689,13 +13689,13 @@ int main (int argc, const char **argv)
 	      if (0) Z2_AA__loopHB ("######### Vector propagator, Tensor-Scalar loop, expect 0\n") ;
 	    }
 	  
-	  if (0)
+	  if (1)
 	    {
 	      if (0) Z2_HH__Aunder ("######### Scalar propagator, Vector-under, 0 in SU(1/1)\n") ;
 	      if (1) Z2_HH__loopAB ("######### Scalar propagator, Vector-Tensor loop\n") ;
 	    }
 	  
-	  if (0)
+	  if (1)
 	    {
 
 	      if (0) Z2_BB__Aunder ("######### Tensor propagator, Vector-under, 0 in SU(1/1)\n") ;
@@ -13747,7 +13747,7 @@ int main (int argc, const char **argv)
 	}
 
       /* scalar/vector/tensor vertex, Boson loop */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ New Ward identity  A_H_BB boson loop\n") ;
