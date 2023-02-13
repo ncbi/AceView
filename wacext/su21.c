@@ -3619,7 +3619,7 @@ static POLYNOME vertex_A_B_HB (char mu, char a, char b, int mm[4]) /* A_mu B_a_b
   char d = newDummyIndex () ;
   int z = 0 ; /* -1 */
   BOOL useProjector = TRUE ;
-  if (0) useProjector = FALSE ;
+  if (1) useProjector = FALSE ;
 	   ;
   nn = 0 ;
   if (! useProjector) { c = a ; d = b ; }
@@ -3653,7 +3653,7 @@ static POLYNOME vertex_A_H_BB (char mu, char a, char b, int mm[4]) /* momentum o
   char d = newDummyIndex () ;
   int z = 0 ;
   BOOL useProjector = TRUE ;
-  if (0) useProjector = FALSE ;
+  if (1) useProjector = FALSE ;
   nn = 0 ;
   if (! useProjector) { c = a ; d = b ; }
   if (mm[0]) { pp = newK (c) ; pp->tt.z = mm[0] ; ppp[nn++] = pp ; }
@@ -3807,7 +3807,7 @@ static POLYNOME vertex_A_c_cB (char mu, int mm[4])  /* k+p = (1,1,0,0) : momentu
 /* This vertex is by itelf self dual */
 static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 {
-  int X = -1 ; /* -1 B is anti-self-dual */
+  int X = 0 ; /* -1 B is anti-self-dual */
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigB (mu) ;
@@ -3825,7 +3825,7 @@ static POLYNOME vertex_B_PsiR_PsiLB (char a, char b)
 /* This vertex is by itelf anti self dual */
 static POLYNOME vertex_BB_PsiL_PsiRB (char a, char b)
 {
-  int X = 1 ; /* 1 : Bbar is self-dual */ ;
+  int X = 0 ; /* 1 : Bbar is self-dual */ ;
   char mu = newDummyIndex() ;
   char nu = newDummyIndex() ;
   POLYNOME p1 = newSigma (mu) ;
@@ -3975,7 +3975,7 @@ static POLYNOME prop_BB_B (char mu, char nu, char rho, char sig, int pqr)
   char b = newDummyIndex () ;
   char c = newDummyIndex () ;
   char d = newDummyIndex () ;
-  int z = 1 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
+  int z = 0 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
   int u = -4 ;
   if (pqr == 99)   /* contruct the lagrangian */
     { z = 0 ; pqr = 0 ; u = 1 ; }
@@ -13593,7 +13593,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13620,7 +13620,7 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  if (1) Z3_A_PsiL_PsiLB__Bunder () ;   
 	  firstDummyIndex = 'a' ;
-	  if (0) Z3_A_PsiL_PsiLB__Bover () ;   /* BUG: expand loops forever */
+	  if (1) Z3_A_PsiL_PsiLB__Bover () ;   /* BUG: expand loops forever */
 	  
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi DONE\n") ; 
 
@@ -13675,18 +13675,18 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Boson loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
 
 	  if (0)
 	    {
-	      if (1) Z2_AA__loopH ("######### Vector propagator, Complex Scalar loop, null in su(1/1) \n") ;
-	      if (1) Z2_AA__loopGhost ("######### Vector propagator, Ghost loop, null in su(1/1) \n") ;
-	      if (1) Z2_AA__loopA ("######### Vector propagator, Vector loop, null in su(1/1) \n") ;
+	      if (0) Z2_AA__loopH ("######### Vector propagator, Complex Scalar loop, null in su(1/1) \n") ;
+	      if (0) Z2_AA__loopGhost ("######### Vector propagator, Ghost loop, null in su(1/1) \n") ;
+	      if (0) Z2_AA__loopA ("######### Vector propagator, Vector loop, null in su(1/1) \n") ;
 	      if (0) Z2_AA__loopB ("######### Vector propagator, Tensor loop, null in su(1/1) \n") ;
-	      if (0) Z2_AA__loopHB ("######### Vector propagator, Tensor-Scalar loop, expect 0\n") ;
+	      if (1) Z2_AA__loopHB ("######### Vector propagator, Tensor-Scalar loop, expect 0\n") ;
 	    }
 	  
 	  if (1)
