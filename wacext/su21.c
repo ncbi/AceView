@@ -4060,20 +4060,23 @@ static POLYNOME prop_BB_B (short mu, short nu, short rho, short sig, int pqr)
   short d = newDummyIndex () ;
   int z = 1 ; /* 0: no epsilon, 1:self dual, -1:anti self, 2 just epsilon */
   int u = -4 ;
+  int pqrD = pqr ;
+  int pqrN = pqr ;
   if (pqr == 99)   /* contruct the lagrangian */
-    { z = 0 ; pqr = 0 ; u = 1 ; }
-
+    { z = 0 ; pqrD = pqrN = 0 ; u = 1 ; }
+  if (pqr == 20)
+    { pqrD = 2 ; pqrN = 0 ; }
   POLYNOME p1 = newAG (mu,nu,a,b, z) ;
   if (0) p1 = newEpsilon (mu, nu, a,b) ;
-  POLYNOME p2 = newPQR (pqr, a) ;
-  POLYNOME p3 = newPQR (pqr, c) ;
+  POLYNOME p2 = newPQR (pqrN, a) ;
+  POLYNOME p3 = newPQR (pqrN, c) ;
   POLYNOME p4 = newG  (b, d) ;
   POLYNOME p5 = newAG (c,d,rho,sig, -z) ;
   if (0) p5 = newEpsilon (c,d,rho,sig) ;
   POLYNOME pp, ppp[] = {p1,p2,p3, p4, p5, 0} ; 
   /*   POLYNOME pp, ppp[] = {p2,p3, p4, 0} ;  */
 
-  p4->tt.denom[pqr] = 2 ;
+  p4->tt.denom[pqrD] = 2 ;
   p4->tt.z *= u*I ;
   pp = newMultiProduct (ppp) ;
 
@@ -6158,10 +6161,10 @@ static POLYNOME Z3_A_PsiL_PsiLB__Bover (void)
   POLYNOME p3 = vertex_BB_PsiL_PsiRB (d,e) ;
   POLYNOME p4 = prop_BB_B (d,e,b,c,0) ; /* 1/(k)^2 */
   POLYNOME p5 = vertex_A_B_BB (a,b,c,h,i,ppvcd,ppvhi) ;
-  POLYNOME p6 = prop_BB_B (h,i,f,g,2) ; /* 1/(k+p+q)^2 */
+  POLYNOME p6 = prop_BB_B (h,i,f,g,20) ; /* 1/(k+p+q)^2 */
 
-  POLYNOME ppp2[7] = {p1, p2, p3, p4, p5, p6, 0} ;
-  POLYNOME ppp[7] = {p1, p2, p5, p6, 0} ;
+  POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
+  POLYNOME ppp2[7] = {p1, p2, p5, p6, 0} ;
 
   POLYNOME pp = newMultiProduct (ppp) ;
   printf ("Z3 Classic vertex A psi with tensor over: expect 1 \n") ;
@@ -13699,7 +13702,7 @@ int main (int argc, const char **argv)
       
       /* pure gauge theory, coupling of the Vector to the Fermion in the presence of scalar/vector/tensor under */
       
-      if (1) 
+      if (0) 
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi A under\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13726,7 +13729,7 @@ int main (int argc, const char **argv)
 	  firstDummyIndex = 'a' ;
 	  if (1) Z3_A_PsiL_PsiLB__Bunder () ;   
 	  firstDummyIndex = 'a' ;
-	  exit (0) ;
+
 	  if (1) Z3_A_PsiL_PsiLB__Bover () ;   /* BUG: expand loops forever */
 	  
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity : A_PsiB_Psi DONE\n") ; 
@@ -13737,7 +13740,7 @@ int main (int argc, const char **argv)
 
       if (0)
 	{
-	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on ghots : A_cB_c\n") ;
+	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on ghosts : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
 	  if (1) Z2_AA__loopA ("######### Vector propagator, Vector loop, null in su(1/1) \n") ;
 	  firstDummyIndex = 'a' ;
@@ -13766,7 +13769,7 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Fermion loops*/
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
