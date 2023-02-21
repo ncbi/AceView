@@ -60,7 +60,7 @@ typedef struct termStruct {
   short mm[4][GMAX] ;      /*(k p q r)_mu momenta :  "1 ab" means the product p_a p_b */
                           /*  "1 a"  "2 b" means the product p_a q_b */
   int  denom[4] ;     /* number of terms of the form 1/k^, 1/(k+p)^2, 1/(k+p+q)^2, 1/(k+p+q+r)^2 */
-  short Id2 ; /* Pauli identity matrix, needed its value is 2 when we trace */
+  int Id2 ; /* Pauli identity matrix, needed its value is 2 when we trace */
   short freeIndex[GMAX] ;
 } TT ;
 
@@ -2302,7 +2302,10 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
   if (iss == 0)
     {
       if (tt.Id2)
-	pp->tt.z *= 2 ; /* trace (identity) = 2 */
+	{
+	  tt.Id2 = 0 ;
+	  pp->tt.z *= 2 ; /* trace (identity) = 2 */
+	}
     }
   else if (iss == 2)
     { 
@@ -2311,9 +2314,9 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
       while ((*g++ = *s++)) ;
       memset (tt.sigma , 0, SMAX) ;
       memset (tt.sigB , 0, SMAX) ;
-      tt.Id2 = 0 ;
       pp->tt = tt ;
 
+      tt.Id2 = 0 ;
       pp->tt.z *= 2 ; /* trace (identity) = 2 */
     }
   else if (iss == 4)
@@ -2321,7 +2324,7 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
       int i, n, N = 4, NN = 3 ;
       short S[N] ;
 
-      memcpy (S, s, N) ;
+      memcpy (S, s, N*sizeof (short)) ;
       pp->tt.z *= 2 ; /* trace (identity) = 2 */
       pp->tt.Id2 = 0 ;
       short *gg = tt.g ;
@@ -2330,7 +2333,7 @@ static POLYNOME pauliTraceTT (POLYNOME pp)
       POLYNOME ppp[NN+2] ;
       char *z[3] = { "abcd", "acbd", "adbc"} ;
       for (n = 0 ; n < NN ; n++)
-	{                             /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
+	{               /* we need N products of type g_ab g_cd g_ef, then we zero terminate the list */
 	  int i ;
 	  ppp[n] = copyPolynome (pp) ;
 	  memset (ppp[n]->tt.sigma , 0, SMAX) ;
@@ -2462,7 +2465,7 @@ static POLYNOME pauliTrace (POLYNOME pp)
 	  pp = contractTtIndices (pp) ;
 	  pp = pauliTraceTT (pp) ;
 	}
-      else if (pp->tt.sigma[0] || pp->tt.sigB[0])
+      else if (tt.sigma[0] || tt.sigB[0])
 	{
 	  messcrash ("FATAL ERROR: Computing the trace of a monome with sigma, but zero Id2  sigma=%s and sigB=% are both present\n"
 		     , pp->tt.sigma, pp->tt.sigB
@@ -3681,6 +3684,7 @@ static POLYNOME dimIntegral (POLYNOME p0)
   pp = dimIntegralDo (pp, 0) ;
     if (debug) showPol(pp) ;
     freeIndex (pp) ;
+    
   if (debug) showPol(pp) ;
   pp = dimIntegralDo (pp, 1) ;
     if (debug) showPol(pp) ;
@@ -3842,6 +3846,7 @@ static POLYNOME vertex_A_A_A (short a, short b, short c, int  p[4], int  q[4], i
     }
   ppp[nn] = 0 ;
   POLYNOME pp = newMultiSum (ppp) ;
+  pp = expand (pp) ;
   return pp ;
 }
 
@@ -3867,7 +3872,7 @@ static POLYNOME vertex_A_H_HB (short mu, int mm[4])  /* 2k+p = (2,1,0,0) : sum o
 
 /**********************************************************************************************************************************************/
 /*   A_mu diffusion of c  -> cB ghost */
-static POLYNOME vertex_A_c_cB (short mu, int mm[4])  /* k+p = (1,1,0,0) : momentum of the cB in that direction */
+static POLYNOME vertex_A_c_cB (short mu, int mm[4])  /* k+p = (1,1,0,0) : incoming momentum of the cB */
 {
   POLYNOME pp, ppp[6] ; 
   int i, nn = 0 ; 
@@ -3876,7 +3881,7 @@ static POLYNOME vertex_A_c_cB (short mu, int mm[4])  /* k+p = (1,1,0,0) : moment
     if (mm[i])
       {
 	pp = newScalar (mm[i]) ;
-	pp->tt.z *= I ;
+	pp->tt.z *= -I ;        /* -1 because of the incoming momentum */
 	pp->tt.mm[i][0] = mu ;
 	ppp[nn++] = pp ;	  
       }
@@ -4278,7 +4283,7 @@ static POLYNOME Z2_AA__loopGhost  (const char *title)
   short mu = newDummyIndex () ;
   short nu = newDummyIndex () ;
   int ppv1[4] = {-1,0,0,0} ; /* k  : vertex */
-  int ppv2[4] = {1,1,0,0} ; /* k + p : vertex */
+  int ppv2[4] = {-1,-1,0,0} ; /* k + p : vertex */
 
   POLYNOME p10 = newScalar (-1) ; /* Ghost loop */
   POLYNOME p1 = vertex_A_c_cB (mu, ppv2) ; /*(2k + p)_mu */
@@ -4427,11 +4432,12 @@ static POLYNOME Z2_AA__loopPsi  (const char *title)
   pp = expand (pp) ;
   showPol (pp) ;
 
-    pp = dimIntegral (pp) ;
+  pp = dimIntegral (pp) ;
   showPol (pp) ;
   pp = pauliTrace (pp) ;
   showPol (pp) ;
   pp = squareMomentaCleanUp (pp) ;
+  showPol (pp) ;
   pp = reduceIndices (pp) ;
   pp = expand (pp) ;
   printf ("### Z2 Photon avec loop PsiB_L Psi_L expect :: 2/3 (p_ab - g_ab p^2 \n") ;
@@ -6112,15 +6118,17 @@ static POLYNOME Z3_A_PsiL_PsiLB__Aover (void)
     int ppvc[4] = {-1,0,0,0} ;
     int ppve[4] = {1,1,1,0} ;
   */
-  int ppva[4] = {0,0,0,0} ;
-  int ppvc[4] = {-1,0,0,0} ;
-  int ppve[4] = {1,0,0,0} ;
-      
+
+  int ppva[4] = {0, -1, -1, 0} ;
+  int ppvb[4] = {-1, 0, 0, 0} ;
+  int ppve[4] = {1, 1, 1, 0} ;
+
+
   POLYNOME p1 = vertex_A_PsiL_PsiLB (d) ;
   POLYNOME p2 = prop_PsiLB_PsiL (1) ;   /* (1/(k+p)^2 */
   POLYNOME p3 = vertex_A_PsiL_PsiLB (c) ;
   POLYNOME p4 = prop_AA (b,c,0) ; /* 1/(k)^2 */
-  POLYNOME p5 = vertex_A_A_A (a,b,e,ppva,ppvc,ppve) ;
+  POLYNOME p5 = vertex_A_A_A (a,b,e,ppva,ppvb,ppve) ;
   POLYNOME p6 = prop_AA (d,e,2) ; /* 1/(k+p+q)^2 */
 
   POLYNOME ppp[7] = {p1, p2, p3, p4, p5, p6, 0} ;
@@ -6372,10 +6380,12 @@ static POLYNOME Z3_A_c_cB__Aover (void)
 
   int ppva[4] = {0, -1, -1, 0} ;
   int ppvb[4] = {-1, 0, 0, 0} ;
-  int ppvc[4] = {1, 1, 1, 0} ;
+  int ppvc[4] = {1, 1, 0, 0} ;
   int ppvd[4] = {0, 0, -1, 0} ;
-  int ppve[4] = {-1, -1, -1, 0} ;
+  int ppve[4] = {1, 1, 1, 0} ;
 
+
+  
   POLYNOME p1 = vertex_A_c_cB (d, ppvd) ;
   POLYNOME p2 = prop_cB_c (1) ;   /* (1/(k+p)^2 */ 
   POLYNOME p3 = vertex_A_c_cB (c, ppvc) ;
@@ -6434,11 +6444,11 @@ static POLYNOME Z3_A_H_HB__Aover (void)
   short d = newDummyIndex () ;
   short e = newDummyIndex () ;
 
-  int ppva[4] = {-2, -1, -1, 0} ;
-  int ppvb[4] = {1, 2, 2, 0} ;
-  int ppvc[4] = {1, 2, 0, 0} ;
+  int ppva[4] = {0, -1, -1, 0} ;
+  int ppvb[4] = {-1, 0, 0, 0} ;
+  int ppvc[4] = {1, 1, 1, 0} ;
   int ppvd[4] = {1, 1, -1, 0} ;
-  int ppve[4] = {1, -1, -1, 0} ;
+  int ppve[4] = {1, 1, 1, 0} ;
 
   POLYNOME p1 = vertex_A_H_HB (d, ppvd) ;
   POLYNOME p2 = prop_HB_H (1) ;   /* (1/(k+p)^2 */ 
@@ -13755,7 +13765,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on scalars : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
