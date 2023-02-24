@@ -4306,7 +4306,7 @@ static POLYNOME Z2_AA__loopGhost  (const char *title)
   pp = dimIntegral (pp) ;
   pp = squareMomentaCleanUp (pp) ;
   showPol (pp) ;
-  printf ("### Z2 AA loop ghost expect ::  1/3 (p_ab - g_ab p^2)\n") ;
+  printf ("### Z2 AA loop ghost expect ::  1/6 p_ab + 1/12g_ab p^2\n") ;
   showPol (pp) ;
 
   printf ("DONE %s\n", title) ;
@@ -4596,8 +4596,8 @@ static POLYNOME Z2_ghost__Aunder (const char *title)
     
   short a = newDummyIndex () ;
   short b = newDummyIndex () ;
-  int ppva[4] = {1,1,0,0} ; /* 2p + k : vertex */
-  int ppvb[4] = {0,-1,0,0} ; /* 2p + k : vertex */
+  int ppva[4] = {-1,-1,0,0} ; /* -p - k : vertex */
+  int ppvb[4] = {0,1,0,0} ;   /* p : vertex */
   
   POLYNOME p1 = vertex_A_c_cB (b, ppva) ; /*(2k + p)_mu */
   POLYNOME p2 = prop_cB_c (1) ;   /* (1/(p+k)^2 */
@@ -6446,7 +6446,7 @@ static POLYNOME Z3_A_H_HB__Aover (void)
 
   int ppva[4] = {0, -1, -1, 0} ;
   int ppvb[4] = {-1, 0, 0, 0} ;
-  int ppvc[4] = {1, 1, 1, 0} ;
+  int ppvc[4] = {1, 2, 0, 0} ;
   int ppvd[4] = {1, 1, -1, 0} ;
   int ppve[4] = {1, 1, 1, 0} ;
 
@@ -13748,7 +13748,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (0)
+      if (1)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on ghosts : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13765,7 +13765,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on scalars : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
