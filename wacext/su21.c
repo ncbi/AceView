@@ -13748,7 +13748,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
 
-      if (1)
+      if (0)
 	{
 	  printf ("\n\n\n@@@@@@@@@ Classic Ward identity counted on ghosts : A_cB_c\n") ;
 	  firstDummyIndex = 'a' ;
@@ -13779,7 +13779,7 @@ int main (int argc, const char **argv)
 	}
       
       /* Boson propagators Fermion loops*/
-      if (1)
+      if (0)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Fermion loops */\n") ;
@@ -13908,7 +13908,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       /* vector interactions with the scalar-vector-tensor in the presence of a Fermion loop */
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Vector-Boson vertex, Fermion loops */\n") ;
