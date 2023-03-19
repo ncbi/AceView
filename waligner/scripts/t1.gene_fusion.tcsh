@@ -88,7 +88,7 @@ if (! -e tmp/GeneFusion/t3.$MAGIC.a) then
     if (! -e $ff) continue
     zcat $ff  | grep BCAS4__BCAS3 >> tmp/GeneFusion/t3.$MAGIC.a
   end
-  cat tmp/GeneFusion/t3.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$1"\t"$12"\t"$17;nn[f]+=$2+$3;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 2nr > tmp/GeneFusion/t3.$MAGIC.b
+  cat tmp/GeneFusion/t3.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$3;nn[f]+=$2+$3;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 2nr > tmp/GeneFusion/t3.$MAGIC.b
 endif
 
 
@@ -155,13 +155,14 @@ phaseT4:
 set minFusion=50
 set target=av
   echo " " >  tmp/GeneFusion/t3.$MAGIC.a
-  foreach run (`cat MetaDB/$MAGIC/RunsList`)
+  foreach run (`cat MetaDB/$MAGIC/RunsList `)
     set ff=tmp/GeneFusion/$run/t1.gene_fusion.av.txt.gz 
     if (! -e $ff) continue
-    zcat  $ff | gawk -F '\t' '/^#/{next;}/++/{if($10 < $11 && $11>= $15-1 && $11 < $15+12)print ;}'  >> tmp/GeneFusion/t4.$MAGIC.a
+    zcat  $ff | gawk -F '\t' '/^#/{next;}/++/{if(($10 < $11 && $11 >= $15-1 && $11 < $15+12)||($10 > $11 && $11 <= $15+1 && $11 > $15-12))print ;}'  >> tmp/GeneFusion/t4.$MAGIC.a
   end
   cat tmp/GeneFusion/t4.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$3"\t"$12"\t"$14"\t"$17"\t"$18;nn[f]++;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 6nr > tmp/GeneFusion/t4.$MAGIC.b
 
+#  cat tmp/GeneFusion/t3.$MAGIC.a | gawk -F '\t' '/^#/{next;}{f=$1"\t"$12"\t"$17;nn[f]+=$2+$3;next;}END{for(f in nn) if(nn[f]>=min)printf("%s\t%d\n",f,nn[f]);}' min=$minFusion | sort -k 2nr > tmp/GeneFusion/t3.$MAGIC.b
 
   echo $target > tmp/GeneFusion/t4.$MAGIC.c
   foreach run (`cat MetaDB/$MAGIC/RunsList`)

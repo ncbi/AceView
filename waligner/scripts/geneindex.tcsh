@@ -1009,6 +1009,7 @@ if (1) then
        continue
      endif
     endif
+    set capt=""
     if ($CAPT == toto) then
       set CAPT=""
     else
@@ -1016,9 +1017,12 @@ if (1) then
       set CAPT=".$CAPT" 
     endif
 
-  if ($phase == ii4 && ! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then
-    echo "Missing file tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace"
-    goto phaseLoop
+echo LALALA0==================---
+  if ($?chrom) then
+    if ($phase == ii4 && ! -e tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace) then
+      echo "Missing file tmp/INTRON_DB/$chrom/d5.$MAGIC.de_uno$CAPT.ace"
+      goto phaseLoop
+    endif
   endif
 
 echo LALALA0==================+++

@@ -306,6 +306,7 @@
                       Zero_index ?Target UNIQUE Float // Plateau
                       Low_index ?Target UNIQUE Float // 97% of measured genes are above this index
                       Cross_over_index ?Target UNIQUE Float // 50% of measured genes are above this index
+                      Targeted_genes ?Capture UNIQUE Int
                       Genes_touched ?Target UNIQUE Int
                       Genes_with_index ?Target UNIQUE Int
                       Genes_with_index_over_10 ?Target UNIQUE Int
@@ -315,7 +316,13 @@
 		      Genes_expressed_in_at_least_one_run  ?Target UNIQUE Int
                       mRNA_with_index ?Target UNIQUE Int
 		      mRNA_expressed_in_at_least_one_run  ?Target  UNIQUE Int
-		      Mb_aligned UNIQUE Float
+		      Reads_in_genes ?Target  UNIQUE Float
+		      Reads_in_pairs_in_genes ?Target  UNIQUE Float
+		      Orphan_reads_in_genes ?Target  UNIQUE Float
+		      Multi_aligned_reads_in_genes ?Target  UNIQUE Float
+		      Mismatches_in_genes ?Target  UNIQUE Float
+		      A2G_in_genes ?Target  UNIQUE Float
+                      Mb_aligned UNIQUE Float
                       Mb_in_genes   ?Target UNIQUE Float
                       Mb_in_genes_with_GeneId_minus_high_genes   ?Target UNIQUE Float
                       Mb_in_high_genes   ?Target UNIQUE Float
@@ -325,6 +332,10 @@
                       Known_introns ?Target UNIQUE Int UNIQUE Text UNIQUE Float UNIQUE Text 
                       Candidate_introns  ?Target UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Float UNIQUE Text  UNIQUE Float UNIQUE Text UNIQUE Float
                       Accessible_length UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // length, # 8kb transcripts used, # 8kb candidates, #average cumulated cover
+                      Accessible_length_8k UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // length, # 8kb transcripts used, # 8kb candidates, #average cumulated cover
+                      Accessible_length_5k UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // length, # 5kb transcripts used, # 5kb candidates, #average cumulated cover
+                      Accessible_length_5k_captured UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // length, # 5kb transcripts used, # 5kb candidates, #average cumulated cover
+                      Accessible_length_8k_captured UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int // length, # 5kb transcripts used, # 5kb candidates, #average cumulated cover
                       SLs Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text   // SL1-12 <int> support <int> position as seen in the Run
       Sponge Wiggles Wiggle_U    UNIQUE Float UNIQUE Text  // Mb in the unique wiggle
                      Wiggle_nU   UNIQUE Float UNIQUE Text  // Mb in the non-unique wiggle

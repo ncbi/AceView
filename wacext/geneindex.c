@@ -60,10 +60,19 @@ typedef struct compareStruct {
 typedef struct rcStruct { 
   int run, runid, sample, machine, title, otherTitle, sortingTitle, sortingTitle2, nRuns ; 
   int Genes_with_index,  Genes_with_reliable_index,  Genes_with_one_reliable_index, Genes_with_index_over_8, Genes_with_index_over_10, Genes_with_index_over_12, Genes_with_index_over_15, Genes_with_index_over_18 ;
-  double Low_index, zeroIndex, NA_crossover_index, seqs, tags, geneTags, genomicKb, intergenicKb, intergenicDensity, targetKb, prunedTargetKb, bigGenesKb, anyTargetKb, X2, alpha, beta1, beta2, fineTune ; 
+  int captured_genes_with_index,  captured_genes_with_reliable_index,  captured_genes_with_one_reliable_index, captured_genes_with_index_over_8, captured_genes_with_index_over_10, captured_genes_with_index_over_12, captured_genes_with_index_over_15, captured_genes_with_index_over_18 ;
+  double Low_index, zeroIndex, NA_crossover_index, geneTags, genomicKb, intergenicKb, intergenicDensity, targetKb, prunedTargetKb, bigGenesKb, capturedBigGenesKb, anyTargetKb, X2, alpha, beta1, beta2, fineTune ; 
+  double seqs, tags, kb ;
+  double captured_seqs, captured_tags, captured_kb ;
+
+  double nReads, nReadsOk ; 
+  long int nerr ; int a2g, partial, orphan, badTopo, multi, multi2 ; 
+  double CnReads, CnReadsOk ; 
+  long int Cnerr ; int Ca2g, Cpartial, Corphan, CbadTopo, Cmulti, Cmulti2 ; 
+
   Array aa, daa, aag, antiAa ;
   KEYSET runs, compare_to, titration ;
-  Array bigGenes ;
+  Array bigGenes, capturedBigGenes ;
   BOOL isSNP, cumulDone, addCounts, isAny, solid, hasData, avoid, PolyA_selected_RNA, isPairedEnd, selectedVariance, snpCompare ;
   int indexDone, fragmentLength, private, isSubLib ;
   int accessibleLength ;  /* max gene length effectivelly sequenced, evaluated on transcripts > 8kb, usually limited by the 3p biais */
@@ -79,7 +88,7 @@ typedef struct rcStruct {
 } RC ;
 
 typedef struct gcStruct { 
-  int title, affy, geneId, geneModel, intronGene, intronMrna, nmid, gene_type, fromGene, fromTranscript, length, boxLength, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
+  int title, affy, geneId, geneModel, intronGene, intronMrna, capturedIntronGene, nmid, gene_type, fromGene, fromTranscript, length, boxLength, chrom, a1, a2, intronType, intronSharedD, intronSharedA, alias ; 
   BOOL isSNP, notIsTranscriptA, targeted, captured, hasGoodProduct, isGood ;
   Array geneGroup ;
   KEYSET captures, capturesTouch ;
@@ -216,6 +225,7 @@ typedef struct gxStruct {
   Array pValues ;  /* memorize the pValue of the pair score when computing the .compare files, use them in the .profile files */
   DICT *pairScoresDict ;  /* memorize the pair score when computing the .compare files, use them in the .profile files */
   KEYSET pairScores2compare ;
+  KEYSET targeted_genes ;
   Array diffGenes ;
 } GX ;
 
@@ -1140,6 +1150,8 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	  dc->tags += tags ;
 	  gc->tags += tags ;
 	  rc->geneTags += tags ;
+	  if (gc->capturedIntronGene)
+	    rc->captured_tags += tags ;
 	  gc->isGood = TRUE ;
 	  if (tags && ! kb) kb = tags/10.0 ; /* assume length = 100bp */
 	  dc->kb += tags ;
@@ -1271,12 +1283,51 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 		}
 	    }
 
+	  if (tags && ! kb) kb = tags/50.0 ; /* assume length = 20bp */
 	  dc->seqs += seqs ;
 	  dc->tags += tags ;
 	  gc->tags += tags ;
 	  rc->geneTags += tags ;
+	  
+	  rc->nReads += nReads ;
+	  rc->nReadsOk += nReadsOk ;
+	  rc->kb += kb ;
+	  rc->nerr += nerr ;
+	  rc->a2g += a2g ;
+	  rc->partial += partial ;
+	  rc->orphan += orphan ;
+	  rc->badTopo += badTopo ;
+	  rc->multi += multi ;
+	  rc->multi2 += multi2 ;
+
+	  if (rc->capture && gc->captures)
+	    {
+	      KEYSET ks = gc->captures ;
+	      int i ;
+	      for (i = 0 ; i < keySetMax (gc->captures) ; i++)
+		if (rc->capture == keySet (ks, i))
+		  {
+		    rc->captured_seqs += seqs ;
+		    rc->captured_tags += tags ;
+		    rc->captured_kb += kb ;
+
+
+		    rc->CnReads += nReads ;
+		    rc->CnReadsOk += nReadsOk ;
+		    rc->Cnerr += nerr ;
+		    rc->Ca2g += a2g ;
+		    rc->Cpartial += partial ;
+		    rc->Corphan += orphan ;
+		    rc->CbadTopo += badTopo ;
+		    rc->Cmulti += multi ;
+		    rc->Cmulti2 += multi2 ;
+
+
+
+		    break ;
+		  }
+	    }
 	  gc->isGood = TRUE ;
-	  if (tags && ! kb) kb = tags/50.0 ; /* assume length = 20bp */
 	  dc->kb += kb ;
 
 	  if (ddc)
@@ -1398,8 +1449,9 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 	      int capture = 0 ;
 	      gx->hasCapture = TRUE ;
 
-	
-	      dictAdd (gx->captureDict, ccp, &capture) ;
+	      if (!gx->targeted_genes)
+		gx->targeted_genes = keySetHandleCreate (gx->h) ;
+      	      dictAdd (gx->captureDict, ccp, &capture) ;
 	      if (isGene)
 		{
 		  KEYSET ks ;
@@ -1410,6 +1462,7 @@ static int gxAceParse (GX *gx, const char* fileName,BOOL metaData)
 		  if (!ks)
 		    ks = gc->captures = keySetHandleCreate (gx->h) ;
 		  keySetInsert (ks, capture) ;
+		  keySet (gx->targeted_genes, capture)++ ;
 		}
 	      else if (isRun)
 		{
@@ -2552,8 +2605,9 @@ static void gxGlobalCounts (GX *gx)
 	continue ;
       dc = arrayp (aa, dictMax(gx->geneDict), DC) ; /* regularize the size of the aa table in all runs */
 
-      kb = rc->prunedTargetKb = rc->targetKb ; rc->bigGenesKb = 0 ;
+      kb = rc->prunedTargetKb = rc->targetKb ; rc->bigGenesKb = 0 ; rc->capturedBigGenesKb = 0 ;
       if (rc->bigGenes)  arrayMax (rc->bigGenes) = 0 ;
+      if (rc->capturedBigGenes)  arrayMax (rc->capturedBigGenes) = 0 ;
       /* 2 passes :: first count how many kb are in genes with a geneId, then flag the big genes */
       for (pass = 0, kb = 0 ; pass < 2 ; pass++)
 	{
@@ -2612,7 +2666,10 @@ static void gxGlobalCounts (GX *gx)
 		    }
 		  if (gx->isINTRON && ! gc->isIntron)
 		    continue ;
-		  if (! rc->bigGenes) rc->bigGenes = arrayHandleCreate (32, BG, gx->h) ;
+		  if (! rc->bigGenes) 
+		    rc->bigGenes = arrayHandleCreate (32, BG, gx->h) ;
+		  if (gx->hasCapture && ! rc->capturedBigGenes) 
+		    rc->capturedBigGenes = arrayHandleCreate (32, BG, gx->h) ;
 		  bg = arrayp (rc->bigGenes, arrayMax (rc->bigGenes), BG) ;
 		  bg->gene = gene ; bg->kb = dc->kb ;
 		  aceOutf (ao, "%s\t%s\t%g", dictName(gx->geneDict,gene), dictName (gx->runDict, run), dc->tags) ;
@@ -2634,6 +2691,12 @@ static void gxGlobalCounts (GX *gx)
 			for (i = 0 ; i < keySetMax (ks) ; i++)
 			  {
 			    int capture = keySet (ks, i) ;
+			    if (capture && capture == rc->capture)
+			      {
+				BG *bgc = arrayp (rc->capturedBigGenes, arrayMax (rc->capturedBigGenes), BG) ;
+				bgc->gene = gene ; bgc->kb = dc->kb ;
+				rc->capturedBigGenesKb += dc->kb ;
+			      }
 			    if (capture)
 			      {
 				const char *ccp = dictName (gx->captureDict, capture) ;
@@ -2675,7 +2738,6 @@ static void gxGlobalCounts (GX *gx)
 			}
 		    }
 		  aceOutf (ao, "\n") ;
-
 		}
 	    }
 	  if (3 * (z + zbig) < rc->targetKb) /* drop the true counts, if we are using a very reduced list */
@@ -4553,7 +4615,7 @@ static void gxAllGeneCorrelations (GX *gx)
 /*************************************************************************************/
 /*************************************************************************************/
 /* compute for each run the minimal index */
-static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
+static void gxNumberOfGenesPerRunAboveGivenIndexDo (GX *gx, BOOL show, BOOL isCapture)
 {
   AC_HANDLE h = ac_new_handle () ;
   int i, j3, run, gene, n, n2, n3, ngid, maxIndex = 0, pass, pass2 ;
@@ -4575,7 +4637,13 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
       aa = rc->aa ;
       if (! aa || ! arrayMax (aa))
 	continue ;
-      if (! show && rc->Genes_with_index)
+      if (! show && 
+	  (
+	   (! isCapture && rc->Genes_with_index) ||
+	   (isCapture && rc->captured_genes_with_index) ||
+	   (isCapture && ! rc->capture)
+	   )
+	  )
 	continue ;
 
       hh = arrayReCreate (hh, 100, int) ;
@@ -4597,6 +4665,20 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	    */
 	    if (gx->targeted && ! gc->targeted)
 	      continue ;
+	    if (isCapture)
+	      {
+		BOOL ok = FALSE ;
+		if (rc->capture)
+		  {
+		    KEYSET ks = gc->captures ;
+		    int i ;
+		    for (i = 0 ; ks && ! ok && i < keySetMax (ks) ; i++)
+		      if (rc->capture == keySet (ks, i))
+			ok = TRUE ;
+		  }
+		if (! ok)
+		  continue ;
+	      }
 	    if (0)
 	      if (gx->captured && ! gc->captured)
 		continue ;
@@ -4619,13 +4701,13 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	      }
 	    n = 100 * (dc->index + .001 - 1000) ;
 	    if (! dc->tags || n<0) n = 0 ;
-
+	    
 	    if (! dc->isLow)
 	      array (hh3, n, int)++ ;
 	    else
 	      array (hh4, n, int)++ ;
 	  }
-
+      
       /* compute the cumulated hh and hh2, histo */
       if (maxIndex < arrayMax (hh))
 	maxIndex = arrayMax (hh) ;
@@ -4634,11 +4716,11 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	  n += arr (hh, i, int) ;
 	  arr (hh, i, int) = n ;
 	  array (hhh, 100 * run + i, int) = n ;
-
+	  
 	  n2 += array (hh2, i, int) ;
 	  arr (hh2, i, int) = n2 ;
 	  array (hhh2, 100 * run + i, int) = n2 ;
-
+	  
 	  n3 += array (hhMA, i, int) ;
 	  arr (hhMA, i, int) = n3 ;
 	  array (hhhMA, 100 * run + i, int) = n3 ;
@@ -4647,7 +4729,7 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	  arr (hhGID, i, int) = ngid ;
 	  array (hhhGID, 100 * run + i, int) = ngid ;
 	}
- 
+      
       /* compute the 3% quantile = low index */  
       for (n3 = 0, i = 0 ; i < arrayMax (hh3) ; i++)
 	n3 += arr (hh3, i, int) ;
@@ -4657,7 +4739,8 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	  if (100 * n > 3 * n3)
 	    break ;
 	}
-     rc->Low_index = i/100.0 ; 
+      if (! isCapture)
+	rc->Low_index = i/100.0 ; 
       /* look for the position where there are as many low index above and high index below 
        * to do that we compute the cumul of the NA hh4 from above and the cumul of the not NA hh3 from below
        * and we stop when they cross
@@ -4674,18 +4757,30 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	  if (n > array(hh4, i, int))
 	    break ;	      
 	}
-      rc->NA_crossover_index = i/100.0 ; 
-
-      rc->Genes_with_index = array (hh, 1, int) ;
-      rc->Genes_with_reliable_index = array (hh2, 2, int) ;
-      rc->Genes_with_index_over_8 = array (hh2, 8, int) ;
-      rc->Genes_with_index_over_10 = array (hh2, 10, int) ;
-      rc->Genes_with_index_over_12 = array (hh2, 12, int) ;
-      rc->Genes_with_index_over_15 = array (hh2, 15, int) ;
-      rc->Genes_with_index_over_18 = array (hh2, 18, int) ;
+      if (! isCapture)
+	{
+	  rc->NA_crossover_index = i/100.0 ; 
+	  
+	  rc->Genes_with_index = array (hh, 1, int) ;
+	  rc->Genes_with_reliable_index = array (hh2, 2, int) ;
+	  rc->Genes_with_index_over_8 = array (hh2, 8, int) ;
+	  rc->Genes_with_index_over_10 = array (hh2, 10, int) ;
+	  rc->Genes_with_index_over_12 = array (hh2, 12, int) ;
+	  rc->Genes_with_index_over_15 = array (hh2, 15, int) ;
+	  rc->Genes_with_index_over_18 = array (hh2, 18, int) ;
+	}
+      else
+	{
+	  rc->captured_genes_with_index = array (hh, 1, int) ;
+	  rc->captured_genes_with_reliable_index = array (hh2, 2, int) ;
+	  rc->captured_genes_with_index_over_8 = array (hh2, 8, int) ;
+	  rc->captured_genes_with_index_over_10 = array (hh2, 10, int) ;
+	  rc->captured_genes_with_index_over_12 = array (hh2, 12, int) ;
+	  rc->captured_genes_with_index_over_15 = array (hh2, 15, int) ;
+	  rc->captured_genes_with_index_over_18 = array (hh2, 18, int) ;
+	}
     }
-		       
-  if (1)
+  if (! isCapture)
     {
       int run, run2, nRuns ;
       RC *rc2 ;
@@ -4711,7 +4806,7 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 	  }
     }
 
-   if (show)
+   if (!isCapture && show)
     for (pass = 1 ; pass < 4 ; pass++)
       {
 	char *suffix = "" ;
@@ -4841,6 +4936,14 @@ static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
 
 
   ac_free (h) ;
+  return ;
+} /* gxNumberOfGenesPerRunAboveGivenIndexDo */
+
+static void gxNumberOfGenesPerRunAboveGivenIndex (GX *gx, BOOL show)
+{
+  gxNumberOfGenesPerRunAboveGivenIndexDo (gx, show, FALSE) ;
+  if (gx->hasCapture)
+    gxNumberOfGenesPerRunAboveGivenIndexDo (gx, show, TRUE) ;
   return ;
 } /* gxNumberOfGenesPerRunAboveGivenIndex */
 
@@ -8289,19 +8392,20 @@ static int bigGeneOrder (const void *a, const void *b)
   return up->gene - vp->gene ;
 }
 
-static void gxBigGenes (ACEOUT ao, GX *gx, RC *rc, const char *target, BOOL isAce)
+static void gxBigGenesDo (ACEOUT ao, GX *gx, RC *rc, const char *target, BOOL isAce, BOOL isCapture)
 {
   int i ;
   BG *bg ;
   AC_HANDLE h = ac_new_handle () ;
-
-  arraySort (rc->bigGenes, bigGeneOrder) ;
-  arrayCompress (rc->bigGenes) ;
-  for (i = 0, bg = arrp (rc->bigGenes, i, BG) ; i < arrayMax (rc->bigGenes) ; bg++, i++)
+  KEYSET bigG = isCapture ?  rc->capturedBigGenes : rc->bigGenes ;
+  arraySort (bigG, bigGeneOrder) ;
+  arrayCompress (bigG) ;
+  for (i = 0, bg = arrp (bigG, i, BG) ; i < arrayMax (bigG) ; bg++, i++)
     {
       if (! bg->gene) continue ;
       if (isAce)
-	aceOutf (ao, "High_genes %s \t%s %.2f Mb\n"
+	aceOutf (ao, "High_genes %s%s \t%s %.2f Mb\n"
+		 , isCapture ? "Captured_" : ""
 		 , target
 		 , ac_protect (noX__ (dictName (gx->geneDict, bg->gene), !gx->isINTRON), h)
 		 , bg->kb/1000 
@@ -8315,6 +8419,17 @@ static void gxBigGenes (ACEOUT ao, GX *gx, RC *rc, const char *target, BOOL isAc
     }
   ac_free (h) ;
 }  /* gxBigGenes */
+
+/********/
+
+static void gxBigGenes (ACEOUT ao, GX *gx, RC *rc, const char *target, BOOL isAce)
+{
+  if (isAce)
+    aceOutf (ao, "-D High_genes\n") ;
+  gxBigGenesDo (ao, gx, rc, target, isAce, FALSE) ;
+  if (isAce && gx->hasCapture && rc->capturedBigGenes)
+    gxBigGenesDo (ao, gx, rc, target, isAce, TRUE) ;
+}
 
 /*************************************************************************************/
 
@@ -9401,7 +9516,7 @@ static int gxExportGeneAceFileSummary (GX *gx, int type)
 	  if (rc->private == 2)
 	    continue ;
 	  aceOutf (ao, "Ali%s \"%s\"\n", subsamp, dictName (gx->runDict, run)) ;
-	  aceOutf (ao, "Zero_index %s %.1f\nLow_index  %s %.1f\nCross_over_index  %s %.1f\nGenes_touched  %s %d\nGenes_with_index %s  %d\nGenes_with_index_over_10 %s  %d\nGenes_with_index_over_12  %s %d\nGenes_with_index_over_15 %s  %d\nGenes_with_index_over_18  %s %d\n-D High_genes  %s \n"
+	  aceOutf (ao, "Zero_index %s %.1f\nLow_index  %s %.1f\nCross_over_index  %s %.1f\nGenes_touched  %s %d\nGenes_with_index %s  %d\nGenes_with_index_over_10 %s  %d\nGenes_with_index_over_12  %s %d\nGenes_with_index_over_15 %s  %d\nGenes_with_index_over_18  %s %d\n"
 		   , target2 , rc->zeroIndex
 		   , target2 , rc->Low_index
 		   , target2 , rc->NA_crossover_index
@@ -9411,8 +9526,66 @@ static int gxExportGeneAceFileSummary (GX *gx, int type)
 		   , target2 , rc->Genes_with_index_over_12
 		   , target2 , rc->Genes_with_index_over_15
 		   , target2 , rc->Genes_with_index_over_18
-		   , target2
 		   ) ;
+
+	      aceOutf (ao, "Reads_in_genes %s %.0f\n"
+		       , target2, rc->nReads
+		       ) ;
+	      aceOutf (ao, "Reads_in_pairs_in_genes %s %.0f\n"
+		       , target2, rc->nReadsOk
+		       ) ;
+	      aceOutf (ao, "Orphan_reads_in_genes %s %d\n"
+		       , target2, rc->orphan 
+		       ) ;
+	      aceOutf (ao, "Multi_aligned_reads_in_genes %s %d\n"
+		       , target2, rc->multi
+		       ) ;
+	      aceOutf (ao, "Mismatches_in_genes %s %ld\n"
+		       , target2, rc->nerr
+		       ) ;
+	      aceOutf (ao, "A2G_in_genes %s %d\n"
+		       , target2, rc->a2g
+		       ) ;
+
+	  if (rc->captured_genes_with_index)
+	    {	      
+	      aceOutf (ao, "Targeted_genes %s %d\nGenes_touched  Captured_%s %d\nGenes_with_index Captured_%s  %d\nGenes_with_index_over_10 Captured_%s  %d\nGenes_with_index_over_12  Captured_%s %d\nGenes_with_index_over_15 Captured_%s  %d\nGenes_with_index_over_18  Captured_%s %d\n-D High_genes  Captured_%s \n"
+		       , dictName (gx->captureDict, rc->capture) , keySet (gx->targeted_genes, rc->capture)
+		       , target2 , rc->captured_genes_with_index
+		       , target2 , rc->captured_genes_with_reliable_index
+		       , target2 , rc->captured_genes_with_index_over_10
+		       , target2 , rc->captured_genes_with_index_over_12
+		       , target2 , rc->captured_genes_with_index_over_15
+		       , target2 , rc->captured_genes_with_index_over_18
+		       , target2
+		       ) ;
+	      aceOutf (ao, "Reads_in_genes Captured_%s %.0f\n"
+		       , target2, rc->CnReads
+		       ) ;
+	      aceOutf (ao, "Reads_in_pairs_in_genes Captured_%s %.0f\n"
+		       , target2, rc->CnReadsOk
+		       ) ;
+	      aceOutf (ao, "Orphan_reads_in_genes Captured_%s %d\n"
+		       , target2, rc->Corphan 
+		       ) ;
+	      aceOutf (ao, "Multi_aligned_reads_in_genes Captured_%s %d\n"
+		       , target2, rc->Cmulti
+		       ) ;
+	      aceOutf (ao, "Mismatches_in_genes Captured_%s %ld\n"
+		       , target2, rc->Cnerr
+		       ) ;
+	      aceOutf (ao, "A2G_in_genes Captured_%s %d\n"
+		       , target2, rc->Ca2g
+		       ) ;
+
+	      aceOutf (ao, "nh_Ali Captured_%s %.0f seqs %.0f tags %.0f kb_aligned %.2f bp\n"
+		       , target2
+		       , rc->captured_seqs
+		       , rc->captured_tags
+		       , rc->captured_kb
+		       , 1000*rc->captured_kb/(1+rc->captured_tags)
+		       ) ;
+	    }
 	  if (rc->runs && rc->groupLevel > 0 && ! rc->addCounts)
 	    aceOutf (ao, "Genes_expressed_in_at_least_one_run %s %d\n",
 		     target2, rc->Genes_with_one_reliable_index) ;
@@ -9420,6 +9593,10 @@ static int gxExportGeneAceFileSummary (GX *gx, int type)
 	  aceOutf (ao, "Mb_in_genes %s %f\n", target2, rc->targetKb/1000) ;
 	  aceOutf (ao, "Mb_in_genes_with_GeneId_minus_high_genes  %s %f\n", target2, rc->prunedTargetKb/1000) ;
 	  aceOutf (ao, "Mb_in_high_genes %s %f\n", target2, rc->bigGenesKb/1000) ;
+	  if (rc->captured_kb)
+	    aceOutf (ao, "Mb_in_high_genes Captured_%s %f\n", target2, rc->capturedBigGenesKb/1000) ;
+	  if (rc->captured_kb/1000)
+	    aceOutf (ao, "Mb_in_genes Captured_%s %f\n", target2, rc->captured_kb/1000) ;
 	  aceOutf (ao, "Intergenic  %f kb\n", rc->intergenicKb) ;
 	  if (rc->bigGenes)
 	    gxBigGenes (ao, gx, rc, target2, TRUE) ;

@@ -28,6 +28,7 @@ typedef struct qcStruct {
   const char *outFileName ;
   BOOL gzi, gzo ;
   BOOL hasSL ;
+  BOOL TT ; /* limit counts to targeted genes */
   const char *externalFiles ;
   Array eTitles, eAaa, eCaptions ;
 } QC ;
@@ -1262,7 +1263,11 @@ static void qcSnpTypesDo (QC *qc, RC *rc, BOOL isRejected)
   } ; 
   
   const char *caption =
-    "Number of rejected variant alleles, per type. Designed for clinical cohorts with sequenced diploid tissues. SNPs which are monomodal across all samples, usually with MAF in the 1-30% range, come most probably from systematic noise and are rejected." ;
+    isRejected ?
+    "Number of rejected variant alleles, per type. Designed for clinical cohorts with sequenced diploid tissues. SNPs which are monomodal across all samples, usually with MAF in the 1-30% range, come most probably from systematic noise and are rejected."
+    :
+    "Number of variant alleles, per type."
+    ;
     ;
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
@@ -1875,10 +1880,17 @@ static void qcInsertSizeHisto (QC *qc, RC *rc)
 static float qcShowGeneExp (QC *qc, AC_TABLE tt, const char *target, const char *tag)
 {
   int ir ;
+  const char *target2 = target ;
+  if (qc->TT)
+    target2 = hprintf (qc->h, "Captured_%s", target) ;
+
   if (tt)
     for (ir = 0 ; ir < tt->rows ; ir++)
       if (! strcasecmp (tag   , ac_table_printable (tt, ir, 0, "xxx")) &&
-	  ! strcasecmp (target, ac_table_printable (tt, ir, 1, "xxx"))
+	  (
+	   ! strcasecmp (tag, "Targeted_genes")  ||
+	   ! strcasecmp (target2, ac_table_printable (tt, ir, 1, "xxx"))
+	   )
 	  )
 	{
 	  float z = ac_table_float (tt, ir, 2, 0) + ac_table_int (tt, ir, 2, 0) ;
@@ -1903,7 +1915,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
     { "Spacer", "", 0, 0, 0} ,  
     { "TITLE", "Title", 10, 0, 0} ,
     { "Compute", "Million raw reads", 20, 0, 0} ,  /* copied from qcBeforeAli */
-    { "Compute", "Million reads aligned on any target by Magic", 30, 0, 0 } , /* copied from qcAvLengthAli */
+    { "Compute", !qc->TT ? "Million reads aligned on any target by Magic" : "Million reads aligned on targeted genes" , 30, 0, 0 } , /* copied from qcAvLengthAli */
     { "Compute", "Average fragment multiplicity, high numbers reflect PCR amplification or very short reads", 40, 0, 0} ,  /* copied from qcBeforeAli */
     { "Compute", "Average read length after clipping adaptors and barcodes (nt)", 50, 0, 0 } , /* copied from qcAvLengthAli */
     { "Compute", "Average length aligned per read (nt)", 60, 0, 0 } , /* copied from qcAvLengthAli */
@@ -1916,7 +1928,9 @@ static void qcMainResults1 (QC *qc, RC *rc)
   if (rc == (void *) 1)
     return  qcChapterCaption (qc, tts, caption) ;
   
-  
+  char *myAny = qc->TT ? "Captured_av" : "any" ;
+  float zr = 0, zs = 0 ;
+
   for (ti = tts ; ti->tag ; ti++)
     {
       const char *tag ;
@@ -1944,24 +1958,30 @@ static void qcMainResults1 (QC *qc, RC *rc)
 	    case 30: /* Million reads aligned on any target by magic */
 	      ccp = EMPTY ;
 	      tt = ac_tag_table (rc->ali, "nh_Ali", h) ;
- 	      z = zb = zc = 0 ;
+ 	      z = zb = zc = zr = zs = 0 ;
  	      if (tt)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		  {
 		    ccp = ac_table_printable (tt, ir, 0, EMPTY) ;
-		    if (! strcasecmp (ccp, "any"))
+		    if (! strcasecmp (ccp, myAny))
 		      {
-			z = ac_table_float (tt, ir, 3, 0) ;
+			zs = ac_table_float (tt, ir, 1, 0) ;
+			zr = ac_table_float (tt, ir, 3, 0) ;
 			zb = ac_table_float (tt, ir, 5, 0) ;
 			zc = ac_table_float (tt, ir, 7, 0) ;
 		      }
 		  } 
-	      aceOutf (qc->ao, "\t%.3f", z/1000000) ;
+	      aceOutf (qc->ao, "\t%.3f", zr/1000000) ;
 	      ac_free (tt) ;
 	      break ;
 	      
 	    case 40: /* Average fragment multiplicity */
-	      aceOutf (qc->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
+	      if (qc->TT)
+		{
+		  aceOutf (qc->ao, "\t%.2f", zs ? zr/zs : 0) ;
+		}
+	      else
+		aceOutf (qc->ao, "\t%.2f", rc->var[T_Seq] ? rc->var[T_Read]/rc->var[T_Seq] : 0) ;
 	      break ;
 	    case 50:
 	      tag = "nh_Ali" ; 
@@ -1971,7 +1991,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
 	      if (tt)
 		for (ir = 0 ; tt &&  ir < tt->rows; ir++)
 		  {
-		    if (! strcasecmp (ac_table_printable (tt, ir, 0, ""), "any"))
+		    if (! strcasecmp (ac_table_printable (tt, ir, 0, ""), qc->TT ? "targeted_genes" : myAny))
 		      {
 			z = ac_table_float (tt, ir, 11, 0) ;
 			aceOutf (qc->ao, "%.2f", z) ;
@@ -1988,7 +2008,7 @@ static void qcMainResults1 (QC *qc, RC *rc)
 		for (ir = 0 ; tt && ir < tt->rows ; ir++)
 		  {
 		    ccp = ac_table_printable (tt, ir, 0, EMPTY) ;
-		    if (! strcasecmp (ccp, "any"))
+		    if (! strcasecmp (ccp, myAny))
 		      {
 			z = ac_table_float (tt, ir, 3, 0) ;
 			zb = ac_table_float (tt, ir, 5, 0) ;
@@ -2362,6 +2382,7 @@ static void qcMainResults4 (QC *qc, RC *rc)
     { "Compute", "% fragments on strand plus of genes", 90, 0, 0} ,  /* copied from qcGeneExpression */
     { "Compute", "Mismatches per kb aligned", 100, 0, 0} , /* copied from qcMismatchTypes */
     { "Accessible_length", "Well covered transcript length (nt), max 6kb, measured on transcripts longer than 8kb, limited by the 3' bias in poly-A selected experiments", 0, 0, 0}, /* copied from qc3pBias */
+    { "Accessible_length_5k", "Well covered transcript length (nt), max 4kb, measured on transcripts longer than 5kb, limited by the 3' bias in poly-A selected experiments", 0, 0, 0}, /* copied from qc3pBias */
 
     {  0, 0, 0, 0, 0}
   } ; 
@@ -2430,7 +2451,7 @@ static void qcMainResults4 (QC *qc, RC *rc)
 	      break ;
 	    }
 	}
-      else  /* 110: accessible length */
+      else  /* 110: accessible length 8k/5k */
 	qcShowTag (qc, rc, ti) ;
     }
   ac_free (h) ;
@@ -4451,7 +4472,8 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
     { "Spacer", "", 0, 0, 0} ,
     { "TITLE", "Title", 10, 0, 0} ,
  
-    { "Compute1", "Number of %s genes touched\t%s genes significantly expressed\t%s genes with expression index >= 10 (sFPKM >= 1)\t%s genes with index >= 12  (sFPKM >= 4)\tGenes with index >= 15 (sFPKM >= 32)\tGenes with index >= 18 (sFPKM >= 256)",  100, 0, 0 },
+    { "Compute1", "Number of %s genes\tNumber of %s genes touched\t%s genes significantly expressed\t%s genes with expression index >= 10 (sFPKM >= 1)\t%s genes with index >= 12  (sFPKM >= 4)\t%s genes with index >= 15 (sFPKM >= 32)\t%s genes with index >= 18 (sFPKM >= 256)\tReads in %s genes\tReads in pairs in %s genes\tOrphan reads in %s genes\tMulti-aligned reads in %s genes\tMismatches in %s genes\tA>G in %s genes",  100, 0, 0 },
+
 
     {  0, 0, 0, 0, 0}
   }; 
@@ -4488,17 +4510,29 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
 	    }
 	  else if (! strcmp (ti->tag, "Compute1"))
 	    {
+	      const char *target2 ;
 	      char *buf = strnew (ti->title, h) ;
 	      target = qc->Etargets [0] ;
 	      if (target && ! strcmp (target, "av")) target = "AceView" ;
 	      aceOut (qc->ao, "\t") ;
+	      target2 = target ;
+	      if (qc->TT)
+		target2 = hprintf (h, "Captured_%s", target) ;
 	      aceOutf (qc->ao, buf
-		       , target
-		       , target
-		       , target
-		       , target
-		       , target
-		       , target
+		       , qc->TT ? "targeted ": ""
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
+		       , target2
 		       ) ;
 	    }
 	  else
@@ -4515,12 +4549,19 @@ static void qcGeneExpression1 (QC *qc, RC *rc)
 	  const char *tag, *target = qc->Etargets [0] ;
 
 	  tt = ac_tag_table (rc->ali, "Gene_expression" , h) ;
+	  tag = "Targeted_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_touched" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_with_index" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_with_index_over_10" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_with_index_over_12" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_with_index_over_15" ; qcShowGeneExp (qc, tt, target, tag) ;
 	  tag = "Genes_with_index_over_18" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "Reads_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "Reads_in_pairs_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "Orphan_reads_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "Multi_aligned_reads_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "Mismatches_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
+	  tag = "A2G_in_genes" ; qcShowGeneExp (qc, tt, target, tag) ;
 	}
       else
 	qcShowTag (qc, rc, ti) ;
@@ -4715,16 +4756,21 @@ static void qcHighGenes (QC *qc, RC *rc)
 	      int ii, ir ;
 	      for (ii = 0 ; ii < (ti->col > 10 ? 1 : 3) ; ii++)
 		{
+		  const char *target2 ;
+		  target = qc->Etargets [ii] ;
+		  if (qc->TT)
+		    target2 = hprintf (h,"Captured_%s", target) ;
+		  else
+		    target2 = target ;
 		  for (ir = 0 ; ir < tt->rows ; ir++)
 		    {
-		      target = qc->Etargets [ii] ;
-		      if (target && ! strcasecmp (target, ac_table_printable (tt, ir, 0, "x")))
+		      if (target2 && ! strcasecmp (target2, ac_table_printable (tt, ir, 0, "x")))
 			break ;
 		    }
 		  if (ir < tt->rows)
 		    {
 		      switch (ti->col)	
-		{
+			{
 			case 16:
 			case 18:
 			  aceOutf (qc->ao, "\t%.3f", ac_table_float (tt, ir, 1, 0)) ;
@@ -4743,12 +4789,17 @@ static void qcHighGenes (QC *qc, RC *rc)
       else if (! strcmp (ti->tag, "HighGenes"))
 	{  
 	  int ir, k = 0 ;
-	  
+	  const char *target2 ;
+	  target = qc->Etargets [0] ;
+	  if (qc->TT)
+	    target2 = hprintf (h,"Captured_%s", target) ;
+	  else
+	    target2 = target ;
 	  aceOut (qc->ao, "\t") ;
 	  tt = ac_tag_table (rc->ali, "High_genes", h) ;
 	  for (ir = 0 ; tt && ir < tt->rows ; ir++)
 	    {
-	      if (! strcmp (ac_table_printable (tt, ir, 0, "x"), qc->Etargets[0]))
+	      if (! strcmp (ac_table_printable (tt, ir, 0, "x"), target2))
 		{
 		  AC_OBJ Gene = ac_table_obj (tt, ir, 1, h) ;
 		  const char *ccp = Gene ? ac_tag_printable (Gene, "Title", ac_name(Gene)) : 0 ;
@@ -5945,6 +5996,7 @@ static void usage (char *message)
 	    "//   -o output_file_prefix\n"
 	    "//      all exported files will be named output_file_prefix.action\n" 
             "//   -gzo : gzip all output files\n"
+	    "//   -TT  : limit the stats to the (run dependent) targeted genes\n"
 	    "//   -export [TPbafpmg...] : only export some groups of columns, in the requested order\n"
 	    "//      default: if -export is not specified, export all columns in default order\n"
 	    "//            E: main Results1\n"
@@ -6017,6 +6069,8 @@ int main (int argc, const char **argv)
     usage (0) ;
   qc.dbName = "MetaDB" ;
   getCmdLineOption (&argc, argv, "-db", &qc.dbName) ; 
+  qc.TT = getCmdLineBool (&argc, argv, "-TT") ;
+  qc.gzo = getCmdLineBool (&argc, argv, "-gzo") ;
 
   qc.export =  allMethods ;
   getCmdLineOption (&argc, argv, "-export", &qc.export) ;

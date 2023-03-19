@@ -374,10 +374,8 @@ static int  cgi_sanitize_word (char *txt, const char *w)
   int nn = 0, n = strlen (w) ;
   char *cp = txt ;
 
-  while ((cp = strstr (cp, w)))
+  while ((cp = strcasestr (cp, w)))
     { 
-      if (!strcmp(w,"script") && !strncmp(cp,"scription",9))
-	continue ;
       memset (cp, ' ', n) ; cp += n ; nn += n ; 
     }
 
@@ -392,6 +390,12 @@ static char *cgi_sanitize (char *txt)
   int nn = 0 ;
   const char **bad ;
   const char *baddies[] = {"<", ">"
+			   , "(", ")"
+			   , "{", "}"
+			   , "\'", "\""
+			   , "=", ";"
+			   , "print"
+			   , "alert"
 			   , "script"
 			   , "http://"
 			   , "https://"
@@ -402,9 +406,7 @@ static char *cgi_sanitize (char *txt)
 			   , "SRC="
 			   , "src="
 			   , "style="
-			   , "STYLE="
-			   , "DECLARE "
-			   , "CAST("
+			   , "declare"
 			   , "passwd"
 			   
 			   /* some browser seem to send junk from the aceview page glued to the query */
@@ -3336,7 +3338,11 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
     char *cp ;
     cp = cgi_sanitized_arg("term");
     if (!cp || !*cp)
-      cp = cgi_sanitized_arg("q");
+      {
+	cp = cgi_sanitized_arg("q");
+	if (cp && !strncmp (cp, "blert", 5))
+	  *cp = 'a' ;
+      }
     if (!cp || ! *cp)
       cp = cgi_sanitized_arg("l");
 
@@ -3604,7 +3610,7 @@ static BOOL getParams (PP *ppp, int argc, char * argv[], char *envp[])
 	    sprintf(buff , "a:%s:%d -timeout 180 ", mypp->host, mypp->port) ;
 	    
 	    db = ac_open_db (buff, 0) ;
-	    if (ppp->isRobot && ac_db_nActiveClients (db) > 2)
+	    if (db && ppp->isRobot && ac_db_nActiveClients (db) > 2)
 	      {
 		ppp->isBuzy = TRUE ; 
 		sprintf(ppp->query, "Sorry, the AceView %s server is currently buzy, please try later"
@@ -4550,10 +4556,13 @@ int main (int argc, char * argv[], char *envp[])
   exdb = cgi_sanitized_arg("exdb");
   if (exdb && (strcmp(exdb,"AceView") != 0))
     {
-    char *term;
+      char *term, *cp;
     term = cgi_sanitized_arg ("term");
     if (!term)
       term="";
+    for (cp = term ; *cp ; cp++)
+      if (*cp == '(' || *cp == ')' || *cp == '\'' || *cp == '\"'|| *cp == '{' || *cp == '}')
+	*cp= '_';
     fprintf(stderr,"%s %s %s\n",logPrefix(0, "redirect"),exdb,term);
     printf("Location: https://www.ncbi.nlm.nih.gov/genome/guide/gquery.cgi?db=%s&term=%s\n\n",
 	url_encode(exdb), url_encode(term));

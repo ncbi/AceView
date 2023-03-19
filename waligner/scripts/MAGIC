@@ -768,7 +768,8 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
 
   query find project IS $MAGIC ; > Run  ; is_Run // always computed for runs
   bql -a -o MetaDB/$MAGIC/run2machine2adaptors.txt select r,m,a1,a2,aa1,aa2,e1 from r in @, m in r->machine, a1 in r->adaptor1, a2 in r->adaptor2, ali in r->ali, aa1 in ali->adaptor1, aa2 in ali->adaptor2, e1 in r->Entry_adaptor
- 
+  query find project IS $MAGIC ; > Run  ; is_Run || is_group // always computed for runs
+  bql -o MetaDB/$MAGIC/run2capture.txt select r,c from r in @, c in r->capture
   query find project IS $MAGIC ; > Run  ;Is_run && (nonStranded OR NOT (Forward OR Reverse)) 
   list -a -f MetaDB/$MAGIC/RunNonStranded.list
   query find project IS $MAGIC ; > Run  ;Is_run && Forward 
@@ -4183,6 +4184,15 @@ foreach kb (8kb 5kb)
   cat tmp/GENERUNS/*/*.coverage_of_"$kb"_transcripts.txt | head -20 | gawk '/^## /{n++;if(n>=2 && n<=4)print}' >> $toto
   if (-e $toto.1) \rm $toto.1
   touch $toto.1
+
+  if ($?CAPTURES) then
+    set toto=RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias/$MAGIC.cumulated_3prime_coverage_of_"$kb"_genes.txt
+    echo -n "## $MAGIC.cumulated_3prime_coverage_of_"$kb"_captured_genes.txt : " > $toto.captured
+    date >> $toto.captured
+    cat tmp/GENERUNS/*/*.coverage_of_"$kb"_transcripts.txt | head -20 | gawk '/^## /{n++;if(n>=2 && n<=4)print}' >> $toto.captured
+    if (-e $toto.1.captured) \rm $toto.1.captured
+    touch $toto.1.captured
+  endif
   set xMax=0
   bin/tacembly MetaDB <<EOF
     query find project IS  $MAGIC ; > run ; CLASS runs ; > ali NOT Accessible_length
@@ -4190,33 +4200,52 @@ foreach kb (8kb 5kb)
 EOF
   # (`cat MetaDB/$MAGIC/AliList_noLn.list'`)
   foreach run (`cat MetaDB/$MAGIC/RunsList `)
+    set capt=toto
+    if (-e MetaDB/$MAGIC/run2capture.txt) then
+      set capt=`cat MetaDB/$MAGIC/run2capture.txt | gawk 'BEGIN{c="toto";}{if($1==run){c=$2;last;}}END{print c;}' run=$run`
+    endif
     if (-e tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz) then
       gunzip -f tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt.gz
     endif
     if (-e tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt) then
       bin/rsync -avh  tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt RESULTS/Coverage_of_"$kb"_transcripts__3prime_bias >& /dev/null
       cat tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt | grep Kept | grep transcripts | grep -v raw | gawk -F '\t' '{r=$1;split($2,aa," ");split(aa[2],bb,"/");x+=bb[1];y+=bb[2];for(i=3;i<=NF;i++)z[i]+=$i;if(nf<NF)nf=NF;}END{printf("Kept %d/%d transcripts\t%s",x,y,r);if(nf > 803)nf=803;for(i=3;i<=nf;i++)printf("\t%d",z[i]);printf("\n");}' >> $toto.1
+      if ($capt != toto) then
+        cat tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt | grep Kept | grep transcripts | grep -v raw | gawk -F '\t' '{r=$1;split($2,aa," ");split(aa[2],bb,"/");x+=bb[1];y+=bb[2];for(i=3;i<=NF;i++)z[i]+=$i;if(nf<NF)nf=NF;}END{printf("Kept %d/%d transcripts\t%s",x,y,r);if(nf > 803)nf=803;for(i=3;i<=nf;i++)printf("\t%d",z[i]);printf("\n");}' >> $toto.1.captured
+      endif
       set xMax=`cat  tmp/GENERUNS/$run/$run.coverage_of_"$kb"_transcripts.txt | gawk -F '\t' '{if(50*NF > n)n= 50*NF}END{print n}' n=$xMax`
-   endif
+    endif
   end
   echo toto | gawk '{printf("#\t# Run\tAverage coverage of the first %s",kb);for(i=0;i<=xMax-200;i+=50)printf("\t%d bp",i);printf("\n");}' xMax=$xMax kb=$kb > $toto.2
   cat $toto.2 $toto.1 |  scripts/transpose  >>  $toto
   cat $toto.1 |  gawk -F '\t' '{printf("%s\t%s",$1,$2); for(i=8;i<NF;i+=10){n=0;for(j=-4;j<5;j++){k=i+j;n+=$k/9;}$i=n;}for(i=13;i<NF-10;i+=10){$i=($(i-5)+$(i+5))/2;$3=2*$13-$23;for(i=3;i<=NF;i+=5)printf("\t%d",$i);}printf("\n");}' | scripts/transpose  >>  $toto
-
+  if ($?CAPTURES) then
+    echo toto | gawk '{printf("#\t# Run\tAverage coverage of the first %s",kb);for(i=0;i<=xMax-200;i+=50)printf("\t%d bp",i);printf("\n");}' xMax=$xMax kb=$kb > $toto.2.captured
+    cat $toto.2.captured $toto.1.captured |  scripts/transpose  >>  $toto.captured
+    cat $toto.1.captured |  gawk -F '\t' '{printf("%s\t%s",$1,$2); for(i=8;i<NF;i+=10){n=0;for(j=-4;j<5;j++){k=i+j;n+=$k/9;}$i=n;}for(i=13;i<NF-10;i+=10){$i=($(i-5)+$(i+5))/2;$3=2*$13-$23;for(i=3;i<=NF;i+=5)printf("\t%d",$i);}printf("\n");}' | scripts/transpose  >>  $toto.captured
+  endif
   #if (-e $toto.1) \rm $toto.1 $toto.2 
 
-  if ($kb == 5kb) continue
+  if ($kb == zzz5kb) continue
 
-  set toto4=tmp/GENEGROUPS/$MAGIC.seuil
+  set toto4=tmp/GENEGROUPS/$MAGIC.seuil_$kb
   echo -n "## $toto4.txt " > $toto4.txt
   date >>  $toto4.txt
   cat <<EOF >>  $toto4.txt
 ## Une belle idee de Danielle
 EOF
+    
+  if ($?CAPTURES && -e $toto.captured) then
+    cat $toto.captured | gawk -F '\t' '/^##/{next}/^# Run/{for(i=2;i<=NF;i++)rr[i]=$i;next;}/^Average/{for(i=2;i<=NF;i++)cover[i]=$i;next;}/^#/{if(substr($2,1,5)=="Kept "){for(i=2;i<=NF;i++){split($i,aa," ");split(aa[2],bb,"/");nKept[i]=bb[1];nCandidates[i]=bb[2];}}next;}/^#/{next}/ bp/{x=$1;gsub(" bp","",x);x=x+0;if(x<=8000)for(i=2;i<=NF;i++){rrx[i,x]=$i;rt[i]+=$i;}next;}END{printf("#Run\tKept\tCandidates\tCover\tH 30p%\tH 25p%\tH 20p%\tH 10%\tSurface 30%\tSurface 40%\tSurface 50%\tSurface 60%\tSurface 70%\tSurface 75%\tSurface 80%\tSurface 90%\tSurface 95%\tSurface 98%\tSurface 100%\n");for(r in rr){tt=rt[r];h=rrx[r,100];t=0;h10=0;h20=0;h25=0;h30=0;a30=0;a40=0;a50=0;a60=0;a70=0;a75=0;a80=0;a90=0;a95=0;a98=0;for(x=0;x<=8000;x+=50){y=rrx[r,x];t+=y;if(h10==0 && 10*y < h){h10=x;}if(h20==0 && 5*y < h)h20=x;if(h25==0 && 4*y < h)h25=x;if(h30==0 && 3.33*y < h)h30=x;if(a30==0 && 100*t > 30*tt)a30=x;if(a40==0 && 100*t > 40*tt)a40=x;if(a50==0 && 100*t > 50*tt)a50=x;if(a60==0 && 100*t > 60*tt)a60=x;if(a70==0 && 100*t > 70*tt)a70=x;if(a75==0 && 100*t > 75*tt)a75=x;if(a80==0 && 100*t > 80*tt)a80=x;if(a90==0 && 100*t > 90*tt)a90=x;if(a95==0 && 100*t > 95*tt)a95=x;if(a98==0 && 100*t > 98*tt)a98=x;if(a100==0 && 100*t >= 100*tt)a100=x;}if (h10==0)h10=8000;if (h20==0)h20=8000;if (h25==0)h25=8000;if (h30==0)h30=8000;if (nKept[r] >= 1){printf("%s\t%d\t%d\t%d",rr[r],nKept[r],nCandidates[r],cover[r]) ; printf("\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",h30,h25,h20,h10,a30,a40,a50,a60,a70,a75,a80,a90,a95,a98,a100);}}}' | scripts/tab_sort -k 3n  >>  $toto4.captured.txt
+  endif
+  
   cat $toto | gawk -F '\t' '/^##/{next}/^# Run/{for(i=2;i<=NF;i++)rr[i]=$i;next;}/^Average/{for(i=2;i<=NF;i++)cover[i]=$i;next;}/^#/{if(substr($2,1,5)=="Kept "){for(i=2;i<=NF;i++){split($i,aa," ");split(aa[2],bb,"/");nKept[i]=bb[1];nCandidates[i]=bb[2];}}next;}/^#/{next}/ bp/{x=$1;gsub(" bp","",x);x=x+0;if(x<=8000)for(i=2;i<=NF;i++){rrx[i,x]=$i;rt[i]+=$i;}next;}END{printf("#Run\tKept\tCandidates\tCover\tH 30p%\tH 25p%\tH 20p%\tH 10%\tSurface 30%\tSurface 40%\tSurface 50%\tSurface 60%\tSurface 70%\tSurface 75%\tSurface 80%\tSurface 90%\tSurface 95%\tSurface 98%\tSurface 100%\n");for(r in rr){tt=rt[r];h=rrx[r,100];t=0;h10=0;h20=0;h25=0;h30=0;a30=0;a40=0;a50=0;a60=0;a70=0;a75=0;a80=0;a90=0;a95=0;a98=0;for(x=0;x<=8000;x+=50){y=rrx[r,x];t+=y;if(h10==0 && 10*y < h){h10=x;}if(h20==0 && 5*y < h)h20=x;if(h25==0 && 4*y < h)h25=x;if(h30==0 && 3.33*y < h)h30=x;if(a30==0 && 100*t > 30*tt)a30=x;if(a40==0 && 100*t > 40*tt)a40=x;if(a50==0 && 100*t > 50*tt)a50=x;if(a60==0 && 100*t > 60*tt)a60=x;if(a70==0 && 100*t > 70*tt)a70=x;if(a75==0 && 100*t > 75*tt)a75=x;if(a80==0 && 100*t > 80*tt)a80=x;if(a90==0 && 100*t > 90*tt)a90=x;if(a95==0 && 100*t > 95*tt)a95=x;if(a98==0 && 100*t > 98*tt)a98=x;if(a100==0 && 100*t >= 100*tt)a100=x;}if (h10==0)h10=8000;if (h20==0)h20=8000;if (h25==0)h25=8000;if (h30==0)h30=8000;if (nKept[r] >= 1){printf("%s\t%d\t%d\t%d",rr[r],nKept[r],nCandidates[r],cover[r]) ; printf("\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",h30,h25,h20,h10,a30,a40,a50,a60,a70,a75,a80,a90,a95,a98,a100);}}}' | scripts/tab_sort -k 3n  >>  $toto4.txt
   # $15 =  accessible length = 80% of surface of 8kb crocodile
   # $13 =  accessible length = 70% of surface of 8kb crocodile
-  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$13;if(x==0)x=8000;printf("Ali %s\nAccessible_length %s %s %s %s\n\n",$1,x,$2,$3,$4);}'  > $toto4.ace
+  cat   $toto4.txt | gawk -F '\t' '/^#/{next;}{x=$13;if(x==0)x=8000;printf("Ali %s\nAccessible_length_%s %s %s %s %s\n\n",$1,kb,x,$2,$3,$4);}' kb=$kb  > $toto4.ace
+  if (-e $toto4.captured.txt) then
+    cat   $toto4.captured.txt | gawk -F '\t' '/^#/{next;}{x=$13;if(x==0)x=8000;printf("Ali %s\nAccessible_length_%s_captured %s %s %s %s\n\n",$1,kb,x,$2,$3,$4);}' kb=$kb  >> $toto4.ace
+  endif
   bin/tacembly MetaDB <<EOF
       read-models
       pparse  $toto4.ace
@@ -4224,6 +4253,8 @@ EOF
       quit
 EOF
   tags  $toto4.ace
+
+
 
 # end 5kb 8kb loop
 end
@@ -8263,7 +8294,8 @@ echo "pparse MetaDB/$MAGIC/stranding.ace" | bin/tacembly MetaDB -no_prompt
 
   set n=`cat MetaDB/$MAGIC/RunsList | wc -l`
   if ($n > 0) then
-    bin/qcsummary -db MetaDB -project $MAGIC -runType 2   > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.runs.txt
+    bin/qcsummary -db MetaDB -project $MAGIC -runType 2    > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.runs.txt
+    bin/qcsummary -db MetaDB -project $MAGIC -runType 2 -TT > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.runs.captured.txt
   endif
   if ($n > 1) then
     bin/table_histo -i RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.runs.txt > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.runs.histo.txt
@@ -8271,7 +8303,8 @@ echo "pparse MetaDB/$MAGIC/stranding.ace" | bin/tacembly MetaDB -no_prompt
 
   set n=`cat MetaDB/$MAGIC/GroupList | wc -l`
   if ($n > 0) then
-    bin/qcsummary -db MetaDB -project $MAGIC  -runType 3   > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.groups.txt
+    bin/qcsummary -db MetaDB -project $MAGIC  -runType 3     > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.groups.txt
+    bin/qcsummary -db MetaDB -project $MAGIC  -runType 3 -TT > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.groups.captured.txt
   endif
   if ($n > 1) then
     bin/table_histo -i RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.groups.txt > RESULTS/Mapping/$MAGIC.Data_Summary_and_QC.groups.histo.txt
