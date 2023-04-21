@@ -1,4 +1,4 @@
-#!bin/tcsh -f
+#!/bin/tcsh -f
 
 # 2015_10_02
 # Start from SraRunInfo.csv
@@ -63,6 +63,8 @@ if ($species == hs) then
   set ff='/home/mieg/AW/Human_DATA/ToReferee//2021Feb_Ghimire_review_4ScReports_SraRunInfo.txt'
   set date=2021_09_20
   set ff='/home/mieg/AW/Human_DATA/BBS9_forKans_SraRunInfo.txt'
+  set date=2023_04_17
+  set ff='/home/mieg/AW/Human_DATA/CircularRNA_in_Frailty_SraRunInfo.txt'  
 endif
 if ($species == rn) then
   set date=2016_11_04
@@ -140,8 +142,6 @@ goto phaseLoop
 
 ############
 phaseSRR:
-# parse the SRR number, use it as intermediary Run name
-cat $ff1 | gawk -F '\t' -f scripts/SRX_import.1.awk today=$today | grep -v Submission_dateOK > $dd/run_info.ace
 
 if (! -d SRX_DB) then
   ln -s ~/ace/waligner/metaData
@@ -154,6 +154,11 @@ if (! -d SRX_DB) then
     echo y | ../bin/tacembly .
   popd
 endif
+
+############
+
+# parse the SRR number, use it as intermediary Run name
+cat $ff1 | gawk -F '\t' -f scripts/SRX_import.1.awk today=$today | grep -v Submission_dateOK > $dd/run_info.ace
 
 bin/tacembly SRX_DB <<EOF
   read-models
