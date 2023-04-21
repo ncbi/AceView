@@ -543,15 +543,15 @@ static void getCartan (SA *sa, BOOL show)
       
      case 'F':
       sa->rank = r = m ;
-      switch (m + n)
+      switch (m + 10*n)
 	{
 	default:
-	  messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
+	  messcrash ("Type Lie F(m=4) or Kac F(n=4): m or n should be 4 m=%d n=%d", m,n) ;
 	  break ;
-	case 4:     /* Lie algebra G2 */
-	  getOneCartan (sa, "F", 4, 0, TRUE) ;
+	case 4:   
+	    getOneCartan (sa, "F", 4, 0, TRUE) ;
 	  break ;
-	case 5:     /* Lie F(4) */
+	case 40:     /* Lie superalgebra F(4) */
 	  sa->rank = sa->m = r = 4 ; sa->n = 0 ;
 	  r1 = 3 ; r2 = 1 ;
 	  sa->extended[3] = TRUE ;
@@ -1858,6 +1858,59 @@ static void getAtypic (SA *sa, BOOL show)
 } /* getAtypic */
 
 /******************************************************************************************************/
+/*************************************************************************************/
+/***************************** Public interface **************************************/
+/*************************************************************************************/
+
+static void usage (const char commandBuf [], int argc, const char **argv)
+{
+  int i ;
+
+  fprintf (stderr,
+	   "// Usage: irrep -m 2 -n 1 -show -type A -w -... \n"
+	   "//      try: -h --help  \n"
+	   "// Example:  irrep ...\n"
+	   "// -o fileName : output file name, equivalent to redirecting stdout\n"
+  
+	   "// -gzo : the output file is gziped\n"
+	   "// --method [1|2|12|20|30] : default 1 \n"
+	   "//     method, used while debugging to test different algorithms\n"
+	   "// -t type A|B|C|D|E|F|G : (super)algebra type\n"
+	   "//    -t A -m <int> :  is su(m) an algebra\n"
+	   "//    -t A -m <int> -n <int>:  is su(m/n) a superalgebra\n"
+	   "//    -t B -m <int> :  is so(2m+1)) an algebra\n"
+	   "//    -t B -m <int> -n <int> :  is osp(2m+1/2n) a superalgebra\n"
+	   "//    -t C -m <int> :  is sp(2m) an algebra\n"
+	   "//    -t C -m 1 -n <int>:  is osp(2/2n) a superalgebra\n"
+	   "//    -t D -m <int> :  is so(2m) an algebra\n"
+	   "//    -t D -m <int> -n <int>:  is osp(2m/2n) a superalgebra\n"
+	   "//    -t D -m 2 -n 1 -alpha <int>:  is D(2/1,alpha) a superalgebra\n"
+	   "//    -t E -m 6|7|8 :  is E6,E7,E8 an algebra\n"
+	   "//    -t F -m 4 :  is F4 an algebra\n"
+	   "//    -t F - n 4 :  is F4 a superalgebra\n"
+	   "//    -t G -m 2 :  is G2, an algebra\n"
+	   "//    -t G -m 3 :  is G3 a superalgebra\n"
+	   "// -w 1:0:2...  integer Dynkin weights\n"
+	   "//    The number of weights must match the rank of the algebra\n"
+	   "// --show\n"
+	   "// --table\n"
+	   ) ;
+
+  
+  if (argc > 1)
+    {
+      fprintf (stderr,
+	       "//\n// You said: %s\n", commandBuf) ;
+      fprintf (stderr,
+	       "// ########## ERROR: I do not understand the argument%s ", argc > 2 ? "s" : "") ;
+      for (i = 1 ; i < argc ; i++)
+	fprintf (stderr, "%s ", argv[i]) ;
+      fprintf (stderr, "\n") ;
+    }
+  exit (1) ;
+} /* usage */
+
+/*************************************************************************************/
 /******************************************************************************************************/
 
 
@@ -1867,12 +1920,25 @@ int main  (int argc, const char **argv)
    SA sa ;
    BOOL show = FALSE ;
    BOOL hasOdd ;
-   int dimEven = 0, dimOdd = 0 ;
+   int ix, dimEven = 0, dimOdd = 0 ;
+   char *cp, commandBuf [3200] ;
+  
+   memset (commandBuf, 0, sizeof (commandBuf)) ;
    freeinit () ;
 
 
    memset (&sa, 0, sizeof (sa)) ;
    sa.h = h ;
+
+   for ( ix = 0, cp = commandBuf ;  ix < argc && cp + strlen (argv[ix]) + 1 < commandBuf + 31000 ; cp += strlen (cp), ix++)
+    sprintf(cp, "%s ", argv[ix]) ;
+
+   if (argc < 2)
+     usage (commandBuf, argc, argv) ;
+   if (getCmdLineBool (&argc, argv, "-help") ||
+       getCmdLineBool (&argc, argv, "-h")
+       )
+     usage (commandBuf, 1, argv) ;
    
    sa.method = 1 ;   
    sa.type = "toto" ;
@@ -1880,12 +1946,19 @@ int main  (int argc, const char **argv)
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
    getCmdLineInt (&argc, argv, "-n", &sa.n) ;
    sa.alpha = 1 ;
-   getCmdLineInt (&argc, argv, "-alpha", &sa.alpha) ;
-   show = getCmdLineBool (&argc, argv, "-show") ;
-   sa.table = getCmdLineBool (&argc, argv, "-table") ;
-   getCmdLineInt (&argc, argv, "-method", &(sa.method)) ;
-   getCmdLineOption (&argc, argv, "-type", &sa.type) ;
+   getCmdLineInt (&argc, argv, "--alpha", &sa.alpha) ;
+   show = getCmdLineBool (&argc, argv, "--show") ;
+   sa.table = getCmdLineBool (&argc, argv, "--table") ;
+   getCmdLineInt (&argc, argv, "--method", &(sa.method)) ;
+   if (!getCmdLineOption (&argc, argv, "--type", &sa.type))
+     getCmdLineOption (&argc, argv, "-t", &sa.type) ;
    getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
+   
+   if (argc != 1)
+     {
+       fprintf (stderr, "unknown argument, sorry\n") ;
+       usage (commandBuf, argc, argv) ;
+     }
    
    switch (sa.method)
      {

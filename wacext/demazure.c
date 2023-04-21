@@ -733,7 +733,7 @@ int main (int argc, char *argv[])
 
   messErrorInit (argv[0]) ;
 
-  if (1) 
+  if (0) 
     {
       viager () ;
       exit (0) ;
