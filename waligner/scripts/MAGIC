@@ -11726,12 +11726,13 @@ foreach chrom ($chromSetAll)
   endif
 end
 
-if (! -d tmp/EHITS.$MAGIC) mkdir tmp/EHITS.$MAGIC
+if (! -d tmp/X.$MAGIC) mkdir tmp/X.$MAGIC
+if (! -d tmp/X.$MAGIC/EHITS) mkdir tmp/X.$MAGIC/EHITS
 
 # consolidate the de uno introns in a single pass
 foreach chrom ($chromSetAll)
   echo $chrom 
-  if (! -d tmp/EHITS.$MAGIC/$chrom) mkdir tmp/EHITS.$MAGIC/$chrom
+  if (! -d tmp/X.$MAGIC/EHITS/$chrom) mkdir tmp/X.$MAGIC/EHITS/$chrom
 end
 
 if (0 && ! -e  tmp/PHITS_genome/$MAGIC.f1.consolidate_intron.done) then
@@ -11749,9 +11750,9 @@ foreach chrom ($chromSetAll)
     continue 
   endif
 
-        if (! -e tmp/EHITS.$MAGIC/$chrom/f1.done) then
-          echo "scripts/submit tmp/EHITS.$MAGIC/$chrom/f1"
-          scripts/submit "tmp/EHITS.$MAGIC/$chrom/f1" "scripts/f1.double_collect_by_section.tcsh $MAGIC $chrom" 32G
+        if (! -e tmp/X.$MAGIC/EHITS/$chrom/f1.done) then
+          echo "scripts/submit tmp/X.$MAGIC/EHITS/$chrom/f1"
+          scripts/submit "tmp/X.$MAGIC/EHITS/$chrom/f1" "scripts/f1.double_collect_by_section.tcsh $MAGIC $chrom" 32G
         endif
 
 end
@@ -11766,9 +11767,9 @@ goto phaseLoop
 phasef2:   
 echo -n "Phase f2: collate the double introns"
 if (0 && $Strategy != RNA_seq) goto phaseLoop
-  if (! -d tmp/EHITS.$MAGIC) mkdir tmp/EHITS.$MAGIC
-  if (! -e  tmp/EHITS.$MAGIC/f2.done) then
-    scripts/submit "tmp/EHITS.$MAGIC/f2.doubleIntrons" "scripts/f2.geneelements.tcsh "
+  if (! -d tmp/X.$MAGIC/EHITS) mkdir tmp/X.$MAGIC/EHITS
+  if (! -e  tmp/X.$MAGIC/EHITS/f2.done) then
+    scripts/submit "tmp/X.$MAGIC/EHITS/f2.doubleIntrons" "scripts/f2.doubleIntrons.tcsh "
   endif
 goto phaseLoop
 
@@ -11781,12 +11782,12 @@ phasef3:
  date
 
 if (0 && $Strategy != RNA_seq) goto phaseLoop
-if (! -e tmp/EHITS.$MAGIC/f2.done) goto phaseLoop
+if (! -e tmp/X.$MAGIC/EHITS/f2.done) goto phaseLoop
 
 foreach chrom ($chromSetAll)
-  if (! -d tmp/XH$chrom)  mkdir tmp/XH$chrom
-  if (-e  tmp/EHITS.$MAGIC/f2.done && -e tmp/EHITS.$MAGIC/$chrom/f1.done && ! -e tmp/XH$chrom/f3.parse.done ) then
-    scripts/submit tmp/XH$chrom/f3.parse "scripts/f3.parse.tcsh $chrom"
+  if (! -d tmp/X.$MAGIC/XH$chrom)  mkdir tmp/X.$MAGIC/XH$chrom
+  if (-e  tmp/X.$MAGIC/EHITS/f2.done && -e tmp/X.$MAGIC/EHITS/$chrom/f1.done && ! -e tmp/X.$MAGIC/XH$chrom/f3.parse.done ) then
+    scripts/submit tmp/X.$MAGIC/XH$chrom/f3.parse "scripts/f3.parse.tcsh $chrom"
   endif
 end
 
@@ -11804,9 +11805,9 @@ phasef4:
 if (0 && $Strategy != RNA_seq) goto phaseLoop
 
 foreach chrom ($chromSetAll)
-  if (! -d tmp/XH$chrom)  continue 
-  if ( -e tmp/XH$chrom/f3.parse.done && ! -e tmp/XH$chrom/f4.assemble.done) then
-    scripts/submit tmp/XH$chrom/f4 "scripts/f4.assemble.tcsh $chrom" 
+  if (! -d tmp/X.$MAGIC/XH$chrom)  continue 
+  if ( -e tmp/X.$MAGIC/XH$chrom/f3.parse.done && ! -e tmp/X.$MAGIC/XH$chrom/f4.assemble.done) then
+    scripts/submit tmp/X.$MAGIC/XH$chrom/f4 "scripts/f4.assemble.tcsh $chrom" 
   endif
 end
 
@@ -11880,13 +11881,13 @@ else
 
   if (! -d Kantor) mkdir Kantor
   foreach chrom ($chromSetAll)
-    if (! -e tmp/XH$chrom/f4.assemble.done) continue
+    if (! -e tmp/X.$MAGIC/XH$chrom/f4.assemble.done) continue
     if (! -d Kantor/$chrom) mkdir Kantor/$chrom
     if (! -d Kantor/$chrom/tmp) mkdir Kantor/$chrom/tmp
     if (! -d Kantor/$chrom/tmp/$species_kantor.data) mkdir Kantor/$chrom/tmp/$species_kantor.data
     if (! -d Kantor/$chrom/tmp/$species_kantor.data/$chrom) mkdir Kantor/$chrom/tmp/$species_kantor.data/$chrom
 
-    if ($phase == k1 && ! -e tmp/XH$chrom/k1.kantor_parse.done) then
+    if ($phase == k1 && ! -e tmp/X.$MAGIC/XH$chrom/k1.kantor_parse.done) then
        scripts/Kantor.tcsh $phase $chrom
     endif
 
@@ -11894,7 +11895,7 @@ else
         echo "phase $phase is obsolete"
     endif
 
-    if ($phase == k9 &&  -e tmp/XH$chrom/k1.kantor_parse.done  && ! -e tmp/XH$chrom/k9.megaRun.done && ! -e tmp/XH$chrom/k9.megaRun.start) then
+    if ($phase == k9 &&  -e tmp/X.$MAGIC/XH$chrom/k1.kantor_parse.done  && ! -e tmp/X.$MAGIC/XH$chrom/k9.megaRun.done && ! -e tmp/X.$MAGIC/XH$chrom/k9.megaRun.start) then
        scripts/Kantor.tcsh $phase $chrom
     endif
 

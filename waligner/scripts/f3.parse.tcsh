@@ -3,13 +3,13 @@ set chrom=$1
 setenv ici `pwd`
 
 
-if (! -d tmp/XH$chrom) mkdir  tmp/XH$chrom
-if (! -d tmp/XH$chrom/database) then
-   pushd tmp/XH$chrom
+if (! -d tmp/X.$MAGIC/XH$chrom) mkdir  tmp/X.$MAGIC/XH$chrom
+if (! -d tmp/X.$MAGIC/XH$chrom/database) then
+   pushd tmp/X.$MAGIC/XH$chrom
       mkdir database
-      ln -s ../../metaData/tables
+      ln -s ../../../metaData/tables
       if (-e TABIX) \rm TABIX
-      ln -s ../TABIX
+      ln -s ../../TABIX
       mkdir wspec
         \cp  $ici/metaData/wspec.aceview_web_site/*.wrm wspec
         pushd wspec
@@ -27,7 +27,7 @@ endif
 
 set target=`echo $Etargets | gawk '{print $1}'`
 
-if (! -e tmp/XH$chrom/f3.genome.done2) then
+if (! -e tmp/X.$MAGIC/XH$chrom/f3.genome.done2) then
 
     if ($target == EBI && $species == Dmelanogaster && -e  TARGET/GTF/$species.$target.gtf.gz && -d TARGET/GENES && ! -e TARGET/GENES/f3.gtf.$target.gene2FB_symbol.ace) then
        gunzip -c TARGET/GTF/$species.$target.gtf.gz | gawk -F '\t' '{if($3 == "gene"){z=$9;split(z,aa,";");split(aa[1],bb," ");split(aa[3],cc," ");if(bb[1]=="gene_id" && cc[1]=="gene_name")printf("Sequence X__%s\nFB_symbol %s\n\n",bb[2],cc[2]);}}' > TARGET/GENES/f3.gtf.$target.gene2FB_symbol.ace
@@ -36,9 +36,9 @@ if (! -e tmp/XH$chrom/f3.genome.done2) then
        gunzip -c TARGET/GTF/$species.$target.gtf.gz | gawk -F '\t' '{if($3 == "gene"){z=$9;gsub(/\"/,"",z);split(z,aa,";");split(aa[1],bb," ");split(aa[2],cc," ");if(bb[1]=="gene_id" && cc[1]=="gene_symbol")printf("Sequence X__%s\nFB_symbol %s\n\n",bb[2],cc[2]);}}' > TARGET/GENES/f3.gtf.$target.gene2FB_symbol.ace
     endif
 
-printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
+printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/X.$MAGIC/XH$chrom/f3.rename_chrom.ace
 
-    bin/tacembly tmp/XH$chrom <<EOF
+    bin/tacembly tmp/X.$MAGIC/XH$chrom <<EOF
       read-models
       pparse TARGET/CHROMS/$species.chrom_$chrom.fasta.gz
       pparse  tmp/f1.strategy.ace
@@ -66,7 +66,7 @@ printf "-R Sequence c_$chrom $chrom\n\n" >  tmp/XH$chrom/f3.rename_chrom.ace
       kill 
       undo
       edit -D DNA
-      parse tmp/XH$chrom/f3.rename_chrom.ace
+      parse tmp/X.$MAGIC/XH$chrom/f3.rename_chrom.ace
       query find sequence genomic
       follow source
       edit  YBR_contig  // NT_sequences 
@@ -82,111 +82,111 @@ if (! -e $ffcds) then
 endif
 echo AAA $ffcds
 if (-e $ffcds) then
-  cat $ffcds ZZZZZ $ffcds | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (chrom != $3)next;}{a1=$4;a2=$5;ln=a2-a1;if(ln<0)ln = -ln;ln++;}{if(zz<1){t2ln[$1]+=ln;next;}}{nnn=t2ln[$1];if(nnn >= 450)printf("Xcds_%s__%d_%d\t1\t%d\t%s\t%d\t%d\t%d\n",chrom,a1,a2,ln,chrom,a1,a2,nnn);}' chrom=$chrom | sort -u | sort -V >  tmp/XH$chrom/f3.$target.cds.txt2
-    bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/XH$chrom/f3.$target.cds.txt2 >  tmp/XH$chrom/f3.$target.cds.fasta
-    cat  tmp/XH$chrom/f3.$target.cds.txt2 | gawk -F '\t' '{printf("Sequence %s\ncdna_clone %s\nForward\nColour LIGHTVIOLET\nIntMap %s %d %d\nIs_read\nComposite %d\n\n",$1,$1,$4,$5,$6,$7);}' >  tmp/XH$chrom/f3.$target.cds.ace
-    bin/tacembly  tmp/XH$chrom << EOF
-      pparse  tmp/XH$chrom/f3.$target.cds.ace
-      pparse  tmp/XH$chrom/f3.$target.cds.fasta
+  cat $ffcds ZZZZZ $ffcds | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if (chrom != $3)next;}{a1=$4;a2=$5;ln=a2-a1;if(ln<0)ln = -ln;ln++;}{if(zz<1){t2ln[$1]+=ln;next;}}{nnn=t2ln[$1];if(nnn >= 450)printf("Xcds_%s__%d_%d\t1\t%d\t%s\t%d\t%d\t%d\n",chrom,a1,a2,ln,chrom,a1,a2,nnn);}' chrom=$chrom | sort -u | sort -V >  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.txt2
+    bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.txt2 >  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.fasta
+    cat  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.txt2 | gawk -F '\t' '{printf("Sequence %s\ncdna_clone %s\nForward\nColour LIGHTVIOLET\nIntMap %s %d %d\nIs_read\nComposite %d\n\n",$1,$1,$4,$5,$6,$7);}' >  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.ace
+    bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
+      pparse  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.ace
+      pparse  tmp/X.$MAGIC/XH$chrom/f3.$target.cds.fasta
       save
       quit
 EOF
 endif
 
-    bin/gene2chrom2 -any -gs -i tmp/XH$chrom  >! tmp/XH$chrom/g2c.gsi.ace
-    bin/gene2chrom2 -any -pg -i tmp/XH$chrom  >! tmp/XH$chrom/g2c.pgi.ace
+    bin/gene2chrom2 -any -gs -i tmp/X.$MAGIC/XH$chrom  >! tmp/X.$MAGIC/XH$chrom/g2c.gsi.ace
+    bin/gene2chrom2 -any -pg -i tmp/X.$MAGIC/XH$chrom  >! tmp/X.$MAGIC/XH$chrom/g2c.pgi.ace
 
-    bin/tacembly  tmp/XH$chrom << EOF
-      pparse  tmp/XH$chrom/g2c.gsi.ace
-      pparse  tmp/XH$chrom/g2c.pgi.ace
+    bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
+      pparse  tmp/X.$MAGIC/XH$chrom/g2c.gsi.ace
+      pparse  tmp/X.$MAGIC/XH$chrom/g2c.pgi.ace
       save
       quit
 EOF
 
-    touch  tmp/XH$chrom/f3.genome.done
+    touch  tmp/X.$MAGIC/XH$chrom/f3.genome.done
 endif
 
-if (! -e   tmp/XH$chrom/f3.cosmid2map.$chrom.txt) then
+if (! -e   tmp/X.$MAGIC/XH$chrom/f3.cosmid2map.$chrom.txt) then
     echo "get cosmid2map $chrom"
-    bin/tacembly tmp/XH$chrom <<EOF > /dev/null
+    bin/tacembly tmp/X.$MAGIC/XH$chrom <<EOF > /dev/null
       query find sequence genomic  &&  NOT Is_gene_tile 
-      bql -a -o tmp/XH$chrom/f3.cosmid2map.$chrom.txt  select s,m,a1,a2 from s in @, m in s->intmap, a1 in m[1], a2 in a1[1]
+      bql -a -o tmp/X.$MAGIC/XH$chrom/f3.cosmid2map.$chrom.txt  select s,m,a1,a2 from s in @, m in s->intmap, a1 in m[1], a2 in a1[1]
       quit
 EOF
 endif
 
 echo "XXXXXXX f3.parse"
-if (! -e tmp/XH$chrom/f3.parse.done) then
+if (! -e tmp/X.$MAGIC/XH$chrom/f3.parse.done) then
 
-  touch tmp/XH$chrom/f3.genes.ace
+  touch tmp/X.$MAGIC/XH$chrom/f3.genes.ace
   if (1 && -e TARGET/GENES/av.gene.ace) then
     # cree des gene box
-    cat TARGET/GENES/av.gene.ace | gawk '/^IntMap/{m=$2;gsub(/\"/,"",m);if(m!=chrom)next;{ok=1;gg = gg "IntMap " m " " $3 " "  $4 "\n"; cc=cc "Genes " g " " $3 " " $4 "\n";}next;}/^av/{next;}/^Transcribed_gene/{next;}/^Gene /{if(ok==1)print gg "\n";ok=0;gg=$0 "\n"; g = $2;next;}{gg = gg $0 "\n" ;next;}END{if(ok)print gg "\n";print "Sequence " chrom "\n" cc "\n"}' chrom=$chrom > tmp/XH$chrom/f3.genes.ace
+    cat TARGET/GENES/av.gene.ace | gawk '/^IntMap/{m=$2;gsub(/\"/,"",m);if(m!=chrom)next;{ok=1;gg = gg "IntMap " m " " $3 " "  $4 "\n"; cc=cc "Genes " g " " $3 " " $4 "\n";}next;}/^av/{next;}/^Transcribed_gene/{next;}/^Gene /{if(ok==1)print gg "\n";ok=0;gg=$0 "\n"; g = $2;next;}{gg = gg $0 "\n" ;next;}END{if(ok)print gg "\n";print "Sequence " chrom "\n" cc "\n"}' chrom=$chrom > tmp/X.$MAGIC/XH$chrom/f3.genes.ace
   else 
     # cree des gene models de type le premier de Etargets (may be magic, on preferererait av ou RefSeq)
     set target=`echo $Etargets | gawk '{print $1}'`
     set target=av
     if (1 && -e tmp/METADATA/gtf.$target.transcripts.ace.gz) then
-      gunzip -c tmp/METADATA/gtf.$target.transcripts.ace.gz > tmp/XH$chrom/f3.genes.ace
+      gunzip -c tmp/METADATA/gtf.$target.transcripts.ace.gz > tmp/X.$MAGIC/XH$chrom/f3.genes.ace
     endif
   endif
 
   set ch=""
   if ($species == worm) set ch=CHROMOSOME_
 
-  pushd tmp/EHITS.$MAGIC/$chrom
+  pushd tmp/X.$MAGIC/EHITS/$chrom
     $ici/scripts/rrf
-    $ici/bin/tacembly  $ici/tmp/XH$chrom < _r
+    $ici/bin/tacembly  $ici/tmp/X.$MAGIC/XH$chrom < _r
   popd
 
-  bin/tacembly  tmp/XH$chrom << EOF
-    pparse  tmp/XH$chrom/f3.genes.ace
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
+    pparse  tmp/X.$MAGIC/XH$chrom/f3.genes.ace
     parse metaData/methods.ace
     save
     query find intron
-    list -a -f tmp/EHITS.$MAGIC/$chrom/f3.intron.list
+    list -a -f tmp/X.$MAGIC/EHITS/$chrom/f3.intron.list
     quit
 EOF
 
-if (! -e tmp/EHITS.$MAGIC/$chrom/f3.intronDB.ace && -d IntronDB) then
+if (! -e tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.ace && -d IntronDB) then
   bin/tacembly IntronDB << EOF
-    key tmp/EHITS.$MAGIC/$chrom/f3.intron.list
-    show -a -f tmp/EHITS.$MAGIC/$chrom/f3.intronDB.preace Magic_any_any
+    key tmp/X.$MAGIC/EHITS/$chrom/f3.intron.list
+    show -a -f tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.preace Magic_any_any
     query find intron IS $chrom* && In_mrna
-    show -a -f tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.preace
+    show -a -f tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.preace
     query find intron IS $chrom* AND Magic_any_any >= 5
-    show -a -f tmp/EHITS.$MAGIC/$chrom/f3.intronDB.any.preace Magic_any_any
+    show -a -f tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.any.preace Magic_any_any
     quit
 EOF
-  ls -ls  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.any.preace
+  ls -ls  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.any.preace
 
-  if (-e  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.preace) then
-    cat  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.preace | gawk '/^$/{print}{gsub(/\"/,"",$0);}/^Intron/{printf("Intron %s\n",$2);next;}/^Magic_any_any/{printf("Group_U Magic_any 0 %d\n",$2);}'  > tmp/EHITS.$MAGIC/$chrom/f3.intronDB.ace
+  if (-e  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.preace) then
+    cat  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.preace | gawk '/^$/{print}{gsub(/\"/,"",$0);}/^Intron/{printf("Intron %s\n",$2);next;}/^Magic_any_any/{printf("Group_U Magic_any 0 %d\n",$2);}'  > tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.ace
   endif
 endif
 
-  if (-e  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.any.preace && ! -e tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.ace) then
+  if (-e  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.any.preace && ! -e tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.ace) then
 
-    cat  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.any.preace | gawk '{gsub(/\"/,"",$0);}/^Intron/{if(mx>=5){if(a1==a2)a2=a1+30*s;if(d1==d2)d1=d2-30*s;}if(d1!=d2 && a1 != a2)printf("\tExonExon %d %d %d %d",d1,d2,a1,a2);split($2,aa,"__");split(aa[2],bb,"_");s=1;if(bb[1]>bb[2])s=-1;printf("\n%s %d %d",aa[1],bb[1],bb[2]);d1=d2=bb[1]-s;a1=a2=bb[2]+s;mx=0;next;}/^Donor /{printf("\t%s %s",$1,$2);}/^Acceptor /{printf("\t%s %s",$1,$2);}/^Magic_any_any/{if($2>=5){mx=$2;printf("\tGroup_U Magic_any 0 %d",$2);next;}}/^In_mRNA/{if ($5=="Acceptor_exon"){x=$6;y=$7;if(x != a1)next;da=s*(y-x);if(da<6)next;if(da>30)da=30;if(a2==a1 || s*(a2-a1)>da)a2=a1+s*da;next;}if ($5=="Donor_exon"){x=$6;y=$7;if(y != d2)next;da=s*(y-x);if(da<6)next;if(da>30)da=30;if(d2==d1 || s*(d2-d1)>da)d1=d1-s*da;next;}next;}END{if(d1!=d2 && a1 != a2)printf("\tExonExon %d %d %d %d",d1,d2,a1,a2);printf("\n");}' | grep  Magic_any | grep ExonExon > tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.txts
+    cat  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.any.preace | gawk '{gsub(/\"/,"",$0);}/^Intron/{if(mx>=5){if(a1==a2)a2=a1+30*s;if(d1==d2)d1=d2-30*s;}if(d1!=d2 && a1 != a2)printf("\tExonExon %d %d %d %d",d1,d2,a1,a2);split($2,aa,"__");split(aa[2],bb,"_");s=1;if(bb[1]>bb[2])s=-1;printf("\n%s %d %d",aa[1],bb[1],bb[2]);d1=d2=bb[1]-s;a1=a2=bb[2]+s;mx=0;next;}/^Donor /{printf("\t%s %s",$1,$2);}/^Acceptor /{printf("\t%s %s",$1,$2);}/^Magic_any_any/{if($2>=5){mx=$2;printf("\tGroup_U Magic_any 0 %d",$2);next;}}/^In_mRNA/{if ($5=="Acceptor_exon"){x=$6;y=$7;if(x != a1)next;da=s*(y-x);if(da<6)next;if(da>30)da=30;if(a2==a1 || s*(a2-a1)>da)a2=a1+s*da;next;}if ($5=="Donor_exon"){x=$6;y=$7;if(y != d2)next;da=s*(y-x);if(da<6)next;if(da>30)da=30;if(d2==d1 || s*(d2-d1)>da)d1=d1-s*da;next;}next;}END{if(d1!=d2 && a1 != a2)printf("\tExonExon %d %d %d %d",d1,d2,a1,a2);printf("\n");}' | grep  Magic_any | grep ExonExon > tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.txts
   
- cat  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.txts |   gawk '/ExonExon/{c=$1;ii1=$2;ii2=$3;s=1;if(ii1>ii2)s=-1;i=index($0,"ExonExon");split(substr($0,i),aa," ");d1=aa[2];d2=aa[3];a1=aa[4];a2=aa[5];dd=s*(d2-d1)+1;da=s*(a2-a1)+1;printf("XK_%s__%d_%d\t1\t%d\t%s\t%d\t%d\n",c,ii1,ii2,dd,c,d1,d2);printf("XK_%s__%d_%d\t%d\t%d\t%s\t%d\t%d\n",c,ii1,ii2,dd+1,dd+da,c,a1,a2);next;}' > tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.shadow
+ cat  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.txts |   gawk '/ExonExon/{c=$1;ii1=$2;ii2=$3;s=1;if(ii1>ii2)s=-1;i=index($0,"ExonExon");split(substr($0,i),aa," ");d1=aa[2];d2=aa[3];a1=aa[4];a2=aa[5];dd=s*(d2-d1)+1;da=s*(a2-a1)+1;printf("XK_%s__%d_%d\t1\t%d\t%s\t%d\t%d\n",c,ii1,ii2,dd,c,d1,d2);printf("XK_%s__%d_%d\t%d\t%d\t%s\t%d\t%d\n",c,ii1,ii2,dd+1,dd+da,c,a1,a2);next;}' > tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.shadow
   
-  bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.shadow >  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.fasta
+  bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.shadow >  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.fasta
 
-  cat  tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.txts |   gawk '/ExonExon/{c=$1;ii1=$2;ii2=$3;s=1;if(ii1>ii2)s=-1;i=index($0,"Magic_any");split(substr($0,i),aa," ");mx=aa[3];i=index($0,"ExonExon");split(substr($0,i),aa," ");d1=aa[2];d2=aa[3];a1=aa[4];a2=aa[5];dd=s*(d2-d1)+1;da=s*(a2-a1)+1;printf("Sequence XK_%s__%d_%d\nIs_read\ncDNA_clone XK_%s__%d_%d\nColour PALEORANGE\nForward\nComposite %s\nIntron %s__%d_%d\nIntMap %s %d %d\n\n",c,ii1,ii2,c,ii1,ii2,mx,c,ii1,ii2,c,d1,a2);next;}' > tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.ace
+  cat  tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.txts |   gawk '/ExonExon/{c=$1;ii1=$2;ii2=$3;s=1;if(ii1>ii2)s=-1;i=index($0,"Magic_any");split(substr($0,i),aa," ");mx=aa[3];i=index($0,"ExonExon");split(substr($0,i),aa," ");d1=aa[2];d2=aa[3];a1=aa[4];a2=aa[5];dd=s*(d2-d1)+1;da=s*(a2-a1)+1;printf("Sequence XK_%s__%d_%d\nIs_read\ncDNA_clone XK_%s__%d_%d\nColour PALEORANGE\nForward\nComposite %s\nIntron %s__%d_%d\nIntMap %s %d %d\n\n",c,ii1,ii2,c,ii1,ii2,mx,c,ii1,ii2,c,d1,a2);next;}' > tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.ace
 
   endif
 
 if (-e  RESULTS/Expression/AceFiles/$MAGIC.introns.INTRON.u.ace.gz ) then
-  gunzip -c RESULTS/Expression/AceFiles/$MAGIC.introns.INTRON.u.ace.gz | gawk '/^Intron/{ok=0;split($2,aa,"__");gsub(/\"/,"",aa[1]);if(aa[1]==chrom)ok=1;if(ok==1)print;next;}/Group_U  _SumOfAllReadsInProject/{if (ok==1)printf("RNA_seq %d\n\n",$6);}' chrom=$chrom > tmp/EHITS.$MAGIC/$chrom/f3.transcriptsIntronSupport.ace
+  gunzip -c RESULTS/Expression/AceFiles/$MAGIC.introns.INTRON.u.ace.gz | gawk '/^Intron/{ok=0;split($2,aa,"__");gsub(/\"/,"",aa[1]);if(aa[1]==chrom)ok=1;if(ok==1)print;next;}/Group_U  _SumOfAllReadsInProject/{if (ok==1)printf("RNA_seq %d\n\n",$6);}' chrom=$chrom > tmp/X.$MAGIC/EHITS/$chrom/f3.transcriptsIntronSupport.ace
 endif
 
-if (-e tmp/EHITS.$MAGIC/f2.allDoubleIntrons.txt.gz) then
+if (-e tmp/X.$MAGIC/EHITS/f2.allDoubleIntrons.txt.gz) then
 
-    gunzip -c tmp/EHITS.$MAGIC/f2.allDoubleIntrons.txt.gz | gawk -F '\t' '{if($3<1)next;split($1,dd,"___");split(dd[1],aa,"__");c=aa[1];if(c != chrom)next;split(aa[2],bb,"_");a1=bb[1];a2=bb[2];split(dd[2],bb,"_");b1=bb[1];b2=bb[2];s=1;if(a1>a2)s=-1;printf("Sequence XW_%s__%s_%s_%s_%s\nColour ORANGE\nForward\nComposite %d\nIntron %s__%d_%d\nIntron %s__%d_%d\nIs_read\ncDNA_clone XW__%s_%s_%s_%s_%s\nIntMap %s %d %d\n\n",c,a1,a2,b1,b2,$3,c,a1,a2,c,b1,b2,c,a1,a2,b1,b2,c,a1-30*s,b2+30*s);}' chrom=$chrom > tmp/XH$chrom/f3.allDoubleIntrons.ace
-     gunzip -c tmp/EHITS.$MAGIC/f2.allDoubleIntrons.txt.gz | gawk -F '\t' '{if($3<1)next;split($1,dd,"___");split(dd[1],aa,"__");c=aa[1];if(c != chrom)next;split(aa[2],bb,"_");a1=bb[1];a2=bb[2];split(dd[2],bb,"_");b1=bb[1];b2=bb[2];s=1;if(a1>a2)s=-1;if(a1>0 && b2 + 30*s >0 && b1>0 && b2 > 0 && s*(b1-a2)+1+30 > 0 && s*(b1-a2)+60 > 0){printf("XW_%s__%s_%s_%s_%s\t1\t30\t%s\t%d\t%d\n",c,a1,a2,b1,b2,c,a1-30*s,a1-s);printf("XW_%s__%s_%s_%s_%s\t%d\t%d\t%s\t%d\t%d\n",c,a1,a2,b1,b2,31,29+s*(b1-a2),c,a2+s,b1-s);printf("XW_%s__%s_%s_%s_%s\t%d\t%d\t%s\t%d\t%d\n",c,a1,a2,b1,b2,s*(b1-a2)+1+30,s*(b1-a2)+60,c,b2+s,b2+30*s);}}' chrom=$chrom  > tmp/XH$chrom/f3.allDoubleIntrons.shadow
+    gunzip -c tmp/X.$MAGIC/EHITS/f2.allDoubleIntrons.txt.gz | gawk -F '\t' '{if($3<1)next;split($1,dd,"___");split(dd[1],aa,"__");c=aa[1];if(c != chrom)next;split(aa[2],bb,"_");a1=bb[1];a2=bb[2];split(dd[2],bb,"_");b1=bb[1];b2=bb[2];s=1;if(a1>a2)s=-1;printf("Sequence XW_%s__%s_%s_%s_%s\nColour ORANGE\nForward\nComposite %d\nIntron %s__%d_%d\nIntron %s__%d_%d\nIs_read\ncDNA_clone XW__%s_%s_%s_%s_%s\nIntMap %s %d %d\n\n",c,a1,a2,b1,b2,$3,c,a1,a2,c,b1,b2,c,a1,a2,b1,b2,c,a1-30*s,b2+30*s);}' chrom=$chrom > tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.ace
+     gunzip -c tmp/X.$MAGIC/EHITS/f2.allDoubleIntrons.txt.gz | gawk -F '\t' '{if($3<1)next;split($1,dd,"___");split(dd[1],aa,"__");c=aa[1];if(c != chrom)next;split(aa[2],bb,"_");a1=bb[1];a2=bb[2];split(dd[2],bb,"_");b1=bb[1];b2=bb[2];s=1;if(a1>a2)s=-1;if(a1>0 && b2 + 30*s >0 && b1>0 && b2 > 0 && s*(b1-a2)+1+30 > 0 && s*(b1-a2)+60 > 0){printf("XW_%s__%s_%s_%s_%s\t1\t30\t%s\t%d\t%d\n",c,a1,a2,b1,b2,c,a1-30*s,a1-s);printf("XW_%s__%s_%s_%s_%s\t%d\t%d\t%s\t%d\t%d\n",c,a1,a2,b1,b2,31,29+s*(b1-a2),c,a2+s,b1-s);printf("XW_%s__%s_%s_%s_%s\t%d\t%d\t%s\t%d\t%d\n",c,a1,a2,b1,b2,s*(b1-a2)+1+30,s*(b1-a2)+60,c,b2+s,b2+30*s);}}' chrom=$chrom  > tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.shadow
  
-    bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/XH$chrom/f3.allDoubleIntrons.shadow >  tmp/XH$chrom/f3.allDoubleIntrons.fasta
+    bin/dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.shadow >  tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.fasta
 
  endif
 
@@ -214,17 +214,17 @@ endif
   # export the ace file
 
 
-if (! -e tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace) then
-  cat   tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;s=1;if($4>$5)next;s=1;dx1=$4-$3+1;dx2=$6-$5+1;dx3=$8-$7+1;di1=$5-$4-1;di2=$7-$6-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf ("Sequence XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf ("cDNA_clone XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf("COLOUR CERISE\nForward\nComposite %d\nIs_read\n", $9);printf("IntMap %s %d %d\n",$2,$3,$8);printf("Intron %s__%s_%s\nIntron %s__%d_%d\n\n",$2,$4+s,$5-s,$2,$6+s,$7-s);}' >   tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace
-  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;s=1;if($4<$5)next;s=-1;dx3=$7-$8+1;dx2=$5-$6+1;dx1=$3-$4+1;di2=$6-$7-1;di1=$4-$5-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf ("Sequence XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf ("cDNA_clone XY_%s__%d_%d_%d_%d\n",$2,$4+s,$5-s,$6+s,$7-s); printf("COLOUR CERISE\nForward\nComposite %d\nIs_read\n", $9);printf("IntMap %s %d %d\n",$2,$3,$8);printf("Intron %s__%s_%s\nIntron %s__%d_%d\n\n",$2,$4+s,$5-s,$2,$6+s,$7-s);}' >>   tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace
+if (! -e tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.ace) then
+  cat   tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;s=1;if($4>$5)next;s=1;dx1=$4-$3+1;dx2=$6-$5+1;dx3=$8-$7+1;di1=$5-$4-1;di2=$7-$6-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf ("Sequence XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf ("cDNA_clone XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf("COLOUR CERISE\nForward\nComposite %d\nIs_read\n", $9);printf("IntMap %s %d %d\n",$2,$3,$8);printf("Intron %s__%s_%s\nIntron %s__%d_%d\n\n",$2,$4+s,$5-s,$2,$6+s,$7-s);}' >   tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.ace
+  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;s=1;if($4<$5)next;s=-1;dx3=$7-$8+1;dx2=$5-$6+1;dx1=$3-$4+1;di2=$6-$7-1;di1=$4-$5-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf ("Sequence XY_%s__%d_%d_%d_%d\n", $2,$4+s,$5-s,$6+s,$7-s); printf ("cDNA_clone XY_%s__%d_%d_%d_%d\n",$2,$4+s,$5-s,$6+s,$7-s); printf("COLOUR CERISE\nForward\nComposite %d\nIs_read\n", $9);printf("IntMap %s %d %d\n",$2,$3,$8);printf("Intron %s__%s_%s\nIntron %s__%d_%d\n\n",$2,$4+s,$5-s,$2,$6+s,$7-s);}' >>   tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.ace
 
   # create the shadows
 
-  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;c=$2;if($4>$5)next;nam="XY_" c "__" $4+1 "_" $5-1 "_" $6+1 "_" $7-1; dx1=$4-$3+1;dx2=$6-$5+1;dx3=$8-$7+1;di1=$5-$4-1;di2=$7-$6-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,1,dx1,c,$3,$4);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+1,dx1+dx2,c,$5,$6);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+dx2+1,dx1+dx2+dx3,c,$7,$8);}' >  tmp/XH$chrom/f3.allDoubleIntronsGenomic.shadow
-  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;c=$2;if($4<$5)next;nam="XY_" c "__" $4-1 "_" $5+1 "_" $6-1 "_" $7+1; ;s=-1;dx3=$7-$8+1;dx2=$5-$6+1;dx1=$3-$4+1;di2=$6-$7-1;di1=$4-$5-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,1,dx1,c,$3,$4);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+1,dx1+dx2,c,$5,$6);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+dx2+1,dx1+dx2+dx3,c,$7,$8);}' >>  tmp/XH$chrom/f3.allDoubleIntronsGenomic.shadow
+  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;c=$2;if($4>$5)next;nam="XY_" c "__" $4+1 "_" $5-1 "_" $6+1 "_" $7-1; dx1=$4-$3+1;dx2=$6-$5+1;dx3=$8-$7+1;di1=$5-$4-1;di2=$7-$6-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,1,dx1,c,$3,$4);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+1,dx1+dx2,c,$5,$6);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+dx2+1,dx1+dx2+dx3,c,$7,$8);}' >  tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.shadow
+  cat  tmp/introns/$MAGIC.allDoubleIntronsGenomic.$chrom.txt |  gawk  -F '\t' '/^DOUBLEINTRON/{if($9<2)next;c=$2;if($4<$5)next;nam="XY_" c "__" $4-1 "_" $5+1 "_" $6-1 "_" $7+1; ;s=-1;dx3=$7-$8+1;dx2=$5-$6+1;dx1=$3-$4+1;di2=$6-$7-1;di1=$4-$5-1;if(di1<0 || di2<0 || dx1<0 || dx2<0 || dx3<0)next;printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,1,dx1,c,$3,$4);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+1,dx1+dx2,c,$5,$6);printf("%s\t%d\t%d\t%s\t%d\t%d\n",nam,dx1+dx2+1,dx1+dx2+dx3,c,$7,$8);}' >>  tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.shadow
 
   # export the fasta
-  dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/XH$chrom/f3.allDoubleIntronsGenomic.shadow > tmp/XH$chrom/f3.allDoubleIntronsGenomic.fasta
+  dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.shadow > tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.fasta
   
 endif
 echo BBBB
@@ -237,14 +237,14 @@ endif
 
 if (-d GeneIndexDB) then
   bin/tacembly GeneIndexDB << EOF
-    key tmp/EHITS.$MAGIC/$chrom/f3.intron.list
-    show -a -f tmp/EHITS.$MAGIC/$chrom/f3.introns.preace
+    key tmp/X.$MAGIC/EHITS/$chrom/f3.intron.list
+    show -a -f tmp/X.$MAGIC/EHITS/$chrom/f3.introns.preace
     quit
 EOF
 
-  if (-e tmp/EHITS.$MAGIC/$chrom/f3.introns.preace) then
-    cat  tmp/EHITS.$MAGIC/$chrom/f3.introns.preace | gawk '/^$/{print}{gsub(/\"/,"",$0);}/^Intron/{printf("Intron %s\n",$2);next;}/^Group/{if($2 == nx)print;}/Validated_u/{if($2 == "any")print}/de_[du][nu]o/{if($2 == "any")print}' nx=$ggNS  > tmp/EHITS.$MAGIC/$chrom/f3.introns.ace
-    \rm   tmp/EHITS.$MAGIC/$chrom/f3.introns.preace 
+  if (-e tmp/X.$MAGIC/EHITS/$chrom/f3.introns.preace) then
+    cat  tmp/X.$MAGIC/EHITS/$chrom/f3.introns.preace | gawk '/^$/{print}{gsub(/\"/,"",$0);}/^Intron/{printf("Intron %s\n",$2);next;}/^Group/{if($2 == nx)print;}/Validated_u/{if($2 == "any")print}/de_[du][nu]o/{if($2 == "any")print}' nx=$ggNS  > tmp/X.$MAGIC/EHITS/$chrom/f3.introns.ace
+    \rm   tmp/X.$MAGIC/EHITS/$chrom/f3.introns.preace 
   endif
 endif
 
@@ -302,32 +302,32 @@ foreach XGH (XG XH)
 
 # exon multipeaks
   echo "Construct the multipeaks  $WGR/$ggs"
-  echo "  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz -stranding 98 -o  tmp/XH$chrom/$XGH.f"
+  echo "  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz -stranding 98 -o  tmp/X.$MAGIC/XH$chrom/$XGH.f"
 # grab the exons from the wiggle
-  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz -stranding 98 -o  tmp/XH$chrom/$XGH.f
-  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz -stranding 98 -o  tmp/XH$chrom/$XGH.r
+  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz -stranding 98 -o  tmp/X.$MAGIC/XH$chrom/$XGH.f
+  bin/wiggle  -multiPeaks 4 -minCover $minExonCover -I BF -O COUNT -wiggle1 tmp/$WGR/$ggs/$chrom/R.chrom.u.r.BF.gz  -wiggle2 tmp/$WGR/$ggs/$chrom/R.chrom.u.f.BF.gz -stranding 98 -o  tmp/X.$MAGIC/XH$chrom/$XGH.r
 
-  cat tmp/XH$chrom/$XGH.f.multiPeaks ZZZZZ | scripts/tab_sort -k 1,1 -k 2n |  gawk -F '\t' '/^#/{next;}{if(a10<1)a10=$2;if($2 >= a2+10){if(a2-a1 > 0){color=1;s=score;while (color<7 && s>100){s/=5;color++;}if(score>=1)printf("Sequence %s_%s__%d_%d\nForward\ncDNA_clone %s_%s__%d_%d\nIntMap %s %d %d\nIs_read\nTags %d\nColour Green%d%s\n\n",XGH,c,a10,a2,XGH,c,a10,a2,c,a10,a2,int(score),color,cov);cov="";a10=$2;score=0;}}c=$1; a1=$2;a2=$3;if(a1<1)a1=1;cov= cov "\nComposite " a1 - a10 + 1 " " a2 - a10 " " int($6); if($6>score)score=int($6);} ' XGH=$XGH >  tmp/XH$chrom/$XGH.f.ace
-  wc  tmp/XH$chrom/$XGH.f.ace
-  cat tmp/XH$chrom/$XGH.f.ace  | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/$XGH.f.shadow
-  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/$XGH.f.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/XH$chrom/$XGH.f.fasta
+  cat tmp/X.$MAGIC/XH$chrom/$XGH.f.multiPeaks ZZZZZ | scripts/tab_sort -k 1,1 -k 2n |  gawk -F '\t' '/^#/{next;}{if(a10<1)a10=$2;if($2 >= a2+10){if(a2-a1 > 0){color=1;s=score;while (color<7 && s>100){s/=5;color++;}if(score>=1)printf("Sequence %s_%s__%d_%d\nForward\ncDNA_clone %s_%s__%d_%d\nIntMap %s %d %d\nIs_read\nTags %d\nColour Green%d%s\n\n",XGH,c,a10,a2,XGH,c,a10,a2,c,a10,a2,int(score),color,cov);cov="";a10=$2;score=0;}}c=$1; a1=$2;a2=$3;if(a1<1)a1=1;cov= cov "\nComposite " a1 - a10 + 1 " " a2 - a10 " " int($6); if($6>score)score=int($6);} ' XGH=$XGH >  tmp/X.$MAGIC/XH$chrom/$XGH.f.ace
+  wc  tmp/X.$MAGIC/XH$chrom/$XGH.f.ace
+  cat tmp/X.$MAGIC/XH$chrom/$XGH.f.ace  | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/X.$MAGIC/XH$chrom/$XGH.f.shadow
+  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/X.$MAGIC/XH$chrom/$XGH.f.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/X.$MAGIC/XH$chrom/$XGH.f.fasta
 
 
-   cat tmp/XH$chrom/$XGH.r.multiPeaks ZZZZZ | scripts/tab_sort -k 1,1 -k2nr | gawk -F '\t' '/^#/{next;}{if(a10<1){a1=$3;a10=$3;}if($3 <= a2-10){if(a2-a1 < 0){color=1;s=score;while (color<7 && s>100){s/=5;color++;}if(score>=1)printf("Sequence %s_%s__%d_%d\nForward\ncDNA_clone %s_%s__%d_%d\nIntMap %s %d %d\nIs_read\nTags %d\nColour Green%d%s\n\n",XGH,c,a10,a2,XGH,c,a10,a2,c,a10,a2,int(score),color,cov);cov="";a10=$3;score=0;}}c=$1; a1=$3;a2=$2;if(a2<1)a2=1;cov= cov "\nComposite " a10 -a1  + 1 " " a10 -a2 " " int($6); if($6>score)score=int($6); }' XGH=$XGH >  tmp/XH$chrom/$XGH.r.ace
-  wc  tmp/XH$chrom/$XGH.r.ace
-  cat tmp/XH$chrom/$XGH.r.ace  | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/$XGH.r.shadow
-  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/$XGH.r.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/XH$chrom/$XGH.r.fasta
+   cat tmp/X.$MAGIC/XH$chrom/$XGH.r.multiPeaks ZZZZZ | scripts/tab_sort -k 1,1 -k2nr | gawk -F '\t' '/^#/{next;}{if(a10<1){a1=$3;a10=$3;}if($3 <= a2-10){if(a2-a1 < 0){color=1;s=score;while (color<7 && s>100){s/=5;color++;}if(score>=1)printf("Sequence %s_%s__%d_%d\nForward\ncDNA_clone %s_%s__%d_%d\nIntMap %s %d %d\nIs_read\nTags %d\nColour Green%d%s\n\n",XGH,c,a10,a2,XGH,c,a10,a2,c,a10,a2,int(score),color,cov);cov="";a10=$3;score=0;}}c=$1; a1=$3;a2=$2;if(a2<1)a2=1;cov= cov "\nComposite " a10 -a1  + 1 " " a10 -a2 " " int($6); if($6>score)score=int($6); }' XGH=$XGH >  tmp/X.$MAGIC/XH$chrom/$XGH.r.ace
+  wc  tmp/X.$MAGIC/XH$chrom/$XGH.r.ace
+  cat tmp/X.$MAGIC/XH$chrom/$XGH.r.ace  | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/X.$MAGIC/XH$chrom/$XGH.r.shadow
+  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/X.$MAGIC/XH$chrom/$XGH.r.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/X.$MAGIC/XH$chrom/$XGH.r.fasta
 
 # transcriptsEnds :  
   if ($XGH == XG) then
     echo "Construct the transcriptsEnds  $WGR/$ggs"
-    echo "  bin/wiggle  -transcriptsEnds tmp/$WGR/$ggs/$chrom/R.chrom.u -I BF -O COUNT -o tmp/XH$chrom/Xends -stranding 98 -minCover 100 -wiggleRatioDamper 5"
-                bin/wiggle  -transcriptsEnds tmp/$WGR/$ggs/$chrom/R.chrom.u -I BF -gzi -O COUNT -o tmp/XH$chrom/Xends -stranding 98 -minCover 100 -wiggleRatioDamper 5
+    echo "  bin/wiggle  -transcriptsEnds tmp/$WGR/$ggs/$chrom/R.chrom.u -I BF -O COUNT -o tmp/X.$MAGIC/XH$chrom/Xends -stranding 98 -minCover 100 -wiggleRatioDamper 5"
+                bin/wiggle  -transcriptsEnds tmp/$WGR/$ggs/$chrom/R.chrom.u -I BF -gzi -O COUNT -o tmp/X.$MAGIC/XH$chrom/Xends -stranding 98 -minCover 100 -wiggleRatioDamper 5
   endif
 end
 
 foreach fr (ELF ELR ERF ERR)
-  set ff=tmp/XH$chrom/Xends.$fr.transcriptsEnds
+  set ff=tmp/X.$MAGIC/XH$chrom/Xends.$fr.transcriptsEnds
   if (-e  $ff) then
 
      if ($fr == ELF) then
@@ -349,62 +349,62 @@ foreach fr (ELF ELR ERF ERR)
 end
 
 
-    cat   tmp/XH$chrom/X*.ace >    tmp/XH$chrom/XFC2.any.ace 
-    cat   tmp/XH$chrom/X*.shadow >    tmp/XH$chrom/XFC2.any.shadow
-    bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/XFC2.any.shadow >    tmp/XH$chrom/XFC2.any.fasta
+    cat   tmp/X.$MAGIC/XH$chrom/X*.ace >    tmp/X.$MAGIC/XH$chrom/XFC2.any.ace 
+    cat   tmp/X.$MAGIC/XH$chrom/X*.shadow >    tmp/X.$MAGIC/XH$chrom/XFC2.any.shadow
+    bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/X.$MAGIC/XH$chrom/XFC2.any.shadow >    tmp/X.$MAGIC/XH$chrom/XFC2.any.fasta
 
 
 # grab the pA and the SL
   echo "XXXXXXXXXXXXXXXXXXXXXX Grab the XA_"
 ls -ls   tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz
-if ((-e tmp/SLpA/$ggNS.SLpA.gz || -e tmp/SLpA/$ggS.SLpA.gz) && ! -e tmp/XH$chrom/XA.fasta)  then
+if ((-e tmp/SLpA/$ggNS.SLpA.gz || -e tmp/SLpA/$ggS.SLpA.gz) && ! -e tmp/X.$MAGIC/XH$chrom/XA.fasta)  then
   echo "Grab the XA_"
-  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^pA/{if($2 == chrom && $5 > 10) {a1=$3;if($4=="Forward")a2=a1-30;else a2=a1+30;support=$5;printf("Sequence XA_%s__%s_%d\ncDNA_clone XA_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour LIGHTORANGE\nComposite %d\nReverse\nmReverse\nPolyA_after_base 9\n\n",chrom,a1,a2,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XA.ace
-  cat tmp/XH$chrom/XA.ace | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/XA.shadow
-  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/XA.shadow | gawk '/^>/{print;next;}{printf("AAAAAAAA%s\n",$1);}' >  tmp/XH$chrom/XA.fasta
-ls -ls  tmp/XH$chrom/XA.ace
+  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^pA/{if($2 == chrom && $5 > 10) {a1=$3;if($4=="Forward")a2=a1-30;else a2=a1+30;support=$5;printf("Sequence XA_%s__%s_%d\ncDNA_clone XA_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour LIGHTORANGE\nComposite %d\nReverse\nmReverse\nPolyA_after_base 9\n\n",chrom,a1,a2,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/X.$MAGIC/XH$chrom/XA.ace
+  cat tmp/X.$MAGIC/XH$chrom/XA.ace | gawk '/^Sequence/{split($2,aa,"__");chrom=substr(aa[1],4);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/X.$MAGIC/XH$chrom/XA.shadow
+  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/X.$MAGIC/XH$chrom/XA.shadow | gawk '/^>/{print;next;}{printf("AAAAAAAA%s\n",$1);}' >  tmp/X.$MAGIC/XH$chrom/XA.fasta
+ls -ls  tmp/X.$MAGIC/XH$chrom/XA.ace
 
   echo "Grab the XSL_"
-  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^SL/{if($2 == chrom && $5 > 4) {a1=$3;if($4=="Forward")a2=a1+30;else a2=a1-30;support=$5;printf("Sequence X%s_%s__%s_%d\ncDNA_clone X%s_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour BLACK\nComposite %d\nForward\nmForward\n\n",$1,chrom,a1,a2,$1,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/XH$chrom/XSL.ace
-  cat tmp/XH$chrom/XSL.ace | gawk '/^Sequence/{split($2,aa,"__");i=index(aa[1],"_");chrom=substr(aa[1],i+1);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/XH$chrom/XSL.shadow
-  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/XH$chrom/XSL.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/XH$chrom/XSL.fasta
+  gunzip -c tmp/SLpA/$ggNS.SLpA.gz tmp/SLpA/$ggS.SLpA.gz | gawk -F '\t' '/^SL/{if($2 == chrom && $5 > 4) {a1=$3;if($4=="Forward")a2=a1+30;else a2=a1-30;support=$5;printf("Sequence X%s_%s__%s_%d\ncDNA_clone X%s_%s__%s_%d\nIntMap %s %d %d\nIs_read\nColour BLACK\nComposite %d\nForward\nmForward\n\n",$1,chrom,a1,a2,$1,chrom,a1,a2,chrom,a1,a2,support);}}' chrom=$chrom >  tmp/X.$MAGIC/XH$chrom/XSL.ace
+  cat tmp/X.$MAGIC/XH$chrom/XSL.ace | gawk '/^Sequence/{split($2,aa,"__");i=index(aa[1],"_");chrom=substr(aa[1],i+1);split(aa[2],bb,"_");a1=bb[1];a2=bb[2];ln=a2-a1;if(ln<0)ln=-ln;ln++;printf("%s\t1\t%d\t%s\t%d\t%d\n",$2,ln,chrom,a1,a2);}' >  tmp/X.$MAGIC/XH$chrom/XSL.shadow
+  bin/dna2dna  -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow   tmp/X.$MAGIC/XH$chrom/XSL.shadow | gawk '/^>/{print;next;}{printf("%s\n",$1);}' >  tmp/X.$MAGIC/XH$chrom/XSL.fasta
 else
-  touch  tmp/XH$chrom/XSL.ace tmp/XH$chrom/XSL.fasta
+  touch  tmp/X.$MAGIC/XH$chrom/XSL.ace tmp/X.$MAGIC/XH$chrom/XSL.fasta
 endif
 
 laba:
 
-  bin/tacembly  tmp/XH$chrom << EOF
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
     read-models
     parse tmp/TABIX/$MAGIC/$chrom.tabix.ace
     pparse MetaDB/$MAGIC/runs.ace
     pparse MetaDB/$MAGIC/samples.ace
     pparse MetaDB/$MAGIC/ali.ace
     // pparse my.chrom.alias.ace
-    pparse tmp/EHITS.$MAGIC/$chrom/f1.ace.gz
-    pparse tmp/EHITS.$MAGIC/$chrom/f1.fasta.gz
-    pparse tmp/XH$chrom/XG.f.ace 
-    pparse tmp/XH$chrom/XG.f.fasta
-    pparse tmp/XH$chrom/XG.r.ace 
-    pparse tmp/XH$chrom/XG.r.fasta
-    pparse tmp/XH$chrom/XH.f.ace 
-    pparse tmp/XH$chrom/XH.f.fasta
-    pparse tmp/XH$chrom/XH.r.ace 
-    pparse tmp/XH$chrom/XH.r.fasta
-    pparse tmp/XH$chrom/XFC2.any.ace 
-    pparse tmp/XH$chrom/XFC2.any.fasta
-    pparse tmp/XH$chrom/f3.allDoubleIntrons.ace
-    pparse tmp/XH$chrom/f3.allDoubleIntrons.fasta
-    pparse tmp/XH$chrom/f3.allDoubleIntronsGenomic.ace
-    pparse tmp/XH$chrom/f3.allDoubleIntronsGenomic.fasta
-    pparse tmp/XH$chrom/XA.ace
-    pparse tmp/XH$chrom/XA.fasta
-    pparse tmp/XH$chrom/XSL.ace
-    pparse tmp/XH$chrom/XSL.fasta
-    // pparse tmp/XH$chrom/XLRFR.ace
-    // pparse tmp/XH$chrom/XLRFR.fasta
-    pparse tmp/EHITS.$MAGIC/$chrom/f3.introns.ace
-    pparse tmp/EHITS.$MAGIC/$chrom/f3.transcriptsIntronSupport.ace
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f1.ace.gz
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f1.fasta.gz
+    pparse tmp/X.$MAGIC/XH$chrom/XG.f.ace 
+    pparse tmp/X.$MAGIC/XH$chrom/XG.f.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XG.r.ace 
+    pparse tmp/X.$MAGIC/XH$chrom/XG.r.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XH.f.ace 
+    pparse tmp/X.$MAGIC/XH$chrom/XH.f.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XH.r.ace 
+    pparse tmp/X.$MAGIC/XH$chrom/XH.r.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XFC2.any.ace 
+    pparse tmp/X.$MAGIC/XH$chrom/XFC2.any.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.ace
+    pparse tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntrons.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.ace
+    pparse tmp/X.$MAGIC/XH$chrom/f3.allDoubleIntronsGenomic.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XA.ace
+    pparse tmp/X.$MAGIC/XH$chrom/XA.fasta
+    pparse tmp/X.$MAGIC/XH$chrom/XSL.ace
+    pparse tmp/X.$MAGIC/XH$chrom/XSL.fasta
+    // pparse tmp/X.$MAGIC/XH$chrom/XLRFR.ace
+    // pparse tmp/X.$MAGIC/XH$chrom/XLRFR.fasta
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f3.introns.ace
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f3.transcriptsIntronSupport.ace
     query find Run IS $ggs && ! W_colour_plus
     edit W_colour_plus BLUE
     edit W_colour_minus GREEN
@@ -412,12 +412,12 @@ laba:
     quit
 EOF
 
-if (-e   tmp/EHITS.$MAGIC/$chrom/f3.intronDB.ace) then
+if (-e   tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.ace) then
 
-  bin/tacembly  tmp/XH$chrom << EOF
-    pparse tmp/EHITS.$MAGIC/$chrom/f3.intronDB.ace
-    pparse tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.ace
-    pparse tmp/EHITS.$MAGIC/$chrom/f3.intronDB.other.fasta
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.ace
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.ace
+    pparse tmp/X.$MAGIC/EHITS/$chrom/f3.intronDB.other.fasta
     save
     quit
 EOF
@@ -429,18 +429,18 @@ hello:
 # these lines add the RefSeq mapping to this chromosome as additional pseudo composite reads
 if (1) then
  
-  cat tmp/METADATA/RefSeq.mrna_map_ln_gc_gene_geneid.txt | gawk -F '\t' '{gsub(/\"/,"",$0); split($2,aa,":");if(aa[1] != chrom)next;split(aa[2],bb,"-");m=$1;c[m]=aa[1];a1[m]=bb[1];a2[m]=bb[2];}END{for(m in c)printf("Sequence %s\nIntMap %s %d %d\nForward\nComposite 10\nIs_read\n\n",m,c[m],a1[m],a2[m]);}' chrom=$chrom | gzip > tmp/XH$chrom/f3.RefSeq.intmap.ace.gz
+  cat tmp/METADATA/RefSeq.mrna_map_ln_gc_gene_geneid.txt | gawk -F '\t' '{gsub(/\"/,"",$0); split($2,aa,":");if(aa[1] != chrom)next;split(aa[2],bb,"-");m=$1;c[m]=aa[1];a1[m]=bb[1];a2[m]=bb[2];}END{for(m in c)printf("Sequence %s\nIntMap %s %d %d\nForward\nComposite 10\nIs_read\n\n",m,c[m],a1[m],a2[m]);}' chrom=$chrom | gzip > tmp/X.$MAGIC/XH$chrom/f3.RefSeq.intmap.ace.gz
 
-  gunzip -c tmp/XH$chrom/f3.RefSeq.intmap.ace.gz ZZZZZ.gz $ici/TARGET/Targets/$species.RefSeq.fasta.gz |   gawk '/^ZZZZZ/{zz++;next;}/^Sequence/{okk[$2]=1;next;}{if(zz<1)next;}/^>/{s=substr($1,2);i=index(s,"|");if(i>0)s=substr(s,1,i-1);ok=0;if(okk[s]==1){ok=1;print ">" s;}next;}{if(ok==1)print}' | gzip > tmp/XH$chrom/f3.RefSeq.fasta.gz
+  gunzip -c tmp/X.$MAGIC/XH$chrom/f3.RefSeq.intmap.ace.gz ZZZZZ.gz $ici/TARGET/Targets/$species.RefSeq.fasta.gz |   gawk '/^ZZZZZ/{zz++;next;}/^Sequence/{okk[$2]=1;next;}{if(zz<1)next;}/^>/{s=substr($1,2);i=index(s,"|");if(i>0)s=substr(s,1,i-1);ok=0;if(okk[s]==1){ok=1;print ">" s;}next;}{if(ok==1)print}' | gzip > tmp/X.$MAGIC/XH$chrom/f3.RefSeq.fasta.gz
 
-  bin/tacembly  tmp/XH$chrom << EOF
-    pparse tmp/XH$chrom/f3.RefSeq.intmap.ace.gz
-    pparse tmp/XH$chrom/f3.RefSeq.fasta.gz
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
+    pparse tmp/X.$MAGIC/XH$chrom/f3.RefSeq.intmap.ace.gz
+    pparse tmp/X.$MAGIC/XH$chrom/f3.RefSeq.fasta.gz
 EOF
 
 endif
 
-  bin/tacembly  tmp/XH$chrom << EOF
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
     query find sequence is_read && ! IS X?_* && ! intmap==$chrom
     edit -D is_read
     find method encode
@@ -453,7 +453,7 @@ endif
     quit
 EOF
 
-  bin/tacembly  tmp/XH$chrom << EOF
+  bin/tacembly  tmp/X.$MAGIC/XH$chrom << EOF
     query find est XC_*_10
     edit colour green1
     query find est XC_*_20
@@ -500,13 +500,13 @@ EOF
   scripts/f3.kill_ct_ac_introns.tcsh $chrom 1
 
 # transfer the RNA_seq support read in XI->composite back into the Intron class, which is visible in the tg
-bin/tacembly tmp/XH$chrom <<EOF
-  select -o tmp/XH$chrom/f3.intron_support.txt  xi, ii, n from xi in ?Sequence where xi ~ "XI_*", n in xi->composite, ii in xi->intron where n && ii
+bin/tacembly tmp/X.$MAGIC/XH$chrom <<EOF
+  select -o tmp/X.$MAGIC/XH$chrom/f3.intron_support.txt  xi, ii, n from xi in ?Sequence where xi ~ "XI_*", n in xi->composite, ii in xi->intron where n && ii
   date
 EOF
-cat tmp/XH$chrom/f3.intron_support.txt | gawk -F '\t' '{printf ("Intron %s\nRNA_seq %d\n\n",$2,$3);}' >  tmp/XH$chrom/f3.intron_support.ace
-bin/tacembly tmp/XH$chrom <<EOF
-  parse tmp/XH$chrom/f3.intron_support.ace
+cat tmp/X.$MAGIC/XH$chrom/f3.intron_support.txt | gawk -F '\t' '{printf ("Intron %s\nRNA_seq %d\n\n",$2,$3);}' >  tmp/X.$MAGIC/XH$chrom/f3.intron_support.ace
+bin/tacembly tmp/X.$MAGIC/XH$chrom <<EOF
+  parse tmp/X.$MAGIC/XH$chrom/f3.intron_support.ace
   save
   quit
 EOF
@@ -514,7 +514,7 @@ EOF
 
 ##### parse the RefSeq
 if (0 && -e tmp/METADATA/gtf.RefSeq.transcripts.ace.gz) then
-  bin/tacembly tmp/XH$chrom <<EOF  
+  bin/tacembly tmp/X.$MAGIC/XH$chrom <<EOF  
     find predicted_gene
     kill
     pparse tmp/METADATA/gtf.RefSeq.transcripts.ace.gz 
@@ -532,7 +532,7 @@ endif
 
 # les inrons mangent 10% de leur soutient sur les zones inclues des XH sur les 2 brins
 
-  touch tmp/XH$chrom/f3.parse.done
+  touch tmp/X.$MAGIC/XH$chrom/f3.parse.done
 
 endif
 

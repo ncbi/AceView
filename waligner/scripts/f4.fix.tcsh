@@ -2,7 +2,7 @@
 
 set chrom=$1
 
-bin/tacembly tmp/XH$chrom << EOF
+bin/tacembly tmp/X.$MAGIC/XH$chrom << EOF
   read-models
   query find gene capture == A2
   edit Colour YELLOW
@@ -34,7 +34,7 @@ exit 0
 
 
 
-bin/tacembly tmp/XH$chrom << EOF
+bin/tacembly tmp/X.$MAGIC/XH$chrom << EOF
   query find read XY* ; ct_ac || other ; ! gt_ag
   edit -D Is_read
   follow from_gene
