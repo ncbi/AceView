@@ -307,7 +307,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-      array (Cartan, r*1 + 0, int) = -2 ;
+      array (Cartan, r*r - r - 1, int) = -2 ;
 
       hw.x[r-1] = 2 ;
       break ;
@@ -455,10 +455,10 @@ static void getCartan (SA *sa, BOOL show)
       
     case 'C':
       sa->rank = r = m ;
-      if (m < 1)
-	messcrash ("Type Lie C(m) and Kac OSp(2/2m) cannot have m=%d < 1\n", m) ;
       if (n > 0)
 	messcrash ("Type Kac C(n) = OSp(2/2n) is called in this program D(1/n)\n") ;
+      if (m < 1)
+	messcrash ("Type Lie C(m) and Kac OSp(2/2m) cannot have m=%d < 1\n", m) ;
       if (n == 0)
 	getOneCartan (sa, "C", r, 0, TRUE) ;
       break ;
@@ -1973,8 +1973,8 @@ int main  (int argc, const char **argv)
        break ;
      }
    
-   if (sa.m < 0) messcrash ("argument -m m of SU(m/n) must be positive or null") ;
-   if (sa.n < 0) messcrash ("argument -n n of SU(m/n) must be positive or null") ;
+   if (sa.m < 0) messcrash ("argument -m m of %s(m/n) must be positive or null", sa.type) ;
+   if (sa.n < 0) messcrash ("argument -n n of %s(m/n) must be positive or null", sa.type) ;
    
    sa.dict = dictHandleCreate (32, sa.h) ;
    
