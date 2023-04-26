@@ -309,7 +309,7 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	}
       array (Cartan, r*r - r - 1, int) = -2 ;
 
-      hw.x[r-1] = 2 ;
+      hw.x[0] = 2 ;
       break ;
       
     case 'D':
