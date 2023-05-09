@@ -3397,8 +3397,8 @@
              Avoid UNIQUE ?Text  // avoid this run when constructing predictors, explain say why it should be avoided 
              Titration ?Run UNIQUE  ?Run REPEAT                                                                                // obsolete : Danielle a list of run for which we expect the index to move continuously
              Variance  // export for these group a simple table giving for each gene the expression index and the vatiance of the group
-             Wiggle W_new_exon
-                    W_stranded 
+             Wiggle W_new_exon ?Project
+                    W_stranded ?Project 
                     W_colour W_colour_plus #Colour 
                              W_colour_minus #Colour
              UCSC   U_color UNIQUE Text  // expect r,g,b example 120,0,255

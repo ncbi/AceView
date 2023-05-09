@@ -1315,11 +1315,10 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
       if (jMax > 0)  /* create or check existence of the new weights along the sl(2) submodule */
 	{
 	  int j, r, k2 ;
-	  int dj = 1 ;
 	  WW ww2, *w2 ;
 
 	  memset (&ww2, 0, sizeof(WW)) ;
-	  for (j = 1 ; j <= jMax ; j += dj)
+          for (j = 1 ; j <= jMax ; j++) 
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
@@ -1328,7 +1327,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      k2 = locateWeight (sa, &ww2, TRUE)  ;
 	      
-	      /* create w2(k2) it if needed */
+	      /* create w2(k2)  if needed */
 	      w2 = arrayp (wws, k2, WW) ;
 	      w0 = arrayp (wws, ii, WW) ;  /* needed because the wws array may be relocated in RAM upon extension */ 
 	      if (! w2->k)
@@ -1340,7 +1339,7 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
 		  w2->mult = 0 ;
 		  w2->n21 = 0 ;
 		  w2->hw = FALSE ;
-		  w2->l2 = wwScalarProduct (sa, w2, w2) ;
+		  /* w2->l2 = wwScalarProduct (sa, w2, w2) ; done in locate */
 		}
 	      for (r = 0 ; r < rank ; r++)
 		w2->x[r] = ww2.x[r] ;
@@ -1352,12 +1351,11 @@ static BOOL demazureEvenOdd (SA *sa, Array wws, int r1, BOOL even, int *dimEvenp
       if (jMax > 0 && dn > 0)   /* populate the new multiplet */
 	{
 	  int j, r, k2 ;
-	  int dj = 1 ;
 	  WW ww2, *w2 ;
 	  
 	  new = TRUE ;
 	  memset (&ww2, 0, sizeof(WW)) ;
-	  for (j = 1 ; j <= jMax ; j += dj)
+	  for (j = jMax ; j >= 1 ; j--)
 	    {
 	      /* position to the new weight */
 	      for (r = 0 ; r < rank ; r++)
@@ -1594,29 +1592,16 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 
 static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp, BOOL show) 
 {
-  AC_HANDLE h = ac_new_handle () ;
   BOOL new = FALSE ;
-  int ii, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
-  
-  for (r = 0 ; r < sa->rank ; r++)
-    {
-      if (sa->odd2[r])  /* distinguished even root */
-	ra = r ;
-    }
-  if (ra == -1)
-    messcrash ("demazureSU21, odd2 root not defined") ;
+  int ii, r, dimEven, dimOdd, rank = sa->rank ;
   
   if (sa->pass++ == 0) new = TRUE ;
 
-  
   for (ii = 0 ; ii < arrayMax (wws) ; ii++) 
     {
       WW *w0 = arrayp (wws, ii, WW) ;
-      Array aa21 ;
-      int n1 = w0->mult ;
-      int dn = 0 ;
+      int dn, n1 = w0->mult ;
       int n21 = w0->n21 ;
-      int jMax ;
 
       if (ii == 0)
 	{ w0->mult = 0 ; continue ; }
@@ -1631,48 +1616,33 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 
       dn = n1 - n21 ;  /* number of odd doublets to create */
 
-      aa21 = sa->negativeOddRoots ;
-      jMax = 2 ;
-
-      if (1)   /* populate the new multiplet */
+      if (dn > 0)   /* populate the new multiplet */
 	{
 	  int j ;
-	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* beta_1 */
-	  WW *w1, ww ;
-	  int dn = w0->mult - w0->n21 - w1->mult + w1->n21 ;
-	  int dn21 = w0->mult - w0->n21 ;
+	  WW *w1, ww2 ;
 
-	  if (jMax == 1)
-	    { dn = 0 ; dn21 = w0->mult - w0->n21 ; }
-	    
+	  memset (&ww2, 0, sizeof (WW)) ;
 	  new = TRUE ;
-	  for (j = 0 ; j < jMax ; j++)
+	  for (j = 1 ; j < 2 ; j++)
 	    {
-	      w21 = arrayp (aa21, j, WW) ;	  
-	      w1 = arrayp (wws, w21->k, WW) ;	  
-	      w0 = arrayp (wws, ii, WW) ; /* may be relocates */
-	      
+	      for (r = 0 ; r < rank ; r++)
+		ww2.x[r] = w0->x[r] - array(sa->Cartan, rank * r + rb, int) * j ;
+	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
+	      ww2.k = locateWeight (sa, &ww2, TRUE) ;
+	      w1 = arrayp (wws, ww2.k, WW) ;	  
+	      w0 = arrayp (wws, ii, WW) ; /* may have been be relocated */
 	      if (! w1->k)
 		{
-		  w1->k = w21->k ;
-		  for (r = 0 ; r < rank ; r++)
-		    w1->x[r] = w21->x[r] ; /* coords */
-		  w1->l2 = wwScalarProduct (sa, w1, w1) ;
+		  *w1 = ww2 ;
+		  w1->layer = w0->layer + 1 ;
+		  w1->odd = ! w0->odd ; 
 		}
-
-	      w1 = arrayp (wws, w21->k, WW) ;	  
 	      /* increase multiplicity of the new multiplet */
-	      if (0 && j) w1->mult += dn ;
-	      w1->n21 += dn21 ;
+	      w0->n21 += dn ;
+	      w1->n21 += dn ;
 	      if (w1->mult < w1->n21) w1->mult = w1->n21 ;
-	      w1->layer = w0->layer + w21->layer ;
-	      if (w1->layer < 0)
-		messcrash ("Negative layer") ;
-	      w1->odd = w21->odd ^ w0->odd ; 
-	      if (j == 0)
-		w1->hw = w0->hw ;
 	    }
-	  printf ("++++ added %d su(2/1) states ", jMax) ;
+	  printf ("++++ added %d su(2/1) states ", dn) ;
 	  wwsShow (sa, "+++ giving", -99, wws, &sa->hw) ;
 	}
     }
@@ -1690,7 +1660,7 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
     {
       arraySort (wws, wwLayerOrder) ;
 
-      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, ra, dimEven, dimOdd) ;
+      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, rb, dimEven, dimOdd) ;
       for (ii = 1 ; ii < arrayMax (wws) ; ii++)
 	{
 	  int j ;

@@ -3620,8 +3620,8 @@ void fMapcDNAShowTranscribedgene  (LOOK look, float *offset)
   BUMP bump = 0, bumpIntrons = 0 ; 
   float yz ;
   int ix = 0, color = 0, lastParent = -1, lastIx = -1 ;
-  int TG_COLOR = DARKGREEN ; /* magenta for the web */
-  int TG_COLOR2 =  LIGHTGREEN ; /* palemagenta for the web */
+  int TG_COLOR = DARKCYAN ; /* DARKGREEN ;  magenta for the web */
+  int TG_COLOR2 =  LIGHTCYAN ; /* LIGHTGREEN ;  palemagenta for the web */
   extern int fMap_rView ;
 
   cDNAAlignInit () ;
@@ -3706,6 +3706,7 @@ void fMapcDNAShowTranscribedgene  (LOOK look, float *offset)
       graphColor (TG_COLOR) ; 
       if (strstr (name(seg->key), "ntron"))
 	{
+	  color = TRANSPARENT ;
 	  if (seg->data.k && 
 	      (KEYKEY(seg->data.k) == _Fuzzy_gt_ag || seg->data.k == _Fuzzy_gc_ag)
 	      )
@@ -3725,16 +3726,24 @@ void fMapcDNAShowTranscribedgene  (LOOK look, float *offset)
 	  else
 	    {
 	      float mid = (y1 + y2) / 2 ;
+	      graphColor (TG_COLOR) ;
 	      if (seg->data.k && 
 		  KEYKEY(seg->data.k) != _gt_ag &&
 		  KEYKEY(seg->data.k) != _gc_ag)
 		graphColor (BLUE) ;
-	      if (class(seg->data.k) == 1)
+	      color = TRANSPARENT ;
+	      if (class(seg->data.k) > 0)
+		color = GREEN1 + class(seg->data.k) - 1 ;
+	      if (0) /* 2023_04_25 obsolete color pattern */
 		graphColor (RED) ;
-	      graphLine (x +.2, y2, x + 1.6 , mid) ;
-	      graphLine (x +1.6, mid, x + .2, y1 +.1) ;
+	      if (color > GREEN6 && color <= GREEN8)
+		graphColor (WHITE) ;
+	      else
+		graphColor (BLACK) ;
+	      graphLine (x +.8, y2, x + 1.6 , mid) ;
+	      graphLine (x +1.6, mid, x + .8, y1 +.1) ;
 	    }
-	  color = TRANSPARENT ;
+
 	  if (0)
 	    {
 	      int z, intronX = 0 ; 
@@ -3758,7 +3767,8 @@ void fMapcDNAShowTranscribedgene  (LOOK look, float *offset)
 	{ 
 	  char *cp = name(seg->parent) ;
 	  color = TG_COLOR2 ;
-	  if (*(cp+1) == '_')
+	  graphColor (TG_COLOR) ; 
+	  if (0 && *(cp+1) == '_')
 	    switch (*cp)
 	      {
 	      case 'A': /* AceView */

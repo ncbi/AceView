@@ -740,10 +740,10 @@ bin/tacembly MetaDB << EOF > MetaDB/makelists.log
   list -a -f MetaDB/$MAGIC/GroupWiggle.list
   query find project IS $MAGIC ; > Run  ;Wiggle && Is_run
   list -a -f MetaDB/$MAGIC/RunWiggle.list
-  query find project IS $MAGIC ; > Run  ;W_stranded  // Is_run  OR Is_group
+  query find project IS $MAGIC ; > Run  ;W_stranded == $MAGIC // Is_run  OR Is_group
   list -a -f MetaDB/$MAGIC/GroupW_stranded.list
   comment magic_list 11
-  query find project IS $MAGIC ; > Run  ;W_new_exon  // Is_run  OR Is_group
+  query find project IS $MAGIC ; > Run  ;W_new_exon == $MAGIC  // Is_run  OR Is_group
   list -a -f MetaDB/$MAGIC/GroupW_new_exon.list
   query find project IS $MAGIC ; > Run  ;SNP && Is_group   //
   list -a -f MetaDB/$MAGIC/GroupSnp.list
@@ -1650,6 +1650,16 @@ if ($species == hs) then
   set refG=hs_ref_GRCh37.p13
   set refS=H_sapiens
 endif
+# human T2T
+if ($species == hs) then
+  set t2t=/am/ftp-genomes/all/annotation_releases/9606/GCF_009914755.1-RS_2023_03/
+  set ref=T2T-CHM13v2
+  set refG=T2T-CHM13v2
+  set refGfna=$t2t/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
+
+
+  set refS=H_sapiens
+endif
 
 if ($species == rn) then
   set ref=ref_Rnor_6.0
@@ -1707,7 +1717,7 @@ if ($species == rn) then
 endif
 
 ### in human renaming, the genome fasta file is nearly ok , the NW_ entries all contain a nice nickname 
-if ($species == hs) then
+if ($species == hs_37) then
   # grab the title lines excluding the patch and the alternate
   cat $refG.fa | gawk '/^>/{print}' > _t
   cat _t | grep -v alternate | grep -v patch > _t1
@@ -1721,7 +1731,7 @@ if ($species == hs) then
 endif
 
 ### in human 2020 hg37v105 renaming, the genome fasta file is nearly ok , we add chr..| in from of the NC/NT names: e.g: chr22|NC_000022.10,  chr8|NT_113907.1, chrUn|NT_167240.1
-if ($species == hs) then
+if ($species == hs_37v105) then
   # grab the title lines excluding the patch and the alternate
   cat $refG.fa | gawk '/^>/{print}' > _t
   cat _t | grep -v alternate | grep -v patch > _t1
@@ -1729,6 +1739,16 @@ if ($species == hs) then
   cat _t1 | grep -v unlocalized | grep -v unplaced | grep -v mito | gawk '{split($1,aa,">");split($5,bb,",");printf("%s\tchr%s|%s\n",aa[2],bb[1],aa[2]);}'  >> NC2chr.rename.txt
   cat _t1 | grep unlocalized | gawk '{split($1,aa,">");printf("%s\tchr%s|%s\n",aa[2],$5,aa[2]);}' >> NC2chr.rename.txt
   cat _t1 | grep unplaced | gawk '{split($1,aa,">");printf("%s\tchrUn|%s\n",aa[2],aa[2]);}' >> NC2chr.rename.txt
+endif
+
+### in human 2023 T2T the genome contains 1-22,X,Y named as
+# NC_060926.1 to 960948.1 in that order
+# we add chr..| in from of the NC/NT names: e.g: chr22|NC_000946.1
+
+if ($species == hs) then
+  # grab the title lines 
+  zcat $refG | gawk '/^>/{print}' > _t
+  cat _t | gawk '{split($1,aa,">");split($7,bb,",");printf("%s\tchr%s|%s\n",aa[2],bb[1],aa[2]);}'  > NC2chr.rename.txt
 endif
 
 ### in mouse we must select the strain and remove the patches and the names are horrible
@@ -1756,17 +1776,21 @@ endif
 ## rename all the elements of the genome fasta file as chr*  
 # simplified for ghs37.105 where we keep  chr7|NC007.7  
 echo ZZZZZ > ZZZZZ
+echo ZZZZZ | gzip > ZZZZZ.gz
 #cat  NC2chr.rename.txt ZZZZZ $refG.fa | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}/^>/{split($1,aa,"|");x=nam[aa[4]];ok=0;if(length(x)>1)ok=1;if(ok==1)printf(">%s %s\n",x,substr($0,2));next;}{if(ok==1)print}' > $species.genome.$ref.fasta
 #cat  NC2chr.rename.txt ZZZZZ $refG.fa | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}/^>/{split($1,aa,"|");x=nam[aa[4]];ok=1;if(length(x)>1)ok=0;x=aa[4];if(ok==1)printf(">%s %s\n",x,substr($0,2));next;}{if(ok==1)print}' > $species.genome.$ref.unc.fasta
-cat  NC2chr.rename.txt ZZZZZ $refG.fa | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}/^>/{split($1,aa,">");x=nam[aa[2]];ok=0;if(length(x)>1)ok=1;if(ok==1){$1=">"x; print;}next;}{if(ok==1)print}' > $species.genome.$ref.fasta
-
+# cat  NC2chr.rename.txt ZZZZZ $refG.fa | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}/^>/{split($1,aa,">");x=nam[aa[2]];ok=0;if(length(x)>1)ok=1;if(ok==1){$1=">"x; print;}next;}{if(ok==1)print}' > $species.genome.$ref.fasta
+# T2T
+gzip  NC2chr.rename.txt
+zcat  NC2chr.rename.txt.gz ZZZZZ.gz $refGfna | gawk '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}/^>/{split($1,aa,">");x=nam[aa[2]];ok=0;if(length(x)>1)ok=1;if(ok==1){$1=">"x; print;}next;}{if(ok==1)print}' > $species.genome.$refG.fasta
 ## rename the source sequences in the gff files as chr*
 #gunzip -c  /am/ftp-genomes/$refS/GFF/$ref'_'top_level.gff3.gz > _t.gff3
-gunzip -c $species.RefSeq.pre_gff3.gz > _t.gff3
+zcat $t2t/*.gff.gz | grep -v RefSeqFE > _t.gff3
 cat  NC2chr.rename.txt ZZZZZ _t.gff3  | gawk -F '\t' '/^ZZZZZ/{zz=1;next;}{if(zz<1){nam[$1]=$2;next;}}{if(length(nam[$1]) < 1)next;printf("%s",nam[$1]);for(i=2;i<=NF;i++)printf("\t%s",$i);printf("\n");}' > $species.RefSeq.$ref.gff3
-#cat _t.gff3 | gawk '/^#/{next}/^NC_/{next;}{print;}' >  $species.RefSeq.$ref.unc.gff3
+
 \rm _t.gff3
 # use the gff3 file to export the .ace annotation, done again in metadata.tcsh and the fasta of the transcripts
+# Run on lmem12 (large RAM)
 dna2dna -gff3  $species.RefSeq.$ref.gff3 -o $species.RefSeq.$ref -O fasta -gzo -gtfGenome  $species.genome.$ref.fasta  -gtfRemap KT_RefSeq
 dna2dna -gff3  $species.RefSeq.$ref.unc.gff3 -o $species.RefSeq.$ref.unc  -O fasta -gzo -gtfGenome  $species.genome.$ref.unc.fasta  -gtfRemap KT_RefSeq
 

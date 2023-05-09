@@ -199,6 +199,7 @@ KEY
   _Int_Params,
   _Internet,
   _Interval,
+  _IntMap,
   _Intragenic_revertant_of_dominant,
   _Inverted,
   _Is_buried_under,
@@ -312,6 +313,7 @@ KEY
   _Representative,
   _Results,
   _Right,
+  _RNA_Seq,
   _Row,
   _Score,
   _Search_Method,
@@ -792,6 +794,7 @@ void tagInit (void)
   lexaddkey("Int_Params", &_Int_Params, 0) ; 
   lexaddkey("Internet", &_Internet, 0) ; 
   lexaddkey("Interval", &_Interval, 0) ; 
+  lexaddkey("IntMap", &_IntMap, 0) ; 
   lexaddkey("Intragenic_revertant_of_dominant", &_Intragenic_revertant_of_dominant, 0) ; 
   lexaddkey("Inverted", &_Inverted, 0) ; 
   lexaddkey("Is_buried_under", &_Is_buried_under, 0) ; 
@@ -905,6 +908,7 @@ void tagInit (void)
   lexaddkey("Representative", &_Representative, 0) ; 
   lexaddkey("Results", &_Results, 0) ; 
   lexaddkey("Right", &_Right, 0) ; 
+  lexaddkey("RNA_Seq", &_RNA_Seq, 0) ; 
   lexaddkey("Row", &_Row, 0) ; 
   lexaddkey("Score", &_Score, 0) ; 
   lexaddkey("Search_Method", &_Search_Method, 0) ; 

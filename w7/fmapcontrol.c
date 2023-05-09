@@ -2908,15 +2908,48 @@ BOOL fMapConvert (LOOK look, BOOL force)
 	      char *cp ;
 	      int mycol = 0 ;
 	      KEY intr ;
+	      KEY chrom ;
+	      int tg1 , tg2 ;
 	      if (arrayMax (units) < i + 3)
 		continue ;
 	      pos1 = arr (units, i , BSunit).i ;
 	      pos2 = arr (units, i + 1, BSunit).i ;
-	      if (_VIntron && 
-		  lexword2key (messprintf ("%s__%d_%d", name(seg->key), pos1, pos2), &intr, _VIntron) &&
-		  keyFindTag (intr, _Homol)
+	      if (bsGetKey (obj, _IntMap, &chrom) &&
+		  bsGetData (obj, _bsRight, _Int, &tg1) &&
+		  bsGetData (obj, _bsRight, _Int, &tg2)
 		  )
-		mycol = RED ;
+		{
+		  int gpos1, gpos2 ;
+		  if (tg1 < tg2)
+		    { gpos1 = tg1 + pos1 - 1 ; gpos2 = tg1 + pos2 - 1 ; }
+		  else
+		    { gpos1 = tg1 - pos1 + 1 ; gpos2 = tg1 - pos2 + 1 ; }
+		  if (_VIntron && chrom && 
+		      lexword2key (messprintf ("%s__%d_%d", name(chrom), gpos1, gpos2), &intr, _VIntron)
+		      )
+		    {
+		      OBJ Intr = bsCreate (intr) ;
+		      if (0 && /* 2023_04_25  obolete color pattern */
+			  keyFindTag (intr, _Homol)
+			  )
+			mycol = RED ;
+		      if (Intr)
+			{
+			  int x = 0 ;
+			  if (bsGetData (Intr, _RNA_Seq, _Int, &x) && x >= 1)
+			    {
+			      float z = log(1+x) ;
+			      float z1 = log(2000.0)/8 ;
+			      int iCol = .5 + z/z1 ;
+			      if (iCol > 8) 
+				iCol = 8 ;
+			      if (iCol > 0)
+				mycol = iCol ;
+			    }
+			  bsDestroy (Intr) ;
+			}
+		    }
+		}
 	      seg1 = arrayp (segs,nsegs++,SEG) ; seg = arrp (segs,iseg,SEG) ;
 	      POS_TO_SEG1 ;
 	      seg1->key = arr (units, i + 2, BSunit).k ;
@@ -2939,7 +2972,7 @@ BOOL fMapConvert (LOOK look, BOOL force)
 			}
 		    }
 		  if (mycol)
-		    seg1->data.k |= (1 << 24) ;
+		    seg1->data.k |= (mycol << 24) ;
 		}
 	    }
 	}
