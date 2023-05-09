@@ -1624,15 +1624,16 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 	continue ;
       if (n1 == n21)
 	continue ;
-      if (w0->x[ra] == 0)
+      if (w0->x[rb
+		] == 0)
 	continue ; /* atypic for the fundamental doublet */
       if (n1 < n21)
 	messcrash ("mult < n21") ;
 
       dn = n1 - n21 ;  /* number of odd doublets to create */
 
-      aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
-      arrayMax (aa21) = jMax = 2 ;
+      aa21 = sa->negativeOddRoots ;
+      jMax = 2 ;
 
       if (1)   /* populate the new multiplet */
 	{
