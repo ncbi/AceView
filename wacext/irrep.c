@@ -1624,8 +1624,7 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 	continue ;
       if (n1 == n21)
 	continue ;
-      if (w0->x[rb
-		] == 0)
+      if (w0->x[rb] == 0)
 	continue ; /* atypic for the fundamental doublet */
       if (n1 < n21)
 	messcrash ("mult < n21") ;
@@ -1638,8 +1637,8 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
       if (1)   /* populate the new multiplet */
 	{
 	  int j ;
-	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* lowest weight of the Crystal */	  
-	  WW *w1 = arrayp (wws, w21->k, WW) ;	  
+	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* beta_1 */
+	  WW *w1, ww ;
 	  int dn = w0->mult - w0->n21 - w1->mult + w1->n21 ;
 	  int dn21 = w0->mult - w0->n21 ;
 
@@ -1660,6 +1659,8 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 		    w1->x[r] = w21->x[r] ; /* coords */
 		  w1->l2 = wwScalarProduct (sa, w1, w1) ;
 		}
+
+	      w1 = arrayp (wws, w21->k, WW) ;	  
 	      /* increase multiplicity of the new multiplet */
 	      if (0 && j) w1->mult += dn ;
 	      w1->n21 += dn21 ;
