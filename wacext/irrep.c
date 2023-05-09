@@ -542,6 +542,7 @@ static void getCartan (SA *sa, BOOL show)
       break ;
       
      case 'F':
+       if (m == 1 && n == 3) { m = sa->m = 0 ; n = sa->n = 4 ; }  
       sa->rank = r = m ;
       switch (m + 10*n)
 	{
@@ -565,7 +566,8 @@ static void getCartan (SA *sa, BOOL show)
 	}
       break ;
       
-     case 'G':
+    case 'G':
+      if (m == 0 && n == 3) { m = sa->m =1 ; n = sa->n = 2 ; }  
       sa->rank = r = m + n ;
       if (m != 2 || n*(n-1) != 0)
 	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
@@ -1590,12 +1592,129 @@ static BOOL demazureSU21 (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp
 
 /******************************************************************************************************/
 
+static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *dimOddp, BOOL show) 
+{
+  AC_HANDLE h = ac_new_handle () ;
+  BOOL new = FALSE ;
+  int ii, r, dimEven, dimOdd, ra = -1, rank = sa->rank ;
+  
+  for (r = 0 ; r < sa->rank ; r++)
+    {
+      if (sa->odd2[r])  /* distinguished even root */
+	ra = r ;
+    }
+  if (ra == -1)
+    messcrash ("demazureSU21, odd2 root not defined") ;
+  
+  if (sa->pass++ == 0) new = TRUE ;
+
+  
+  for (ii = 0 ; ii < arrayMax (wws) ; ii++) 
+    {
+      WW *w0 = arrayp (wws, ii, WW) ;
+      Array aa21 ;
+      int n1 = w0->mult ;
+      int dn = 0 ;
+      int n21 = w0->n21 ;
+      int jMax ;
+
+      if (ii == 0)
+	{ w0->mult = 0 ; continue ; }
+      if (n1 <= 0)
+	continue ;
+      if (n1 == n21)
+	continue ;
+      if (w0->x[ra] == 0)
+	continue ; /* atypic for the fundamental doublet */
+      if (n1 < n21)
+	messcrash ("mult < n21") ;
+
+      dn = n1 - n21 ;  /* number of odd doublets to create */
+
+      aa21 = getSU21Crystal (sa, w0, ra, rb, h) ;
+      arrayMax (aa21) = jMax = 2 ;
+
+      if (1)   /* populate the new multiplet */
+	{
+	  int j ;
+	  WW *w21 = arrayp (aa21, jMax - 1, WW) ; /* lowest weight of the Crystal */	  
+	  WW *w1 = arrayp (wws, w21->k, WW) ;	  
+	  int dn = w0->mult - w0->n21 - w1->mult + w1->n21 ;
+	  int dn21 = w0->mult - w0->n21 ;
+
+	  if (jMax == 1)
+	    { dn = 0 ; dn21 = w0->mult - w0->n21 ; }
+	    
+	  new = TRUE ;
+	  for (j = 0 ; j < jMax ; j++)
+	    {
+	      w21 = arrayp (aa21, j, WW) ;	  
+	      w1 = arrayp (wws, w21->k, WW) ;	  
+	      w0 = arrayp (wws, ii, WW) ; /* may be relocates */
+	      
+	      if (! w1->k)
+		{
+		  w1->k = w21->k ;
+		  for (r = 0 ; r < rank ; r++)
+		    w1->x[r] = w21->x[r] ; /* coords */
+		  w1->l2 = wwScalarProduct (sa, w1, w1) ;
+		}
+	      /* increase multiplicity of the new multiplet */
+	      if (0 && j) w1->mult += dn ;
+	      w1->n21 += dn21 ;
+	      if (w1->mult < w1->n21) w1->mult = w1->n21 ;
+	      w1->layer = w0->layer + w21->layer ;
+	      if (w1->layer < 0)
+		messcrash ("Negative layer") ;
+	      w1->odd = w21->odd ^ w0->odd ; 
+	      if (j == 0)
+		w1->hw = w0->hw ;
+	    }
+	  printf ("++++ added %d su(2/1) states ", jMax) ;
+	  wwsShow (sa, "+++ giving", -99, wws, &sa->hw) ;
+	}
+    }
+  
+  for (dimEven = dimOdd = 0, ii = 1 ; ii < arrayMax (wws) ; ii++)
+    {
+      WW *ww = arrp (wws, ii, WW) ;
+        if (ww->odd)
+	dimOdd += ww->mult ;
+      else 
+	dimEven += ww->mult ;
+    }
+
+  if (1 && new)
+    {
+      arraySort (wws, wwLayerOrder) ;
+
+      printf ("................Demazure, pass %d, r=%d dimEven = %d dimOdd = %d\n", sa->pass, ra, dimEven, dimOdd) ;
+      for (ii = 1 ; ii < arrayMax (wws) ; ii++)
+	{
+	  int j ;
+	  WW *w = arrp (wws, ii, WW) ;
+	  for (j = 0 ; j < rank ; j++)
+	    printf (" %d", w->x[j]) ;
+	  printf ("\tmult=%d n21=%d k=%d l=%d %s\n", w->mult, w->n21, w->k, w->layer, w->hw ? "*" : "" ) ;
+	}
+      printf ("\n") ;
+  
+      arraySort (wws, wwCreationOrder) ;
+    }
+  
+  if (dimEvenp) *dimEvenp = dimEven ;
+  if (dimOddp) *dimOddp = dimOdd ; 
+  
+  return new ;
+} /* demazureOddDoublets */
+
+/******************************************************************************************************/
+
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
   BOOL debug = TRUE ;
   int r, dimEven = 0, dimOdd = 0 ;
-  BOOL sequential = TRUE ;
   
   if (debug)
     wwsShow (sa, "Before Demazure", 0, sa->wws, 0) ;
@@ -1610,6 +1729,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	  switch (method)
 	    {
 	    case 0:  /* negative odd roots, apply the non extended even subalgebra */
+	    case 10:
 	      if (! sa->odd[r] && ! sa->extended[r])
 		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
@@ -1624,7 +1744,7 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	      if (! sa->odd1[r] && ! sa->odd2[r] && ! sa->extended[r])
 		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      else
-		if (sequential && sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
+		if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
 		  ok2 = demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 	      break ;
 	    case 30:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
@@ -1642,12 +1762,26 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	    }
 	  ok |= ok2 ;
 	}
-      if (!sequential && sa->hasOdd)
+      if (sa->hasOdd)
 	{
 	  switch (sa->method)
 	    {
 	    case 12:
-	    case 20:
+	    case 10:
+	      for (r = 0 ; r < sa->rank ; r++)
+		{
+		  ok2 = FALSE ;
+		  if (sa->odd1[r]) /* construct the odd doubblets */
+		    ok2 = demazureOddDoublets (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
+		  if (ok2 && debug)
+		    {
+		      printf ("... weyl %d\t", r) ;
+		      wwsShow (sa, "Inside Demazure odd doublets", 0, sa->wws, 0) ;
+		    }
+		  ok |= ok2 ;
+		}
+	      break ;
+	    case 50: /* obsolete */
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  ok2 = FALSE ;
@@ -1875,22 +2009,24 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "// -gzo : the output file is gziped\n"
 	   "// --method [1|2|12|20|30] : default 1 \n"
 	   "//     method, used while debugging to test different algorithms\n"
-	   "// -t type A|B|C|D|E|F|G : (super)algebra type\n"
-	   "//    -t A -m <int> :  is su(m) an algebra\n"
-	   "//    -t A -m <int> -n <int>:  is su(m/n) a superalgebra\n"
-	   "//    -t B -m <int> :  is so(2m+1)) an algebra\n"
-	   "//    -t B -m <int> -n <int> :  is osp(2m+1/2n) a superalgebra\n"
-	   "//    -t C -m <int> :  is sp(2m) an algebra\n"
-	   "//    -t C -m 1 -n <int>:  is osp(2/2n) a superalgebra\n"
-	   "//    -t D -m <int> :  is so(2m) an algebra\n"
-	   "//    -t D -m <int> -n <int>:  is osp(2m/2n) a superalgebra\n"
-	   "//    -t D -m 2 -n 1 -alpha <int>:  is D(2/1,alpha) a superalgebra\n"
-	   "//    -t E -m 6|7|8 :  is E6,E7,E8 an algebra\n"
-	   "//    -t F -m 4 :  is F4 an algebra\n"
-	   "//    -t F - n 4 :  is F4 a superalgebra\n"
-	   "//    -t G -m 2 :  is G2, an algebra\n"
-	   "//    -t G -m 3 :  is G3 a superalgebra\n"
-	   "// -w 1:0:2...  integer Dynkin weights\n"
+	   "//     -m 10 : even/odd Demazure\n"     
+	   "// -t --type A|B|C|D|E|F|G : (super)algebra type\n"
+	   "// -m <int> -n <int> : ranks\n"
+	   "//    -t A -m <int> :  su(m) Lie algebra\n"
+	   "//    -t A -m <int> -n <int>:  su(m/n) Lie-Kac superalgebra\n"
+	   "//    -t B -m <int> :  so(2m+1)) Lie algebra\n"
+	   "//    -t B -m <int> -n <int> :  osp(2m+1/2n) Lie-Kac superalgebra\n"
+	   "//    -t C -m <int> :  sp(2m) Lie algebra\n"
+	   "//    -t C -m 1 -n <int>:  osp(2/2n) Lie-Kac superalgebra\n"
+	   "//    -t D -m <int> :  so(2m) Lie algebra\n"
+	   "//    -t D -m <int> -n <int>:  osp(2m/2n) Lie-Kac superalgebra\n"
+	   "//    -t D -m 2 -n 1 -alpha <int>:  D(2/1,alpha) Lie-Kac superalgebra\n"
+	   "//    -t E -m 6|7|8 :  E6,E7,E8 Lie algebra\n"
+	   "//    -t F -m 4 :  F4 Lie algebra\n"
+	   "//    -t F -n 4 :  F4 Lie-Kac superalgebra\n"
+	   "//    -t G -m 2 :  G2, Lie algebra\n"
+	   "//    -t G -n 3 :  G3 Lie-Kac superalgebra\n"
+	   "// -w --weights 1:0:2...  integer Dynkin weights\n"
 	   "//    The number of weights must match the rank of the algebra\n"
 	   "// --show\n"
 	   "// --table\n"
@@ -1952,7 +2088,8 @@ int main  (int argc, const char **argv)
    getCmdLineInt (&argc, argv, "--method", &(sa.method)) ;
    if (!getCmdLineOption (&argc, argv, "--type", &sa.type))
      getCmdLineOption (&argc, argv, "-t", &sa.type) ;
-   getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
+   if (! getCmdLineOption (&argc, argv, "--weights", &sa.DynkinWeights))
+     getCmdLineOption (&argc, argv, "-w", &sa.DynkinWeights) ;
    
    if (argc != 1)
      {
@@ -1965,16 +2102,17 @@ int main  (int argc, const char **argv)
      case 1:
      case 2 :
      case 12:
+     case 10:
      case 20:
      case 30:
        break ;
      default:
-       messcrash ("argument -method should be 1,2 12, 20, 30 [default 1]") ;
+       messcrash ("argument --method should be 1,2, 10, 12, 20, 30 [default 1]") ;
        break ;
      }
    
-   if (sa.m < 0) messcrash ("argument -m m of %s(m/n) must be positive or null", sa.type) ;
-   if (sa.n < 0) messcrash ("argument -n n of %s(m/n) must be positive or null", sa.type) ;
+   if (sa.m < 0) messcrash ("rank argument -m m of type %s must be positive or null", sa.type) ;
+   if (sa.n < 0) messcrash ("rank argument -n n of type %s must be positive or null", sa.type) ;
    
    sa.dict = dictHandleCreate (32, sa.h) ;
    
@@ -1992,9 +2130,11 @@ int main  (int argc, const char **argv)
    
    if (sa.hasOdd)
      {
-       getAtypic (&sa, show) ;
+       if (sa.method < 10) /* atypic
+ */
+	 getAtypic (&sa, show) ;
 
-       if (sa.method < 20) /* contruct the kacCrystal */
+       if (sa.method < 10) /* contruct the kacCrystal */
 	 getKacCrystal (&sa, show) ; 
      }
    
@@ -2034,7 +2174,8 @@ int main  (int argc, const char **argv)
 	   sa.method = 12 ;
 	   demazure (&sa, &dimEven, &dimOdd, 12, TRUE) ;
 	   break ;
-	 case 20: /* just use su21 */
+	 case 10: 
+	 case 20: 
 	 case 30: /* use odd pairs */
 	   demazure (&sa, &dimEven, &dimOdd, sa.method, TRUE) ;
 	   break ;
