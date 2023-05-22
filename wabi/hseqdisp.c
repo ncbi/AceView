@@ -2261,6 +2261,7 @@ static void hseqDrawGene (HSeq look)
 			    }
 			  if (hasTagCount)
 			    {
+			      float dd = 1.5, d1=0 ;
 			      int n = ssok->nClo + ssok->nTagsA + ssok->nTagsC +  ssok->nTagsD + ssok->nTagsB + ssok->nTagsBlood + ssok->nTagsNB + ssok->nTagsO ;
 			      n = ssok->nClo ;
 			      for (iTags = 0 ; iTags < NTAGS - NTAGS_OUTSIDER ; iTags++)
@@ -2268,19 +2269,76 @@ static void hseqDrawGene (HSeq look)
 
 			      {
 				char *tagText = messprintf("%d", n) ;
-				float *tHp, tH[] = {.8,.7,.6,.5,.4,0.0} ;
+				float *tHp, tH[] = {.8,.7,.6,0,.5,.4,0.0} ;
 				float lTT = strlen (tagText) ;
-				
-				for (tHp = tH ; *tHp ; tHp++)
-				  if (u1 - oldu2 > *tHp * lTT + .2)
+				BOOL ok = FALSE ;
+
+				for (tHp = tH ; !ok && *tHp ; tHp++)
+				  if (u1 - oldu2 > *tHp * lTT + dd)
 				    {
 				      float oldTH = graphTextHeight (*tHp) ; 
 				      int col = graphColor (BLACK) ;
-				      graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT-1)/2, y) ;
+				      graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT+d1)/2.0, y) ;
 				      graphTextHeight (oldTH) ; 
 				      graphColor (col) ;
-				      break ;
+				      ok = TRUE ;
 				    }
+
+				tagText = messprintf(".%dk", n/100) ;
+				lTT = strlen (tagText) ;
+				if (n >= 100 && n < 1000)
+				  for (tHp = tH ; !ok && *tHp ; tHp++)
+				    if (u1 - oldu2 > *tHp * lTT + dd)
+				      {
+					float oldTH = graphTextHeight (*tHp) ; 
+					int col = graphColor (BLACK) ;
+					graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT+d1)/2.0, y) ;
+					graphTextHeight (oldTH) ; 
+					graphColor (col) ;
+					ok = TRUE ;
+				      }
+
+				tagText = messprintf("%dk", n/1000) ;
+				lTT = strlen (tagText) ;
+				if (n >= 1000)
+				  for (tHp = tH ; !ok && *tHp ; tHp++)
+				    if (u1 - oldu2 > *tHp * lTT + dd)
+				      {
+					float oldTH = graphTextHeight (*tHp) ; 
+					int col = graphColor (BLACK) ;
+					graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT+d1)/2.0, y) ;
+					graphTextHeight (oldTH) ; 
+					graphColor (col) ;
+					ok = TRUE ;
+				      }
+
+				tagText = messprintf(".%dM", n/100000) ;
+				lTT = strlen (tagText) ;
+				if (n >= 100000 && n < 10000000)
+				  for (tHp = tH ; !ok && *tHp ; tHp++)
+				    if (u1 - oldu2 > *tHp * lTT + dd)
+				      {
+					float oldTH = graphTextHeight (*tHp) ; 
+					int col = graphColor (BLACK) ;
+					graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT+d1)/2.0, y) ;
+					graphTextHeight (oldTH) ; 
+					graphColor (col) ;
+					ok = TRUE ;
+				      }
+
+				tagText = messprintf("%dM", n/1000000) ;
+				lTT = strlen (tagText) ;
+				if (n >= 1000000)
+				  for (tHp = tH ; !ok && *tHp ; tHp++)
+				    if (u1 - oldu2 > *tHp * lTT + dd)
+				      {
+					float oldTH = graphTextHeight (*tHp) ; 
+					int col = graphColor (BLACK) ;
+					graphText (tagText, (u1+oldu2)/2 - *tHp * (lTT+d1)/2.0, y) ;
+					graphTextHeight (oldTH) ; 
+					graphColor (col) ;
+					ok = TRUE ;
+				      }
 			      }
 			    }
 			  if (oldColor > -1)

@@ -31,7 +31,7 @@
 #include "cdna.h"
 #include "vtxt.h"
 
-typedef struct giwStruct { KEY key, map, tg, pg, type ; char subtype[9] ; BOOL isDown ; int a1, a2, nEst, nMrna, nR, nAV, nNM, nXM, x1, x2, nja, njb ; } GIW ;
+typedef struct giwStruct { KEY key, map, tg, pg, mrna, type ; char subtype[9] ; BOOL isDown ; int a1, a2, nEst, nMrna, nR, nAV, nNM, nXM, x1, x2, nja, njb ; } GIW ;
 
 /******************************************************************/
 /******************************************************************/
@@ -80,8 +80,8 @@ static int giwOrder (const void *va, const void *vb)
 static int giwAddIntronClass2 (AC_DB db, KEY gene)
 {
    AC_HANDLE h = ac_new_handle () ;
-   int ii, jj, nii, nn = 0, npgs, ntgs, pg1, pg2, tg1, tg2, a1, a2, x1, x2, oldx1, oldx2 ;
-   KEYSET pgs = 0, tgs = 0 ;
+   int ii, jj, nii, nn = 0, npgs, ntgs, nmrnas, pg1, pg2, tg1, tg2, a1, a2, x1, x2, oldx1, oldx2 ;
+   KEYSET pgs = 0, tgs = 0, mrnas = 0 ;
    Array aa = 0, introns = 0, tmp = 0 ;
    OBJ Pg = 0, Tg = 0 ;
    KEY map, est, tg, pg, nmId ;
@@ -91,11 +91,13 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
    char *mapNam, *cp ;
    KEY _NM_id = str2tag("NM_id") ;
 
+   mrnas = queryKey (gene, "{CLASS Transcript} SETOR {CLASS Transcribed_gene ; >mRNA}; Intron_boundaries") ;
+   nmrnas = keySetMax (mrnas) ;
    tgs = queryKey (gene, "{CLASS Transcribed_gene} SETOR {>Transcribed_gene}; Intron_boundaries && ! shedded_from") ;
    ntgs = keySetMax (tgs) ;
    pgs = queryKey (gene, "{CLASS Predicted_gene} SETOR {>Genefinder};{source_exons} SETOR {>Genefinder ; source_exons}") ;
    npgs = keySetMax (pgs) ;
-   if (!ntgs && !npgs)
+   if (!ntgs && !npgs && !nmrnas)
      goto done ;
    aa = arrayHandleCreate (1000, BSunit, h) ;
 
@@ -109,7 +111,8 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
 	 {
 	   pg = keySet (pgs, ii) ;
 	   Pg = bsCreate (pg) ;
-	   if (!bsGetKey (Pg, _IntMap, &map) ||
+	   if (! Pg ||
+	       !bsGetKey (Pg, _IntMap, &map) ||
 	       !bsGetData (Pg, _bsRight, _Int, &pg1) ||
 	       !bsGetData (Pg, _bsRight, _Int, &pg2)
 	       )
@@ -166,7 +169,8 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
 	 {
 	   tg = keySet (tgs, ii) ;
 	   Tg = bsCreate (tg) ;
-	   if (!bsGetKey (Tg, _IntMap, &map) ||
+	   if (! Tg ||
+	       !bsGetKey (Tg, _IntMap, &map) ||
 	       !bsGetData (Tg, _bsRight, _Int, &tg1) ||
 	       !bsGetData (Tg, _bsRight, _Int, &tg2)
 	       )
@@ -223,6 +227,55 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
 	 }
      }
 
+   if (mrnas)
+     {
+       KEY type ;
+       for (ii = 0 ; ii < nmrnas ; ii++)
+	 {
+	   KEY mrna = keySet (mrnas, ii) ;
+	   OBJ Mrna = bsCreate (mrna) ;
+	   int mrna1 = 0, mrna2 = 0 ;
+       
+	   if (! Mrna ||
+	       !bsGetKey (Mrna, _IntMap, &map) ||
+	       !bsGetData (Mrna, _bsRight, _Int, &mrna1) ||
+	       !bsGetData (Mrna, _bsRight, _Int, &mrna2)
+	       )
+	     { bsDestroy (Mrna) ; continue ; }
+	   up = 0 ; oldx1 = oldx2 = 0 ;
+	   bsGetArray (Mrna, _Splicing, aa, 6) ;
+	   for (jj = 0 ; jj < arrayMax(aa) ; jj += 6)
+	     {
+	       bb = arrp (aa, jj, BSunit) ;
+	       x1 = bb[0].k ;
+	       x2 = bb[1].k ;
+	       type = bb[4].k ;
+	       if (type != _Intron)
+		 continue ;
+	       if (!x1 || !x2) continue ;
+	       if (x1 != oldx1 || x2 != oldx2)
+		 {
+		   oldx1 = x1 ; oldx2 = x2 ;
+		   up = arrayp (introns, nii++, GIW) ;
+		   up->mrna = mrna ;
+		   up->map = map ;
+		   up->x1 = x1 ; up->x2 = x2 ;
+		   if (mrna1 < mrna2)
+		     {
+		       up->a1 = a1 = mrna1 + x1 - 1 ;
+		       up->a2 = a2 = mrna1 + x2 - 1 ;
+		     }
+		   else
+		     {
+		       up->a1 = mrna1 - x1 + 1 ;
+		       up->a2 = mrna1 - x2 + 1 ;
+		     }
+		 }
+	     }
+	   bsDestroy (Mrna) ;
+	 }
+     }
+
    if (nii)
      {
        vTXT bfr = vtxtHandleCreate (h) ;
@@ -247,17 +300,18 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
 	       cp = ac_protect(name(up->pg), h) ;
 	       vtxtPrintf (bfr, "From_genefinder %s %d %d\n",  cp, up->x1, up->x2) ;
 	     }
-	   if (up->nAV) vtxtPrint (bfr, "AV\n") ;
-	   if (up->nNM) vtxtPrint (bfr, "NM\n") ;
-	   if (up->nXM) vtxtPrint (bfr, "XM\n") ;
-	   if (up->nR) vtxtPrintf (bfr, "RefSeq %d\n", up->nR) ; 
-	   if (up->nMrna) vtxtPrintf (bfr, "mRNA %d\n", up->nMrna) ; 
-	   if (up->nEst) vtxtPrintf (bfr, "EST %d\n", up->nEst) ; 
-	   if (up->nja) vtxtPrintf (bfr, "Brain %d\n", up->nja) ; 
-	   if (up->njb) vtxtPrintf (bfr, "Stratagene %d\n", up->njb) ; 
-	   
+	   if (up->mrna)
+	     {
+	       cp = ac_protect(name(up->mrna), h) ;
+	       vtxtPrintf (bfr, "In_mRNA %s %d %d\n",  cp, up->x1, up->x2) ;
+	     }
 	   ccp = name(up->map) ;
 	   vtxtPrintf (bfr, "IntMap %s %d %d\n", ac_protect(ccp,h), up->a1, up->a2) ; 
+	   {
+	     int ln = up->a2 - up->a1 ;
+	     if (ln < 0) ln = -ln ;
+	     vtxtPrintf (bfr, "Length %d\n", ln + 1) ;
+	   } 
 	   
 	   if (up->type == _Other && *up->subtype) vtxtPrintf (bfr, "Type %s %s\n", name(up->type), up->subtype) ;
 	   else if (up->type) vtxtPrintf (bfr, "Type %s\n", name(up->type)) ;
@@ -271,6 +325,7 @@ static int giwAddIntronClass2 (AC_DB db, KEY gene)
       ac_parse (db, vtxtPtr (bfr), 0, 0, h) ;
      }
  done:
+   keySetDestroy (mrnas) ;
    keySetDestroy (pgs) ;
    keySetDestroy (tgs) ;
    ac_free (h) ;

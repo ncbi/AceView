@@ -108,7 +108,7 @@ typedef struct HtileStruct {
   int mxShowNs ;
   int tmFilter, exonicFilter, smoothing, ratio, ends ;
   int filter99, doMask, isMasked ;
-  BOOL showGenome, showGenes, showGeneSignal, showMask, showRZones ;
+  BOOL showGenome, showGenes, showGeneSignal, showCaptureProbes, showMask, showRZones ;
   int romainSmoothing ;
   float zoom ;
   int gaussWidth ;
@@ -154,6 +154,7 @@ typedef struct maskStruct { int a1, a2 ; } MASK ;
 #define EXPRESSED_NUCPAM 0x40
 #define EXPRESSED_TOTAL 0x80
 #define MASK_FILTER 0x100
+#define CAPTURE_FILTER 0x200
 typedef struct rzoneStruct
 {
   KEY key, intMap ;
@@ -806,7 +807,7 @@ static int htileShowSegs (Array segs)
 		) ;
       }
   return 0 ;
-} /* htileExonsOrder */
+} /* htileShowSegs */
 
 /************************************************************/
 
@@ -886,6 +887,12 @@ static BOOL  htileCosmidConvert (Htile look, KEY cosmid, KEYSET knownProbes)
 
 	  seg->tm = ac_tag_float (Probe, "TM", 0) ;
 	  seg->flag = 0 ;
+	  if (keyFindTag (seg->key, str2tag("Capture")))
+	    {
+	      seg->flag |= CAPTURE_FILTER ;
+	      look0->showCaptureProbes = 
+		look->showCaptureProbes = TRUE ;
+	    }
 	  if (
 	      keyFindTag (seg->key, str2tag("Forward_exon_hit")) ||
 	      keyFindTag (seg->key, str2tag("Reverse_exon_hit"))
@@ -2933,7 +2940,7 @@ static void htileDrawSolexa (Htile look, float offset, float probeOffset, ACEOUT
   SLX *slx = 0 ;
   PNX *pnx ;
   Array yyy = 0 ;
-  float s, x, y, yy,dy,  oldx, zoom, oldWidth = 0, oldWidth1 ;
+  float s, olds = 0, x, y, yy,dy,  oldx, zoom, oldWidth = 0, oldWidth1 ;
   int i, np1, xabs, oldxabs = -1 ;
   float mxMx = -1000, mxMy = -1000, mxDelta = 2 ;
   BOOL mxUp = TRUE ;
@@ -2975,7 +2982,7 @@ static void htileDrawSolexa (Htile look, float offset, float probeOffset, ACEOUT
 	zoom1 = 1 ;
 
       zoom = look->zoom ;
- 
+      olds = 0 ;
       for (iSlx = 1, slx = arrp (look->map->solexa, 1, SLX); iSlx < arrayMax(look->map->solexa) ; iSlx++, slx++)
 	{
 	  x = TMAP2GRAPH (look->map, slx->a1 + solexaStep) ;
@@ -3019,31 +3026,36 @@ static void htileDrawSolexa (Htile look, float offset, float probeOffset, ACEOUT
 	    aceOutf (ao, "\t%g", s) ;
 	  else
 	    {
-	      y = offset - zoom * s ;
-	      if (y < 2) y = 2 ;
-	      if (look->showDot == 1)
-		graphCircle (x, y, .2) ;
-	      else if (look->showDot == 2)
-		graphLine (x, offset, x, y) ;
-	      else if (look->showDot == 3)
+	      xabs =  uToXabs(x) ;
+	      if (s > olds) olds = s ;
+	      if (xabs != oldxabs)
 		{
-		  xabs =  uToXabs(x) ;
-		  if (xabs != oldxabs)
+		  y = offset - zoom * olds ;
+		  if (y < 2) y = 2 ;
+		  if (look->showDot == 1)
+		    graphCircle (x, y, .2) ;
+		  else if (look->showDot == 2)
+		    graphLine (x, offset, x, y) ;
+		  else if (look->showDot == 3)
 		    {
-		      oldxabs = xabs ;
-		      dy = array (yyy, xabs, float) ; 
-		      if (dy < offset)
-			graphLine (x, offset - dy, x, y - dy) ;
-		      array (yyy, xabs, float) += zoom * s ;
+		      if (xabs != oldxabs)
+			{
+			  dy = array (yyy, xabs, float) ; 
+			  if (dy < offset)
+			    graphLine (x, offset - dy, x, y - dy) ;
+			  array (yyy, xabs, float) += zoom * olds ;
+			}
+		    } 
+		  else if (oldx > 0 &&  np1)
+		    {
+		      graphLine (oldx, yy, x, y) ;
 		    }
-		} 
-	      else if (oldx > 0 &&  np1)
-		{
-		  graphLine (oldx, yy, x, y) ;
+		  np1++ ;
+		  oldxabs = xabs ;
+		  oldx = x ;
+		  yy = y ;
+		  olds = 0 ;
 		}
-	      np1++ ;
-	      oldx = x ;
-	      yy = y ;
 	    }
 
 	  /* show lines at extremal points */
@@ -3837,7 +3849,7 @@ static void htileDotAction (KEY key, int box)
 
 static FREEOPT htileExonicMenu[] = {
   { 6, "Exonic menu"},
-  {200, "Any probe"},
+  {200, "Any Probe"},
   {201, "Exonic"},
   {202, "New exonic"},
   {203, "Exonic + new exonic"},
@@ -4144,7 +4156,7 @@ static void htileDrawActionButtons (Htile look, float *offsetp)
   switch (look->exonicFilter)
     {
     case 0: 
-      bb[ns].text = "Type" ;
+      bb[ns].text = "Probes" ;
       bb[ns].arg = assVoid(201) ;
       break ;
     case 1:
@@ -4377,6 +4389,12 @@ static void htileGenomeAction (void *v)
     case 2001:
       look0->showGenes = look->showGenes = TRUE ;
       break ;
+    case 4000:
+      look0->showCaptureProbes = look->showCaptureProbes = FALSE ;
+      break ;
+    case 4001:
+      look0->showCaptureProbes = look->showCaptureProbes = TRUE ;
+      break ;
     case 3000:
       look0->showGeneSignal = look->showGeneSignal = FALSE ;
       break ;
@@ -4408,6 +4426,14 @@ static void htileDrawGenomeButtons (Htile look, float *offsetp)
   bb[ns].fg = BLACK ;
   bb[ns].bg = PALEGREEN ;
   bb[ns].arg = look->showGenes ? assVoid(2000) : assVoid(2001) ;
+  bb[ns].next = 0 ;
+  ns++ ;
+
+  bb[ns].f = htileGenomeAction ;
+  bb[ns].text = look->showCaptureProbes ? "close capture tracks" : "open capture tracks" ;
+  bb[ns].fg = BLACK ;
+  bb[ns].bg = PALEGREEN ;
+  bb[ns].arg = look->showCaptureProbes ? assVoid(4000) : assVoid(4001) ;
   bb[ns].next = 0 ;
   ns++ ;
 
@@ -4934,6 +4960,184 @@ static void htileDrawGenes (Htile look, float offset, BOOL isUp)
   ac_free (h) ;
   arraySort (look->map->genes, htileSegOrder) ;
 } /* htileDrawGenes */
+
+/************************************************************/
+
+static void htileDrawCaptureProbes (Htile look, float offset, BOOL isUp)
+{
+#ifdef JUNK
+  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+  AC_OBJ Locus = ac_get_obj (look->db, className (look->locus), name(look->locus), h) ;
+  AC_ITER tiles = 0 ;
+  AC_OBJ Gene = 0, Tg = 0, tile = 0 ;
+  AC_TABLE mm, tgs, spls, ss ;
+  SEG *gSeg ;
+  KEY gene, tg ;
+  const char *ccp ;
+  float u1, u2, v1, v2, oldv1 = 0, oldv2, y1, y2, signal ;
+  int pass, ir, jr,  g1, g2, a1, a2, b1, b2, x1, x2 , geneBox, col = 0, bcol ;
+  BitSet bb = bitSetCreate (1000000, h) ;
+  vTXT buf = vtxtHandleCreate (h) ;
+  KEY _Source_exons = str2tag("Source_exons") ;
+
+  tiles = ac_objquery_iter (Locus, " {CLASS Sequence } SETOR {>Sequence} SETOR {>In_junction} ; {IS * } SETOR {>Parts} ; IntMap && Transcribed_gene", h) ; /* miegTOTO */
+  if (isUp) 
+    {
+      if (arrayExists (look->map->genes))
+	arrayDestroy (look->map->genes) ;
+      look->map->genes = arrayHandleCreate (300, SEG, look->h) ;
+    }
+  mm = ac_tag_table (Locus, "IntMap", h) ;
+  g1 = ac_table_int (mm, 0, 1, 1) ;
+  g2 = ac_table_int (mm, 0, 2, 1) ;
+  while (ac_free (tile), tile = ac_iter_obj (tiles))
+    {
+      mm = ac_tag_table (tile, "IntMap", h) ;
+      a1 = ac_table_int (mm, 0, 1, 1) ;
+      a2 = ac_table_int (mm, 0, 2, 1) ;
+      if (a2 < g1 || a1 > g2)
+	continue ;
+      	
+      for (pass = 0 ; pass < 1 ; pass++)
+	{
+	  switch (pass)
+	    {
+	    case 0:
+	    case 1:
+	      tgs = ac_tag_table (tile, "Transcribed_gene", h) ;
+	      y1 = offset + (isUp ? -.6 : 0) ; y2 = y1 + .6 ;   /* Defines thickness of the gene. Was set to .6 originally*/
+	      break ;
+
+	  for (ir = 0 ; tgs && ir < tgs->rows ; ir++)
+	    {
+	      tg = ac_table_key (tgs, ir, 0, 0) ;
+	      ac_free (h1) ;
+	      h1 = ac_new_handle () ;
+	      
+	      switch (pass)
+		{
+		case 0:
+		  Tg = ac_table_obj (tgs, ir, 0, h1) ;
+		  Gene = ac_tag_obj (Tg, "Gene", h) ;
+		  gene = Gene ? ac_obj_key (Gene) : 0 ;
+		  if (!keyFindTag (gene, _GeneId))
+		    continue ;
+		  col = BLUE ;
+		  break ;
+		}
+
+	      mm = ac_tag_table (Tg, "IntMap", h1) ;
+	      a1 = ac_table_int (mm, 0, 1, 1) ;
+	      a2 = ac_table_int (mm, 0, 2, 1) ;
+	      if ((a1 >= a2 && isUp) || (a1 <= a2 && !isUp))
+		continue ;
+	      x1 = a1 - look->map->a1 + 1 ;
+	      x2 = a2 - look->map->a1 + 1 ;
+	      u1 = TMAP2GRAPH (look->map, x1) ;
+	      u2 = TMAP2GRAPH (look->map, x2) ;
+	      if (u1 > u2) { float u0 = u1 ; u1 = u2 ; u2 = u0 ; }
+	      if (u2 < 0 || u1 > look->map->graphWidth)
+		continue ;
+	      if (u1 < 0)
+		u1 = 0 ;
+	      if (u2 >  look->map->graphWidth)
+		u2 =  look->map->graphWidth ;
+	      if (ac_has_tag (Gene, "MAQC"))
+		{
+		  gSeg = arrayp (look->map->genes, arrayMax(look->map->genes), SEG) ;
+		  gSeg->key = gene ;
+		  gSeg->x1 = x1 ;
+		  gSeg->x2 = x2 ;
+		  gSeg->a1 = x1 < x2 ? x1 : x2 ;
+		  gSeg->a2 = x1 < x2 ? x2 : x1 ;
+		  gSeg->col = RED ;
+		}
+	      array (look->map->boxIndex, geneBox = graphBoxStart (), int) = gene ;
+	      if (u2 > 0 && u1 < look->map->graphWidth)
+		{
+		  switch (pass)
+		    {
+		    case 0:
+		      v1 = TMAP2GRAPH (look->map, x1 - .5) ;
+		      v2 = TMAP2GRAPH (look->map, x2 + .5) ;
+		      if (v1 < 0) v1 = 0 ;
+		      if (v2 < 0) v2 = 0 ;
+		      if (v1 >  look->map->graphWidth)
+			v1 =  look->map->graphWidth ;
+		      if (v2 >  look->map->graphWidth)
+			v2 =  look->map->graphWidth ;
+		      graphRectangle (v1, y1, v2, y2) ;
+		      break ;
+		    }
+		}
+	      if (isGifDisplay)
+		{
+		  KEY pg = 0 ;
+		  /* mouse over for the web */
+		  vtxtClear (buf) ;
+		  vtxtPrintf (buf, "%s %s"
+			      , ac_key_name(gene)
+			      , ac_tag_printable (Gene, "Title", "Capture probe")
+			      ) ;
+		   graphBubbleInfo (geneBox, gene, "Probe", vtxtPtr (buf)) ;
+		}
+	      
+	      if (gene && col != GRAY)
+		{
+		  float uu=0, dx ;
+		  int dn = strlen (name(gene)) ;
+		  char buf[256] ;
+		  int ib ;
+		  BOOL ok = TRUE ;
+		  
+		  if (u2 > look->map->graphWidth)
+		    u2 = look->map->graphWidth ;
+		  if (u1 < 0)
+		    u1 = 0 ;
+		  dx = u2 - u1 ;
+		  if (dx > 0)
+		    {
+		      memset (buf, 0, sizeof(buf)) ;
+		      if (dx < 8) dx = 8 ;
+		      if (dx > dn) dx = dn ;
+		      if (dx > 255) dx = 255 ;	
+		      while (dx > 1)
+			{
+			  ok = TRUE ;
+			  uu = (u1 + u2)/2 - dx/2 ;
+			  for (ib = uu ; ib < uu + dx ; ib++)
+			    if (ib >= 0 && bit(bb, ib))
+			      ok = FALSE ;
+			  if (ok) break ;
+			  dx-- ;
+			}
+		      if (dx >= 1 && ok)
+			{
+			  strncpy (buf, name(gene), dx) ;
+			  {
+			    float oldh = graphTextHeight (1.5) ;
+			    graphText (buf, uu+.1, (isUp ? y1 - 1.0 : y2+.4)) ;
+			    graphTextHeight (oldh) ;
+			  }
+			  
+			  for (ib = uu ; ib < uu + dx ; ib++)
+			    if(ib >= 0) bitSet (bb, ib) ;
+			}
+		    }
+		}
+	      bcol = TRANSPARENT ;
+	      
+	      graphBoxEnd () ;
+	      graphBoxDraw (geneBox, col, bcol) ;
+	    }
+	}
+    }
+  graphColor (BLACK) ;
+  ac_free (h1) ;
+  ac_free (h) ;
+  arraySort (look->map->genes, htileSegOrder) ;
+#endif
+} /* htileDrawCaptureProbes */
 
 /************************************************************/
 
@@ -6063,6 +6267,16 @@ static void htileDraw (void)
       else
 	wiggleOffset = 4 + 2.3 * 3 ;
       
+      if (look->showCaptureProbes)
+	{
+	  if (pass)
+	    {
+	      htileDrawCaptureProbes (look, offset + 6.2, TRUE) ;
+	      offset += 8 ;
+	    }
+	  else
+	    wiggleOffset += 8 ;
+	}
       if (look->showGenes)
 	{
 	  if (pass)
@@ -6278,16 +6492,17 @@ BOOL htileDisplay (KEY key, KEY from, BOOL isOldGraph)
 	  oldHideHeader = TRUE ; 
 	  oldLnWidth = .3 ;
 	} 
-      look0->unique = 1 ;
+      look0->unique = 0 ;
       look0->smoothing = 0 ;
       look0->index = FALSE ;
-      look0->tmFilter = 1 ;
+      look0->tmFilter = 0 ;
       look0->exonicFilter = 0 ;
       look0->filter99 = 0 ;
       look0->showMask = FALSE ;
       look0->showGenome = FALSE ;
       look0->showRZones = FALSE ;
       look0->showGenes = TRUE ;
+      look0->showCaptureProbes = TRUE ;
       look0->showGeneSignal = TRUE ;
       {
 	int i ;

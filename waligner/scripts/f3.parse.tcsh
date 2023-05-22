@@ -25,6 +25,8 @@ if (! -d tmp/X.$MAGIC/XH$chrom/database) then
    popd
 endif
 
+echo "Clone MainClone\nMain_clone\nMainTitle $MAGIC\n\n" > tmp/X.$MAGIC/XH$chrom/Main_clone.ace
+
 set target=`echo $Etargets | gawk '{print $1}'`
 
 if (! -e tmp/X.$MAGIC/XH$chrom/f3.genome.done2) then

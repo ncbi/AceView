@@ -770,6 +770,7 @@
                    Sequence ?Sequence XREF Sequence_of_probe
                    Alias     ?Probe XREF Alias
                    Antialias ?Probe XREF Antialias
+                   Capture ?Capture
         OSp Tm UNIQUE Float
             Score  UNIQUE Float
         Tissue Barcode_afx ?Tissue

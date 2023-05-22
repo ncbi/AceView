@@ -3408,6 +3408,7 @@ static int snpBRS2snpExport (SNP *snp)
     {
       /*       keySet (goodRuns, ssm->run) = 1 ; */
 
+#ifdef JUNK
       if (wao &&
 	  (ssm->snp == 1 || ssm->snp == -1)                   /* just count at the wild positions */
 	  ) 
@@ -3483,6 +3484,7 @@ static int snpBRS2snpExport (SNP *snp)
 	      */
 	    }	  
 	}
+#endif
 
       if (ssm->snp == 1 || ssm->snp == -1) continue ;
       memset (Abuf, 0, sizeof(Abuf)) ; memset (Bbuf, 0, sizeof(Bbuf)) ;

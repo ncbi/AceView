@@ -216,7 +216,7 @@ static void mrnaDesignGetElements (S2M *s2m, SC *sc, DS *ds, Array smrnas)
 } /* mrnaDesignGetElements */
 
 /**********************************************************************************/
-/* get the coounts in introns included in XI XY XW */	
+/* get the counts in introns included in XI XY XW */	
 static void mrnaDesignGetIntronSupport (KEY intron, DSX *vp)
 {
   int ir ;

@@ -538,6 +538,8 @@ cat <<EOF > _x.awk
   if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a " ;
   if (tsnpZZ > 0) ph = ph "wait tsnp2b wait tsnp2c wait  tsnp3" ;  ## make words, count words , collate word counts
   if (snpZZ > 0) ph = ph " wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
+  if (tsnp > 0) ph = ph "wait tsnp10 " ;
+  if (snp > 0) ph = ph "wait snp10 " ;
   if (iv > 0) ph = ph " wait d6 wait d7 wait d8 " ;
   if (w > 1000)       ph = ph "  g4sp " ;
   if (gx + mx > 0) ph = ph "  wait  c7 g4 " ;
@@ -1206,6 +1208,7 @@ if ($phase == tsnp2g2) goto phaseTSnp2g2
 if ($phase == tsnp2b) goto phaseTSnp2b
 if ($phase == tsnp2c) goto phaseTSnp2c
 if ($phase == tsnp3) goto phaseTSnp3
+if ($phase == tsnp10) goto phaseTSnp10
 
 if ($phase == t1) goto phaset1
 if ($phase == t2) goto phaset2
@@ -1226,9 +1229,11 @@ if ($phase == s3a) goto phases3a
 if ($phase == s3b) goto phases3b
 if ($phase == s3am) goto phases3a
 if ($phase == s3bm) goto phases3b
+if ($phase == s2cxxx) goto phases2c
 
-if ($phase == s2c) goto phases2c
 if ($phase == snp2a) goto phasesnp2a
+if ($phase == snp10) goto phaseSnp10
+
 if ($phase == s10) goto phases10
 if ($phase == s11) goto phases11
 if ($phase == s12) goto phases12
@@ -1560,6 +1565,7 @@ echo "tsnp2b:   Create a word file in each zone to allow validation of the SNPs"
 echo "tsnp2c:   Count in the original fastc files the snp and reference words using tricoteur"
 echo "tsnp3:    Collate the previous table per run and group using tsf"
 echo "tsnp3xxx:    Report in RESULTS/SNV"
+echo "tsnp10:  Export tsnp using snpsummary into RESULTS/SNV"
 
 echo "s1:   Collate cover and missmatch per run in coverons/transcripts in tmp/SNP_BRS"
 echo "s1A2G:   Collate A>G in tmp/SNP_BRS"
@@ -1571,7 +1577,10 @@ echo 's3b:   Count the candidate SNPs per run or group filtered on cover/frequen
 # echo 's3c:   Locally reextend the alignments of the corresponding SNPs using the COUNT/..hits.gz files'
 
 
-echo "snp2a:  Centralize the tsf files in TSNP_DB for each zone"
+echo "snp2a:  Centralize the BRS files in TSNP_DB for each zone. Optional: Run DanLi.tcsh manually"
+echo "snp10:  Export snp using snpsummary into RESULTS/SNV"
+
+
 echo "s10:   Report the per run and type the mismatches in RESULTS/SNV"
 
 echo "s11:   Collate in tmp/SNPH all SNPs, filter, and look for differential"
@@ -4973,6 +4982,21 @@ end
 goto phaseLoop
 
 ###################################################################################
+## create a TSNP_DB database and parse the tsf files and the gene data
+phaseSnp10:
+phaseTSnp10:
+
+
+if (! -d tmp/TSNP_DB) mkdir tmp/TSNP_DB
+
+foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
+  if (! -d tmp/TSNP_DB/$zone) continue
+  if (! -e tmp/TSNP_DB/$zone/$MAGIC.$phase.done) then
+    scripts/submit tmp/TSNP_DB/$zone/$phase "scripts/tsnp10.export.tcsh $phase $zone"
+  endif
+end
+
+###################################################################################
 ## make words 31 mers
 
 phaseTSnp2b:
@@ -5299,6 +5323,26 @@ if (0) then
   foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
     cat ~/NB/tmp/SNP_LIST/$zone/NB_DEG2.Variant.list ~/Fatigue3/tmp/SNP_LIST/$zone/Fatigue3.Variant.list ~/Fatigue/tmp/SNP_LIST/$zone/Fatigue.Variant.list | sort -u >  ~/HumanRunsMasterDB/SNP_LIST_NB_Fatigue123.2016_02_03/$zone.list
   end
+endif
+
+if (0) then
+  if ($MAGIC == SnpA2R2 && ! -e Global_SNP_LIST/$MAGIC.done) then
+    if (! -d Global_SNP_LIST) mkdir Global_SNP_LIST
+    zcat TARGET/Targets/hs.av.TM.txt.gz | gawk '/^#/{next;}{split($1,aa,"|");printf("%s\t%s\n",aa[1],aa[3]);}' > Global_SNP_LIST/av.t2g
+    cat  PROBES/A2R2.capture.av.gene_list ZZZZZ Global_SNP_LIST/av.t2g | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$2]==1) print ;}' > Global_SNP_LIST/av.A2R2.t2g
+    set ok=1
+    foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
+      if (-e tmp/SNP_LIST/$zone/SnpAecdb.Variant.list && -e tmp/SNP_LIST/$zone/SnpClones.Variant.list && -e DanLi/DanLi.$zone.SNP_summary.txt) then
+        wc  tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt
+        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u | wc
+        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u > Global_SNP_LIST/Snp.$zone.Variant.list
+        cat  Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/Snp.$zone.Variant.list | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
+
+      else
+        set ok=0
+      endif
+    end
+  endif 
 endif
 
 

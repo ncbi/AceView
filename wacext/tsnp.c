@@ -1187,7 +1187,7 @@ static int tsnpRemap1 (TSNP *tsnp)
   
   if (tsnp->db)
     {
-      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap", 0, h) ;
+      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap ; IS HIF1AandSNAPC1.gAug10-unspliced:142:Sub:C:T", 0, h) ;
       while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
 	{
 	  h1 = ac_new_handle () ;

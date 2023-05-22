@@ -29,12 +29,19 @@ if ($poolDummy == pool) set pool="-pool"
 # the program collects the snps not wild type at risk 1/100, function snpNotLow() 
 # and all the counts at the positions listed in -snp_list even if in the current run we see a wild type
 
-    set vdb=""
-    if ($collect == count && -e  tmp/SNP_LIST/$zone/$MAGIC.Variant.list) set vdb="-snp_list   tmp/SNP_LIST/$zone/$MAGIC.Variant.list"
-    if ($collect == count && -e  ../Global.Variant.list) set vdb="-snp_list  ../Global.Variant.list"
-   
+echo "set vdb"
+set vdb=""
+if ($collect == count) then 
+    set vdb="toto"
+    if (-e  tmp/SNP_LIST/$zone/$MAGIC.Variant.list) set vdb="tmp/SNP_LIST/$zone/$MAGIC.Variant.list"
+    if (-e  Global_SNP_LIST/$MAGIC.$zone.Variant.list) set vdb="Global_SNP_LIST/$MAGIC.$zone.Variant.list"
+    if ($vdb == toto) exit (1)
+    set vdb="-snp_list $vdb"
+endif
+
 ####  Main work
-echo -n "$collect main work : "
+echo -n "$collect main work $vdb : "
+
 date
 
     set out=tmp/SNP/$run/$zone.$collect.$uu.snp

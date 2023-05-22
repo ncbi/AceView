@@ -12880,13 +12880,29 @@ static void makeMrnaFilterGeneHits (S2M *s2m, SC* sc, SMRNA *gmrna, Array smrnas
     }
 
       /* mark the inside alternatives */
+  /* introns are alternative only if they overlap a different intron
+   *  but cassette exons count as alternative exons 
+   */
    if (arrayMax (hits))
      {
        for (ii = 0, up = arrp (hits, 0, HIT) ; ii < arrayMax (hits) ; up++, ii++)
          {
            for (vp = up + 1, jj = ii + 1 ; jj < arrayMax (hits) && vp->a1 <= up->a2 ; vp++, jj++)
              {
-               up->type |= gB ; vp->type |= gB ; 
+	       if (up->type & gI)
+		 {
+		   if (vp->type & gI)
+		     up->type |= gB ; 
+		 }
+	       else
+		 up->type |= gB ; 
+	       if (vp->type & gI)
+		 {
+		   if (up->type & gI)
+		     vp->type |= gB ; 
+		 }
+	       else
+		 vp->type |= gB ; 
              }
          }
      }                  

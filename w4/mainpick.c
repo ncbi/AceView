@@ -1747,9 +1747,12 @@ void pickDraw (void)
       if (sessionDbName())
 	graphRetitle(messprintf("%s, %s %s",
 				myaceGetVersionString(), pickMainTitle(), sessionDbName())) ;
+      else if (pickMainTitle()) 
+	graphRetitle(messprintf("%s",
+				pickMainTitle())) ;
       else
-	graphRetitle(messprintf("%s, %s",
-				myaceGetVersionString(), pickMainTitle())) ;
+	graphRetitle(messprintf("%s",
+				myaceGetVersionString())) ;
     }
 
   getLayout () ;
