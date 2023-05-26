@@ -101,12 +101,12 @@ typedef struct tsnpCallerTable {
   const char *inFileOfFileList ;
   const char *inFileList ;
   const char *project ;
-  const char *force ;
   const char *zone ;
   const char *filter ;
+  const char *select ;
   const char *remap2genome ;
   const char *remap2genes ;
-
+  BOOL force ;
  
   int minSnpCover, minSnpCount ;
   float minSnpFrequency ;
@@ -145,7 +145,7 @@ typedef struct tsnpCallerTable {
 
   Array target2geneAtlas ;
   Array target2exonAtlas ;
-
+  Array runProfiles ;
   BOOL makeWords ;
 
   int pure, high, mid, low, ref, wellCovered ; /* prevalence */
@@ -192,6 +192,8 @@ typedef struct runStruct {
   int *typesR ;
   int *typesC ;
 } RC ;
+
+static BOOL tsnpGetMonomodal (TSNP *tsnp, AC_OBJ Snp);
 
 /*************************************************************************************/
 /*************************************************************************************/
@@ -479,9 +481,9 @@ static int tsnpGetSelectedSnps (TSNP *tsnp)
   DICT *snpDict = tsnp->snpDict ;
   vTXT txt = vtxtHandleCreate (h) ;
 
-  if (tsnp->force)
+  if (tsnp->select)
     {
-      cp = strnew (tsnp->force, h) ;
+      cp = strnew (tsnp->select, h) ;
       sep = " where (" ;
       while (cp)
 	{
@@ -665,7 +667,7 @@ static void tsnpSnpParse (TSNP *tsnp)
 	  tsnp->snpDetected += tsnpSnpParseOne (tsnp, ai) ;
 	}
      }
-  if (tsnp->force) tsnpGetSelectedSnps (tsnp) ;
+  if (tsnp->select) tsnpGetSelectedSnps (tsnp) ;
   arraySort (tsnp->snps, tsnpSnpA1Order) ;
 
   /* coallesce the neighbours */
@@ -1059,7 +1061,7 @@ static int tsnpCreateAtlas (TSNP *tsnp)
       if (! aceInInt (ai, &a2))  /* mRNA exon coordinates */
 	continue ;
       aceInStep (ai, '\t') ;
-      ccp = aceInWord (ai) ; /* chrom */
+      ccp = aceInWord (ai) ; /* gene */
       if (! ccp || *ccp == '#')
 	continue ;
       dictAdd (tsnp->targetDict, ccp, &gene) ;
@@ -1187,7 +1189,10 @@ static int tsnpRemap1 (TSNP *tsnp)
   
   if (tsnp->db)
     {
-      iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap ; IS HIF1AandSNAPC1.gAug10-unspliced:142:Sub:C:T", 0, h) ;
+      if (tsnp->force)
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA ", 0, h) ;
+      else
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap ", 0, h) ;
       while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
 	{
 	  h1 = ac_new_handle () ;
@@ -1200,18 +1205,25 @@ static int tsnpRemap1 (TSNP *tsnp)
 	      x1 = ac_table_int (mrnaTable, 0, 1, 0) ;
 	      x2 = ac_table_int (mrnaTable, 0, 2, 0) ;
 
-	      if (ac_has_tag (variant, "Insertion"))
+	      if (ac_has_tag (variant, "Substitution"))
+		{
+		}
+	      else if (ac_has_tag (variant, "Deletion"))
 		{
 		  da = ac_tag_int (variant, "Multi_deletion", 1) ;
-		  x2 = x1 + 1 + da ;
+		  x2 = x1 + da + 1 ;
+		}
+	      else if (ac_has_tag (variant, "Insertion"))
+		{
+		  x2 = x1 + 1 ;
 		}
 	      mm = ac_table_printable (mrnaTable, 0, 0, 0) ;
 	      if (mm && dictFind (tsnp->targetDict, mm, &mrna) && tsnpRemap1Do (tsnp, mrna, x1, x2, &chrom, &a1, &a2, &strand))
 		{
 		  nn2++ ;
 		  vtxtPrintf (txt, "Variant %s\n", ac_protect (ac_name (variant), h1)) ;
-		  if (da) 	      /* fix inconsistent coordinates */
-		    vtxtPrintf (txt, "mRNA %s %d %d\n", ac_protect (dictName (tsnp->targetDict, mrna), h1), x1, x2) ;
+		  /* fix inconsistent coordinates */
+		  vtxtPrintf (txt, "mRNA %s %d %d\n", ac_protect (dictName (tsnp->targetDict, mrna), h1), x1, x2) ;
 		  vtxtPrintf (txt, "IntMap %s %d %d\n\n", dictName (tsnp->chromDict, chrom), a1, a2) ; 
 		}
 	    }
@@ -1309,7 +1321,10 @@ static int tsnpRemap2 (TSNP *tsnp)
   const char *chromNam ;
   const char *errors = 0 ;
   
-  iter = ac_query_iter (tsnp->db, TRUE, "find variant IntMap && ! geneBox", 0, h) ;
+  if (tsnp->force)
+    iter = ac_query_iter (tsnp->db, TRUE, "find variant IntMap ", 0, h) ;
+  else
+    iter = ac_query_iter (tsnp->db, TRUE, "find variant IntMap && ! geneBox", 0, h) ;
   while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
     {
       h1 = ac_new_handle () ;
@@ -2303,12 +2318,26 @@ static BOOL tsnpSlide (const char *dna, int dnaLn, int a10, int da, int *dxp, in
 
 /*************************************************************************************/
 /* slide deletions and insertions, speclial treat for position 76 */
+/* buf is the most 5' insert in the mRNA 
+ * bufG is its reverse complement (most 3' insert in the genome assuming negative strand
+ * bufS is the most 3' insert in the mRNA (thus equal to buf rolled to th right on the mRNA) 
+ * bufGS is its reverse complement (thus equal to bufG rolled to the right on the genome)
+ */
 
-static BOOL tsnpSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep, const char *insert, char *buf)
+static BOOL tsnpSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp, int *slidep, const char *insert0, char *buf, char *bufS, char *bufG, char *bufGS)
 {
   int i, j, k, dx, dy, a1 = a10 ;
   BOOL isDup = FALSE ;
-  
+  char insert[da+1] ;
+
+  if (strlen (insert0) != da)
+    for (k = 0 ; k < da ; k++)
+      insert[k] = 'n' ;
+  else
+    for (k = 0 ; k < da ; k++)
+      insert[k] = insert0[k] ;
+  insert[da] = 0 ;
+
   /* slide left */
   dx = 0 ; i = a1 - 1 ; j = da - 1 ;
   while (i > 0 && dna[i] == ace_lower(insert [j]))
@@ -2319,12 +2348,22 @@ static BOOL tsnpSlideDup (const char *dna, int dnaLn, int a10, int da, int *dxp,
     buf[k] = insert[(j+1+k+da) % da] ;
   buf[k] = 0 ;
   /* slide right */
-  dy = 0 ; i = a1 ;
-  while (i < dnaLn - 1 && dna[i] == ace_lower(insert[j]))
+  dy = 0 ; i = a1 ; j = 0 ;
+  while (i < dnaLn - 1 && dna[i] == ace_lower(buf[j]))
     { i++ ; dy++ ; j = (j+1) % da ; }
   if (dy >= da)
     isDup = TRUE ;
 
+  for (k = 0 ; k < da ; k++)
+    buf[k] = ace_upper (buf[k]) ;
+  for (k = 0 ; k < da ; k++)
+    bufS[k] = buf[(k + dy) % da] ;
+  for (k = 0 ; k < da ; k++)
+    {
+      bufG[k] = ace_upper (complementLetter (buf[da-k-1])) ;
+      bufGS[k] = ace_upper (complementLetter (bufS[da-k-1])) ;
+    }
+  buf[da] = bufS[da] = bufG[da] = bufGS[da] = 0 ;
   *slidep = dy ;
   *dxp = a1 - a10 ;
   return isDup ;
@@ -2536,7 +2575,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
   BOOL ok = FALSE ;
   char bufR[52], bufV[52], bufVG[52] ;
   char RbufR[52], RbufV[52] ;
-  
+  char bufSeqTitle[128] ;  
   fromMrna = ac_has_tag (Snp, "Found_in_mRNA") ;
   /*
     KEY product = 0 ; 
@@ -2548,6 +2587,28 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
   memset (RbufR, 0, sizeof (bufR)) ;
   memset (RbufV, 0, sizeof (bufV)) ;
 
+  socrate (0) ; /* for compiler happiness */
+
+  if (Rtbl)
+    {
+      AC_OBJ Mrna = ac_table_obj (Rtbl, 0, 0, h) ;
+      if (Mrna)
+	{
+	  const char *ccp = ac_tag_printable (Mrna, "Gene", 0) ;
+	  if (ccp)
+	    vtxtPrintf (txt, "Gene \"%s\"\n", ccp) ;
+	  ac_free (Mrna) ;
+	}
+    }
+  
+  bufSeqTitle[0]= 0 ; 
+  if (seq) 
+    {
+      AC_OBJ Seq = ac_table_obj (tbl, 0, 0, h) ;
+      const char *ccp = Seq ?  ac_tag_printable (Seq, "Title", name(seq)) : 0 ;
+      if (ccp && *ccp)
+	strncpy (bufSeqTitle, ccp, 126) ;
+    }
 
   if (! seq)
     {
@@ -2615,6 +2676,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
       char **ins, *inss[] = {"InsA","InsT","InsG","InsC", 0} ;
       g2m = RdnaLn ? m1 - a1 : 0 ;
       
+      vtxtPrintf (txt, "%s\n", a1 < a2 ? "Forward" : "Reverse") ;
       if (a2 == 1 || a2 == -1)
 	{
 	  char *cp = strnew (ac_name(Snp), 0), *cq, *cr ;
@@ -2652,31 +2714,39 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      int am1 = fromMrna ? m1 : a1 ;
 		      int a3 = a1 < a2 ? a1 + 1 : a1 - 1 ;
 		      char buf[4] ;
-		      buf[0] = ace_upper (sub[0][0]) ;
-		      buf[1] = '>' ;
-		      buf[2] = ace_upper(sub[0][2]) ;
-		      buf[3] = 0 ;
+		      if  (a1 < a2)
+			{
+			  buf[0] = ace_upper (sub[0][0]) ;
+			  buf[1] = '>' ;
+			  buf[2] = ace_upper(sub[0][2]) ;
+			  buf[3] = 0 ;
+			}
+		      else
+			{
+			  buf[0] = ace_upper (complementLetter(sub[0][0])) ;
+			  buf[1] = '>' ; 
+			  buf[2] = ace_upper (complementLetter(sub[0][2])) ;
+			  buf[3] = 0 ;
+			}
+
 		      ok = TRUE ;
 		      vtxtPrint (txt, "-D Substitution\n") ; /* cleanup */
-		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %d %s is modified\"\n", name (seq), a1, a2, a3, *sub) ;
-		      vtxtPrintf (txt,"Typ %s\n%s\n", buf, *sub) ; /* reinstate */ 
+		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %d %c becomes %c\"\n", name (seq), a1, a2, a3, buf[0], buf[2]) ;
+		      vtxtPrintf (txt,"Typ %c>%c\n%s\n", sub[0][0], sub[0][2], *sub) ; /* reinstate */ 
 		      if (a1 < a2)
 			{
-			  vtxtPrintf (txt, "gName \"%s:g.%d%c>%c\"\n", name(seq), a1+1, sub[0][0], sub[0][2]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d%s\"\n", bufSeqTitle, a1+1, buf) ;
 			  vtxtPrintf (txt, "VCF %s %d %c %c\n", name(seq), a1+1, sub[0][0], sub[0][2]) ;
 			}
 		      else
 			{
-			  vtxtPrintf (txt, "gName \"%s:g.%d%c>%c\"\n", name(seq), a1-1
-				      , ace_upper (complementLetter(sub[0][0]))
-				      , ace_upper (complementLetter(sub[0][2]))
-				      ) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d%s\"\n", bufSeqTitle, a1-1, buf) ;
 			  vtxtPrintf (txt, "VCF %s %d %c %c\n", name(seq), a2 + 1
 				      , ace_upper (complementLetter(sub[0][0]))
 				      , ace_upper (complementLetter(sub[0][2]))
 				      ) ;
 			}
-		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d%c>%c\"\n", name(mrna), socrate(m1 + 1), sub[0][0], sub[0][2]) ;
+		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d%c>%c\"\n", name(mrna), am1 + 1, sub[0][0], sub[0][2]) ;
 		      
 		      dda = 0 ; /* -1 for Socrates, but +1 because the sub is between a1 and a2, at a1+1 */
 
@@ -2725,7 +2795,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      if (a1 < a2)
 			{
 			  vtxtPrintf (txt, "VCF %s %d %s %s\n", name(seq), a1+1, ccR, ccV) ;
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", name(seq), a1+1,a2 -1, ccV) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", bufSeqTitle, a1+1,a2 -1, ccV) ;
 			}
 		      else
 			{
@@ -2736,10 +2806,10 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			    buf[i] = complementLetter (ccV[n-1-i]) ;
 			  buf[i] = 0 ;
 			  vtxtPrintf (txt, "VCF %s %d %s %s\n", a2 + 1, name(seq), ccR, buf) ;
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", name(seq), a2+1,a1 -1, buf) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", bufSeqTitle, a2+1,a1 -1, buf) ;
 			}
 
-		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins%s\"\n", name(mrna),socrate (g2m+a1),socrate (g2m+a2 -1), ccV) ;
+		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins%s\"\n", name(mrna),am1+1,am2-1, ccV) ;
 		      vtxtPrintf (txt, "Typ \"%s2%s\"\n", ccR, ccV) ;
 		      dda = 0 ; /* -1 for Socrates, but +1 because the sub is between a1 and a2, starting at a1+1 */
 		      
@@ -2784,16 +2854,20 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    int da = 1 ;
 		    int dx = 0 ;
 		    int slide = 0 ;
-		    int am1 = fromMrna ? m1 : a1 ;
-		    int am2 = am1 + 2 ;
+		    int am2, am1 = fromMrna ? m1 : a1 ;
 		    BOOL isDim = tsnpSlide (dna, dnaLn, am1, da, &dx, &slide) ;
 		    if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		    else { a1 -= dx ; a2 -= dx ;}
 		    if (fromMrna) { m1 += dx ; m2 += dx ; }
 		    am1 = fromMrna ? m1 : a1 ;
+		    am2 = am1 + 2 ;
 		    fs = -1 ; 
 
-		    vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c %d is deleted\"\n", name (seq), a1, a2, (*del)[3], a1+1) ;
+		    vtxtPrintf (txt, "mRNA %s %d %d \"Base %c %d is deleted\"\n", name (mrna), m1, m2, (*del)[3], m1+1) ;
+		    if (a1 < a2)
+		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c %d is deleted\"\n", name (seq), a1, a2, (*del)[3], a1+1) ;
+		    else
+		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c %d is deleted\"\n", name (seq), a1, a2, ace_upper(complementLetter(dna[am1])), a1  - 1) ;
 		    vtxtPrintf (txt, "-D Sliding\n") ;
 		    vtxtPrint (txt, "-D Deletion\n") ; /* cleanup */
 		    vtxtPrintf (txt,"%s\n", *del) ; /* reinstate */
@@ -2803,25 +2877,28 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    if (isDim)
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", name(seq), a1+1, ace_upper(dna[am1])) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", bufSeqTitle, a1+1+slide, ace_upper(dna[am1])) ;
 			else
-			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", name(seq), a2-1-slide, ace_upper(complementLetter(dna[am2+slide]))) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddim%c\"\n", name(mrna), socrate (g2m+a1+1), ace_upper(dna[am1])) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", bufSeqTitle, a2+1, ace_upper(complementLetter(dna[am1]))) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddim%c\"\n", name(mrna), am1+1+slide, ace_upper(dna[am1])) ;
 			vtxtPrintf (txt, "Typ \"Dim%c\"\n", ace_upper(dna[am1])) ;
 			vtxtPrintf (txt, "Diminution\nIn_repeat\n") ;
 		      }
 		    else
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%ddel%c\"\n", name(seq), a1+1, ace_upper(dna[am1])) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddel%c\"\n", bufSeqTitle, a1+1, ace_upper(dna[am1])) ;
 			else
-			  vtxtPrintf (txt, "gName \"%s:g.%ddim%c\"\n", name(seq), a2-1-slide, ace_upper(complementLetter(dna[am2+slide]))) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddel%c\"\n", name(mrna), socrate (g2m+a1+1), ace_upper(dna[am1])) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddel%c\"\n", bufSeqTitle, a2+1, ace_upper(complementLetter(dna[am2+slide]))) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddel%c\"\n", name(mrna), am1+1+slide, ace_upper(dna[am1])) ;
 			vtxtPrintf (txt, "Typ \"Del%c\"\n", ace_upper(dna[am1])) ;
 		      }
 		    if (slide) 
 		      vtxtPrintf (txt, "Sliding %d\n", slide) ;
-		    vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a1,  dna[am1-1], ace_upper(dna[am1]), dna[am1-1]) ;
+		    if (a1 < a2)
+		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a1,  dna[am1-1], ace_upper(dna[am1]), dna[am1-1]) ;
+		    else
+		      vtxtPrintf (txt, "VCF %s %d %c%c \"%c_am1=%d_am2=%d\"\n", name(seq),  a2 - slide,  complementLetter(dna[am2+slide-1]), ace_upper(complementLetter(dna[am2+slide-2])), complementLetter(dna[am2+slide-1]),am1,am2) ;
 
 		    am1 = fromMrna ? m1 : a1 ;
 		    for (i = am1 - 21, j = 0 ; i < am1 + 30 + da && i + da < dnaLn ; i++)
@@ -2832,7 +2909,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			      bufV[j] = bufR[j] = dna[i] ;
 			      RbufV[j] = RbufR[j] = myRdna(i) ;
 			    }
-			  else if (i == a1)
+			  else if (i == am1)
 			    {
 			      bufR[j] = ace_upper (dna[i]) ;
 			      bufV[j] = '_' ; 
@@ -2861,7 +2938,9 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		  int am1 = fromMrna ? m1 : a1 ;
 		  int am2 = fromMrna ? m2 : a2 ;
 		  BOOL isDim = tsnpSlide (dna, dnaLn, am1, da, &dx, &slide) ;
-		  char bufN[15] ;
+		  char bufN[25] ;
+		  char bufVS[30] ;
+		  char bufVGS[30] ;
 		  /* 		  char bufVC[51] ; */
 		  if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		  else { a1 -= dx ; a2 -= dx ;}
@@ -2872,17 +2951,26 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		  vtxtPrintf (txt, "-D Sliding\n") ;
 		  vtxtPrint (txt, "-D Deletion\n") ; /* cleanup */
 		  
-		  vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Bases %d to %d (%d bases) are deleted\"\n", name (seq), a1, a2, a1+(a1<a2?1:-1), a2 - (a1<a2?1:-1), da) ;
+		  if (a1 < a2)
+		    vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Bases %d to %d (%d bases) are deleted\"\n", name (seq), a1, a2, a1+1, a2-1, da) ;
+		  else
+		    vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Bases %d to %d (%d bases) are deleted\"\n", name (seq), a1, a2, a2+1, a1-1, da) ;
 		  ok = TRUE ;
 		  /* temporarily store the deleted bases in bufV */
 		  for (i = am1, j = 0 ; j < 51 && i < am2 - 1 && i < dnaLn ; i++)
 		    bufV[j++] = ace_upper(dna[i]) ;
 		  bufV[j] = 0 ;
+		  for (i = am1, j = 0 ; j < 51 && i < am2 - 1 && i < dnaLn ; i++)
+		    bufVS[j++] = ace_upper(dna[i+slide]) ;
+		  bufVS[j] = 0 ;
 		  if (a1 > a2)
 		    {
 		      for (i = 0 ; i <  da ; i++)
 			bufVG[i] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)bufV[da - 1 - i]]]]) ;
 		      bufVG[i] = 0 ;
+		      for (i = 0 ; i <  da ; i++)
+			bufVGS[i] = ace_upper(dnaDecodeChar[(int)complementBase[(int)dnaEncodeChar[(int)bufVS[da - 1 - i]]]]) ;
+		      bufVGS[i] = 0 ;
 		    }
 		  vtxtPrintf (txt,"Multi_deletion %d %s\n", da, bufV) ; /* reinstate */ 
 		  if (da <= 20)
@@ -2892,15 +2980,15 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			  if (a1 < a2)
 			    {
 			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, dna[am1-1], bufV, dna[am1-1]) ;
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddim%s\"\n", name(seq), a1+1,a2-1, bufV) ;
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddim%s\"\n", bufSeqTitle, a1+1+slide,a2-1+slide, bufVS) ;
 			    }
 			  else
 			    {
-			      char cc = ace_lower(complementLetter(dna[am2+slide+1-1])) ;
-			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a2-slide, cc, bufVG, cc) ; 
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddim%s\"\n", name(seq), a2-slide+1,a1-slide-1, bufVG) ;
+			      char cc = ace_lower(complementLetter(dna[am2+slide-1])) ;
+			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a2-slide, cc, bufVGS, cc) ; 
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddim%s\"\n", bufSeqTitle, a2+1,a1-1, bufVG) ;
 			    }
-			  if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddim%s\"\n", name(mrna), socrate (g2m+a1+1),socrate (g2m+a2-1), bufV) ;
+			  if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddim%s\"\n", name(mrna), am1 + 1 + slide, am2 - 1 + slide, bufVS) ;
 			  vtxtPrintf (txt, "Typ \"Dim%s\"\n", bufV) ;
 			  vtxtPrintf (txt, "Diminution\n") ;
 			}
@@ -2909,15 +2997,17 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			  if (a1 < a2)
 			    {
 			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, dna[am1-1], bufV, dna[am1-1]) ;
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel%s\"\n", name(seq), a1+1,a2-1, bufV) ;
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel%s\"\n", bufSeqTitle, a1+1+slide,a2-1+slide, bufVS) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel%s\"\n", name(mrna), am1 + 1 + slide, am2 - 1 + slide, bufVS) ;
 			    }
 			  else
 			    {
-			      char cc = ace_lower(complementLetter(dna[am2+slide+1-1])) ;
-			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a2-slide, cc, bufVG, cc) ; 
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel%s\"\n", name(seq), a2-slide+1,a1-slide-1, bufVG) ;
+			      char cc = ace_lower(complementLetter(dna[am2+slide-1])) ;
+			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a2-slide, cc, bufVGS, cc) ; 
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel%s\"\n", bufSeqTitle, a2+1,a1-1, bufVG) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel%s\"\n", name(mrna), am2 + 1 - slide, am1 - 1 - slide, bufVS) ;
 			    }
-			  if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel%s\"\n", name(mrna), socrate (g2m+a1+1),socrate (g2m+a2-1), bufV) ;
+
 			  vtxtPrintf (txt, "Typ \"Del%s\"\n", bufV) ;
 			}
 		      vtxtPrintf (txt, "Multi_deletion %d %s\n", da, bufV) ;
@@ -2925,9 +3015,19 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		  else
 		    {
 		      vtxtPrintf (txt, "Typ \"Del_%d\"\n", da) ;
-		      vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, dna[am1-1], da, dna[am1-1]) ;
-		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel(%d)\"\n", name(seq), a1+1,a2-1, da) ;
-		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel(%d)\"\n", name(mrna), socrate (g2m+a1+1),socrate (g2m+a2-1), da) ;
+		      if (a1 < a2)
+			{
+			  vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, dna[am1-1], da, dna[am1-1]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddel(%d)\"\n", bufSeqTitle, a1+1,a2-1, da) ;
+			}
+		      else
+			{
+			  char cc = ace_lower(complementLetter(dna[am2+slide-1])) ;
+			  vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, cc, da, cc) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddel(%d)\"\n", bufSeqTitle, a1+1,a2-1, da) ;
+			}
+
+		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel(%d)\"\n", name(mrna), am1 + 1 + slide, am2 - 1 + slide, da) ;
 		      vtxtPrintf (txt, "Multi_deletion %d\n", da) ;
 		    }
 		  if (slide) 
@@ -2997,10 +3097,13 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    int dx = 0 ;
 		    BOOL isDup = FALSE ;
 		    char buf[da+1] ;
+		    char bufS[da+1] ;
+		    char bufG[da+1] ;
+		    char bufGS[da+1] ;
 		    int slide = 0 ;
 		    int am1 = fromMrna ? m1 : a1 ;
 		    int am2 = fromMrna ? m2 : a2 ;
-		    isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, (*ins) + 3, buf) ;
+		    isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, (*ins) + 3, buf, bufS, bufG, bufGS) ;
 		    if (a1 < a2) { a1 += dx ; a2 += dx ;}
 		    else { a1 -= dx ; a2 -= dx ;}
 		    if (fromMrna) { m1 += dx ; m2 += dx ; }
@@ -3013,32 +3116,32 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    if (a1 < a2)
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c is inserted on plus strand between base %d and %d\"\n", name (seq), a1, a2, (*ins)[3], a1, a2) ;
 		    else
-		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c is inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, (*ins)[3], a1, a2) ;
+		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c is inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, ace_upper(complementLetter((*ins)[3])), a1, a2) ;
 		    if (a1 < a2)
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], inss[0][3]) ;
+		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], (*ins)[3]) ;
 		    else
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
+		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide])), ace_lower(complementLetter(dna[am1+slide])), ace_upper(complementLetter( (*ins)[3]))) ;
 		    vtxtPrintf (txt, "-D Sliding\n") ;
 		    vtxtPrint (txt, "-D Insertion\n") ; /* cleanup */
 		    vtxtPrintf (txt,"%s\n", *ins) ; /* reinstate */
 		    if (isDup)
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a1+slide, a2+slide, inss[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddup%c\"\n", bufSeqTitle, a1+slide, (*ins)[3]) ;
 			else
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
-			vtxtPrintf (txt, "Typ \"Dup%c\"\n", inss[0][3]) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddup%c\"\n", name(mrna), am1+slide, inss[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%ddup%c\"\n", bufSeqTitle, a2, ace_upper(complementLetter ((*ins)[3]))) ;
+			vtxtPrintf (txt, "Typ \"Dup%c\"\n", (*ins)[3]) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%ddup%c\"\n", name(mrna), am1+slide, (*ins)[3]) ;
 			vtxtPrintf (txt, "Duplication\nIn_repeat\n") ;
 		      }
 		    else
 		      {
 			if (a1 < a2)
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins%c\"\n", name(seq), a1+slide, a2+slide, inss[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins%c\"\n", bufSeqTitle, a1+slide, a2+slide, (*ins)[3]) ;
 			else
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%c\"\n", name(seq), a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
-			vtxtPrintf (txt, "Typ \"Ins%c\"\n", inss[0][3]) ;
-			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%c\"\n", name(mrna), am1+slide, am2+slide, inss[0][3]) ;
+			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins%c\"\n", bufSeqTitle, a2, a1, ace_upper(complementLetter ((*ins)[3]))) ;
+			vtxtPrintf (txt, "Typ \"Ins%c\"\n", (*ins)[3]) ;
+			if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%c\"\n", name(mrna), am1+slide, am2+slide, (*ins)[3]) ;
 		      }
 		      
 		    if (slide) 
@@ -3075,24 +3178,26 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    if (ccp) ccp = ccp+2 ;
 		    da = strlen (ccp) ;
 		  }
-		  if (a2 - a1 == 1)
+		  if (a2 - a1 == 1 || a2 - a1 == -1)
 		    {
-		      int k, dx = 0 ;
-		      BOOL ok = TRUE ;
+		      int i, k, dx = 0 ;
 		      BOOL isDup = FALSE ;
 		      char buf[da+1], bufN[15] ;
+		      char bufS[da+1] ;
+		      char bufG[da+1] ;
+		      char bufGS[da+1] ;
 		      int slide = 0 ;
 		      am1 = fromMrna ? m1 : a1 ;
 		      am2 = fromMrna ? m2 : a2 ;
 
 		      if (ccp && da == strlen (ccp))
-			isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, ccp, buf) ;
+			isDup = tsnpSlideDup (dna, dnaLn, am1, da, &dx, &slide, ccp, buf, bufS, bufG, bufGS) ;
 		      else
 			{
 			  int i ;
 			  for (i = 0 ; i < da ; i++)
-			    buf[i] = 'n' ;
-			  buf[i] = 0 ;
+			    buf[i] = bufG[i] = 'n' ;
+			  buf[i] = bufG[i] = 0 ;
 			  ok = FALSE ;
 			}
 
@@ -3103,59 +3208,53 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      am1 = fromMrna ? m1 : a1 ;
 		      am2 = fromMrna ? m2 : a2 ;
 
-		    if (a1 < a2)
-		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases are inserted on plus strand between base %d and %d\"\n", name (seq), da,a1, a2, a1, a2) ;
-		    else
-		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases are inserted on minus strand between base %d and %d\"\n", name (seq), da,a1, a2, a1, a2) ;
-		    if (0 && fromMrna)
-		      {
-			if (a1 < a2)
-			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(mrna), a1, Rdna[am1-1], Rdna[am1-1], inss[0][3]) ;
-			else
-			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(mrna), a2-slide, ace_lower(complementLetter(Rdna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
-		      }
-		    else
-		      {
-			if (a1 < a2)
-			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], inss[0][3]) ;
-			else
-			  vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide+2])), ace_lower(complementLetter(dna[am1+slide+2])), ace_upper(complementLetter( inss[0][3]))) ;
-		      }
+		      if (a1 < a2)
+			vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases %s are inserted on plus strand between base %d and %d\"\n", name (seq), a1, a2, da, buf, a1, a2) ;
+		      else
+			vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases %s are inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, da, bufG, a1, a2) ;
 		      
+		      if (a1 < a2)
+			vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a1, dna[am1-1], dna[am1-1], buf) ;
+		      else
+			{
+			  char cc = ace_lower(complementLetter(dna[am1+slide+2])) ;
+			  vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a2-slide, cc, cc, bufGS) ;
+			}
 
 		      vtxtPrintf (txt, "-D Sliding\n") ;
 		      vtxtPrint (txt, "-D Insertion\n") ; /* cleanup */
 		      vtxtPrintf (txt,"Multi_insertion %d\n", da) ; /* reinstate */ 
 		      
-		      if (ok)
+		      if (isDup)
 			{
+			  vtxtPrintf (txt, "Typ \"Dup%s\"\n", buf) ;
 			  if (a1 < a2)
-			    vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a1, dna[am1-1], dna[am1-1], buf) ;
-			  else
-			    vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a2-slide, dna[am1-1], dna[am1-1], buf) ;
-			  if (isDup)
 			    {
-			      vtxtPrintf (txt, "Typ \"Dup%s\"\n", buf) ;
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%s\"\n", name(seq), a1-da+1,a1, buf) ;
-			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddup%s\"\n", name(mrna), socrate (am1-da+1),socrate (am1), buf) ;
-			      vtxtPrintf (txt, "Duplication\n") ;
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%s\"\n", bufSeqTitle, a1 + slide -da + 1, a1 + slide, bufS) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddup%s\"\n", name(mrna), am1+slide-da+1, am1+slide, bufS) ;
 			    }
 			  else
 			    {
-			      vtxtPrintf (txt, "Typ \"Ins%s\"\n", buf) ;
-			      vtxtPrintf (txt, "gName \"%s:g.%d_%dins%s\"\n", name(seq),a1,a2, buf) ;
-			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%s\"\n", name(mrna), socrate (am1),socrate (am2), buf) ;
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddup%s\"\n", bufSeqTitle, a2 -da + 1, a2, bufG) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddup%s\"\n", name(mrna), am1+slide-da+1, am1+slide, bufS) ;
 			    }
-			  vtxtPrintf (txt,"Multi_insertion %d %s\n", da, buf) ; /* reinstate */ 
+			  vtxtPrintf (txt, "Duplication\n") ;
 			}
 		      else
 			{
-			  vtxtPrintf (txt, "Typ \"Ins%d\"\n", da) ;
-			  vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, dna[am1-1], da, dna[am1-1]) ;
-			  vtxtPrintf (txt, "gName \"%s:g.%d_%dins(%d)\"\n", name(seq), a1,a2, da) ;
-			  if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins(%d)\"\n", name(mrna), socrate (g2m+a1),socrate (g2m+a2), da) ;
-			  vtxtPrintf (txt,"Multi_insertion %d\n", da) ; /* reinstate */ 
+			  vtxtPrintf (txt, "Typ \"Ins%s\"\n", buf) ;
+			  if (a1 < a2)
+			    {
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%dins%s\"\n", bufSeqTitle,a1+slide,a2+slide, bufS) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%s\"\n", name(mrna), am1 + slide, am2 + slide, bufS) ;
+			    }
+			  else
+			    {
+			      vtxtPrintf (txt, "gName \"%s:g.%d_%dins%s\"\n", bufSeqTitle,a2,a1, bufG) ;
+			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%dins%s\"\n", name(mrna), am1 + slide, am2 + slide, bufS) ;
+			    }
 			}
+		      vtxtPrintf (txt,"Multi_insertion %d %s\n", da, buf) ; /* reinstate */ 
 		      if (slide) 
 			vtxtPrintf (txt, "Sliding %d\n", slide) ;
 		      if (da ==  1) sprintf (bufN, "^") ; 
@@ -3177,9 +3276,9 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      for (i = am1 - 21, j = k = 0 ; i < am1 + 30 && i < dnaLn ; i++)
 			if (i > 0 && j < 51)
 			  {
-			    if (i < am1)
+			    if (i < slide)
 			      { bufV[k] = bufR[j] = dna[i] ; RbufV[k] = RbufR[j] = dna[i] ; j++ ; k++ ; }
-			    else if (i == am1)
+			    if (i == slide)
 			      {
 				if (da)
 				  {
@@ -3191,7 +3290,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 				      }
 				  }
 			      }
-			    else if (i > am1)
+			    if (i >= am1)
 			      {
 				if (j < 51) { bufR[j] = dna[i] ; RbufR[j] = myRdna(i) ; j++ ; }
 				if (k < 51) { bufV[k] = dna[i] ; RbufV[k] = myRdna(i) ; k++ ; }
@@ -3226,15 +3325,15 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      am1 = fromMrna ? m1 : a1 ;
 		      vtxtPrintf (txt, "Typ \"DelIns%s>%s\"\n", ccD, ccI) ;
 		      vtxtPrintf (txt, "VCF %s %d %c%s %c%s\n", name(seq), a1, dna[am1-1], ccD, dna[am1-1], ccI) ;
-		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", name(seq), a1,a2, ccI) ;
-		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins%s\"\n", name(mrna), socrate (g2m+a1),socrate (g2m+a2), ccI) ;
+		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", bufSeqTitle, a1,a2, ccI) ;
+		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins%s\"\n", name(mrna), am1+1, am2-1, ccI) ;
 		    }
 		  else
 		    {
 		      vtxtPrintf (txt, "Typ \"DelIns_%d_%d\"\n", dD, dI) ;
 		      vtxtPrintf (txt, "VCF %d %c%s %c%s\n", name(seq), a1, dna[am1-1], ccD, dna[am1-1], ccI) ;
-		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins(%d,%d)\"\n", name(seq), a1,a2, dD, dI) ;
-		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins(%d,%d)\"\n", name(mrna), socrate (g2m+a1),socrate (g2m+a2), dD, dI) ;
+		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins(%d,%d)\"\n", bufSeqTitle, a1,a2, dD, dI) ;
+		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins(%d,%d)\"\n", name(mrna), am1+1,am2-1, dD, dI) ;
 		    }
 		  dda = -1 ;
 		  am1 = fromMrna ? m1 : a1 ;
@@ -3299,7 +3398,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 	      if (! pp || ! pp->rows)
 		vtxtPrintf (txt, "Non_coding_transcript\n") ;
 	    }
-	  if (product && RbufR[0] && RbufV[0])
+	  if (RbufR[0] && RbufV[0])
 	    {
 	      /* transmit the coord of the conserved hook base written at offset 21 of the snippet */
 	      char pR1[60], pV1[60] ;
@@ -3339,22 +3438,33 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		for (cp = RbufR, cq = RbufV ; *cp ; cp++, cq++) 
 		  if (ace_lower(*cp) == ace_lower (*cq)) *cp = *cq = ace_lower (*cp) ;
 	      
-	      frame = myTranslate (RbufR, pR1, pR3, m1, p1, h) ;
-	      myTranslate (RbufV, pV1, pV3, m1, p1, h) ;
-
-	      for (k = 0, cp = pR1, cq = pV1 ; *cp && *cq ; cp++, cq++)
-		if (ace_lower(*cp) != ace_lower (*cq)) 
-		  { *cp = ace_lower (*cp) ; *cq = ace_lower (*cq) ; }
-	      else
-		  { *cp = ace_upper (*cp) ; *cq = ace_upper (*cq) ; }
 	      vtxtPrintf (txt, "Reference_RNAexon_sequence %s\n", RbufR) ;
 	      vtxtPrintf (txt, "Observed__RNAexon_sequence %s\n", RbufV) ;
 
-	      tsnpSetPName (pp, product, pR1, pV1,pR3, pV3, m1, p1, frame, fs) ;
-	      cp = vtxtPtr (pp) ;
-	      if (pR1[0]) { char *cq = pR1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Reference_protein_sequence %s %s\n", pR3, cq) ; }
-	      if (pV1[0]) { char *cq = pV1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Observed__protein_sequence %s %s %s\n", pV3, cq, cp ? cp : "") ; }
+	      if (product)
+		{
+		  frame = myTranslate (RbufR, pR1, pR3, m1, p1, h) ;
+		  myTranslate (RbufV, pV1, pV3, m1, p1, h) ;
+		  
+		  for (k = 0, cp = pR1, cq = pV1 ; *cp && *cq ; cp++, cq++)
+		    if (ace_lower(*cp) != ace_lower (*cq)) 
+		      { *cp = ace_lower (*cp) ; *cq = ace_lower (*cq) ; }
+		    else
+		      { *cp = ace_upper (*cp) ; *cq = ace_upper (*cq) ; }
+		  
+		  tsnpSetPName (pp, product, pR1, pV1,pR3, pV3, m1, p1, frame, fs) ;
+		  cp = vtxtPtr (pp) ;
+		  if (pR1[0]) { char *cq = pR1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Reference_protein_sequence %s %s\n", pR3, cq) ; }
+		  if (pV1[0]) { char *cq = pV1; while (*cq == 'X') cq++ ; vtxtPrintf (txt,   "Observed__protein_sequence %s %s %s\n", pV3, cq, cp ? cp : "") ; }
+		}
 	    }
+	}
+
+      if (tsnp->project)
+	{
+	  vtxtPrintf (txt, "-D Monomodal %s\n", tsnp->project) ;
+	  if (tsnpGetMonomodal (tsnp, Snp))
+	    vtxtPrintf (txt, "Monomodal %s\n", tsnp->project) ;
 	}
       if (0)
 	{
@@ -3384,7 +3494,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
     }
 
   return ok ? 1 : 0 ;
-}
+} /* tsnpSetGName */
 
 /*************************************************************************************/
 /* enter all types of modifs in a logical order */
@@ -3426,10 +3536,10 @@ static void tsnpDbTranslate (TSNP *tsnp)
   
   tsnp->varTypeDict = tsnpMakeVarTypeDict (h) ;
 
-  if (1) 
-    iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
+  if (tsnp->select)
+    iter = ac_query_iter (db, TRUE, hprintf (h, "find variant IS  \"%s\" ", tsnp->select), 0, h) ;
   else
-    iter = ac_query_iter (db, TRUE, "find variant IS  \"CECR2.aAug10:500:*\" ", 0, h) ;
+    iter = ac_query_iter (db, TRUE, "Find Variant", 0, h) ;
 
   /* NOT DONE: split the 729 multi sub and force create the individual pieces */
   while (ac_free (Snp), Snp = ac_iter_obj (iter))
@@ -3438,11 +3548,7 @@ static void tsnpDbTranslate (TSNP *tsnp)
       vtxtClear (txt) ;
       vtxtPrintf (txt, "Variant \"%s\"\n", ac_name (Snp)) ;
       tsnpSetGName (txt, tsnp, Snp, h) ;
-      /*
-      tsnpSetRname (txt, tsnp, Snp, h) ;
-      tsnpSetRNam (Snp) ;
 
-      */
       vtxtPrint (txt,"\n") ;
       if (ao)
 	aceOutf (ao, "%s\n", vtxtPtr (txt)) ;
@@ -3451,7 +3557,7 @@ static void tsnpDbTranslate (TSNP *tsnp)
 	  const char *errors = 0 ;
 	  ac_parse (db, vtxtPtr (txt), &errors, 0, h) ; 
 	  if (errors && *errors)
-	    messerror (errors) ;
+	    fprintf(stderr, "tsnpTranslate parsing error %s\n", errors) ;
 	}
     }
 
@@ -4663,147 +4769,190 @@ typedef struct snpProfileStruct {
 
 /*************************************************************************************/
 
-static BOOL snpPleaseDropMonomodal (SP *sp)
+static DICT *tsnpGetRuns (TSNP *tsnp)
 {
-  if (10 * sp->low > sp->any && sp->low > 5 &&
-      ! (sp->ref > sp->low + 10 && sp->mid + sp->pure > sp->low + 10) &&
-      ! (sp->pure > sp->high)
-      )
-    sp->monomodal =  TRUE ;
-  else
-    sp->monomodal = FALSE ;
-  return sp->monomodal  ;
-} /* snpDropMonomodal */
+  DICT *runDict = tsnp->runDict ; 
+
+  if (! runDict)
+    {
+      const char *errors = 0 ;
+      AC_HANDLE h = ac_new_handle () ;
+      char *qq = hprintf (h, "Find project %s ; >run ; CLASS runs", tsnp->project) ;
+      AC_TABLE tbl = ac_bql_table (tsnp->db, qq, 0, 0, &errors, h) ;
+      int ir ;
+
+      runDict = tsnp->runDict = dictHandleCreate (156, tsnp->h) ;
+      if (tbl)
+	for (ir = 0 ; ir < tbl->rows ; ir++)
+	  dictAdd (runDict, ac_table_printable (tbl, ir, 0, "toto"), 0) ;
+      ac_free (h)  ;
+    }
+
+  return runDict ;
+} /* tsnpGetRuns */
+
+/*************************************************************************************/
+
+static BOOL tsnpGetMonomodal (TSNP *tsnp, AC_OBJ Snp)
+{
+  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+
+  int run ;
+  const char *typ ;
+  int t ;
+  SP *sp2, sp0 ;
+  DICT *runDict = tsnpGetRuns (tsnp) ;
+  Array aa = tsnp->runProfiles ;
+
+  if (! aa)
+    aa = tsnp->runProfiles = arrayHandleCreate (128, SP, tsnp->h) ; 
+  tsnpTypeInit (tsnp) ;
+
+  sp2 = &sp0 ;
+  memset (sp2, 0, sizeof (SP)) ;
+  h1 = ac_new_handle () ;
+  typ = ac_tag_printable (Snp, "Typ", 0) ;
+  if (typ && dictFind (tsnp->snpTypeDict, typ, &t))
+    {
+      int ir ;
+      AC_TABLE tbl = ac_tag_table (Snp, "BRS_Counts", h1) ;
+      
+      for (ir = 0 ; ir < tbl->rows ; ir++)
+	{
+	  int c = ac_table_int (tbl, ir, 1, 0) ;
+	  int m = ac_table_int (tbl, ir, 2, 0) ;
+	  
+	  if (! dictFind (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run))
+	    continue ;
+
+	  SP *sp = arrayp (aa, run, SP) ;
+
+	  if (c >= tsnp->minSnpCover)
+	    {
+	      float f = 100.0 * m / c ;
+	      
+
+	      sp->typeN[t]++ ;
+	      if (1)
+		{
+		  sp->any++ ;   /* this run any Snp */
+		  if (f <= 5)
+		    sp->ref++ ;
+		  else if (f <= 20)
+		    sp->low++ ;
+		  else if (f <= 80)
+		    sp->mid++ ;
+		  else if (f <= 95)
+		    sp->high++ ;
+		  else 
+		    sp->pure++ ;
+
+		  sp2->any++ ;  /* this Snp in any run */
+		  if (f <= 5)
+		    sp2->ref++ ;
+		  else if (f <= 20)
+		    sp2->low++ ;
+		  else if (f <= 80)
+		    sp2->mid++ ;
+		  else if (f <= 95)
+		    sp2->high++ ;
+		  else 
+		    sp2->pure++ ;
+		}
+	      if (ac_has_tag (Snp, "Coding"))
+		{
+		  sp->pcAny++ ;
+		  if (f <= 5)
+		    sp->pcRef++ ;
+		  else if (f <= 20)
+		    sp->pcLow++ ;
+		  else if (f <= 80)
+		    sp->pcMid++ ;
+		  else if (f <= 95)
+		    sp->pcHigh++ ;
+		  else 
+		    sp->pcPure++ ;
+		}
+	      else if (ac_has_tag (Snp, "Exonic"))
+		{
+		  sp->xAny++ ;
+		  if (f <= 5)
+		    sp->xRef++ ;
+		  else if (f <= 20)
+		    sp->xLow++ ;
+		  else if (f <= 80)
+		    sp->xMid++ ;
+		  else if (f <= 95)
+		    sp->xHigh++ ;
+		  else 
+		    sp->xPure++ ;
+		}
+	      else
+		{
+		  sp->gAny++ ;
+		  if (f <= 5)
+		    sp->gRef++ ;
+		  else if (f <= 20)
+		    sp->gLow++ ;
+		  else if (f <= 80)
+		    sp->gMid++ ;
+		  else if (f <= 95)
+		    sp->gHigh++ ;
+		  else 
+		    sp->gPure++ ;
+		}
+	    }
+	}
+
+      
+      if (10 * sp2->low > sp2->any && sp2->low > 5 &&
+	  ! (sp2->ref > sp2->low + 10 && sp2->mid + sp2->pure > sp2->low + 10) &&
+	  ! (sp2->pure > sp2->high)
+	  )
+	sp2->monomodal =  TRUE ;
+      else
+	sp2->monomodal = FALSE ;
+      
+      if (sp2->monomodal) 
+	{  /* count them in the run */
+	  for (ir = 0 ; ir < tbl->rows ; ir++)
+	    {
+	      int c = ac_table_int (tbl, ir, 1, 0) ;
+	      int m = ac_table_int (tbl, ir, 2, 0) ;
+	      
+	      if (! dictFind (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run))
+		continue ;
+	      
+	      SP *sp = arrayp (aa, run, SP) ;
+	      
+	      if (c >= tsnp->minSnpCover && m >= tsnp->minSnpCount)
+		sp->monomodal++ ;
+	    }
+	}	
+    }
+
+  ac_free (h) ;
+  return sp2->monomodal ;
+} /* tsnpGetMonomodal */
 
 /*************************************************************************************/
 /* export tsf file for this section */
 static void tsnpExportProfile (TSNP *tsnp)
 {
-  AC_HANDLE h1 = 0, h = ac_new_handle () ;
+  AC_HANDLE h = ac_new_handle () ;
   ACEOUT ao = aceOutCreate (tsnp->outFileName, ".snp_profile.tsf", tsnp->gzo, h) ;
-  AC_ITER iter = 0 ;
-  AC_OBJ variant = 0 ;
-  vTXT txt = vtxtHandleCreate (h) ;
   int run ;
   int typeMax = 0 ;
   int runMax ;
   DICT *runDict = tsnp->runDict ; 
-  Array aa = arrayHandleCreate (64, SP, h) ; 
+  Array aa = tsnp->runProfiles ;
 
   tsnpTypeInit (tsnp) ;
   if (! runDict)
     runDict = tsnp->runDict = dictHandleCreate (156, tsnp->h) ;
 
   typeMax = dictMax (tsnp->snpTypeDict) ;
-  if (tsnp->db)
-    {
-      iter = ac_query_iter (tsnp->db, TRUE, "find variant Typ && BRS_counts", 0, h) ;
-      while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
-	{
-	  const char *typ ;
-	  int t ;
-	  SP *sp, sp0 ;
-
-	  sp = &sp0 ;
-	  memset (sp, 0, sizeof (SP)) ;
-	  h1 = ac_new_handle () ;
-	  typ = ac_tag_printable (variant, "Typ", 0) ;
-	  if (typ && dictFind (tsnp->snpTypeDict, typ, &t))
-	    {
-	      int ir ;
-	      AC_TABLE tbl = ac_tag_table (variant, "BRS_Counts", h1) ;
-	      
-	      for (ir = 0 ; ir < tbl->rows ; ir++)
-		{
-		  int c = ac_table_int (tbl, ir, 1, 0) ;
-		  int m = ac_table_int (tbl, ir, 2, 0) ;
-		  if (c > tsnp->minSnpCover)
-		    {
-		      float f = 100.0 * m / c ;
-
-		      dictAdd (runDict, ac_table_printable (tbl, ir, 0, "toto"), &run) ;
-		      sp->typeN[t]++ ;
-		      if (1)
-			{
-			  sp->any++ ;
-			  if (f <= 5)
-			    sp->ref++ ;
-			  else if (f <= 20)
-			    sp->low++ ;
-			  else if (f <= 80)
-			    sp->mid++ ;
-			  else if (f <= 95)
-			    sp->high++ ;
-			  else 
-			    sp->pure++ ;
-			}
-		      if (ac_has_tag (variant, "Coding"))
-			{
-			  sp->pcAny++ ;
-			  if (f <= 5)
-			    sp->pcRef++ ;
-			  else if (f <= 20)
-			    sp->pcLow++ ;
-			  else if (f <= 80)
-			    sp->pcMid++ ;
-			  else if (f <= 95)
-			    sp->pcHigh++ ;
-			  else 
-			    sp->pcPure++ ;
-			}
-		      else if (ac_has_tag (variant, "Exonic"))
-			{
-			  sp->xAny++ ;
-			  if (f <= 5)
-			    sp->xRef++ ;
-			  else if (f <= 20)
-			    sp->xLow++ ;
-			  else if (f <= 80)
-			    sp->xMid++ ;
-			  else if (f <= 95)
-			    sp->xHigh++ ;
-			  else 
-			    sp->xPure++ ;
-			}
-		      else
-			{
-			  sp->gAny++ ;
-			  if (f <= 5)
-			    sp->gRef++ ;
-			  else if (f <= 20)
-			    sp->gLow++ ;
-			  else if (f <= 80)
-			    sp->gMid++ ;
-			  else if (f <= 95)
-			    sp->gHigh++ ;
-			  else 
-			    sp->gPure++ ;
-			}
-		    }
-		}
-	    }
-	  
-	  if (1)
-	    {
-	      BOOL mono = snpPleaseDropMonomodal (sp) ;
-	      {
-		if (
-		    (mono && ! ac_has_tag (variant, "monomodal")) ||
-		    (!mono && ac_has_tag (variant, "monomodal"))
-		    )
-		  {
-		    const char *errors = 0 ;
-		    vtxtClear (txt) ;
-		    vtxtPrintf (txt, "Variant %s\n%s Monomodal\n\n", ac_protect (ac_name(variant), h1), mono ? "" : "-D ") ;
-		    ac_parse (tsnp->db, vtxtPtr (txt), &errors, 0, h1) ; 
-		    if (errors && *errors)
-		      messerror (errors) ;
-		  }
-	      }
-	    }
-	}
-    }
-  runMax = arrayMax (aa) ;
+  runMax = aa ? arrayMax (aa) : 0 ;
   for (run = 1 ; run <= runMax ; run++)
     {
       SP *sp = arrayp (aa, run, SP) ;
@@ -5662,37 +5811,39 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "//      The format is very specific and cannot easily be replicated\n"
 	   "//      So the present program can only postprocess tricoteur\n"
 	   "// TARGET ZONE:\n"
-	   "//   -target_class : target class (A_mito ... Z_genome) [default Z_genome]\n"
+	   "//   --target_class : target class (A_mito ... Z_genome) [default Z_genome]\n"
 	   "//   -t targetName :  [optional] often a chromosome name\n"
-	   "//   -t1 int -t2 int :  [optional] analyze only section [t1,t2] of the target\n"
+	   "//   --t1 int --t2 int :  [optional] analyze only section [t1,t2] of the target\n"
 	   "//    example:\n"
-	   "//        -target_class  Z_genome -t chr7 -t1 2000000 -t2 3000000\n"
+	   "//        --target_class  Z_genome -t chr7 --t1 2000000 --t2 3000000\n"
 	   "//       Typically t2 - t1 = 10 Mbases, or if t1, t2 are not specified\n"
 	   "//       the whole chromosome is analyzed .\n"
 	   "// SNP FILTERS, DISCOVERY PHASE\n"
-	   "//   -method arbitrary_name: the method is echoed in the output file\n" 
-  	   "//   -minSnpCover integer : min coverage [default 10] \n"
-	   "//   -minSnpCount integer: [default 4]\n"
-	   "//   -minSnpFrequency float: [default 18] minimal MAF precentage\n"
-	   "//   -intron : [default off] diifferentiate introns from deletions\n"
-	   "//   -intron_only : just detect and report introns\n"
-	   "//   -min_intron <int> : [default 30] min reported intron length\n"
-	   "//   -max_intron <int> : [default 0]  max reported intron length\n"
+	   "//   --method arbitrary_name: the method is echoed in the output file\n" 
+  	   "//   --minSnpCover integer : min coverage [default 10] \n"
+	   "//   --minSnpCount integer: [default 4]\n"
+	   "//   --minSnpFrequency float: [default 18] minimal MAF precentage\n"
+	   "//   --intron : [default off] diifferentiate introns from deletions\n"
+	   "//   --intron_only : just detect and report introns\n"
+	   "//   --min_intron <int> : [default 30] min reported intron length\n"
+	   "//   --max_intron <int> : [default 0]  max reported intron length\n"
 	   "// Phase 3 actions: Analyse the .snp files\n"
 	   "//   The analyses rely on a the existence of an acedb TSNP_DB/$zone database, aware of genes, transcripts and coding structures\n"
 	   "//     and containing a copy of the metadata of the runs, originally hand constructed in MetaDB\n"
-	   "//     The parameter -db points to this database, we recommend one database per zone, allowing parallelization\n"
-	   "//   -db_remap2genome tmp/METADATA/mrnaRemap.gz  -db ACEDB\n"
+	   "//     The parameter --db points to this database, we recommend one database per zone, allowing parallelization\n"
+	   "//   --db_remap2genome tmp/METADATA/mrnaRemap.gz  --db ACEDB [--force]\n"
 	   "//      Remap the transcript variants into genome coordinates\n"
-	   "//   -db_remap2genes tmp/METADATA/mrnaRemap.gz -db ACEDB\n"
+	   "//      --force : remap all variants, default: remmap on those lacking the IntMap tag\n"
+	   "//   --db_remap2genes tmp/METADATA/mrnaRemap.gz --db ACEDB [--force]\n"
 	   "//      Remap the genome variants into transcript coordinates\n"
-	   "//   -db_translate -db ACEDB : translate the mRNA variants (or genome variants remapped to mRNAs) if they map to a protein coding exon\n"
-	   "//   -db_count -i count_file -db ACEDB  : scan the input file and adjust in the ACEDB database the variant->population and ->strand counts\n"
+	   "//      --force : remap all variants, default: remmap on those lacking the GeneBox tag\n"
+	   "//   --db_translate --db ACEDB : translate the mRNA variants (or genome variants remapped to mRNAs) if they map to a protein coding exon\n"
+	   "//   --db_count -i count_file --db ACEDB  : scan the input file and adjust in the ACEDB database the variant->population and ->strand counts\n"
 	   "// GENE FUSION\n"
-	   "//   -target_class : target class (KT_RefSeq ET_av...) [default ET_av]\n"
-	   "//   -min_GF integer : [default 5]  filter geneFusionFile on min support \n" 
-	   "//   -minOverhang integer : [default 15] minimal number of bases\n"
-	   "//   -geneFusion fileName: file of genefusions to be analysed\n"
+	   "//   --target_class : target class (KT_RefSeq ET_av...) [default ET_av]\n"
+	   "//   --min_GF integer : [default 5]  filter geneFusionFile on min support \n" 
+	   "//   --minOverhang integer : [default 15] minimal number of bases\n"
+	   "//   --geneFusion fileName: file of genefusions to be analysed\n"
 	   "//      mrna1 a1 a2 mrna2 b1 b2 n (n supports for a jump from mrna1[position a2] to m2[b1]\n"
 	   "//      Scan the hit file(s) report for each donor/acceptor read count that support\n"
 	   "//         the proposed donor and goes to the acceptor\n"
@@ -5700,7 +5851,7 @@ static void usage (const char commandBuf [], int argc, const char **argv)
 	   "// OUTPUT\n"
 	   "//     The program exports a vcf file and several histograms\n"
 	   "//   -o fileNamePrefix : output file name, equivalent to redirecting stdout\n"
-  	   "//   -gzo : the output files should be gzipped\n"
+  	   "//   --gzo : the output files should be gzipped\n"
 	   ) ;
 
   
@@ -5756,24 +5907,24 @@ int main (int argc, const char **argv)
   }
 
   /* consume optional args */
-  tsnp.gzi = getCmdLineBool (&argc, argv, "-gzi") ;
-  tsnp.gzo = getCmdLineBool (&argc, argv, "-gzo") ;
+  tsnp.gzi = getCmdLineBool (&argc, argv, "--gzi") ;
+  tsnp.gzo = getCmdLineBool (&argc, argv, "--gzo") ;
 
   getCmdLineOption (&argc, argv, "-o", &(tsnp.outFileName)) ;
  
   /* TARGET ZONE */
   tsnp.target_class = 0 ; /* "Z_genome" ; */
-  getCmdLineOption (&argc, argv, "-referenceGenome", &(tsnp.referenceGenome)) ;
-  getCmdLineOption (&argc, argv, "-target_class", &(tsnp.target_class)) ;
+  getCmdLineOption (&argc, argv, "--referenceGenome", &(tsnp.referenceGenome)) ;
+  getCmdLineOption (&argc, argv, "--target_class", &(tsnp.target_class)) ;
   getCmdLineOption (&argc, argv, "-t", &(tsnp.target)) ;
-  getCmdLineInt (&argc, argv, "-t1", &(tsnp.t1)) ;
-  getCmdLineInt (&argc, argv, "-t2", &(tsnp.t2)) ;
+  getCmdLineInt (&argc, argv, "--t1", &(tsnp.t1)) ;
+  getCmdLineInt (&argc, argv, "--t2", &(tsnp.t2)) ;
 
-  tsnp.intron_only = getCmdLineBool (&argc, argv, "-intron_only") ;
+  tsnp.intron_only = getCmdLineBool (&argc, argv, "--intron_only") ;
 
   tsnp.minIntron = 30 ; /* default */
   tsnp.maxIntron = 0 ; /* default : do not search introns */
-  if (getCmdLineBool (&argc, argv, "-intron"))
+  if (getCmdLineBool (&argc, argv, "--intron"))
     tsnp.maxIntron = 100000 ; /* default if we search introns */
  
   if (tsnp.t2 < tsnp.t1)
@@ -5792,9 +5943,9 @@ int main (int argc, const char **argv)
   tsnp.minSnpCount = 4;
   tsnp.minSnpFrequency = 5 ;
 
-  getCmdLineInt (&argc, argv, "-minSnpCover", &(tsnp.minSnpCover)) ;
-  getCmdLineInt (&argc, argv, "-minSnpCount", &(tsnp.minSnpCount)) ;
-  getCmdLineFloat (&argc, argv, "-minSnpFrequency", &(tsnp.minSnpFrequency)) ;
+  getCmdLineInt (&argc, argv, "--minSnpCover", &(tsnp.minSnpCover)) ;
+  getCmdLineInt (&argc, argv, "--minSnpCount", &(tsnp.minSnpCount)) ;
+  getCmdLineFloat (&argc, argv, "--minSnpFrequency", &(tsnp.minSnpFrequency)) ;
 
 
   getCmdLineOption (&argc, argv, "-i", &(tsnp.inFileList)) ;
@@ -5802,35 +5953,36 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-f", &(tsnp.inFileOfFileList)) ;
   getCmdLineOption (&argc, argv, "--fileList", &(tsnp.inFileOfFileList)) ;
   getCmdLineOption (&argc, argv, "--project", &(tsnp.project)) ;
+  getCmdLineOption (&argc, argv, "--select", &(tsnp.select)) ;
   getCmdLineOption (&argc, argv, "-p", &(tsnp.project)) ;
-  getCmdLineOption (&argc, argv, "--force", &(tsnp.force)) ;
   getCmdLineOption (&argc, argv, "--zone", &(tsnp.zone)) ;
   getCmdLineOption (&argc, argv, "--filter", &(tsnp.filter)) ;
-  getCmdLineOption (&argc, argv, "--", &(tsnp.filter)) ;
-  getCmdLineOption (&argc, argv, "-db_remap2genome", &tsnp.remap2genome) ;
-  getCmdLineOption (&argc, argv, "-db_remap2genes", &tsnp.remap2genes) ;
+  getCmdLineOption (&argc, argv, "--db_remap2genome", &tsnp.remap2genome) ;
+  getCmdLineOption (&argc, argv, "--db_remap2genes", &tsnp.remap2genes) ;
+  tsnp.force = getCmdLineBool (&argc, argv, "--force") ;
 
   tsnp.makeWords = getCmdLineBool (&argc, argv, "--makeWords") ;
 
   tsnp.nAna = 4 ;
-  getCmdLineInt (&argc, argv, "-nAna", &(tsnp.nAna)) ;
+  getCmdLineInt (&argc, argv, "--nAna", &(tsnp.nAna)) ;
   
   
   /********* REPORT **********/
 
   getCmdLineOption (&argc, argv, "-db", &(tsnp.dbName)) ;
-  getCmdLineOption (&argc, argv, "-wiggleDir", &(tsnp.wiggleDir)) ;
+  getCmdLineOption (&argc, argv, "--db", &(tsnp.dbName)) ;
+  getCmdLineOption (&argc, argv, "--wiggleDir", &(tsnp.wiggleDir)) ;
   tsnp.max_threads = 4 ;
-  getCmdLineInt (&argc, argv, "-max_threads", &tsnp.max_threads) ;
+  getCmdLineInt (&argc, argv, "--max_threads", &tsnp.max_threads) ;
   
   if (tsnp.minSnpCount > tsnp.minSnpCover)
     tsnp.minSnpCount =  tsnp.minSnpCover ;
 
-  tsnp.mergeCounts = getCmdLineBool (&argc, argv, "-merge") ;
-  tsnp.dbReport = getCmdLineBool (&argc, argv, "-db_report") ;
-  tsnp.dbTranslate = getCmdLineBool (&argc, argv, "-db_translate") ;
-  tsnp.dbGGG = getCmdLineBool (&argc, argv, "-db_GGG") ;
-  tsnp.dropMonomodal = getCmdLineBool (&argc, argv, "-dropMonomodal") ;
+  tsnp.mergeCounts = getCmdLineBool (&argc, argv, "--merge") ;
+  tsnp.dbReport = getCmdLineBool (&argc, argv, "--db_report") ;
+  tsnp.dbTranslate = getCmdLineBool (&argc, argv, "--db_translate") ;
+  tsnp.dbGGG = getCmdLineBool (&argc, argv, "--db_GGG") ;
+  tsnp.dropMonomodal = getCmdLineBool (&argc, argv, "--dropMonomodal") ;
   if (tsnp.dbName)
     {
       const char *errors ;
@@ -5862,6 +6014,11 @@ int main (int argc, const char **argv)
     }
   if (tsnp.dbTranslate)
     {
+      if (! tsnp.project)
+	{
+	  fprintf (stderr, "-db_translate requires -project $MAGIC, sorry, try -help\n") ;
+	  exit (1) ;
+	}
       if (! tsnp.db)
 	{
 	  fprintf (stderr, "-db_translate requires -db SnpMetaDataDB, sorry, try -help\n") ;
@@ -5904,7 +6061,7 @@ int main (int argc, const char **argv)
     {
       if (1) tsnpDbTranslate (&tsnp) ;
       if (1) tsnpCodingModif (&tsnp) ;
-      if (1) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
+      if (0) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
     }
   if (tsnp.dbGGG)
     {

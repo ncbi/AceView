@@ -468,7 +468,7 @@
           Project ?Project
           Gene ?Gene XREF  Variant 
           GeneBox ?Gene XREF  Boxed_variant UNIQUE Int UNIQUE Int // geneBox where detected,  position, strand
-          mRNA  ?mRNA XREF Variant UNIQUE Int UNIQUE Int // mRNA where detected,  position, strand
+          mRNA  ?mRNA XREF Variant UNIQUE Int UNIQUE Int UNIQUE Text // mRNA where detected,  position, strand
           Site     IntMap ?Map UNIQUE Int UNIQUE Int UNIQUE Text // Plus    Minus
                    VCF UNIQUE ?Sequence UNIQUE Int UNIQUE Text UNIQUE Text // the vcf position and names are slided left
                    HGVS gName UNIQUE Text  // Human Genome Variation society
@@ -482,6 +482,8 @@
                                                Near_acceptor  UNIQUE Int  UNIQUE ?mRNA  UNIQUE Int UNIQUE Int   //  -2, -1  Rivas, GTex GeuVadis: Effect of predicted protein truncating SNVs on transcriptome. Science, May 2015,
                    Parent_sequence ?Sequence
           Targeted_by Text ?Gene
+          Genome_strand UNIQUE Forward
+                               Reverse
           Exonic      UNIQUE Coding Synonymous  UNIQUE Text  // w.r.t. at least one mRNA
                                     AA_substitution UNIQUE Text
                                     Length_variation  Extension UNIQUE Int UNIQUE Text      // number of deleted AA
@@ -579,7 +581,7 @@
                        In_repeat Text // does not apply to LIF
                        Color_repeat  // special for LIF
           Saint_Louis Text UNIQUE Text // project ESP, concurrent du projet CADD
-          Counts Monomodal 
+          Counts Monomodal ?Project 
                  fCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  nsCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
@@ -1300,4 +1302,9 @@
           Source ?Sequence XREF Subsequence
           Subsequence ?Sequence XREF Source UNIQUE Int UNIQUE Int 
 
+
+?Clone  Main_Clone
+        Strategy MainTitle UNIQUE Text  // appears as main Window title
+                 Species UNIQUE Text
+                 Genome_release UNIQUE Text
 

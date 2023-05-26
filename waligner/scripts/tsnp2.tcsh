@@ -38,14 +38,6 @@ date
     endif    
   end
 
-
-  bin/tace tmp/TSNP_DB/$zone <<EOF
-    pparse MetaDB/$MAGIC/runs.ace
-    // pparse tmp/SNP_ZONE/$zone.fasta.gz
-   save
-   quit
-EOF
-
   echo "-R Map NC_045512.2  NC_045512\n" >  tmp/TSNP_DB/map.rename.ace
 
   set toto=tmp/TSNP_DB/$zone/$MAGIC.tsnp2a._r
@@ -54,6 +46,7 @@ EOF
   echo "query find variant" >> $toto
   echo "kill"  >> $toto
   echo "pparse $toto.ace" >> $toto
+  if (-e DanLi/DanLi.$zone.ace)  echo "pparse DanLi/DanLi.$zone.ace" >> $toto 
   #echo "pparse MetaDB/$MAGIC/runs.ace" >> $toto
   #echo "pparse tmp/SNP_ZONE/$zone.fasta.gz" >> $toto
 
@@ -94,7 +87,7 @@ foreach gr (`cat MetaDB/$MAGIC/g2r | cut -f 1`)
   continue
   echo > _x.$$
   foreach run (`cat MetaDB/$MAGIC/g2r | gawk -F '\t' '{if($1==g)print $2;}' g=$gr`)
-    echo $gr >> _x.$$
+    echo $2 >> _x.$$
   end
   cat _x.$$ ZZZZZ $toto.BRS.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]==1;next;}if (ok[$2]==1)print;}' > toto.$gr
 end 
@@ -119,7 +112,7 @@ cat $toto.BRS.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.BRS_sorted.tsf
 
 cat $toto.list ZZZZZ $toto.M_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn > $toto.ace
 cat $toto.list ZZZZZ $toto.MB_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
-cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}printf("BRS_counts %s %d %d %d %d %d %d %d Frequency %.2f\n",run,c,m,w,$10,$11,$12,$13,f);}END{printf("\n");}' minF=$minSnpFrequency2 minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
+cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}if($16+0>0)printf ("%s %d %s\n",$15,$16, $17);printf("BRS_counts %s %d %d %d %d %d %d %d Frequency %.2f\n",run,c,m,w,$10,$11,$12,$13,f);}END{printf("\n");}'  foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
  
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
@@ -172,6 +165,9 @@ EOF
 
     tace tmp/TSNP_DB/$zone <<EOF
       pparse tmp/TSNP_DB/$zone/mrna.ace
+      find gene toto
+      query find mrna ; ! DNA ; > Variant
+      kill
       save
       quit
 EOF
@@ -189,8 +185,8 @@ date
   if ($Strategy == RNA_seq) then
     set remap2g=remap2genome
 # if -o filename is not provided, tsnp directly edits the database
-    bin/tsnp -db_$remap2g  tmp/METADATA/mrnaRemap.gz  -db tmp/TSNP_DB/$zone 
-    bin/tsnp -db_translate -db tmp/TSNP_DB/$zone 
+    bin/tsnp --db_$remap2g  tmp/METADATA/mrnaRemap.gz  --db tmp/TSNP_DB/$zone --force 
+    bin/tsnp --db_translate --db tmp/TSNP_DB/$zone  -p $MAGIC
   endif
 # phase may be snp2a (BRS) or tsnp2a) tricoteur
 touch tmp/TSNP_DB/$zone/$MAGIC.$phase.done
@@ -206,8 +202,8 @@ tsnp2b:
 echo -n "tsnp2b: start makewords  "
 date
 
-# bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC --filter "MBcounts && substitution"
-bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC 
+# bin/tsnp --db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone --gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC --filter "MBcounts && substitution"
+bin/tsnp --db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2b.$MAGIC 
 touch tmp/TSNP_DB/$zone/tsnp2b.done
 echo -n "tsnp2b done "
 date
@@ -239,7 +235,7 @@ date
       save
       quit     
 EOF
-  bin/tsnp -db_GGG -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/tsnp2g
+  bin/tsnp --db_GGG --db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/tsnp2g
 echo -n "tsnp2g: study the GGGG"
 date
 goto phaseLoop
@@ -257,7 +253,7 @@ if (0) then
       quit     
 EOF
     if (-d tmp/SNP_DB/$zone/database && ! -e tmp/TSNP_DB/$zone/tsnp2.$MAGIC.w31.gz) then
-      bin/tsnp -db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone -gzo -o tmp/TSNP_DB/$zone/tsnp2.$MAGIC --filter "MBcounts && substitution"
+      bin/tsnp --db tmp/TSNP_DB/$zone -p $MAGIC --makeWords --zone $zone --gzo -o tmp/TSNP_DB/$zone/tsnp2.$MAGIC --filter "MBcounts && substitution"
     endif
  
 
@@ -270,7 +266,7 @@ tace tmp/TSNP_DB/$zone <<EOF
   quit
 EOF
 
- ~/ace/bin.LINUX_4/tsnp -db_translate -db tmp/TSNP_DB/$zone > tmp/TSNP_DB/$zone/tsnp2.translate.ace
+ ~/ace/bin.LINUX_4/tsnp -db_translate -db tmp/TSNP_DB/$zone -p $MAGIC  > tmp/TSNP_DB/$zone/tsnp2.translate.ace
  date
 echo "pparse tmp/TSNP_DB/$zone/tsnp2.translate.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
 date
