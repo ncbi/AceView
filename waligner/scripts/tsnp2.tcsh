@@ -47,8 +47,10 @@ date
   echo "kill"  >> $toto
   echo "pparse $toto.ace" >> $toto
   if (-e DanLi/DanLi.$zone.ace)  echo "pparse DanLi/DanLi.$zone.ace" >> $toto 
-  #echo "pparse MetaDB/$MAGIC/runs.ace" >> $toto
-  #echo "pparse tmp/SNP_ZONE/$zone.fasta.gz" >> $toto
+  echo "pparse MetaDB/$MAGIC/runs.ace" >> $toto
+
+  echo "pparse MetaDB/$MAGIC/groups.ace" >> $toto
+  echo "pparse MetaDB/$MAGIC/samples.ace" >> $toto
 
   set foundIn=Found_in_genome
   set mapIn=IntMap
@@ -129,6 +131,11 @@ cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{i
   if (-e tmp/METADATA/$MAGIC.av.captured_genes.ace) then
     echo "pparse tmp/METADATA/$MAGIC.av.captured_genes.ace" >> $toto
   endif
+  echo "pparse MetaDB/$MAGIC/runs.ace" >> $toto
+  echo "pparse MetaDB/$MAGIC/groups.ace" >> $toto
+  echo "pparse MetaDB/$MAGIC/samples.ace" >> $toto
+  echo "pparse tmp/SNP_ZONE/$zone.fasta.gz" >> $toto
+
   echo "pparse tmp/TSNP_DB/map.rename.ace" >> $toto
   echo 'save' >> $toto
   echo 'quit' >> $toto
