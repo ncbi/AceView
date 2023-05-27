@@ -1419,13 +1419,14 @@ static void snpIdentifiers (TSNP *tsnp, RC *rc)
     { "Spacer", "", 0, 0, 0} ,
     { "Line", "Line Number", 0, 0, 0} ,
     { "VCF", "VCF Chromosome\tVCF position\tVCF ID\tVCF Reference\tVCF Variant", 1, 0, 0} ,
-    { "Coding", "Type\tCoding\tProtein type", 1, 0, 0} ,
     {  "gName", "genome Name", 0, 0, 0} ,
     {  "rName", "RNA Name", 0, 0, 0} ,  
     {  "pName", "Protein Name", 0, 0, 0} ,  
     {  "Dan_Li", "Dan Li Name", 0, 0, 0} ,  
-    { "Compute", "RNA variation", 10, 0, 0} ,
-    { "Compute", "Protein variation", 20, 0, 0} ,
+    {  "Typ", "Type", 0, 0, 0} ,  
+    { "Coding", "Coding\tProtein type", 1, 0, 0} ,
+    { "Seq_Var", "RNA variation", 10, 0, 0} ,
+    { "Seq_Var", "Protein variation", 20, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
@@ -1461,8 +1462,6 @@ static void snpIdentifiers (TSNP *tsnp, RC *rc)
 	}
       else if (! strcmp (ti->tag, "Coding"))
 	{
-	  aceOutf (tsnp->ao, "\t%s", ac_tag_printable (rc->snp, "Typ", "")) ;
-	  
 	  aceOut (tsnp->ao, "\t") ;
 	  if (ac_has_tag (rc->snp, "Intergenic"))
 	    aceOut (tsnp->ao, "Intergenic\t") ;
@@ -1489,7 +1488,7 @@ static void snpIdentifiers (TSNP *tsnp, RC *rc)
 	    }
 
 	}
-      else if (! strcmp (ti->tag, "Compute"))
+      else if (! strcmp (ti->tag, "Seq_Var"))
 	{
 	  int ic ;
 	  const char *tag1, *tag2 ;
@@ -1516,7 +1515,7 @@ static void snpIdentifiers (TSNP *tsnp, RC *rc)
 		     , ac_table_printable (tt2, 0, ic, "")
 		     ) ;
 	}
-      else
+      else  /* gName rName pName Dan_Li Typ */
 	snpShowTag (tsnp, rc, ti) ;
     }
   ac_free (h) ;
@@ -1884,14 +1883,14 @@ static BOOL snpFilter (TSNP *tsnp, RC *rc)
 
 /*************************************************************************************/
 
-static const char *allMethods = "Idb" ;
+static const char *allMethods = "Idr" ;
 
 static MM methods [] = {
   {'I', &snpIdentifiers} ,
   {'d', &snpDanLiFrequency} ,
   {'D', &snpDanLiCounts} ,
-  {'b', &snpBrsRunFrequency} , 
-  {'B', &snpBrsRunCounts} ,
+  {'r', &snpBrsRunFrequency} , 
+  {'R', &snpBrsRunCounts} ,
   {'g', &snpBrsGroupFrequency} , 
   {'G', &snpBrsGroupCounts} ,
 { 0, 0 }
@@ -2096,11 +2095,13 @@ static void usage (char *message)
 	    "//   -e\n" 
 	    "//   --export [TPbafpmg...] : only export some groups of columns, in the requested order\n"
 	    "//      default: if -export is not specified, export all columns in default order\n"
-	    "//            M: snp identifiers\n"
-	    "//            g: groups counts\n"
-	    "//            G: groups allele frequencies\n"
-	    "//            r: runs counts\n"
-	    "//            R: runs allele frequencies\n"
+	    "//            I: snp identifiers\n"
+	    "//            G: groups counts\n"
+	    "//            g: groups allele frequencies\n"
+	    "//            R: runs counts\n"
+	    "//            r: runs allele frequencies\n"
+	    "//            D: Dan Li counts\n"
+	    "//            d: Dan Li allele frequencies\n"
 	    "//   --orderBy <tag> : sort the runs by this tag\n"
 	    "//      default: sorting_title\n"
 	    "//      Only export in that order the runs belonging to the project, present in this list\n"
