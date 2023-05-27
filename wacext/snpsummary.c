@@ -2008,14 +2008,14 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
 	  {
-	    const char *gNam = ac_table_printable (tsnp->groups, ir, 0, "toto") ;
-	    const char *rNam = ac_table_printable (tsnp->groups, ir, 1, "toto") ;
+	    const char *gNam = ac_table_printable (tt, ir, 0, "toto") ;
 	    int g = 0 ;
 	    dictFind (tsnp->groupsDict, gNam, &g) ;
 	    if (g >= 1)
 	      {
 		R2G* g2r ;
 		int r = 0 ;
+		const char *rNam = ac_table_printable (tt, ir, 1, "toto") ;
 
 		if (!tsnp->r2gs)
 		  tsnp->r2gs = arrayHandleCreate (200, R2G, tsnp->h) ;
@@ -2025,8 +2025,14 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 		  dictFind (tsnp->groupsDict, rNam, &r) ;
 		if (r >= 1)
 		  {
-		    R2G *r2g ; 
+		    KEYSET ks ;
+		    R2G *r2g, *g2r ; 
 		    r2g = arrayp (tsnp->r2gs, r, R2G) ; 
+		    g2r = arrayp (tsnp->r2gs, g, R2G) ; 
+		    ks = r2g->r2g ;
+		    if (!ks) 
+		      ks = r2g->r2g = keySetCreate () ;
+		    keySet (ks, g) = r ;
 		  }
 	      }
 	  }
