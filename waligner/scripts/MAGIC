@@ -5329,14 +5329,16 @@ if (0) then
   if ($MAGIC == SnpA2R2 && ! -e Global_SNP_LIST/$MAGIC.done) then
     if (! -d Global_SNP_LIST) mkdir Global_SNP_LIST
     zcat TARGET/Targets/hs.av.TM.txt.gz | gawk '/^#/{next;}{split($1,aa,"|");printf("%s\t%s\n",aa[1],aa[3]);}' > Global_SNP_LIST/av.t2g
-    cat  PROBES/A2R2.capture.av.gene_list ZZZZZ Global_SNP_LIST/av.t2g | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$2]==1) print ;}' > Global_SNP_LIST/av.A2R2.t2g
+    cat  PROBES/A2R2.capture.av.gene_list | gawk '{gsub(")","",$1);n=split($1,aa,"(");for(i=1;i<=n;i++)print aa[i];}' | sort -u > Global_SNP_LIST/av.captured.gene.list
+    cat Global_SNP_LIST/av.captured.gene.list    ZZZZZ Global_SNP_LIST/av.t2g | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$2]==1) print ;}' > Global_SNP_LIST/av.A2R2.t2g
     set ok=1
     foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
       if (-e tmp/SNP_LIST/$zone/SnpAecdb.Variant.list && -e tmp/SNP_LIST/$zone/SnpClones.Variant.list && -e DanLi/DanLi.$zone.SNP_summary.txt) then
         wc  tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt
         cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u | wc
         cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u > Global_SNP_LIST/Snp.$zone.Variant.list
-        cat  Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/Snp.$zone.Variant.list | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
+        cat  Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/Snp.$zone.Variant.list | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2
+        cat DanLi/DanLi.$zone.known Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
 
       else
         set ok=0
