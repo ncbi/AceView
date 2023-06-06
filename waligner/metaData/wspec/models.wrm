@@ -475,6 +475,7 @@
                         rName UNIQUE Text  // define aprecise nomenclature for
                         pName UNIQUE Text  // genomic, RNA-transcript and protein variants
                    Dan_Li UNIQUE ?Text 
+                   VCF_hg38 UNIQUE Text
                    Main_variant
                    Same_site ?Variant XREF Same_site
 		   Phase UNIQUE Int UNIQUE Text  UNIQUE Int 
@@ -582,6 +583,7 @@
                        Color_repeat  // special for LIF
           Saint_Louis Text UNIQUE Text // project ESP, concurrent du projet CADD
           Counts Monomodal ?Project 
+                 Manual_non_monomodal
                  fCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  rCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref
                  nsCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba  // Var Ref Coverage
@@ -589,6 +591,10 @@
                  BRS_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int Int  UNIQUE Int Int  UNIQUE Int  #Proba // Coverage Var Ref Var+ Ref+ Var- Ref-  Frequency BRS recount
                  MCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  DanLi_counts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
+                 Wendell_counts   Wtrue UNIQUE Float //  Frequency  one transcript per genome location
+                                  Wtrue2 UNIQUE Float //  Frequency any transcript per genome location
+                                  Wfalse UNIQUE Float //  Frequency
+                                  Wfalse2    // any transcript at this location
                  MBCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery
                  MUCounts   ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency Magic Discovery
                  MBUCounts  ?Run UNIQUE Int UNIQUE Int  UNIQUE Int #Proba // Var Ref Coverage Frequency MagicBlast Discovery

@@ -1274,9 +1274,8 @@ static BOOL assDoFind (Associator a, const void* xin, const void** pout, unsigne
 } /* assDoFind */
 
 /********************/
-  /* Usage: Array bucket = 0 ; int iBucket = 0  ; while (assFindNext(..., &bucket, &Bucket)) ;
-   * This new method is thread safe, since the place holder is help 
-   * by the client rather than by the a structure
+  /* Usage: Array bucket = 0 ; int iBucket = 0  ; while (assFindNext(..., &bucket, &iBucket)) ;
+   * This new method is thread safe, since the place holder is held   * by the client rather than by the array structure
    */
 
 BOOL assFindNext (Associator ass, const void* xin, const void** pout, Array *bucketp, int *iBucketp)
@@ -1302,7 +1301,9 @@ BOOL assFindNext (Associator ass, const void* xin, const void** pout, Array *buc
   if (! aa && k == 1)  /* previous was not a bucket */
     return FALSE ; 
   if (! aa && k)  /* previous was not a bucket */
-    messcrash ("assFindNext called with null *bucketp AND non null iBucket") ;
+    messcrash ("assFindNext called with null *bucketp AND non null iBucket = %d", k) ;
+  if (aa && k <= 0)  /* previous was a bucket but the index is wrong  */
+    messcrash ("assFindNext called with *iBucketp = 0 AND non null *bucket") ;
 
   if (aa && arrayMax(aa) && k)
     {
@@ -1312,7 +1313,7 @@ BOOL assFindNext (Associator ass, const void* xin, const void** pout, Array *buc
 	  if (pout) *pout = arr (aa, k, void*) ;
 	  return TRUE ;
 	}
-      *bucketp = 0 ;
+      *iBucketp = 0 ;
       *bucketp = 0 ;
       return FALSE ;
     }

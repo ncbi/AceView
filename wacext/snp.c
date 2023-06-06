@@ -14,6 +14,7 @@
 #include "aceio.h"
 #include <wiggle.h>
 
+static int SNPDEBUG=0 ;
 static void usage (char *message) ;
 
 typedef struct hitStruct { 
@@ -63,6 +64,10 @@ typedef struct snpStruct {
   Array selectZone ;
   Array runQuality ;
   Array aliSnps ;
+  Array errCounts ;
+  Array errorsP, dnas ;
+  BigArray snps ;
+  Array aaa, aaaP ;  /* array of bigArrays of BRS struct */
   enum { STRATEGY_ZERO=0, STRATEGY_RNA_SEQ, STRATEGY_EXOME, STRATEGY_GENOME} strategy ;
   KEYSET selectZoneIndex ;
   KEYSET runs ;
@@ -84,8 +89,6 @@ typedef struct snpStruct {
   DICT *oldSnps ;
   AC_DB db ;
   BitSet run_sample ;
-  Array errorsP, dnas ;
-  BigArray snps ;
   ACEIN ai ; ACEOUT ao ; 
 } SNP ;
 
@@ -2264,7 +2267,7 @@ static int snpParseSnpList (SNP *snp)
 
 /*************************************************************************************/
 
-static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, char *Abuf, char *Bbuf, char *tagBuf, int *deltap, const char *requestedName)
+static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, char *Abuf, char *Bbuf, char *tagBuf, int *deltap, const char *requestedName) 
 {
   int sn, sign = 0, d = 0 ;
   BOOL isRepeat = FALSE ;
@@ -2278,6 +2281,8 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
     {
       char *cp, *cq ;
       
+      if (SNPDEBUG)
+	fprintf(stderr, "X2 %s\n", ccp) ;
       sprintf (namBuf, "%s", requestedName) ;
       strncpy (buf0, requestedName, 1000) ;
       cp = strchr (buf0, ':') ;
@@ -2287,6 +2292,8 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
       cp = buf0 ;
       cq = strchr (cp, ':') ;
       
+      if (SNPDEBUG)
+	fprintf(stderr, "X3 %s\n", cp) ;
       if (! strncmp (cp, "Sub", 3)) 
 	{
 	  *deltap = 0 ;
@@ -2295,44 +2302,52 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
 	  Bbuf[0] = tagBuf[2] = cp[6] ;
 	  Abuf[1] = Bbuf[1] = tagBuf[3] = 0 ;
 	  isRepeat = FALSE ;
+	  if (SNPDEBUG)
+	    fprintf(stderr, "X6 tagBuf=%s\n", tagBuf) ;
 	}
-      else if (! strncmp (cp, "Del", 3)) 
+      else if (cq && ! strncmp (cp, "Del", 3)) 
 	{
 	  char *cr ;
-	  
-	  *cq = 0 ;
+	  int i = 0 ;
+
+	  *cq++ = 0 ;
 	  if (strchr (cp, '/'))
 	    isRepeat = TRUE ;
-	  cr = strchr (cq+1, ':') ;
-	  *cr = 0 ;
-	  cq += 2 ;  /* jump :anchorBase */
+	  cr = strchr (cq, ':') ;
+	  if (cr) *cr++ = 0 ;
+      if (SNPDEBUG)
+	fprintf(stderr, "X4 cp=%s cq=%s cr=%s\n", cp, cq, cr) ;
+	  cq++ ;  /* jump :anchorBase */
 	  cr = Abuf ;
-	  while (*cq == ace_upper (*cq))
+	  while (++i < 12 && *cq && *cq == ace_upper (*cq))
 	    *cr++ = *cq++ ;
 	  *cr = 0 ;
-	  *deltap = - strlen (Abuf) ;
+	  *deltap = strlen (Abuf) ;
 	  Bbuf[0] = '.' ; Bbuf[1] = 0 ;
 	  cp = tagBuf ;
 	  if (isRepeat)
 	    *cp++ = '*' ;
 	  *cp++ = '-' ;
 	  strcpy (cp, Abuf) ;
-	  
-	}
-      else if (! strncmp (cp, "Ins", 3)) 
+	  if (SNPDEBUG)
+	    fprintf(stderr, "X6 tagBuf=%s\n", tagBuf) ;
+  	}
+      else if (cq && ! strncmp (cp, "Ins", 3)) 
 	{
 	  char *cr ;
+	  int i = 0 ;
 
-	  *cq = 0 ;
+	  *cq++ = 0 ;
 	  if (strchr (cp, '/'))
 	    isRepeat = TRUE ;
-	  
-	  cq = strchr (cq+1, ':') ;
-	  cr = strchr (cq+1, ':') ;
-	  if (cr) *cr = 0 ;
-	  cq += 2 ;  /* jump :anchorBase */
+	  cr = strchr (cq, ':') ;
+	  if (cr) *cr++ = 0 ;
+	  if (SNPDEBUG)
+	    fprintf(stderr, "X4 cp=%s cq=%s cr=%s\n", cp, cq, cr) ;
+	  cq = cr;  /* move to the interesting part */
+	  cq++ ;  /* jump :anchorBase */
 	  cr = Bbuf ;
-	  while (*cq == ace_upper (*cq))
+	  while (++i < 12 && *cq && *cq == ace_upper (*cq))
 	    *cr++ = *cq++ ;
 	  *cr = 0 ;
 	  *deltap = strlen (Bbuf) ;
@@ -2342,167 +2357,194 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
 	    *cp++ = '*' ;
 	  *cp++ = '+' ;
 	  strcpy (cp, Bbuf) ;
+      if (SNPDEBUG)
+	fprintf(stderr, "X6 tagBuf=%s\n", tagBuf) ;
 	  
 	}
       cp = Abuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
       cp = Bbuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
       cp = tagBuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
       
+      if (SNPDEBUG)
+	fprintf(stderr, "X7 Abuf=%s Bbuf=%s tagBuf=%s namBuf=%s delta=%d\n", Abuf, Bbuf, tagBuf, namBuf, *deltap) ;
+
+      if (Abuf[11]) messcrash ("Abuff 11") ;
+      if (Bbuf[11]) messcrash ("Bbuff 11") ;
       return isRepeat ;
     }
-  strcpy (buf0, ccp) ;
-  
-  cp = buf0 - 1 ;
-  while (*++cp)
-    switch ((int)*cp)
-      {
-      case 'a': *cp = 'A' ; break ;
-      case 't': *cp = 'T' ; break ;
-      case 'g': *cp = 'G' ; break ;
-      case 'c': *cp = 'C' ; break ;
-      case '2': *cp = '>' ; break ;
-      }
-  
-  typeBuf[0] = 0 ;
-  if (buf0[1] == '>')
-    {
-      sprintf (typeBuf, "Sub:%c:%c", buf0[0], buf0[2]) ;
-      Abuf[0] = buf0[0] ; Abuf[1] = 0 ; 
-      Bbuf[0] = buf0[2] ; Bbuf[1] = 0 ; 
-    }
-  
-  *deltap = 0 ; 
-  ccp = buf0 ;
-  
-  if (*ccp == '*')
-    { ccp++ ; isRepeat = TRUE ; }
-  
-  /* we have ++aa if from BRS file and InsAA if from requested list */
-  if (*ccp == '+')
-    { strcpy (typeBuf, "Ins") ; sign = 1 ; }
-  else if (*ccp == '-')
-    {  strcpy (typeBuf, "Del") ; sign = -1 ;  }
-  else if (! strncmp (ccp, "Ins", 3))
-    {   ccp += 3 ; d = strlen (ccp) ; strcpy (typeBuf, "Ins") ; sign = 1 ;}
-  else if (! strncmp (ccp, "Del", 3))
-    { ccp += 3 ; d = strlen (ccp) ;  strcpy (typeBuf, "Del") ; sign = -1 ;  }
-  while (*ccp == '+' || *ccp == '-')
-    { d++ ; ccp++ ; }
-  *deltap = sign * d ;  /* number of bases added or substracted */
-  
-  if (sign >= 1)  {  Abuf[0] = '.' ; Abuf[1] = 0 ; strncpy (Bbuf, ccp, 3) ; }
-  else if (sign <= -1)  {  Bbuf[0] = '.' ; Bbuf[1] = 0 ; strncpy (Abuf, ccp, 3) ; }
-  else { Abuf[0] = tagBuf[0] = ccp[0] ;  Abuf[1] = 0 ; tagBuf[1] = '>' ; Bbuf[0] = tagBuf[2] = ccp[2] ;  Bbuf[1] = 0 ; tagBuf[3] = 0 ; }
-  cp = Abuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
-  cp = Bbuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
-  cp = tagBuf - 1 ; while (*++cp) *cp = ace_lower(*cp) ;
-  
 
-  if (sign == 1)
+  if (sn || SNPDEBUG)
+    fprintf(stderr, "Y1 %s\n", ccp) ;
+  if (sn)
     {
-      Array dna = array (snp->dnas, ssm->target, Array) ;
-      char s1[1024], s2[1024], slide[32] ;
+      strcpy (buf0, ccp) ;
+      cp = buf0 - 1 ;
+      while (*++cp)
+	switch ((int)*cp)
+	  {
+	  case 'a': *cp = 'A' ; break ;
+	  case 't': *cp = 'T' ; break ;
+	  case 'g': *cp = 'G' ; break ;
+	  case 'c': *cp = 'C' ; break ;
+	  case '2': *cp = '>' ; break ;
+	  }
       
-      s1[0] = s2[0] = 'n' ; 
-      s1[1] = s2[1] = 0 ; 
-      slide[0] = 0 ;
-      /* roll back */
-      if (dna && ssm->pos > 1 && ssm->pos - 2 < arrayMax (dna))
+      typeBuf[0] = 0 ;
+      if (buf0[1] == '>')
 	{
-	  int i, j, dx = 0 ;
-	  while (arr (dna, ssm->pos - 1 - dx, char)  == ace_lower(buf0[d + ((10000 * d - dx + d-1) % d)]))
-	    dx++ ;
-	  ssm->leftShift = dx ;
-	  hookBase = arr (dna, ssm->pos - dx - 1, char) ;
-	  s1[0] = s2[0] = hookBase ;
-	  i = j = 1 ;
-	  for (j = 0 ; j < d && j < 1000 ; j++)
-	    s2[j+1] = ace_upper(Bbuf[(1000*d +j - dx)%d]) ;
-	  j++ ; /* because of the hookBase */
-	  for (i = 1 ; i < dx + 2 && i < 1000 && j < 1000 ; j++, i++)
-	    s1[i] = s2[j] = arr (dna, ssm->pos - dx + i - 1, char) ;
-	  s1[i] = s2[j] = 0 ;
-	  if (1)
-	    {
-	      int i ;
-	      char buf[d+1] ;
-	      char *cp = tagBuf ;
-
-	      if (dx) 
-		{ 
-		  isRepeat = TRUE ;
-		  *cp++ = '*' ;
-		}
-	      *cp++ = '+' ;
-	      for (i = 0 ; i < d ; i++)
-		*cp++ = buf[i] = Bbuf[(1000*d +i - dx)%d] ;
-	      *cp++ = buf[i] = 0 ;
-	      memcpy (Bbuf, buf, d+1) ;
-	      for (i = 0 ; i < d ; i++)
-	        buf0[d+i] = ace_upper(buf[i]) ;
-	      if (dx) sprintf (slide, "/%d", d+dx) ;
-	    }
+	  sprintf (typeBuf, "Sub:%c:%c", buf0[0], buf0[2]) ;
+	  Abuf[0] = buf0[0] ; Abuf[1] = 0 ; 
+	  Bbuf[0] = buf0[2] ; Bbuf[1] = 0 ; 
 	}
-      if (d == 1 && ! slide[0])
-	sprintf (typeBuf, "Ins%s:%s:%s", slide, s1, s2) ;
-      else 
-	sprintf (typeBuf, "Ins_%d%s:%s:%s", d, slide, s1, s2) ;
-    }
-  else if (sign == -1)
-    {
-      Array dna = array (snp->dnas, ssm->target, Array) ;
-      char s1[1024], s2[1024], slide[32] ;
-      int dx = 0 ;
-
-      s1[0] = s2[0] = 'n' ; 
-      s1[1] = s2[1] = 0 ; 
-      slide[0] = 0 ;
-      /* roll back */
-      if (dna && ssm->pos > 1 && ssm->pos  < arrayMax (dna))
+      
+      *deltap = 0 ; 
+      ccp = buf0 ;
+      
+      if (*ccp == '*')
+	{ ccp++ ; isRepeat = TRUE ; }
+      
+      /* we have ++aa if from BRS file and InsAA if from requested list */
+      if (*ccp == '+')
+	{ strcpy (typeBuf, "Ins") ; sign = 1 ; }
+      else if (*ccp == '-')
+	{  strcpy (typeBuf, "Del") ; sign = -1 ;  }
+      else if (! strncmp (ccp, "Ins", 3))
+	{   ccp += 3 ; d = strlen (ccp) ; strcpy (typeBuf, "Ins") ; sign = 1 ;}
+      else if (! strncmp (ccp, "Del", 3))
+	{ ccp += 3 ; d = strlen (ccp) ;  strcpy (typeBuf, "Del") ; sign = -1 ;  }
+      while (*ccp == '+' || *ccp == '-')
+	{ d++ ; ccp++ ; }
+      *deltap = sign * d ;  /* number of bases added or substracted */
+      
+      if (sign >= 1)  {  Abuf[0] = '.' ; Abuf[1] = 0 ; strncpy (Bbuf, ccp, 3) ; Bbuf[3] = 0 ; }
+      else if (sign <= -1)  {  Bbuf[0] = '.' ; Bbuf[1] = 0 ; strncpy (Abuf, ccp, 3) ; Abuf[3] = 0 ; }
+      else { Abuf[0] = tagBuf[0] = ccp[0] ;  Abuf[1] = 0 ; tagBuf[1] = '>' ; Bbuf[0] = tagBuf[2] = ccp[2] ;  Bbuf[1] = 0 ; tagBuf[3] = 0 ; }
+      if (Abuf[11]) messcrash ("Abuff 11") ;
+      cp = Abuf ; 
+      while (*cp) 
+	{ *cp = ace_lower(*cp) ; cp++ ; }
+      if (Abuf[11]) messcrash ("Abuff 11") ;
+      cp = Bbuf  ; 
+      while (*cp) 
+	{ *cp = ace_lower(*cp) ; cp++ ; }
+      cp = tagBuf ; 
+      while (*cp) 
 	{
-	  int i, j, dy ;
-	  int a = ssm->pos - 1 ;
-
-	  while (arr (dna, a - dx, char)  == Abuf[(10000 * d - dx + d - 1) % d]) 
-	    dx++ ;
-	  ssm->leftShift = dx ;
-	  hookBase = arr (dna, ssm->pos - dx - 1, char) ;
-	  dy = 0 ; 
-	  while (arr (dna, ssm->pos - dx + dy + d, char)  == Abuf[(10000 * d - dx + dy ) % d]) 
-	    dy++ ;
-	  s1[0] = s2[0] = hookBase ;
-	  i = j = 1 ;
-	  for (i = 0 ; i < d && i < 1000 ; i++)
-	    s1[i+1] = ace_upper(Abuf[i]) ;
-	  i++ ; /* because of the hookBase */
-	  for (j = 1 ; j < dy + 2 && i < 1000 && j < 1000 ; j++, i++)
-	    s1[i] = s2[j] = arr (dna, ssm->pos - dx + d + j - 1, char) ;
-	  s1[i] = s2[j] = 0 ;
-	  if (1)
+	  *cp = ace_lower(*cp) ;
+	  cp++ ;
+	}
+      
+      
+      if (sign == 1)
+	{
+	  Array dna = array (snp->dnas, ssm->target, Array) ;
+	  char s1[1024], s2[1024], slide[32] ;
+	  
+	  s1[0] = s2[0] = 'n' ; 
+	  s1[1] = s2[1] = 0 ; 
+	  slide[0] = 0 ;
+	  /* roll back */
+	  if (dna && ssm->pos > 1 && ssm->pos - 2 < arrayMax (dna))
 	    {
-	      int i ;
-	      char *cp = tagBuf ;
-
-	      if (dy)
+	      int i, j, dx = 0 ;
+	      while (arr (dna, ssm->pos - 1 - dx, char)  == ace_lower(buf0[d + ((10000 * d - dx + d-1) % d)]))
+		dx++ ;
+	      ssm->leftShift = dx ;
+	      hookBase = arr (dna, ssm->pos - dx - 1, char) ;
+	      s1[0] = s2[0] = hookBase ;
+	      i = j = 1 ;
+	      for (j = 0 ; j < d && j < 1000 ; j++)
+		s2[j+1] = ace_upper(Bbuf[(1000*d +j - dx)%d]) ;
+	      j++ ; /* because of the hookBase */
+	      for (i = 1 ; i < dx + 2 && i < 1000 && j < 1000 ; j++, i++)
+		s1[i] = s2[j] = arr (dna, ssm->pos - dx + i - 1, char) ;
+	      s1[i] = s2[j] = 0 ;
+	      if (1)
 		{
-		  isRepeat = TRUE ;
-		  *cp++ = '*' ;
+		  int i ;
+		  char buf[d+1] ;
+		  char *cp = tagBuf ;
+		  
+		  if (dx) 
+		    { 
+		      isRepeat = TRUE ;
+		      *cp++ = '*' ;
+		    }
+		  *cp++ = '+' ;
+		  for (i = 0 ; i < d ; i++)
+		    *cp++ = buf[i] = Bbuf[(1000*d +i - dx)%d] ;
+		  *cp++ = buf[i] = 0 ;
+		  memcpy (Bbuf, buf, d+1) ;
+		  for (i = 0 ; i < d ; i++)
+		    buf0[d+i] = ace_upper(buf[i]) ;
+		  if (dx) sprintf (slide, "/%d", d+dx) ;
 		}
-	      *cp++ = '-' ;
-	      for (i = 0 ; i < d ; i++)
-		*cp++ = Abuf[i] = arr (dna, ssm->pos - dx + i, char) ;
-	      *cp++ = Abuf[i] = 0 ;
-	      if (dy) sprintf (slide, "/%d", d+dy) ;
 	    }
+	  if (d == 1 && ! slide[0])
+	    sprintf (typeBuf, "Ins%s:%s:%s", slide, s1, s2) ;
+	  else 
+	    sprintf (typeBuf, "Ins_%d%s:%s:%s", d, slide, s1, s2) ;
 	}
-      if (d == 1 && !slide[0])
-	sprintf (typeBuf, "Del%s:%s:%s", slide, s1, s2) ;
-      else 
-	sprintf (typeBuf, "Del_%d%s:%s:%s", d, slide, s1, s2) ;
+      else if (sign == -1)
+	{
+	  Array dna = array (snp->dnas, ssm->target, Array) ;
+	  char s1[1024], s2[1024], slide[32] ;
+	  int dx = 0 ;
+	  
+	  s1[0] = s2[0] = 'n' ; 
+	  s1[1] = s2[1] = 0 ; 
+	  slide[0] = 0 ;
+	  /* roll back */
+	  if (dna && ssm->pos > 1 && ssm->pos  < arrayMax (dna))
+	    {
+	      int i, j, dy ;
+	      int a = ssm->pos - 1 ;
+	      
+	      while (arr (dna, a - dx, char)  == Abuf[(10000 * d - dx + d - 1) % d]) 
+		dx++ ;
+	      ssm->leftShift = dx ;
+	      hookBase = arr (dna, ssm->pos - dx - 1, char) ;
+	      dy = 0 ; 
+	      while (arr (dna, ssm->pos - dx + dy + d, char)  == Abuf[(10000 * d - dx + dy ) % d]) 
+		dy++ ;
+	      s1[0] = s2[0] = hookBase ;
+	      i = j = 1 ;
+	      for (i = 0 ; i < d && i < 1000 ; i++)
+		s1[i+1] = ace_upper(Abuf[i]) ;
+	      i++ ; /* because of the hookBase */
+	      for (j = 1 ; j < dy + 2 && i < 1000 && j < 1000 ; j++, i++)
+		s1[i] = s2[j] = arr (dna, ssm->pos - dx + d + j - 1, char) ;
+	      s1[i] = s2[j] = 0 ;
+	      if (1)
+		{
+		  int i ;
+		  char *cp = tagBuf ;
+		  
+		  if (dy)
+		    {
+		      isRepeat = TRUE ;
+		      *cp++ = '*' ;
+		    }
+		  *cp++ = '-' ;
+		  for (i = 0 ; i < d ; i++)
+		    *cp++ = Abuf[i] = arr (dna, ssm->pos - dx + i, char) ;
+		  *cp++ = Abuf[i] = 0 ;
+      if (Abuf[11]) messcrash ("Abuff 11") ;
+		  if (dy) sprintf (slide, "/%d", d+dy) ;
+		}
+	    }
+	  if (d == 1 && !slide[0])
+	    sprintf (typeBuf, "Del%s:%s:%s", slide, s1, s2) ;
+	  else 
+	    sprintf (typeBuf, "Del_%d%s:%s:%s", d, slide, s1, s2) ;
+	}
+      sprintf (namBuf, "%s:%d:%s", dictName (snp->targetDict, ssm->target),  ssm->pos - ssm->leftShift, typeBuf) ;
     }
+  else
+    sprintf (namBuf, "%s:%d:", dictName (snp->targetDict, ssm->target),  ssm->pos) ;
+      if (Abuf[11]) messcrash ("Abuff 11") ;
+      if (Bbuf[11]) messcrash ("Bbuff 11") ;
 
-  if (! requestedName)
-    sprintf (namBuf, "%s:%d:%s", dictName (snp->targetDict, ssm->target),  ssm->pos - ssm->leftShift, typeBuf) ;
   return isRepeat ;  
 } /* snpBRS2snpName */
 
@@ -2525,8 +2567,8 @@ static BOOL  snpBRS2snpName (SNP *snp, SSM *ssm, char* namBuf, char *typeBuf, ch
  *  0x04  : not_mm
  */
 
-#define MX 101
-static int snpNotLow (int count, int cover, float *zp, float *z1p, float *z2p, int limit)
+#define MX 110
+static int snpNotLow (int count, int cover, double *zp, double *z1p, double *z2p, int limit)
 {
   static int firstPass = 0 ;
   double cumul, cumulLow, cumulMid, cumulHigh ;
@@ -2542,7 +2584,8 @@ static int snpNotLow (int count, int cover, float *zp, float *z1p, float *z2p, i
   double z, dz, z1, z2 ;
   int i, pp, result = 0 ;
 
-
+  if (cover < 0) messcrash ("cover < 0") ;
+  if (count < 0) messcrash ("count < 0") ;
   /* alpha if the usual 1.96 of 1.96sigma, beta is used as 3/n for risk 5% */
   risk = 5.0/100 ; alpha = 1.95996 ;  beta = 3 ;
   risk = 1.0/1000 ; alpha = 3.29053 ;  beta = 5 ;
@@ -2815,10 +2858,11 @@ static int snpNotLow (int count, int cover, float *zp, float *z1p, float *z2p, i
 
 /*************************************************************************************/
 
-static void snpNotLowShow (ACEOUT ao, int count, int called, float *zp, float *z1p, float *z2p, int limit)
+static void snpNotLowShow (ACEOUT ao, int count, int called, double *zp, double *z1p, double *z2p, int limit)
 {
   float dosage = -1 ;
   int dosage2 = -1 ;
+
 
   int notLow = snpNotLow (count, called, zp, z1p, z2p, limit) ;
 
@@ -3279,10 +3323,18 @@ static int snpBRS2snpExport (SNP *snp)
   DICT *oldSnps = snp->oldSnps ;
   DICT *targetDict = snp->targetDict ;
   SSM *ssm ;
+  /*
+   * The call 
+     ~/ace/bin.ICC_centos7/snp -BRS_count -run RNA_ROCR1_A_1 -strategy RNA_seq -i tmp/SNP_BRS/RNA_ROCR1_A_1/zoner.5.BRS.u.gz -snp_list Global_SNP_LIST/SnpA2R2.zoner.5.Variant.list | grep DDR2.aAug10 | grep 1336
+     * crashes if i declare Abuf[12], Bbuf[12] and also for Abuf[24], Bbuf[24] but not if 24 12, mieg 2023_06_03
+     * no idea why , valgrind gives a hint
+     */
+
   char namBuf[2048], typeBuf[1024], Abuf[12], Bbuf[12], tagBuf[1000] ;
-  int i, ii, nn = 0, cover = 0, mutant, calledp, calledm, wild, delta ;
+  int i, ii, nn = 0, cover = 0, mutant, calledp, calledm, wild, delta = 0 ;
   int mp, mm, wp, wm, oo1p, oo1m, oo2p, oo2m ;
-  float z, z1, z2, cz2 ;
+  double z, z1, z2 ;
+  float cz2 ;
   int iOldSnp = 0 ;
   long int coveredPos[1001] ;
   BitSet bb1, bb[128] ;
@@ -3292,14 +3344,21 @@ static int snpBRS2snpExport (SNP *snp)
   Array dna ;
   BOOL showTitle = TRUE ;
   /* variables used to compute the cumulated histogram of the transcript coverage, in order to evaluate the 3' bias */
-  int oldTarget = 0, wMaxPos = 0 , wMaxValue = 0, wCountTranscripts = 0,  wKeptTranscripts = 0, wCumul = 0 ;
-  KEYSET wCover = keySetHandleCreate (h) ;
+  int wCountTranscripts = 0, wKeptTranscripts = 0 ;
+  /*  
+      KEYSET wCover = keySetHandleCreate (h) ; 
+      int wCumul = 0 ;
+      int oldTarget = 0, wMaxPos = 0 , wMaxValue = 0, wCountTranscripts = 0 ;
+  */
   KEYSET wGlobalCover = keySetHandleCreate (h) ;
   KEYSET wGlobalShiftedCover = keySetHandleCreate (h) ;
   int wStep = 10 ;
   ACEOUT wao = 0 ;
-  BOOL wDebug = FALSE ;
   BOOL wDebug2 = FALSE ;
+
+  memset (tagBuf, 0, sizeof (tagBuf)) ;
+  memset (typeBuf, 0, sizeof(typeBuf)) ;
+  memset (namBuf, 0, sizeof(namBuf)) ;
 
   if (0 &&  /* the wiggles are transfered back to bestali->mrnaSupport */
       ! oldSnps &&  snp->strategy == STRATEGY_RNA_SEQ)  /* detect mode, RNA_seq mode, compute the cover histogram to allow a better evaluation of the 3' bias */
@@ -3504,6 +3563,7 @@ static int snpBRS2snpExport (SNP *snp)
 
       if (! snpCountOtherStrand (snp, ssm, ssm->snp, ii, delta, ssm->leftShift, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 0))
 	continue ;
+      if (Abuf[11]) messcrash ("Abuff 11") ;
       mutant = mp + mm ; wild = wp + wm ;
       
       if (0)
@@ -3670,6 +3730,7 @@ static int snpBRS2snpExport (SNP *snp)
 	      if (0 && ssm->snp) continue ; /* just check the wild type */
 	      memset (Abuf, 0, sizeof(Abuf)) ; memset (Bbuf, 0, sizeof(Bbuf)) ;
 	      snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, 0) ;
+	      if (Abuf[11]) messcrash ("Abuff 11") ;
 	      cp = strchr(namBuf,':') ;
 	      cp = strchr(cp+1,':') ;
 	      *cp = 0 ; /* we keep   target:position */
@@ -3680,17 +3741,24 @@ static int snpBRS2snpExport (SNP *snp)
 		continue ;
 	      bitSet (bb1, jOldSnp) ; 
 
-	      bucket = 0 ; iBucket = 0 ;
+	      bucket = 0 ; iBucket = 0 ; SNPDEBUG=1 ;
 	      while (assFindNext (missed2old, assVoid (jOldSnp), &vp, &bucket, &iBucket)) 
 		  {
 		    int sn = 0 ;
 		    jj = assInt (vp) ;
 		    ccp = dictName (oldSnps, jj) ;
 
+		    if (iBucket >= 2 && ! bucket)
+		      ;
+		    /* nnn++ ; printf("nnn=%d\n",nnn) ; */
+		    memset (Abuf, 0, sizeof(Abuf)) ; memset (Bbuf, 0, sizeof(Bbuf)) ; memset (tagBuf, 0, sizeof(tagBuf)) ;
 		    snpBRS2snpName (snp, ssm, namBuf, typeBuf, Abuf, Bbuf, tagBuf, &delta, ccp) ;
+
 		    dictAdd (snp->eeDict, tagBuf, &sn) ;  sn++ ;
 		    if (! snpCountOtherStrand (snp, ssm, sn, ii, delta, ssm->leftShift, typeBuf, Abuf, &cover, &calledp, &calledm, &mp, &mm, &wp, &wm, &oo1p, &oo1m, &oo2p, &oo2m, 1))
 		      continue ;
+		    if (Abuf[11]) messcrash ("Abuff 11") ;
+
 		    mutant = mp + mm ; wild = wp + wm ;
 		    iOldSnp = 0 ;
 		    
@@ -5587,7 +5655,7 @@ static int snpTranslate  (SNP *snp)
 */
 /*************************************************************************************/
 
-static int snpCompatibleStrands (int cover, int a1, int a2, int b1, int b2, float *zp, float *z1p, float *z2p, int *chiFlagp, int limit)
+static int snpCompatibleStrands (int cover, int a1, int a2, int b1, int b2, double *zp, double *z1p, double *z2p, int *chiFlagp, int limit)
 {
   int z3 = 0 ;
   
@@ -6924,7 +6992,7 @@ static int snpAliExtendReport (SNP *snp, ACEOUT ao)
   Array aliSnps = snp->aliSnps ;
   int cover, m, w, mp, mm, wp, wm, otherp, otherm, calledp, calledm ;
   int oo1p = 0, oo2p = 0, oo1m = 0, oo2m = 0 ;
-  float z, z1, z2 ;
+  double z, z1, z2 ;
 
   for (iaes = 0, aes = arrp (aliSnps, 0, AES) ; iaes < arrayMax (aliSnps) ; aes++, iaes++)
     {
@@ -7845,7 +7913,7 @@ static int snpAnalyzeEditedHits (SNP *snp)
   for (ii = 0, up = arrp (aa, 0, AEH) ; ii < arrayMax (aa) ; ii++, up++)
     {
       int chiFlag = 0, notLow = 0 ;
-      float z = 0, z1 = 0, z2 = 0 ;
+      double z = 0, z1 = 0, z2 = 0 ;
       char *ss = "-" ;
 
       /*
@@ -7921,7 +7989,8 @@ static int snpAnalyzeEditedHits (SNP *snp)
       int notLow, chiFlag = 0 ;
       char *ss, *cp ;
       const char *ccp ;
-      float dose, z, z1, z2 ;
+      float dose ;
+      double z, z1, z2 ;
 
       if (up->cover && up->target)
 	{
@@ -9165,7 +9234,8 @@ static BOOL snpParseOneRecord (ACEIN ai, SNR *sp, vTXT txt, DICT *runDict, DICT 
  * merge on the fly
  * reexport at the end in the same format
  */
-typedef struct brsStruct { int pos, run, b, r, s, t ; short strand, ee ; } BRS ;
+typedef struct brsStruct { int pos, b ; char strand ; short ee ; } BRS ;
+typedef struct brs2Struct { int rp, rm, sp, sm, tp, tm ; } BRS2 ;
 
 static int snpMergeBRSOrder (const void *va, const void *vb)
 {
@@ -9175,7 +9245,6 @@ static int snpMergeBRSOrder (const void *va, const void *vb)
   n = a->strand - b->strand ; if (n) return n ;
   n = a->pos - b->pos ; if (n) return n ;
   n = a->ee - b->ee ; if (n) return n ;
-  n = a->run - b->run ; if (n) return n ;
 
   return 0 ;
 } /*  snpMergeBRSOrder */
@@ -9186,24 +9255,22 @@ static void snpMergeBRSCompress (BigArray aa)
 {
   register BRS *up, *vp, *wp ;
   register long int ii, i, j, iMax ;
-  int pos, ee ;
 
   bigArraySort (aa, snpMergeBRSOrder) ;
   iMax = bigArrayMax (aa) ;
   for (i = ii = 0, up = wp = bigArrp (aa, 0, BRS) ; i < iMax ; i++, up++)
     {
       if (up->b == 0) continue ;
-      for (j = i + 1, vp = up + 1, pos = up->pos, ee = up->ee ; j < iMax && vp->pos == pos && vp->ee == ee; j++, vp++)
-	{
-	  if (up->strand == vp->strand && up->run == vp->run)
-	    {
-	      up->b += vp->b ;
-	      up->r += vp->r ;
-	      up->s += vp->s ;
-	      up->t += vp->t ;
+      int pos = up->pos ;
+      short ee = up->ee ;
+      char strand = up->strand ;
 
-	      vp->b = 0 ;
-	    }
+      for (j = i + 1, vp = up + 1 ;
+	   j < iMax && vp->pos == pos && vp->ee == ee && vp->strand == strand ;
+	   j++, vp++)
+	{
+	  up->b += vp->b ;
+	  vp->b = 0 ;
 	}
       if (ii < i) { *wp = *up ; }
       ii++ ; wp++ ;
@@ -9213,42 +9280,8 @@ static void snpMergeBRSCompress (BigArray aa)
 }  /* snpMergeBRSCompress */
 
 /*************************************************************************************/
-/* During mergeCompress, B, R, S were added iff coord and ee are identical
- * but in reality R,S should be uniform iff coord are identical
- * so we scan and take the max hoping that at least one type of ee is present in all component runs
- * we obtain this by creating a dummy type with correct R,S while parsing
- * and do not export the dummy type
- */
-static void snpMergeBRSregularize (BigArray aa)
-{
-  register BRS *up, *vp ;
-  register long int i, j, iMax ;
-  register int pos, R, S ;
 
-  bigArraySort (aa, snpMergeBRSOrder) ;
-  iMax = bigArrayMax (aa) ;
-  for (i = 0, up = bigArrp (aa, 0, BRS) ; i < iMax ; i++, up++)
-    {
-      R = S = 0 ;
-      for (j = i, vp = up, pos = up->pos ; j < iMax && vp->pos == pos && up->strand == vp->strand && up->run == vp->run; j++, vp++)
-	{
-	  if (R < vp->r) R = vp->r ;
-	  if (S < vp->s) S = vp->s ;
-	}
-      for (j = i, vp = up, pos = up->pos ; j < iMax && vp->pos == pos && up->strand == vp->strand && up->run == vp->run; j++, vp++)
-	{
-	  vp->r = R ;
-	  vp->s = S ;
-	}
-      i = j - 1 ; up = vp - 1 ;
-    }
-
-  return ;					\
-}  /* snpMergeBRSregularize */
-
-/*************************************************************************************/
-
-static int snpMergeBRSExport (ACEOUT ao, BigArray aa
+static int snpMergeBRSExport (ACEOUT ao, BigArray aa, BigArray aap
 			       , const char *snpRun
 			       , const char *target
 			       , DICT *runDict
@@ -9256,7 +9289,8 @@ static int snpMergeBRSExport (ACEOUT ao, BigArray aa
 			       )
 {
   BRS *brs ;
-  int oldRun = 0, nn = 0 ;
+  BRS2 *brs2 ;
+  int nn = 0 ;
   long int i, iMax = bigArrayMax (aa) ;
   
   for (i = 0, brs = bigArrp (aa, i, BRS) ; i < iMax ; i++, brs++)
@@ -9266,20 +9300,22 @@ static int snpMergeBRSExport (ACEOUT ao, BigArray aa
       if (brs->ee == -1) 
 	continue ;
       aceOutf (ao, "%s\t%d\t%s\t%c"
-	       , nn++ ? "~" : target
+	       , nn ? "~" : target
 	       , brs->pos
 	       , dictName (eeDict, brs->ee)
 	       , brs->strand
+	       , nn ? "~" : snpRun 
 	       ) ;
-      if (oldRun == 0)
-	{
-	  aceOutf (ao, "\t%s",  snpRun ? snpRun : "-") ;
-	  oldRun = 1 ;
-	}
-      else 
-	aceOut (ao, "\t~") ;
-      aceOutf (ao, "\t%d\t%d\t%d\t%d\n"
-	       , brs->b, brs->r, brs->s, brs->t
+      nn++ ;
+      brs2 = bigArrp (aap, brs->pos, BRS2) ;
+      aceOutf (ao, "\t%d", brs->b) ;
+      if (brs->strand == '-')
+	aceOutf (ao, "\t%d\t%d\t%d\n"
+	       , brs2->rm, brs2->sm, brs2->tm
+	       ) ;
+      else
+	aceOutf (ao, "\t%d\t%d\t%d\n"
+	       , brs2->rp, brs2->sp, brs2->tp
 	       ) ;
     }
   return nn ;
@@ -9287,25 +9323,24 @@ static int snpMergeBRSExport (ACEOUT ao, BigArray aa
 
 /*************************************************************************************/
 
-static void snpMergeBRS (SNP *snp, BOOL mergeBRS_ns)
+static void snpParseBRS (SNP *snp, ACEIN ai)
 {
-  AC_HANDLE h = ac_new_handle () ;
-  ACEIN ai = snp->ai ;
-  ACEOUT ao = snp->ao ;
   BRS *brs ;
+  BOOL BRS_merge_ns = snp->BRS_merge_ns ;
 
-  DICT *eeDict = eeDictCreate (snp, h) ;  /* a,t,g,c and all rror types in canonical order */
-  DICT *targetDict = dictHandleCreate (1000, h) ;
-  DICT *runDict = dictHandleCreate (1000, h) ;   /* redundant ? since we merge into snp->run */
+  DICT *eeDict = snp->eeDict ;
+  DICT *targetDict = snp->targetDict ;
 
-  BigArray aa = 0 ;  /* BRS array of the current target */
-  Array aaa = arrayHandleCreate (1024, BigArray, h) ; /* Array of all aa arrays indexed by target */
-  Array errCounts = arrayHandleCreate (1024, long int, h) ;
+  BigArray aa = 0 ;  /* ee B array of the current target */
+  Array aaa = snp->aaa ;
+  BigArray aaP = 0 ;  /* RS array of the current target */
+  Array aaaP = snp->aaaP ;
+  Array errCounts = snp->errCounts ;
 
-  int ee, x, state = 0, oldRun = 0, oldTarget = 0, oldTargetDummy = 0, oldPos = 0 ;
+  int ee, x, state = 0, oldTarget = 0, oldTargetDummy = 0 ;
   int nnFiles = 0 ; /* count the BRS files */
-  long int nnIn = 0, nnOut = 0 ;    /* gloabal line counts */
-  long int nAli = 0  ;  /* gloabal read count */
+  long int nnIn = 0 ;    /* gloabal line counts */
+  long int nAli = 0 ;  /* gloabal read count */
   long int nBpAli = 0 ; /* gloabal base count */
 
   const char *ccp ;
@@ -9315,37 +9350,25 @@ static void snpMergeBRS (SNP *snp, BOOL mergeBRS_ns)
     {
       ccp = aceInWord (ai) ;
       if (! ccp || *ccp == '#')
-	{
-	  if (aa)
-	    snpMergeBRSCompress (aa) ;
-	  aa = 0 ; state = oldTarget = oldTargetDummy = 0 ;
-	  ccp = aceInWord (ai) ;
-	  if (ccp && ! strncmp (ccp, "Target", 8))
-	    { 
-	      int mx ;
-	      state = 1 ;
-	       
-	      messAllocMaxStatus (&mx) ;   
-	      fprintf (stderr, "... snpMergeBRS       \t%s\tmax memory %d Mb\tmerged %ld values from %ld positions in %d files\n", timeShowNow(), mx,  nnIn, nnOut, nnFiles) ;
-	
-	      nnFiles++ ;
-	    } 
-	  continue ;
-	}
+	continue ;
       else if (! strcmp (ccp, "nAli"))  /* overall read count */
 	{
+	  nnFiles++ ;
+	  state = 0 ;
 	  aceInStep (ai,'\t') ; 
 	  if (aceInInt (ai, &x))
 	    nAli += x ;
 	}
       else if (! strcmp (ccp, "nBpAli"))  /* overall base count */
 	{
+	  state = 0 ;
 	  aceInStep (ai,'\t') ; 
 	  if (aceInInt (ai, &x)) 
 	    nBpAli += x ;
 	}
       else if (! strcmp (ccp, "ERR"))     /* overall error count */
 	{
+	  state = 0 ;
 	  aceInStep (ai,'\t') ;  ccp = aceInWord (ai) ;
 	  dictAdd (eeDict, ccp, &ee) ;
 	  
@@ -9355,58 +9378,113 @@ static void snpMergeBRS (SNP *snp, BOOL mergeBRS_ns)
 	    array (errCounts, ee, long int) += x ;
 	  continue ;
 	}
+
+      if (state == 0 && aa)
+	{
+	  snpMergeBRSCompress (aa) ;
+	  snpMergeBRSCompress (aaP) ;
+	  aa = aaP = 0 ; state = oldTarget = oldTargetDummy = 0 ;
+	}
+
+      if (state == 0 && *ccp == '~')  /* target not specified */
+	continue ;
+
+      if (*ccp != '~')
+	{
+	  int target ;
+
+	  state = 1 ;
+	  dictAdd (targetDict, ccp, &target) ;
+	  if (target != oldTarget)
+	    {
+	      if (aa)
+		{
+		  snpMergeBRSCompress (aa) ;
+		  snpMergeBRSCompress (aaP) ;
+		}
+	      aa = array (aaa, target, BigArray) ;
+	      if (! aa)
+		aa = array (aaa, target, BigArray) = bigArrayHandleCreate (10000, BRS, snp->h) ;
+	      aaP = array (aaaP, target, BigArray) ;
+	      if (! aaP)
+		aaP = array (aaaP, target, BigArray) = bigArrayHandleCreate (10000, BRS2, snp->h) ;
+	      oldTarget = target ;
+	    }
+	}
       
+
       if (state == 1)
 	{
 	  BRS B ;
-	  
-	  if (*ccp != '~')
-	    {
-	      int target ;
-	      dictAdd (targetDict, ccp, &target) ;
-	      if (target != oldTarget)
-		{
-		  if (aa)
-		    snpMergeBRSCompress (aa) ;
-		  aa = array (aaa, target, BigArray) ;
-		  if (! aa)
-		    aa = array (aaa, target, BigArray) = bigArrayHandleCreate (10000, BRS, h) ;
-		  oldTarget = target ;
-		  oldPos = 0 ;
-		}
-	    }
+	  BRS2 B2 ;
+	  BOOL isWild ;
 
 	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.pos)) continue ;
 	  aceInStep (ai,'\t') ; if (! (ccp = aceInWord (ai))) continue ;
+	  isWild = (ccp[1] == 0 ? TRUE : FALSE) ;
 	  dictAdd (eeDict, ccp, &ee) ; B.ee = (short) (ee & 0xffff) ; 
 	  aceInStep (ai,'\t') ; if (! (ccp = aceInWord (ai))) continue ;
-	  B.strand = mergeBRS_ns ? '+' : *ccp ;
-	  aceInStep (ai,'\t') ; if (! (ccp = aceInWord (ai))) continue ;
-	  if (snp->run) 
-	    B.run = 0 ;
-	  else 
-	    {
-	      if (*ccp != '~')
-		dictAdd (runDict, ccp, &oldRun) ;
-	      B.run = oldRun ;
-	    }
+	  B.strand = BRS_merge_ns ? '+' : *ccp ;
+	  aceInStep (ai,'\t') ; if (! aceInWord (ai)) continue ;
 	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.b)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.r)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.s)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.t)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.rp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.sp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.tp)) continue ;
 	  brs = bigArrayp (aa, bigArrayMax(aa), BRS) ;
 	  *brs = B ;
-	  if (B.pos != oldPos)
+	  if (isWild)
 	    {
-	      brs = bigArrayp (aa, bigArrayMax(aa), BRS) ;
-	      *brs = B ; brs->ee = -1 ; /* create a dummy record per pos to correctly assess R, S */
+	      BRS2 *brs2 = bigArrayp (aaP, B.pos, BRS2) ;
+	      if (B.strand == '-')
+		{
+		  brs2->rm += B2.rp ;
+		  brs2->sm += B2.sp ;
+		  brs2->tm += B2.tp ;
+		}
+	      else
+		{
+		  brs2->rp += B2.rp ;
+		  brs2->sp += B2.sp ;
+		  brs2->tp += B2.tp ;
+		}
 	    }
-	  oldPos = B.pos ;
 	  nnIn++ ;
 	}      
     }
   if (aa)
-    { snpMergeBRSCompress (aa) ; }
+    snpMergeBRSCompress (aa) ; 
+
+  fprintf (stderr, "//  snpParse found %d files %ld lines %ld ali %ld bases in file %s\n"
+	   , nnFiles, nnIn, nAli, nBpAli
+	   , aceInFileName (ai)
+	   ) ;
+
+} /* snpParseBRS */
+
+/*************************************************************************************/
+
+static void snpMergeBRS (SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEIN ai = snp->ai ;
+  ACEOUT ao = snp->ao ;
+
+  DICT *eeDict = snp->eeDict ;
+  DICT *targetDict = snp->targetDict ;
+  DICT *runDict = snp->runDict ;
+
+  Array errCounts = snp->errCounts ;
+  BigArray aa = 0 ;  /* ee B array of the current target */
+  BigArray aaP = 0 ;  /* RS array of the current target */
+  Array aaa = snp->aaa ;  /* ee B array of the current target */
+  Array aaaP = snp->aaaP ;  /* ee B array of the current target */
+  int ee ;
+  int nnFiles = 0 ; /* count the BRS files */
+  long int nnIn = 0, nnOut = 0 ;    /* gloabal line counts */
+  long int nAli = 0  ;  /* gloabal read count */
+  long int nBpAli = 0 ; /* gloabal base count */
+
+  snpParseBRS (snp, ai) ;
   
   /* export start  */
   aceOutf (ao, "## %s\n", timeShowNow ()) ;
@@ -9435,10 +9513,10 @@ static void snpMergeBRS (SNP *snp, BOOL mergeBRS_ns)
     for (target = 1 ; target <= dictMax (targetDict) ; target++)
       {
 	aa = array (aaa, target, BigArray) ;
+	aaP = array (aaaP, target, BigArray) ;
 	if (aa && bigArrayMax (aa))
 	  {
-	    snpMergeBRSregularize (aa) ;
-	    nnOut += snpMergeBRSExport (ao, aa, snp->run, dictName (targetDict, target) , runDict, eeDict) ;
+	    nnOut += snpMergeBRSExport (ao, aa, aaP, snp->run, dictName (targetDict, target) , runDict, eeDict) ;
 	  }
       }
   }
@@ -9471,7 +9549,8 @@ static void snpMerge (SNP *snp)
   Array aa = arrayHandleCreate (1000000, SNR, h) ;
   vTXT txt = vtxtHandleCreate (h) ;
   char *ss, *cp ;
-  float z, z1, z2, zchi2 = 0 ;
+  double z, z1, z2 ;
+  float zchi2 = 0 ;
   int ii ;
   BOOL solid = FALSE ;
 
@@ -12248,9 +12327,11 @@ static void usage (char *message)
 	    "//        In MAGIC, the original fastq quality coefficients are judged unreliable and discarded\n" 
 	    "//        rather the averaged q is estimated automatically after alignment and stored in MetaDB\n"
 	    "//        effect: the numbers reported by -count are multiplied by 100 - 5 * (30 - q)/30, bounded to [0,100]\n"
-	    "//   -mergeBRS  [-minCover <int> ] [-minFrequency <int> ]  export a single data file combining all the entries\n"
-	    "//      The input should be a concatenation of BRST files exported using the -count option\n"
+	    "//   -BRS_merge -run group_name :  export a single data file combining all the entries\n"
+	    "//      The input should be a concatenation of BRST files exported using the -hits2BRS option\n"
 	    "//      Optionally, low coverage cases or low %%, adding the 2 strands, after merging,  are excluded\n"
+	    "//   -BRS_merge_ns :\n"
+	    "//      Idem merging the 2 strands\n"
 	    "//\n"
 	    "// Phase 2 actions: Transform in 3 passes, BRS_detect, BRS_make_snp_list, BRS_count, the .BRS files into .snp files\n"
 	    "//    -run run_name : name of the run, mandatory \n"
@@ -12270,6 +12351,7 @@ static void usage (char *message)
 	    "//   -BRS_count -snp_list f [-minCover c] : Phase 2c, export in .snp format the counts for a requested list of SNPs\n"
 	    "//      The input file should be the BRS[.gz] file for a given run in a given zone\n"
 	    "//      The mandatory file f contains the list exported by phase 2b\n"
+	    "//      The exported snps exactly correspond to the list even if no mutant is observed (m=0) provided there is coverage (c>0)\n"
 	    "//   -snp_merge [-minCover <int> ] [-minFrequency <int> ]  export a single data file combining all the entries\n"
 	    "//      The input should be a concatenation of .snp files exported using the -BRS_count option\n"
 	    "//      The -run run parameter is reexported as column 6 of the output\n"
@@ -12407,9 +12489,6 @@ int main (int argc, const char **argv)
 
   getCmdLineOption (&argc, argv, "-db", &dbName) ;
 
-  snp.snp_merge = getCmdLineBool (&argc, argv, "-snp_merge") ;
-  snp.BRS_merge = getCmdLineBool (&argc, argv, "-mergeBRS") ;
-  snp.BRS_merge_ns = getCmdLineBool (&argc, argv, "-mergeBRS_ns") ;
   snp.BRS_merge = getCmdLineBool (&argc, argv, "-BRS_merge") ;
   snp.BRS_merge_ns = getCmdLineBool (&argc, argv, "-BRS_merge_ns") ;
 
@@ -12525,9 +12604,16 @@ int main (int argc, const char **argv)
   if (snp.selectFileName)
     snpPrepareZoneSelection (&snp) ;
  
+  snp.runDict = dictHandleCreate (64, snp.h) ; 
   snp.targetDict = dictHandleCreate (10000, snp.h) ;
-  snp.chromDict = dictHandleCreate (100, snp.h) ;
   snp.target_classDict = dictHandleCreate (4, snp.h) ;
+  snp.chromDict = dictHandleCreate (100, snp.h) ;
+  snp.eeDict = eeDictCreate (&snp, snp.h) ;  /* a,t,g,c and all error types in canonical order */
+  snp.aaa = arrayHandleCreate (1024, BigArray, snp.h) ; /* Array of all aa in target */
+  snp.aaaP = arrayHandleCreate (1024, BigArray, snp.h) ; 
+  snp.errCounts = arrayHandleCreate (1024, long int, snp.h) ;
+
+
   if (snp.selected8kbFileName)
     {
       snp.selected8kbDict = dictHandleCreate (100, snp.h) ;
@@ -12553,7 +12639,7 @@ int main (int argc, const char **argv)
       snpHits2BRS (&snp) ;
     }
   else if (snp.BRS_merge || snp.BRS_merge_ns)
-    snpMergeBRS (&snp, snp.BRS_merge_ns) ;
+    snpMergeBRS (&snp) ;
   else if (snp.remapFileName1)
     { snpRemap1 (&snp) ;  snpRemap2 (&snp) ; }
   else if (snp.remapFileName2)

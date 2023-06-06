@@ -5333,12 +5333,12 @@ if (0) then
     cat Global_SNP_LIST/av.captured.gene.list    ZZZZZ Global_SNP_LIST/av.t2g | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}if(ok[$2]==1) print ;}' > Global_SNP_LIST/av.A2R2.t2g
     set ok=1
     foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-      if (-e tmp/SNP_LIST/$zone/SnpAecdb.Variant.list && -e tmp/SNP_LIST/$zone/SnpClones.Variant.list && -e DanLi/DanLi.$zone.SNP_summary.txt) then
-        wc  tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt
-        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u | wc
-        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  DanLi/DanLi.$zone.SNP_summary.txt | gawk '/^#/{next}{print}' | cut -f 1 | sort -u > Global_SNP_LIST/Snp.$zone.Variant.list
-        cat  Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/Snp.$zone.Variant.list | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2
-        cat DanLi/DanLi.$zone.known Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
+      if (-e tmp/SNP_LIST/$zone/SnpAecdb.Variant.list && -e tmp/SNP_LIST/$zone/SnpClones.Variant.list && -e tmp/SNP_LIST/$zone/SnpCcs3.Variant.list && -e Global_SNP_LIST/brs.$zone.list) then
+        wc  tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  Global_SNP_LIST/brs.$zone.list tmp/SNP_LIST/$zone/SnpCcs3.Variant.list
+        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  tmp/SNP_LIST/$zone/SnpCcs3.Variant.list Global_SNP_LIST/brs.$zone.list | gawk '/^#/{next}{print}' | cut -f 1 | sort -u | wc
+        cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  tmp/SNP_LIST/$zone/SnpCcs3.Variant.list Global_SNP_LIST/brs.$zone.list | gawk '/^#/{next}{print}' | cut -f 1 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.1
+        cat Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/SnpA2R2.$zone.Variant.list.1 | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2
+        cat Global_SNP_LIST/brs.$zone.list Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
 
       else
         set ok=0
@@ -5362,6 +5362,7 @@ EOF
 foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupSnpAdditiveList`) 
   # RunsList avoids runs which are sublibraries
   # do not count/detect in non-additive groups
+
   if (! -d  tmp/SNP_BRS/$run) continue
    if (! -d tmp/SNP/$run) $mkDir  SNP $run
 
@@ -5388,14 +5389,13 @@ foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupSnpAdditiveList`)
       if ($run == $run2) set solid="solid"
     end
 
-    echo "scripts/snp.collect.tcsh $run $justMito  $pool $solid $collect minFrequency=$minSnpFrequency"
+    #echo "scripts/snp.collect.tcsh $run $justMito  $pool $solid $collect minFrequency=$minSnpFrequency"
     if (-e tmp/SNP/$MAGIC.candidate_variants_detected_by_BRS.txt) \rm tmp/SNP/$MAGIC.candidate_variants_detected_by_BRS.txt
 
 
     foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
       if ($justMito == 1 && $zone != mito && $zone != SpikeIn) continue
       if (! -e tmp/SNP_BRS/$run/$zone.BRS.u.gz) continue
-
       if ($justMito == 1 && -e tmp/SNP/$run/$zone.snp.$collect.$justMito.done) continue
       if ($collect == detect && -e tmp/SNP/$run/$zone.snp.$collect.done && -e tmp/SNP_LIST/$zone/Variant.$run.u.list) continue
       if ($collect == count && -e tmp/SNP/$run/$MAGIC2.$zone.snp.$collect.done) continue 

@@ -1046,7 +1046,8 @@ static void snpIdentifiers (TSNP *tsnp, SNP *snp)
     {  "gName", "genome Name", 0, 0, 0} ,
     {  "rName", "RNA Name", 0, 0, 0} ,  
     {  "pName", "Protein Name", 0, 0, 0} ,  
-    {  "Dan_Li", "Dan Li Name", 0, 0, 0} ,  
+    {  "VCF_hg38", "VCF hg38 name", 0, 0, 0} ,  
+    {  "Dan_Li", "Dan Li VCF 38 name", 0, 0, 0} ,  
     {  "Typ", "Type", 0, 0, 0} ,  
     { "Coding", "Coding\tProtein type", 1, 0, 0} ,
     { "Seq_Var", "RNA variation", 10, 0, 0} ,
@@ -1222,6 +1223,8 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
     { "Compute", "ROCR1 m/m+w", 3, 0, 0} ,
     { "Compute", "ROCR2 m/m+w", 4, 0, 0} ,
     { "Sum", "Any m/m+w", 14, 0, 0} ,
+    {  "Monomodal", "Monomodal", 0, 0, 0} ,  
+    { "Wendell", "Wendell Jones Var/Ref/Masked: on genome in sample A\tGenomic allele Frequency in sample A (Jones 2021)", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
   int mm = 0, cc = 0 ;
@@ -1236,6 +1239,27 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
       if (snp == 0)
 	{
 	  aceOutf (tsnp->ao, "\tDanLi:%s", ti->title) ;
+	}
+      else if (! strcmp (ti->tag, "Wendell"))
+	{
+	  AC_TABLE tt = 0 ;
+	  BOOL ok = FALSE ;
+
+	  tt = ac_tag_table (snp->Snp, "Wtrue", h) ;
+	  if (!  tt) 
+	    tt = ac_tag_table (snp->Snp, "Wtrue2", h) ;
+	  if (tt && tt->cols >=1)
+	    {
+	      aceOutf (tsnp->ao, "\tVar\t%.2f", ac_table_float (tt, 0, 0, 0)) ;
+	      ok = TRUE ;
+	    }
+	  if (! ok)
+	    {
+	      if (ac_has_tag (snp->Snp, "Wfalse") || ac_has_tag (snp->Snp, "Wfalse2"))
+		aceOut (tsnp->ao, "\tRef\t") ;
+	      else
+		aceOut (tsnp->ao, "\tRef\t") ;
+	    }
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
@@ -1262,6 +1286,25 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
 		    mm += m ; cc += c ;
 		  }
 	    }
+	}
+      else if (! strcmp (ti->tag, "Monomodal"))
+	{
+	  AC_TABLE tt = ac_tag_table (snp->Snp, "Monomodal", h) ;
+	  int ir ;
+	  char sep = '\t' ;
+	  
+	  if (tt && ! ac_has_tag  (snp->Snp, "Manual_non_monomodal"))
+	    for (ir = 0 ; ir < tt->rows ; ir++)
+	      {
+		aceOutf (tsnp->ao
+			 , "%c%s"
+			 , sep
+			 , ac_table_printable (tt, ir, 0, "local")
+			 ) ;
+		sep = ',' ;
+	      }
+	  else
+	    aceOut (tsnp->ao, "\t") ;
 	}
       else if (! strcmp (ti->tag, "Sum"))
 	{
@@ -1429,8 +1472,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
     return  snpChapterCaption (tsnp, tts, caption) ;
   for (ti = tts ; ti->tag ; ti++)
     {
-      KEYSET rg = 0 ;
-
       if (snp == 0)
 	{
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
@@ -1457,46 +1498,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
   return;
 }
 
-
-/*************************************************************************************/
-/* template for a future chapter */
-static void snpOther (TSNP *tsnp, SNP *snp)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  TT *ti, tts[] = {
-    { "Spacer", "", 0, 0, 0} ,
-    {  0, 0, 0, 0, 0}
-  }; 
-
-  const char *caption =
-    "Statistics before alignment"
-    ;
-  if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, caption) ;
-  
-  for (ti = tts ; ti->tag ; ti++)
-    {
-      if (snp == 0)
-	aceOutf (tsnp->ao, "\t%s", ti->title) ;
-       else if (! strcmp (ti->tag, "TITLE"))
-	{
-	  aceOutf (tsnp->ao, "\t%s", ac_name(snp->Snp)) ;
-	}
-      else  if (! strcmp (ti->tag, "Compute"))
-	{
-	  switch (ti->col)
-	    {
-	    default:
-	      break ;
-	    }
-	}
-      else
-	snpShowTag (tsnp, snp, ti) ;
-    }
-
-   ac_free (h) ;
-  return;
-}  /* snpOther */
 
 /*************************************************************************************/
 
@@ -1726,11 +1727,26 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
     case 0: 
       qq ="select s from s in ?Variant  " ;
       break ;
+    case 1: 
+      qq ="select s from s in ?Variant where  (s#Manual_non_monomodal || !  s->monomodal == Fatigue)  " ;
+      break ;
     case 3 : 
-      qq = "select s from s in ?Variant where s#danli_counts " ;
+      qq = "select s from s in ?Variant where (s#danli_counts || s#wtrue || s#wtrue2)  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 5 : 
+      qq = "select s from s in ?Variant where s#Wtrue and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 6 : 
+      qq = "select s from s in ?Variant where s#Wfalse and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 7 : 
+      qq = "select s from s in ?Variant where s#Wtrue2 and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 8 : 
+      qq = "select s from s in ?Variant where s#Wfalse2 and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
       break ;
     case 4 : 
-      qq = "select s from s in ?Variant, m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
+      qq = "select s from s in ?Variant s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
       break ;
     }
 
@@ -1813,9 +1829,14 @@ static void usage (char *message)
 	    "//      Insert a blank line if the sorting value looks like A__B and A changes\n"
 	    "//   --snpType [0,1,2,3] : which runs\n"
 	    "//       0 [default]: any_snp\n"
-	    "//       1 : skip the rejected snps\n"
+	    "//       1 : skip the monomodal snps\n"
 	    "//       2 : only the rejected snps\n"
 	    "//       3 : only the DanLi snps\n"
+	    "//       5 : only the Wendell true positives snps, single transcript per locus\n"
+	    "//       6 : only the Wendell true negative snps, single transcript per locus\n"
+	    "//       7 : only the Wendell true positives snps, any transcript\n"
+	    "//       8 : only the Wendell true negative snps, any transcript\n"
+	    "//       10 : gene captured by A1 A2 R1 R2 R3 I1 I2 I3  and snp is Wtrue || Dan_Li\n"
 	    "//       9 : no SNP, only the title lines\n"
 	    "//    --doubleDetect\n"
 	    "//       Count  snp detetced at in 2 libs at 10:4 and at least once at 20:8\n"
