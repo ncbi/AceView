@@ -158,6 +158,8 @@
       Apply  de_duo      // optional locate introns by the de_duo method, preferably for groups
              CNV  // non additive group with tag CNV show their own lost/low/high columns in the cnv report
              SNP    SNP_add_counts     // cumulate SNP counts in non Add_counts groups,  default behaviour if Is_run OR (Is_group && Add_counts) 
+                    SNP_ignore_in_global_frequency  // this run will not contribute to the global counts amd frquency of the project
+		    Ignore_lowQ_runs_in_group_allele_frequency
                     SNP_RNA SNP_RNA_ILM    // used for the tag population_xNA distribution in the individual variants
                             SNP_RNA_LIF    //   used in Variant->quality
                             SNP_RNA_ROC
@@ -195,6 +197,7 @@
                     U_sorting_title UNIQUE Text  // sort the tracks in alphabetic order of these titles
       Quality  Cov // genes  index_10 > 4000 AND index_18 < 800 (eliminate tiny runs, small RNAs, and targeted runs)
                Recons Recons_str
+               Low_sequence_quality
       Details  ?Text   
       Taxonomy Archea      Text Text UNIQUE Float
                Bacteria    Text Text UNIQUE Float
@@ -640,6 +643,9 @@
              Minus_strand_only ?Run
              Plus_strand_only ?Run
              Ambiguous ?Run UNIQUE Float UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int Float  UNIQUE Float  ?Run UNIQUE Float UNIQUE Int UNIQUE Int UNIQUE Int UNIQUE Int  UNIQUE Int UNIQUE Int UNIQUE Float  UNIQUE Float
+             Titration AECDB ?Compare Float REPEAT  // 5 values in Compare objects
+             Double_lib ?Compare Int UNIQUE Int     // seen in Group at >= p percent (p >=2) in n runs
+             Detection  ?Compare UNIQUE Float UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int UNIQUE Text UNIQUE Int // average frequency , mutant, cover, measured in, compatible in, contradicted in
           Population #Proba   // WW..., number  of individual including from pools, allelic percent
 
 #Proba Frequency  UNIQUE Float UNIQUE Float UNIQUE Float  // percent, min-max at risk 1/1000
@@ -1280,6 +1286,14 @@
                 Classify_by_homozygous_SNPs   // profile all runs via their homozygote SNPs, export the list of significant SNPs
                 Show_all_histos  // for each gene, if compare contains N groups, show N histo, limiting to minFoldChange between the most extreme groups
                 Mixing_ratios  // estimate the mixing ratio of run marked 100 in terms of runs marker 10 10 30 50
+                SEQC2 AECDB      UNIQUE Int            // n snps are seen as titrating
+                      Double_lib UNIQUE Int UNIQUE Int // at >= p percent, we detected n snps
+                      Detection  UNIQUE Int            
+                      Wendell  Wtrue UNIQUE Int  // number of snp detected  at p >= 2% in 2 runs 
+                               Wtrue2 UNIQUE Int
+                               Wfalse UNIQUE Int
+                               Wfalse2 UNIQUE Int
+                               DanLi  UNIQUE Int
           Counts  Diff_Gene  Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int // 1>2 av 23 FDR  5.96 DEG 478
                   Diff_mRNAH Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int
                   Diff_MA    Text ?Target UNIQUE Int  UNIQUE Text UNIQUE Float UNIQUE Text UNIQUE Int

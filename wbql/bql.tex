@@ -180,7 +180,7 @@ In this second query, using the classical definition of the
 bodymass index, we select people who are heavy relative to their height. 
 The intermediate variables $h$ and $w$ are not exported, but if they are not available
 in the database, the $bmi$ will not be computed.
-By combining more variables, and using arithmetic and \{\} protected embedded subqueries,
+By combining more variables, and using arithmetics and \{\} protected embedded subqueries,
 as in these examples, one can construct large tables which remain relatively easy to develop and maintain.
 The details on the exploration of the database are explained in section 2, the $where$ clause in sections 3,
 the dates, DNA and protein formats in sections 4, ordering in section 5.
@@ -493,7 +493,7 @@ equivalent queries
 When the variable is not named, everything to the right of the class name is interpreted
 as being part of the $where$ clause. 
 One can replace the $like$ by \~{}  (tilde), or replace it by
-one of the usual comparators $< \;\;\; <= \;\;\; == \;\;\; > \;\;\; >$
+one of the usual comparators $< \;\;\; <= \;\;\; == \;\;\; >= \;\;\; >$
 
 \BL
     select ?Person < kj          // select Abel to King, but not Kong
@@ -526,11 +526,11 @@ not (Cain, Abel). Whereas the second query requests that $y$ starts with x, y or
 and would accept (Zachary, Xavier), but reject (Abel, Seth).
 
 There is a special issue concerning the naming of the instances of a class. By default
-the instance names are not case sensitive, but the firt typography encountered when parsing
+the instance names are not case sensitive, but the first typography encountered when parsing
 the data is always preserved. For example if in the datafiles the first spelling is $"Eva"$, then
 the query $Find\; person\; eva$ will return $Eva$. However, one may specify in acedb that the
 instance names of a particular class are case sentitive, this is specified in the
-self documnented configuration file $wspec/options.wrm$. This option is used for example
+self documented configuration file $wspec/options.wrm$. This option is used for example
 in the class $Gene$ for the model organism $Drosophila\;melanogaster$ which, according
 to tradition, has two distinct genes, one called $A$ and the other called $a$.
 
@@ -627,7 +627,7 @@ which expands as
 The usual comparators: 
 $< \;\;\; <= \;\;\;  ==  \;\;\; >=  \;\;\; >$
 can act on names, dates and numbers. In addition, a numeric variable is interpreted as a real number  
-and numerical comparisons can involve arithmetic: additions, subtractions, multiplications, divisions, 
+and numerical comparisons can involve arithmetics: additions, subtractions, multiplications, divisions, 
 modulo, power.  Parenthesis are recognized in the usual way:
 \BL
      select p in ?Person, 
@@ -736,7 +736,7 @@ or if the tag $weight$ is not present in the object, or if the tag does not poin
 Otherwise they evaluate as TRUE even if the value happens to be zero.
 
 In numerical calculations, the NaN value is sticky. Any calculation involving one NaN
-evalutes to NaN, for example $log(0) + 4$. Similarly, any calculation
+evaluates to NaN, for example $log(0) + 4$. Similarly, any calculation
 involving a missing data evaluates to NULL, for example ($p$ $-$$>$ $weight$ $+$ $p$ $-$$>$ $height$)
 evaluate as NULL
 if either $weight$ or $height$ is not specified in the object $p$.
@@ -773,7 +773,7 @@ be negative:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{The meaning of NOT in a multivalued universe}
 
-In standard arithmetic, the two conditions $(a$ $!$$=$ $b)$ and $! (a == b)$, 
+In standard arithmetics, the two conditions $(a$ $!$$=$ $b)$ and $! (a == b)$, 
 i.e. (a NOT EQUAL b) versus (NOT (a EQUAL b)),
 are equivalent, they are FALSE if ($a == b$) and TRUE otherwise. But in
 the context of a database query, the situation is more involved.
@@ -1080,16 +1080,16 @@ This research was supported by the Intramural Research Program of the National L
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{thebibliography}{99}
 
+\bibitem {DTM92}
+Richard Durbin and Jean Thierry-Mieg
+Syntactic Definitions for the ACEDB Database Manager
+Technical Report: MRC Lab. for Molecular Biology, 1992
+
 \bibitem {DTM94}
 Richard Durbin and Jean Thierry-Mieg
 The acedb genome database,
 Computational Methods In Genome Research, pages 45-55.
 Edited by S. Suhai, Plenum Press, New York, 1994
-
-\bibitem {DTM92}
-Richard Durbin and Jean Thierry-Mieg
-Syntactic Definitions for the ACEDB Database Manager
-Technical Report: MRC Lab. for Molecular Biology, 1992
 
 \bibitem {STM98}
 Lincoln D Stein, Jean Thierry-Mieg
@@ -1104,23 +1104,21 @@ DOI: 10.1007/0-306-46903-0\_23
 
 
 \bibitem{Sulston}
-Sulston...the C.elegans genome
+J Sulston, Zijin Du, K Thomas, R Wilson, L Hillier, R Staden, N Halloran, P Green, J Thierry-Mieg, L Qiu, S Dear, A Coulson, M Craxton, R Durbin, M Berks, M Metzstein, T Hawkins, R Ainscough, R Waterston
+The C. elegans genome sequencing project: a beginning
+Nature, 356, 6364, pp 37-41, 1992
+
 
 \bibitem{cDNA}
 Danielle Thierry-Mieg and Jean Thierry-Mieg
 AceView: a comprehensive cDNA-supported gene and transcripts annotation.
 Genome Biology 2006, 7(Suppl 1):S12.  
 
-\bibitem{DJTM}
-Danielle Thierry-Mieg and Jean Thierry-Mieg
-Magic RNAseq pipeline
-
-
 \bibitem{Code}
 Code and documentation are available from  
 $https://www.aceview.org/Software/$ 
-$htps://github.com/ncbi/AceView$ 
-$htps://github.com/jtmieg/AceView$ 
+$https://github.com/ncbi/AceView$ 
+$https://github.com/jtmieg/AceView$ 
 
 
 \end{thebibliography}
@@ -1189,7 +1187,7 @@ maker interface, are all expressed in the new unified syntax and the database ex
 
 The acedb source code can be downloaded from 
  
-$htps://github.com/ncbi/AceView$
+$https://github.com/ncbi/AceView$, $https://github.com/jtmieg/AceView$ 
 
 The tar ball is effectively identical to the distribution of the AceView/Magic pipeline 
 \cite{DJTM} which uses acedb as the underlying database, and can organize the workflow and manage the

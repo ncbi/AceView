@@ -11,6 +11,7 @@
  */
 
 #include "../wac/ac.h"
+#include "../wh/bitset.h"
 
 typedef struct tsnpStruct {
   const char *project ;
@@ -19,44 +20,52 @@ typedef struct tsnpStruct {
   int snpType ; /* 0: any, 1=sublib; 2=runs ; 3=group */
   int minSnpFrequency, minSnpCover ;
   int allC, allM ;
-  ACEOUT ao ;
+  ACEOUT ao, ao204 ;
   KEYSET runs ;
   KEYSET groups ;
   DICT *bloomDict ;
   DICT *runDict ;
+  BitSet snpDone ;
   vTXT runsHeader, groupsHeader ;
+  vTXT runsHeader2, groupsHeader2 ;
+  vTXT titrationTxt5 ;
+  vTXT titrationTxt3 ;
   AC_DB db ;
   AC_HANDLE h ;
-  AC_TABLE snps ;
+  AC_TABLE snps, titrationTable, countLibsTable ;
   const char *Etargets[4] ;
   const char *EtargetsBeau[4] ;
+  const char *capture ;
   const char *orderBy ;
   const char *outFileName ;
-  BOOL doub ;
+  BOOL doub, histo, count_libs, titration, unique ;
   BOOL gzi, gzo ;
   Array rrs ;
+  Array histos, detectLibs, calledLibs ;
   KEYSET covers, mutant ;  /* associated to the current snp */
   KEYSET doubleDetect ;
+  ACEOUT aoTitration ;
+  Stack  sorting_titles ;
 } TSNP ;
 
-typedef enum { T_ZERO = 0, T_Raw, T_RawA, T_RawKb,  T_Length, T_Seq, T_Read, T_kb, T_Rejected, T_Unaligned, T_aliFrag, T_cFrag, T_uFrag, T_A, T_T, T_G, T_C, T_MAX } T_TYPE ;
 typedef enum { F_ZERO = 0, F_Hide, F_p10, F_perCentRead, T_FMAX } T_FORMAT ;
 typedef struct snpStruct {
   AC_HANDLE h ;
   AC_OBJ Snp ;
-  AC_OBJ Run ;
-  float var[T_MAX] ;
 } SNP ;
 
 typedef struct runStruct {
   BOOL isGroup ;
+  BOOL ignoreLowQ, isLowQ ;
+  int sorting_title ;
   KEYSET r2g ; /* list of groups g of which r is a member */
+  KEYSET g2r ; /* list of runs in this group */
 } RR ;
 
 typedef void (*TSNPFunc)(TSNP *tsnp, SNP *snp) ;
 typedef struct mmStruct { char cc ; TSNPFunc f ;} MM ;
-typedef struct tagtitleStruct { const char *tag, *title ; int col ; T_TYPE setVar ; T_FORMAT format ;} TT ;
-
+typedef struct tagtitleStruct { const char *tag, *title ; int col ; int dummy ;  T_FORMAT format ;} TT ;
+static void snpBrsHistos (TSNP *tsnp, SNP *snp) ;
 #define EMPTY ""
 
 /*************************************************************************************/
@@ -96,116 +105,6 @@ static void snpChapterCaption (TSNP *tsnp, TT *tts, const char *caption)
 } /*  snpChapterCaption */
 
 /*************************************************************************************/
-
-static int snpShowMultiTag (TSNP *tsnp, AC_TABLE tt)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  int n, nn = 0, ir, jr ;
-  const char *ccp, *ccq ;
-  vTXT txt = vtxtCreate () ;
-  Stack s = stackHandleCreate (50, h) ;
-
-
-  vtxtPrintf (txt, "toto") ;
-  /* enter the data backwards, do not duplicate up except for column 1 which we always keep */
-  for (ir = tt->rows - 1 ; ir >= 0 ; ir--)
-    for (jr = tt->cols - 1 ; jr >= 0 ; jr--)
-      {
-	ccp = ac_table_printable (tt, ir, jr, 0) ;
-	if (ccp)
-	  {
-	    ccq = hprintf(h, "#%s#", ccp) ;
-	    if (
-		(jr == 0 && !  strstr (vtxtPtr (txt), ccq) && ( ir == tt->rows - 1 ||  strcmp (ccp, ac_table_printable (tt, ir+1, 0, 0)))) ||
-		(jr > 0 && ! strstr (vtxtPtr (txt), ccp))
-		)
-	      {
-		vtxtPrintf (txt, "%s", ccq) ;
-		pushText (s, ccp) ;
-		nn++ ;
-	      }
-	  }
-      }
-  /* export */
-  n = nn ;
-  while (n--)
-    {
-      ccp = popText(s) ;
-      if (! strcmp (ccp, "polyA")) ccp = "polyA selected" ;
-      aceOutf (tsnp->ao, "%s%s"
-	       , n == nn - 1 ? "" : ", "
-	       , ccp
-	       ) ;
-      ac_free (txt) ;
-    }
-  return nn ;
-} /* snpShowMultiTag */
-
-/*************************************************************************************/
-
-static int snpShowTable (TSNP *tsnp, AC_TABLE tt, int nw)
-{
-  int ir, jr ;
-  
-  if (! tt || ! tt->rows)
-    return 0 ;
-  
-  for (ir = 0 ; ir < tt->rows ; ir++)
-    for (jr = 0 ; jr < tt->cols ; jr++)
-      {
-	const char *ccp = ac_table_printable (tt, ir, jr, 0) ;
-	if (ccp)
-	  {
-	    if (!strncasecmp (ccp, "sra", 3)) ccp += 3 ;
-	    if (!strcasecmp (ccp, "sraUnspecified_RNA"))
-	      continue ;
-	    aceOutf (tsnp->ao, "%s%s", nw++ ? ", " : "",  ccp) ;			  
-	  }
-      }
-  return nw ;
-} /* snpShowTable */
-
-/*************************************************************************************/
-
-static void snpShowMillions (TSNP *tsnp, float z)
-{
-  if (z == 0)
-    aceOutf (tsnp->ao, "\t0") ;
-  else if (z > 100000 || z < -100000)
-    aceOutf (tsnp->ao, "\t%.3f",  z/1000000) ;
-  else
-    aceOutf (tsnp->ao, "\t%.6f",  z/1000000) ;
-} /* snpShowMillions */
-
-/*************************************************************************************/
-
-static void snpShowPercent (TSNP *tsnp, SNP *snp, long int z, BOOL p)
-{
-  if (p)
-    {
-      float z1 =  snp->var[T_Read] ? 100 * z / snp->var[T_Read] : 0 ;
-      
-      if (snp->var[T_Read] > 0) 
-	{
-	  aceOutf (tsnp->ao, "\t") ;
-	  if (0)
-	    aceOutf (tsnp->ao, "%f", z1) ;
-	  else
-	    aceOutPercent (tsnp->ao, z1) ;
-	}
-      else 
-	aceOutf (tsnp->ao, "\t-") ;
-    }
-  else
-    {
-      if (z == 0)
-	aceOutf (tsnp->ao, "\t0") ;
-      else
-	aceOutf (tsnp->ao, "\t%ld", z) ;
-    }
-} /*  snpShowPercent */
-
-/*************************************************************************************/
 static void snpShowTag (TSNP *tsnp, SNP *snp, TT *ti)
 {
   AC_HANDLE h = ac_new_handle () ;
@@ -220,8 +119,6 @@ static void snpShowTag (TSNP *tsnp, SNP *snp, TT *ti)
 	{
 	  ccp = ac_table_printable (tt, 0, ti->col, EMPTY) ;
 	  z = ac_table_float (tt, 0, ti->col, 0) ;
-	  if (ti->setVar)
-	    snp->var[ti->setVar] = z ;
 	}
     }
 
@@ -234,9 +131,6 @@ static void snpShowTag (TSNP *tsnp, SNP *snp, TT *ti)
     case F_p10:
       aceOutf (tsnp->ao, "\t%.1f", z/10) ;
       break ;
-    case F_perCentRead:
-      aceOutf (tsnp->ao, "\t%.4f", snp->var[T_Read] ? 100.0 * z/snp->var[T_Read] : 0) ;
-      break ;
     case F_Hide:
       break ;
     }
@@ -244,746 +138,6 @@ static void snpShowTag (TSNP *tsnp, SNP *snp, TT *ti)
 
 /*************************************************************************************/
 /*************************************************************************************/
-/*************************************************************************************/
-
-static void snpMismatchTypes (TSNP *tsnp, SNP *snp)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  AC_TABLE  tt ;
-  int ir ;
-  float zAny = 0, denominator = 0 ;
-  float zTransition = 0, zTransversion = 0 ;
-  float zSlidingInsertion = 0, zSlidingDeletion = 0 ;
-  float zInsertion = 0, zDeletion = 0 ;
-  float zInsertion1 = 0, zInsertion2 = 0, zInsertion3 = 0 ;
-  float zInsertionA = 0, zInsertionT = 0, zInsertionG = 0, zInsertionC = 0 ;
-  float zDeletion1 = 0, zDeletion2 = 0, zDeletion3 = 0 ; 
-  float zDeletionA = 0, zDeletionT = 0, zDeletionG = 0, zDeletionC= 0 ; 
-  float zSub[12] ;
-
-  TT *ti, tts[] = {
-    { "Spacer", "", 0, 0, 0} ,
-    { "TITLE", "Title", 10, 0, 0} ,
- 
-    { "Compute", "Megabases uniquely aligned and used for mismatch counts", 1, 0, 0} ,
-    { "Compute", "Total number of mismatches", 2, 0, 0} ,
-    { "Compute", "Mismatches per kb aligned", 21, 0, 0} ,
-
-    { "Compute", "Transitions", 21, 0, 0} ,
-    { "Compute", "Transversions", 21, 0, 0} ,
-
-    { "Compute", "1, 2 or 3 bp insertions not in polymers", 12, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp deletions not in polymers", 13, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp insertions in polymers", 14, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp deletions in polymers", 15, 0, 0} ,
-
-    { "Compute", "A>G", 21, 0, 0} , /* Transitions */
-    { "Compute", "T>C", 21, 0, 0} ,
-    { "Compute", "G>A", 21, 0, 0} ,
-    { "Compute", "C>T", 21, 0, 0} ,
-
-    { "Compute", "A>T", 21, 0, 0} ,  /* Transversions */
-    { "Compute", "T>A", 21, 0, 0} ,
-    { "Compute", "G>C", 21, 0, 0} ,
-    { "Compute", "C>G", 21, 0, 0} ,
-    { "Compute", "A>C", 21, 0, 0} ,
-    { "Compute", "T>G", 21, 0, 0} ,
-    { "Compute", "G>T", 21, 0, 0} ,
-    { "Compute", "C>A", 21, 0, 0} ,
-
-    { "Compute", "Insert A", 21, 0, 0} ,
-    { "Compute", "Insert T", 21, 0, 0} ,
-    { "Compute", "Insert G", 21, 0, 0} ,
-    { "Compute", "Insert C", 21, 0, 0} ,
-    { "Compute", "Delete A", 21, 0, 0} ,
-    { "Compute", "Delete T", 21, 0, 0} ,
-    { "Compute", "Delete G", 21, 0, 0} ,
-    { "Compute", "Delete C", 21, 0, 0} ,
-
-    { "Compute", "Single Insertions", 20, 0, 0} ,
-    { "Compute", "Single Deletions", 21, 0, 0} ,
-    { "Compute", "Double insertions", 22, 0, 0} ,
-    { "Compute", "Double deletions", 23, 0, 0} ,
-    { "Compute", "Triple insertions", 22, 0, 0} ,
-    { "Compute", "Triple deletions", 25, 0, 0} ,
- 
-    { "Compute", "Transitions per kb", 21, 0, 0} ,
-    { "Compute", "Transversions per kb", 21, 0, 0} ,
-    { "Compute", "Insertions per kb", 21, 0, 0} ,
-    { "Compute", "Deletions per kb", 21, 0, 0} ,
-
-    { "Compute", "% transitions", 21, 0, 0} ,
-    { "Compute", "% transversions", 21, 0, 0} ,
-    { "Compute", "% indels", 21, 0, 0} ,
-
-    { "Compute", "% insertions not in polymers", 21, 0, 0} ,
-    { "Compute", "% deletions not in polymers", 71, 0, 0} ,
-    { "Compute", "% insertions in polymers", 21, 0, 0} ,
-    { "Compute", "% deletions in polymers", 21, 0, 0} ,
-
-    {  0, 0, 0, 0, 0}
-  } ; 
-  
-  const char *caption =
-    "Number of mismatches, per type" ;
-    ;
-  if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, caption) ;
-
-
-  memset (zSub, 0, sizeof (zSub)) ;
-  /*
-Distribution of mismatches in best unique alignments, absolute, observed, counts
-*/
-
-  for (ti = tts ; ti->tag ; ti++)
-    {
-      char buf[256] ;
-
-      if (snp == 0)
-	{
-	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
-	  continue ; 
-	}
-      else if (! strcmp (ti->tag, "TITLE"))
-	{
-	  aceOutf (tsnp->ao, "\t%s", ac_name(snp->Snp)) ;
-	  continue ;
-	}
-
-      tt = ac_tag_table (snp->Snp, "Error_profile", h) ;
-
-      if (! strcmp (ti->tag, "Compute"))
-	{
-	  float zz = 0 ;
-	  switch (ti->col)
-	    {
-	    case 1:   /* Megabases uniquely aligned and used for mismatch counts */
-	      for (ir = 0 ; tt &&  ir < tt->rows ; ir++)
-		{
-		  if (ir == 0)
-		    {
-		      strcpy (buf, ac_table_printable (tt, ir, 0, "xxx")) ;
-		      zz = ac_table_float (tt, ir, 3, 0) ;
-		    }
-		  else if (strcmp (buf, ac_table_printable (tt, ir, 0, "xxx")))
-		    {
-		      strcpy (buf, ac_table_printable (tt, ir, 0, "xxx")) ;
-		      zz +=  ac_table_float (tt, ir, 3, 0) ;
-		    }
-		}
-	      aceOutf (tsnp->ao, "\t%.0f", zz) ;
-	      denominator = zz ;
-	      break ;
-	      
-	    case 2:   /* Total number of mismatches */
-	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
-		{
-		  const char *ccp = ac_table_printable (tt, ir, 1, "xxx") ;
-		  zz =  ac_table_float (tt, ir, 2, 0) ;
-		  if (! strcasecmp (ccp, "Any"))
-		    continue ;
-		  zAny += zz ;
-		  if (ccp[1] == '>' && ccp[3] == 0) /* substitution */
-		    {
-		      int i = 0 ;
-		      const char *cq, *subTypes = "a>g t>c g>a c>t a>t t>a g>c c>g a>c t>g g>t c>a" ;
-
-		      cq = strstr (subTypes, ccp) ;
-		      i = cq ? (cq - subTypes) / 4 : -1 ;
-		      if (i >= 4) zTransversion += zz ;
-		      else if (i >= 0) zTransition += zz ;
-
-		      if (i >= 0 && i < 12) zSub[i] += zz ;
-		    }
-		  else if (! strncmp (ccp, "+", 1))
-		    {
-		      zInsertion += zz ;
-		      if (! strncmp (ccp, "+a", 2))
-			zInsertionA += zz ;
-		      if (! strncmp (ccp, "+t", 2))
-			zInsertionT += zz ;
-		      if (! strncmp (ccp, "+g", 2))
-			zInsertionG += zz ;
-		      if (! strncmp (ccp, "+c", 2))
-			zInsertionC += zz ;
-		      if (! strncmp (ccp, "+++", 3))
-			zInsertion3 += zz ;
-		      else if (! strncmp (ccp, "++", 2))
-			zInsertion2 += zz ;
-		      else 
-			zInsertion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "-", 1))
-		    {
-		      zDeletion += zz ;
-		      if (! strncmp (ccp, "-a", 2))
-			zDeletionA += zz ;
-		      if (! strncmp (ccp, "-t", 2))
-			zDeletionT += zz ;
-		      if (! strncmp (ccp, "-g", 2))
-			zDeletionG += zz ;
-		      if (! strncmp (ccp, "-c", 2))
-			zDeletionC += zz ;
-		      if (! strncmp (ccp, "---", 3))
-			zDeletion3 += zz ;
-		      else if (! strncmp (ccp, "--", 2))
-			zDeletion2 += zz ;
-		      else 
-			zDeletion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "*+", 2))
-		    {
-		      zSlidingInsertion += zz ;
-		      if (! strncmp (ccp + 1, "+a", 2))
-			zInsertionA += zz ;
-		      if (! strncmp (ccp + 1, "+t", 2))
-			zInsertionT += zz ;
-		      if (! strncmp (ccp + 1, "+g", 2))
-			zInsertionG += zz ;
-		      if (! strncmp (ccp + 1, "+c", 2))
-			zInsertionC += zz ;
-		      if (! strncmp (ccp + 1, "+++", 3))
-			zInsertion3 += zz ;
-		      else if (! strncmp (ccp + 1, "++", 2))
-			zInsertion2 += zz ;
-		      else 
-			zInsertion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "*-", 2))
-		    {
-		      zSlidingDeletion += zz ;   
-		      if (! strncmp (ccp + 1, "-a", 2))
-			zDeletionA += zz ;
-		      if (! strncmp (ccp + 1, "-t", 2))
-			zDeletionT += zz ;
-		      if (! strncmp (ccp + 1, "-g", 2))
-			zDeletionG += zz ;
-		      if (! strncmp (ccp + 1, "-c", 2))
-			zDeletionC += zz ;
-		      if (! strncmp (ccp + 1, "---", 3))
-			zDeletion3 += zz ;
-		      else if (! strncmp (ccp + 1, "--", 2))
-			zDeletion2 += zz ;
-		      else 
-			zDeletion1 += zz ;
-		    }
-		}
-
-	      /* report all at once */
-	      aceOutf (tsnp->ao, "\t%.0f", zAny) ;
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
-
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
-
-	      { 
-		int i ; 
-		for (i = 0 ; i < 12 ; i++)
-		  aceOutf (tsnp->ao, "\t%.0f", zSub[i]) ;
-	      }
-
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionA) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionT) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionG) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionC) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionA) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionT) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionG) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionC) ;
-
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
-
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? zTransition / (1000 * denominator) : 0) ;
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? zTransversion / (1000 * denominator) : 0) ;
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? (zInsertion + zSlidingInsertion)/ (1000 * denominator) : 0) ;
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? (zDeletion + zSlidingDeletion)/ (1000 * denominator) : 0) ;
-
-	      if (zAny)
-		{
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zTransition / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zTransversion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
-
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zInsertion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zDeletion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t\t\t\t") ;
-	      break ;
-	    default: /* alread  treated in case 2 */
-	      break ;
-
-	    }
-	}
-      else
-	snpShowTag (tsnp, snp, ti) ;
-    }
-  
-  ac_free (h) ;
-  return;
-} /* snpMismatchTypes */
-
-/*************************************************************************************/
-
-static void snpSnpTypesDo (TSNP *tsnp, SNP *snp, BOOL isRejected)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  AC_TABLE  tt ;
-  int ir ;
-  float zAny = 0, denominator = 0 ;
-  float zTransition = 0, zTransversion = 0 ;
-  float zSlidingInsertion = 0, zSlidingDeletion = 0 ;
-  float zInsertion = 0, zDeletion = 0 ;
-  float zInsertion1 = 0, zInsertion2 = 0, zInsertion3 = 0 ;
-  float zInsertionA = 0, zInsertionT = 0, zInsertionG = 0, zInsertionC = 0 ;
-  float zDeletion1 = 0, zDeletion2 = 0, zDeletion3 = 0 ; 
-  float zDeletionA = 0, zDeletionT = 0, zDeletionG = 0, zDeletionC= 0 ; 
-  float zSub[12] ;
-
-  TT *ti, tts[] = {
-    { "Spacer", "", 0, 0, 0} ,
-    { "TITLE", "Title", 10, 0, 0} ,
-
-    { "Compute", "Total number of variant alleles", 2, 0, 0} ,
-    { "Compute", "TSNP support per kb aligned", 21, 0, 0} ,
-
-    { "Compute", "Transitions", 21, 0, 0} ,
-    { "Compute", "Transversions", 21, 0, 0} ,
-
-    { "Compute", "1, 2 or 3 bp insertions not in polymers", 12, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp deletions not in polymers", 13, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp insertions in polymers", 14, 0, 0} ,
-    { "Compute", "1, 2 or 3 bp deletions in polymers", 15, 0, 0} ,
-
-    { "Compute", "A>G", 21, 0, 0} , /* Transitions */
-    { "Compute", "T>C", 21, 0, 0} ,
-    { "Compute", "G>A", 21, 0, 0} ,
-    { "Compute", "C>T", 21, 0, 0} ,
-
-    { "Compute", "A>T", 21, 0, 0} ,  /* Transversions */
-    { "Compute", "T>A", 21, 0, 0} ,
-    { "Compute", "G>C", 21, 0, 0} ,
-    { "Compute", "C>G", 21, 0, 0} ,
-    { "Compute", "A>C", 21, 0, 0} ,
-    { "Compute", "T>G", 21, 0, 0} ,
-    { "Compute", "G>T", 21, 0, 0} ,
-    { "Compute", "C>A", 21, 0, 0} ,
-
-    { "Compute", "Insert A", 21, 0, 0} ,
-    { "Compute", "Insert T", 21, 0, 0} ,
-    { "Compute", "Insert G", 21, 0, 0} ,
-    { "Compute", "Insert C", 21, 0, 0} ,
-    { "Compute", "Delete A", 21, 0, 0} ,
-    { "Compute", "Delete T", 21, 0, 0} ,
-    { "Compute", "Delete G", 21, 0, 0} ,
-    { "Compute", "Delete C", 21, 0, 0} ,
-
-    { "Compute", "Single Insertions", 20, 0, 0} ,
-    { "Compute", "Single Deletions", 21, 0, 0} ,
-    { "Compute", "Double insertions", 22, 0, 0} ,
-    { "Compute", "Double deletions", 23, 0, 0} ,
-    { "Compute", "Triple insertions", 22, 0, 0} ,
-    { "Compute", "Triple deletions", 25, 0, 0} ,
- 
-    { "Compute", "% transitions", 21, 0, 0} ,
-    { "Compute", "% transversions", 21, 0, 0} ,
-    { "Compute", "% indel", 21, 0, 0} ,
-
-    { "Compute", "% insertions not in polymers", 21, 0, 0} ,
-    { "Compute", "% deletions not in polymers", 71, 0, 0} ,
-    { "Compute", "% insertions in polymers", 21, 0, 0} ,
-    { "Compute", "% deletions in polymers", 21, 0, 0} ,
-    { "Compute", "RNA edition: % excess of A>G relative to T>C", 21, 0, 0} ,
-
-    {  0, 0, 0, 0, 0}
-  } ; 
-  
-  const char *caption =
-    "Number of rejected variant alleles, per type. Designed for clinical cohorts with sequenced diploid tissues. SNPs which are monomodal across all samples, usually with MAF in the 1-30% range, come most probably from systematic noise and are rejected." ;
-    ;
-  if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, caption) ;
-
-
-  memset (zSub, 0, sizeof (zSub)) ;
-  /*
-Distribution of mismatches in best unique alignments, abslute, oberved, counts
-*/
-
-  for (ti = tts ; ti->tag ; ti++)
-    {
-      char buf[256] ;
-
-      if (snp == 0)
-	{
-	  aceOutf (tsnp->ao, "\t%s %s", isRejected ? "Rejected " : "",  ti->title) ;
-	  continue ; 
-	}
-      else if (! strcmp (ti->tag, "TITLE"))
-	{
-	  aceOutf (tsnp->ao, "\t%s", ac_name(snp->Snp)) ;
-	  continue ;
-	}
-
-      tt = ac_tag_table (snp->Snp, "SNP_profile", h) ;
-
-      if (! strcmp (ti->tag, "Compute"))
-	{
-	  float zz = 0 ;
-	  switch (ti->col)
-	    {
-	    case 1:   /* Megabases uniquely aligned and used for mismatch counts */
-	      for (ir = 0 ; tt &&  ir < tt->rows ; ir++)
-		{
-		  if (ir == 0)
-		    {
-		      strcpy (buf, ac_table_printable (tt, ir, 0, "xxx")) ;
-		      zz = ac_table_float (tt, ir, 3, 0) ;
-		    }
-		  else if (strcmp (buf, ac_table_printable (tt, ir, 0, "xxx")))
-		    {
-		      strcpy (buf, ac_table_printable (tt, ir, 0, "xxx")) ;
-		      zz +=  ac_table_float (tt, ir, 3, 0) ;
-		    }
-		}
-	      aceOutf (tsnp->ao, "\t%.0f", zz) ;
-	      denominator = zz ;
-	      break ;
-	      
-	    case 2:   /* Total number of mismatches */
-	      for (ir = 0 ; tt && ir < tt->rows ; ir++)
-		{
-		  const char *ccp = ac_table_printable (tt, ir, 1, "xxx") ;
-		  zz =  ac_table_float (tt, ir, isRejected ? 3 : 2, 0) ;
-		  if (! strcasecmp (ccp, "Any"))
-		    continue ;
-		  zAny += zz ;
-		  if (ccp[1] == '>' && ccp[3] == 0) /* substitution */
-		    {
-		      int i = 0 ;
-		      const char *cq, *subTypes = "a>g t>c g>a c>t a>t t>a g>c c>g a>c t>g g>t c>a" ;
-
-		      cq = strstr (subTypes, ccp) ;
-		      i = cq ? (cq - subTypes) / 4 : -1 ;
-		      if (i >= 4) zTransversion += zz ;
-		      else if (i >= 0) zTransition += zz ;
-
-		      if (i >= 0 && i < 12) zSub[i] += zz ;
-		    }
-		  else if (! strncmp (ccp, "+", 1))
-		    {
-		      zInsertion += zz ;
-		      if (! strncmp (ccp, "+a", 2))
-			zInsertionA += zz ;
-		      if (! strncmp (ccp, "+t", 2))
-			zInsertionT += zz ;
-		      if (! strncmp (ccp, "+g", 2))
-			zInsertionG += zz ;
-		      if (! strncmp (ccp, "+c", 2))
-			zInsertionC += zz ;
-		      if (! strncmp (ccp, "+++", 3))
-			zInsertion3 += zz ;
-		      else if (! strncmp (ccp, "++", 2))
-			zInsertion2 += zz ;
-		      else 
-			zInsertion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "-", 1))
-		    {
-		      zDeletion += zz ;
-		      if (! strncmp (ccp, "-a", 2))
-			zDeletionA += zz ;
-		      if (! strncmp (ccp, "-t", 2))
-			zDeletionT += zz ;
-		      if (! strncmp (ccp, "-g", 2))
-			zDeletionG += zz ;
-		      if (! strncmp (ccp, "-c", 2))
-			zDeletionC += zz ;
-		      if (! strncmp (ccp, "---", 3))
-			zDeletion3 += zz ;
-		      else if (! strncmp (ccp, "--", 2))
-			zDeletion2 += zz ;
-		      else 
-			zDeletion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "*+", 2))
-		    {
-		      zSlidingInsertion += zz ;
-    		      if (! strncmp (ccp + 1, "+a", 2))
-			zInsertionA += zz ;
-		      if (! strncmp (ccp + 1, "+t", 2))
-			zInsertionT += zz ;
-		      if (! strncmp (ccp + 1, "+g", 2))
-			zInsertionG += zz ;
-		      if (! strncmp (ccp + 1, "+c", 2))
-			zInsertionC += zz ;
-		      if (! strncmp (ccp + 1, "+++", 3))
-			zInsertion3 += zz ;
-		      else if (! strncmp (ccp + 1, "++", 2))
-			zInsertion2 += zz ;
-		      else 
-			zInsertion1 += zz ;
-		    }
-		  else if (! strncmp (ccp, "*-", 2))
-		    {
-		      zSlidingDeletion += zz ;   
-		      if (! strncmp (ccp + 1, "-a", 2))
-			zDeletionA += zz ;
-		      if (! strncmp (ccp + 1, "-t", 2))
-			zDeletionT += zz ;
-		      if (! strncmp (ccp + 1, "-g", 2))
-			zDeletionG += zz ;
-		      if (! strncmp (ccp + 1, "-c", 2))
-			zDeletionC += zz ;
-		      if (! strncmp (ccp + 1, "---", 3))
-			zDeletion3 += zz ;
-		      else if (! strncmp (ccp + 1, "--", 2))
-			zDeletion2 += zz ;
-		      else 
-			zDeletion1 += zz ;
-		    }
-		}
-
-	      /* report all at once */
-	      aceOutf (tsnp->ao, "\t%.0f", zAny) ;
-	      aceOutf (tsnp->ao, "\t%.5f", denominator > 0 ? zAny / (1000 * denominator) : 0) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zTransition, zTransversion) ;
-
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion, zDeletion ) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zSlidingInsertion, zSlidingDeletion) ;
-
-	      { 
-		int i ; 
-		for (i = 0 ; i < 12 ; i++)
-		  aceOutf (tsnp->ao, "\t%.0f", zSub[i]) ;
-	      }
-
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionA) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionT) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionG) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zInsertionC) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionA) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionT) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionG) ;
-	      aceOutf (tsnp->ao, "\t%.0f", zDeletionC) ;
-
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion1, zDeletion1) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion2, zDeletion2) ;
-	      aceOutf (tsnp->ao, "\t%.0f\t%.0f", zInsertion3, zDeletion3) ;
-
-
-	      if (zAny)
-		{
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zTransition / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zTransversion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * (zInsertion + zDeletion + zSlidingInsertion + zSlidingDeletion) / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zInsertion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zDeletion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zSlidingInsertion / zAny) ;
-		  aceOutf (tsnp->ao, "\t%.2f", 100 * zSlidingDeletion / zAny) ; 
-		  if ( zSub[1] > 100)
-		    aceOutf (tsnp->ao, "\t%.2f", zSub[0]/zSub[1] -1.0) ;
-		  else
-		    aceOut (tsnp->ao, "\t") ;
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t\t\t\t\t") ;
-	      break ;
-	    default: /* alread  treated in case 2 */
-	      break ;
-
-	    }
-	}
-      else
-	snpShowTag (tsnp, snp, ti) ;
-    }
-  
-  ac_free (h) ;
-  return;
-} /* snpSnpTypesDo */
-
-/***********/
-
-static void snpSnpTypes (TSNP *tsnp, SNP *snp)
-{ 
-  snpSnpTypesDo (tsnp, snp, FALSE) ;
-}  /* snpSnpTypes */
-
-/***********/
-
-static void snpSnpRejectedTypes (TSNP *tsnp, SNP *snp)
-{ 
-  snpSnpTypesDo (tsnp, snp, TRUE) ;
-}  /* snpSnpRejectedTypes */
-
-/*************************************************************************************/
-
-static void snpSnpCoding (TSNP *tsnp, SNP *snp)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  AC_TABLE  tt, ttS, ttG, ttP ;
-
-  TT *ti, tts[] = {
-    { "Spacer", "", 0, 0, 0} ,
-    { "TITLE", "Title", 10, 0, 0} ,
-    { "Compute", "Number of SNV sites tested\t% of tested SNV sites covered at least 10 times\tMeasured SNV sites\t% rejected monomodals, likely mapping or sequencing errors or RNA-edited sites", 1, 0, 0 } ,
-    { "Compute", "Exonic SNV sites\tPure reference SNV (< 5% variant)\tLow frequency SNV (5-20%)\tMid frequency SNV (20-80%)\tHigh frequency SNV (80-95%)\tPure variant SNV (95-100%)", 2, 0, 0} ,
-    { "Compute", "Protein changing SNV sites\tPure reference, no change in protein (< 5% variant)\tProtein changing SNV, intermediate (5-95%)\tProtein changing SNV, pure variant (95-100%)", 3, 0, 0} ,
-    { "Compute", "Heterozygosity index: heterozygous/homozygous ratio variants", 4, 0, 0 } ,
-    /*
-    { "Compute", "% Pure reference SNV (< 5% variant)\t% Low frequency SNV (5-20%)\t% Mid frequency SNV (20-80%)\t% High frequency SNV (80-95%)\t% Pure variant SNV (95-100%)", 5, 0, 0} ,
-    { "Compute", "% Protein changing SNV sites\t% Pure reference, no change in protein (< 5% variant)\t% Protein changing SNV, intermediate frequency (5-95%)\t% Protein changing SNV, pure variant (95-100%)", 6, 0, 0} ,
-    */
-    {  0, 0, 0, 0, 0}
-  } ; 
-  
-  const char *caption =
-    "SNV"
-    ;
-  if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, caption) ;
-  if (snp)
-    {
-      ttS = ac_tag_table (snp->Snp, "SNP", h) ;
-      ttG = ac_tag_table (snp->Snp, "Genomic", h) ;
-      ttP = ac_tag_table (snp->Snp, "Protein_changing", h) ;
-    }
-
-  for (ti = tts ; ti->tag ; ti++)
-    {
-      if (snp == 0)
-	{
-	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
-	  continue ; 
-	}
-      else if (! strcmp (ti->tag, "TITLE"))
-	{
-	  aceOutf (tsnp->ao, "\t%s", ac_name(snp->Snp)) ;
-	  continue ;
-	}
-            
-      tt = ttS ;
-      
-      if (! strcmp (ti->tag, "Compute"))
-	{
-	  float z1 = 0, z2 = 0 ;
-	  int nT, nC, nR, nnM ;
-	  switch (ti->col)
-	    {
-	    case 1:
-	      nT = ac_tag_int (snp->Snp, "Tested_sites", 0) ;
-	      nnM = ac_tag_int (snp->Snp, "Not_measurable_sites", 0) ; 
-	      nR = ac_tag_int (snp->Snp, "Rejected_sites", 0) ;
-	      if (nT > 0)
-		{
-		  nC = nT - nnM ;
-		  z1 = nT ; z1 = 100.0 * nC / z1 ;
-		  z2 = nC ; z2 = nC > 0 ? (100.0 * nR / z2) : 0 ;
-		  aceOutf (tsnp->ao, "\t%d\t%.2f\t%d\t%.2f", nT, z1, nC, z2) ; 
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t") ;
-	      break ;
-	    case 2:
-	      tt = ttG ;
-	      if (tt)
-		{
-		  aceOutf (tsnp->ao, "\t%d\t%d\t%d\t%d\t%d\t%d"
-			   , ac_table_int (tt, 0, 0, 0)
-			   , ac_table_int (tt, 0, 2, 0)
-			   , ac_table_int (tt, 0, 4, 0)
-			   , ac_table_int (tt, 0, 6, 0) 
-			   , ac_table_int (tt, 0, 8, 0)
-			   , ac_table_int (tt, 0, 10, 0)			   
-			   ) ;
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t\t\t") ;
-	     
-	      break ;
-	    case 3: 
-	      tt = ttP ;
-	      if (tt)
-		{
-		  aceOutf (tsnp->ao, "\t%d\t%d\t%d\t%d"
-			   , ac_table_int (tt, 0, 0, 0)
-			   , ac_table_int (tt, 0, 2, 0)
-			   , ac_table_int (tt, 0, 4, 0) +  ac_table_int (tt, 0, 6, 0) + ac_table_int (tt, 0, 8, 0)
-			   , ac_table_int (tt, 0, 10, 0)			   
-			   ) ;
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t") ;
-	      break ;
-
-	    case 4:  
-	      nC = nT = 0 ;
-	      tt = ac_tag_table (snp->Snp, "Genomic", h) ;
-	      if (tt)
-		{
-		  nC = ac_table_int (tt, 0, 6, 0) +  ac_table_int (tt, 0, 8, 0) ;
-		  nT = ac_table_int (tt, 0, 10, 0) ;
-		}
-	      aceOut (tsnp->ao, "\t") ;  
-	      if (nC + nT >= 10)
-		{
-		  z1 = (nC < 100 * nT ?  nC/(1.0 * nT) : 1000) ;
-		  aceOutf (tsnp->ao, "%.2f", z1) ;
-		}
-		
-	      break ;
-#ifdef USELESS
-	    case 5:
-	      tt = ttG ;
-	      nT = tt ? ac_table_int (tt, 0, 0, 0) : 0 ;
-	      if (nT > 10)
-		{
-		  float z = 100.0/nT ;
-		  aceOutf (tsnp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f"
-			   , z * ac_table_int (tt, 0, 2, 0)
-			   , z * ac_table_int (tt, 0, 4, 0)
-			   , z * ac_table_int (tt, 0, 6, 0) 
-			   , z * ac_table_int (tt, 0, 8, 0)
-			   , z * ac_table_int (tt, 0, 10, 0)			   
-			   ) ;
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t\t") ;
-	      break ;
-	    case 6:
-	      tt = ttG ;
-	      nT = tt ? ac_table_int (tt, 0, 0, 0) : 0 ;
-	      tt = ttP ;
-	      if (nT > 10)
-		{
-		  float z = 100.0/nT ;
-		  aceOutf (tsnp->ao, "\t%.2f\t%.2f\t%.2f\t%.2f"
-			   , z * ac_table_int (tt, 0, 0, 0)
-			   , z * ac_table_int (tt, 0, 2, 0)
-			   , z * (ac_table_int (tt, 0, 4, 0) +  ac_table_int (tt, 0, 6, 0) + ac_table_int (tt, 0, 8, 0))
-			   , z * ac_table_int (tt, 0, 10, 0)
-			   ) ;
-		}
-	      else
-		aceOut (tsnp->ao, "\t\t\t\t") ;
-	      break ;
-#endif
-	    }
-	}
-      else
-	snpShowTag (tsnp, snp, ti) ;
-    }
-  
-  ac_free (h) ;
-  return;
-} /*  snpSnpCoding */
-
 /*************************************************************************************/
 
 static void snpVCF (TSNP *tsnp, SNP *snp)
@@ -1163,7 +317,7 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
     { "Sum", "Any m:m+w", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
-  int mm = 0, cc = 0 ;
+  int mm = 0, cc = 0, nn = 0 ;
 
   const char *caption =
     "Dan Li counts"
@@ -1193,16 +347,23 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 	      for (ir = 0 ; ir < tt->rows ; ir++)
 		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
 		  {
-		    int m = ac_table_int (tt, ir, 1, 0) ;
-		    int c = ac_table_int (tt, ir, 3, 0) ;
-		    aceOutf (tsnp->ao, "%d:%d", m, c) ;
-		    mm += m ; cc += c ;
+		    int m = ac_table_int (tt, ir, 1, -1) ;
+		    int c = ac_table_int (tt, ir, 3, -1) ;
+		    if (m >= 0 && c >= 0)
+		      {
+			aceOutf (tsnp->ao, "%d:%d", m, c) ;
+			mm += m ; cc += c ;
+			nn++ ;
+		      }
 		  }
 	    }
 	}
       else if (! strcmp (ti->tag, "Sum"))
 	{
-	  aceOutf (tsnp->ao, "\t%d:%d", mm, cc) ;
+	  if (nn > 0)
+	    aceOutf (tsnp->ao, "\t%d:%d", mm, cc) ;
+	  else
+	    aceOut (tsnp->ao, "\t") ;
 	}
       else
 	snpShowTag (tsnp, snp, ti) ;
@@ -1222,12 +383,9 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
     { "Compute", "AGLR2 m/m+w", 2, 0, 0} ,
     { "Compute", "ROCR1 m/m+w", 3, 0, 0} ,
     { "Compute", "ROCR2 m/m+w", 4, 0, 0} ,
-    { "Sum", "Any m/m+w", 14, 0, 0} ,
-    {  "Monomodal", "Monomodal", 0, 0, 0} ,  
-    { "Wendell", "Wendell Jones Var/Ref/Masked: on genome in sample A\tGenomic allele Frequency in sample A (Jones 2021)", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
-  int mm = 0, cc = 0 ;
+  int mm = 0, cc = 0, nn = 0 ;
 
   const char *caption =
     "Dan Li counts"
@@ -1239,27 +397,6 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
       if (snp == 0)
 	{
 	  aceOutf (tsnp->ao, "\tDanLi:%s", ti->title) ;
-	}
-      else if (! strcmp (ti->tag, "Wendell"))
-	{
-	  AC_TABLE tt = 0 ;
-	  BOOL ok = FALSE ;
-
-	  tt = ac_tag_table (snp->Snp, "Wtrue", h) ;
-	  if (!  tt) 
-	    tt = ac_tag_table (snp->Snp, "Wtrue2", h) ;
-	  if (tt && tt->cols >=1)
-	    {
-	      aceOutf (tsnp->ao, "\tVar\t%.2f", ac_table_float (tt, 0, 0, 0)) ;
-	      ok = TRUE ;
-	    }
-	  if (! ok)
-	    {
-	      if (ac_has_tag (snp->Snp, "Wfalse") || ac_has_tag (snp->Snp, "Wfalse2"))
-		aceOut (tsnp->ao, "\tRef\t") ;
-	      else
-		aceOut (tsnp->ao, "\tRef\t") ;
-	    }
 	}
       else if (! strcmp (ti->tag, "Compute"))
 	{
@@ -1278,38 +415,17 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
 	      for (ir = 0 ; ir < tt->rows ; ir++)
 		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
 		  {
-		    int m = ac_table_int (tt, ir, 1, 0) ;
-		    int c = ac_table_int (tt, ir, 3, 0) ;
+		    int m = ac_table_int (tt, ir, 1, -1) ;
+		    int c = ac_table_int (tt, ir, 3, -1) ;
 		    if  (c == 0) c = 1 ;
 
-		    aceOutf (tsnp->ao, "%.2f", 100.0 * m/c) ;
-		    mm += m ; cc += c ;
+		    if (m >= 0 && c >= 0)
+		      {
+			aceOutf (tsnp->ao, "%.2f", 100.0 * m/c) ;
+			mm += m ; cc += c ; nn ++ ;
+		      }
 		  }
 	    }
-	}
-      else if (! strcmp (ti->tag, "Monomodal"))
-	{
-	  AC_TABLE tt = ac_tag_table (snp->Snp, "Monomodal", h) ;
-	  int ir ;
-	  char sep = '\t' ;
-	  
-	  if (tt && ! ac_has_tag  (snp->Snp, "Manual_non_monomodal"))
-	    for (ir = 0 ; ir < tt->rows ; ir++)
-	      {
-		aceOutf (tsnp->ao
-			 , "%c%s"
-			 , sep
-			 , ac_table_printable (tt, ir, 0, "local")
-			 ) ;
-		sep = ',' ;
-	      }
-	  else
-	    aceOut (tsnp->ao, "\t") ;
-	}
-      else if (! strcmp (ti->tag, "Sum"))
-	{
-	  if (cc == 0) cc = 1 ;
-	  aceOutf (tsnp->ao, "\t%.2f", 100.0 * mm / cc) ;
 	}
       else
 	snpShowTag (tsnp, snp, ti) ;
@@ -1320,75 +436,461 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
 
 /*************************************************************************************/
 
+static void snpBrsTitrationDoOne (TSNP *tsnp, SNP *snp, AC_TABLE tt, int ir0, int ir1)
+{
+  int NN = ir1 - ir0 ;
+  if (NN == 3 || NN == 5)
+    {
+      AC_HANDLE h = ac_new_handle () ;
+      int ir, ii ;
+      BOOL ok = TRUE ;
+      int cov[5], mut[5], ff[5] ;
+
+      for (ii = 0,  ir = ir0 ; ok && ir < ir1 ; ii++, ir++)
+	{
+	  KEY c = ac_table_key (tt, ir, 0, 0) ;
+	  int n = ac_table_int (tt, ir, 1, -1) ;
+	  int r = 0 ;
+	  
+	  if (! dictFind (tsnp->runDict, ac_table_printable (tt, ir, 2, 0), &r))
+	    { ok = FALSE ; continue ; }
+	  
+	  if (!c || !r || n != ii + 1)
+	    { ok = FALSE ; continue ; }
+	  cov[ii] = keySet (tsnp->covers, r) ;
+	  mut[ii] = keySet (tsnp->mutant, r) ;
+	  if (cov[ii] < 20)
+	    ok = FALSE ; 
+	  ff[ii] = .49 + 10000.0 * mut[ii]/cov[ii] ;
+	}
+      if (ok && NN == 3)
+	{   /* interpolate unmeasured samples D and E  as  AeCdB*/
+	  ff[4] = ff[2] ;
+	  ff[2] = ff[1] ;
+	  ff[1] = (ff[0] + ff[2])/2 ;
+	  ff[3] = (ff[2] + ff[4])/2 ;
+	}
+      if (ok)
+	{  /* correctly found 3 or 5  values, check order */
+	  BOOL ok3 = FALSE ;
+	  BOOL ok5 = FALSE ;
+	  if (ff[0] > ff[4] + 200 && ff[0] >= 500 && ff[4] > 200)
+	    {
+	      ok3 = ok5 = TRUE ;
+	      for (ii = 1; ii < 5 ; ii++)
+		if (ff[ii] > ff[ii-1])
+		  ok5 = FALSE ;
+	      for (ii = 2 ; ii < 5 ; ii+=2)
+		if (ff[ii] > ff[ii-2])
+		  ok3 = FALSE ;
+	    }
+	  else if (ff[0] < ff[4] - 200 && ff[4] >= 500 && ff[4] > 200)
+	    {
+	      ok3 = ok5 = TRUE ;
+	      for (ii = 1; ii < 5 ; ii++)
+		if (ff[ii] < ff[ii-1])
+		  ok5 = FALSE ;
+	      for (ii = 2 ; ii < 5 ; ii+=2)
+		if (ff[ii] < ff[ii-2])
+		  ok3 = FALSE ;
+	    }
+	  if (NN == 3) ok5 = 0 ;
+	  if (ok5)
+	    {
+	      const char *ccp = ac_table_printable (tt, ir0, 3, 0)  ;
+	      if (! ccp) ccp = ac_table_printable (tt, ir0, 0, "toto")  ;
+	      aceOutf (tsnp->aoTitration, "%s\t%s__5\t5f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+			  , ac_name (snp->Snp) 
+			  , ac_table_printable (tt, ir0, 0, "toto") 
+			  , ff[0]/100.0
+			  , ff[1]/100.0
+			  , ff[2]/100.0
+			  , ff[3]/100.0
+			  , ff[4]/100.0
+			  ) ;			  
+	      vtxtPrintf (tsnp->titrationTxt5, "%s,", ccp) ;
+	    }
+	  if (ok3)
+	    {
+	      const char *ccp = ac_table_printable (tt, ir0, 3, 0)  ;
+	      if (! ccp) ccp = ac_table_printable (tt, ir0, 0, "toto")  ;
+	      if (! ok5) 
+		aceOutf (tsnp->aoTitration, "%s\t%s__3\t5f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+			 , ac_name (snp->Snp) 
+			 , ac_table_printable (tt, ir0, 0, "toto") 
+			 , ff[0]/100.0
+			 , NN == 5 ? ff[1]/100.0 : -10
+			 , ff[2]/100.0
+			 , NN == 5 ? ff[3]/100.0 : -10
+			 , ff[4]/100.0
+			 ) ;			  
+	      vtxtPrintf (tsnp->titrationTxt3, "%s,", ccp) ;
+	    }
+	}
+
+      ac_free (h) ;
+    }
+  return;
+} /*snpBrsTitrationDoOne */
+
+/*************************************************************************************/
+
+static void snpBrsTitrationDo (TSNP *tsnp, SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  AC_TABLE tt = tsnp->titrationTable ;
+  int ir, irMax = tt ? tt->rows : 0, irOld = -1 ;
+  KEY oldC = 0 ;
+  
+  for (ir = 0 ; ir < irMax ; ir++)
+    {
+      KEY c = ac_table_key (tt, ir, 0, 0) ;
+      if (c == oldC)
+	continue ;
+      oldC = c ;
+      if (irOld >= 0)
+	snpBrsTitrationDoOne (tsnp, snp, tt, irOld, ir) ;
+      irOld= ir ;
+    }
+  
+  if (ir > irOld + 1)
+    snpBrsTitrationDoOne (tsnp, snp, tt, irOld, ir) ;
+
+    ac_free (h) ;
+} /* snpBrsTitrationDo */
+
+/*************************************************************************************/
+/* in each group count how many libs agree of disagree with the average */
+
+static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg3)
+{
+  int cc = tsnp->allC ;   
+  int mm = tsnp->allM ;   
+  float ff = 100.0 * mm/cc ;
+  int type = 0, iMax = keySetMax (tsnp->groups) ;
+  Array aaDetect = tsnp->detectLibs ;
+  Array aaCalled = tsnp->calledLibs ;
+  if (ff >= 2) type = 1 ;
+  if (ff >= 5) type = 2 ;
+  if (ff >= 20) type = 3 ;
+  if (ff >= 80) type = 4 ;
+  if (ff >= 95) type = 5 ;
+
+  if (gg1 == gg2)
+    {
+      int gg = gg1 ;
+      RR *rr = arrayp (tsnp->rrs, gg, RR) ;
+      KEYSET g2r = rr->g2r ;
+      if (g2r)
+	{
+	  int c = keySet (tsnp->covers, gg) ;
+	  int m = keySet (tsnp->mutant, gg) ;
+	  float f, df ;
+
+	  if (c >= 20)
+	    {
+	      f = 100.0 * m/c ;
+	      df = 30 ;
+	      if (c < 44)
+		df = 200 / sqrt (c) ;
+	      if (f - df < ff && f + df > ff)
+		array (aaDetect, 12 * gg + 6 * 0 + type, int)++ ;
+	      else
+		array (aaDetect, 12 * gg + 6 * 1 + type, int)++ ;
+	    }
+	}
+    }
+  
+  if (1)
+    {
+      RR *rr1 = arrayp (tsnp->rrs, gg1, RR) ;
+      KEYSET g2r1 = rr1->g2r ;
+      if (g2r1)
+	{
+	  int c1 = keySet (tsnp->covers, gg1) ;
+	  int m1 = keySet (tsnp->mutant, gg1) ;
+	  int ii1 = -1 ;
+	  for (int i = 0 ; i < iMax ; i++)
+	    if (keySet (tsnp->groups, i) == gg1)
+	      { ii1 = i ; break ;}
+	  if (ii1 >= 0 && c1 >= 20)
+	    {
+	      RR *rr2 = arrayp (tsnp->rrs, gg2, RR) ;
+	      KEYSET g2r2 = rr2->g2r ;
+	      if (g2r2)
+		{
+		  int c2 = keySet (tsnp->covers, gg2) ;
+		  int m2 = keySet (tsnp->mutant, gg2) ;
+		  int ii2 = -1 ;
+		  for (int i = 0 ; i < iMax ; i++)
+		    if (keySet (tsnp->groups, i) == gg2)
+		      { ii2 = i ; break ;}
+ 		  if (ii2 >= 0 && c2 >= 20)
+		    {
+		      keySet (aaCalled, 6 * (gg3) + 0)++ ;
+		      if ((100 * m1 >= 2 * c1) && (100 * m2 >= 2 * c2))
+			{
+			  keySet (aaCalled, 6 * (gg3) + 1)++ ;
+			  if ((100 * m1 >= 5 * c1) && (100 * m2 >=5 * c2))
+			    {
+			      keySet (aaCalled, 6 * (gg3) + 2)++ ;
+			      if ((100 * m1 >= 20 * c1) && (100 * m2 >= 20 * c2))
+				{
+				  keySet (aaCalled, 6 * (gg3) + 3)++ ;
+				  if ((100 * m1 >= 80 * c1) && (100 * m2 >= 80 * c2))
+				    {
+				      keySet (aaCalled, 6 * (gg3) + 4)++ ;
+				      if ((100 * m1 >= 95 * c1) && (100 * m2 >= 95 * c2))
+					keySet (aaCalled, 6 * (gg3) + 5)++ ;
+				    }
+				}
+			    }
+			}
+		    }
+		}
+	    }
+	}
+    }
+} /* snpBrsCountLibsDoOne */
+
+/*************************************************************************************/
+
+static void snpBrsCountLibsDo (TSNP *tsnp, SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  AC_TABLE tt = tsnp->countLibsTable ;
+  int irMax = tt ? tt->rows : 0 ;
+  KEYSET done = keySetHandleCreate (h) ;
+  int N = dictMax (tsnp->runDict) + 1 ;
+
+  for (int ir = 0 ; ir < irMax ; ir++)
+    {
+      KEY c1 = ac_table_key (tt, ir, 0, 0) ;
+      int n1 = ac_table_int (tt, ir, 1, 0) ;
+      int r1 = 0 ;
+      if (! dictFind (tsnp->runDict, ac_table_printable (tt, ir, 2, 0), &r1))
+	continue ;
+
+      for (int jr = ir ; jr < irMax ; jr++)
+	{
+	  KEY c2 = ac_table_key (tt, jr, 0, 0) ;
+	  int n2 = ac_table_int (tt, jr, 1, 0) ;
+	  int r2 = 0, r3 ;
+	  if (! dictFind (tsnp->runDict, ac_table_printable (tt, jr, 2, 0), &r2))
+	    continue ;
+	  r3 = (r1 < r2 ? N * r1 + r2 : N * r2 + r1 ) ;
+	  if (keySet (done, r3) == 1)
+	    continue ;
+	  keySet (done, r3) = 1 ;
+	  if (c1 != c2 || (n1/100) != (n2/100))
+	    break ;
+	  snpBrsCountLibsDoOne (tsnp, snp, r1, r2, r3) ;
+	}
+    }
+
+    ac_free (h) ;
+} /* snpBrsCountLibsDoo */
+
+/*************************************************************************************/
+
 static void snpBrsParseCounts (TSNP *tsnp, SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  AC_TABLE tt = 0 ;
-  const char *tag = "BRS_counts" ;
-  int ir, r, nn = 0 ;
+  int nn = 0 ;
   KEYSET ddd = tsnp->doub ? keySetHandleCreate (h) : 0 ;
-  BOOL is20_8 = FALSE ;
-  
-  tt = ac_tag_table (snp->Snp, tag, h) ;
-  for (ir = 0 ; tt && ir < tt->rows ; ir++)
-    if (dictFind (tsnp->runDict, ac_table_printable (tt, ir, 0, "toto"), &r))
-      {
-	RR *rr = arrayp (tsnp->rrs, r, RR) ;
-	KEYSET r2g = rr->r2g ;
-	int c = ac_table_int (tt, ir, 1, 0) ;
-	int m = ac_table_int (tt, ir, 2, 0) ;
-	
-	if (rr->isGroup) /* avoid double counting */
-	  continue ;
-	keySet (tsnp->covers, r) = c ;
-	keySet (tsnp->mutant, r) = m ;
-	tsnp->allC += c ;
-	tsnp->allM += m ;
-	if (tsnp->doub && 100 * m >= 2 * c)
-	  {
-	    if (c >= 20 && m >= 4) is20_8 = TRUE ;
-	    if (c >= 20 && m >= 4)
-	      { keySet (ddd, r) = 1 ; nn++ ; }
-	  }
-	if (r2g && keySetMax (r2g))
-	  {
-	    for (int i = 0 ; i < keySetMax (r2g) ; i++)
-	      {
-		int g = keySet (r2g, i) ;
-		keySet (tsnp->covers, g) += c ;
-		keySet (tsnp->mutant, g) += m ;
-	      }
-	  }	      
-      }
-  if (is20_8)
+  BOOL is20_4 = FALSE ;
+
+  for (int ir = 0 ; ir < keySetMax (tsnp->runs) ; ir++)
     {
-      int N = dictMax (tsnp->runDict) + 1 ;
-      for (int r1 = 1 ; r1 <= N ; r1++)
-	for (int r2 = 1 ; r2 <= N ; r2++)
-	  if (nn >= 2 || (keySet (ddd, r1) > 0 && keySet (ddd, r2) > 0))
-	    keySet (tsnp->doubleDetect, N *r1 + r2) += 1 ;
+      int r = keySet (tsnp->runs, ir) ;
+      RR *rr = arrayp (tsnp->rrs, r, RR) ;
+      KEYSET r2g = rr->r2g ;
+      int c, m ;
+      
+      if (rr->isGroup)  /* avoid double counting */
+	continue ;
+      c = keySet (tsnp->covers, r) ;
+      m = keySet (tsnp->mutant, r) ;
+      if (! rr->isLowQ)
+	{
+	  tsnp->allC += c ;
+	  tsnp->allM += m ;
+	}
+      if (tsnp->doub && 100 * m >= 2 * c)
+	{
+	  if (c >= 20 && m >= 4) is20_4 = TRUE ;
+	  if (c >= 20 && m >= 4)
+	    { keySet (ddd, r) = 1 ; nn++ ; }
+	}
+      if (r2g && keySetMax (r2g))
+	{
+	  for (int i = 0 ; i < keySetMax (r2g) ; i++)
+	    {
+	      int g = keySet (r2g, i) ;
+	      RR *rrg = arrayp (tsnp->rrs, g, RR) ;
+	      if (! rr->isLowQ || ! rrg->ignoreLowQ)
+		{
+		  keySet (tsnp->covers, g) += c ;
+		  keySet (tsnp->mutant, g) += m ;
+		}
+	    }
+	}	      
+      }
+  if (is20_4)
+    {
+      const char *cp, *cq ; ;
+
+      cp = "X" ;
+      if (ac_has_tag (snp->Snp, "Wtrue")) cp = "Wtrue" ;
+      else if (ac_has_tag (snp->Snp, "Wtrue2")) cp = "Wtrue2" ;
+      else if (ac_has_tag (snp->Snp, "Wfalse")) cp = "Wfalse" ;
+      else if (ac_has_tag (snp->Snp, "Wfalse2")) cp = "Wfalse2" ;
+
+      cq = ac_tag_printable (snp->Snp, "Monomodal", "toto") ;
+      if (! cq || strcmp (cq, "Fatigue"))  cq = "X" ;
+      aceOutf (tsnp->ao204, "%s\t%s\tift\t%d\t%.2f\t%s\t%s\n", ac_name (snp->Snp), tsnp->project, nn, 100.0 * tsnp->allM/tsnp->allC, cp, cq) ;
     }
+  
+  if (tsnp->histo)
+    snpBrsHistos (tsnp, snp) ;
+  if (tsnp->allC >= 20 && tsnp->count_libs)
+    snpBrsCountLibsDo (tsnp, snp) ;
+  if (tsnp->titration)
+    snpBrsTitrationDo (tsnp, snp) ;  
   ac_free (h) ;
   return;
 } /*  snpBrsParseCounts */
 
 /*************************************************************************************/
+/* parse the actual count of a snp, and cumulate in tsnp->coers/count for equivalent snp */
 
-static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL isGroup)
+static int snpBrsParseTrueCounts (TSNP *tsnp, SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
+  AC_TABLE tt = 0 ;
+  const char *tag = "BRS_counts" ;
+  int r, allC = 0 ;
+
+  tt = ac_tag_table (snp->Snp, tag, h) ;
+  for (int ir = 0 ; tt && ir < tt->rows ; ir++)
+    if (dictFind (tsnp->runDict, ac_table_printable (tt, ir, 0, "toto"), &r))
+      {
+	RR *rr = arrayp (tsnp->rrs, r, RR) ;
+	
+	if (! rr->isGroup)  /* avoid double counting */
+	  {
+	    int c = ac_table_int (tt, ir, 1, 0) ;
+	    int m = ac_table_int (tt, ir, 2, 0) ;
+	    
+	    keySet (tsnp->covers, r) += c ;
+	    keySet (tsnp->mutant, r) += m ;
+	    allC += c ;
+	  }
+      }
+
+  ac_free (h) ;
+  return allC ;
+}  /* snpBrsParseTrueCounts */
+
+/*************************************************************************************/
+/* populate snp0 with the netx [unique] snp */
+#define KK(kk)  ((KEY)( ((KEY) (kk)) & ((KEY) 0xffffffL) ))
+static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
+{
+  /* clean up */
+  ac_free (snp->h) ; 
+  snp->h = ac_new_handle () ;
+  snp->Snp = 0 ;
+  tsnp->covers = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
+  tsnp->mutant = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
+  tsnp->allC = tsnp->allM = 0 ;
+  vtxtClear (tsnp->titrationTxt3) ;
+  vtxtClear (tsnp->titrationTxt5) ;
+  
+  if (! tsnp->unique)
+    {
+      snp->Snp = ac_table_obj (tsnp->snps, iSnp, 0, snp->h) ;
+      if (snp->Snp)
+	{
+	  snpBrsParseTrueCounts (tsnp, snp) ;
+	  snpBrsParseCounts (tsnp, snp) ;
+	}
+    }
+  else
+    {
+      KEY key = ac_table_key (tsnp->snps, iSnp, 0, 0) ;
+
+      if (! bitt (tsnp->snpDone, KK(key)))
+	{
+	  AC_HANDLE h = ac_new_handle () ;
+	  AC_OBJ Snp = ac_table_obj (tsnp->snps, iSnp, 0, h) ;
+	  bitSet (tsnp->snpDone, KK(key)) ;
+	  
+	  if (Snp)
+	    {      
+	      const char *errors = 0 ;
+	      AC_TABLE vv = 0 ;
+	      AC_KEYSET aks = ac_new_keyset (tsnp->db, h) ;
+	      ac_keyset_add (aks, Snp) ;
+	      char *qq = "select t,x1,x2 from s in @, c1 in s->vcf, x1 in c1[1], a1 in c1[2], b1 in c1[3] , g in s->gene, t in g->variant, c2 in t->vcf, x2 in c2[1], a2 in c2[2], b2 in c2[3] where c1 == c2 && x1 - x2 == 0 && a1 == a2 && b1 == b2" ;
+	      
+	      vv= ac_bql_table (tsnp->db
+				, qq
+				, aks
+				, 0
+				, &errors
+				, tsnp->h
+				) ;
+	      if (vv)
+		{ /* cumulate the counts in tsnp->covers and select best representative */
+		  int bestC = -1, bestIv = -1 ;
+		  for (int iv = 0 ; iv < vv->rows ; iv++)
+		    {
+		      snp->Snp = ac_table_obj (vv, iv, 0, h) ;
+		      int c = snpBrsParseTrueCounts (tsnp, snp) ;
+		      if (c > bestC) 
+			{ bestC = c ; bestIv = iv ;	}
+		      key = ac_obj_key (snp->Snp) ;
+		      bitSet (tsnp->snpDone, KK(key)) ;
+		    }
+		  snp->Snp = 0 ;
+		  if (bestIv >= 0)
+		    {
+		      snp->Snp = ac_table_obj (vv, bestIv, 0, snp->h) ; 
+		      snpBrsParseCounts (tsnp, snp) ;
+		    }
+
+		}
+	    }
+	  ac_free (h) ;
+	}
+    }
+
+  return snp->Snp ? TRUE : FALSE ;
+}  /* snpBrsNextSnp */
+
+/*************************************************************************************/
+
+static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL isGroup, const char *caption)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  char *txGF = vtxtPtr (tsnp->groupsHeader) ;
+  char *txRF = vtxtPtr (tsnp->runsHeader) ;
+  char *txGC = vtxtPtr (tsnp->groupsHeader2) ;
+  char *txRC = vtxtPtr (tsnp->runsHeader2) ;
+  char *txG = isFrequency ? txGF : txGC ;
+  char *txR = isFrequency ? txRF : txRC ;
+  char *tx = isGroup ? txG : txR ;
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { isGroup ? "Groups" : "Runs", isGroup ? vtxtPtr (tsnp->groupsHeader) : vtxtPtr (tsnp->runsHeader), 1, 0, 0} ,
+    { isGroup ? "Groups" : "Runs", tx, 1, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
-  const char *caption =
-    "Allele Frequency or counts measured by MAGIC if more than 10 covering reads"
-    ;
 
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
+
   for (ti = tts ; ti->tag ; ti++)
     {
       KEYSET rg = 0 ;
@@ -1398,9 +900,6 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
-      if (! keySetMax (tsnp->covers)) /* parse the counts */
-	snpBrsParseCounts (tsnp, snp) ;
-      
       if (! strcmp (ti->tag, "Runs"))
 	rg = tsnp->runs ;
       if (! strcmp (ti->tag, "Groups"))
@@ -1425,7 +924,7 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
 		    aceOutf (tsnp->ao, "\t-10") ;
 		}
 	      else
-		aceOutf (tsnp->ao, "\t%d:%d", m, c) ;
+		aceOutf (tsnp->ao, "\t%d\t%d", m, c) ;
 	    }
 	}
       else
@@ -1435,37 +934,204 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
   return;
 }  /* snpBrsFrequencyCounts */
 
+/*************************************************************************************/
+
+static void snpBrsHistos (TSNP *tsnp, SNP *snp)
+{
+  KEYSET rg = tsnp->groups ;
+  
+  if (rg)
+    {
+      for (int ir = 0 ; ir < keySetMax (rg); ir++)
+	{
+	  int gg = keySet (rg, ir) ;
+	  int cc = keySet (tsnp->covers, gg) ;
+	  int mm = keySet (tsnp->mutant, gg) ;
+	  float ff = -10 ;
+	  Array histo = 0 ;
+	  
+	  histo = array (tsnp->histos, gg, Array) ;
+	  if (! histo)
+	    histo = array (tsnp->histos, gg, Array) = arrayHandleCreate (110, int, tsnp->h) ;
+	  
+	  if (cc >= 20)
+	    {
+	      ff = 100.0 * mm/cc ;
+	      array (histo, ff + .49, int)++ ;
+	    } 
+	}
+    }
+
+  return ;
+}  /* snpBrsHistos */
+
+/*************************************************************************************/
+
+static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  char *txG = vtxtPtr (tsnp->groupsHeader) ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Groups", txG, 1, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *captions[] =
+    { "toto", "toto", "Measured in N libs", "Detected in N libs", "Contradictiom in N libs", "Not measurable in N libs"} ;
+    ;
+
+  if (snp == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, captions[type]) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      KEYSET rg = 0 ;
+
+      if (snp == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	  continue ;
+	}
+      else if (! strcmp (ti->tag, "Groups"))
+	{
+	  rg = tsnp->groups ;
+	  
+	  if (rg)
+	    {
+	      aceOut (tsnp->ao, "\t") ;
+	      for (int ir = 0 ; ir < keySetMax (rg); ir++)
+		{
+		  BOOL ok = TRUE ;
+		  
+		  int gg = keySet (rg, ir) ;
+		  int cc = keySet (tsnp->covers, gg) ;
+		  int mm = keySet (tsnp->mutant, gg) ;
+		  float ff = -10 ;
+		  RR *rr = arrayp (tsnp->rrs, gg, RR) ;
+		  int nLow = 0, nHigh = 0, nOk = 0, nContra = 0 ;
+		  Array histo = 0 ;
+
+		  if (tsnp->histo)
+		    {
+		      histo = array (tsnp->histos, gg, Array) ;
+		      if (! histo)
+			histo = array (tsnp->histos, gg, Array) = arrayHandleCreate (110, int, tsnp->h) ;
+		    }
+
+
+		  if (! rr->g2r)
+		    ok = FALSE ;
+		  if (cc >= 20)
+		    {
+		      ff = 100.0 * mm/cc ;
+		      if (histo)
+			array (histo, ff + .49, int)++ ;
+		    } 
+		  else 
+		    ok = FALSE ;
+		  
+		  
+		  for (int ii = 0 ; ok && ii < keySetMax (rr->g2r) ; ii++)
+		    {
+		      int r = keySet (rr->g2r, ii) ;
+		      int c = keySet (tsnp->covers, r) ;
+		      int m = keySet (tsnp->mutant, r) ;
+		      
+		      if (!r)
+			continue ;
+		      
+		      if (c < 10)
+			nLow++ ;
+		      else
+			{
+			  float f = 100 * m / c ;
+			  float df = 200 * sqrt(c)/c ;
+			  if (f < ff + 30 && f > ff - 30)
+			    nOk++ ;
+			  else if (f + df > ff && f - df < ff)
+			    nOk++ ;
+			  else
+			    nContra++ ;
+			  nHigh++ ;		      
+			}
+		    }
+		  if (ok)
+		    {
+		      int n = 0 ;
+		      switch (type) 
+			{
+			case 2: n = nHigh ; break ;
+			case 3: n = nOk ; break ;
+			case 4: n = nContra ; break ;
+			case 5: n = nLow ; break ;
+			}
+		      aceOutf (tsnp->ao, "\t%d", n) ;
+		    }
+		  else
+		    aceOut (tsnp->ao, "\t") ;
+		}
+	    }
+	}
+      else
+	snpShowTag (tsnp, snp, ti) ;
+    }
+  ac_free (h) ;
+  return;
+}  /* snpBrsGroup2345set toto=RESULTS/SNV/SnpA2R2.DanLi.SNP_summary.june9.txt */
+
+static void snpBrsGroup2 (TSNP *tsnp, SNP *snp)
+{
+  return snpBrsGroup2345 (tsnp, snp, 2) ;
+}
+static void snpBrsGroup3 (TSNP *tsnp, SNP *snp)
+{
+  return snpBrsGroup2345 (tsnp, snp, 3) ;
+}
+static void snpBrsGroup4 (TSNP *tsnp, SNP *snp)
+{
+  return snpBrsGroup2345 (tsnp, snp, 4) ;
+}
+static void snpBrsGroup5 (TSNP *tsnp, SNP *snp)
+{
+  return snpBrsGroup2345 (tsnp, snp, 5) ;
+}
+
 static void snpBrsRunFrequency (TSNP *tsnp, SNP *snp)
 {
-  return snpBrsFrequencyCounts (tsnp, snp, TRUE, FALSE) ;
+  const char *caption = "Allele Frequency in individual libraries if more than 10 covering reads, otherwise -10" ;
+  return snpBrsFrequencyCounts (tsnp, snp, TRUE, FALSE, caption) ;
 }
 static void snpBrsRunCounts (TSNP *tsnp, SNP *snp)
 {
-  return snpBrsFrequencyCounts (tsnp, snp, FALSE, FALSE) ;
+  const char *caption = "Variant counts in individual libraries" ;
+  return snpBrsFrequencyCounts (tsnp, snp, FALSE, FALSE, caption) ;
 }
 static void snpBrsGroupFrequency (TSNP *tsnp, SNP *snp)
 {
-  return snpBrsFrequencyCounts (tsnp, snp, TRUE, TRUE) ;
+  const char *caption = "Allele Frequency in groups if more than 20 covering reads, otherwise -10" ;
+  return snpBrsFrequencyCounts (tsnp, snp, TRUE, TRUE, caption) ;
 }
 static void snpBrsGroupCounts (TSNP *tsnp, SNP *snp)
 {
-  return snpBrsFrequencyCounts (tsnp, snp, FALSE, TRUE) ;
+  const char *caption = "Variant coverage in groups" ;
+  return snpBrsFrequencyCounts (tsnp, snp, FALSE, TRUE, caption) ;
 }
 
 
 /*************************************************************************************/
 
-static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
+static void snpBrsQC(TSNP *tsnp, SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { "Sum", "All mutant\tAll coverage\tAll frequency", 10, 0, 0} ,
+    { "Monomodal", "Monomodal", 0, 0, 0} ,  
+    { "Wendell", "Wendell Jones trusted site genomic in sample A", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
   const char *caption =
-    "Allele counts and frequency when summing all runs in this table"
+    "SNP quality control"
     ;
 
   if (snp == (void *) 1)
@@ -1477,27 +1143,232 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
-      if (! keySetMax (tsnp->covers)) /* parse the counts */
-	snpBrsParseCounts (tsnp, snp) ;
+      else if (! strcmp (ti->tag, "Wendell"))
+	{
+	  AC_TABLE tt = 0 ;
 
-      if (ti->col == 10)
-	{	 
-	  int c = tsnp->allC ;
-	  int m = tsnp->allM ;
-
-	  aceOutf (tsnp->ao, "\t%d\t%d", m, c) ;
-	  if (c >= 10)
-	    aceOutf (tsnp->ao, "\t%.2f", 100.0*m/c) ;
+	  tt = ac_tag_table (snp->Snp, "Wtrue", h) ;
+	  if (!  tt) 
+	    tt = ac_tag_table (snp->Snp, "Wtrue2", h) ;
+	  if (tt && tt->cols >=1)
+	    aceOut (tsnp->ao, "\tVar") ;
+	  else if (ac_has_tag (snp->Snp, "Wfalse") || ac_has_tag (snp->Snp, "Wfalse2"))
+	    aceOut (tsnp->ao, "\tRef") ;
 	  else
-	    aceOutf (tsnp->ao, "\t-10") ;
+	    aceOut (tsnp->ao, "\t") ;
+	}
+      else if (! strcmp (ti->tag, "Monomodal"))
+	{
+	  AC_TABLE tt = ac_tag_table (snp->Snp, "Monomodal", h) ;
+	  int ir ;
+	  char sep = '\t' ;
+	  
+	  if (tt && ! ac_has_tag  (snp->Snp, "Manual_non_monomodal"))
+	    for (ir = 0 ; ir < tt->rows ; ir++)
+	      {
+		const char *cp = ac_table_printable (tt, ir, 0, 0) ;
+		if (cp && (!strcmp (cp, "Fatigue") || ! strcmp (cp, "NB")))
+		  {
+		    aceOutf (tsnp->ao
+			     , "%c%s"
+			     , sep
+			     , cp
+			     ) ;
+		    sep = ',' ;
+		  }
+	      }
+	  else
+	    aceOut (tsnp->ao, "\t") ;
 	}
       else
 	snpShowTag (tsnp, snp, ti) ;
     }
   ac_free (h) ;
   return;
-}
+} /* snpBrsQC */
 
+/*************************************************************************************/
+
+static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "Sum", "Mutant count in project\tCoverage count in project", 10, 0, 0} ,
+    { "Nlib", "Measurable in n libraries\tCalled in n libraries\tNot Measured\tAllele frequency contradictions", 20, 0, 0} ,
+    { "Freq", "Average allele frequency in project", 30, 0, 0} ,
+    { "Wendell", "Genomic allele Frequency in sample A (Jones 2021)", 14, 0, 0} ,
+    { "DanLi", "Dan Li average allele frequency on A1 A2 R1 R2", 14, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "Allele counts and frequency when summing all runs in this table"
+    ;
+
+  float ff = -10 ;
+
+  if (snp == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      if (snp == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	  continue ;
+	}
+
+      if (ti->col == 10)
+	{	 
+	  int c = tsnp->allC ;
+	  int m = tsnp->allM ;
+	  if (c >= 10)
+	    ff = 100.0*m/c ;
+
+	  aceOutf (tsnp->ao, "\t%d\t%d", m, c) ;
+	}
+      else if (ti->col == 30)
+	{	 
+	  int c = tsnp->allC ;
+	  int m = tsnp->allM ;
+
+	  if (c >= 10)
+	    ff = 100.0*m/c ;
+	  if (ff >= 0)
+	    aceOutf (tsnp->ao, "\t%.2f", ff) ; 
+	  else
+	    aceOutf (tsnp->ao, "\t-10") ;
+	}
+      else if (ti->col == 20)
+	{
+	  if (ff < 0)
+	    aceOutf (tsnp->ao, "\t\t\t\t") ;
+	  else
+	    {
+	      int nLow = 0, nHigh = 0, nOk = 0, nContra = 0 ;
+	      for (int r = 1 ; r < keySetMax (tsnp->covers) ; r++)
+		{
+		  int c = keySet (tsnp->covers, r) ;
+		  int m = keySet (tsnp->mutant, r) ;
+		  
+		  RR *rr = arrayp (tsnp->rrs, r, RR) ;
+		  if (rr->g2r)
+		    continue ;
+
+		  if (c < 10)
+		    nLow++ ;
+		  else
+		    {
+		      float f = 100 * m / c ;
+		      float df = 200 * sqrt(c)/c ;
+		      if (f < ff + 30 && f > ff - 30)
+			nOk++ ;
+		      else if (f + df > ff && f - df < ff)
+			nOk++ ;
+		      else
+			nContra++ ;
+		      nHigh++ ;		      
+		    }
+		}
+	      aceOutf (tsnp->ao, "\t%d\t%d\t%d\t%d", nHigh, nOk, nLow, nContra) ;
+	    }
+	}
+      else if (! strcmp (ti->tag, "DanLi"))
+	{
+	  const char *tag ;
+	  char run[6] ;
+	  AC_TABLE tt = 0 ;
+	  int mm = 0, cc = 0, nn = 0 ;
+
+	  tag = "DanLi_counts" ;
+	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
+	  tt = ac_tag_table (snp->Snp, tag, h) ;
+
+	  if (tt)
+	    {
+	      int ir ;
+	      for (ir = 0 ; ir < tt->rows ; ir++)
+		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
+		  {
+		    int m = ac_table_int (tt, ir, 1, -1) ;
+		    int c = ac_table_int (tt, ir, 3, -1) ;
+		    if  (c == 0) c = 1 ;
+
+		    if (m >= 0 && c >= 0)
+		      {
+			mm += m ; cc += c ; nn ++ ;
+		      }
+		  }
+	    }
+	  if (nn)
+	    {
+	      if (cc == 0) cc = 1 ;
+	      aceOutf (tsnp->ao, "\t%.2f", 100.0 * mm / cc) ;
+	    }
+	  else
+	    aceOut (tsnp->ao, "\t") ;
+	}
+      else if (! strcmp (ti->tag, "Wendell"))
+	{
+	  AC_TABLE tt = 0 ;
+
+	  tt = ac_tag_table (snp->Snp, "Wtrue", h) ;
+	  if (!  tt) 
+	    tt = ac_tag_table (snp->Snp, "Wtrue2", h) ;
+	  if (tt && tt->cols >=1)
+	      aceOutf (tsnp->ao, "\t%.2f", ac_table_float (tt, 0, 0, 0)) ;
+	  else
+	    aceOut (tsnp->ao, "\t") ;
+	}
+
+      else
+	snpShowTag (tsnp, snp, ti) ;
+    }
+  ac_free (h) ;
+  return;
+} /* snpBrsAllRuns */
+
+/*************************************************************************************/
+
+static void snpBrsTitration (TSNP *tsnp, SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  TT *ti, tts[] = {
+    { "Spacer", "", 0, 0, 0} ,
+    { "AECDB", "ACB titration", 13, 0, 0} ,
+    { "AECDB", "AECDB titration", 15, 0, 0} ,
+    {  0, 0, 0, 0, 0}
+  } ; 
+
+  const char *caption =
+    "AECDB Titration"
+    ;
+
+  if (snp == (void *) 1)
+    return  snpChapterCaption (tsnp, tts, caption) ;
+  for (ti = tts ; ti->tag ; ti++)
+    {
+      if (snp == 0)
+	{
+	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	  continue ;
+	}
+      if (ti->col == 13)
+	{	 
+	  char *ccp = tsnp->titrationTxt3 ? vtxtPtr (tsnp->titrationTxt3) : "" ;
+	  aceOutf (tsnp->ao, "\t%s", ccp ? ccp : "" ) ;
+	}
+      else if (ti->col == 15)
+	{	 
+	  char *ccp = tsnp->titrationTxt5 ? vtxtPtr (tsnp->titrationTxt5) : "" ;
+	  aceOutf (tsnp->ao, "\t%s", ccp ? ccp : "" ) ;
+	}
+      else
+	snpShowTag (tsnp, snp, ti) ;
+    }
+  ac_free (h) ;
+  return;
+} /* SnpBrsTitration */
 
 /*************************************************************************************/
 
@@ -1532,18 +1403,30 @@ static BOOL snpFilter (TSNP *tsnp, SNP *snp)
 
 /*************************************************************************************/
 
-static const char *allMethods = "VISdgrDGR" ;
-
+static const char *allMethods = "VIQSgd" ;
+/* VIQSgd   */
+/* VIQSDGR     */
+/* VIQSG2345   */
 static MM methods [] = {
   {'V', &snpVCF} ,
   {'I', &snpIdentifiers} ,
-  {'d', &snpDanLiFrequency} ,
-  {'D', &snpDanLiCounts} ,
-  {'r', &snpBrsRunFrequency} , 
-  {'R', &snpBrsRunCounts} ,
-  {'g', &snpBrsGroupFrequency} , 
-  {'G', &snpBrsGroupCounts} ,
+  {'Q', &snpBrsQC} ,
   {'S', &snpBrsAllRuns} ,
+  {'g', &snpBrsGroupFrequency} , 
+  {'d', &snpDanLiFrequency} ,
+  {'r', &snpBrsRunFrequency} , 
+
+  {'D', &snpDanLiCounts} ,
+
+  {'R', &snpBrsRunCounts} ,
+
+  {'G', &snpBrsGroupCounts} ,
+  {'2', &snpBrsGroup2} ,  /* meeasured in n runs of this group */
+  {'3', &snpBrsGroup3} ,  /* not measured in n runs of this group */
+  {'4', &snpBrsGroup4} ,  /* seen in in n runs of this group */
+  {'5', &snpBrsGroup5} ,  /* contradiction  in n runs of this group */
+
+  {'T', &snpBrsTitration} ,
 { 0, 0 }
 } ;
 
@@ -1570,11 +1453,8 @@ static BOOL snpExportSnp (TSNP *tsnp, int iSnp, int type)
       break ;
     case 2: 
       snp = &snp0 ;
-      snp->h = ac_new_handle () ;
-      tsnp->covers = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
-      tsnp->mutant = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
-      snp->Snp = ac_table_obj (tsnp->snps, iSnp, 0, snp->h) ;
-      tsnp->allC = tsnp->allM = 0 ;
+      if (! snpBrsNextSnp (tsnp, snp, iSnp))
+	return FALSE ;
       lineName = "" ;
 
       break ; 
@@ -1597,9 +1477,11 @@ static BOOL snpExportSnp (TSNP *tsnp, int iSnp, int type)
   ac_free (snp0.h) ;
 
   return TRUE ;
-} /* snpExporTSNP */
+} /* snpExportSnp */
 
 /*************************************************************************************/
+/*************************************************************************************/
+
 static void snpExportDoubleDetect (TSNP *tsnp)
 {
   AC_HANDLE h = ac_new_handle () ;
@@ -1622,6 +1504,135 @@ static void snpExportDoubleDetect (TSNP *tsnp)
 } /* snpExportDoubleDetect */
 
 /*************************************************************************************/
+static void snpExportHistos (TSNP *tsnp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".group_histos.tsf", tsnp->gzo, h) ;
+  aceOutDate (ao, "##", tsnp->dbName) ;
+  aceOutDate (ao, "##", tsnp->project) ;
+
+  int jj ;
+  aceOut (ao, "# histogram of allele frequencies in groups minCount == 20") ;
+  for (int ii = 0 ; ii < keySetMax (tsnp->groups) ; ii++)
+    {
+      int gg = keySet (tsnp->groups, ii) ;
+      Array histo = gg ? array (tsnp->histos, gg, Array) : 0 ;
+      if (histo)
+	{
+	  RR *rr = arrayp (tsnp->rrs, gg, RR) ;
+	  for (jj = 0 ; jj < 101 ; jj++)
+	    aceOutf (ao, "\n%s___%s\t%d\ti\t%d"
+		     , rr->sorting_title ? stackText (tsnp->sorting_titles, rr->sorting_title) : ""
+		     , dictName (tsnp->runDict, gg)
+		     , jj
+		     , array (histo, jj, int)
+		     ) ;
+	}
+      aceOut (ao, "\n") ;
+    }
+  ac_free (h) ;
+} /* snpExportHistos */
+
+/*************************************************************************************/
+
+static void snpExportDetectLibs (TSNP *tsnp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".detect.tsf", tsnp->gzo, h) ;
+
+  Array aa = tsnp->detectLibs ;
+  int kMax = arrayMax (aa) ;
+  const char *types[] = {"0_Ref","1_Low2","2_Low5","3_Mid","4_High","5_Pure","5_Ref_contradiction","6_Ref_contradiction","7_Low2_contradiction","8_Low5_contradiction","9_Mid_contradiction","10_High_contradiction","11_Pure_contradiction",0} ;
+
+
+  for (int ii = 0 ; ii < keySetMax (tsnp->groups); ii++)
+    {
+      int gg = keySet (tsnp->groups, ii) ;
+      RR *rr = arrayp (tsnp->rrs, gg, RR) ;
+      KEYSET g2r = rr->g2r ;
+      if (! g2r)
+	continue ;
+      for (int k = 0 ; k < 12 ; k++) 
+	{
+	  int kk = 12 * gg + k ;
+	  if (kk < kMax)
+	    {
+	      int n = arr (aa, kk, int) ;
+	      if (n >= 0)
+		aceOutf (ao, "%s___%s\t%s\ti\t%d\n"
+			 , rr->sorting_title ? stackText (tsnp->sorting_titles, rr->sorting_title) : ""
+			 , dictName (tsnp->runDict, gg)
+			 , types[k]
+			 , n
+			 ) ;
+	    }
+	}
+    }
+  ac_free (h) ;
+} /* snpExportDetectLibs */
+
+/*************************************************************************************/
+
+static void snpExportCalledLibs (TSNP *tsnp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  ACEOUT ao = aceOutCreate (tsnp->outFileName, ".venn.tsf", tsnp->gzo, h) ;
+  Array aa = tsnp->calledLibs ;
+  KEYSET done = keySetHandleCreate (h) ;
+  AC_TABLE tt = tsnp->countLibsTable ;
+  int N = dictMax (tsnp->runDict) + 1 ;
+  int irMax = tt ? tt->rows : 0 ;
+  Array aaCalled = tsnp->calledLibs ;
+
+  for (int ir = 0 ; ir < irMax ; ir++)
+    {
+      KEY c1 = ac_table_key (tt, ir, 0, 0) ;
+      int n1 = ac_table_int (tt, ir, 1, 0) ;
+      int r1 = 0 ;
+      RR *rr1 ;
+
+      if (! dictFind (tsnp->runDict, ac_table_printable (tt, ir, 2, 0), &r1))
+	continue ;
+      rr1 = arrayp (tsnp->rrs, r1, RR) ;
+
+      for (int jr = ir ; jr < irMax ; jr++)
+	{
+	  KEY c2 = ac_table_key (tt, jr, 0, 0) ;
+	  int n2 = ac_table_int (tt, jr, 1, 0) ;
+	  int n, r2 = 0, gg3 ;
+	  RR *rr2 ;
+	  if (! dictFind (tsnp->runDict, ac_table_printable (tt, jr, 2, 0), &r2))
+	    continue ;
+	  if (c1 != c2 || (n1/100) != (n2/100))
+	    break ;
+
+	  gg3 = (r1 < r2 ? N * r1 + r2 : N * r2 + r1 ) ;
+	  if (keySet (done, gg3) == 1)
+	    continue ;
+
+	  keySet (done, gg3) = 1 ;
+	  rr2 = arrayp (tsnp->rrs, r2, RR) ;
+	  n = keySet (aaCalled, 6 * (gg3) + 0) ;
+	  if (n > 0)
+	    aceOutf (ao, "%s___%s\t%s___%s\t6i\t%d\t%d\t%d\t%d\t%d\t%d\n"
+		     , rr1->sorting_title ? stackText (tsnp->sorting_titles, rr1->sorting_title) : ""
+		     , dictName (tsnp->runDict, r1)
+		     , rr2->sorting_title ? stackText (tsnp->sorting_titles, rr2->sorting_title) : ""
+		     , dictName (tsnp->runDict, r2)
+		     , keySet (aa, 6 * (gg3) + 0)
+		     , keySet (aa, 6 * (gg3) + 1)
+		     , keySet (aa, 6 * (gg3) + 2)
+		     , keySet (aa, 6 * (gg3) + 3)
+		     , keySet (aa, 6 * (gg3) + 4)
+		     , keySet (aa, 6 * (gg3) + 5)
+		     ) ;
+	}
+    }
+
+  ac_free (h) ;
+} /* snpExportCalledLibs */
+
+/*************************************************************************************/
 
 static int snpGetSnpsRunsGroups (TSNP *tsnp)
 {
@@ -1631,11 +1642,18 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE tt = 0 ;
   KEYSET ks ;
+  DICT *dict ;
+  vTXT txt , txt2 ; 
 
   tsnp->runs = keySetHandleCreate (tsnp->h) ;
   tsnp->groups = keySetHandleCreate (tsnp->h) ;
-  DICT *dict ;
-  vTXT txt ; 
+  tsnp->histos = arrayHandleCreate (128, Array, tsnp->h) ;
+  tsnp->titrationTxt3 = vtxtHandleCreate (tsnp->h) ;
+  tsnp->titrationTxt5 = vtxtHandleCreate (tsnp->h) ;
+  tsnp->snpDone = bitSetCreate (16000, tsnp->h) ;
+  tsnp->sorting_titles = stackHandleCreate (200, tsnp->h) ;
+  tsnp->sorting_titles->textOnly = TRUE ;
+  pushText (tsnp->sorting_titles, "toto") ; /* avoid zero */
 
   dict = tsnp->runDict = dictHandleCreate (256, tsnp->h) ;
 
@@ -1655,6 +1673,7 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 			 ) ;
 
       txt = tsnp->runsHeader = vtxtHandleCreate (tsnp->h) ;
+      txt2 = tsnp->runsHeader2 = vtxtHandleCreate (tsnp->h) ;
       ks = tsnp->runs ; nn = 0 ;
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
@@ -1662,6 +1681,7 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 	    const char *ccp = ac_table_printable (tt, ir, 0, "toto") ;
 	    dictAdd (dict, ccp, &r) ;
 	    vtxtPrintf (txt, "\t%s", ccp) ;
+	    vtxtPrintf (txt2, "\tVar %s\tRef %s", ccp, ccp) ;
 	    keySet (ks, nn++) = r ;
 	  }
       else
@@ -1676,21 +1696,67 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 			 , h
 			 ) ;
       txt = tsnp->groupsHeader = vtxtHandleCreate (tsnp->h) ;
+      txt2 = tsnp->groupsHeader2 = vtxtHandleCreate (tsnp->h) ;
       ks = tsnp->groups ; nn = 0 ;
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
 	  {
 	    const char *ccp = ac_table_printable (tt, ir, 0, "toto") ;
-	    dictAdd (dict, ccp, &g) ;
+	    if (dictAdd (dict, ccp, &g))
+	      keySet (ks, nn++) = g ;
+
 	    RR *rr = arrayp (tsnp->rrs, g, RR) ;
 	    vtxtPrintf (txt, "\t%s", ccp) ;
-	    keySet (ks, nn++) = g ;
+	    vtxtPrintf (txt2, "\tVar %s\tCoverage %s", ccp, ccp) ;
+	    
+	    rr->sorting_title = stackMark (tsnp->sorting_titles) ;
+	    pushText (tsnp->sorting_titles, ac_table_printable (tt, ir, 1, "_") ) ;
 	    rr->isGroup = TRUE ;
 	  }
       else
 	vtxtPrintf (txt, "\t%s", "None") ;
 
-      qq = hprintf (h, "select g, r from p in ?project where p == \"%s\", g in p->run where g#union_of, r in g->union_of, p2 in r->project where p2 == p", tsnp->project) ;
+      qq = hprintf (h, "select r from p in ?project where p == \"%s\" , r in p->run where r#Ignore_lowQ_runs_in_group_allele_frequency", tsnp->project, 0) ;
+      tt = ac_bql_table (tsnp->db
+			 , qq
+			 , 0
+			 , 0
+			 , &errors
+			 , h
+			 ) ;
+
+      if (tt)
+	for (int ir = 0 ; ir < tt->rows ; ir++)
+	  {
+	    const char *ccp = ac_table_printable (tt, ir, 0, "toto") ;
+	    if (dictFind (dict, ccp, &r))
+	      {
+		RR *rr = arrayp (tsnp->rrs, r, RR) ;
+		rr->ignoreLowQ = TRUE ;
+	      }
+	  }
+
+      qq = hprintf (h, "select r from p in ?project where p == \"%s\" , r in p->run where r#Low_sequence_quality", tsnp->project, 0) ;
+      tt = ac_bql_table (tsnp->db
+			 , qq
+			 , 0
+			 , 0
+			 , &errors
+			 , h
+			 ) ;
+
+      if (tt)
+	for (int ir = 0 ; ir < tt->rows ; ir++)
+	  {
+	    const char *ccp = ac_table_printable (tt, ir, 0, "toto") ;
+	    if (dictFind (dict, ccp, &r))
+	      {
+		RR *rr = arrayp (tsnp->rrs, r, RR) ;
+		rr->isLowQ = TRUE ;
+	      }
+	  }
+
+      qq = hprintf (h, "select g, r from p in ?project where p == \"%s\", g in p->run where g#union_of, r in g>>union_of where ! r#union_of, p2 in r->project where p2 == p", tsnp->project) ;
       tt = ac_bql_table (tsnp->db
 			 , qq
 			 , 0
@@ -1717,41 +1783,59 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 		    if (!ks) 
 		      ks = rr->r2g = keySetCreate () ;
 		    keySet (ks, keySetMax (ks)) = g ;
+		    
+		    rr = arrayp (tsnp->rrs, g, RR) ;
+		    ks = rr->g2r ;
+		    if (!ks) 
+		      ks = rr->g2r = keySetCreate () ;
+		    keySet (ks, keySetMax (ks)) = r ;
 		  }
 	      }
 	  }
     }
+  if (! keySetMax (tsnp->runs))
+    messcrash ("No run in project %s\n", tsnp->project) ;
+  if (! keySetMax (tsnp->groups))
+    messcrash ("No group in project %s\n", tsnp->project) ;
 
   switch (tsnp->snpType)
     {
     case 0: 
-      qq ="select s from s in ?Variant  " ;
+      qq =" where s#VCF  " ;
       break ;
     case 1: 
-      qq ="select s from s in ?Variant where  (s#Manual_non_monomodal || !  s->monomodal == Fatigue)  " ;
+      qq =" where  s#VCF and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)  " ;
       break ;
     case 3 : 
-      qq = "select s from s in ?Variant where (s#danli_counts || s#wtrue || s#wtrue2)  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  (s#danli_counts || s#wtrue || s#wtrue2)  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
       break ;
     case 5 : 
-      qq = "select s from s in ?Variant where s#Wtrue and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  (s#Wtrue || s#Wtrue2) and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
       break ;
     case 6 : 
-      qq = "select s from s in ?Variant where s#Wfalse and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
-      break ;
-    case 7 : 
-      qq = "select s from s in ?Variant where s#Wtrue2 and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
-      break ;
-    case 8 : 
-      qq = "select s from s in ?Variant where s#Wfalse2 and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  (s#Wfalse || s#Wfalse2) and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
       break ;
     case 4 : 
-      qq = "select s from s in ?Variant s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
+      qq = " s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
+      break ;
+    case 20 : 
+      qq = " where s#VCF and  s#coding  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 21 : 
+      qq = " where s#VCF and  s#UTR_3prime  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 22 : 
+      qq = " where s#VCF and  s#A2G  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 23 : 
+      qq = " where s#VCF and  s#G2A  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
       break ;
     }
+  char *qqC =  tsnp->capture ? hprintf (h, "g in ?gene where g->capture == \"%s\", s in g->variant ", tsnp->capture) : "s in ?variant" ;
+  char *qq2 = hprintf (h, "select s from %s %s", qqC, qq)  ;
 
   tsnp->snps = ac_bql_table (tsnp->db
-			     , qq
+			     , qq2
 			     , 0
 			     , 0
 			     , &errors
@@ -1759,6 +1843,8 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 			     ) ;
   
   ns = tsnp->snps ? tsnp->snps->rows : 0  ;
+  if (! ns)
+    messcrash ("No snp in project query %s\n", qq2) ;
   
   fprintf (stderr, " snpGetSnps got %d snps, %d runs , %d groups in project %s\n"
 	   , ns
@@ -1879,9 +1965,14 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "--export", &tsnp.export) ;
   getCmdLineOption (&argc, argv, "-p", &tsnp.project) ;
   getCmdLineOption (&argc, argv, "--project", &tsnp.project) ;
+  getCmdLineOption (&argc, argv, "--capture", &tsnp.capture) ;
   getCmdLineInt (&argc, argv, "--snpType", &tsnp.snpType) ;
 
+  tsnp.histo =   getCmdLineBool (&argc, argv, "--histos") ;
   tsnp.doub =   getCmdLineBool (&argc, argv, "--doubleDetect") ;
+  tsnp.titration =   getCmdLineBool (&argc, argv, "--titration") ;
+  tsnp.count_libs =   getCmdLineBool (&argc, argv, "--countLibs") ;
+  tsnp.unique =   getCmdLineBool (&argc, argv, "--unique") ;
   tsnp.gzo =   getCmdLineBool (&argc, argv, "--gzo") ;
 
   tsnp.minSnpFrequency = 0 ;
@@ -1904,7 +1995,7 @@ int main (int argc, const char **argv)
 	  exit (1) ;
 	}
     }
-  tsnp.orderBy = "Sorting_title" ;
+  tsnp.orderBy = "Sorting_title_2" ;
   getCmdLineOption (&argc, argv, "--orderBy", &tsnp.orderBy) ;
   
   getCmdLineOption (&argc, argv, "-o", &tsnp.outFileName) ; 
@@ -1916,6 +2007,37 @@ int main (int argc, const char **argv)
 
 
   if (argc > 1) usage (messprintf ("Unknown parameters %s", argv[1])) ;
+
+  if (tsnp.doub)
+    {
+      tsnp.ao204 = aceOutCreate (tsnp.outFileName, ".nDetectingLibsPerSnp.tsf", tsnp.gzo, h) ;
+      aceOutDate (tsnp.ao204, "##", messprintf ("Number of libs in the project measuring the SNP at coverage >= 20, frequency >=2, variant count >= 4 in  at least 2 libs of project %s", tsnp.project)) ; 
+      aceOut (tsnp.ao204, "#Variant\tProject\tFormat\tN libs\tTrue/False\tMonomodal\n") ;
+    }
+
+  if (tsnp.count_libs  && tsnp.project)
+    {
+      const char *errors = 0 ;
+      const char *qq = hprintf (tsnp.h, "select c,n,r from p in ?project where p == \"%s\", c in p->Compare where c#Detection, r in c->runs , n in r[1] where n>0", tsnp.project) ;
+      tsnp.countLibsTable = ac_bql_table (tsnp.db, qq, 0, 0, &errors, tsnp.h)  ;
+      if (! tsnp.countLibsTable)
+	tsnp.count_libs = FALSE ;
+      else
+	{
+	  tsnp.detectLibs = arrayHandleCreate (1024, int, tsnp.h) ;
+	  tsnp.calledLibs = arrayHandleCreate (1024, int, tsnp.h) ;
+	}
+    }
+  if (tsnp.titration && tsnp.project)
+    {
+      const char *errors = 0 ;
+      const char *qq = hprintf (tsnp.h, "select c,n,r,t from p in ?project where p == \"%s\", c in p->Compare where c#Profile, r in c->runs , n in r[1] where n>0, t in c->sorting_title", tsnp.project) ;
+      tsnp.titrationTable = ac_bql_table (tsnp.db, qq, 0, "+t+c+n+r", &errors, tsnp.h)  ;
+      if (! tsnp.titrationTable)
+	tsnp.titration = FALSE ;
+      tsnp.aoTitration = aceOutCreate (tsnp.outFileName, ".titration.tsf", tsnp.gzo, tsnp.h) ;
+    }
+
 
   snpExportHeader (&tsnp) ;
 
@@ -1931,8 +2053,17 @@ int main (int argc, const char **argv)
 	snpExportSnp (&tsnp, iSnp, 2) ;
     }
   
-  if (tsnp.doub)
+
+  if (0 && tsnp.doub)
     snpExportDoubleDetect (&tsnp) ;
+  if (tsnp.count_libs)
+    {
+      snpExportDetectLibs (&tsnp) ;
+      snpExportCalledLibs (&tsnp) ;
+    }
+  
+  if (tsnp.histo)
+    snpExportHistos (&tsnp) ;
 
   ac_free (h) ;
   if (1) sleep (1) ; /* to prevent a mix up between stdout and stderr */
@@ -1942,4 +2073,3 @@ int main (int argc, const char **argv)
 /*************************************************************************************/
 /*************************************************************************************/
 /*************************************************************************************/
-

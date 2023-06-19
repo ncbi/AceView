@@ -22,14 +22,3 @@ echo "s13.done"
 
 exit 0
 
-set zone=mito
-set run=NA12878MOD
-
-
-cat RESULTS/SNV/FDA.snp_list_with_allele_frequency_per_sample.txt | grep 599969 | gawk -F '\t' '{printf("%s\t%s\t%s\n",$2,$3,$5);}' > tyty.list
-
-zcat tmp/COUNT/NA12878MOD/f2.3*.hits.gz | gawk -F '\t' '{if($11== 3 && $13 > 59996600 && $12 < 59997200)print}' > tyty.hits
-set ff=TARGET/CHROMS/$species.chrom_3.fasta.gz
-
-cat tyty.hits |  ~/ace/bin.LINUX_4/snp -phasing -snp_list tyty.list -fasta $ff -run $run  -o tyty
-

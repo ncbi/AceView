@@ -78,8 +78,8 @@ date
     if (-e tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf) then
       cat tmp/TSNP/$run/$zone/tsnp2.MB.deUno.tsf |  gawk -F '\t' '/^#/{next;}{print;}'  >> $toto.MB.tsf 
     endif    
-    if (-e  tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz) then
-      gunzip -c tmp/SNP/$run/$MAGIC.$zone.count.u.snp.gz | gawk -F '\t' -f  scripts/brs2tsf.awk  run=$run  >> $toto.BRS.tsf 
+    if (-e  tmp/SNP/$run/$MAGIC.$zone.u.snp_count.tsf.gz) then
+      gunzip -c tmp/SNP/$run/$MAGIC.$zone.u.snp_count.tsf  >> $toto.BRS.tsf 
     endif
 
   end
@@ -109,13 +109,23 @@ cat $toto.list | sort -u > $toto.sorted_list
 # export an ace file
 cat $toto.M.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.M_sorted.tsf 
 cat $toto.MB.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.MB_sorted.tsf 
-cat $toto.BRS.tsf | sort -k 1,1 -k 2,2n -k 4,4 > $toto.BRS_sorted.tsf 
+cat $toto.BRS.tsf | gawk '/^#/{next;}{print;}' |  sort -k 1,1 -k 2,2n  > $toto.BRS_sorted.tsf 
 \rm $toto.M.tsf  $toto.MB.tsf  $toto.BRS.tsf 
 
 cat $toto.list ZZZZZ $toto.M_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn > $toto.ace
 cat $toto.list ZZZZZ $toto.MB_sorted.tsf |  gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;m=$7;c=$9;tag=$12;if(substr($12,1,6)=="Multi_")tag=$12" " $13" "$14;if(m>c)c=m;r=c-m;if(c>minC)f=100*m/c;else f=-10;if(f>=minF){if(v!=oldV){split(v,aa,":");seq=aa[1];printf("\nVariant %s\n%s\nParent_sequence %s\n%s %s %d %d\n%s\n",v,foundIn,seq,mapIn,seq,a1,a2,tag);oldV=v;}printf("MBCounts %s %d %d %d Frequency %.2f\n",run,m,r,c,f);}}' minF=$minSnpFrequency minC=$minSnpCover foundIn=$foundIn mapIn=$mapIn >> $toto.ace
-cat $toto.list ZZZZZ $toto.BRS_sorted.tsf | gawk -F '\t' '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}}{v=$1;if(ok[v]<1)next;run=$2;a1=$4;a2=$5;da=$6;c=$7;m=$8;w=$9;tag=$15;insert=$16;split($1,aa,":");seq=aa[1];if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\nParent_sequence %s\n%s\n%s\n%s %s %d %d\n",v,seq,foundIn,tag,mapIn,seq,a1,a2);oldV=v;}if($16+0>0)printf ("%s %d %s\n",$15,$16, $17);printf("BRS_counts %s %d %d %d %d %d %d %d Frequency %.2f\n",run,c,m,w,$10,$11,$12,$13,f);}END{printf("\n");}'  foundIn=$foundIn mapIn=$mapIn  >> $toto.ace
+cat $toto.BRS_sorted.tsf | gawk -F '\t' '{v=$1;run=$2;split($1,aa,":");seq=aa[1];a1=aa[2]+0;type=aa[3];cp=$4;mp=$5;wp=$6;cm=$7;mm=$8;wm=$9;c=cp+cm;m=mp+mm;w=wp+wm;if(type=="Del" || type == "Ins"){wp=cp;wm=cm;} if (c==0)c=1;f=100.0*m/c ;if (v!=oldV){printf("\nVariant %s\n%s\n",v,foundIn);oldV=v;};printf("BRS_counts %s %d %d %d %d %d %d %d Frequency %.2f\n",run,c,m,w,mp,wp,mm,wm,f);}END{printf("\n");}'  foundIn=$foundIn   >> $toto.ace
  
+
+if (-e  tmp/TSNP_DB/$zone/av.parse.done) then
+# rattrapage of new runs, say nanopore, in an existing variant database  
+   if (! -e tmp/TSNP_DB/$zone/$MAGIC.$phase.done) then 
+     echo "pparse $toto.ace" |  bin/tacembly tmp/TSNP_DB/$zone -noprompt
+     touch tmp/TSNP_DB/$zone/$MAGIC.$phase.done
+  endif
+  exit 0
+endif
+
 
   foreach run (`cat MetaDB/$MAGIC/RunsList`)
     if (-e tmp/TSNP/$run/$zone/tsnp1.2.0.bridges.ace) then

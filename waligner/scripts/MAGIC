@@ -537,7 +537,7 @@ cat <<EOF > _x.awk
   if (ix > 0) ph = ph " wait d5  "
   if (tsnp > 0) ph = ph "wait tsnp1b wait tsnp2a " ;
   if (tsnpZZ > 0) ph = ph "wait tsnp2b wait tsnp2c wait  tsnp3" ;  ## make words, count words , collate word counts
-  if (snpZZ > 0) ph = ph " wait s10 wait s11  wait s12 wait s20 wait s21 s22 wait gsnp4 wait s13 wait s14 "   
+  if (snpZZ > 0) ph = ph " wait s10 wait s12 wait s20 wait s21 wait gsnp4 wait s13 wait s14 "   
   if (tsnp > 0) ph = ph "wait tsnp10 " ;
   if (snp > 0) ph = ph "wait snp10 " ;
   if (iv > 0) ph = ph " wait d6 wait d7 wait d8 " ;
@@ -1235,7 +1235,6 @@ if ($phase == snp2a) goto phasesnp2a
 if ($phase == snp10) goto phaseSnp10
 
 if ($phase == s10) goto phases10
-if ($phase == s11) goto phases11
 if ($phase == s12) goto phases12
 if ($phase == s13) goto phases13
 if ($phase == s14) goto phases14
@@ -1243,7 +1242,6 @@ if ($phase == s15) goto phases15
 
 if ($phase == s20) goto phases20
 if ($phase == s21) goto phases21
-if ($phase == s22) goto phases22
 
 if ($phase == vir1) goto phaseVir1
 if ($phase == vir2) goto phaseVir2
@@ -1583,12 +1581,10 @@ echo "snp10:  Export snp using snpsummary into RESULTS/SNV"
 
 echo "s10:   Report the per run and type the mismatches in RESULTS/SNV"
 
-echo "s11:   Collate in tmp/SNPH all SNPs, filter, and look for differential"
 echo "s12:   Report the per run and type the quality filtered and differential SNPs, and the rejected and the A2G  in RESULTS/SNV"
 
 echo "s20:   Collate and translate the SNPs in tmp/SNP_DB"
 echo "s21:   Report the SNP into RESULTS/SNV/, including the run metadata and the translations"
-echo "s22:   Count SNPs per gene"
 
 echo "s13:   Find the SNP differential between runs"
 echo "s14:   Prediction analysis via selected SNPs"
@@ -4166,7 +4162,7 @@ phasegsnp4:
     if (! -d  tmp/GENEINDEX/Results) mkdir  tmp/GENEINDEX/Results
     scripts/geneindex.tcsh gsnp4
   else
-    echo "Phase gsnp4 is part of MAGIC SNP, it requires phase s22"
+    echo "Phase gsnp4 is part of MAGIC SNP "
   endif
 
 goto phaseLoop
@@ -5155,8 +5151,8 @@ foreach group (`cat MetaDB/$MAGIC/RunHasSubLibList`)
         endif
       end
       if ($ok == 1) then
-       # echo "scripts/ss2.mergeBRS $group $zone"
-        scripts/submit  tmp/SNP_BRS/$group/ss2.$zone "scripts/ss2.mergeBRS.tcsh $group $zone"
+       # echo "scripts/s2.mergeBRS $group $zone"
+        scripts/submit  tmp/SNP_BRS/$group/ss2.$zone "scripts/s2.mergeBRS.tcsh $group $zone"
       endif
     endif
  
@@ -5313,7 +5309,6 @@ foreach zone ($zones1 $zones2)
         cat   tmp/SNP_LIST/$zone/$MAGIC.Variant.list1 | sort -u >  tmp/SNP_LIST/$zone/$MAGIC.Variant.list
         \rm   tmp/SNP_LIST/$zone/$MAGIC.Variant.list1  
       endif
-      if (-e tmp/SNP_DB/$zone/snp.parse.done)  \rm tmp/SNP_DB/$zone/snp.parse.done
     endif
   endif
 end
@@ -5339,14 +5334,13 @@ if (0) then
         cat tmp/SNP_LIST/$zone/SnpAecdb.Variant.list tmp/SNP_LIST/$zone/SnpClones.Variant.list  tmp/SNP_LIST/$zone/SnpCcs3.Variant.list Global_SNP_LIST/brs.$zone.list | gawk '/^#/{next}{print}' | cut -f 1 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.1
         cat Global_SNP_LIST/av.A2R2.t2g ZZZZZ Global_SNP_LIST/SnpA2R2.$zone.Variant.list.1 | gawk '/^ZZZZZ/{zz++;next;}{if(zz<1){ok[$1]=1;next;}split($1,aa,":");if(ok[aa[1]]==1) print ;}'  > Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2
         cat Global_SNP_LIST/brs.$zone.list Global_SNP_LIST/SnpA2R2.$zone.Variant.list.2 | sort -u > Global_SNP_LIST/SnpA2R2.$zone.Variant.list
-
+        \cp Global_SNP_LIST/SnpA2R2.$zone.Variant.list Global_SNP_LIST/nano.$zone.Variant.list
       else
         set ok=0
       endif
     end
   endif 
 endif
-
 
 if (! -d tmp/SNP) mkdir  tmp/SNP
 if (! -d tmp/SNP_BRS) mkdir  tmp/SNP_BRS
@@ -5640,37 +5634,6 @@ echo "phase s10 done : $toto"
 goto phaseLoop
 
 ###############################################################################################
-## s11: collate in tmp/SNPH all SNPs, filter, and look for differential
-
-phases11: 
-echo -n "phase s11: collate in tmp/SNPH all SNPs, filter, and look for differential "
-date
-
-# create the zones 
-if (! -d  tmp/SNPH) mkdir tmp/SNPH
-if (! -d  tmp/GENEINDEX) mkdir tmp/GENEINDEX
-scripts/geneindex.tcsh snp4 000
-
-if (-d Bzzzzzzzzzzzz) \rm  Bzzzzzzzzzzzz
-set n=`cat MetaDB/$MAGIC/RunListSorted  MetaDB/$MAGIC/GroupSnpAdditiveList  | wc | gawk '{print $1}'`
-if ($n < 1) then
-  echo "No run or additive group in this project has the tag SNP,  phase s11 cannot proceed"
-  goto phaseLoop
-endif
-
-set MAGIC2=$MAGIC
-if (-e tmp/SNP_LIST/GlobalProject) then
-  set MAGIC2=`cat tmp/SNP_LIST/GlobalProject`
-endif
-
-foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-  if (! -d  tmp/SNPH/$zone) mkdir tmp/SNPH/$zone
-  scripts/submit tmp/SNPH/$zone/s11 "scripts/s11.cover.tcsh $zone $MAGIC2"
-end
-
-goto phaseLoop
-
-###############################################################################################
 ## s12: report the per run and type the quality filtered and differential SNPs in RESULTS/SNV
 
 phases12: 
@@ -5857,36 +5820,6 @@ endif
 
 ### actual work
 
-foreach zone ( `cat tmp/SNP_ZONE/ZoneList` )
-  # echo "aa: $zone "
-  if (! -e tmp/SNPH/$zone/$MAGIC.snp.sorted) continue
-  echo "bb: $zone "
-  if (! -d tmp/SNP_DB/$zone) mkdir  tmp/SNP_DB/$zone
-    echo "cc: $zone "
-    scripts/submit tmp/SNP_DB/$zone/parse "scripts/snp.parse_remap.tcsh $Strategy $zone" 
-  if (  -e tmp/SNP_DB/$zone/dim_dup.done) \rm tmp/SNP_DB/$zone/dim_dup.done
-end
-foreach zone ( `cat tmp/SNP_ZONE/ZoneList` )
-  echo "bb: $zone "
-  if ( -d tmp/SNP_DB/$zone && -d tmp/SNP_DB/$zone/database && ! -e tmp/SNP_DB/$zone/dim_dup.done) then
-    bin/tacembly tmp/SNP_DB/$zone << EOF
-      query find Variant dima OR dimt OR dimC OR dimg OR dupa OR dupt OR dupC OR dupG
-      edit in_repeat
-      save
-      quit
-EOF
-
-  touch tmp/SNP_DB/$zone/dim_dup.done
-  endif
-end
-
-
-if (-d tmp/Transloc) then
-  echo '// ' > tmp/Transloc/$MAGIC.transloc.txt
-  foreach run (`cat MetaDB/$MAGIC/RunsList MetaDB/$MAGIC/GroupAdditiveList`)
-    # cat tmp/Transloc/$run.transloc.txt   >> tmp/Transloc/$MAGIC.transloc.txt   
-  end
-endif
 
 echo "phase s20 done"
 goto phaseLoop
@@ -6171,176 +6104,8 @@ else
   \rm  tmp/SNP_DB/$MAGIC.characteristic_substitutions.pre_snp 
 endif
 
-## hack a who is who CORONA
-if (0) then
-  zcat  tmp/SNP_DB/$MAGIC.characteristic_substitutions.snp.gz | gawk '{printf("%s",$1);for(i=1;i<=NF;i++)printf("\t%s",$i);printf("\n");}' > toto
-  cat toto | gawk -F '\t' '{z=$1":"$3":"$4;mm[z]=1;rr[$7]=1;n[z,$7]=$9;}END{for(m in mm){printf("\t%s",m);}for(r in rr){printf("\n%s", r);for(m in mm){printf("\t%s",n[m,r]);}}printf("\n");}' | sort -k 2,2n -k 3,3n -k 4,4n -k 5,5n -k 6,6n -k 7,7n -k 8,8n -k 9,9n -k 10,10n -k 11,11n -k 12,12n -k 13,13n -k 14,14n -k 15,15n -k 16,16n -k 17,17n -k 18,18n -k 19,19n
-endif
-
-## 2016_08_30 more stats on the big snp table
-set toto=RESULTS/SNV/$MAGIC.snp.stats.txt
-echo -n "## $toto : " > $toto
-date >> $toto
-echo -n "Total number of SNPs : "
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk '/^#/{next;}{if($1)n++}END{print n}' >> $toto
-echo "SNV/Chromosomes" >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | cut -f 2 | gawk -F '\t' '/^#/{next;}{z=$1;if(substr(z,1,3)=="chr")z=substr(z,4);if(z=="")next;if(z+0>0)printf("chr%02d\n",z);else printf("chr%s\n",z);}' | tags | sort  | sed -e 's/chr0/chr/' | gawk '/^#/{next;}{if(length($1)>0)print}' >> $toto
-echo "SNV type" >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | cut -f 13 | tags | sort >> $toto
-echo "snv type\ton plus strand of the genome\ton plus strand of transcript\tsliding"  >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{next}{a=$5;b=$14;if(substr(b,1,1)=="*"){b=substr(b,2);tc[b]++;}else tb[b]++; t[a]=1;t[b]=1;ta[a]++;}END{for(k in t)printf("%s\t%d\t%d\t%d\n",k,ta[k],tb[k],tc[k]);}' | sort  | gawk '/^#/{next;}{if(length($1)>0)print}' > $toto.1 
-cat $toto.1 | grep 'A>G'  >> $toto
-cat $toto.1 | grep 'T>C'  >> $toto 
-cat $toto.1 | grep 'G>A'  >> $toto
-cat $toto.1 | grep 'C>T'  >> $toto
-cat $toto.1 | grep 'A>T'  >> $toto
-cat $toto.1 | grep 'T>A'  >> $toto
-cat $toto.1 | grep 'G>C'  >> $toto
-cat $toto.1 | grep 'C>G'  >> $toto
-cat $toto.1 | grep 'A>C'  >> $toto
-cat $toto.1 | grep 'T>G'  >> $toto
-cat $toto.1 | grep 'G>T'  >> $toto
-cat $toto.1 | grep 'C>A'  >> $toto
-
-cat $toto.1 | grep 'DelA' | sort >> $toto
-cat $toto.1 | grep 'DelT' | sort >> $toto
-cat $toto.1 | grep 'DelG' | sort >> $toto
-cat $toto.1 | grep 'DelC' | sort >> $toto
-cat $toto.1 | grep 'InsA' | sort >> $toto
-cat $toto.1 | grep 'InsT' | sort >> $toto
-cat $toto.1 | grep 'InsG' | sort >> $toto
-cat $toto.1 | grep 'InsC' | sort >> $toto
-\rm $toto.1
-
-echo -n "number of affected genes " >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{next;}{gg[$8]++;if(gg[$8]==1)n++;}END{print n}' >> $toto
-
-
-echo "protein changing snv type\ton plus strand of the genome\ton plus strand of transcript\tsliding"  >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '{split($13,aa," ");t=aa[1];if(index("AA_subAA_to_StopFrame_preserving_indelFrameshiftMet1_gainedMet1_lostStop_to_AA",t)<1)next;a=$5;b=$11;if(substr(b,1,1)=="*"){b=substr(b,2);tc[b]++;}else tb[b]++; tt[a]=1;tt[b]=1;ta[a]++;}END{for(k in tt)printf("%s\t%d\t%d\t%d\n",k,ta[k],tb[k],tc[k]);}' | sort  | gawk '/^#/{next;}{if(length($1)>0)print}' > $toto.1 
-
-cat $toto.1 | grep 'A>G'  >> $toto
-cat $toto.1 | grep 'T>C'  >> $toto 
-cat $toto.1 | grep 'G>A'  >> $toto
-cat $toto.1 | grep 'C>T'  >> $toto
-cat $toto.1 | grep 'A>T'  >> $toto
-cat $toto.1 | grep 'T>A'  >> $toto
-cat $toto.1 | grep 'G>C'  >> $toto
-cat $toto.1 | grep 'C>G'  >> $toto
-cat $toto.1 | grep 'A>C'  >> $toto
-cat $toto.1 | grep 'T>G'  >> $toto
-cat $toto.1 | grep 'G>T'  >> $toto
-cat $toto.1 | grep 'C>A'  >> $toto
-
-cat $toto.1 | grep 'DelA' | sort >> $toto
-cat $toto.1 | grep 'DelT' | sort >> $toto
-cat $toto.1 | grep 'DelG' | sort >> $toto
-cat $toto.1 | grep 'DelC' | sort >> $toto
-cat $toto.1 | grep 'InsA' | sort >> $toto
-cat $toto.1 | grep 'InsT' | sort >> $toto
-cat $toto.1 | grep 'InsG' | sort >> $toto
-cat $toto.1 | grep 'InsC' | sort >> $toto
-\rm $toto.1
-
-##
-set n=`cat MetaDB/$MAGIC/ccc_pair.list | wc -l`
-if ($n == 0) then
-    \rm RESULTS/SNV/$MAGIC.*differential**
-    \rm RESULTS/Expression/*/$MAGIC.*DEG*
-    \rm RESULTS/Expression/*/$MAGIC.*differential*
-endif
-
-# histogram of observed SNP frequencies
-set toto=RESULTS/SNV/$MAGIC.substitutions.raw_frequency_histo.txt
-echo -n "## $toto : " > $toto
-date >> $toto
-echo "# Raw observed minor allele frequency in each run\tNumber of substitutions" >> $toto
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{n++;if(n==2){i0=35;for(i=1;i<=NF;i++)if($i=="Maximal allele frequency in any run")i0=i+1;}next;}{if(substr($5,1,3)!="Sub")next;for(i=i0;i<=NF;i++){x=$i;if(x>=0)print .10*int(.5+x/.10);}}' | tags | sort -k 1n >> $toto
-
-if (-e RESULTS/SNV/$MAGIC.snp.SNP.u.done) \rm RESULTS/SNV/$MAGIC.snp.SNP.u.done
-
-echo "phase s21 done"
-goto phaseLoop
-3
-###############################################################################################
-## s22 : SNP per gene
-
-phases22: 
-if (! -d tmp/SNPH) goto phaseLoop
-if (! -d RESULTS/SNV) mkdir RESULTS/SNV
-
-if (-e RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt && ! -e tmp/GENEINDEX/$MAGIC.snp_per_gene.protein.ace) then
-  cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' -f scripts/s22.snp_per_gene.awk protein=1 aceOut=1  > tmp/GENEINDEX/$MAGIC.snp_per_gene.protein.ace
-endif
-
-if (-e RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt && ! -e tmp/SNP_DB/$MAGIC.snp.selected.list) then
-  cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{next;}{if(NF >3){gsub(">","2",$5);printf("Variant \"%s:%s:%s\"\n",$2,$3,$5);}}' > tmp/SNP_DB/$MAGIC.snp.selected.list 
-endif
-
-touch  tmp/SNP_DB/$MAGIC.snp.selected.list
-if (-e tmp/SNP_DB/$MAGIC.snp.selected.list) then
-  foreach zone (`cat tmp/SNP_ZONE/ZoneList`)
-    if (! -e  tmp/SNP_DB/$zone/all_snp.ace && -e tmp/SNP_DB/$zone/database && ! -e  tmp/SNP_DB/$zone/database/lock.wrm) then
-       scripts/submit  tmp/SNP_DB/$zone/s22 "scripts/snp.parse_remap.tcsh s22 $zone"
-    endif
-  end
-endif
-
-if (! -d RESULTS/SNV/Rejected)   mkdir  RESULTS/SNV/Rejected
-if (! -e RESULTS/SNV/Rejected/$MAGIC.rejected.done) then
-  foreach chrom ($chromSetAll)
-    cat RESULTS/SNV/SNP_LISTS_per_sample_per_chrom/$MAGIC.snp_list_with_allele_frequency_per_sample.rejected.chrom.$chrom.part*.txt | gawk -F '\t' '/^#/{next;}{printf ("%s\t%s\t%s\n",$2,$3,$5);}' | sort -u > RESULTS/SNV/Rejected/$MAGIC.rejected.$chrom.txt
-  end
-  touch RESULTS/SNV/Rejected/$MAGIC.rejected.done
-endif
-\rm RESULTS/SNV/*.txt.*
-
-echo "phase s22 done"
 goto phaseLoop
 
-# 2017_08_31
-# Remapping for transfer from 38 back to 37, i.e. from NicoExome back to FDA challenge
- 
-if (! -d RESULTS/SNV/Remapping)   mkdir  RESULTS/SNV/Remapping
-foreach chrom ($chromSetAll)
-  cat RESULTS/SNV/Rejected/$MAGIC.rejected.$chrom.txt | gawk -F '\t' '{gsub(">","2",$3);if ($2 > 100)printf ("%s:%s:%s\t1\t201\t%s\t%d\t%d\n",$1,$2,$3,$1,$2-100,$2+100);}' >  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.shadow
-end
-foreach chrom ($chromSetAll)
-  dna2dna -i TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -shadow  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.shadow -O fasta -o  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.pre
-  cat RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.pre.fasta | gawk '/^>/{print;next;}{printf("%sN%s\n",substr($1,1,100),substr($1,102));}' >  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.fasta 
-end
-foreach chrom ($chromSetAll)
-  set chrom2=`echo $chrom | sed -e 's/chr//'`
-  set chrom2=`echo $chrom | sed -e 's/chr//'`
-  clipalign -t ~/FDA/TARGET/CHROMS/$species.chrom_$chrom2.fasta.gz -i RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.fasta -minAli 150 -maxHit 10 -o  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom2 -strategy Exome -best
-end
-# as a control map on self, all sequences shoud remap
-foreach chrom ($chromSetAll)
-  clipalign -t TARGET/CHROMS/$species.chrom_$chrom.fasta.gz -i RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom.fasta -minAli 150 -maxHit 10 -o  RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom -strategy Exome -best
-  cat RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom | gawk '/^chr/{print $1}' | sort -u | wc | gawk "{print toto > read.$1}' 
-end
-# reexport the snp list in the 37 coordinates, verify that the first letter is ok
-# it must match the 101 g>n
-foreach chrom ($chromSetAll)
-  set chrom2=`echo $chrom | sed -e 's/chr//'`
-  cat RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom2.hits  | gawk -F '\t' '{if($14 != 1 || $15 > 3) next;n=split($16,aa,",");for(i=1;i<=n;i++)if (substr(aa[i],1,4)=="101:"&&substr(aa[i],6,2)==">n"){k=toupper(substr(aa[i],5,1));split($1,bb,":");typ=bb[3];if(substr(typ,1,2)==k"2" || substr(typ,1,4)=="Del"k || substr(typ,1,3)=="Ins"){split($17,aa,",");split(aa[i],cc,":");z=cc[1];gsub(">","",typ);printf("%s:%s:%s\n",$11,z,typ);}}}' > RESULTS/SNV/Remapping/$MAGIC.rejected.$chrom2.txt
-end
-cat RESULTS/SNV/Remapping/$MAGIC.rejected.*.txt | gawk '{printf("Variant \"%s\"\n",$1);}' >  RESULTS/SNV/Remapping/$MAGIC.rejected.list 
-
-
-
-###############################################################################################
-
-
-,ace
-# merge NB_RNA_seq and NB_exome
-
-cat RESULTS/SNV/$MAGIC.selected_zone.snp_list_with_allele_frequency_per_sample.txt ZZZZZ ~/NBE/RESULTS/SNV/NBE.selected_zone.snp_list_with_allele_frequency.txt | gawk -F '\t' '/^ZZZZZ/{zz++;nnf=nf;nti=0;}/^##/{print;next;}{isTi=0;}/^#/{nti++;isTi=1;}{nf=NF;dx=(zz+0)*nnf;if(isTi==1)z=nti "\t\t\t";else z=$1 "\t" $2 "\t" $3 "\t" $4; snp[z]=1; for(i=5;i<=NF;i++)xx[z,i+dx]=$i;nf=NF;}END{for (z in snp){printf("%s",z);for(i=5;i<=nf+nnf;i++)printf("\t%s",xx[z,i]);printf("\n");}}' | $tab_sort -k 1,1 -k 2,2n -k 4,4  >  RESULTS/SNV/$MAGIC.selected_zone.merged_snp_list_with_allele_frequency.txt
-
- cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{print;next;}{if($17 > 100 && ($22 + $23) * 100 > 50 * $17){z=$2 ":" $3 ":" $4 ":" $5 ":" $8; if(0 && z==old)next;old=z;print;}}' > RESULTS/SNV/$MAGIC.8000_homozygous_snp_list_with_allele_frequency_per_sample.txt
-
-cat RESULTS/SNV/$MAGIC.snp_list_with_allele_frequency_per_sample.txt | gawk -F '\t' '/^#/{print;next;}{mes=$17;ref=$19;low=$20;mid=$21;high=$22;pure=$23; nallele = 2*pure + 1.5 * high + mid; if(mes > 100 && 100 * nallele > 50 * 2 * mes){z=$2 ":" $3 ":" $4 ":" $5 ":" $8; if(0 && z==old)next;old=z;print;}}' > RESULTS/SNV/$MAGIC.8000_homozygous_snp_list_with_allele_frequency_per_sample.txt
-cat  RESULTS/SNV/$MAGIC.8000_homozygous_snp_list_with_allele_frequency_per_sample.txt | cut -f 2,3,4,5 | $tab_sort -u | wc
 
 ###############################################################################################
 ## s13xx: histo-analysis of the SNPs
@@ -6565,7 +6330,6 @@ cat tmp/VariantDB.*/snp.genotype.run.* | gawk -F '\t' '/\"/{gsub(/\"/,"",$0);if(
 ## s4 confirm the SNPs and translocation by realigning on the edited sequences
 
 phases4: 
-# integrated in snp.parse_remap.tcsh
 if (! -d RESULTS/SNV) mkdir RESULTS/SNV
 if (! -d tmp/NEWHITS_snp) mkdir tmp/NEWHITS_snp
 

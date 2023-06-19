@@ -14003,7 +14003,7 @@ static GXSNP *gxSnpInit (GX *gx)
 } /* gxSnpInit */
 
 /*************************************************************************************/
-/* parse the snps in the formatgenerated in directory SNPH by the snp.c program */
+/* parse the snps in the format generated in directory SNPH by the snp.c program */
 static void gxSnpParse (GX *gx, GXSNP *gxsnp)
 {
   AC_HANDLE h  = ac_new_handle () ;

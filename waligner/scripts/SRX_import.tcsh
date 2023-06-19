@@ -65,6 +65,8 @@ if ($species == hs) then
   set ff='/home/mieg/AW/Human_DATA/BBS9_forKans_SraRunInfo.txt'
   set date=2023_04_17
   set ff='/home/mieg/AW/Human_DATA/CircularRNA_in_Frailty_SraRunInfo.txt'  
+  set date=2023_06_18
+  set ff='/home/mieg/AW/Human_DATA/20230618_RNA_Hydatidiform_mole_SraRunInfo.txt'
 endif
 if ($species == rn) then
   set date=2016_11_04
@@ -799,19 +801,14 @@ time tbly MetaDB <<EOF
   // edit project $MAGIC
   save
 
-  find run
   query find project IS $MAGIC ; >run
-  find run
   bql -a -o $dd/r2s2t.txt  select r,srr,s,t from r in @ , srr in r->srr, s in srr->sample, t in s->title 
   query find project IS $MAGIC ; >run
-  find run
   bql -a -o $dd/r2s2t2.txt  select r,srr,s,t from r in @ , sub in r->sublibraries, srr in sub->srr, s in srr->sample, t in s->title 
 
   query find project IS $MAGIC ; >run
-  find run
   bql -a -o $dd/r2s2t.txt1  select r,srr,s,t from r in @ , srr in r->srr, s in srr->sample, t in s->title 
   query find project IS $MAGIC ; >run
-  find run
   bql -a -o $dd/r2s2t2.txt1  select r,srr,s,t from r in @ , sub in r->sublibraries, srr in sub->srr, s in srr->sample, t in s->title 
 
 EOF
@@ -820,7 +817,7 @@ cat $dd/r2s2t.txt  $dd/r2s2t2.txt | gawk -F '\t' '{gsub(/SRR:/,"",$2);gsub(/Samp
 echo "pparse  $dd/r2s2t.ace" | tbly MetaDB -no_prompt
 
 tbly MetaDB <<EOF
-  query find run ; sublibrary_of && Group
+  query find project IS $MAGIC ; >run ; sublibrary_of && Group
   bql -a -o rSubGr.txt  select r,sub,g from r in @ , sub in r->sublibrary_of, g in r->group
   undo
   bql -a -o rSubGr.txt1  select r,sub,g from r in @ , sub in r->sublibrary_of, g in r->group
@@ -845,7 +842,7 @@ EOF
 cat  srx2srr.txt | gawk -F '\t' '{printf ("Run %s\nSRX %s\n\n", $2,$1);}' >  srx2run.ace
 tbly MetaDB <<EOF
   pparse srx2run.ace
-  pparse $MAGIC.biosample.ace T
+  pparse $MAGIC.biosample.ace 
   save
   quit
 EOF

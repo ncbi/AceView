@@ -398,7 +398,7 @@ set v=NC_045512
   foreach run (`cat MetaDB/$MAGIC/RunList`)
     bin/snp -i tmp/VIRUS/$run/$v.BRS -db MetaDB -minFrequency 10 -minCover 1000 -BRS_detect > tmp/VIRUS/$run/$v.detect
   end
-cat tmp/VIRUS/*/$v.detect | bin/snp -BRS_make_snp_list > tmp/VIRUS/$v.snp_list
+cat tmp/VIRUS/*/$v.detect | gawk -F '\t' '/^#/{next;}{print $1;}' | sort -u > tmp/VIRUS/$v.snp_list
   foreach run (`cat MetaDB/$MAGIC/RunList`)
     bin/snp -i tmp/VIRUS/$run/$v.BRS -db MetaDB -minFrequency 10 -minCover 1000 -BRS_count -snp_list tmp/VIRUS/$v.snp_list > tmp/VIRUS/$run/$v.count 
   end

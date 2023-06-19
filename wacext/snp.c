@@ -43,7 +43,7 @@ typedef struct snpStruct {
   const char *inFileName, *outFileName, *selectFileName, *title, *fastaFileName, *targetGeneFileName, *newIntronsFileName ;
   const char *remapFileName1, *remapFileName2, *runQualityFileName, *runListFileName ;
   const char *run, *target_class, *snpListFileName, *snpValFileName,*project, *Reference_genome ;
-  BOOL mito, qual, BRS_detect, BRS_make_snp_list, BRS_count, pool, ventilate, solid, snp_merge, BRS_merge, BRS_merge_ns, mergeExportPopulationTable, aliExtend , phasing ;
+  BOOL mito, qual, BRS_detect, BRS_Detect, BRS_count, pool, ventilate, solid, BRS_merge, mergeExportPopulationTable, aliExtend , phasing ;
   BOOL vcfName ;
   int ooFrequency, editSequence ;
   Stack targetDna ; /* actual dna ofd the targets */
@@ -100,6 +100,8 @@ static int snpPrettyNames (SNP *snp, AC_OBJ snpObj
 			    , vTXT geneboxes, vTXT avgeneboxes, vTXT gsnippet, vTXT snippet, vTXT pSnippet
 			   ) ;
 
+typedef struct brsStruct { int pos, type, bp, bm, rp, rm, sp, sm, tp, tm ; short ee ; } BRS ;
+typedef struct brs2Struct { int bp, bm, rp, rm, sp, sm, tp, tm ; int oldSnp ; char base ; } BRS2 ;
 
 /*************************************************************************************/
 /* parse the runQuality file
@@ -1890,7 +1892,7 @@ static long int snpCoalesce (BigArray snps)
 
 /*************************************************************************************/
 
-static long int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
+static long int snpBRSparseFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 {
   int j, strand = 0, nLines = 0 ;
   int qual, count ;
@@ -2170,59 +2172,20 @@ static long int snpParseBRSFile (SNP *snp, BOOL forgetRepeats, AC_HANDLE h)
 
   fprintf (stderr, "// Parsed %ld lines in input file : %s\n", bigArrayMax (snps), timeShowNow ()) ;
   return bigArrayMax (snps) ;
-} /* snpParseBRSFile */
-
-/*************************************************************************************/
-/* export the union of all SNPs given in the first 3 columns of a set of .snp files */
-static int snpMakeSnpList (SNP *snp)
-{
-  AC_HANDLE h = ac_new_handle () ;
-  int nn = 0 ;
-  ACEIN ai = snp->ai ;
-  ACEOUT ao = aceOutCreate (snp->outFileName, ".snp_list", snp->gzo, h) ;
-  char *cp, *cq, *cqMax, buf[2048] ;
-  DICT *dict = dictHandleCreate (100000, snp->h) ; ;
-
-  cqMax = buf + 2047 ;
-  aceInSpecial (ai, "\n") ;
-  while (aceInCard (ai))
-    {
-      cq = buf ;
-      cp = aceInWord (ai) ;
-      if (!cp || *cp == '#')
-	continue ;
-      while (cq < cqMax && (*cq++ = *cp++)) ;
-      if (--cq < cqMax) *cq++ = ':' ;
-      aceInStep (ai, '\t') ; cp = aceInWord (ai) ;
-      if (!cp || *cp == '#')
-	continue ;
-      while (cq < cqMax && (*cq++ = *cp++)) ;
-      aceInStep (ai, '\t') ;  cp = aceInWord (ai) ;
-      if (!cp || *cp == '#')
-	continue ;
-      if (--cq < cqMax) *cq++ = '_' ;		
-      if (cp[1] == '>') cp[1] = '2' ;
-      while (cq < cqMax && (*cq++ = *cp++)) ;
-      /* dictAdd inseert the word only once, so we export only once */
-      if (cq < cqMax &&
-	  dictAdd (dict, buf, 0)
-	  )
-	aceOutf (ao, "%s\n", buf) ;
-    }
-  nn = dictMax (dict) ;
-  ac_free (h) ;
-  return nn ;
-} /* snpMakeSnpList */
+} /* snpBRSparseFile */
 
 /*************************************************************************************/
 
 static int snpParseSnpList (SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
-  int n, nn = 0 ;
+  int n, nn = 0, target = 0, sn, pos ;
   ACEIN ai ;
   char *cp, *cq ;
+  BRS2 *brs2 ;
   DICT *dict ;
+  DICT *targetDict = snp->targetDict ;
+  BigArray aap ;
 
   dict = snp->oldSnps = dictHandleCreate (100000, snp->h) ;
   ai = aceInCreate (snp->snpListFileName, 0, h) ;
@@ -2231,32 +2194,37 @@ static int snpParseSnpList (SNP *snp)
 
   while (aceInCard (ai))
     {
+
       cp = aceInWord (ai) ;
       if (!cp || *cp == '#')
 	continue ;
       if (! strcasecmp (cp, "Variant"))
 	continue ;
-      if (!cp || *cp == '#')
-	continue ;
+
       n = strlen(cp) ; if (n > 2047) messcrash ("bad variant column 3 file %s, line %d, name  too long > 2048 char : %s\n"
 					     , aceInFileName (ai), aceInStreamLine (ai), cp
 					     ) ;
       cq = strstr (cp, ":") ;
-      if (! cq++)
+      if (! cq)
 	messcrash ("bad variant (no : between the sequence name and the position in column 3 file %s, line %d : %s\n"
 		   , aceInFileName (ai), aceInStreamLine (ai), cp
 		   ) ;
+      dictAdd (dict, cp, &sn) ;
+      *cq++ = 0 ;
+      dictAdd (targetDict, cp, &target) ;
+      aap = array (snp->aaaP, target, BigArray) ;
+      if (! aap)
+	aap = array (snp->aaaP, target, BigArray) = bigArrayCreate (10000, BRS2) ;
+
+      cp = cq ;
       cq = strchr (cq, ':') ; 
-      if (! cq++)
-	messcrash ("bad variant (no : between the positionand the type in column 3 in file %s, line %d : %s\n"
-		   , aceInFileName (ai), aceInStreamLine (ai), cp
+      if (cq) *cq++ = 0 ;
+      if (sscanf (cp, "%d", &pos) != 1 || pos < 1)
+	messcrash ("bad variant (no : between the position and the type in column 3 in file %s, line %d : %s\n"
+		   , aceInFileName (ai), aceInStreamLine (ai), dictName (dict, sn)
 		   ) ;
-     cq = strchr (cq, ':') ; 
-      if (! cq++)
-	messcrash ("bad variant (no : between the reference and the variant sequence in column 3 in file %s, line %d : %s\n"
-		   , aceInFileName (ai), aceInStreamLine (ai), cp
-		   ) ;
-      dictAdd (dict, cp, 0) ;
+      brs2 = bigArrayp (aap, pos, BRS2) ;
+      brs2->oldSnp = sn ;
     }
   ac_free (h) ;
 
@@ -3893,7 +3861,7 @@ static int snpBRS2snp (SNP *snp)
   int nn = 0 ;
 
   snp->dnas = arrayHandleCreate (8, Array, h) ;
-  snpParseBRSFile (snp, FALSE, h) ;
+  snpBRSparseFile (snp, FALSE, h) ;
   snpBRS2snpExport (snp) ;
 
   ac_free (h) ;
@@ -8599,35 +8567,6 @@ static int snpDeepTableReport (SNP *snp)
 
 /*************************************************************************************/
 
-static void snpOpenOuputFile (SNP *snp)
-{
-  const char *ccp ;
-
-  if (snp->outFileName)
-    {
-      ccp = hprintf (snp->h, "%s%s", snp->outFileName, snp->gzo ? ".gz" : "") ;
-      
-      if (snp->gzo)
-	snp->ao = aceOutCreateToGzippedFile (ccp, snp->h) ;
-      else
-	snp->ao = aceOutCreateToFile (ccp, "w", snp->h) ;
-      if (! snp->ao)
-	exit (1) ;
-    }
-  else
-    {
-      if (snp->gzo)
-	snp->ao = aceOutCreateToPipe ("gzip ", snp->h) ;
-      else
-	snp->ao = aceOutCreateToStdout (snp->h) ;
-      snp->outFileName = "stdout" ;
-    }
-
-  return ;
-} /* snpOpenOutputFile  */
-
-/*************************************************************************************/
-
 static int selectZoneOrder (const void *va, const void *vb)
 {
   const ZONE *a = (const ZONE *)va, *b = (const ZONE *)vb ;
@@ -9227,6 +9166,37 @@ static BOOL snpParseOneRecord (ACEIN ai, SNR *sp, vTXT txt, DICT *runDict, DICT 
 /*************************************************************************************/
 /*************************************************************************************/
 /*************************************************************************************/
+
+static DICT *myTargetDict ;
+
+static int targetOrder (const void *a, const void *b)
+{
+  const int *up = (const int *)a, *vp = (const int *)b ;
+  const char *tu = dictName (myTargetDict, *up) ;
+  const char *tv = dictName (myTargetDict, *vp) ;
+
+  return lexstrcmp (tu, tv) ;
+  return 0 ;
+} /* snrOrder */
+
+/*************************************************************************************/
+
+static KEYSET snpBRS_sort_target (SNP *snp, AC_HANDLE h)
+{
+  Array ttt = arrayHandleCreate (dictMax(snp->targetDict)+1, int, h) ;
+  int ii = dictMax (snp->targetDict) ; 
+  
+  while (ii--)
+    array (ttt, ii, int) = ii + 1 ;
+  
+  myTargetDict = snp->targetDict ;
+  arraySort (ttt, targetOrder) ;
+  
+  return ttt ;
+} /* snpBRS_sort_target */
+
+/*************************************************************************************/
+/*************************************************************************************/
 /* expect as input a concatenation of BRS files
  * merge them into a single file
  *
@@ -9234,116 +9204,121 @@ static BOOL snpParseOneRecord (ACEIN ai, SNR *sp, vTXT txt, DICT *runDict, DICT 
  * merge on the fly
  * reexport at the end in the same format
  */
-typedef struct brsStruct { int pos, b ; char strand ; short ee ; } BRS ;
-typedef struct brs2Struct { int rp, rm, sp, sm, tp, tm ; } BRS2 ;
-
-static int snpMergeBRSOrder (const void *va, const void *vb)
+static int snpBRSMergeOrder (const void *va, const void *vb)
 {
   const BRS *a = (const BRS *)va, *b = (const BRS *)vb ;
   int n ;
 
-  n = a->strand - b->strand ; if (n) return n ;
   n = a->pos - b->pos ; if (n) return n ;
   n = a->ee - b->ee ; if (n) return n ;
 
   return 0 ;
-} /*  snpMergeBRSOrder */
+} /*  snpBRSMergeOrder */
 
 /*************************************************************************************/
 
-static void snpMergeBRSCompress (BigArray aa)
+static int snpBRSMergeExport (SNP *snp, ACEOUT ao, BigArray aa, int target)
+{
+  BRS *brs ;
+  int nn = 0 ;
+  long int i, iMax = bigArrayMax (aa) ;
+  const char *snpRun = snp->run ;
+  const char *targetName = dictName (snp->targetDict, target) ;
+  DICT *eeDict = snp->eeDict ;
+  char *strands = "+-" ;
+
+  for (int pass = 0 ; pass < 2 ; pass++)
+    for (i = 0, brs = bigArrp (aa, i, BRS) ; i < iMax ; i++, brs++)
+      {
+	if (brs->bp == -1)
+	  continue ;
+	if (brs->ee == -1) 
+	  continue ;
+	if (pass == 1 && ! brs->bm)
+	  continue ;
+	if (pass == 0 && ! brs->bp)
+	  continue ;
+	aceOutf (ao, "%s\t%d\t%s\t%c\t%s"
+		 , nn ? "~" : targetName
+		 , brs->pos
+		 , dictName (eeDict, brs->ee)
+		 , strands[pass]
+		 , nn ? "~" : snpRun 
+	       ) ;
+	nn++ ;
+	if (pass == 1)
+	  aceOutf (ao, "\t%d\t%d\t%d\t%d\n"
+		   , brs->bm, brs->rm, brs->sm, brs->tm
+		   ) ;
+	else
+	  aceOutf (ao, "\t%d\t%d\t%d\t%d\n"
+		   , brs->bp, brs->rp, brs->sp, brs->tp
+		   ) ;
+      }
+  return nn ;
+} /* snpBRSMergeExport */
+
+/*************************************************************************************/
+
+static void snpBRSParseCompress (BigArray aa)
 {
   register BRS *up, *vp, *wp ;
   register long int ii, i, j, iMax ;
 
-  bigArraySort (aa, snpMergeBRSOrder) ;
+  bigArraySort (aa, snpBRSMergeOrder) ;
   iMax = bigArrayMax (aa) ;
   for (i = ii = 0, up = wp = bigArrp (aa, 0, BRS) ; i < iMax ; i++, up++)
     {
-      if (up->b == 0) continue ;
+      if (up->bp == -1) continue ;
       int pos = up->pos ;
       short ee = up->ee ;
-      char strand = up->strand ;
 
       for (j = i + 1, vp = up + 1 ;
-	   j < iMax && vp->pos == pos && vp->ee == ee && vp->strand == strand ;
+	   j < iMax && vp->pos == pos && vp->ee == ee ;
 	   j++, vp++)
 	{
-	  up->b += vp->b ;
-	  vp->b = 0 ;
+	  up->bp += vp->bp ;
+	  up->bm += vp->bm ;
+	  up->rp += vp->rp ;
+	  up->rm += vp->rm ;
+	  up->sp += vp->sp ;
+	  up->sm += vp->sm ;
+	  up->tp += vp->tp ;
+	  up->tm += vp->tm ;
+	  vp->bp = -1 ;
 	}
       if (ii < i) { *wp = *up ; }
       ii++ ; wp++ ;
     }	
   bigArrayMax (aa) = ii ;
   return ;					\
-}  /* snpMergeBRSCompress */
+}  /* snpBRSParseCompress */
 
 /*************************************************************************************/
 
-static int snpMergeBRSExport (ACEOUT ao, BigArray aa, BigArray aap
-			       , const char *snpRun
-			       , const char *target
-			       , DICT *runDict
-			       , DICT *eeDict
-			       )
+static int snpBRSparse (SNP *snp)
 {
   BRS *brs ;
-  BRS2 *brs2 ;
-  int nn = 0 ;
-  long int i, iMax = bigArrayMax (aa) ;
-  
-  for (i = 0, brs = bigArrp (aa, i, BRS) ; i < iMax ; i++, brs++)
-    {
-      if (! brs->b)
-	continue ;
-      if (brs->ee == -1) 
-	continue ;
-      aceOutf (ao, "%s\t%d\t%s\t%c"
-	       , nn ? "~" : target
-	       , brs->pos
-	       , dictName (eeDict, brs->ee)
-	       , brs->strand
-	       , nn ? "~" : snpRun 
-	       ) ;
-      nn++ ;
-      brs2 = bigArrp (aap, brs->pos, BRS2) ;
-      aceOutf (ao, "\t%d", brs->b) ;
-      if (brs->strand == '-')
-	aceOutf (ao, "\t%d\t%d\t%d\n"
-	       , brs2->rm, brs2->sm, brs2->tm
-	       ) ;
-      else
-	aceOutf (ao, "\t%d\t%d\t%d\n"
-	       , brs2->rp, brs2->sp, brs2->tp
-	       ) ;
-    }
-  return nn ;
-} /* snpMergeBRSExport */
-
-/*************************************************************************************/
-
-static void snpParseBRS (SNP *snp, ACEIN ai)
-{
-  BRS *brs ;
-  BOOL BRS_merge_ns = snp->BRS_merge_ns ;
-
+  ACEIN ai = snp->ai ;
   DICT *eeDict = snp->eeDict ;
   DICT *targetDict = snp->targetDict ;
 
   BigArray aa = 0 ;  /* ee B array of the current target */
   Array aaa = snp->aaa ;
   BigArray aaP = 0 ;  /* RS array of the current target */
-  Array aaaP = snp->aaaP ;
+  Array aaaP = 0 ;
   Array errCounts = snp->errCounts ;
 
   int ee, x, state = 0, oldTarget = 0, oldTargetDummy = 0 ;
   int nnFiles = 0 ; /* count the BRS files */
-  long int nnIn = 0 ;    /* gloabal line counts */
-  long int nAli = 0 ;  /* gloabal read count */
-  long int nBpAli = 0 ; /* gloabal base count */
+  int nnIn = 0 ;    /* global line counts */
+  long int nAli = 0 ;  /* global read count */
+  long int nBpAli = 0 ; /* global base count */
 
   const char *ccp ;
+  
+  if (snp->BRS_detect || snp->BRS_count)
+    aaaP = snp->aaaP ;
 
   aceInSpecial (ai, "\"\n\t") ;
   while (aceInCard (ai))
@@ -9381,8 +9356,7 @@ static void snpParseBRS (SNP *snp, ACEIN ai)
 
       if (state == 0 && aa)
 	{
-	  snpMergeBRSCompress (aa) ;
-	  snpMergeBRSCompress (aaP) ;
+	  snpBRSParseCompress (aa) ;
 	  aa = aaP = 0 ; state = oldTarget = oldTargetDummy = 0 ;
 	}
 
@@ -9399,15 +9373,17 @@ static void snpParseBRS (SNP *snp, ACEIN ai)
 	    {
 	      if (aa)
 		{
-		  snpMergeBRSCompress (aa) ;
-		  snpMergeBRSCompress (aaP) ;
+		  snpBRSParseCompress (aa) ;
 		}
 	      aa = array (aaa, target, BigArray) ;
 	      if (! aa)
 		aa = array (aaa, target, BigArray) = bigArrayHandleCreate (10000, BRS, snp->h) ;
-	      aaP = array (aaaP, target, BigArray) ;
-	      if (! aaP)
-		aaP = array (aaaP, target, BigArray) = bigArrayHandleCreate (10000, BRS2, snp->h) ;
+	      if (aaaP)
+		{
+		  aaP = array (aaaP, target, BigArray) ;
+		  if (! aaP)
+		    aaP = array (aaaP, target, BigArray) = bigArrayHandleCreate (10000, BRS2, snp->h) ;
+		}
 	      oldTarget = target ;
 	    }
 	}
@@ -9416,81 +9392,166 @@ static void snpParseBRS (SNP *snp, ACEIN ai)
       if (state == 1)
 	{
 	  BRS B ;
-	  BRS2 B2 ;
-	  BOOL isWild ;
+	  char base, strand ;
 
 	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.pos)) continue ;
 	  aceInStep (ai,'\t') ; if (! (ccp = aceInWord (ai))) continue ;
-	  isWild = (ccp[1] == 0 ? TRUE : FALSE) ;
+	  B.type = 0 ;
+	  if (ccp[1] == 0)
+	    B.type = 0 ;
+	  else if (ccp[1] == '>')
+	    B.type = 1 ;
+	  else if (ccp[0] == '+' || ccp[1] == '+') 
+	    B.type = 2 ;
+	  else if (ccp[0] == '-' || (ccp[0] == '*' && ccp[1] == '-')) 
+	    B.type = 3 ;
+	  else
+	    messcrash ("Bad snp descriptor %s in column 3 line %d of BRS file %s\n"
+		       , ccp
+		       , aceInStreamLine (ai), aceInFileName (ai)
+		       ) ;
 	  dictAdd (eeDict, ccp, &ee) ; B.ee = (short) (ee & 0xffff) ; 
+	  base = ccp[0] ;
 	  aceInStep (ai,'\t') ; if (! (ccp = aceInWord (ai))) continue ;
-	  B.strand = BRS_merge_ns ? '+' : *ccp ;
+	  strand = *ccp ;
+	  B.bm = 0 ;
 	  aceInStep (ai,'\t') ; if (! aceInWord (ai)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.b)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.rp)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.sp)) continue ;
-	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B2.tp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.bp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.rp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.sp)) continue ;
+	  aceInStep (ai,'\t') ; if (! aceInInt (ai, &B.tp)) continue ;
+
 	  brs = bigArrayp (aa, bigArrayMax(aa), BRS) ;
-	  *brs = B ;
-	  if (isWild)
+	  brs->pos = B.pos ;
+	  brs->type = B.type ;
+	  brs->ee = B.ee ;
+	  if (strand == '+')
+	    { 
+	      brs->bp = B.bp ; 
+	      brs->rp = B.rp ; 
+	      brs->sp = B.sp ; 
+	      brs->tp = B.tp ; 
+	    }
+	  else
+	    { 
+	      brs->bm = B.bp ; 
+	      brs->rm = B.rp ; 
+	      brs->sm = B.sp ; 
+	      brs->tm = B.tp ; 
+	    }
+
+	  if (aaP && ! B.type)
 	    {
 	      BRS2 *brs2 = bigArrayp (aaP, B.pos, BRS2) ;
-	      if (B.strand == '-')
+	      if (strand == '+')
 		{
-		  brs2->rm += B2.rp ;
-		  brs2->sm += B2.sp ;
-		  brs2->tm += B2.tp ;
+		  brs2->bp += B.bp ;
+		  brs2->rp += B.rp ;
+		  brs2->sp += B.sp ;
+		  brs2->tp += B.tp ;
 		}
 	      else
 		{
-		  brs2->rp += B2.rp ;
-		  brs2->sp += B2.sp ;
-		  brs2->tp += B2.tp ;
+		  brs2->bm += B.bp ;
+		  brs2->rm += B.rp ;
+		  brs2->sm += B.sp ;
+		  brs2->tm += B.tp ;
 		}
+	      brs2->base = base ;
 	    }
 	  nnIn++ ;
 	}      
     }
   if (aa)
-    snpMergeBRSCompress (aa) ; 
+    snpBRSParseCompress (aa) ; 
 
-  fprintf (stderr, "//  snpParse found %d files %ld lines %ld ali %ld bases in file %s\n"
+  fprintf (stderr, "//  snpParse found %d files %d lines %ld ali %ld bases in file %s\n"
 	   , nnFiles, nnIn, nAli, nBpAli
 	   , aceInFileName (ai)
 	   ) ;
+  return nnIn ;
+} /* snpBRSparse */
 
-} /* snpParseBRS */
+/*************************************************************************************/
+/* insure that to each snp corresponds a wild type line */
+static int snpBRScompleteOne (SNP *snp, BigArray aa, BigArray aaP)
+{
+  long ii, iiMax = bigArrayMax (aa) ;
+  BRS *brs ;
+  BRS2 *brs2 ;
+  DICT *eeDict = snp->eeDict ;
+
+  for (ii = 0, brs = bigArrp (aa, 0, BRS) ; ii < iiMax ; ii++, brs++)
+    {
+      if (brs->bp == -1) continue ;
+      if (brs->ee < 1) continue ;
+      brs2 = bigArrayp (aaP, brs->pos, BRS2) ;
+      if (! brs2->base)
+	{
+	  const char *ee = dictName (eeDict, brs->ee) ;
+	  while (*ee == '*') ee++ ;
+	  while (*ee == '-') ee++ ;
+	  brs2->base = ace_lower (ee[0]) ;
+	}
+      if (brs->sp && ! brs2->sp)
+	{
+	  brs2->rp = brs->rp ;
+	  brs2->sp = brs->sp ;
+	  brs2->tp = brs->tp ;
+	}
+      if (brs->sm && ! brs2->sm)
+	{
+	  brs2->rm = brs->rm ;
+	  brs2->sm = brs->sm ;
+	  brs2->tm = brs->tm ;
+	}
+    }
+  return 0 ;
+}
 
 /*************************************************************************************/
 
-static void snpMergeBRS (SNP *snp)
+static int snpBRScomplete (SNP *snp)
 {
-  AC_HANDLE h = ac_new_handle () ;
-  ACEIN ai = snp->ai ;
-  ACEOUT ao = snp->ao ;
-
-  DICT *eeDict = snp->eeDict ;
-  DICT *targetDict = snp->targetDict ;
-  DICT *runDict = snp->runDict ;
-
-  Array errCounts = snp->errCounts ;
+  int nInc = 0 ;
   BigArray aa = 0 ;  /* ee B array of the current target */
   BigArray aaP = 0 ;  /* RS array of the current target */
   Array aaa = snp->aaa ;  /* ee B array of the current target */
   Array aaaP = snp->aaaP ;  /* ee B array of the current target */
+  int target, targetMax = arrayMax (aaa) ;
+  
+  /* check each target */
+  for (target = 1 ; target < targetMax ; target++)
+    {
+      aa = array (aaa, target, BigArray) ;
+      aaP = array (aaaP, target, BigArray) ;
+      if (aa && bigArrayMax (aa))
+	{
+	  nInc += snpBRScompleteOne (snp, aa, aaP) ;
+	}
+    }
+
+  return nInc ;
+} /* snpBRScomplete */
+
+/*************************************************************************************/
+/*************************************************************************************/
+
+static int snpExportBRS (SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  DICT *eeDict = snp->eeDict ;
+  int nOut = 0 ;
+  Array errCounts = snp->errCounts ;
+  BigArray aa = 0 ;  /* ee B array of the current target */
+  Array aaa = snp->aaa ;  /* ee B array of the current target */
   int ee ;
-  int nnFiles = 0 ; /* count the BRS files */
-  long int nnIn = 0, nnOut = 0 ;    /* gloabal line counts */
   long int nAli = 0  ;  /* gloabal read count */
   long int nBpAli = 0 ; /* gloabal base count */
+  ACEOUT ao = aceOutCreate (snp->outFileName, ".snp", snp->gzo, h) ;
+  aceOutDate (ao, "##", snp->title ? snp->title : "BRS file ") ; 
 
-  snpParseBRS (snp, ai) ;
-  
   /* export start  */
-  aceOutf (ao, "## %s\n", timeShowNow ()) ;
-  if (snp->title)
-    aceOutf (ao, "## %s\n", snp->title) ;
-
   /* export global counts */
   aceOutf (ao, "nAli\t%ld\nnBpAli\t%ld\n", nAli, nBpAli) ;
   for (ee = 1 ; ee <= dictMax (eeDict) ; ee++)
@@ -9506,35 +9567,308 @@ static void snpMergeBRS (SNP *snp)
   /* export the caption */
   aceOutf (ao, "## Attention: the BRST counts are multiplied by up to 100: the a posteriori quality\n") ;
   aceOutf (ao, "# Target\tCoordinate\tBase (W=wild_type)\tStrand\tRun\tB\tR\tS\tT\n") ;
- 
+  
   /* export each target */
   {
-    int target ;
-    for (target = 1 ; target <= dictMax (targetDict) ; target++)
+    Array ttt = snpBRS_sort_target (snp, h) ;
+
+    for (int ii = 0 ; ii < arrayMax (ttt) ; ii++)
       {
+	int target = array (ttt, ii, int) ;
 	aa = array (aaa, target, BigArray) ;
-	aaP = array (aaaP, target, BigArray) ;
 	if (aa && bigArrayMax (aa))
 	  {
-	    nnOut += snpMergeBRSExport (ao, aa, aaP, snp->run, dictName (targetDict, target) , runDict, eeDict) ;
+	    nOut += snpBRSMergeExport (snp, ao, aa, target) ;
 	  }
       }
   }
- 
+  
   aceOut (ao, "\n") ;
-
-  {
-    int mx = 0 ;
-    messAllocMaxStatus (&mx) ;   
-    fprintf (stderr, "... snpMergeBRS       \t%s\tmax memory %d Mb\tmerged %ld values from %ld positions in %d files\n", timeShowNow(), mx,  nnIn, nnOut, nnFiles) ;
-  }
-
-  ac_free (h) ;
-  return ;
-} /* snpMergeBRS */
+  return nOut ;
+} /* snpExportBRS */
 
 /*************************************************************************************/
-/******************************* snpMergeBRS end *************************************/
+
+static void snpBRSMerge (SNP *snp)
+{
+  int nIn = snpBRSparse (snp) ;
+  int nOut = snpExportBRS (snp) ;
+  
+  int mx = 0 ;
+  messAllocMaxStatus (&mx) ;   
+  fprintf (stderr, "... snpBRSMerge       \t%s\tmax memory %d Mb imported %d  BRS lines exported %d\n", timeShowNow(), mx, nIn, nOut) ;
+
+  return ;
+} /* snpBRSMerge */
+
+/*************************************************************************************/
+/******************************* snpBRSMerge end *************************************/
+/*************************************************************************************/
+
+static void snpBRS2snpsExportHeader (SNP *snp, ACEOUT ao, int prefix)
+{
+  BOOL showTitle = TRUE ;
+
+  if (showTitle)
+    {
+      aceOutDate (ao, "###", snp->project) ;
+      aceOutf (ao, 
+	       "##  1: SnpName :: target:Position:type:Reference:Variant\n"
+	       "##      -we use VCF conventions\n"
+	       "##      -the target is a chromosome or transcript,\n"
+	       "##      -all our coordinates start at 1 (not zero),\n"
+	       "##      -the type is either Sub, Ins or Del,\n"
+	       "##      -for a substitution, x is the position of the modifed base,\n"
+	       "##      -for an indel, x is the position of the conserved hook base left of the variation\n"
+	       "##      -all sliding indels are pushed left in the orientation of the target,\n"
+	       "##      -all bases correspond to the plus strand of the reference,\n"
+	       "##      -example t:100:Sub:A:C, base 100 A of target t is modified as C,\n"
+	       "##               t:100:Del:aG:a, base 101 G of target t is deleted,\n"
+	       "##               t:100:Ins:a:aG, base G is inserted between A100 and G101.\n"
+	       "##  2: Run name.\n"
+	       "##  3: 6i, format descriptor announcing 6 additive integers.\n"
+	       "##  4,5,6: Coverage, Mutant, Reference counts seen on plus strand of the reads.\n"
+	       "##  7,8,9: Coverage, Mutant, Reference counts seen on minus strand of the reads.\n"
+	       ) ;
+      
+      if (0 && snp->solid)
+	aceOut (ao,
+		"##      -For SOLiD sequencing, we give 2 numbers for each strand, \n"
+		"##      for example gTc 2:3  1:0, to indicate on the plus strand\n"
+		"##      two reads not matching the gT transition, one not matchingn Tc\n"
+		"##      and on the minus strand, one read not matching gT\n"
+		) ;
+    }
+  
+  aceOut (ao, "#\n#SNP\tRun\tFormat\tCover +\tMutant +\tReference +\tCover -\tMutant -\tReference -\n") ;
+  
+  return ;
+} /* snpBRS2snpsExportHeader */
+
+/*************************************************************************************/
+
+static char *snpBRSname (SNP *snp, int target, BRS *brs, BRS2 *brs2, char *buf)
+{
+  char *type = "XXX" ;
+  int k, k2, kk, x, pos = brs->pos ;
+  const char *ee = dictName (snp->eeDict, brs->ee) ;
+  char Abuf[10], Bbuf[10] ;
+  BRS2 *b ;
+
+  x = pos ;
+  switch (brs->type)
+    {
+    case 1: /* sub */
+      type = "Sub" ;
+      Abuf[0] = ace_upper(brs2->base) ;  Abuf[1] = 0 ;
+      Bbuf[0] = ace_upper(ee[2]) ;  Bbuf[1] = 0 ;
+      break ;
+    case 2: /* ins */
+      type = "Ins" ;
+      if (*ee == '*') ee++ ;
+      if (ee[1] == '+') ee++ ;
+      while (*ee && *ee == '+') ee++ ;
+      kk = 0 ; while (ee[kk]) kk++ ;
+      for (x = pos - 1, b = brs2 - 1, k = kk - 1 ; x > 1 && b->base == ee[k] ; b--, x--, k =(kk + k - 1) % kk) 
+	;
+      Abuf[0] = ace_lower(b->base) ;  Abuf[1] = 0 ;
+      Bbuf[0] = ace_lower(b->base) ; 
+      for (k2 = 0 ; k2 < kk ; k2++) 
+	Bbuf[k2+1] = ace_upper (ee[(k+kk+k2+1)%kk]) ; 
+      Bbuf[k2+1] = 0 ;
+      break ;
+    case 3: /* del */
+      type = "Del" ;
+      if (*ee == '*') ee++ ;
+      while (*ee && *ee == '-') ee++ ;
+      kk = 0 ; while (ee[kk]) kk++ ;
+      for (x = pos - 1, b = brs2 - 1, k = kk - 1 ; x > 1 && b->base == ee[k] ; b--, x--, k = (kk + k - 1) % kk) 
+	;
+      Abuf[0] = ace_lower(b->base) ;  
+      for (k = 1 ; k <= kk ; k++) 
+	Abuf[k] = ace_upper (b[k].base) ; 
+      Abuf[k] = 0 ;
+      Bbuf[0] = ace_lower(b->base) ;  Bbuf[1] = 0 ;
+      break ;
+    }
+  
+  sprintf (buf, "%s:%d:%s:%s:%s"
+	   , dictName (snp->targetDict, target)
+	   , x
+	   , type
+	   , Abuf, Bbuf
+	   ) ;
+  
+  return buf ;
+} /* snpBRSname */
+
+/*************************************************************************************/
+
+static int snpBRS2tsfExportLoop (SNP *snp, ACEOUT ao, BigArray aa, BigArray aaP, int target) 
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int nn = 0 ;
+  long ii, iiMax = arrayMax (aa) ;
+  DICT *oldSnps = snp->oldSnps ;
+  int minMutant = snp->minMutant ;
+  int minCover = snp->minCover ;
+  int minFrequency = snp->minFrequency ;
+  char *snpNam, buf[1024] ;
+  BitSet oldDone = 0 ;
+  snpNam = buf ; 
+
+  if (snp->BRS_count)
+    oldDone = bitSetCreate (dictMax (oldSnps)+1, h) ;
+  for (ii = 0 ; ii < iiMax ; ii++)
+    {
+      BRS *brs = bigArrp (aa, ii, BRS) ;
+      if (brs && brs->type) /* type 0:wildtype, 1:sub, 2:ins, 3:del */
+	{
+	  int pos = brs->pos ;
+	  int old ;
+
+	  if (pos > 0 && pos < arrayMax (aaP))
+	    {
+	      BRS2 *brs2 = bigArrp (aaP, pos, BRS2) ;
+	      int covp = brs->type == 1 ? brs2->sp : brs2->rp  ;
+	      int covm = brs->type == 1 ? brs2->sm : brs2->rm  ;
+	      int cov = covp + covm ;
+	      int bb = brs->bp + brs->bm ;
+
+	      if (snp->BRS_count)
+		{
+		  if (brs->type < 2 && ! brs2->oldSnp)
+		    continue ;
+		  snpBRSname (snp, target, brs, brs2, snpNam) ;
+		  if (! dictFind (oldSnps, snpNam, &old))
+		    continue ;
+		  if (bitt (oldDone, old))
+		    continue ;
+		  bitSet (oldDone, old) ;
+		}
+	      else if (snp->BRS_detect)
+		{
+		  if (bb < 200 * minMutant ||
+		      cov < 100 * minCover ||
+		      100 * bb < minFrequency * cov
+		      ) 
+		    continue ;
+		  snpBRSname (snp, target, brs, brs2, snpNam) ;
+		}
+	      else
+		continue ;
+
+	      nn++ ;
+	      aceOutf (ao, "%s\t%s\t6i\t%d\t%d\t%d\t%d\t%d\t%d\n"
+		       , snpNam
+		       , snp->run
+		       , covp/100
+		       , brs->bp/100
+		       , brs2->bp/100
+		       , covm/100
+		       , brs->bm/100
+		       , brs2->bm/100
+		       ) ;
+	    }
+	}
+    }
+  
+  iiMax = oldSnps ? dictMax (oldSnps) : 0 ;
+  if (iiMax > nn+1 )
+    {
+      const char *targetNam = dictName (snp->targetDict, target) ;
+      int tLen = strlen (targetNam) ;
+      char buf[tLen+12] ;
+      
+      sprintf (buf, "%s:%%d:%%c:", targetNam) ;
+      for (ii = 1 ; ii <= iiMax ; ii++)
+	{
+	  if ( ! bitt (oldDone, ii))
+	    {
+	      int pos = 0, pos2 ;
+	      char type = 0 ;
+	      const char *snpNam = dictName (oldSnps, ii) ;
+	      if (sscanf (snpNam, buf, &pos, &type) != 2)
+		continue ;
+	      if (pos < 1 || pos > bigArrayMax (aaP))
+		continue ;
+	      if (type == 'S')
+		pos2 = pos ;
+	      else if (type == 'I')
+		pos2 = pos + 1 ;
+	      else if (type == 'D')
+		pos2 = pos + 1 ;
+	      else
+		continue ;
+	      BRS2 *brs2 = bigArrp (aaP, pos, BRS2) ;
+	      if (brs2->sp + brs2->sm > 0)
+		aceOutf (ao, "%s\t%s\t6i\t%d\t%d\t%d\t%d\t%d\t%d\n"
+			 , snpNam
+			 , snp->run
+			 , pos2 > pos ? brs2->rp/100 : brs2->sp/100
+			 , 0
+			 , brs2->bp/100
+			 , pos2 > pos ? brs2->rm/100 : brs2->sm/100
+			 , 0
+			 , brs2->bm/100
+			 ) ;
+	    }
+	}
+    }
+
+  ac_free (h) ;
+  return nn ;
+} /* snpBRS2tsfExportLoop */
+
+/*************************************************************************************/
+
+static int snpBRS2tsfExport (SNP *snp)
+{
+  AC_HANDLE h = ac_new_handle () ;
+  int nnOut = 0 ;
+  int prefix = 6 ;   /* how many base we want to export on each side of the event in the SNPnet */
+  Array aaa = snp->aaa ;  /* ee B array of the current target */
+  Array aaaP = snp->aaaP ;  /* ee B array of the current target */
+  Array ttt = snpBRS_sort_target (snp, h) ;
+  ACEOUT ao = aceOutCreate (snp->outFileName
+			    , snp->BRS_count ? ".snp_count.tsf" : ".snp_detect.tsf"
+			    , snp->gzo
+			    , h) ;
+
+  aceOutDate (ao, "##", snp->title ? snp->title : "tsf file ") ; 
+  snpBRS2snpsExportHeader (snp, ao, prefix) ;
+    
+  for (int ii = 0 ; ii < arrayMax (ttt) ; ii++)
+    {
+      int target = array (ttt, ii, int) ;
+      BigArray aa = array (aaa, target, BigArray) ;
+      BigArray aaP = array (aaaP, target, BigArray) ;
+      if (aa && bigArrayMax (aa))
+	nnOut += snpBRS2tsfExportLoop (snp, ao, aa, aaP, target) ;
+    }
+
+  
+  ac_free (h) ;
+  return nnOut ;
+} /* snpBRS2tsfExport */
+
+/*************************************************************************************/
+
+static void snpBRS2tsf (SNP *snp)
+{
+  int nnIn = snpBRSparse (snp) ;
+  int nnInc = snpBRScomplete (snp) ;
+  int nnOut = snpBRS2tsfExport (snp) ;
+  int mx = 0 ;
+  
+  messAllocMaxStatus (&mx) ;   
+  fprintf (stderr, "... snpBRS2snps       \t%s\tmax memory %d Mb parsed %d:%d BRS lines eported %d snps\n", timeShowNow(), mx, nnIn, nnInc, nnOut) ;
+
+  return ;
+} /* snpBRS2tsf */
+
+/*************************************************************************************/
+/******************************* snpBRS2snps end *************************************/
 /*************************************************************************************/
 
 static void snpMerge (SNP *snp)
@@ -12329,33 +12663,23 @@ static void usage (char *message)
 	    "//        effect: the numbers reported by -count are multiplied by 100 - 5 * (30 - q)/30, bounded to [0,100]\n"
 	    "//   -BRS_merge -run group_name :  export a single data file combining all the entries\n"
 	    "//      The input should be a concatenation of BRST files exported using the -hits2BRS option\n"
-	    "//      Optionally, low coverage cases or low %%, adding the 2 strands, after merging,  are excluded\n"
-	    "//   -BRS_merge_ns :\n"
-	    "//      Idem merging the 2 strands\n"
 	    "//\n"
-	    "// Phase 2 actions: Transform in 3 passes, BRS_detect, BRS_make_snp_list, BRS_count, the .BRS files into .snp files\n"
+	    "// Phase 2 actions: Transform in 2 passes, BRS_detect, BRS_count, the .BRS files into .snp files\n"
 	    "//    -run run_name : name of the run, mandatory \n"
-	    "//    -BRS_detect  : Phase 2a, export all SNP which pass the following thresholds\n"
-	    "//      The input file should be the BRS[.gz] file for a given run in a given zone\n"
-	    "//      -unique : select only SNPs seen in reads aligning to a single target (in that target class)\n"
-	    "//      -pool : pooled experiment, do not assume 0/50/100 allele frequency and do not report ww/wm/mm types\n" 
-	    "//      -solid : work in transition-space, report the uncorrected transition errors on both side of the SNP as (oo1:oo2)\n" 
+	    "//    -BRS_detect  : Phase 2a, list all SNP which pass the following thresholds\n"
+	    "//    -BRS_Detect  : optional, export immediatly in the tsf format defined below\n"
+	    "//      The input file should be a [concatenation of] BRS[.gz] file created by hits2BRS\n"
 	    "//      -minFrequency f : [default 20] f is a integer number between 0 and 100\n"
 	    "//      -minMutant m : [default 4] m is an integer >= 0\n"
 	    "//      -minCover  c : [default 10] c is an integer > 0\n"
-	    "//        Only export variants seen m times, with coverage at least c and frequency at least f%%\n"
-	    "//   -BRS_make_snp_list : Phase 2b, construct the union of the SNPs detected in all runs\n"
-	    "//      The input file should be the union of the .detect.snp[.gz] files concerning exported by phase 2a for all runs, ina given zone\n"
-	    "//      A hand supplied list of SNPs, in the same format (look at the file), can be appended to the automatic list\n"
-	    "//      in order to be sure that interesting candidate positions, may be implied by other methods, are quantified\n"
-	    "//   -BRS_count -snp_list f [-minCover c] : Phase 2c, export in .snp format the counts for a requested list of SNPs\n"
-	    "//      The input file should be the BRS[.gz] file for a given run in a given zone\n"
-	    "//      The mandatory file f contains the list exported by phase 2b\n"
-	    "//      The exported snps exactly correspond to the list even if no mutant is observed (m=0) provided there is coverage (c>0)\n"
-	    "//   -snp_merge [-minCover <int> ] [-minFrequency <int> ]  export a single data file combining all the entries\n"
-	    "//      The input should be a concatenation of .snp files exported using the -BRS_count option\n"
-	    "//      The -run run parameter is reexported as column 6 of the output\n"
-	    "//      This option can be used to regroup runs, but it is preferable to group using -BRS_merge before imposing the detection thresholds of phase 2b\n"
+	    "//        Only export variants seen at least m times, with coverage at least c and frequency at least f%%\n"
+	    "//   -BRS_count -snp_list f -run runName : Phase 2b, export in .tsf format the counts for a requested list of SNPs\n"
+	    "//      The input file should be a [concatenation of] BRS[.gz] file created by hits2BRS\n"
+	    "//      The mandatory runName will be included as column 2 in each exported line\n" 
+	    "//      The mandatory file f contains the list exported by BRS_detect\n"
+	    "//      The listed snps are exported if covered (c>0) even if there is no mutant (m=0)\n"
+	    "//      -solid : work in transition-space, report the uncorrected transition errors on both side of the SNP as (oo1:oo2)\n" 
+	    "//      The tsf format has 9 columns: snpName runName 6i cp mp rp cm mm rm  (cover mutant reference for both strands)\n"
 	    "//\n"
 	    "// Phase 3 actions: Analyse the .snp files\n"
 	    "//   The analyses rely on a the existence of an acedb VariantDB.$zone database, aware of genes, transcripts and coding structures\n"
@@ -12490,10 +12814,8 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-db", &dbName) ;
 
   snp.BRS_merge = getCmdLineBool (&argc, argv, "-BRS_merge") ;
-  snp.BRS_merge_ns = getCmdLineBool (&argc, argv, "-BRS_merge_ns") ;
 
   snp.minCover = 10 ;  snp.minMutant = 4 ;  snp.minFrequency = 20 ; /* defaults for BRS2snp */
-  if (snp.snp_merge) snp.minFrequency = 0 ;
 
   snp.mergeExportPopulationTable = getCmdLineBool (&argc, argv, "-mergeExportPopulationTable") ;
   snp.ventilate = getCmdLineBool (&argc, argv, "-ventilate") ;
@@ -12543,7 +12865,7 @@ int main (int argc, const char **argv)
   snp.db_report = getCmdLineBool (&argc, argv, "-db_report") ;
 
   snp.BRS_detect = getCmdLineBool (&argc, argv, "-BRS_detect") ;
-  snp.BRS_make_snp_list = getCmdLineBool (&argc, argv, "-BRS_make_snp_list") ;
+  snp.BRS_Detect = getCmdLineBool (&argc, argv, "-BRS_Detect") ;
   snp.BRS_count = getCmdLineBool (&argc, argv, "-BRS_count") ;
   /* .keepSample = getCmdLineBool (&argc, argv, "-keepSample") ; */
   getCmdLineOption (&argc, argv, "-fasta", &(snp.fastaFileName)) ;
@@ -12599,8 +12921,6 @@ int main (int argc, const char **argv)
   snp.ai = aceInCreate (snp.inFileName, snp.gzi, snp.h) ;
   aceInSpecial (snp.ai,"\t\n") ;
 
-  if (! snp.editSequence && ! snp.aliExtend && ! snp.frequencyTable && ! snp.prevalenceTable && ! snp.frequencyHisto && ! snp.dbCount)
-    snpOpenOuputFile (&snp) ;
   if (snp.selectFileName)
     snpPrepareZoneSelection (&snp) ;
  
@@ -12636,10 +12956,11 @@ int main (int argc, const char **argv)
 	messcrash ("-hits2BRS/ventilate options require -run run_name") ;
       if (snp.remapFileName1 || snp.remapFileName2)
 	messcrash ("It is too complex to -count and -remap at the same time") ;
+      snp.ao = aceOutCreate (snp.outFileName, 0, snp.gzo, snp.h) ;
       snpHits2BRS (&snp) ;
     }
-  else if (snp.BRS_merge || snp.BRS_merge_ns)
-    snpMergeBRS (&snp) ;
+  else if (snp.BRS_merge)
+    snpBRSMerge (&snp) ;
   else if (snp.remapFileName1)
     { snpRemap1 (&snp) ;  snpRemap2 (&snp) ; }
   else if (snp.remapFileName2)
@@ -12651,11 +12972,7 @@ int main (int argc, const char **argv)
 	  fprintf (stderr, "FATAL ERROR; Wrong parameters, option -BRS_detect detects all SNPs passing the thresholds, it is incompatible with -snp_list\nTry snp --help") ;
 	  exit (1) ;
 	}
-      snpBRS2snp (&snp) ;
-    }
-  else if (snp.BRS_make_snp_list)
-    {
-      snpMakeSnpList (&snp) ;
+      snpBRS2tsf (&snp) ;
     }
   else if (snp.BRS_count)
     {
@@ -12666,7 +12983,7 @@ int main (int argc, const char **argv)
 	  fprintf (stderr, "FATAL ERROR; Wrong parameters, option -BRS_count requires option -snp_list\nTry snp --help") ;
 	  exit (1) ; 
 	}
-      snpBRS2snp (&snp) ;
+      snpBRS2tsf (&snp) ;
     }
   else if (snp.db_translate)
     {
@@ -12725,8 +13042,6 @@ int main (int argc, const char **argv)
     }
   else if (snp.db_intersect)
      snpIntersect (&snp) ;
-  else if (snp.snp_merge)
-    snpMerge (&snp) ;
   else if (snp.mergeExportPopulationTable)
     snpMergeExportPopulationTable (&snp) ;
   else if (snp.frequencyTable)

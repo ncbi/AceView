@@ -22,9 +22,6 @@ echo "scripts/snp.collect.tcsh $1 $2 $3 $4 $5 $6 minSnpCover=$minSnpCover minSnp
 set solid=""
 if ($solidDummy == solid) set solid="-solid"
 
-set pool=""
-if ($poolDummy == pool) set pool="-pool"
-
 # echo the command, then parse the BRS table and export a list of snp counts in target coordinates detailling both strands
 # the program collects the snps not wild type at risk 1/100, function snpNotLow() 
 # and all the counts at the positions listed in -snp_list even if in the current run we see a wild type
@@ -44,8 +41,8 @@ echo -n "$collect main work $vdb : "
 
 date
 
-    set out=tmp/SNP/$run/$zone.$collect.$uu.snp
-    if ($collect == count) set out=tmp/SNP/$run/$MAGIC.$zone.$collect.$uu.snp
+    set out=tmp/SNP/$run/$zone.$uu
+    if ($collect == count) set out=tmp/SNP/$run/$MAGIC.$zone.$uu
 
     set select8kb=""
     set target=av
@@ -56,16 +53,17 @@ date
   
       # in the new method, we add the BRS of the runs into the groups, so we can use the high thresholds at the detect stage
       set mins=" -minCover $minSnpCover -minMutant $minSnpCount -minFrequency $minSnpFrequency2"
-      echo "bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo" 
-            bin/snp -BRS_$collect $solid $mins -run $run $pool $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo 
+      echo "bin/snp -BRS_$collect $solid $mins -run $run $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo" 
+            bin/snp -BRS_$collect $solid $mins -run $run $vdb -strategy $Strategy  $select8kb -i  tmp/SNP_BRS/$run/$zone.BRS.$uu.gz  -o $out -gzo 
 
     endif
     ls -ls $out.gz
 ######
 
     if ($collect == detect) then
-      echo "Creating   tmp/SNP_LIST/$zone/Variant.$run.$uu.list3"
-      gunzip -c tmp/SNP/$run/$zone.$collect.$uu.snp.gz |  gawk '/^#/{next}/Incompatible_strands/{next;}{gsub(/>/,"2",$3);c=$9;m=$10;if (c>=minCover && m>=minCount && 100*m >= minFreq*c) printf("%s:%s:%s\n",$1,$2,$3);}' minCover=$minSnpCover minCount=$minSnpCount minFreq=$minSnpFrequency2 | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
+      echo "Creating   tmp/SNP_LIST/$zone/Variant.$run.$uu.list"
+      ls -ls    tmp/SNP/$run/$zone.$uu.snp_detect.tsf.gz
+      gunzip -c tmp/SNP/$run/$zone.$uu.snp_detect.tsf.gz |  gawk '/^#/{next}{print $1}' | sort -u >   tmp/SNP_LIST/$zone/Variant.$run.$uu.list
      wc  tmp/SNP_LIST/$zone/Variant.$run.$uu.list
     endif
 

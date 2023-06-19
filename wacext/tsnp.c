@@ -1172,6 +1172,103 @@ static BOOL tsnpRemap1Do (TSNP *tsnp, int mrna, int x1, int x2, int *chromp, int
 } /* tsnpRemap1Do */
 
 /*************************************************************************************/
+/* brs_snp.tsf only contains the name of the SNP, the Counts and the tag Found_in_mRNA
+ * here we add details deduced from the name
+ */
+static void tsnpRemap0 (TSNP *tsnp)
+{
+  AC_HANDLE  h1 = 0, h = ac_new_handle () ;
+  AC_ITER iter ;
+  AC_OBJ variant = 0 ;
+  vTXT txt = vtxtHandleCreate (h) ;
+  int a1, a2, nn1 = 0, nn2 = 0 ;
+  char *cp, *snpNam, *seqNam, *posBuf, *typeBuf, *Abuf, *Bbuf ;
+  const char *errors = 0 ;
+  
+  if (tsnp->db)
+    {
+      if (tsnp->force)
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant ", 0, h) ;
+      else
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant Found_in_mRNA && ! mRNA ", 0, h) ;
+
+      while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
+	{
+	  h1 = ac_new_handle () ;
+
+	  nn1++ ;
+	  snpNam = strnew (ac_name (variant), h1) ;
+	  cp = seqNam = snpNam ;
+	  cp = strchr (cp, ':') ; if (! cp) continue ;
+          *cp++ = 0 ;
+	  posBuf = cp ;
+	  cp = strchr (cp, ':') ; if (! cp) continue ;
+	  *cp++ = 0 ;
+	  typeBuf = cp ;
+	  a1 = 0 ;
+	  if (sscanf (posBuf, "%d", &a1) != 1) continue ;
+	  if (a1 < 1)  continue  ;
+	  cp = strchr (cp, ':') ; if (! cp) continue ;
+	  *cp++ = 0 ;
+	  Abuf = cp ;
+	  cp = strchr (cp, ':') ; if (! cp) continue ;
+	  *cp++ = 0 ;
+	  Bbuf = cp ;
+	  cp = strchr (cp, ':') ; if (cp) *cp = 0 ; /* in case there are additional fields beyond target:234:Sub:A:G */
+	  if (! seqNam[0]) continue ;
+	  if (! Bbuf[0])   continue ;
+	  if (! Abuf[0])   continue ;
+	  if (Bbuf[0] == '~')   continue ;
+	  if (Abuf[0] == '~')   continue ;
+
+	  vtxtPrintf (txt, "\nVariant \"%s\"\nmRNA\nSite\nFound_in_mRNA\n", ac_name (variant)) ;
+	  vtxtPrintf (txt, "Parent_sequence \"%s\"\n", seqNam) ;
+	  vtxtPrintf (txt, "-D Type\n-D Seq\n-D VCF_hg38\n-D Site\n") ;
+
+	  if (!strcasecmp (typeBuf, "Sub")) 
+	    {
+	      a2 = a1 + 1 ; a1 = a1 - 1 ;
+	      vtxtPrintf (txt, "Typ \"%c>%c\"\n", Abuf[0], Bbuf[0]) ;
+	      vtxtPrintf (txt, "%c2%c\n", Abuf[0], Bbuf[0]) ;
+	    }
+	  else if (!strcasecmp (typeBuf, "Ins")) 
+	    {
+	      int k = strlen (Bbuf) ;
+	      a2 = a1 + 1 ;
+	      if (k > 0)
+		vtxtPrintf (txt, "Typ Ins%s\n", Bbuf + 1) ;
+	      if (k > 2)
+		vtxtPrintf (txt, "Multi_insertion %d %s\n", k - 1, Bbuf+1) ;
+	      else if (k > 1)
+		vtxtPrintf (txt, "Ins%c\n", Bbuf[1]) ;
+	    }
+	  else if (!strcasecmp (typeBuf, "Del")) 
+	    {
+	      int k = strlen (Abuf) ;
+	      a2 = a1 + k ;
+	      if (k > 0)
+		vtxtPrintf (txt, "Typ Del%s\n", Abuf + 1) ;
+	      if (k > 2)
+		vtxtPrintf (txt, "Multi_deletion %d %s\n", k - 1, Abuf+1) ;
+	      else if (k > 1)
+		vtxtPrintf (txt, "Del%c\n", Abuf[1]) ;
+	    }
+	  else
+	    continue ;
+	  nn2++ ;
+	  vtxtPrintf (txt, "mRNA \"%s\" %d %d\n\n", seqNam, a1, a2) ;
+	}
+      ac_parse (tsnp->db, vtxtPtr (txt), &errors, 0, h) ; 
+    }
+  fprintf(stderr, "tsnpRemap0 found %d variants remapped %d\n", nn1, nn2) ;
+
+  if (errors && *errors) fprintf(stderr, "tsnpRemap0 parsing error %s\n", errors) ;
+  ac_free (h1) ;
+  ac_free (h) ;
+  return ;
+} /* tsnpRemap0 */
+
+/*************************************************************************************/
 /* scan the VariantDB acedb database
  * add the remap info 
  * Remap the transcript variants into genome coordinates
@@ -1190,9 +1287,9 @@ static int tsnpRemap1 (TSNP *tsnp)
   if (tsnp->db)
     {
       if (tsnp->force)
-	iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA ", 0, h) ;
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant Found_in_mRNA", 0, h) ;
       else
-	iter = ac_query_iter (tsnp->db, TRUE, "find variant mRNA && ! IntMap ", 0, h) ;
+	iter = ac_query_iter (tsnp->db, TRUE, "find variant Found_in_mRNA && ! IntMap ", 0, h) ;
       while (ac_free (variant), ac_free (h1), variant = ac_iter_obj (iter))
 	{
 	  h1 = ac_new_handle () ;
@@ -1232,7 +1329,7 @@ static int tsnpRemap1 (TSNP *tsnp)
     }
   fprintf(stderr, "tsnpRemap1 found %d variants remapped %d\n", nn1, nn2) ;
 
-  if (errors && *errors) fprintf(stderr, "tsnpRemap parsing error %s\n", errors) ;
+  if (errors && *errors) fprintf(stderr, "tsnpRemap1 parsing error %s\n", errors) ;
   ac_free (h1) ;
   ac_free (h) ;
   return nn2 ;
@@ -1317,7 +1414,7 @@ static int tsnpRemap2 (TSNP *tsnp)
   AC_OBJ variant = 0 ;
   AC_TABLE intMapTable = 0 ;
   vTXT txt = vtxtHandleCreate (h) ;
-  int pos, pos2, x1 = 0, strand, chrom, mrna = 0, geneBox = 0, nn1 = 0, nn2 = 0, JJ=0 ;
+  int pos, pos2, x1 = 0, strand, chrom, mrna = 0, geneBox = 0, nn1 = 0, nn2 = 0, nn3 = 0, JJ=0 ;
   const char *chromNam ;
   const char *errors = 0 ;
   
@@ -1341,7 +1438,7 @@ static int tsnpRemap2 (TSNP *tsnp)
 	  if (pos && dictFind (tsnp->chromDict, chromNam, &chrom))
 	    {
 	      JJ = 0 ;
-	      if (! ac_has_tag (variant, "mRNA"))
+	      if (! ac_has_tag (variant, "mRNA") && ! ac_has_tag (variant, "Found_in_mRNA"))
 		while (tsnpRemap2Do (tsnp, chrom, pos, &JJ, &mrna, &x1, &strand))
 		  {
 		    nn2++ ;
@@ -1358,7 +1455,7 @@ static int tsnpRemap2 (TSNP *tsnp)
 	    }
 	}
     }
-  fprintf(stderr, "tsnpRemap2 found %d variants remapped %d\n", nn1, nn2) ;
+  fprintf(stderr, "tsnpRemap2 found %d variants remapped %d, located %d genes\n", nn1, nn2, nn3) ;
   if (vtxtPtr (txt))
     {
       ACEOUT ao = aceOutCreate ("toto", 0, 0, h) ;
@@ -2898,7 +2995,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    if (a1 < a2)
 		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a1,  dna[am1-1], ace_upper(dna[am1]), dna[am1-1]) ;
 		    else
-		      vtxtPrintf (txt, "VCF %s %d %c%c \"%c_am1=%d_am2=%d\"\n", name(seq),  a2 - slide,  complementLetter(dna[am2+slide-1]), ace_upper(complementLetter(dna[am2+slide-2])), complementLetter(dna[am2+slide-1]),am1,am2) ;
+		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a2 - slide,  complementLetter(dna[am2+slide-1]), ace_upper(complementLetter(dna[am2+slide-2])), complementLetter(dna[am2+slide-1])) ;
 
 		    am1 = fromMrna ? m1 : a1 ;
 		    for (i = am1 - 21, j = 0 ; i < am1 + 30 + da && i + da < dnaLn ; i++)
@@ -3557,7 +3654,9 @@ static void tsnpDbTranslate (TSNP *tsnp)
 	  const char *errors = 0 ;
 	  ac_parse (db, vtxtPtr (txt), &errors, 0, h) ; 
 	  if (errors && *errors)
-	    fprintf(stderr, "tsnpTranslate parsing error %s\n", errors) ;
+	    fprintf(stderr, "tsnpDbTranslate parsing error %s\n", errors) ;
+	  else
+	    nt++ ;
 	}
     }
 
@@ -3777,7 +3876,7 @@ static int tsnpCodingModif  (TSNP *tsnp)
     \"TFAP2B.cAug10:99:A2G\" \"SYNGR2.fAug10-unspliced:98:C2G\"
   */
 
-  if (0)
+  if (1)
     iter = ac_query_iter (db, TRUE, "find variant mRNA && IS *  ", 0, h) ;
   else
     iter = ac_query_iter (db, TRUE, "find variant IS  \"NACA.aAug10:6048:Sub:T:C\" ", 0, h) ;
@@ -6057,12 +6156,6 @@ int main (int argc, const char **argv)
     {
       tsnpMergeCounts (&tsnp) ;
     }
-  if (tsnp.dbTranslate)
-    {
-      if (1) tsnpDbTranslate (&tsnp) ;
-      if (1) tsnpCodingModif (&tsnp) ;
-      if (0) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
-    }
   if (tsnp.dbGGG)
     {
       if (1) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
@@ -6070,13 +6163,21 @@ int main (int argc, const char **argv)
     }
   if (tsnp.remap2genome)
     {
-      tsnpCreateAtlas (&tsnp) ;
-      tsnpRemap1 (&tsnp) ; tsnpRemap2(&tsnp) ;
+      if (1) tsnpRemap0 (&tsnp) ; 
+      if (1) tsnpCreateAtlas (&tsnp) ;
+      if (1) tsnpRemap1 (&tsnp) ; 
+      if (1) tsnpRemap2 (&tsnp) ;    
     }
   if (tsnp.remap2genes)
     {
       tsnpCreateAtlas (&tsnp) ;
       messcrash ("tsnpRemap2genes  not programmed") ;
+    }
+  if (tsnp.dbTranslate)
+    {
+      if (1) tsnpDbTranslate (&tsnp) ;
+      if (0) tsnpCodingModif (&tsnp) ; /* probably obsolete */
+      if (0) tsnpExportProfile (&tsnp) ; /* export tsf file for this section */
     }
   wego_flush () ;
 

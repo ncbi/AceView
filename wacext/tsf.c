@@ -108,7 +108,7 @@ typedef struct tsf_struct {
   BOOL sampleSelectOnly ;
   BOOL tagSelectOnly ;
   BOOL chronoOrder ;
-  int skip1, skip2, skip3 ;
+  int skip1, skip2  ;
   int tagDepth ;
 
   ACEIN ai ; 
@@ -1075,7 +1075,7 @@ static void tsfExportCaption (TSF *tsf, ACEOUT ao)
 	    {
 	      const char *ccp = tsf->corner_title ;
 	      if (tsf->isTableOut)
-		aceOut (ao, "# Line\t") ;
+		aceOut (ao, "# Line") ;
 	      else
 		aceOut (ao, "#@") ;
 	      aceOutf (ao, "\t%s", ccp ? ccp : "") ;
@@ -1100,12 +1100,31 @@ static void tsfExportTsf (TSF *tsf, ACEOUT ao)
   const DICT * sampleDict = tsf->sampleDict ;
   const DICT * tagDict = tsf->tagDict ;
   int k, hasP = 0 ;
+  int oldTag = 0, oldSample = 0 ;
 
   for (ii = 0 ; ii < iMax ; ii++)
     {
       int i, n ;
       HIT hh = hit[ii] ;
       const char *sampleName = dictName (sampleDict, hh.sample) ;
+
+      if (! hh.tag && ! hh.sample)
+	continue ;
+
+      if (ii > 0 && tsf->skip1 > 0 && hh.tag != oldTag) 
+	{ 
+	  for (i = 0 ; i < tsf->skip1 ; i++)
+	    aceOut (ao, "\n") ;
+	}
+      else 
+	if (ii > 0 && tsf->skip2 > 0 && hh.sample != oldSample)
+	  { 
+	    for (i = 0 ; i < tsf->skip2 ; i++)
+	      aceOut (ao, "SS\n") ;
+	  }
+
+      oldSample = hh.sample ;
+      oldTag = hh.tag ;
 
       aceOutf (ao, "%s", dictName (tagDict, hh.tag)) ;
       aceOutf (ao, "\t%s", sampleName) ;
@@ -1215,16 +1234,8 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
   const DICT * sampleDict = tsf->sampleDict ;
   const DICT * tagDict = tsf->tagDict ;
   const char *NA = tsf->NA ;
-  int i, k ;
+  int k ;
   int sampleMax = dictMax (sampleDict) ;
-  KEYSET skip = keySetHandleCreate (h) ;
-  
-  for (i = 0 ; i < tsf->skip1 ; i++)
-    keySet (skip, i)++ ;
-  for (i = 0 ; i < tsf->skip2 ; i++)
-    keySet (skip, i) += 2 ;
-  for (i = 0 ; i < tsf->skip3 ; i++)
-    keySet (skip, i) += 3 ;
   
   for (ii = 0, up = bigArrp (tsf->hits, 0, HIT) ; ii < iiMax ; up++, ii++)
     {
@@ -1306,6 +1317,14 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
       aceOut (ao, "\n") ;
     }
 # ifdef JUNK
+  KEYSET skip = keySetHandleCreate (h) ;
+  
+  for (i = 0 ; i < tsf->skip1 ; i++)
+    keySet (skip, i)++ ;
+  for (i = 0 ; i < tsf->skip2 ; i++)
+    keySet (skip, i) += 2 ;
+  for (i = 0 ; i < tsf->skip3 ; i++)
+    keySet (skip, i) += 3 ;
 
 
 	sampleName = dictName (sampleDict, sample) ;
@@ -1364,9 +1383,6 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 	    }
 	}
       
-      if (same > 0)
-	for (i = 0 ; i < keySet (skip, same) ; i++)
-	  aceOut (ao, vtxtPtr (txt)) ;
       if (vtxtPtr (txt))
 	aceOut (ao, vtxtPtr (txt)) ;
     }
@@ -1391,7 +1407,10 @@ static void tsfExportDo (TSF *tsf, ACEOUT ao)
   else
     {
       if (! tsf->sortCommand)
-	bigArraySort (tsf->hits, tsfSampleOrder) ;
+	{
+	  myDict = tsf->tagDict ;
+	  bigArraySort (tsf->hits, tsfTagOrder) ;
+	}
       tsfExportTsf (tsf, ao) ;
     }
 } /* tsfExportDo */
@@ -1718,10 +1737,10 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "// PRESENTATION: TRANSPOSITION and  line skipping\n"
 	   "//   --transpose\n"
 	   "//       Transpose a table, exchanging lines and columns, i.e. samples and tags.\n"
-	   "//   --skip[123]  <constant fields>\n"
-	   "//       Skip n=1,2,3 lines when there is a change in a given list of columns\n"
-	   "//         example:  --skip3 4 --skip1 6\n"
-	   "//     export three blank lines if the data in a column<=4 vary, one for a column<=6\n"
+	   "//   --skip[12]  <int>\n"
+	   "//       tsf format : skip n=1,2,3 lines when there is a change in a given column\n"
+	   "//         example:  --skip1 4 --skip2 1\n"
+	   "//     export 4 blank lines if the data in a column 1 vary, 1 blank line for column 2\n"
 	   "//\n"
 	   "// HELP\n"
 	   "//    -h : short form of \n"
@@ -1838,7 +1857,6 @@ int main (int argc, const char **argv)
 
   getCmdLineInt (&argc, argv, "--skip1", &tsf.skip1) ;
   getCmdLineInt (&argc, argv, "--skip2", &tsf.skip2) ;
-  getCmdLineInt (&argc, argv, "--skip3", &tsf.skip3) ;
 
   if (tsf.noMerge && tsf.transpose)
     {
@@ -1866,7 +1884,7 @@ int main (int argc, const char **argv)
     { 
       int mx ;
       messAllocMaxStatus (&mx) ; 
-      fprintf (stderr, "// %s done, %d files %d samples %d tag analyzed, max memory %d Mb\n"
+      fprintf (stderr, "## %s done, %d files %d samples %d tag analyzed, max memory %d Mb\n"
 	       , timeShowNow()
 	       , tsf.nInputFiles
 	       , dictMax (tsf.sampleDict), dictMax (tsf.tagDict)
