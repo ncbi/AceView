@@ -1229,7 +1229,6 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
   AC_HANDLE h = ac_new_handle () ;
   long int ii, jj ;
   long jjMax, iiMax = bigArrayMax (tsf->hits) ;
-  HIT *up, *vp ;
   const DICT * valDict = tsf->valDict ;
   const DICT * sampleDict = tsf->sampleDict ;
   const DICT * tagDict = tsf->tagDict ;
@@ -1237,8 +1236,9 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
   int k ;
   int sampleMax = dictMax (sampleDict) ;
   
-  for (ii = 0, up = bigArrp (tsf->hits, 0, HIT) ; ii < iiMax ; up++, ii++)
+  for (ii = 0 ; ii < iiMax ; ii++)
     {
+      HIT *vp, *up = up = bigArrp (tsf->hits, ii, HIT) ;
       int tag = up->tag ;
       int n, sample ;
 	
@@ -1271,13 +1271,13 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 	      if (vp->sample == sample)
 		break ;
 
-	  if (jj >= jjMax || vp->sample != sample) /* tough luck, rescan the group */
+	  if (jj >= jjMax || vp->tag != tag || vp->sample != sample) /* tough luck, rescan the group */
 	    for (jj = ii, vp = up ; jj < jjMax ; vp++, jj++)
 	      if (vp->sample == sample)
 		break ;
 
 	  aceOut (ao, "\t") ;    /* always create a cell */
-	  if (vp->sample != sample || ( (vp->flag & 1) == 0))
+	  if (vp->sample != sample || vp->tag != tag || ( (vp->flag & 1) == 0))
 	    {
 	      if (NA) 
 		aceOut (ao, NA) ;
@@ -1312,8 +1312,7 @@ static void tsfExportTable (TSF *tsf, ACEOUT ao)
 		}
 	    }
 	}
-      up += jjMax - ii - 1 ;
-      ii = jjMax - 1 ; 
+      ii = jjMax - 1   ; 
       aceOut (ao, "\n") ;
     }
 # ifdef JUNK
@@ -1545,8 +1544,8 @@ static void usage (FILE *out, const char commandBuf [], int argc, const char **a
 	   "//   -o, --out <file_name>\n"
   	   "//   --gzo : the output file will be gzipped\n"
 	   "// OUTPUT FORMAT:\n"
-	   "//   -O [tsf|tabular]: short form of\n"
-	   "//   --Out_format [tsf|tabular] : default tsf\n"
+	   "//   -O [tsf|table]: short form of\n"
+	   "//   --Out_format [tsf|table] : default tsf\n"
 	   "//     The output files are exported in tsf or in tabular format (defined below)\n"
 	   "//     Examples:\n"
 	   "//       tsf -o foobar                      exports foobar.tsf\n"
@@ -1807,6 +1806,8 @@ int main (int argc, const char **argv)
     {
       if (! strcmp (ccp, "tsf")) ;
       else if (! strcmp (ccp, "tabular"))
+	tsf.isTableOut = TRUE ;
+      else if (! strcmp (ccp, "table"))
 	tsf.isTableOut = TRUE ;
       else
 	{
