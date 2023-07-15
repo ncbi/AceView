@@ -172,10 +172,10 @@ if ($phase == dc) then
   set pp=SnpA2R2
   set pp=$MAGIC
   \rm  tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.*
-   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDGR2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf 
-  # bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDG2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf
-  # bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libCounts  --snpType $stype  -e VIQTSR     -p $pp  --unique
-  # bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs       --snpType $stype  -e VIQTSr     -p $pp  --unique
+#   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDGR2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf --justDetected
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDG2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libCounts  --snpType $stype  -e VIQTSR     -p $pp  --unique
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs       --snpType $stype  -e VIQTSr     -p $pp  --unique
  end
  goto done
 endif
@@ -202,8 +202,7 @@ done:
   echo done
   exit 0
 
-
-
+  
   foreach zone (`cat tmp/SNP_ZONE/ZoneList `)
     scripts/submit tmp/TSNP_DB/$zone "scripts/snp3.tcsh dc $zone"
   end
@@ -264,8 +263,11 @@ foreach titre (wendell.3  Wfalse.6)
       cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | head -12 | tail -11 | gawk '/^#/{printf ("#\t"); print ;}'  >> $toto.txt
       cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | gawk '/^#/{next;}{print}' | tab_sort -k 3,3n -k 4,4n  | gawk '{n++;printf("%d\t", n); print;}' >> $toto.txt
     end
+end
+
 
   # histo of our frequencies
+foreach titre (wendell.3  Wfalse.6)
   echo -n "## $pp :  Histogram of SNV allele frequency project $pp restricted to genes captured by A2 and R2  limited to  $titre : " > $toto.histos.txt
   date >> $toto.histos.txt 
   cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.groups.group_histos.tsf | bin/tsf -I tsf -O tabular | grep -v '##' | transpose > $toto.histos.txt2

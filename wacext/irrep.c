@@ -36,9 +36,9 @@ typedef struct saStruct
   const char *DynkinWeights ; /* 1:0:2:.... */
   BOOL hasY ;
   int YY[RMAX], YYd ;
-  int m, n, alpha, rank, rank1, rank2 ;
+  int m, n, alpha, rank, rank1, rank2, rank3 ;
   Array scale, lowerMetric, upperMetric ;
-  Array Cartan, Cartan1, Cartan2 ;
+  Array Cartan, Cartan1, Cartan2, Cartan3 ;
   int detgg ;
   int detGG ;
   int hasAtypic ;
@@ -49,9 +49,10 @@ typedef struct saStruct
   BOOL odd[RMAX] ;
   BOOL odd1[RMAX] ;
   BOOL odd2[RMAX] ;
+  BOOL odd3[RMAX] ;
   BOOL extended[RMAX] ;
   Array Kac ; /* Kac crystal */
-  WW evenHw, evenHw1, evenHwD2, evenHw2 ;
+  WW evenHw, evenHw1, evenHw2, evenHw3 ;
   WW oddHw ;
   WW extendedHw ;
   Array evenRoots ; /* odd roots */
@@ -169,21 +170,25 @@ static void metricRescale (Array metric, int r, int ii, int jj, int scale)
 
 /******************************************************************************************************/
 /* merge and complete the Cartan Matrix for a superalgebra */
-static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
+static void mergeCartan (SA *sa, BOOL show)
 {
   int i, j ;
-  int r = r1 + r2 + (hasY ? 1 : 0) ;
+  int r1 = sa->rank1 ;
+  int r2 = sa->rank2 ;
+  int r3 = sa->rank3 ;
+  int r = r1 + r2 + r3 ;
   int rr = r * r ;
   int dx = 0 ;
+  BOOL hasY ;
   
+  sa->rank = r ;
   sa->Cartan = arrayHandleCreate (rr, int , sa->h) ;
 
   array (sa->Cartan, rr-1, int) = 0 ;  
 
   sa->rank = r ;
-  sa->hasY = hasY ;
-  sa->rank1 = r1 ;
-  sa->rank2 = r2 ;
+  hasY = sa->hasY ;
+
   if (r1 > 0)
     {
       for (i = 0 ; i < r1 ; i++)
@@ -192,20 +197,13 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    array (sa->Cartan, r * i + j, int) = arr (sa->Cartan1, r1 * i + j, int) ;
 	  }
       dx = r1 ;
+      if (*sa->type == 'A')
+	sa->evenHw1.x[dx] = r1 ;
     }
-  if (hasY)
-    {
-      if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
-      if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
-      if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
-      if (1 && r1 && r2) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
-      if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
-      dx++ ;
-    }
-
   if (r2 > 0)
     {
       WW oldhw2 = sa->evenHw2 ;
+
 
       for (i = 0 ; i < r ; i++)
 	sa->evenHw2.x[i] = 0 ;
@@ -217,8 +215,36 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	    }
 	  sa->evenHw2.x[dx+i] = oldhw2.x[i] ;
 	}
+      dx = r1 + r2 ;
     }
-  if (hasY)
+  if (r3 > 0)
+    {
+      WW oldhw3 = sa->evenHw3 ;
+
+      for (i = 0 ; i < r ; i++)
+	sa->evenHw3.x[i] = 0 ;
+      for (i = 0 ; i < r3 ; i++)
+	{	
+	  for (j = 0 ; j < r3 ; j++)
+	    {
+	      array (sa->Cartan, r * (i+dx) + j + dx, int) = arr (sa->Cartan3, r3 * i + j, int) ;
+	    }
+	  sa->evenHw3.x[dx+i] = oldhw3.x[i] ;
+	}
+      if (*sa->type == 'A')
+	sa->evenHw3.x[r1] = r3 ;
+    }
+  if (0 && hasY)
+    {
+      if (r1) array (sa->Cartan, r * (r1 - 1) + r1, int) = -1 ;
+      if (r1) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
+      if (r2) array (sa->Cartan, r * (r1) + r1 + 1, int) = 1 ;
+      if (1 && r1 && r2) array (sa->Cartan, r * (r1) + r1 - 1, int) = -1 ;
+      if (r2) array (sa->Cartan, r * (r1+1) + r1, int) = -1 ;
+      dx++ ;
+    }
+
+  if (0 && hasY)
     {
       int i, ro = r1 ;
       int YY[RMAX] ;
@@ -231,7 +257,7 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	  messcrash ("Only A and C have a U(1) Y hypercharge") ;
 	  break ;
 	case 'A':
-	case 'D':
+	case 'C':
 	  for (i = 0 ; i < ro ; i++)
 	    YY[i] =  -(r2+1)*(i+1) ;
 	  for (i = r-1 ; i > ro ; i--)
@@ -249,32 +275,22 @@ static void mergeCartan (SA *sa, int r1, int r2, BOOL hasY, BOOL show)
 	      printf ("\n") ;
 	    }
 	  break ;
-	case 'C':
-	  break ;
-	}
-    }
-  else
-    {
-      if (0)
-	{
-	  if (r1) sa->oddHw.x[r1 - 1] = 1 ;
-	  if (r2) sa->oddHw.x[r1] = 1 ;
 	}
     }
 } /* mergeCartan */
 
 /******************************************************************************************************/
 /* prepare the Cartan Matrix for a simple Lie algebra block */
-static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
+static void getOneCartan (SA *sa, char type, int r, int Lie, BOOL show)
 {
   int i, r2 = r * r ;
   WW hw ;
   Array Cartan = arrayHandleCreate (r2, int, sa->h) ;
 
-    array (Cartan, r2 - 1, int) = 0 ;
+  array (Cartan, r2 - 1, int) = 0 ;
   
   memset (&hw, 0, sizeof (hw)) ;
-  switch ((int)type[0])
+  switch ((int)type)
     {
     case 'A':
       for (i = 0 ; i < r ; i++)
@@ -295,12 +311,11 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
 	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-      if (r>=2) array (Cartan, r*(r-1) + r-2, int) = -2 ;
-
-      if (r>1) hw.x[r-2] = 1 ;
+      array (Cartan, r * 0 + 1, int) = -2 ;
+      hw.x[r-2] = 1 ;
       break ;
       
-    case 'C':
+    case 'C':           
       for (i = 0 ; i < r ; i++)
 	{
 	  array (Cartan, r*i + i, int) = 2 ;
@@ -319,23 +334,43 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 	  if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
 	  if (i> 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-      array (Cartan, r*0 + 2, int) = -1 ;
-      array (Cartan, r*2 + 0, int) = -1 ;
-
-      hw.x[0] = 1 ;
+      if (r > 2)
+	{
+	  array (Cartan, r*0 + 2, int) = -1 ;
+	  array (Cartan, r*2 + 0, int) = -1 ;
+	}
+      if (r == 2)
+	{
+	  hw.x[0] = 2 ;
+	  sa->evenHw2.x[1] = 2 ;
+	}
+      else if (r == 3)
+	{
+	  hw.x[0] = 1 ;
+	  hw.x[1] = 1 ;
+	}
+      else
+	hw.x[r-2] = 1 ;
       break ;
       
     case 'E':
       for (i = 0 ; i < r ; i++)
 	{
 	  array (Cartan, r*i + i, int) = 2 ;
-	  if (i > 1) array (Cartan, r*i + i-1, int) = -1 ;
-	    if (i > 0 && i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
+	  if (i > 0) array (Cartan, r*i + i-1, int) = -1 ;
+	  if (i < r-1) array (Cartan, r*i + i+1, int) = -1 ;
 	}
-      array (Cartan, r*0 + 3, int) = -1 ;
-      array (Cartan, r*3 + 0, int) = -1 ;
+      array (Cartan, (r-2) * r + r-3, int) = 0 ;
+      array (Cartan, (r-3) * r + r-2, int) = 0 ;
+      array (Cartan, (r-2) * r + r-4, int) = -1 ;
+      array (Cartan, (r-4) * r + r-2, int) = -1 ;
 
-      hw.x[r-1] = 1 ;
+      switch (r)
+	{
+	case 6: hw.x[3] = 1 ; break ;
+	case 7: hw.x[6] = 1 ; break ;
+	case 8: hw.x[0] = 1 ; break ;
+	}
       break ;
       
     case 'F':
@@ -359,6 +394,9 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
       hw.x[0] = 1 ;
       break ;
       
+    case 'U':
+      sa->hasY = TRUE ;
+      break ;
     default:
       messcrash ("The Cartan matrix of a Lie algebra of type %c is not yet programmed, sorry.", type) ;
     }
@@ -368,22 +406,30 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
     {
     case 0:
       sa->Cartan = Cartan ;
+      sa->rank = r ;
       sa->evenHw = hw ;
       break ;
     case 1:
       sa->Cartan1 = Cartan ;
+      sa->rank1 = r ;
       sa->evenHw1 = hw ;
       break ;
     case 2:
       sa->Cartan2 = Cartan ;
+      sa->rank2 = r ;
       sa->evenHw2 = hw ;
+      break ;
+    case 3:
+      sa->Cartan3 = Cartan ;
+      sa->rank3 = r ;
+      sa->evenHw3 = hw ;
       break ;
     }
   
   if (show)
     {
       int i, j ;
-      printf ("\n### getOneCartan (lower) Matrix type %s rank = %d\n", type, r) ;
+      printf ("\n### getOneCartan (lower) Matrix type %c rank = %d\n", type, r) ;
       for (i = 0 ; i < r ; i++)
 	{
 	  for (j = 0 ; j < r ; j++)
@@ -398,124 +444,98 @@ static void getOneCartan (SA *sa, char *type, int r, int Lie, BOOL show)
 
 static void getCartan (SA *sa, BOOL show)
 {
-  int m = sa->m, n = sa->n, r = 0, r1 = 0, r2 = 0, ro = 0 ;
+  int m = sa->m, n = sa->n ;
+  
+  if (sa->n == -99999)
+    {
+      n = sa->n = 0 ;
+      sa->rank = m ; 
+      sa->hasOdd = FALSE ;
+    }
+  else
+    sa->hasOdd = TRUE ;
   
   switch ((int)sa->type[0])
     {
     case 'A':
-      sa->rank = r = m + n - 1 ;
-      r1 = m - 1 ; r2 = n - 1 ;
-      if (m <= 0 || n < 0 || m+n == 0)
-	messcrash ("Type Lie A(m,n) bad m=%d n=%d", m,n) ;
-      if (n == 0)
-	getOneCartan (sa, "A", r, 0, TRUE) ;
+      if (! sa->hasOdd)
+	getOneCartan (sa, 'A', m, 0, TRUE) ;
       else
 	{
-	  sa->hasOdd = TRUE ;
-	  sa->odd[m-1] = 1 ;
-	  sa->odd1[m-1] = TRUE ;
-	  if (sa->method >= 10)
+	  int r = m + n + 1 ;
+	  if (m >= 1) getOneCartan (sa, 'A', m, 1, TRUE) ;
+	  if (1)      getOneCartan (sa, 'U', 1, 2, TRUE) ;
+	  if (n >= 1) getOneCartan (sa, 'A', n, 3, TRUE) ;
+	  mergeCartan (sa, show) ;
+	  if (m > 0)
 	    {
-	      if (n >= 2) sa->odd2[m] = TRUE ;
-	      else if (n>= 1 && m >= 2) sa->odd2[m-2] = TRUE ;
+	      array (sa->Cartan, (m-1)*r + m, int) = -1 ;
+	      array (sa->Cartan, (m)*r + m-1, int) = -1 ;
 	    }
-	  ro = r1 = m - 1 ;
-	  if (m >= 2) getOneCartan (sa, "A", m-1, 1, TRUE) ;
-	  if (n >= 2) getOneCartan (sa, "A", n-1, 2, TRUE) ;
-	  mergeCartan (sa, m-1, n-1, TRUE, show) ;
+	  if (n > 0)
+	    {
+	      array (sa->Cartan, (m)*r + m+1, int) = 1 ;
+	      array (sa->Cartan, (m+1)*r + m, int) = -1 ;
+	    }
+	  else if (n == 0)
+	    array (sa->Cartan, (m)*r + m-1, int) = 1 ;
 	  
-	  if (r1) sa->evenHw1.x[ro] = 1 ;
-	  if (r1) sa->evenHw1.x[ro] = -1 ;
-	  if (r2) sa->evenHw2.x[ro] = 1 ;
-	  if (r1) sa->oddHw.x[ro - 1] = 1 ;
-	  if (r2) sa->oddHw.x[ro + 1] = 1 ;
+	  if (m>0) sa->oddHw.x[m-1] = 1 ;
+	  if (n>0) sa->oddHw.x[m+1] = 1 ;
+	  sa->odd[m] = 1 ;
+	  sa->odd1[m] = TRUE ;
+	  if (sa->method >= 10)
+	    sa->odd2[m] = TRUE ;
 	}
       break ;
       
     case 'B':
-      sa->rank = r = m ;
-      r1 = r2 = 0 ;
-      if (m <= 1)
-	messcrash ("Type Lie B(m) and Kac OSp(1/2m) cannot have m=%d < 2\n", m) ;
-      if (n == 0)
-	getOneCartan (sa, "B", r, 0, TRUE) ;
+      if (! sa->hasOdd)
+	{
+	  if (m == 1)
+	    getOneCartan (sa, 'A', 1, 0, TRUE) ;
+	  else if (m == 2)
+	    getOneCartan (sa, 'C', 2, 0, TRUE) ;
+	  else
+	    getOneCartan (sa, 'B', m, 0, TRUE) ;
+	}
       else
 	{
-	  sa->n = 0 ;
-	  sa->extended[0] = TRUE ;
-	  sa->hasOdd = TRUE ;
-	    sa->isBlack = TRUE ;
-	  getOneCartan (sa, "C", m, 0, TRUE) ;
-	  
-	  sa->odd[0] = 1 ;
-	  sa->oddHw.x[m-1] = 1 ;
-	  sa->oddHw.x[0] = -1 ;
+	  if (m <= 1)
+	    messcrash ("Type Lie B(m) and Kac OSp(1/2m) cannot have m=%d < 2\n", m) ;
+	  if (n == 0)
+	    getOneCartan (sa, 'B', m, 0, TRUE) ;
+	  else
+	    {
+	      sa->n = 0 ;
+	      sa->extended[0] = TRUE ;
+	      sa->hasOdd = TRUE ;
+	      sa->isBlack = TRUE ;
+	      getOneCartan (sa, 'C', m, 0, TRUE) ;
+	      
+	      sa->odd[0] = 1 ;
+	      sa->oddHw.x[m-1] = 1 ;
+	      sa->oddHw.x[0] = -1 ;
+	    }
 	}
       break ;
       
     case 'C':
-      sa->rank = r = m ;
-      if (n > 0)
-	messcrash ("Type Kac C(n) = OSp(2/2n) is called in this program D(1/n)\n") ;
-      if (m < 1)
-	messcrash ("Type Lie C(m) and Kac OSp(2/2m) cannot have m=%d < 1\n", m) ;
-      if (n == 0)
-	getOneCartan (sa, "C", r, 0, TRUE) ;
-      break ;
-
-    case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
-      sa->rank = r = m + n ;
-      r1 = m ; r2 = n ;
-      if (m < 0 || n < 0 || m+n < 1)
-	messcrash ("Type Lie D(m) and Kac D(m/n)=OSp(2m/2n) cannot have m+n=%d+%d < 1\n", m,n) ;
-      else if (n == 0)
+      if (! sa->hasOdd)
 	{
 	  if (m == 1)
-	    getOneCartan (sa, "A", m, 0, TRUE) ;
-	  else if (m == 2)
-	    {
-	      sa->hasOdd = TRUE ;
-	      getOneCartan (sa, "D", 1, 1, TRUE) ;
-	      getOneCartan (sa, "D", 1, 2, TRUE) ;
-	      mergeCartan  (sa, 1, 1, FALSE, show) ;
-	    }
+	    messcrash ("C(1)=sp(2)=su(2)=A(1), please request A(1)") ;
 	  else
-	    getOneCartan (sa, "D", m, 0, TRUE) ;
+	    getOneCartan (sa, 'C', m, 0, TRUE) ;
 	}
-      else if (m == 0)
-	getOneCartan (sa, "C", n, 0, TRUE) ;
-      else if (m > 1 && n > 0)  /* D(m/n) excluding D(1/m0== C(m) */
-	{
-	  if (m == 2)
-	    {
-	      getOneCartan (sa, "D", 1, 1, TRUE) ;
-	      getOneCartan (sa, "D", 1, 2, TRUE) ;
-	      mergeCartan  (sa, 1, 1, FALSE, show) ;
-	      sa->Cartan1 = sa->Cartan ;
-	      getOneCartan (sa, "C", n, 2, TRUE) ;
-	      mergeCartan  (sa, 2, n, FALSE, show) ;
-	      sa->extended[2] = TRUE ;
-	      if (sa->method >= 10)
-		{
-		  sa->odd1[2] = TRUE ;
-		  sa->odd2[3] = TRUE ;
-		}
-	      sa->hasOdd = TRUE ;
-	      sa->evenHw1.x[0] = 2 ;
-	      sa->evenHwD2.x[1] = 2 ;
-	      sa->oddHw.x[0] = 1 ;
-	      sa->oddHw.x[1] = 1 ;
-	      sa->oddHw.x[2] = -1 ;
-	    }
-	}
-      else if (m == 1 && n > 0) /* D(1/n) = super-C (n) = OSp(2/2n) */
+      else
 	{
 	  sa->rank = n + 1 ;
 	  sa->n = 0 ;
 	  sa->hasOdd = TRUE ;
-	  sa->hasY = TRUE ;
-	  getOneCartan (sa, "C", n, 1, TRUE) ; 
-	  mergeCartan (sa, n, 0, TRUE, show) ;
+	  getOneCartan (sa, 'U', 1, 1, TRUE) ;
+	  getOneCartan (sa, 'C', n, 2, TRUE) ; 
+	  mergeCartan (sa, show) ;
 	  sa->oddHw.x[n-1] = 1 ;
 	  if (sa->method >= 10)
 	    {
@@ -523,96 +543,144 @@ static void getCartan (SA *sa, BOOL show)
 	      sa->odd2[1] = TRUE ;
 	    }
 	}
-      
+      break ;
+
+    case 'D':   /* D(m/n) = OSp(2m/2n):SO(2m)+Sp(2n):D(m)+C(n) */
+      if (! sa->hasOdd)
+	{
+	  if (m == 1)
+	    messcrash ("D(1)=so(2)=u(1)is Abelian") ;
+	  else if (m == 2)
+	    {
+	      getOneCartan (sa, 'A', 1, 1, TRUE) ;
+	      getOneCartan (sa, 'A', 1, 2, TRUE) ;
+	      mergeCartan (sa, show) ;
+	    }
+	  else
+	    getOneCartan (sa, 'D', m, 0, TRUE) ;
+	}
+      else
+	{
+	  if (m == 1)
+	    messcrash ("Type Kac D(1,n) = OSp(2/2n) = C(1,n), please request C(1,n)") ;
+	  else if (m == 2)
+	    {
+	      getOneCartan (sa, 'A', 1, 1, TRUE) ;
+	      getOneCartan (sa, 'A', 1, 2, TRUE) ;
+	    }
+	  else 
+	    getOneCartan (sa, 'D', m, 1, TRUE) ;
+	  if (n == 1)
+	    getOneCartan (sa, 'A', 1, 3, TRUE) ;
+	  else
+	    getOneCartan (sa, 'C', n, 3, TRUE) ;
+
+	  mergeCartan  (sa, show) ;
+	  sa->extended[m] = TRUE ;
+	  sa->hasOdd = TRUE ;
+	  sa->odd[2] = 1 ;
+	  if (sa->method >= 1000)
+	    {
+	      sa->odd1[m] = TRUE ;
+	      sa->odd2[m] = TRUE ;
+	    }
+	  if (m == 2)
+	    {
+	      sa->oddHw.x[0] = 1 ;
+	      sa->oddHw.x[1] = 1 ;
+	    }
+	  else
+	    sa->oddHw.x[m-1] = 1 ;
+	  sa->oddHw.x[m] = -1 ;
+	}
       break ;
       
     case 'E':
-      sa->rank = r = m ;
+      if (sa->hasOdd)
+	messcrash ("superalgebra of type E(m,n) is not defined") ;
       switch (m)
 	{
-    case 6:  /* Lie algebra E6 */
-	   case 7:     /* Lie algebra E7 */
+	case 6:  /* Lie algebra E6 */
+	case 7:     /* Lie algebra E7 */
 	case 8:     /* Lie algebra E8 */
-	  getOneCartan (sa, "E", r, 0, TRUE) ;
+	  getOneCartan (sa, 'E', m, 0, TRUE) ;
 	  break ;
 	default:
-	  messcrash ("Type Lie E(m) should be m=6,7,8  m=%d n=%d", m,n) ;
+	  messcrash ("Type Lie E(m) should be E(6 or 7 or 8) not E(%d)", m) ;
 	  break ;
 	}
       break ;
       
      case 'F':
-       if (m == 1 && n == 3) { m = sa->m = 0 ; n = sa->n = 4 ; }  
-      sa->rank = r = m ;
-      switch (m + 10*n)
-	{
-	default:
-	  messcrash ("Type Lie F(m=4) or Kac F(n=4): m or n should be 4 m=%d n=%d", m,n) ;
-	  break ;
-	case 4:   
-	    getOneCartan (sa, "F", 4, 0, TRUE) ;
-	  break ;
-	case 40:     /* Lie superalgebra F(4) */
-	  sa->rank = sa->m = r = 4 ; sa->n = 0 ;
-	  r1 = 3 ; r2 = 1 ;
-	  sa->extended[3] = TRUE ;
-	  sa->hasOdd = TRUE ;
-	  sa->oddHw.x[2] = 1 ;
-	  sa->oddHw.x[3] = -1 ;
-	  getOneCartan (sa, "B", 3, 1, TRUE) ;
-	  getOneCartan (sa, "A", 1, 2, TRUE) ;
-	  mergeCartan  (sa, r1, r2, FALSE, show) ;
-	  break ;
-	}
-      break ;
-      
+       if (!sa->hasOdd)
+	 {
+	   if (m == 4)
+	    getOneCartan (sa, 'F', 4, 0, TRUE) ;
+	   else
+	    messcrash ("Type Lie F(m) should be F(4) not F(%d)", m) ;
+	 }
+       else
+	 {
+	   if (m != 1 || n != 3)
+	     messcrash ("Type Kac F(m,n) should F(1,3) not F(%d,%d)", m, n) ;
+	   sa->rank = sa->m = 4 ; sa->n = 0 ;
+	   sa->extended[3] = TRUE ;
+	   sa->hasOdd = TRUE ;
+	   sa->oddHw.x[2] = 1 ;
+	   sa->oddHw.x[3] = -1 ;
+	   getOneCartan (sa, 'B', 3, 1, TRUE) ;
+	   getOneCartan (sa, 'A', 1, 2, TRUE) ;
+	   mergeCartan  (sa, show) ;
+	 }
+       break ;
+       
     case 'G':
-      if (m == 0 && n == 3) { m = sa->m =1 ; n = sa->n = 2 ; }  
-      sa->rank = r = m + n ;
-      if (m != 2 || n*(n-1) != 0)
-	messcrash ("Type Lie G(2) or Kac G(3): m should be 2 or 3 m=%d n=%d", m,n) ;
-      switch (m+n)
-	{
-	case 2:     /* Lie algebra G2 */
-	  getOneCartan (sa, "G", 2, 0, TRUE) ;
-	  break ;
-	case 3:     /* Lie superalgebra G(3) */
-	  r1 = 2 ; r2 = 1 ;
-	  sa->extended[2] = TRUE ;
-	  sa->hasOdd = TRUE ;
-	  sa->odd[1] = 1 ;
-	  if (sa->method >= 10)
-	    {
-	      sa->odd1[1] = TRUE ;
-	      sa->odd2[2] = TRUE ;
-	    }
-	  sa->oddHw.x[1] = 1 ;
-	  sa->oddHw.x[2] = -1 ;
-	  getOneCartan (sa, "G", 2, 1, TRUE) ;
-	  getOneCartan (sa, "A", 1, 2, TRUE) ;
-	  mergeCartan  (sa, r1, r2, FALSE, show) ;
-	  break ;
-	}
-      break ;
+       if (!sa->hasOdd)
+	 {
+	   if (m == 2)
+	    getOneCartan (sa, 'G', 2, 0, TRUE) ;
+	   else
+	    messcrash ("Type Lie G(m) should be G(2) not G(%d)", m) ;
+	 }
+       else
+	 {	  /* Lie superalgebra G(3) */
+	   if (m != 2 || n != 1)
+	     messcrash ("Type Kac G(m,n) should G(2,1) not G(%d,%d)", m, n) ;
+	   sa->extended[2] = TRUE ;
+	   sa->hasOdd = TRUE ;
+	   sa->odd[2] = 1 ;
+	   if (sa->method >= 10)
+	     {
+	       sa->odd1[1] = TRUE ;
+	       sa->odd2[2] = TRUE ;
+	     }
+	   sa->oddHw.x[1] = 1 ;
+	   sa->oddHw.x[2] = -1 ;
+	   getOneCartan (sa, 'G', 2, 1, TRUE) ;
+	   getOneCartan (sa, 'A', 1, 2, TRUE) ;
+	   mergeCartan  (sa, show) ;
+	 }
+       break ;
       
     default:
-        messcrash ("The Cartan matrix of a superalgebra of type %c is not yet programmed, sorry.", sa->type) ;
+      messcrash ("The Cartan matrix of a superalgebra of type %c is not yet programmed, sorry.", sa->type) ;
     }
-  if (show)
+  
+  if (sa->hasOdd || show)
     {
-      int i, j ;
+      int r = sa->rank ;
       printf ("\n### Cartan (lower) Matrix type %s m=%d n=%d rank = %d\n", sa->type, m, n, r) ;
-      for (i = 0 ; i < r ; i++)
+      for (int i = 0 ; i < r ; i++)
 	{
-	    for (j = 0 ; j < r ; j++)
-	      printf ("\t%d", arr (sa->Cartan, r*i + j, int)) ;
-	    printf ("\n") ;
+	  for (int j = 0 ; j < r ; j++)
+	    printf ("\t%d", arr (sa->Cartan, r*i + j, int)) ;
+	  printf ("\n") ;
 	}
     }
 }   /* KK */
- /* getCartan */
+/* getCartan */
 
-  /******************************************************************************************************/
+/******************************************************************************************************/
 /* the lower Cartan metric is the symmetrized form of the Cartan matrix
 *  the upper metric is the inverse of the lower metric
 * the scale is the metric relative to cartan
@@ -842,17 +910,17 @@ static WW getHighestWeight (SA *sa, int type, BOOL create, BOOL show)
       if (sa->rank2)
 	{
 	  WW eew, *ew ;
-	  if (sa->type[0]=='D' && sa->m == 2)
-	    {
-	      memcpy (&eew, &sa->evenHwD2, sizeof (WW)) ; ;
-	      eew.mult = create ? 1 : 0 ;
-	      eew.hw = TRUE ;
-	      eew.k = locateWeight (sa, &eew, TRUE) ;
-
-	      ew = arrayp (wws, eew.k, WW) ;
-	      *ew = eew ;
-	    }
 	  memcpy (&eew, &sa->evenHw2, sizeof (WW)) ; ;
+	  eew.mult = create ? 1 : 0 ;
+	  eew.hw = TRUE ;
+	  eew.k = locateWeight (sa, &eew, TRUE) ;
+	  ew = arrayp (wws, eew.k, WW) ;
+	  *ew = eew ;
+	}
+      if (sa->rank3)
+	{
+	  WW eew, *ew ;
+	  memcpy (&eew, &sa->evenHw3, sizeof (WW)) ; ;
 	  eew.mult = create ? 1 : 0 ;
 	  eew.hw = TRUE ;
 	  eew.k = locateWeight (sa, &eew, TRUE) ;
@@ -1594,6 +1662,12 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 {
   BOOL new = FALSE ;
   int ii, r, dimEven, dimOdd, rank = sa->rank ;
+
+  int rExtended = -1 ;
+  for (r = 0 ; r < sa->rank ; r++)
+    if (sa->extended [r])
+      rExtended = r ;
+  
   
   if (sa->pass++ == 0) new = TRUE ;
 
@@ -1609,8 +1683,8 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 	continue ;
       if (n1 == n21)
 	continue ;
-      if (w0->x[rb] == 0)
-	continue ; /* atypic for the fundamental doublet */
+      if (w0->x[rExtended] <= 0)
+	continue ;
       if (n1 < n21)
 	messcrash ("mult < n21") ;
 
@@ -1626,7 +1700,7 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 	  for (j = 1 ; j < 2 ; j++)
 	    {
 	      for (r = 0 ; r < rank ; r++)
-		ww2.x[r] = w0->x[r] - array(sa->Cartan, rank * r + rb, int) * j ;
+		ww2.x[r] = w0->x[r] + sa->oddHw.x[r] ;
 	      /* locate the k2 index of the WW weight structure of the corresponding member of the multiplet */
 	      ww2.k = locateWeight (sa, &ww2, TRUE) ;
 	      w1 = arrayp (wws, ww2.k, WW) ;	  
@@ -1685,9 +1759,16 @@ static BOOL demazureOddDoublets (SA *sa, Array wws, int rb, int *dimEvenp, int *
 static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 {
   BOOL ok = TRUE ;
-  BOOL debug = TRUE ;
+  BOOL debug = FALSE ;
   int r, dimEven = 0, dimOdd = 0 ;
   
+  int rExtended = -1 ;
+  for (r = 0 ; r < sa->rank ; r++)
+    if (sa->extended [r])
+      rExtended = r ;
+  
+  if (method == 30)
+    debug = TRUE ;
   if (debug)
     wwsShow (sa, "Before Demazure", 0, sa->wws, 0) ;
 
@@ -1700,13 +1781,19 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	  ok2 = FALSE ;
 	  switch (method)
 	    {
-	    case 0:  /* negative odd roots, apply the non extended even subalgebra */
-	    case 10:
+	    case 0:  /* Lie algebra, or even adjoint, apply all even roots */
+	      if (! sa->odd[r] || sa->extended[r])
+		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
+	      break ;
+	    case 1:  /* negative odd roots */
 	      if (! sa->odd[r] && ! sa->extended[r])
 		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
 	      break ;
+
+
+
+	    case 10:
 	      
-	    case 1:
 	    case 2:
 	         if (! sa->odd[r])  /* even adjoint: extended root is accepted */
 		   ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
@@ -1720,11 +1807,8 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 		  ok2 = demazureSU21 (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 	      break ;
 	    case 30:  /* generic representation: exclude the su(2/1) distinguished subalgebra  */
-	      if (! sa->odd1[r] && ! sa->extended[r])
+	      if (! sa->extended[r] && ! sa->odd[r])
 		ok2 = demazureEvenOdd (sa, sa->wws, r, TRUE, &dimEven, &dimOdd, show) ;
-	      else
-		if (sa->odd1[r]) /* construct the distinguished SU(2/1) multioplets */
-		  ok2 = demazureEvenOdd (sa, sa->wws, r, FALSE, &dimEven, &dimOdd, show) ;
 	      break ;
 	    }
 	  if (ok2 && debug)
@@ -1740,10 +1824,11 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	    {
 	    case 12:
 	    case 10:
+	    case 30:
 	      for (r = 0 ; r < sa->rank ; r++)
 		{
 		  ok2 = FALSE ;
-		  if (sa->odd1[r]) /* construct the odd doubblets */
+		  if (sa->odd[r]) /* construct the odd doubblets */
 		    ok2 = demazureOddDoublets (sa, sa->wws, r, &dimEven, &dimOdd, show) ;
 		  if (ok2 && debug)
 		    {
@@ -1770,7 +1855,15 @@ static int demazure (SA *sa, int *dimEvenp, int *dimOddp, int method, BOOL show)
 	    }
 	}
     }
-  
+  switch (method)
+    {
+    case 30:
+      sa->method = 31 ;
+      if (0)
+	demazureEvenOdd (sa, sa->wws, rExtended, TRUE, &dimEven, &dimOdd, show) ;
+      sa->method = 30 ;
+      break ;
+    }
   if (dimEvenp) *dimEvenp = dimEven ;  
   if (dimOddp) *dimOddp = dimOdd ; 
 
@@ -1794,7 +1887,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -1, 1, 0) ;
   /* construct the first layer using Demazure */
-  demazure (sa, &dimEven, &dimOdd, 0, show) ;
+  demazure (sa, &dimEven, &dimOdd, 1, show) ;
   sa->nOdd = dimOdd ; 
   sa->negativeOddRoots = sa->wws ;
   sa->wws = 0 ;
@@ -1810,7 +1903,7 @@ static void getNegativeOddRoots (SA *sa, BOOL show)
 /******************************************************************************************************/
 
 
-static void getAdjoint (SA *sa, BOOL show)
+static void getEvenAdjoint (SA *sa, BOOL show)
 {
   int dimE = 0 ;
   int dimOdd = 0 ;
@@ -1822,7 +1915,7 @@ static void getAdjoint (SA *sa, BOOL show)
 
   /* use as h.w. the lowering simple root */
   getHighestWeight (sa, -3, 1, 0) ;
-  /* construct the adjoint layer using Demazure */
+  /* construct the even adjoint using Demazure */
   sa->nEven = demazure (sa, &dimE, &dimOdd, 0, show) ;
 
   sa->method = method ;
@@ -1834,7 +1927,7 @@ static void getAdjoint (SA *sa, BOOL show)
   printf ("# Constructed %d adjoint even roots\n", dimE) ;
 
   return ;
-} /* getNegativeOddRoots */
+} /* getEvenAdjoint */
 
 /******************************************************************************************************/
 
@@ -1852,10 +1945,13 @@ static void getRho (SA *sa, BOOL show)
 	int x, i, j ;
 	BOOL isPositive = TRUE ;
 	ww = arrp (sa->evenRoots, ii, WW) ;
-	printf (".... even root %d :: ", ii) ;
-	for (i = 0 ; i < rank ; i++)
-	  printf ("%d ", ww->x[i]) ;
-	printf ("  :: ") ;
+	if (show)
+	  {
+	    printf (".... even root %d :: ", ii) ;
+	    for (i = 0 ; i < rank ; i++)
+	      printf ("%d ", ww->x[i]) ;
+	    printf ("  :: ") ;
+	  }
 	for (i = 0 ; i < rank ; i++)
 	  {
 	    x = 0 ;
@@ -1863,9 +1959,11 @@ static void getRho (SA *sa, BOOL show)
 	      x +=  arr (sa->upperMetric, rank * i + j, int) * arr (sa->scale, j, int) * ww->x[j] ;
 	    if (x < 0)
 	      isPositive = FALSE ;
-	    printf ("%d ", x) ;
+	    if (show)
+	      printf ("%d ", x) ;
 	  }
-	printf ("\n") ;
+	if (show)
+	  printf ("\n") ;
 	if (isPositive)
 	  for (r = 0 ; r < rank ; r++)
 	    sa->rho0.x[r] += ww->x[r] ; /* use + since we deal with the negative odd roots */
@@ -2048,9 +2146,10 @@ int main  (int argc, const char **argv)
        )
      usage (commandBuf, 1, argv) ;
    
-   sa.method = 1 ;   
+   sa.method = 10 ;   
    sa.type = "toto" ;
    sa.DynkinWeights = "0" ;
+   sa.m = sa.n = -99999 ;
    getCmdLineInt (&argc, argv, "-m", &sa.m) ; 
    getCmdLineInt (&argc, argv, "-n", &sa.n) ;
    sa.alpha = 1 ;
@@ -2082,9 +2181,11 @@ int main  (int argc, const char **argv)
        messcrash ("argument --method should be 1,2, 10, 12, 20, 30 [default 1]") ;
        break ;
      }
-   
-   if (sa.m < 0) messcrash ("rank argument -m m of type %s must be positive or null", sa.type) ;
-   if (sa.n < 0) messcrash ("rank argument -n n of type %s must be positive or null", sa.type) ;
+
+   if (sa.m == -99999)
+     messcrash ("Please specify the rank of the algebra  -m -n") ;
+   if (sa.m != -99999 && sa.m < 0) messcrash ("rank argument -m m of type %s must be positive or null", sa.type) ;
+   if (sa.n != -99999 && sa.n < 0) messcrash ("rank argument -n n of type %s must be positive or null", sa.type) ;
    
    sa.dict = dictHandleCreate (32, sa.h) ;
    
@@ -2096,14 +2197,13 @@ int main  (int argc, const char **argv)
    if (hasOdd) /* do this first then destroy the dict */
      getNegativeOddRoots (&sa, show) ;
    /* apply Demazure of the even group */
-   getAdjoint (&sa, show) ;
+   getEvenAdjoint (&sa, show) ;
    getRho (&sa, show) ;
    sa.hasOdd = hasOdd ;
    
    if (sa.hasOdd)
      {
-       if (sa.method < 10) /* atypic
- */
+       if (sa.method < 10) /* atypic */
 	 getAtypic (&sa, show) ;
 
        if (sa.method < 10) /* contruct the kacCrystal */

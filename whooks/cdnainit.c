@@ -92,7 +92,6 @@ KEY _Alternative_exon
 , _Hits
 , _Ignore_this_clone
 , _In_mRNA
-, _IntMap
 , _Internal_capping
 , _Internal_priming
 , _Internal_priming_manual

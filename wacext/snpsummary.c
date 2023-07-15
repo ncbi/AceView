@@ -41,7 +41,7 @@ typedef struct tsnpStruct {
   const char *capture ;
   const char *orderBy ;
   const char *outFileName ;
-  BOOL doub, histo, count_libs, titration, unique ;
+  BOOL doub, histo, count_libs, titration, unique, justDetected ;
   BOOL gzi, gzo ;
   Array rrs ;
   Array histos, detectLibs ;
@@ -346,7 +346,6 @@ static void snpIdentifiers (TSNP *tsnp, SNP *snp)
 
   static int nDanLi = 0 ;
   static int nCoding = 0 ;
-  static int line = 0 ;
   const char *caption =
     "Variant Identifiers"
     ;
@@ -670,45 +669,45 @@ static void snpBrsTitrationDoOne (TSNP *tsnp, SNP *snp, AC_TABLE tt, int ir0, in
 	    ok = FALSE ; 
 	  ff[ii] = .49 + 10000.0 * mut[ii]/cov[ii] ;
 	}
-      if (ok && NN == 3)
-	{   /* interpolate unmeasured samples D and E  as  AeCdB*/
-	  ff[4] = ff[2] ;
-	  ff[2] = ff[1] ;
-	  ff[1] = (ff[0] + ff[2])/2 ;
-	  ff[3] = (ff[2] + ff[4])/2 ;
-	}
       if (ok)
 	{  /* correctly found 3 or 5  values, check order */
 	  BOOL ok3 = FALSE ;
 	  BOOL ok5 = FALSE ;
-	  if (ff[0] > ff[4] + 200 && ff[0] >= 500 && ff[4] > 200)
+	  if (NN == 5 && ff[0] > ff[4] + 200 && ff[0] >= 500 && ff[2] > 200)
 	    {
-	      ok3 = ok5 = TRUE ;
+	      ok3 = FALSE ; ok5 = TRUE ;
 	      for (ii = 1; ii < 5 ; ii++)
 		if (ff[ii] > ff[ii-1])
 		  ok5 = FALSE ;
+	    }
+	  else if (NN == 5 && ff[4] > ff[0] + 200 && ff[4] >= 500 && ff[2] > 200)
+	    {
+	      ok3 = FALSE ; ok5 = TRUE ;
+	      for (ii = 1; ii < 5 ; ii++)
+		if (ff[ii] < ff[ii-1])
+		  ok5 = FALSE ;
+	    }
+	  else if (NN == 3 && ff[0] > ff[4] - 200 && ff[0] >= 500 && ff[2] > 200)
+	    {
+	      ok3 = TRUE ; ok5 = FALSE ;
 	      for (ii = 2 ; ii < 5 ; ii+=2)
 		if (ff[ii] > ff[ii-2])
 		  ok3 = FALSE ;
 	    }
-	  else if (ff[0] < ff[4] - 200 && ff[4] >= 500 && ff[4] > 200)
+	  else if (NN == 3 && ff[4] > ff[0] - 200 && ff[4] >= 500 && ff[2] > 200)
 	    {
-	      ok3 = ok5 = TRUE ;
-	      for (ii = 1; ii < 5 ; ii++)
-		if (ff[ii] < ff[ii-1])
-		  ok5 = FALSE ;
+	      ok3 = TRUE ; ok5 = FALSE ;
 	      for (ii = 2 ; ii < 5 ; ii+=2)
 		if (ff[ii] < ff[ii-2])
 		  ok3 = FALSE ;
 	    }
-	  if (NN == 3) ok5 = 0 ;
 	  if (ok5)
 	    {
 	      const char *ccp = ac_table_printable (tt, ir0, 3, 0)  ;
 	      if (! ccp) ccp = ac_table_printable (tt, ir0, 0, "toto")  ;
 	      aceOutf (tsnp->aoTitration, "%s\t%s__5\t5f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
 			  , ac_name (snp->Snp) 
-			  , ac_table_printable (tt, ir0, 0, "toto") 
+			  , ccp
 			  , ff[0]/100.0
 			  , ff[1]/100.0
 			  , ff[2]/100.0
@@ -721,16 +720,16 @@ static void snpBrsTitrationDoOne (TSNP *tsnp, SNP *snp, AC_TABLE tt, int ir0, in
 	    {
 	      const char *ccp = ac_table_printable (tt, ir0, 3, 0)  ;
 	      if (! ccp) ccp = ac_table_printable (tt, ir0, 0, "toto")  ;
-	      if (! ok5) 
-		aceOutf (tsnp->aoTitration, "%s\t%s__3\t5f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
-			 , ac_name (snp->Snp) 
-			 , ac_table_printable (tt, ir0, 0, "toto") 
-			 , ff[0]/100.0
-			 , NN == 5 ? ff[1]/100.0 : -10
-			 , ff[2]/100.0
-			 , NN == 5 ? ff[3]/100.0 : -10
-			 , ff[4]/100.0
-			 ) ;			  
+
+	      aceOutf (tsnp->aoTitration, "%s\t%s__3\t5f\t%.2f\t%.2f\t%.2f\t%.2f\t%.2f\n"
+		       , ac_name (snp->Snp) 
+		       , ccp
+		       , ff[0]/100.0
+		       , -10
+		       , ff[2]/100.0
+		       , -10
+		       , ff[4]/100.0
+			   ) ;			  
 	      vtxtPrintf (tsnp->titrationTxt3, "%s,", ccp) ;
 	    }
 	}
@@ -769,7 +768,7 @@ static void snpBrsTitrationDo (TSNP *tsnp, SNP *snp)
 /*************************************************************************************/
 /* in each group count how many libs agree of disagree with the average */
 
-static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg3)
+static BOOL snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg3)
 {
   int cc = tsnp->allC ;   
   int mm = tsnp->allM ;   
@@ -777,13 +776,14 @@ static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg
   ACEOUT aoDT = tsnp->aoDT ;
   int type = 0 ;
   Array aaDetect = tsnp->detectLibs ;
-
+  BOOL detected = FALSE ;
+  
   if (ff >= 2) type = 1 ;
   if (ff >= 5) type = 2 ;
   if (ff >= 20) type = 3 ;
   if (ff >= 80) type = 4 ;
   if (ff >= 95) type = 5 ;
-
+  
   if (gg1 == gg2)
     {
       int gg = gg1 ;
@@ -802,7 +802,7 @@ static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg
 	      df = 30 ;
 	      if (c < 44)
 		df = 200 / sqrt (c) ;
-
+	      
 	      for (int j = 0 ; j < keySetMax (g2r) && nLib < 2 ; j++)
 		{
 		  int r = keySet (g2r, j) ;
@@ -813,6 +813,7 @@ static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg
 		}
 	      if (nLib >= 2)
 		{
+		  detected = TRUE ;
 		  vtxtPrintf (tsnp->detectionTxt2, "%s,", stackText (tsnp->sorting_titles, rr->other_title)) ;
 		  for (int type2 = type ; type2 >= 0 ; type2--)
 		    {
@@ -845,17 +846,19 @@ static void snpBrsCountLibsDoOne (TSNP *tsnp, SNP *snp, int gg1, int gg2, int gg
 	    }
 	}
     }
-  } /* snpBrsCountLibsDoOne */
+  return detected ;
+} /* snpBrsCountLibsDoOne */
 
 /*************************************************************************************/
 
-static void snpBrsCountLibsDo (TSNP *tsnp, SNP *snp)
+static BOOL snpBrsCountLibsDo (TSNP *tsnp, SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
   AC_TABLE tt = tsnp->countLibsTable ;
   int irMax = tt ? tt->rows : 0 ;
   KEYSET done = keySetHandleCreate (h) ;
   int N = dictMax (tsnp->runDict) + 1 ;
+  BOOL detected = FALSE ;
 
   for (int ir = 0 ; ir < irMax ; ir++)
     {
@@ -878,21 +881,23 @@ static void snpBrsCountLibsDo (TSNP *tsnp, SNP *snp)
 	  keySet (done, r3) = 1 ;
 	  if (c1 != c2 || (n1/100) != (n2/100))
 	    break ;
-	  snpBrsCountLibsDoOne (tsnp, snp, r1, r2, r3) ;
+	  detected |= snpBrsCountLibsDoOne (tsnp, snp, r1, r2, r3) ;
 	}
     }
 
     ac_free (h) ;
-} /* snpBrsCountLibsDoo */
+    return detected ;
+} /* snpBrsCountLibsDo */
 
 /*************************************************************************************/
 
-static void snpBrsParseCounts (TSNP *tsnp, SNP *snp)
+static BOOL snpBrsParseCounts (TSNP *tsnp, SNP *snp)
 {
   AC_HANDLE h = ac_new_handle () ;
   int nn = 0 ;
   KEYSET ddd = tsnp->doub ? keySetHandleCreate (h) : 0 ;
   BOOL is20_4 = FALSE ;
+  BOOL detected = FALSE ;
 
   for (int ir = 0 ; ir < keySetMax (tsnp->runs) ; ir++)
     {
@@ -930,6 +935,13 @@ static void snpBrsParseCounts (TSNP *tsnp, SNP *snp)
 	    }
 	}	      
       }
+
+  if (tsnp->allC >= 20 && tsnp->count_libs)
+    detected = snpBrsCountLibsDo (tsnp, snp) ;
+  if (tsnp->justDetected && ! detected)
+    return FALSE ;
+    
+
   if (is20_4)
     {
       const char *cp, *cq ; ;
@@ -947,12 +959,10 @@ static void snpBrsParseCounts (TSNP *tsnp, SNP *snp)
   
   if (tsnp->histo)
     snpBrsHistos (tsnp, snp) ;
-  if (tsnp->allC >= 20 && tsnp->count_libs)
-    snpBrsCountLibsDo (tsnp, snp) ;
   if (tsnp->titration)
     snpBrsTitrationDo (tsnp, snp) ;  
   ac_free (h) ;
-  return;
+  return TRUE ;
 } /*  snpBrsParseCounts */
 
 /*************************************************************************************/
@@ -1001,7 +1011,7 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
   tsnp->Wtrue= tsnp->Wfalse = tsnp->DanLi = FALSE ;
   vtxtClear (tsnp->detectionTxt2) ;
   vtxtClear (tsnp->titrationTxt5) ;
-  vtxtClear (tsnp->titrationTxt5) ;
+  vtxtClear (tsnp->titrationTxt3) ;
   
   if (! tsnp->unique)
     {
@@ -1012,7 +1022,8 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
 	  tsnp->Wtrue  = ac_has_tag (snp->Snp, "Wtrue") ||  ac_has_tag (snp->Snp, "Wtrue2") ;
 	  tsnp->Wfalse = ac_has_tag (snp->Snp, "Wfalse") ||  ac_has_tag (snp->Snp, "Wfalse2") ;
 	  tsnp->DanLi = ac_has_tag (snp->Snp, "Dan_Li") ;
-	  snpBrsParseCounts (tsnp, snp) ;
+	  if (! snpBrsParseCounts (tsnp, snp))
+	    return FALSE ;
 	}
     }
   else
@@ -1058,7 +1069,8 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
 		      snp->Snp = ac_table_obj (vv, bestIv, 0, snp->h) ; 
 		      tsnp->Wtrue  = ac_has_tag (snp->Snp, "Wtrue") ||  ac_has_tag (snp->Snp, "Wtrue2") ;
 		      tsnp->Wfalse = ac_has_tag (snp->Snp, "Wfalse") ||  ac_has_tag (snp->Snp, "Wfalse2") ;
-		      snpBrsParseCounts (tsnp, snp) ;
+		      if (! snpBrsParseCounts (tsnp, snp))
+			return FALSE ;
 		    }
 
 		}
@@ -2242,6 +2254,7 @@ int main (int argc, const char **argv)
   tsnp.histo =   getCmdLineBool (&argc, argv, "--histos") ;
   tsnp.doub =   getCmdLineBool (&argc, argv, "--doubleDetect") ;
   tsnp.titration =   getCmdLineBool (&argc, argv, "--titration") ;
+  tsnp.justDetected =   getCmdLineBool (&argc, argv, "--justDetected") ;
   tsnp.count_libs =   getCmdLineBool (&argc, argv, "--countLibs") ;
   tsnp.unique =   getCmdLineBool (&argc, argv, "--unique") ;
   tsnp.tsfOut =   getCmdLineBool (&argc, argv, "--tsf") ;
