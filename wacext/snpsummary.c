@@ -1489,12 +1489,14 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
 	  AC_TABLE tt = 0 ;
 	  AC_OBJ Gene = ac_tag_obj (snp->Snp, "Gene", h) ;
 	  char *sep = "" ;
+	  const char *errors = 0 ;
+	  char *qq = Gene ? hprintf (h, "select c from g in ?Gene where g == \"%s\", c in g->Capture", ac_name(Gene)) : 0 ;
 
 	  aceOut (tsnp->ao, "\t") ;
-	  tt = Gene ? ac_tag_table (Gene, "Capture", h) : 0 ;
+	  tt = Gene ? ac_obj_bql_table (Gene, qq, "+1", &errors, h) : 0 ;
 	  for (int ir = 0 ; tt && ir < tt->rows ; ir++)
 	    {
-	      const char * ccp = ac_table_printable (tt, ir, 0, 0) ;
+	      const char *ccp = ac_table_printable (tt, ir, 0, 0) ;
 	      if (ccp && ccp[2]==0)
 		{
 		  aceOutf (tsnp->ao, "%s%s", sep, ccp) ;
@@ -1673,8 +1675,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 
       else if (ti->col == 60) /* RNA_A */
 	{
-	  AC_TABLE tt = 0 ;
-	  BOOL ok = FALSE ;
 	  const char *run = "Sample_A_all.70_37sC8-8sR-25lC3" ;
 	  int r = 0 ;
 	  
@@ -1692,8 +1692,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 
       else if (ti->col == 70) /* RNA_B */
 	{
-	  AC_TABLE tt = 0 ;
-	  BOOL ok = FALSE ;
 	  const char *run = "Sample_B_all.55_35sC8-8sR-12lC2" ;
 	  int r = 0 ;
 
@@ -1759,8 +1757,6 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
 	}
       else if (ti->col == 80) /* Clones */
 	{
-	  AC_TABLE tt = 0 ;
-	  BOOL ok = FALSE ;
 	  int gg = 0 ;
 	  const char *group = "CL1toCL10_60_20sA1_40lR3" ;
 
@@ -1771,6 +1767,7 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
 	      KEYSET g2r = rr ? rr->g2r : 0 ;
 	      KEYSET afs = keySetHandleCreate (h) ;
 	      int jj = 0, mm = 0, cc = 0 ;
+	      int minF = 9999, maxF = -20 ;
 
 	      for (int ii = 0 ; g2r && ii < keySetMax (g2r) ; ii++)
 		{
@@ -1779,11 +1776,14 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
 		  int m = keySet (tsnp->mutant, r) ;
 		  if (c >= 20)
 		    {
-		      keySet (afs, jj++) = 100 * m /c ;
-		      mm += m ; cc == c ;
+		      int f = 100.0 * m /c ;
+		      if (f < minF) minF = f ;
+		      if (f > maxF) maxF = f ;
+		      keySet (afs, jj++) = f ; 
+		      mm += m ; cc += c ;
 		    }
 		}
-	      if (jj > 1)
+	      if (0 && jj > 1)
 		{
 		  int kk = 0 ;
 		  int ff = 100 * mm / cc ;
@@ -1796,6 +1796,21 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
 		    }
 		  if (kk)
 		    aceOutf (tsnp->ao, "%d", kk) ;
+		}
+	      if (maxF > minF + 30 && jj > 1)
+		{
+		  for (int ii = 0 ; g2r && ii < keySetMax (g2r) ; ii++)
+		    {
+		      int r = keySet (g2r, ii) ;
+		      int c = keySet (tsnp->covers, r) ;
+		      int m = keySet (tsnp->mutant, r) ;
+		      if (c >= 20)
+			{
+			  int f = 100.0 * m /c ;
+			  if (f > minF + 30)
+			    aceOutf (tsnp->ao, "%s,", dictName (tsnp->runDict, r)) ;
+			}
+		    }
 		}
 	    }
 	}

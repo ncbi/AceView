@@ -571,8 +571,8 @@ AC_TABLE ac_aql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset,
 	*       handle is mandatory
 	*/
 
-AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset,
-		       const char* orderBy, const char **error_messages, AC_HANDLE handle) ;
+AC_TABLE ac_obj_bql_table (AC_OBJ aobj, const char *query, const char* orderBy, const char **error_messages, AC_HANDLE handle) ;
+AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, const char* orderBy, const char **error_messages, AC_HANDLE handle) ;
 
 	/*
 	* perform AQL/BQL query, reimplemented using the BQL interface

@@ -285,3 +285,10 @@ foreach pp (A1 A2 I1 I2 I3 R1 R2 R3)
   set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/Gencode_36.$pp.touched.gene_list.txt 
   cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
 end
+foreach gg (_105 _109 .T2T-CHM13v2)
+  foreach pp (A1 A2 R1 R2 R3 I1 I2 I3)
+    echo -n $gg,$pp
+    zcat $pp/$pp.RefSeq$gg.hits.gz | gawk '/^#/{next;}{if(length($9)>1)print $9}' | sort -u | wc
+  end
+end
+

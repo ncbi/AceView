@@ -1510,6 +1510,18 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
 } /* ac_bql_table */
 
 /********************************************************************/
+
+AC_TABLE ac_obj_bql_table (AC_OBJ aobj, const char *query, const char* orderBy, const char **error_messages, AC_HANDLE handle)
+{
+  AC_KEYSET aks = 0 ;
+  if (aobj == 0)
+    messcrash ("Null obj in call to ac_obj_bql_table") ;
+  aks = ac_new_keyset (aobj->db, handle) ;
+  ac_keyset_add (aks, aobj) ;
+  return ac_bql_table (aobj->db, query, aks, orderBy, error_messages, handle) ;
+} /* ac_obj_bql_table */
+
+/********************************************************************/
 #if 0
 const char * ac_keyname (AC_DB db, KEY key)
 {

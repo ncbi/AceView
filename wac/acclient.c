@@ -1828,6 +1828,18 @@ AC_TABLE ac_bql_table (AC_DB db, const char *query, AC_KEYSET initial_keyset, co
   return tt ;
 } /* ac_bql */
 
+/********************************************************************/
+
+AC_TABLE ac_obj_bql_table (AC_OBJ aobj, const char *query, const char* orderBy, const char **error_messages, AC_HANDLE handle)
+{
+  AC_KEYSET aks = 0 ;
+  if (aobj == 0)
+    messcrash ("Null obj in call to ac_obj_bql_table") ;
+  aks = ac_new_keyset (aobj->x->db, handle) ;
+  ac_keyset_add (aks, aobj) ;
+  return ac_bql_table (aobj->x->db, query, aks, orderBy, error_messages, handle) ;
+} /* ac_obj_bql_table */
+
 /****************************************************************/
 /*
  * perform tablemaker query:
