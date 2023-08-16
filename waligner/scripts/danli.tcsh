@@ -220,3 +220,68 @@ cat ~/SEQC2_2020/DanLi/Probes.A2.hg37 | gawk '{if($2<$3){a1=$2;a2=$3;}else{a1=$3
 cat $ff37.bed     A2.mapping.hg37 | sort -k 1,1 -k 2,2n >  A2.mapping.hg37.mix
 cat  A2.mapping.hg37.mix | gawk -F '\t' '{if ($4=="PPP"){pc=$1;p1=$2;p2=$3;np++;}else {ac=$1;a1=$2;a2=$3;na++;}if(a1>p1)x1=a1;else x1=p1;if(a2<p2)x2=a2;else x2=p2;if(ac==pc && x2>x1){nn++;xx+=x2-x1+1;}}END{print np,na,nn,xx,xx/nn;}'
 
+#####
+# create  a bed file of the aligned probes
+foreach gg  (GRCh37 GRCh38 T2T-CHM13v2)
+  foreach pp (AGLR1 AGLR2 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 ROCR3)
+    set ff=Probes_mapping/$pp/$pp.genome.$gg
+    zcat $ff.hits.gz ZZZZZ.gz | gawk -F '\t' '/^#/{next;}{a1=$12;a2=$13;if(a1>a2){a0=a1;a1=a2;a2=a0;}printf("%s\t%d\t%d\n",$11,a1-dx,a2+dx);}' dx=0 | sort -k 1,1 -k 2,2n -k 3,3n | gawk '{if($1==old && a2>=$2-1){a2=$3;next} if(old)printf("%s\t%d\t%d\n",old,a1,a2);old=$1;a1=$2;a2=$3}' | gzip > $ff.bed.gz
+    zcat $ff.bed.gz | gawk -F '\t' '{n++;nn+=$3-$2+1;}END{print gg,pp,"zone=",n,"\tprojection on genome=",nn}' gg=$gg pp=$pp
+  end
+end
+
+foreach gg  (GRCh37 GRCh38 T2T-CHM13v2)
+  foreach pp (AGLR1 AGLR2 ROCR1 ROCR2 ROCR3 ILMR1 ILMR2 ILMR3 )
+    set ff=Probes_mapping/$pp/$pp.genome.$gg.hits.gz
+    zcat $ff | gawk -F '\t' '/^#/{next;}{printf("%s\t%s\n",$1,$4);}' | sort -u | gawk -F '\t' '{n++;nn+=$2;}END{print gg,pp, "mapped probes=",n, "cumulated length=",nn}' gg=$gg pp=$pp
+  end
+end
+
+foreach gg  (GRCh37 GRCh38 T2T-CHM13v2)
+  foreach pp (AGLR1 AGLR2 ROCR1 ROCR2 ROCR3 ILMR1 ILMR2 ILMR3 )
+    set ff=Probes_mapping/$pp/$pp.genome.$gg.hits.gz
+    echo -n $gg,$pp, "nb mappings probes=" 
+    zcat $ff | gawk -F '\t' '/^#/{next;}{print $1;}' | wc
+  end
+end
+foreach gg  (GRCh37 GRCh38 T2T-CHM13v2)
+  foreach pp (AGLR1 AGLR2 ROCR1 ROCR2 ROCR3 ILMR1 ILMR2 ILMR3 )
+    set ff=Probes_mapping/$pp/$pp.genome.$gg.hits.gz
+    echo -n $gg,$pp, "projected length="
+    zcat $ff | gawk -F '\t' '/^#/{next;}{print $1;}' | sort -u | wc
+  end
+end
+
+foreach pp (AGLR1 AGLR2 ILMR1 ILMR2 ILMR3 ROCR1 ROCR2 ROCR3)
+  set qq=`echo $pp | gawk '{printf("%s%s",substr($1,1,1),substr($1,5,1));}'`
+  cat tmp/METADATA/AGLR2.av.captured_genes.ace | gawk '/^Capture_touch/{if($2==qq)t++;next;}/^Capture/{if($2==qq)n++;next;}END{print pp,qq,n,t}' pp=$pp qq=$qq
+end
+foreach pp (A1 A2 I1 I2 I3 R1 R2 R3)
+  set tt=AceView_2010.GRCh37
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/av.$pp.well_covered.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/av.$pp.touched.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+end
+foreach pp (A1 A2 I1 I2 I3 R1 R2 R3)
+  set tt=RefSeq_105.GRCh37
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/RefSeq_105.$pp.well_covered.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/RefSeq_105.$pp.touched.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+end
+
+foreach pp (A1 A2 I1 I2 I3 R1 R2 R3)
+  set tt=RefSeq_109.GRCh38
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/RefSeq_109.$pp.well_covered.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/RefSeq_109.$pp.touched.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+end
+foreach pp (A1 A2 I1 I2 I3 R1 R2 R3)
+  set tt=Gencode_36.GRCh38
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/Gencode_36.$pp.well_covered.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+  set ff=~/ftp-SEQC/SEQC2/Capture_and_Gene_annotation/Targeted_Genes/$tt/Gencode_36.$pp.touched.gene_list.txt 
+  cat $ff | gawk '/^#/{next;}{nn++;}END{print pp,nn}' pp=$pp
+end

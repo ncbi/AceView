@@ -67,6 +67,10 @@ if ($species == hs) then
   set ff='/home/mieg/AW/Human_DATA/CircularRNA_in_Frailty_SraRunInfo.txt'  
   set date=2023_06_18
   set ff='/home/mieg/AW/Human_DATA/20230618_RNA_Hydatidiform_mole_SraRunInfo.txt'
+  set date=2023_08_13
+  set ff='/home/mieg/AW/Human_DATA/20230813_453_Human_mole_RNAseq_SraRunInfo.txt'
+  set date=2023_08_13
+  #set ff='/home/mieg/AW/Human_DATA/20230813_840_Human_mole_DNA-seq_SraRunInfo.txt'
 endif
 if ($species == rn) then
   set date=2016_11_04

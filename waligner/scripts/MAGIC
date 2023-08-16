@@ -1650,7 +1650,7 @@ if ($species == hs) then
   set refG=hs_ref_GRCh38.p7
   set refS=H_sapiens
 endif
-if ($species == hs) then
+if ($species == hs_37) then
   set ref=ref_GRCh37.105
   set refG=hs_ref_GRCh37.p13
   set refS=H_sapiens
@@ -1661,9 +1661,9 @@ if ($species == hs) then
   set ref=T2T-CHM13v2
   set refG=T2T-CHM13v2
   set refGfna=$t2t/GCF_009914755.1_T2T-CHM13v2.0_genomic.fna.gz
-
-
   set refS=H_sapiens
+
+  setenv chromSetAll ' chrY chrX chr22 chr21 chr20 chr19 chr18 chr17 chr16 chr15 chr14 chr13 chr12 chr11 chr10 chr9 chr8 chr7 chr6 chr5 chr4 chr3 chr2 chr1'
 endif
 
 if ($species == rn) then
@@ -1852,14 +1852,23 @@ cat   $species.genome.$ref.fasta | gawk '/^>/{x=substr($1,2);split(x,aa,".");x=a
 mv $species.chrom_mito.fasta $species.mito.fasta ; gzip $species.mito.fasta ; mv $species.mito.fasta.gz TARGET.$refG/Targets 
 if (-e $species.genome.fasta) \rm $species.genome.fasta
 foreach chrom ($chromSetAll)
-  cat  $species.chrom_chr$chrom.fasta >> $species.genome.fasta
+  echo $chrom
+  mv $species.chrom_$chrom'|NC'.fasta $species.chrom_$chrom.fasta
 end
-gzip  $species.genome.fasta
-\rm  TARGET.$refG/Targets/$species.genome.fasta.gz
-mv  $species.genome.fasta.gz TARGET.$refG/Targets/$species.genome.fasta.gz
+foreach chrom ($chromSetAll)
+  cat  $species.chrom_$chrom.fasta >> $species.genome.$refG.fasta
+end
+mv   $species.genome.$refG.fasta TARGET.$refG/Targets
+pushd TARGET.$refG/Targets 
+   \rm  $species.genome.fasta.gz
+   gzip  $species.genome.$refG.fasta
+   ln -s  $species.genome.$refG.fasta.gz  $species.genome.fasta.gz
+   ln -s $species.mito.fasta.gz
+popd
+
 mv $species.chrom_*.fasta TARGET.$refG/CHROMS
 gzip TARGET.$refG/CHROMS/*.fasta
-pushd TARGET.$refG/Targets ; ln -s  $species.genome.$ref.fasta.gz  $species.genome.fasta.gz ; popd
+
 
 
 gunzip -c $species.RefSeq.$ref.?.sponge.gz | cut -f 1 | sort -u | gawk '{print substr($1,1,3);}' | tags
@@ -1898,7 +1907,7 @@ mv nuc_all.fa.gz hs.HINV.2010_03_30.nuc_all.fa.gz
 ############################################################################
 set ff = TARGET/Targets/$species.$target.fasta.gz
 mv $ff $ff.unsorted.gz
-dna2dna -i $ff.unsorted.gz -O raw -keepName  | gawk '{split($2,aa,"|") ;printf("%s\t%s\t",aa[3],aa[1]);print;}' | scripts/tab_sort | cut -f 3,4 | dna2dna -I raw -O fasta -keepName | gzip > $ff
+dna2dna -i $ff.unsorted.gz -O raw -keepName  | gawk '{split($2,aa,"|") ;printf("%s\t%s\t",aa[3],aa[1]);print;}' | tab_sort | cut -f 3,4 | dna2dna -I raw -O fasta -keepName | gzip > $ff
 
 ############################################################################
 ## 2016 Mouse genome download

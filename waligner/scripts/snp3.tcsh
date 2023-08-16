@@ -15,6 +15,8 @@ if ($phase == p) then
   set pp=SnpA2R2 
   bin/tace tmp/TSNP_DB/$zone -no_prompt <<EOF 
     read-models
+    find project $pp
+    kill
     find groups
     kill
     find compare
@@ -39,7 +41,7 @@ endif
 if ($phase == R) then 
     set remap2g=remap2genome
 # if -o filename is not provided, tsnp directly edits the database
-    bin/tsnp --db_$remap2g  tmp/METADATA/mrnaRemap.gz  --db tmp/TSNP_DB/$zone --force 
+    # bin/tsnp --db_$remap2g  tmp/METADATA/mrnaRemap.gz  --db tmp/TSNP_DB/$zone --force 
     bin/tsnp --db_translate --db tmp/TSNP_DB/$zone  -p $MAGIC
 
   goto done
@@ -52,7 +54,8 @@ if ($phase == bed) then
 EOF
  cat tmp/TSNP_DB/$zone/vcf.hg37.txt  | gawk -F '\t' '{printf("chr%s\t%d\t%d\t%s\t%s\t%s\n", $2, $3, $3+1,$1,$4,$5);}' | sort -k 1,1 -k 2,2n > tmp/TSNP_DB/$zone/vcf.hg37.bed
   /home/mieg/bin/liftOver tmp/TSNP_DB/$zone/vcf.hg37.bed /home/mieg/VV/CODE/LIFTOVER/T2T/hg19ToHg38.over.chain.gz  tmp/TSNP_DB/$zone/vcf.hg38.bed  tmp/TSNP_DB/$zone/vcf.hg38.dead
-  cat  tmp/TSNP_DB/$zone/vcf.hg38.bed  | gawk -F '\t' '{printf("Variant %s\nVCF_hg38 %s-%s-%s-%s\n\n", $4,$1,$2,$5,$6);}' > tmp/TSNP_DB/$zone/vcf.hg38.ace
+  cat  tmp/TSNP_DB/$zone/vcf.hg38.bed  | gawk -F '\t' '/:Ins:/{next}{printf("Variant %s\nVCF_hg38 %s-%s-%s-%s\n\n", $4,$1,$2,$5,$6);}' > tmp/TSNP_DB/$zone/vcf.hg38.ace
+  cat  tmp/TSNP_DB/$zone/vcf.hg38.bed  | gawk -F '\t' '/:Ins:/{split($4,aa,":");printf("Variant %s\nVCF_hg38 %s-%s-%s-%s\n\n", $4,$1,$2,aa[4],aa[5]);}' >> tmp/TSNP_DB/$zone/vcf.hg38.ace
   bin/tace tmp/TSNP_DB/$zone -no_prompt <<EOF
     query find variant VCF_hg38
     edit -D VCF_hg38
@@ -156,11 +159,12 @@ endif
 if ($phase == dc) then 
 
   \rm  tmp/TSNP_DB/$zone.out tmp/TSNP_DB/$zone.err
- foreach stype (3 6)
+ foreach stype (6)
   if ($stype == 1) set titre=any
-  if ($stype == 3) set titre=wendell
-  if ($stype == 5) set titre=Wtrue
-  if ($stype == 6) set titre=Wfalse
+  if ($stype == 3) set titre=Wtrue
+  if ($stype == 4) set titre=Wfalse
+  if ($stype == 5) set titre=DanLiNonWendell
+  if ($stype == 6) set titre=NonWendellNonDanLi
   if ($stype == 20) set titre=coding
   if ($stype == 21) set titre=UTR_3prime
   if ($stype == 22) set titre=A2G
@@ -186,7 +190,6 @@ if ($phase == cap) then
   set capture=A1A2I2I3R1R2
   if ($stype == 1) set titre=any
   if ($stype == 3) set titre=$capture
-  if ($stype == 6) set titre=$capture_Wfalse
   set pp=$MAGIC
   \rm  tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.*
   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDG2345 -p $pp --histos --countLibs --doubleDetect --titration --capture $capture  --unique
@@ -243,7 +246,7 @@ set pp=$MAGIC
   # titration
 
 set pp=$MAGIC
-foreach titre (any.1 wendell.3  Wfalse.6 A1A2I2I3R1R2.3 A1A2I2I3R1R2_Wfalse.3)
+foreach titre (any.1 Wtrue.3  Wfalse.4 A1A2I2I3R1R2.3 A1A2I2I3R1R2_Wfalse.3)
   set toto=RESULTS/SNV/$pp.$titre.SNP_summary.june16
   echo -n "## $pp :  List of titratimg SNV by platform : " > $toto.titration.txt
   date >> $toto.titration.txt 
@@ -254,9 +257,9 @@ foreach titre (any.1 wendell.3  Wfalse.6 A1A2I2I3R1R2.3 A1A2I2I3R1R2_Wfalse.3)
 end
 
 set pp=$MAGIC
-foreach titre (wendell.3  Wfalse.6)
+foreach titre (Wtrue.3  Wfalse.4 DanLiNonWendell.5 NonWendellNonDanLi.6)
     foreach GR (libs libCounts groups)
-      set toto=RESULTS/SNV/$pp.$titre.$GR.SNP_summary.june16
+      set toto=RESULTS/SNV/$pp.$titre.$GR.SNP_summary.aug1
       echo -n "## SEQC2 Genes captured by A2 and R2 in project $pp limited to  $titre : " > $toto.txt
       echo -n "## $pp : SNV list counts and properties in project $pp restricted to genes captured by A2 and R2  limited to  $titre : " > $toto.txt
       date >> $toto.txt 
@@ -267,7 +270,7 @@ end
 
 
   # histo of our frequencies
-foreach titre (wendell.3  Wfalse.6)
+foreach titre (Wtrue.3  Wfalse.4)
   echo -n "## $pp :  Histogram of SNV allele frequency project $pp restricted to genes captured by A2 and R2  limited to  $titre : " > $toto.histos.txt
   date >> $toto.histos.txt 
   cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.groups.group_histos.tsf | bin/tsf -I tsf -O tabular | grep -v '##' | transpose > $toto.histos.txt2

@@ -1,3 +1,3 @@
 #!/bin/bash 
-sort -t$'\t' $*
+sort -t$'\t' -V  $*
 

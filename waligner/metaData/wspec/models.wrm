@@ -496,7 +496,7 @@
 						      Met1_lost  UNIQUE Text
                                                       Met1_gained UNIQUE Text
                                                       Frame_preserving_indel  UNIQUE Text 
-                                                      Frameshift UNIQUE Text  // Gly124fs  Cys28delinsTrpVal   Cys28_Lys29delinsTrp
+                                                      Frameshift UNIQUE Text  // Gly124CysfsTer34  Cys28delinsTrpVal   Cys28_Lys29delinsTrp
                              UTR UTR_5prime
                                  UTR_3prime
                              Non_coding_transcript

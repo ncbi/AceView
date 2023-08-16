@@ -2534,10 +2534,73 @@ static int myTranslate (char *buf, char tBuf1[], char tBuf3[], int m1, int p1, A
 } /* myTranslate */
 
 /*************************************************************************************/
+/* dna is a char string, starting at pos, locate the next stop 
+ * pos is in bio convention, first base is called 1
+ * met is distances relative to pos
+ * if met == 0, pos is a met codon
+ * if no met is detected, the code returns met == -1
+ */
+static BOOL locateMet (const char *dna,  const char *translationTable, int pos, int *met)
+{
+  int i, j, n = strlen (dna) ;
+  const char *cp ;
+  Array dna2 = arrayHandleCreate (n + 3, char, 0) ;
+
+  array (dna2, n - 1, char) = 0 ;
+  memcpy (arrp (dna2, 0, char), dna, n) ;
+  dnaEncodeArray (dna2) ;
+
+  /* the new met may me way outside the snippet, we must translate the whole mrna */
+  *met = -1 ;  /* stop not found */
+  if (pos > 0)
+    for (i = pos - 1, j = 0, cp = arrp (dna2, i, char) ; 
+	 i < arrayMax (dna2) - 2 ; i+= 3, cp += 3, j++)
+      if (e_codon (cp, translationTable) == 'M')
+	{ *met = j ; break ; }
+
+  ac_free (dna2) ;
+  return TRUE ;
+} /* locateMet */
+
+/*************************************************************************************/
+/* dna is a char string, starting at pos1 or pos2, locate the next stop 
+ * pos1, pos2 are in bio convention, first base is called 1
+ * stop1/2 are distances relative to pos1/2
+ * if stop1 == 0, pos1 is a stop codon
+ * if no stop is detected, the code returns stop1 == -1
+ */
+static BOOL locateStop (const char *dna,  const char *translationTable, int pos1, int pos2, int *stop1, int *stop2)
+{
+  int i, j, n = strlen (dna) ;
+  const char *cp ;
+  Array dna2 = arrayHandleCreate (n + 3, char, 0) ;
+
+  array (dna2, n - 1, char) = 0 ;
+  memcpy (arrp (dna2, 0, char), dna, n) ;
+  dnaEncodeArray (dna2) ;
+
+  /* the new stop may me way outside the snippet, we must translate the whole mrna */
+  *stop1 = *stop2 = -1 ;  /* stop not found */
+  if (pos1 > 0)
+    for (i = pos1 - 1, j = 0, cp = arrp (dna2, i, char) ; 
+	 i < arrayMax (dna2) - 2 ; i+= 3, cp += 3, j++)
+      if (e_codon (cp, translationTable) == '*')
+	{ *stop1 = j ; break ; }
+  if (pos2 > 0)
+    for (i = pos2 - 1, j = 0, cp = arrp (dna2, i, char) ; 
+	 i < arrayMax (dna2) - 2 ; i+= 3, cp += 3, j++)
+      if (e_codon (cp, translationTable) == '*')
+	{ *stop2 = j ; break ; }
+  
+  ac_free (dna2) ;
+  return TRUE ;
+} /* locateStop */
+
+/*************************************************************************************/
 /* if i kill Met1, then use Leu2_Met124del  (i.e. we now use Met14 as our new Met)
  * stops are caller Ter
  * extension: the stop has a substitution :  Ter110GlyextTer31
- * (Arg123LysfsTer34) 
+ * (Arg123LysfsTer34)  paranthesis are not needed if we have experimental RNA or peptides 
  */
 static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRef, char *pVar, int m1, int p1, int frame, int fs) 
 {
@@ -2545,10 +2608,13 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
   char * translationTable = pepGetTranslationTable(myMrna, 0) ; 
   char *sep = "" ;
   char buf[6];
+  char buf0[6];
   char buf2[6];
+  char buf12[6];
+  char buf22[6];
   char idem[4] ;
   int i=0, j, k = 0, m ;
-  m1 = (m1 - p1) / 3 ; m1++ ;
+  m1 = (m1 - p1 + (fs ? 1 : 0)) / 3 ; m1++ ;
   
   if (1) /* sub del ins */
     {
@@ -2564,66 +2630,143 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
 		idem[j] = cp[j] ;
 	      idem[3] = 0 ;
 	    }
-	  if (strncmp (cp, cq,3))
+	  if (!strncmp (cp, "Ter",3) || strncmp (cp, cq,3))
 	    {
 	      k++ ;
+	      for (j = 0 ; j < 3 ; j++)
+		buf0[j] = cp >= pRef+3 ? cp[j-3] : '-' ;
+	      buf0[3] = 0 ;
 	      for (j = 0 ; j < 3 ; j++)
 		buf[j] = cp[j] ;
 	      buf[3] = 0 ;
 	      for (j = 0 ; j < 3 ; j++)
 		buf2[j] = cq[j] ;
 	      buf2[3] = 0 ;
-	      if (! strncmp (buf2, "Ter", 3))
+	      for (j = 0 ; j < 3 ; j++)
+		buf12[j] = cp[j+3] ;
+	      buf12[3] = 0 ;
+	      for (j = 0 ; j < 3 ; j++)
+		buf22[j] = cq[j+3] ;
+	      buf22[3] = 0 ;
+	      if (m == 1 && ! strncmp (buf, "Met", 3) && strncmp (buf2, "Met", 3))
 		{ 
-		  vtxtPrintf (txt, "%s%s%dTer", sep, buf,m,buf2) ;
+		  int x = 3*(m-1) + p1 ; /* first base of modified triplet */
+		  int met = 0 ;
+		  int dx = 1 + (fs < 0 ? (-fs-1)/3 : 0) ;
+		  
+		  locateMet(Rdna, translationTable, x + 3*dx, &met) ;
+		  if (met + dx == 0)
+		    {
+		      vtxtPrintf (txt, "%sMet2del", sep) ;
+		      vtxtPrintf (txt, "\nMet1_lost Met2del") ;
+		    }
+		  else if (met + dx > 0)
+		    {
+		      vtxtPrintf (txt, "%s%s2_Met%ddel", sep, buf12, met+dx+1) ;
+		      vtxtPrintf (txt, "\nMet1_lost \"%s2_Met%ddel\"", buf12, met+dx+1) ;
+		    }
+		  else
+		    {
+		      int stop1 = 0, stop2 = 0 ;
+		      locateStop(Rdna, translationTable, x, 0, &stop1, &stop2) ;
+		      vtxtPrintf (txt, "%sMet1_Ter%ddel", sep, stop2 + 1) ;
+		      vtxtPrintf (txt, "\nMet1_lost \"Met1%s_NoOtherMet\"", buf2) ;
+		    }
 		  break ;
 		}
+	      else if (strncmp (buf, "Ter", 3) && ! strncmp (buf2, "Ter", 3))
+		{ 
+		  vtxtPrintf (txt, "%s%s%dTer", sep, buf,m) ;
+		  vtxtPrintf (txt, "\nAA_to_Stop \"%s%dTer\"", buf,m) ;
+		  break ;
+		}
+	      else if (! strncmp (buf, "Ter", 3) && strncmp (buf2, "Ter", 3))
+		{ 
+		  int x = 3*(m-1) + p1 ; /* first base of modified triplet */
+		  int stop1 = 0, stop2 = 0 ;
+		  int dx = fs < 0 ? (-fs + 2)/3 : 0 ; dx++ ;
+		  locateStop (Rdna, translationTable, 0*(x + 3*dx), x-fs+3*dx, &stop1, &stop2) ;
+		  if (stop2>0)
+		    {
+		      vtxtPrintf (txt, "%s%s%d%sextTer%d", sep, buf,m,buf2,stop2+1) ;
+		      vtxtPrintf (txt, "\nStop_to_AA \"%s%d%sextTer%d\"",buf,m,buf2,stop2+1) ;
+		      break ;
+		    }
+		  else
+		    {
+		      vtxtPrintf (txt, "%s%s%d%sextTer?", sep, buf,m,buf2) ;
+		      vtxtPrintf (txt, "\nStop_to_AA \"%s%d%sextTer?\"", buf,m,buf2) ;
+		      break ;
+		    }
+		}
+	      else if (! strncmp (buf, "Ter", 3) && ! strncmp (buf2, "Ter", 3) && m > 1)
+		{
+		  vtxtPrintf (txt, "%s%s%d=", sep, buf,m) ;
+		  vtxtPrintf (txt, "\nSynonymous \"%s%d=\"", buf,m) ;
+		  break ;
+		}
+	    }
+	  if (strncmp (cp, cq,3))
+	    {
 	      if (fs == 0)
 		{
-		  vtxtPrintf (txt, "%s%s%d%s", sep, buf,m,buf2) ;
-		  vtxtPrintf (txt, "\nAA_substitution %s%s%d%s", sep, buf,m,buf2) ;
+		  vtxtPrintf (txt, "%s%s%d%s", sep, buf, m, buf2) ;
+		  vtxtPrintf (txt, "\nAA_substitution \"%s%d%s\"", buf, m, buf2) ;
+		  break ;
 		}
 	      else
 		{
-		  if (fs == -3) /* del in frame */
+		  int mk = vtxtMark (txt) ;
+		  if (fs == -3 && !strcmp (buf2,buf12)) /* del in frame */
 		    vtxtPrintf (txt, "%ddel%s", m, buf) ;
+		  else if (fs == -3) /* del in frame */
+		    vtxtPrintf (txt, "%s%d_%s%ddelins%s", buf,m,buf12,m+1, buf2) ;
+		  else if (fs == 3 && !strcmp (buf,buf22)) /* ins in frame */
+		    vtxtPrintf (txt, "%s%d_%s%dins%s", buf0,m-1,buf,m, buf2) ;
 		  else if (fs == 3)
-		    vtxtPrintf (txt, "%d_%dins%s", m,m+1, buf) ;
+		    vtxtPrintf (txt, "%s%ddelins%s%s",buf, m, buf2, buf22) ;
 		  else if (fs <0 && (-fs % 3 == 0))
 		    vtxtPrintf (txt, "%d_%ddel", m, m - fs/3 -1) ;
 		  else if (fs >0 && (fs % 3 == 0))
 		    vtxtPrintf (txt, "%d_%dins(%d)", m, m + 1, fs/3) ;
 		  else if (fs %3)
-		    vtxtPrintf (txt, "%dfs(%d)", m, fs) ;
-		  
-		  if (fs % 3 == 0)
-		    vtxtPrintf (txt, "\nFrame_preserving_indel %d", fs) ;
-		  else
-		    vtxtPrintf (txt, "\nFrameshift %d", ((fs % 3) + 9) % 3) ;
-		  break ; 
-		}
+		    {
+		      char *ter = strstr (cq, "Ter") ;
+		      int x = 3*(m-1) + p1 ; /* first base of modified triplet */
+		      int stop1 = 0, stop2 = 0 ;
+		      int dx = fs < 0 ? (-fs + 2)/3 : 0 ;
 
-	      sep = ";" ;
-	     
-	      if (m >= 1 && ! strncmp (cp, "Ter", 3))
-		{
-		  char *cr = cq ;
-		  int i1 = i ;
-		  while (i1 < 51 && strncmp (cr, "Ter",3))
-		    { cr+= 3 ; i1 += 3 ; }
-		  m = m1 - 7+(i1+2)/3 ;
-		  if (!strncmp (cr, "Ter",3))
-		    vtxtPrintf (txt, "extTer%d",m) ;
-		  else if (Gdna)
-		    { /* the mRNA is too short to find the Ter, look in the genome */
-		      const char *ccr ; 
-		      int a = m1 - g2m + 2 + (m1 %3) ; /* start of the Ter codon on the genome */  
-		      for (ccr = arrp (Gdna, a, char) ; *cr && a < dnaLn - 2 ; ccr += 3, a += 3)
-			if (e_codon (ccr, translationTable) == '*')
-			  break ;
-		      vtxtPrintf (txt, "extTer%d", m1 + (a - m1 + g2m + 2)/3) ;
+		      if (ter)
+			vtxtPrintf (txt, "%s%d%sfsTer%d", buf, m, buf2, 1+(ter-cq)/3) ;
+		      else if (Rdna && RdnaLn > x+3*dx && RdnaLn > x+3*dx-fs)
+			{ /* the snippet is too short, look in the mrna */
+			  /* compute now the location of the stops 
+			   * in the complete mRNA and modified mRNA 
+			   */
+			  locateStop (Rdna, translationTable, x+3*dx, x - fs+3*dx, &stop1, &stop2) ;
+			  if (stop2 > 0)
+			    vtxtPrintf (txt, "%s%d%sfsTer%d", buf, m, buf2, stop2 + 1 + dx) ;
+			  else
+			    vtxtPrintf (txt, "%s%d%sfsTer?", buf, m, buf2) ;
+			  if (stop2 > stop1)
+			    vtxtPrintf (txt, "\nExtension %d AA", stop2 - stop1) ;
+			}
+		      else
+			vtxtPrintf (txt, "%s%d%sfs", buf,m,buf2) ;
 		    }
-		  break ;
+		  if (fs % 3 == 0)
+		    {
+		      char *cr = strnew (vtxtAt (txt, mk), 0) ;
+		      vtxtPrintf (txt, "\nFrame_preserving_indel \"%s\"", cr) ;
+		      ac_free (cr) ;
+		    }
+		  else
+		    {
+		      char *cr = strnew (vtxtAt (txt, mk), 0) ;
+		      vtxtPrintf (txt, "\nFrameshift \"%s\"", cr) ;
+		      ac_free (cr) ;
+		    }
+		  break ; 
 		}
 	    }
 	  cp += 3 ; cq += 3 ; i += 3 ;
@@ -2633,19 +2776,18 @@ static void tsnpSetPName (vTXT txt, KEY product, char *pR1, char *pV1, char *pRe
 	  vtxtPrintf (txt, "%s%d=", idem,m1) ;
 	  vtxtPrintf (txt, "\nSynonymous %s%d=", idem, m1) ;
 	}
-	  
-      if (0) vtxtPrintf (txt, ")\"") ;
     }
   /* clean up the pR1 pV1 */
   if (m1 > 0)
     {
       cp = strchr (pR1 + 6, '*') ;
       if (cp) *++cp = 0 ;
-    }
-  if (m1 > 0)
-    {
       cp = strchr (pV1 + 6, '*') ;
       if (cp) *++cp = 0 ;
+      cp = strstr (pRef + 18, "Ter") ;
+      if (cp) cp[3] = 0 ;
+      cp = strstr (pVar + 18, "Ter") ;
+      if (cp) cp[3] = 0 ;
     }
   return ; 
 }  /* tsnpSetPName */
@@ -2833,7 +2975,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      if (a1 < a2)
 			{
 			  vtxtPrintf (txt, "gName \"%s:g.%d%s\"\n", bufSeqTitle, a1+1, buf) ;
-			  vtxtPrintf (txt, "VCF %s %d %c %c\n", name(seq), a1+1, sub[0][0], sub[0][2]) ;
+			  vtxtPrintf (txt, "VCF %s %d %c %c\n", name(seq), a1+1, ace_upper (sub[0][0]), ace_upper (sub[0][2])) ;
 			}
 		      else
 			{
@@ -2993,7 +3135,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    if (slide) 
 		      vtxtPrintf (txt, "Sliding %d\n", slide) ;
 		    if (a1 < a2)
-		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a1,  dna[am1-1], ace_upper(dna[am1]), dna[am1-1]) ;
+		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a1,  ace_lower(dna[am1-1]), ace_upper(dna[am1]), ace_lower(dna[am1-1])) ;
 		    else
 		      vtxtPrintf (txt, "VCF %s %d %c%c %c\n", name(seq),  a2 - slide,  complementLetter(dna[am2+slide-1]), ace_upper(complementLetter(dna[am2+slide-2])), complementLetter(dna[am2+slide-1])) ;
 
@@ -3076,7 +3218,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			{
 			  if (a1 < a2)
 			    {
-			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, dna[am1-1], bufV, dna[am1-1]) ;
+			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, ace_lower(dna[am1-1]), bufV, ace_lower(dna[am1-1])) ;
 			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddim%s\"\n", bufSeqTitle, a1+1+slide,a2-1+slide, bufVS) ;
 			    }
 			  else
@@ -3093,7 +3235,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			{
 			  if (a1 < a2)
 			    {
-			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, dna[am1-1], bufV, dna[am1-1]) ;
+			      vtxtPrintf (txt, "VCF %s %d %c%s %c\n", name(seq), a1, ace_lower(dna[am1-1]), bufV, ace_lower(dna[am1-1])) ;
 			      vtxtPrintf (txt, "gName \"%s:g.%d_%ddel%s\"\n", bufSeqTitle, a1+1+slide,a2-1+slide, bufVS) ;
 			      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddel%s\"\n", name(mrna), am1 + 1 + slide, am2 - 1 + slide, bufVS) ;
 			    }
@@ -3114,7 +3256,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		      vtxtPrintf (txt, "Typ \"Del_%d\"\n", da) ;
 		      if (a1 < a2)
 			{
-			  vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, dna[am1-1], da, dna[am1-1]) ;
+			  vtxtPrintf (txt, "VCF %s %d %c%d %c\n", name(seq), a1, ace_lower(dna[am1-1]), da, ace_lower(dna[am1-1])) ;
 			  vtxtPrintf (txt, "gName \"%s:g.%d_%ddel(%d)\"\n", bufSeqTitle, a1+1,a2-1, da) ;
 			}
 		      else
@@ -3215,7 +3357,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    else
 		      vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"Base %c is inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, ace_upper(complementLetter((*ins)[3])), a1, a2) ;
 		    if (a1 < a2)
-		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, dna[am1-1], dna[am1-1], (*ins)[3]) ;
+		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a1, ace_lower(dna[am1-1]), ace_lower(dna[am1-1]), (*ins)[3]) ;
 		    else
 		      vtxtPrintf (txt, "VCF %s %d %c %c%c\n", name(seq), a2-slide, ace_lower(complementLetter(dna[am1+slide])), ace_lower(complementLetter(dna[am1+slide])), ace_upper(complementLetter( (*ins)[3]))) ;
 		    vtxtPrintf (txt, "-D Sliding\n") ;
@@ -3311,7 +3453,7 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 			vtxtPrintf (txt, "-D IntMap\nIntMap %s %d %d \"%d bases %s are inserted on minus strand between base %d and %d\"\n", name (seq), a1, a2, da, bufG, a1, a2) ;
 		      
 		      if (a1 < a2)
-			vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a1, dna[am1-1], dna[am1-1], buf) ;
+			vtxtPrintf (txt, "VCF %s %d %c %c%s\n", name(seq), a1, ace_lower(dna[am1-1]), ace_lower(dna[am1-1]), buf) ;
 		      else
 			{
 			  char cc = ace_lower(complementLetter(dna[am1+slide+2])) ;
@@ -3421,14 +3563,14 @@ static int tsnpSetGName (vTXT txt, TSNP *tsnp, AC_OBJ Snp, AC_HANDLE h0)
 		    {
 		      am1 = fromMrna ? m1 : a1 ;
 		      vtxtPrintf (txt, "Typ \"DelIns%s>%s\"\n", ccD, ccI) ;
-		      vtxtPrintf (txt, "VCF %s %d %c%s %c%s\n", name(seq), a1, dna[am1-1], ccD, dna[am1-1], ccI) ;
+		      vtxtPrintf (txt, "VCF %s %d %c%s %c%s\n", name(seq), a1, ace_lower(dna[am1-1]), ccD, ace_lower(dna[am1-1]), ccI) ;
 		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins%s\"\n", bufSeqTitle, a1,a2, ccI) ;
 		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins%s\"\n", name(mrna), am1+1, am2-1, ccI) ;
 		    }
 		  else
 		    {
 		      vtxtPrintf (txt, "Typ \"DelIns_%d_%d\"\n", dD, dI) ;
-		      vtxtPrintf (txt, "VCF %d %c%s %c%s\n", name(seq), a1, dna[am1-1], ccD, dna[am1-1], ccI) ;
+		      vtxtPrintf (txt, "VCF %d %c%s %c%s\n", name(seq), a1, ace_lower(dna[am1-1]), ccD, ace_lower(dna[am1-1]), ccI) ;
 		      vtxtPrintf (txt, "gName \"%s:g.%d_%ddelins(%d,%d)\"\n", bufSeqTitle, a1,a2, dD, dI) ;
 		      if (RdnaLn)  vtxtPrintf (txt, "rName \"%s:c.%d_%ddelins(%d,%d)\"\n", name(mrna), am1+1,am2-1, dD, dI) ;
 		    }
@@ -3667,73 +3809,6 @@ static void tsnpDbTranslate (TSNP *tsnp)
   
 /*************************************************************************************/
 /*************************************************************************************/
-/*************************************************************************************/
-/* scan the VariantDB acedb database
- * add the counts from runs belonging to a group
- * and flag the corresponding SNPs
- */
-
-/* 
-select v,m,pos,s,x1,x2,dna,typ from v in class "Variant" where v = "A2BP1.aAug10:1649_T2G", m in v->mrna,pos in m[1],s in pos[1],p in m->product where exists_tag p->best_product or exists_tag p->very_good_product,x1 in p[1],x2 in x1[1],dna in m->DNA where exists dna, typ in v->Typ
-*/
-/* dna is a char string, starting at pos1 or pos2, locate the next stop 
- * pos1, pos2 are in bio convention, first base is called 1
- * stop1/2 are distances relative to pos1/2
- * if stop1 == 0, pos1 is a stop codon
- * if no stop is detected, the code returns stop1 == -1
- */
-static BOOL locateStop (const char *dna,  const char *translationTable, int pos1, int pos2, int *stop1, int *stop2)
-{
-  int i, j, n = strlen (dna) ;
-  const char *cp ;
-  Array dna2 = arrayHandleCreate (n + 3, char, 0) ;
-
-  array (dna2, n - 1, char) = 0 ;
-  memcpy (arrp (dna2, 0, char), dna, n) ;
-  dnaEncodeArray (dna2) ;
-
-  /* the new stop may me way outside the snippet, we must translate the whole mrna */
-  *stop1 = *stop2 = -1 ;  /* stop not found */
-  if (pos1 > 0)
-    for (i = pos1 - 1, j = 0, cp = arrp (dna2, i, char) ; 
-	 i < arrayMax (dna2) - 2 ; i+= 3, cp += 3, j++)
-      if (e_codon (cp, translationTable) == '*')
-	{ *stop1 = j ; break ; }
-  if (pos2 > 0)
-    for (i = pos2 - 1, j = 0, cp = arrp (dna2, i, char) ; 
-	 i < arrayMax (dna2) - 2 ; i+= 3, cp += 3, j++)
-      if (e_codon (cp, translationTable) == '*')
-	{ *stop2 = j ; break ; }
-  
-  ac_free (dna2) ;
-  return TRUE ;
-} /* locateStop */
-
-static int locateMet (const char *dna,  const char *translationTable, int pos1, int *cc99p, int *dMetp)
-{
-  int i, j, n = strlen (dna), isDown = 1 ;
-  const char *cp ;
-  Array dna2 = arrayHandleCreate (n + 3, char, 0) ;
-
-  array (dna2, n - 1, char) = 0 ;
-  memcpy (arrp (dna2, 0, char), dna, n) ;
-  dnaEncodeArray (dna2) ;
-
-  /* the new stop may be way outside the snippet, we must translate the whole mrna */
-  *dMetp = *cc99p = 0 ;  /* stop not found */
-  if (isDown) { i = pos1 - 1 + 6 ; j = 2 ; }
-  else { i = pos1 - 3 ; j = -1 ; }
-  if (pos1 > 0)
-    for ( cp = arrp (dna2, i, char) ; 
-	  i >= 0 && i < arrayMax (dna2) - 2 ; i+= 3 * isDown, cp += 3*isDown, j += isDown)
-      if (e_codon (cp, translationTable) == 'M')
-	{ *dMetp = j ; *cc99p = e_codon (arrp (dna2, i-3, char),translationTable) ; break ; }
-  ac_free (dna2) ; 
-
-  return *dMetp ;
-} /* locateMet */
-
-/***************/
 /* look for snp in geneBox but not in transcript */
 static int tsnpPotential_splice_disruption (TSNP *tsnp, ACEOUT ao)
 {
@@ -4528,7 +4603,8 @@ static int tsnpCodingModif  (TSNP *tsnp)
 			dMet = - 1 ;
 		      else
 			{
-			  locateMet (dna, translationTable, x1, &cc99, &dMet) ;
+			  /*  locateMet (dna, translationTable, x1, &cc99, &dMet) ; */
+			  messcrash ("locateMet modified") ;
 			  if (dMet == 2)  cc99 = cc22 ;
 			  dMet = - dMet ;
 			}
@@ -6113,7 +6189,7 @@ int main (int argc, const char **argv)
     }
   if (tsnp.dbTranslate)
     {
-      if (! tsnp.project)
+      if (0 && ! tsnp.project)
 	{
 	  fprintf (stderr, "-db_translate requires -project $MAGIC, sorry, try -help\n") ;
 	  exit (1) ;

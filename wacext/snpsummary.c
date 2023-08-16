@@ -28,14 +28,12 @@ typedef struct tsnpStruct {
   DICT *bloomDict ;
   DICT *runDict ;
   BitSet snpDone ;
-  vTXT runsHeader, groupsHeader ;
-  vTXT runsHeader2, groupsHeader2 ;
   vTXT detectionTxt2 ;
   vTXT titrationTxt5 ;
   vTXT titrationTxt3 ;
   AC_DB db ;
   AC_HANDLE h ;
-  AC_TABLE snps, titrationTable, countLibsTable ;
+  AC_TABLE snps, titrationTable, countLibsTable, groupTitles, runTitles ;
   const char *Etargets[4] ;
   const char *EtargetsBeau[4] ;
   const char *capture ;
@@ -497,19 +495,18 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { "Compute", "AGLR1 m:m+w", 10, 0, 0} ,
-    { "Compute", "AGLR2 m:m+w", 11, 0, 0} ,
-    { "Compute", "ROCR1 m:m+w", 12, 0, 0} ,
-    { "Compute", "ROCR2 m:m+w", 13, 0, 0} ,
-    { "Sum", "Any m:m+w", 14, 0, 0} ,
+    { "Compute", "Dan Li counts in sample A, sum of 4 libraries AGLR1 v:v+r", 1, 0, 0} ,
+    { "Compute", "Dan Li counts in sample A, sum of 4 libraries AGLR2 v:v+r", 2, 0, 0} ,
+    { "Compute", "Dan Li counts in sample A, sum of 4 libraries ROCR1 v:v+r", 3, 0, 0} ,
+    { "Compute", "Dan Li counts in sample A, sum of 4 libraries ROCR2 v:v+r", 4, 0, 0} ,
+    { "Sum", "Dan Li counts in sample A, sum of 16 libraries", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
   int mm = 0, cc = 0, nn = 0 ;
 
   const char *caption =
-    "Dan Li counts"
+    "Dan Li counts in sample A sum of 4 libraries"
     ;
-  static int chapter = 0 ;
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
 
@@ -518,7 +515,6 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
     {
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
@@ -530,11 +526,11 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
       else if (! strcmp (ti->tag, "Compute"))
 	{
 	  const char *tag ;
-	  char run[6] ;
 	  AC_TABLE tt = 0 ;
+	  char *runs[] = {"toto", "AGLR1", "AGLR2", "ROCR1", "ROCR2"} ;
+	  char *run = runs[ti->col] ;
 
 	  tag = "DanLi_counts" ;
-	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
 	  tt = ac_tag_table (snp->Snp, tag, h) ;
 
 	  aceOut (tsnp->ao, "\t") ;
@@ -575,18 +571,18 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { "Compute", "AGLR1 m/m+w", 1, 0, 0} ,
-    { "Compute", "AGLR2 m/m+w", 2, 0, 0} ,
-    { "Compute", "ROCR1 m/m+w", 3, 0, 0} ,
-    { "Compute", "ROCR2 m/m+w", 4, 0, 0} ,
+    { "Compute", "Dan Li allele frequency in sample A, sum of 4 libraries AGLR1 v/v+r", 1, 0, 0} ,
+    { "Compute", "Dan Li allele frequency in sample A, sum of 4 libraries AGLR2 v/v+r", 2, 0, 0} ,
+    { "Compute", "Dan Li allele frequency in sample A, sum of 4 libraries ROCR1 v/v+r", 3, 0, 0} ,
+    { "Compute", "Dan Li allele frequency in sample A, sum of 4 libraries ROCR2 v/v+r", 4, 0, 0} ,
+    { "Sum", "Dan Li allele frequency in sample A, sum of 16 libraries v/v+r", 10, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
   int mm = 0, cc = 0, nn = 0 ;
 
   const char *caption =
-    "Dan Li counts"
+    "Dan Li allele frequency in sample A sum of 4 libraries"
     ;
-  static int chapter = 0 ;
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
 
@@ -595,7 +591,6 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
     {
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
@@ -607,11 +602,11 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
       else if (! strcmp (ti->tag, "Compute"))
 	{
 	  const char *tag ;
-	  char run[6] ;
 	  AC_TABLE tt = 0 ;
+	  char *runs[] = {"toto", "AGLR1", "AGLR2", "ROCR1", "ROCR2"} ;
+	  char *run = runs[ti->col] ;
 
 	  tag = "DanLi_counts" ;
-	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
 	  tt = ac_tag_table (snp->Snp, tag, h) ;
 
 	  aceOut (tsnp->ao, "\t") ;
@@ -632,6 +627,14 @@ static void snpDanLiFrequency (TSNP *tsnp, SNP *snp)
 		      }
 		  }
 	    }
+	}
+      else if (! strcmp (ti->tag, "Sum"))
+	{
+	  if  (cc == 0) cc = 1 ;
+	  if (mm >= 0 && cc >= 0)
+	    aceOutf (tsnp->ao, "\t%.2f", 100.0 * mm/cc) ;
+	  else
+	    aceOut (tsnp->ao, "\t") ;
 	}
       else
 	snpShowTag (tsnp, snp, ti) ;
@@ -1085,37 +1088,84 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
 
 /*************************************************************************************/
 
-static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL isGroup, const char *caption)
+static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, int type)
 {
-  char *txGF = vtxtPtr (tsnp->groupsHeader) ;
-  char *txRF = vtxtPtr (tsnp->runsHeader) ;
-  char *txGC = vtxtPtr (tsnp->groupsHeader2) ;
-  char *txRC = vtxtPtr (tsnp->runsHeader2) ;
-  char *txG = isFrequency ? txGF : txGC ;
-  char *txR = isFrequency ? txRF : txRC ;
-  char *tx = isGroup ? txG : txR ;
+  BOOL isFrequency ;
+  BOOL isGroup ;
+  const char *caption ;
+  const char *subcaption, *subcaption2 ;
+  KEYSET rg ;
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { isGroup ? "Groups" : "Runs", tx, 1, 0, 0} ,
+    { "Groups", "", 10, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
   static KEYSET nSub, nIns, nDel, nA2G, nT2C ;
 
   static int chapter = 0 ;
+
+  switch (type)
+    {
+    case 0: 
+      isFrequency = TRUE ; isGroup = FALSE ; 
+      rg = tsnp->runs ;
+      caption = "Allele frequency in individual libraries if more than 20 covering reads, otherwise -20" ;
+      subcaption = "" ;
+      break ;
+    case 1: 
+      isFrequency = FALSE ; isGroup = FALSE ; 
+      rg = tsnp->runs ;
+      caption = "Number of variant reads and total SNV site coverage in individual libraries" ;
+      subcaption = "Variant reads in" ;
+      subcaption2 = "coverage in" ;
+      break ;
+    case 2: 
+      isFrequency = TRUE ; isGroup = TRUE ; 
+      rg = tsnp->groups ;
+      caption = "Allele Frequency in groups if more than 20 covering reads, otherwise -20" ;
+      subcaption = "Allele Frequency in" ;
+      break ;
+    case 3: 
+      isFrequency = FALSE ; isGroup = TRUE ; 
+      rg = tsnp->groups ;
+      caption = "Number of variant reads and total SNV site coverage in groups" ;
+      subcaption = "Variant reads in" ;
+      subcaption2 = "coverage in" ;
+      break ;
+    default: 
+      messcrash ("Bad call to snpBrsFrequencyCounts type=%d", type) ;
+      break ;
+    }
   if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, caption) ;
+    {
+      aceOutf (tsnp->ao, "\t\t%s", caption) ;
+      if (! isFrequency) 
+	aceOut (tsnp->ao, "\t") ;
+      for (int ir = 1 ; ir < keySetMax (rg); ir++)
+       	aceOut (tsnp->ao,  isFrequency ? "\t" : "\t\t") ;
+
+      return  ;
+    }
 
   AC_HANDLE h = ac_new_handle () ;
   for (ti = tts ; ti->tag ; ti++)
     {
-      KEYSET rg = 0 ;
-
       if (snp == 0)
 	{
 	  chapter = ++tsnp->chapter ;
-	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
-
+	  if (ti->col == 0)
+	    aceOut (tsnp->ao, "\t") ;
+	  else
+	    {
+	      for (int ir = 0 ; ir < keySetMax (rg); ir++)
+		{
+		  int r = keySet (rg, ir) ;
+		  aceOutf (tsnp->ao, "\t%s %s", subcaption, dictName (tsnp->runDict, r)) ;
+		  if (! isFrequency)
+		    aceOutf (tsnp->ao, "\t%s %s", subcaption2, dictName (tsnp->runDict, r)) ;
+		}
+	    }
 	  nSub = keySetHandleCreate (tsnp->h) ;
 	  nDel = keySetHandleCreate (tsnp->h) ;
 	  nIns = keySetHandleCreate (tsnp->h) ;
@@ -1128,7 +1178,6 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
 	{
 	  if (tsnp->aoTsf && isGroup && isFrequency)
 	    {
-	      rg = tsnp->groups ;
 	      for (int ir = 0 ; ir < keySetMax (rg); ir++)
 		{
 		  int r = keySet (rg, ir) ;
@@ -1168,14 +1217,8 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
 	  ac_free (h) ;
 	  return ;
 	}
-      if (! strcmp (ti->tag, "Runs"))
-	rg = tsnp->runs ;
-      if (! strcmp (ti->tag, "Groups"))
-	rg = tsnp->groups ;
-      
-      if (rg)
+      if (ti->col == 10 && rg)
 	{
-	  aceOut (tsnp->ao, "\t") ;
 	  for (int ir = 0 ; ir < keySetMax (rg); ir++)
 	    {
 	      int r = keySet (rg, ir) ;
@@ -1186,10 +1229,10 @@ static void snpBrsFrequencyCounts (TSNP *tsnp, SNP *snp, BOOL isFrequency, BOOL 
 		continue ;
 	      if (isFrequency)
 		{
-		  if (c >= 10)
+		  if (c >= 20)
 		    aceOutf (tsnp->ao, "\t%.2f", 100.0*m/c) ;
 		  else
-		    aceOutf (tsnp->ao, "\t-10") ;
+		    aceOutf (tsnp->ao, "\t-20") ;
 		}
 	      else
 		aceOutf (tsnp->ao, "\t%d\t%d", m, c) ;
@@ -1248,32 +1291,48 @@ static void snpBrsHistos (TSNP *tsnp, SNP *snp)
 
 /*************************************************************************************/
 
-static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
+static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp)
 {
-  char *txG = vtxtPtr (tsnp->groupsHeader) ;
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { "Groups", txG, 1, 0, 0} ,
+    { "Groups", "", 1, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
-  const char *captions[] =
-    { "toto", "toto", "Cov >= 20 in N libs", "Cov >=20 and Delta(AF) < 10%% in N libs", "Cov >= 20 and Delta(AF) > 30%% in N libs",  "Cov < 10 in N libs"} ;
+  const char *caption = "Number of libraries with coverage >= 20 allowing SNV calling\tCompatibility: number of compatible libraries with coverage >=20 and Delta(AF) < 10%\tInconcistency across libraries: number of libraries with coverage >= 20 and Delta(AF) > 30%\tNumber of libraries with insufficient coverage < 20" ;
+    ;
+  const char *subcaptions[] =
+    { "Libraries with coverage >= 20 in", "Compatible librarie in", "Incompatible libraries in",  "Insufficient coverage < 20 in"} ;
     ;
 
-  static int chapter = 0 ;
   if (snp == (void *) 1)
-    return  snpChapterCaption (tsnp, tts, captions[type]) ;
+    {
+      KEYSET rg = tsnp->groups ;
+
+      aceOutf (tsnp->ao, "\t\t%s", caption) ;
+      for (int ir = 1 ; ir < 4*keySetMax (rg); ir++)
+	aceOut (tsnp->ao, "\t") ;
+      return  ;
+    }
 
   AC_HANDLE h = ac_new_handle () ;
   for (ti = tts ; ti->tag ; ti++)
     {
-      KEYSET rg = 0 ;
-
+      KEYSET rg = tsnp->groups ;
+      
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
-	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
+	  if (ti->col == 0)
+	    aceOut (tsnp->ao, "\t") ;
+	  else
+	    {
+	      for (int ir = 0 ; ir < keySetMax (rg); ir++)
+		{
+		  int r = keySet (rg, ir) ;
+		  for (int type = 0 ; type < 4 ; type++)
+		    aceOutf (tsnp->ao, "\t%s %s", subcaptions[type], dictName (tsnp->runDict, r)) ;
+		}
+	    }
 	  continue ;
 	}
       else if (snp == (void *)2)
@@ -1287,7 +1346,6 @@ static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
 	  
 	  if (rg)
 	    {
-	      aceOut (tsnp->ao, "\t") ;
 	      for (int ir = 0 ; ir < keySetMax (rg); ir++)
 		{
 		  BOOL ok = TRUE ;
@@ -1329,7 +1387,7 @@ static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
 		      if (!r)
 			continue ;
 		      
-		      if (c < 10)
+		      if (c < 20)
 			nLow++ ;
 		      else if (c >= 20)
 			{
@@ -1344,18 +1402,13 @@ static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
 		    }
 		  if (ok)
 		    {
-		      int n = 0 ;
-		      switch (type) 
-			{
-			case 2: n = nHigh ; break ;
-			case 3: n = nOk ; break ;
-			case 4: n = nContra ; break ;
-			case 5: n = nLow ; break ;
-			}
-		      aceOutf (tsnp->ao, "\t%d", n) ;
+		      aceOutf (tsnp->ao, "\t%d", nHigh) ;
+		      aceOutf (tsnp->ao, "\t%d", nOk) ;
+		      aceOutf (tsnp->ao, "\t%d", nContra) ;
+		      aceOutf (tsnp->ao, "\t%d", nLow) ;
 		    }
 		  else
-		    aceOut (tsnp->ao, "\t") ;
+		    aceOut (tsnp->ao, "\t\t\t\t") ;
 		}
 	    }
 	}
@@ -1366,42 +1419,22 @@ static void snpBrsGroup2345 (TSNP *tsnp, SNP *snp, int type)
   return;
 }  /* snpBrsGroup2345set toto=RESULTS/SNV/SnpA2R2.DanLi.SNP_summary.june9.txt */
 
-static void snpBrsGroup2 (TSNP *tsnp, SNP *snp)
-{
-  return snpBrsGroup2345 (tsnp, snp, 2) ;
-}
-static void snpBrsGroup3 (TSNP *tsnp, SNP *snp)
-{
-  return snpBrsGroup2345 (tsnp, snp, 3) ;
-}
-static void snpBrsGroup4 (TSNP *tsnp, SNP *snp)
-{
-  return snpBrsGroup2345 (tsnp, snp, 4) ;
-}
-static void snpBrsGroup5 (TSNP *tsnp, SNP *snp)
-{
-  return snpBrsGroup2345 (tsnp, snp, 5) ;
-}
 
 static void snpBrsRunFrequency (TSNP *tsnp, SNP *snp)
 {
-  const char *caption = "Allele Frequency in individual libraries if more than 10 covering reads, otherwise -10" ;
-  return snpBrsFrequencyCounts (tsnp, snp, TRUE, FALSE, caption) ;
+  return snpBrsFrequencyCounts (tsnp, snp, 0) ;
 }
 static void snpBrsRunCounts (TSNP *tsnp, SNP *snp)
 {
-  const char *caption = "Variant counts in individual libraries" ;
-  return snpBrsFrequencyCounts (tsnp, snp, FALSE, FALSE, caption) ;
+  return snpBrsFrequencyCounts (tsnp, snp, 1) ;
 }
 static void snpBrsGroupFrequency (TSNP *tsnp, SNP *snp)
 {
-  const char *caption = "Allele Frequency in groups if more than 20 covering reads, otherwise -10" ;
-  return snpBrsFrequencyCounts (tsnp, snp, TRUE, TRUE, caption) ;
+  return snpBrsFrequencyCounts (tsnp, snp, 2) ;
 }
 static void snpBrsGroupCounts (TSNP *tsnp, SNP *snp)
 {
-  const char *caption = "Variant coverage in groups" ;
-  return snpBrsFrequencyCounts (tsnp, snp, FALSE, TRUE, caption) ;
+  return snpBrsFrequencyCounts (tsnp, snp, 3) ;
 }
 
 
@@ -1411,6 +1444,7 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
+    { "Capture", "Targeted by", 0, 0, 0} ,  
     { "Monomodal", "Monomodal", 0, 0, 0} ,  
     { "Wendell", "Wendell Jones trusted site genomic in sample A", 14, 0, 0} ,
     {  0, 0, 0, 0, 0}
@@ -1420,7 +1454,6 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
     "SNP quality control"
     ;
 
-  static int chapter = 0 ;
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
 
@@ -1429,7 +1462,6 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
     {
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
@@ -1451,6 +1483,24 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
 	    aceOut (tsnp->ao, "\tRef") ;
 	  else
 	    aceOut (tsnp->ao, "\t") ;
+	}
+      else if (! strcmp (ti->tag, "Capture"))
+	{
+	  AC_TABLE tt = 0 ;
+	  AC_OBJ Gene = ac_tag_obj (snp->Snp, "Gene", h) ;
+	  char *sep = "" ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  tt = Gene ? ac_tag_table (Gene, "Capture", h) : 0 ;
+	  for (int ir = 0 ; tt && ir < tt->rows ; ir++)
+	    {
+	      const char * ccp = ac_table_printable (tt, ir, 0, 0) ;
+	      if (ccp && ccp[2]==0)
+		{
+		  aceOutf (tsnp->ao, "%s%s", sep, ccp) ;
+		  sep = "," ;
+		}
+	    }
 	}
       else if (! strcmp (ti->tag, "Monomodal"))
 	{
@@ -1499,11 +1549,12 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
     { "Sum", sumTit, 10, 0, 0} ,
-    { "Detection", "Detected in 2 libs cov >= 20, var >= 4, AF >= 2%%", 40, 0, 0} ,
+    { "Detection", "Detected in 2 libraries coverage >= 20, variant >= 4, AF >= 2%", 40, 0, 0} ,
     { "Nlib", "Measurable in n libraries\tCalled in n libraries\tNot Measured\tAllele frequency contradictions", 20, 0, 0} ,
     { "Freq", avTit, 30, 0, 0} ,
-    { "Wendell", "Genomic allele Frequency in sample A (Jones 2021)", 14, 0, 0} ,
-    { "DanLi", "Dan Li average allele frequency on A1 A2 R1 R2", 14, 0, 0} ,
+    { "Wendell", "Genomic allele Frequency in sample A (Jones 2021)", 50, 0, 0} ,
+    { "RNA_A", "RNA allele Frequency in sample A", 60, 0, 0} ,
+    { "RNA_B", "RNA allele Frequency in sample B", 70, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
@@ -1513,7 +1564,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 
   float ff = -10 ;
 
-  static int chapter = 0 ;
   if (snp == (void *) 1)
     {
       ac_free (h) ;
@@ -1524,7 +1574,6 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
     {
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
@@ -1596,42 +1645,7 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 	      aceOutf (tsnp->ao, "\t%d\t%d\t%d\t%d", nHigh, nOk, nLow, nContra) ;
 	    }
 	}
-      else if (! strcmp (ti->tag, "DanLi"))
-	{
-	  const char *tag ;
-	  char run[6] ;
-	  AC_TABLE tt = 0 ;
-	  int mm = 0, cc = 0, nn = 0 ;
-
-	  tag = "DanLi_counts" ;
-	  strncpy (run, ti->title, 5) ; run[5] = 0 ;
-	  tt = ac_tag_table (snp->Snp, tag, h) ;
-
-	  if (tt)
-	    {
-	      int ir ;
-	      for (ir = 0 ; ir < tt->rows ; ir++)
-		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
-		  {
-		    int m = ac_table_int (tt, ir, 1, -1) ;
-		    int c = ac_table_int (tt, ir, 3, -1) ;
-		    if  (c == 0) c = 1 ;
-
-		    if (m >= 0 && c >= 0)
-		      {
-			mm += m ; cc += c ; nn ++ ;
-		      }
-		  }
-	    }
-	  if (nn)
-	    {
-	      if (cc == 0) cc = 1 ;
-	      aceOutf (tsnp->ao, "\t%.2f", 100.0 * mm / cc) ;
-	    }
-	  else
-	    aceOut (tsnp->ao, "\t") ;
-	}
-      else if (! strcmp (ti->tag, "Wendell"))
+      else if (ti->col == 50) /* Wendell */
 	{
 	  AC_TABLE tt = 0 ;
 
@@ -1644,6 +1658,56 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 	    aceOut (tsnp->ao, "\t") ;
 	}
 
+      else if (ti->col == 50) /* Wendell */
+	{
+	  AC_TABLE tt = 0 ;
+
+	  tt = ac_tag_table (snp->Snp, "Wtrue", h) ;
+	  if (!  tt) 
+	    tt = ac_tag_table (snp->Snp, "Wtrue2", h) ;
+	  if (tt && tt->cols >=1)
+	      aceOutf (tsnp->ao, "\t%.2f", ac_table_float (tt, 0, 0, 0)) ;
+	  else
+	    aceOut (tsnp->ao, "\t") ;
+	}
+
+      else if (ti->col == 60) /* RNA_A */
+	{
+	  AC_TABLE tt = 0 ;
+	  BOOL ok = FALSE ;
+	  const char *run = "Sample_A_all.70_37sC8-8sR-25lC3" ;
+	  int r = 0 ;
+	  
+	  aceOut ( tsnp->ao, "\t") ;
+	  if (dictFind (tsnp->runDict, run, &r))
+	    {
+	      int c = keySet (tsnp->covers, r) ;
+	      int m = keySet (tsnp->mutant, r) ;
+	      if (c >= 20)
+		aceOutf ( tsnp->ao, "%.2f", 100.0 * m /c) ;
+	      else
+		aceOut ( tsnp->ao, "-20") ;
+	    }
+	}
+
+      else if (ti->col == 70) /* RNA_B */
+	{
+	  AC_TABLE tt = 0 ;
+	  BOOL ok = FALSE ;
+	  const char *run = "Sample_B_all.55_35sC8-8sR-12lC2" ;
+	  int r = 0 ;
+
+	  aceOut ( tsnp->ao, "\t") ;
+	  if (dictFind (tsnp->runDict, run, &r))
+	    {
+	      int c = keySet (tsnp->covers, r) ;
+	      int m = keySet (tsnp->mutant, r) ;
+	      if (c >= 20)
+		aceOutf ( tsnp->ao, "%.2f", 100.0 * m /c) ;
+	      else
+		aceOut ( tsnp->ao, "-20") ;
+	    }
+	}
       else
 	snpShowTag (tsnp, snp, ti) ;
     }
@@ -1659,14 +1723,14 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
     { "Spacer", "", 0, 0, 0} ,
     { "AECDB", "ACB titration", 13, 0, 0} ,
     { "AECDB", "AECDB titration", 15, 0, 0} ,
+    { "CL", "Significant AF variations among cell lines 1 to 10", 80, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
 
   const char *caption =
-    "AECDB Titration"
+    "Titration"
     ;
 
-  static int chapter = 0 ;
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
 
@@ -1675,7 +1739,6 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
     {
       if (snp == 0)
 	{
-	  chapter = ++tsnp->chapter ;
 	  aceOutf (tsnp->ao, "\t%s", ti->title) ;
 	  continue ;
 	}
@@ -1693,6 +1756,48 @@ static void snpBrsTitration (TSNP *tsnp, SNP *snp)
 	{	 
 	  char *ccp = tsnp->titrationTxt5 ? vtxtPtr (tsnp->titrationTxt5) : "" ;
 	  aceOutf (tsnp->ao, "\t%s", ccp ? ccp : "" ) ;
+	}
+      else if (ti->col == 80) /* Clones */
+	{
+	  AC_TABLE tt = 0 ;
+	  BOOL ok = FALSE ;
+	  int gg = 0 ;
+	  const char *group = "CL1toCL10_60_20sA1_40lR3" ;
+
+	  aceOut (tsnp->ao, "\t") ;
+	  if (dictFind (tsnp->runDict, group, &gg))
+	    {
+	      RR *rr = arrayp (tsnp->rrs, gg, RR) ;
+	      KEYSET g2r = rr ? rr->g2r : 0 ;
+	      KEYSET afs = keySetHandleCreate (h) ;
+	      int jj = 0, mm = 0, cc = 0 ;
+
+	      for (int ii = 0 ; g2r && ii < keySetMax (g2r) ; ii++)
+		{
+		  int r = keySet (g2r, ii) ;
+		  int c = keySet (tsnp->covers, r) ;
+		  int m = keySet (tsnp->mutant, r) ;
+		  if (c >= 20)
+		    {
+		      keySet (afs, jj++) = 100 * m /c ;
+		      mm += m ; cc == c ;
+		    }
+		}
+	      if (jj > 1)
+		{
+		  int kk = 0 ;
+		  int ff = 100 * mm / cc ;
+
+		  for (int j = 0 ; j < jj ; j++)
+		    {
+		      int f = keySet (afs, j) ;
+		      if (f >= ff + 30 || f < ff - 30)
+			kk++ ;
+		    }
+		  if (kk)
+		    aceOutf (tsnp->ao, "%d", kk) ;
+		}
+	    }
 	}
       else
 	snpShowTag (tsnp, snp, ti) ;
@@ -1737,7 +1842,7 @@ static BOOL snpFilter (TSNP *tsnp, SNP *snp)
 static const char *allMethods = "VIQSgd" ;
 /* VIQSgd   */
 /* VIQSDGR     */
-/* VIQSG2345   */
+/* VIQSG2   */
 static MM methods [] = {
   {'V', &snpVCF} ,
   {'I', &snpIdentifiers} ,
@@ -1752,10 +1857,10 @@ static MM methods [] = {
   {'R', &snpBrsRunCounts} ,
 
   {'G', &snpBrsGroupCounts} ,
-  {'2', &snpBrsGroup2} ,  /* meeasured in n runs of this group */
-  {'3', &snpBrsGroup3} ,  /* not measured in n runs of this group */
-  {'4', &snpBrsGroup4} ,  /* seen in in n runs of this group */
-  {'5', &snpBrsGroup5} ,  /* contradiction  in n runs of this group */
+  {'2', &snpBrsGroup2345} ,  /* meeasured in n runs of this group */
+    /* not measured in n runs of this group */
+    /* seen in in n runs of this group */
+    /* contradiction  in n runs of this group */
 
   {'T', &snpBrsTitration} ,
 { 0, 0 }
@@ -1923,7 +2028,6 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
   AC_TABLE tt = 0 ;
   KEYSET ks ;
   DICT *dict ;
-  vTXT txt , txt2 ; 
 
   tsnp->runs = keySetHandleCreate (tsnp->h) ;
   tsnp->groups = keySetHandleCreate (tsnp->h) ;
@@ -1953,31 +2057,23 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 			 , h
 			 ) ;
 
-      txt = tsnp->runsHeader = vtxtHandleCreate (tsnp->h) ;
-      txt2 = tsnp->runsHeader2 = vtxtHandleCreate (tsnp->h) ;
       ks = tsnp->runs ; nn = 0 ;
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
 	  {
 	    const char *ccp = ac_table_printable (tt, ir, 0, "toto") ;
 	    dictAdd (dict, ccp, &r) ;
-	    vtxtPrintf (txt, "\t%s", ccp) ;
-	    vtxtPrintf (txt2, "\tVar %s\tRef %s", ccp, ccp) ;
 	    keySet (ks, nn++) = r ;
 	  }
-      else
-	vtxtPrintf (txt, "\t%s", "None") ;
 
       qq = hprintf (h, "select r, t, s from p in ?project where p == \"%s\", r in p->run where r ISA Groups, t in r->%s, s in r->Other_title", tsnp->project, tsnp->orderBy) ;
-      tt = ac_bql_table (tsnp->db
-			 , qq
-			 , 0
-			 , "+2"
-			 , &errors
-			 , h
-			 ) ;
-      txt = tsnp->groupsHeader = vtxtHandleCreate (tsnp->h) ;
-      txt2 = tsnp->groupsHeader2 = vtxtHandleCreate (tsnp->h) ;
+      tsnp->groupTitles = tt = ac_bql_table (tsnp->db
+					   , qq
+					   , 0
+					   , "+2"
+					   , &errors
+					   , tsnp->h
+					   ) ;
       ks = tsnp->groups ; nn = 0 ;
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
@@ -1987,8 +2083,6 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 	      keySet (ks, nn++) = g ;
 
 	    RR *rr = arrayp (tsnp->rrs, g, RR) ;
-	    vtxtPrintf (txt, "\t%s", ccp) ;
-	    vtxtPrintf (txt2, "\tVar %s\tCoverage %s", ccp, ccp) ;
 	    
 	    rr->sorting_title = stackMark (tsnp->sorting_titles) ;
 	    pushText (tsnp->sorting_titles, ac_table_printable (tt, ir, 1, "_") ) ;
@@ -1996,17 +2090,15 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
 	    pushText (tsnp->sorting_titles, ac_table_printable (tt, ir, 2, ccp ) ) ;
 	    rr->isGroup = TRUE ;
 	  }
-      else
-	vtxtPrintf (txt, "\t%s", "None") ;
 
       qq = hprintf (h, "select r from p in ?project where p == \"%s\" , r in p->run where r#Ignore_lowQ_runs_in_group_allele_frequency", tsnp->project, 0) ;
-      tt = ac_bql_table (tsnp->db
-			 , qq
-			 , 0
-			 , 0
-			 , &errors
-			 , h
-			 ) ;
+      tsnp->runTitles = tt = ac_bql_table (tsnp->db
+					   , qq
+					   , 0
+					   , 0
+					   , &errors
+					   , tsnp->h
+					   ) ;
 
       if (tt)
 	for (int ir = 0 ; ir < tt->rows ; ir++)
@@ -2090,15 +2182,18 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
       qq =" where  s#VCF and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)  " ;
       break ;
     case 3: 
-      qq = " where s#VCF and  (s#danli_counts || s#wtrue || s#wtrue2)  and ! s#Wfalse and ! s#Wfalse2 " ;
-      break ;
-    case 5: 
-      qq = " where s#VCF and                     (s#Wtrue || s#Wtrue2) and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
-      break ;
-    case 6: 
-      qq = " where s#VCF and  (s#Wfalse || s#Wfalse2) and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  (s#wtrue || s#wtrue2)  and ! s#Wfalse and ! s#Wfalse2 " ;
       break ;
     case 4: 
+      qq = " where s#VCF and  (s#Wfalse || s#Wfalse2) and (s#danli_counts || s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 5: 
+      qq = " where s#VCF and  s#danli_counts and !s#wtrue and ! s#wtrue2  and ! s#Wfalse and ! s#Wfalse2 " ;
+      break ;
+    case 6: 
+      qq = " where s#VCF and  !s#DanLi_counts && ! s#Wendell_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      break ;
+    case 7: 
       qq = " s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
       break ;
     case 20: 
@@ -2208,7 +2303,7 @@ static void usage (char *message)
 	    "//       10 : gene captured by A1 A2 R1 R2 R3 I1 I2 I3  and snp is Wtrue || Dan_Li\n"
 	    "//       9 : no SNP, only the title lines\n"
 	    "//    --doubleDetect\n"
-	    "//       Count  snp detetced at in 2 libs at 10:4 and at least once at 20:8\n"
+	    "//       Count  snp detetced at in 2 libraries at 10:4 and at least once at 20:8\n"
 	    "// Caveat:\n"
 	    "//   Caption lines at the top start with a #\n"
 	    ) ;
@@ -2298,8 +2393,8 @@ int main (int argc, const char **argv)
   if (tsnp.doub)
     {
       tsnp.ao204 = aceOutCreate (tsnp.outFileName, ".nDetectingLibsPerSnp.tsf", tsnp.gzo, h) ;
-      aceOutDate (tsnp.ao204, "##", messprintf ("Number of libs in the project measuring the SNP at coverage >= 20, frequency >=2, variant count >= 4 in  at least 2 libs of project %s", tsnp.project)) ; 
-      aceOut (tsnp.ao204, "#Variant\tProject\tFormat\tN libs\tTrue/False\tMonomodal\n") ;
+      aceOutDate (tsnp.ao204, "##", messprintf ("Number of libraries in the project measuring the SNP at coverage >= 20, frequency >=2, variant count >= 4 in  at least 2 libraries of project %s", tsnp.project)) ; 
+      aceOut (tsnp.ao204, "#Variant\tProject\tFormat\tN libraries\tTrue/False\tMonomodal\n") ;
     }
 
   if (tsnp.count_libs  && tsnp.project)
