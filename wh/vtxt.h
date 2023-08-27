@@ -49,7 +49,7 @@ BOOL vtxtItalic (vTXT blkp, char *text) ;
 BOOL vtxtSequence (vTXT blkp, char *text) ; 
 BOOL vtxtPeptide (vTXT blkp, char *text, BOOL addStop) ;
 
-
+vTXT vtxtTokenSort (vTXT txt, char *splitOn, AC_HANDLE h) ;
 
 /*************************************************************/
 /* Functions to analyse an xml document possibly downloaded from the web */

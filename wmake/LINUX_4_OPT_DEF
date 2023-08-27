@@ -17,7 +17,7 @@
 #################################################################
 
 NAME = OPTERON
-COMPILER = gcc -O4 -fno-strict-aliasing -DACEDB4
+COMPILER = gcc -g -O4 -fno-strict-aliasing -DACEDB4
 LINKER = gcc -L.
 LIBS = -lm
 

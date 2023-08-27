@@ -6103,7 +6103,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-orderBy", &qc.orderBy) ;
   
   getCmdLineOption (&argc, argv, "-o", &qc.outFileName) ; 
-  qc.ao = aceOutCreate (qc.outFileName, ".Data_Summary.txt", qc.gzo, h) ;
+  qc.ao = aceOutCreate (qc.outFileName, ".QC.txt", qc.gzo, h) ;
   if (! qc.ao)
     messcrash ("cannot create output file %s\n", qc.outFileName ? qc.outFileName : EMPTY ) ;
 

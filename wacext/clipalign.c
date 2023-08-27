@@ -2459,8 +2459,14 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 		  /* check that the prefix including an extra donor 'gt' 
 		   * is not present in the genome
 		   */
-		  sprintf ((char *)buf2, "%s%c%c", ccp, G_, T_ | C_) ;
-		  if (! dnaPickMatch (genome, genomeLn, buf2, 0, 0))
+		  int kkk = ccp ? strlen ((const char*)ccp) : 0 ;
+                  BOOL inGenome = FALSE ;
+		  if (kkk < OVLN)
+		    {
+		      sprintf ((char *)buf2, "%s%c%c", ccp, G_, T_ | C_) ;
+		      inGenome = dnaPickMatch (genome, genomeLn, buf2, 0, 0) ;
+		    }
+		  if (! inGenome)
 		    {
 		      goodPrefix = ns + 11 ;
 		      score += pp->slBonus ;
@@ -2522,8 +2528,15 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 		  /* check that the prefix 
 		   * is not present in the genome
 		   */
-		  sprintf ((char *)buf2, "%s%c%c", ccp, G_, T_ | C_) ;
-		  if (! dnaPickMatch (genome, genomeLn, buf2, 0, pp->entryAdaptorHasN[ns]))
+                  int kkk = ccp ? strlen ((const char *)ccp) : 0 ;
+                  BOOL inGenome = FALSE ;
+		  if (kkk < OVLN)
+		    {
+		      fprintf (stderr , "zzzzz   kkk=%d ccp=%s\n", kkk, ccp) ;
+		      sprintf ((char *)buf2, "%s%c%c", ccp, G_, T_ | C_) ;
+		      inGenome = dnaPickMatch (genome, genomeLn, buf2, 0, pp->entryAdaptorHasN[ns]) ;
+		    }
+		  if (! inGenome)
 		    {
 		      goodPrefix = 3 ;  /* report Adaptor */
 		      score -= petitMalus ; /* do not count the aligned letters which belong to the adaptor */
@@ -2654,8 +2667,14 @@ BOOL clipAlignVerifyProbeHit (CLIPALIGN *pp, MM *mm, Array dna, Array dnaR, int 
 		      /* check that the accepted part SL including an extra donor 'gt' 
 		       * is not present in the genome
 		       */
-		      sprintf ((char *)buf2, "%c%c%s", A_ | G_,  C_, ccp) ;
-		      if (! dnaPickMatch (genome, genomeLn, buf2, 0, 0))
+		      int kkk = ccp ? strlen ((const char *)ccp) : 0 ;
+		      BOOL inGenome = FALSE ;
+		      if (kkk < OVLN)
+			{
+			  sprintf ((char *)buf2, "%c%c%s", A_ | G_,  C_, ccp) ;
+			  inGenome = dnaPickMatch (genome, genomeLn, buf2, 0, 0) ;
+			}
+		      if (! inGenome)
 			{
 			  goodSuffix = ns + 11 ;
 			  score += pp->slBonus ;
@@ -5569,6 +5588,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
   char *cp=0, *cpB, errLeftVal[10024], errRightVal[10024] ;
   unsigned char prefix[64+OVLN], targetPrefix[64 + 4 * OVLN], suffix[64+OVLN] ;
   int nf = 0 ;
+  static int NNN = 0 ;
   int iBucket ;
   int nTargets = pp->nTargets ;
   BOOL oligoGeneTouched = FALSE ;
@@ -5757,6 +5777,8 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
       if (assFind (ass2, assVoid(oligo), 0))   /* (myass) */
 	while (assFindNext(myass, assVoid(myOligo), &vp, &bucket, &iBucket))
 	  {
+	    int anchorMax = arrayMax (pp->probes) ;
+	    NNN++ ;
 	    anchor = assULong(vp)-1 ;
 	    if (is64)
 	      {
@@ -5769,7 +5791,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 		anchor = anchor & 0x3fffff ; 
 	      }
 	    mm0 = arrp (pp->probes, anchor, MM) ;
-	    for (mm = mm0, same = mm->probeLength ;  mm ; mm = same  >= xpos  + seedLength - 1 ? mm+1 : 0)
+	    for (mm = mm0, same = mm->probeLength ;  mm && anchor < anchorMax ; anchor++, mm = (same  >= xpos  + seedLength - 1 ? mm+1 : 0) )
 	      {
 		if (mm->same < same) same = mm->same ; /* part in future mm common with mm0 */
 		if (pp->maxHit && mm->nGeneHits * 30 > pp->maxHit * mm->probeLength) /* assume 30bp per exon */
@@ -5820,6 +5842,7 @@ static int clipAlignGetProbeHits (CLIPALIGN *pp, Array dna, Array dnaR, BOOL isU
 		    mm->wordCount[xk]++ ;
 		  }
 		nErr = nN = 0 ;
+		NNN++ ;
 		if (0 && xpos < 230 && xpos > 130 && pp->target == 17 && isUp == FALSE)
 		  invokeDebugger() ;
 		if (clipAlignVerifyProbeHit (pp, mm, dna, dnaR, pos, xpos
@@ -6121,7 +6144,7 @@ static int clipAlignOptimizeHalfChain (CLIPALIGN *pp, BigArray aa, int ii1, int 
 	      continue ;
 	    
 	    strncpy (buft, ctb, 10) ; buft[11] = 0 ;
-	    ct = strchr (bufp, ',') ; if (ct) *++ct = 0 ; else continue ;
+	    ct = strchr (buft, ',') ; if (ct) *++ct = 0 ; else continue ;
 	    ct = strstr (cta, buft) ;
 	    if (!ct)
 	      continue ;

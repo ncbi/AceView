@@ -11,6 +11,24 @@ if ($phase == 1) then
   goto done
 endif
 
+#kill snp not A2R2
+if ($phase == kill) then
+  set pp=SnpA2R2 
+  bin/tace tmp/TSNP_DB/$zone -no_prompt <<EOF 
+    find variant
+    spush
+    find gene
+    select v from g in @ where g->capture == "A2" and g->capture == "R2", v in g->variant ;
+    sminus
+    spop
+    kill
+    save
+    quit
+EOF
+  goto done
+endif
+  
+
 if ($phase == p) then
   set pp=SnpA2R2 
   bin/tace tmp/TSNP_DB/$zone -no_prompt <<EOF 
@@ -35,6 +53,21 @@ if ($phase == p) then
     save
     quit
 EOF
+  goto done
+endif
+
+if ($phase == M) then 
+  bin/tace tmp/TSNP_DB/$zone -no_prompt <<EOF 
+    query find variant monomodal == snpa2r2
+    edit -D monomodal snpa2r2
+    query find variant monomodal == Mole
+    edit -D monomodal Mole
+    select s,r,c,m from s in @, r in s->brs_counts where r like "SRR*", c in r[1], m in r[2] where m > 1 and 100*m < 20*c
+    edit monomodal Mole
+    save
+    quit
+EOF
+
   goto done
 endif
 
@@ -159,11 +192,12 @@ endif
 if ($phase == dc) then 
 
   \rm  tmp/TSNP_DB/$zone.out tmp/TSNP_DB/$zone.err
- foreach stype (6)
+ foreach stype (3 4 5)
   if ($stype == 1) set titre=any
   if ($stype == 3) set titre=Wtrue
   if ($stype == 4) set titre=Wfalse
   if ($stype == 5) set titre=DanLiNonWendell
+
   if ($stype == 6) set titre=NonWendellNonDanLi
   if ($stype == 20) set titre=coding
   if ($stype == 21) set titre=UTR_3prime
@@ -174,12 +208,12 @@ if ($phase == dc) then
   end
 
   set pp=SnpA2R2
-  set pp=$MAGIC
+  set pp=$MAGIC  
   \rm  tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.*
-#   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDGR2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf --justDetected
-   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDG2345 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf
-   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libCounts  --snpType $stype  -e VIQTSR     -p $pp  --unique
-   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs       --snpType $stype  -e VIQTSr     -p $pp  --unique
+#   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDGR2 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf --justDetected
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups.SNV.AF_Counts --snpType $stype  -e VIQTSgdDG2 -p $pp --histos --countLibs --doubleDetect --titration  --unique --tsf
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs.SNV.Counts  --snpType $stype  -e VIQTSR     -p $pp  --unique
+   bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs.SNV.AF       --snpType $stype  -e VIQTSr     -p $pp  --unique
  end
  goto done
 endif
@@ -192,9 +226,9 @@ if ($phase == cap) then
   if ($stype == 3) set titre=$capture
   set pp=$MAGIC
   \rm  tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.*
-  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups     --snpType $stype  -e VIQTSgdDG2345 -p $pp --histos --countLibs --doubleDetect --titration --capture $capture  --unique
-  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libCounts  --snpType $stype  -e VIQTSR     -p $pp  --unique
-  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs       --snpType $stype  -e VIQTSr     -p $pp --unique
+  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.groups.SNV.AF_Counts     --snpType $stype  -e VIQTSgdDG2 -p $pp --histos --countLibs --doubleDetect --titration --capture $capture  --unique
+  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs.SNV.Counts  --snpType $stype  -e VIQTSR     -p $pp  --unique
+  bin/snpsummary -db tmp/TSNP_DB/$zone -o tmp/TSNP_DB/$zone/$pp.$titre.$stype.$zone.libs.SNV.AF       --snpType $stype  -e VIQTSr     -p $pp --unique
  end
  goto done
 endif
@@ -209,12 +243,20 @@ done:
   foreach zone (`cat tmp/SNP_ZONE/ZoneList `)
     scripts/submit tmp/TSNP_DB/$zone "scripts/snp3.tcsh dc $zone"
   end
+ qusage 1
 
-
-  foreach zone (`cat tmp/SNP_ZONE/ZoneList `)
-    scripts/submit tmp/TSNP_DB/$zone "scripts/snp3.tcsh dc $zone"
-    scripts/submit tmp/TSNP_DB/$zone "scripts/snp3.tcsh cap $zone"
-  end
+set pp=$MAGIC
+#  NonWendellNonDanLi.6
+foreach titre (Wtrue.3  Wfalse.4 DanLiNonWendell.5)
+    foreach GR (libs.SNV.AF libs.SNV.Counts groups.SNV.AF_Counts)
+      set toto=RESULTS/SNV/$pp.$titre.$GR.aug24
+      echo -n "## SEQC2 Genes captured by A2 and R2 in project $pp limited to  $titre : " > $toto.txt
+      echo -n "## $pp : SNV list counts and properties in project $pp restricted to genes captured by A2 and R2  limited to  $titre : " > $toto.txt
+      date >> $toto.txt 
+      cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | head -12 | tail -11 | gawk '/^#/{printf ("#\t"); print ;}'  >> $toto.txt
+      cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | gawk '/^#/{next;}{print}' | tab_sort -k 3,3n -k 4,4n  | gawk '{n++;printf("%d\t", n); print;}' >> $toto.txt
+    end
+end
 
 
 qusage 1
@@ -254,18 +296,6 @@ foreach titre (any.1 Wtrue.3  Wfalse.4 A1A2I2I3R1R2.3 A1A2I2I3R1R2_Wfalse.3)
 end
 
 foreach titre (any.1 wendell.3  Wfalse.6 A1A2I2I3R1R2.3 A1A2I2I3R1R2_Wfalse.3)
-end
-
-set pp=$MAGIC
-foreach titre (Wtrue.3  Wfalse.4 DanLiNonWendell.5 NonWendellNonDanLi.6)
-    foreach GR (libs libCounts groups)
-      set toto=RESULTS/SNV/$pp.$titre.$GR.SNP_summary.aug1
-      echo -n "## SEQC2 Genes captured by A2 and R2 in project $pp limited to  $titre : " > $toto.txt
-      echo -n "## $pp : SNV list counts and properties in project $pp restricted to genes captured by A2 and R2  limited to  $titre : " > $toto.txt
-      date >> $toto.txt 
-      cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | head -12 | tail -11 | gawk '/^#/{printf ("#\t"); print ;}'  >> $toto.txt
-      cat tmp/TSNP_DB/zoner.*/$pp.$titre.zoner.*.$GR.SNP_summary.txt  | gawk '/^#/{next;}{print}' | tab_sort -k 3,3n -k 4,4n  | gawk '{n++;printf("%d\t", n); print;}' >> $toto.txt
-    end
 end
 
 
@@ -339,4 +369,11 @@ echo quit >> $toto
 
 tace  tmp/TSNP_DB/ANY <  $toto &
 
+
+######
+# Venn diagrams of MAGIC SNPs
+set ff=RESULTS/SNV/SnpA2R2.Wtrue.3.groups.SNP_summary.aug16.txt
+
+cat $ff | gawk -F '\t' '/^#/{print}' | transpose | grep -n etected
+cat $ff | gawk -F '\t' '/^#/{next;}{print $32}' | tags | grep A2
 

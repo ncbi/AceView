@@ -126,7 +126,7 @@ foreach target ($allRNAtargets)
             (bin/dna2dna -gtf TARGET/GTF/$species.$target.gtf.gz  -gtfRemap $target_class  -o tmp/METADATA/gtf.$target ) >& tmp/METADATA/gtf.$target.err
     else if (-e TARGET/GTF/$species.$target.gff.Bacteria.gz) then
       (bin/dna2dna -gff3 TARGET/GTF/$species.$target.gff.Bacteria.gz  -gtfRemap $target_class  -o tmp/METADATA/gtf.$target ) >& tmp/METADATA/gtf.$target.err
-    else 
+    else if (-e TARGET/GTF/$species.$target.gff.gz) then
       (bin/dna2dna -gff3 TARGET/GTF/$species.$target.gff.gz  -gtfRemap $target_class  -o tmp/METADATA/gtf.$target ) >& tmp/METADATA/gtf.$target.err
       if (! -e TARGET/Targets/$species.$target.fasta.gz && -e  TARGET/Targets/$species.genome.fasta.gz) then
         bin/dna2dna -gff3  TARGET/GTF/$species.$target.gff.gz -gtfGenome TARGET/Targets/$species.genome.fasta.gz -o TARGET/Targets/tutuy1

@@ -1043,4 +1043,41 @@ vTXT xmlGetDDContent (char *xml, AC_HANDLE h)
 
 /********************************************************************/
 /********************************************************************/
+/* split a txt on some characters, typically ",:;"
+ * neteurn a new txt with the same tokens but in alphbetic order
+ */
+ 
+vTXT vtxtTokenSort (vTXT txt0, char *splitOn, AC_HANDLE h0)
+{
+  char *cp = txt0 ? vtxtPtr (txt0) : 0 ;
+  if ( 0 && cp)
+    {
+      AC_HANDLE h = ac_new_handle () ;
+      KEYSET ks = keySetHandleCreate (h) ;
+      int i, k, nn = strlen (cp) ;
+      char buf[nn+1] ;
+      strncpy (buf, cp, nn) ; buf[nn] = 0 ;
+      vTXT txt = vtxtHandleCreate (h0) ;
+      char *cq, *cr ;
+      while (cp)
+	{
+	  for (i = k = 0, cq = cp ; *cq ; i++, cq++)
+	    {
+	      keySet (ks, k++) = i ;
+	      buf[i] = *cq ;
+	      if (strchr (splitOn, *cq))
+		{
+		  buf[i] = 0 ;
+		  break ;
+		  cp = cq + 1 ;
+		}
+	    }
+	}
+      
+      return txt ;
+      ac_free (h) ;
+    }
+  return txt0 ;  /* i did nothing  */
+} /* vtxtTokenSort */
 
+/********************************************************************/

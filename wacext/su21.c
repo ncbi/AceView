@@ -13825,7 +13825,7 @@ int main (int argc, const char **argv)
 	  exit (0) ;
 	}
       
-      if (0)
+      if (1)
 	{
 	  firstDummyIndex = 'a' ;
 	  printf ("\n\n\n@@@@@@@@@ Boson propagators, Boson loops */\n") ;
@@ -13835,8 +13835,9 @@ int main (int argc, const char **argv)
 	      if (1) Z2_AA__loopH ("######### Vector propagator, Complex Scalar loop, -1/3 null in su(1/1) \n") ;
 	      if (1) Z2_AA__loopGhost ("######### Vector propagator, Ghost loop, -1/6 null in su(1/1) \n") ;
 	      if (1) Z2_AA__loopA ("######### Vector propagator, Vector loop, -3/2null in su(1/1) \n") ;
-	      if (0) Z2_AA__loopB ("######### Vector propagator, Tensor loop, ?, null in su(1/1) \n") ;
+	      if (1) Z2_AA__loopB ("######### Vector propagator, Tensor loop, ?, null in su(1/1) \n") ;
 	      if (0) Z2_AA__loopHB ("######### Vector propagator, Tensor-Scalar 0, loop, expect 0\n") ;
+	      exit (0) ;
 	    }
 	  
 	  if (1)

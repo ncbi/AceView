@@ -17,6 +17,7 @@ typedef struct tsnpStruct {
   const char *project ;
   const char *dbName ;
   const char *export ;
+  const char *select ;
   int snpType ; /* 0: any, 1=sublib; 2=runs ; 3=group */
   int minSnpFrequency, minSnpCover ;
   int allC, allM ;
@@ -43,7 +44,7 @@ typedef struct tsnpStruct {
   BOOL gzi, gzo ;
   Array rrs ;
   Array histos, detectLibs ;
-  BOOL Wtrue, Wfalse, DanLi ;    /* associated to the current snp */
+  BOOL Wtrue, Wfalse, DanLi, monomodal ;    /* associated to the current snp */
   KEYSET covers, mutant ;  /* associated to the current snp */
   KEYSET doubleDetect ;
   ACEOUT aoTitration, aoDT ;
@@ -148,7 +149,7 @@ static void snpVCF (TSNP *tsnp, SNP *snp)
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
     /* { "Line", "Line Number", 0, 0, 0} , */
-    { "VCF", "VCF Chromosome\tVCF position\tVCF ID\tVCF Reference\tVCF Variant", 1, 0, 0} ,
+    { "VCF", "VCF GRCh37 Chromosome\tVCF GRCh37 position\tVCF GRCh37 ID\tVCF Reference\tVCF Variant", 1, 0, 0} ,
     { "Magic", "Magic Identifier", 1, 0, 0} ,
     {  0, 0, 0, 0, 0}
   } ; 
@@ -167,7 +168,7 @@ static void snpVCF (TSNP *tsnp, SNP *snp)
   static int chapter = 0 ;
   static int line = 0 ;
   const char *caption =
-    "VCF Identifiers"
+    "VCF GRCh37 Identifiers"
     ;
   if (snp == (void *) 1)
     return  snpChapterCaption (tsnp, tts, caption) ;
@@ -495,11 +496,18 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 {
   TT *ti, tts[] = {
     { "Spacer", "", 0, 0, 0} ,
-    { "Compute", "Dan Li counts in sample A, sum of 4 libraries AGLR1 v:v+r", 1, 0, 0} ,
-    { "Compute", "Dan Li counts in sample A, sum of 4 libraries AGLR2 v:v+r", 2, 0, 0} ,
-    { "Compute", "Dan Li counts in sample A, sum of 4 libraries ROCR1 v:v+r", 3, 0, 0} ,
-    { "Compute", "Dan Li counts in sample A, sum of 4 libraries ROCR2 v:v+r", 4, 0, 0} ,
-    { "Sum", "Dan Li counts in sample A, sum of 16 libraries", 14, 0, 0} ,
+    { "Compute", "Dan Li variant reads in AGLR1_A, sum of 4 libraries", 10, 0, 0} ,
+    { "Compute", "Dan Li coverage in AGLR1_A, sum of 4 libraries", 11, 0, 0} ,
+    { "Compute", "Dan Li variant reads in AGLR2_A, sum of 4 libraries", 20, 0, 0} ,
+    { "Compute", "Dan Li coverage in AGLR2_A, sum of 4 libraries", 21, 0, 0} ,
+    { "Compute", "Dan Li variant reads in ROCR1_A, sum of 4 libraries", 30, 0, 0} ,
+    { "Compute", "Dan Li coverage in ROCR1_A, sum of 4 libraries",31, 0, 0} ,
+    { "Compute", "Dan Li variant reads in ROCR2_A, sum of 4 libraries", 40, 0, 0} ,
+    { "Compute", "Dan Li coverage in ROCR2_A, sum of 4 libraries", 41, 0, 0} ,
+    /*
+      { "Sum", "Dan Li variant reads in sample A, sum of 16 libraries", 0, 0, 0} ,
+      { "Sum", "Dan Li coverage in sample A, sum of 16 libraries", 1, 0, 0} ,
+    */
     {  0, 0, 0, 0, 0}
   } ; 
   int mm = 0, cc = 0, nn = 0 ;
@@ -528,7 +536,7 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 	  const char *tag ;
 	  AC_TABLE tt = 0 ;
 	  char *runs[] = {"toto", "AGLR1", "AGLR2", "ROCR1", "ROCR2"} ;
-	  char *run = runs[ti->col] ;
+	  char *run = runs[ti->col/10] ;
 
 	  tag = "DanLi_counts" ;
 	  tt = ac_tag_table (snp->Snp, tag, h) ;
@@ -540,11 +548,11 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 	      for (ir = 0 ; ir < tt->rows ; ir++)
 		if (!strcmp (ac_table_printable (tt, ir, 0, "toto"), run))
 		  {
-		    int m = ac_table_int (tt, ir, 1, -1) ;
-		    int c = ac_table_int (tt, ir, 3, -1) ;
+		    int m = 4*ac_table_int (tt, ir, 1, -1) ;
+		    int c = 4*ac_table_int (tt, ir, 3, -1) ;
 		    if (m >= 0 && c >= 0)
 		      {
-			aceOutf (tsnp->ao, "%d:%d", m, c) ;
+			aceOutf (tsnp->ao, "%d", ti->col %2 ? c : m) ;
 			mm += m ; cc += c ;
 			nn++ ;
 		      }
@@ -552,12 +560,7 @@ static void snpDanLiCounts (TSNP *tsnp, SNP *snp)
 	    }
 	}
       else if (! strcmp (ti->tag, "Sum"))
-	{
-	  if (nn > 0)
-	    aceOutf (tsnp->ao, "\t%d:%d", mm, cc) ;
-	  else
-	    aceOut (tsnp->ao, "\t") ;
-	}
+	aceOutf (tsnp->ao, "\t%d", ti->col %2 ? cc : mm) ;
       else
 	snpShowTag (tsnp, snp, ti) ;
     }
@@ -956,7 +959,7 @@ static BOOL snpBrsParseCounts (TSNP *tsnp, SNP *snp)
       else if (ac_has_tag (snp->Snp, "Wfalse2")) cp = "Wfalse2" ;
 
       cq = ac_tag_printable (snp->Snp, "Monomodal", "toto") ;
-      if (! cq || strcmp (cq, "Fatigue"))  cq = "X" ;
+      if (! cq)  cq = "X" ;
       aceOutf (tsnp->ao204, "%s\t%s\tift\t%d\t%.2f\t%s\t%s\n", ac_name (snp->Snp), tsnp->project, nn, 100.0 * tsnp->allM/tsnp->allC, cp, cq) ;
     }
   
@@ -992,6 +995,10 @@ static int snpBrsParseTrueCounts (TSNP *tsnp, SNP *snp)
 	    keySet (tsnp->covers, r) += c ;
 	    keySet (tsnp->mutant, r) += m ;
 	    allC += c ;
+	    /*
+	      if (! strcmp (ac_name (snp->Snp), "NIN.aAug10:4892:Del:tA:t") && ! strncmp ( ac_table_printable (tt, ir, 0, "toto"), "SRR", 3))
+	      invokeDebugger () ;
+	    */
 	  }
       }
 
@@ -1011,7 +1018,7 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
   tsnp->covers = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
   tsnp->mutant = arrayHandleCreate (dictMax (tsnp->runDict) + 1, KEY, snp->h) ;
   tsnp->allC = tsnp->allM = 0 ;
-  tsnp->Wtrue= tsnp->Wfalse = tsnp->DanLi = FALSE ;
+  tsnp->Wtrue= tsnp->Wfalse = tsnp->DanLi = tsnp->monomodal = FALSE ;
   vtxtClear (tsnp->detectionTxt2) ;
   vtxtClear (tsnp->titrationTxt5) ;
   vtxtClear (tsnp->titrationTxt3) ;
@@ -1064,6 +1071,7 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
 		      if (c > bestC) 
 			{ bestC = c ; bestIv = iv ;	}
 		      key = ac_obj_key (snp->Snp) ;
+		      tsnp->monomodal |= ac_has_tag (snp->Snp, "Monomodal") ;
 		      bitSet (tsnp->snpDone, KK(key)) ;
 		    }
 		  snp->Snp = 0 ;
@@ -1072,6 +1080,7 @@ static BOOL snpBrsNextSnp (TSNP *tsnp, SNP *snp, int iSnp)
 		      snp->Snp = ac_table_obj (vv, bestIv, 0, snp->h) ; 
 		      tsnp->Wtrue  = ac_has_tag (snp->Snp, "Wtrue") ||  ac_has_tag (snp->Snp, "Wtrue2") ;
 		      tsnp->Wfalse = ac_has_tag (snp->Snp, "Wfalse") ||  ac_has_tag (snp->Snp, "Wfalse2") ;
+		      tsnp->monomodal |= ac_has_tag (snp->Snp, "Monomodal") ;
 		      if (! snpBrsParseCounts (tsnp, snp))
 			return FALSE ;
 		    }
@@ -1516,7 +1525,7 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
 	      for (ir = 0 ; ir < tt->rows ; ir++)
 		{
 		  const char *cp = ac_table_printable (tt, ir, 0, 0) ;
-		  if (cp && (!strcmp (cp, "Fatigue") || ! strcmp (cp, "NB")))
+		  if (cp)
 		    {
 		      aceOutf (tsnp->ao
 			       , "%c%s"
@@ -1526,6 +1535,11 @@ static void snpBrsQC(TSNP *tsnp, SNP *snp)
 		      sep = ',' ;
 		      ok = TRUE ;
 		    }
+		}
+	      if (! ok && tsnp->monomodal)
+		{
+		  aceOut (tsnp->ao, "\tAlias") ;
+		  ok = TRUE ;
 		}
 	      if (! ok)
 		aceOut (tsnp->ao, "\t") ;
@@ -1607,7 +1621,8 @@ static void snpBrsAllRuns (TSNP *tsnp, SNP *snp)
 	}
       else if (ti->col == 40)
 	{	 
-	  const char *ccp = vtxtPtr (tsnp->detectionTxt2) ;
+	  vTXT txt2 = vtxtTokenSort (tsnp->detectionTxt2, ",", h) ;
+	  const char *ccp = vtxtPtr (txt2) ;
 	  if (ccp)
 	    aceOutf (tsnp->ao, "\t%s", ccp) ;
 	  else
@@ -2194,34 +2209,34 @@ static int snpGetSnpsRunsGroups (TSNP *tsnp)
       qq =" where s#VCF  " ;
       break ;
     case 1: 
-      qq =" where  s#VCF and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)  " ;
+      qq =" where  s#VCF and (s#Manual_non_monomodal || !  s->monomodal)  " ;
       break ;
     case 3: 
       qq = " where s#VCF and  (s#wtrue || s#wtrue2)  and ! s#Wfalse and ! s#Wfalse2 " ;
       break ;
     case 4: 
-      qq = " where s#VCF and  (s#Wfalse || s#Wfalse2) and (s#danli_counts || s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  (s#Wfalse || s#Wfalse2) and (s#danli_counts || s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     case 5: 
       qq = " where s#VCF and  s#danli_counts and !s#wtrue and ! s#wtrue2  and ! s#Wfalse and ! s#Wfalse2 " ;
       break ;
     case 6: 
-      qq = " where s#VCF and  !s#DanLi_counts && ! s#Wendell_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  !s#DanLi_counts && ! s#Wendell_counts and (s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     case 7: 
-      qq = " s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal == Fatigue), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
+      qq = " s#danli_counts and (s#Manual_non_monomodal || !  s->monomodal), m in s->danli_counts where m, x in m[1], y in m[3] where 100 * x > 98 * y" ;
       break ;
     case 20: 
-      qq = " where s#VCF and  s#coding  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  s#coding  and (s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     case 21: 
-      qq = " where s#VCF and  s#UTR_3prime  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  s#UTR_3prime  and (s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     case 22: 
-      qq = " where s#VCF and  s#A2G  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  s#A2G  and (s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     case 23: 
-      qq = " where s#VCF and  s#G2A  and (s#Manual_non_monomodal || !  s->monomodal == Fatigue)" ;
+      qq = " where s#VCF and  s#G2A  and (s#Manual_non_monomodal || !  s->monomodal)" ;
       break ;
     }
   char *qqC =  tsnp->capture ? hprintf (h, "g in ?gene where g->capture == \"%s\", s in g->variant ", tsnp->capture) : "s in ?variant" ;
@@ -2359,6 +2374,7 @@ int main (int argc, const char **argv)
   getCmdLineOption (&argc, argv, "-p", &tsnp.project) ;
   getCmdLineOption (&argc, argv, "--project", &tsnp.project) ;
   getCmdLineOption (&argc, argv, "--capture", &tsnp.capture) ;
+  getCmdLineOption (&argc, argv, "--select", &tsnp.select) ;
   getCmdLineInt (&argc, argv, "--snpType", &tsnp.snpType) ;
 
   tsnp.histo =   getCmdLineBool (&argc, argv, "--histos") ;
