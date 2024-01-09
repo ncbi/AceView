@@ -8796,15 +8796,16 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
   int mx1 = 8 ;
   static BOOL firstPass = TRUE ;
   static BOOL firstPassGhost = TRUE ;
-  BOOL isAdjoint = (kas->NN >= 0 && kas->a == 1 && kas->b == 1) ? TRUE : FALSE ;
+  BOOL isAdjoint = (kas->NN >= 0 && kas->a == 1 && kas->b == 0) ? TRUE : FALSE ;
 
   if (isGhost)
     {
       if (!kas->cccGhost)
 	kas->cccGhost = mxCreate (kas->h,  "cccGhost", MX_FLOAT, 10, 10, 10, 0) ;
       ccc = kas->cccGhost ;
-      if (! isAdjoint || ! firstPassGhost)
-	goto done ;
+      if (1)
+	if (! isAdjoint || ! firstPassGhost)
+	  goto done ;
       firstPassGhost = FALSE ;
     }
   else
@@ -8812,9 +8813,10 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
       if (! kas->ccc)
 	kas->ccc = mxCreate (kas->h,  "ccc", MX_FLOAT, 10, 10, 10, 0) ;
       ccc = kas->ccc ;
-      if (! isAdjoint || ! firstPass)
-	goto done ;
-      firstPass = FALSE ;
+      if (1)
+	if (! isAdjoint || ! firstPass)
+	  goto done ;
+      if (1) firstPass = FALSE ;
     }
   
   printf ("Lower ccc:: ") ;
@@ -8898,16 +8900,21 @@ static void  KasimirLower3tensor (KAS *kas, BOOL isGhost)
    * for the quarks b=2/3,a=0  s=1/3, really -1/3 because we start on a right state, hence BIM lepton + 3 quarks = 0
    * whereas as operrators C_3(lepton)==0 (atypic) c_3(quarks) non zero
    */
-  if (isGhost)
-    memcpy (yyAdjointGhost, yy, sizeof (yy)) ;
-  else
-    memcpy (yyAdjoint, yy, sizeof (yy)) ;
+  if (isAdjoint)
+    {
+      if (isGhost)
+	memcpy (yyAdjointGhost, yy, sizeof (yy)) ;
+      else
+	memcpy (yyAdjoint, yy, sizeof (yy)) ;
+    }
  done:
-  if (isGhost)
-    mxSet (ccc, yyAdjointGhost) ;
-  else
-    mxSet (ccc, yyAdjoint) ;
- 
+  if (isAdjoint)
+    {
+      if (isGhost)
+	mxSet (ccc, yyAdjointGhost) ;
+      else
+	mxSet (ccc, yyAdjoint) ;
+    }
   ac_free (h) ;
   return  ;
 } /* KasimirLower3tensor */
@@ -9239,8 +9246,8 @@ static void  KasimirUpper5tensor (KAS *kas)
 
 static void KasimirUpperTensor (KAS *kas)
 {
-  KasimirLower3tensor (kas, FALSE) ;
   KasimirLower3tensor (kas, TRUE) ;
+  KasimirLower3tensor (kas, FALSE) ;
   KasimirLower4tensor (kas) ;
   KasimirLower5tensor (kas) ;
 
@@ -11917,7 +11924,7 @@ static void muInitNMarcu (int a, int b, int NN)
   GhostKasimirOperatorXtilde2 (&kasQ) ;
   GhostKasimirOperatorXtilde2New (&kasQ) ;
   if (0) GhostKasimirOperatorXtilde3 (&kasQ) ;
-  GhostKasimirOperatorMinus (&kasQ) ;
+  if (0) GhostKasimirOperatorMinus (&kasQ) ;
 
   
   if (0) KasimirOperatorK4 (&kasQ) ;
